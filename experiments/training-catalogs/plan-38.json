@@ -1,0 +1,13 @@
+{
+ "schema":"riido-training-catalog-plan-v1",
+ "membership_file_sha256":"5ceb4aa4681784431606f2ff4410c9225b9639d88a18f618b9de70fa2c5da1fd",
+ "partition_membership_sha256":"0f41c1dafc2268f4c60544d2fd386168172b1c6f68bbbe2bd4e1517c96f9cb64",
+ "scope":"Only frozen train7335 and validation5686 representatives (13021 total,25 repositories). Exclude every final2402 task before collection. Never move tasks between roles, shrink the cohort to available tasks or inspect patches/outcomes.",
+ "sample":"First collect the lexicographically smallest task ID for each original development repository (25 total), independent of size/outcome. Validate pre-fix root, complete path catalog and bounded historical root license candidates. Sampling is a preflight, not full coverage or permission for all snapshots.",
+ "full_collection":"Continue through all13021 development tasks in role/repository/ID order using the same persistent caches. Initial full invocation allows512 new requests, later resumptions at most2000 per invocation. Failed/pending cases stay in denominators. Reuse complete verified entries; no restart or deletion of completed caches.",
+ "bounds":"Request starts>=300ms apart,30s per request; root/subtree/blob response2MiB,recursive response8MiB,validated assembled cache32MiB,100000 tree entries,16MiB paths. Use existing complete-catalog subtree recovery,depth64/1000 expansions per root. No source-file bodies; only license texts<=256KiB UTF8 with Git blob SHA1 recomputation and SHA256. No symlink/submodule traversal.",
+ "license_candidates":"Root regular files matching existing LICENSE/COPYING/NOTICE rules plus LICENCE spelling; inspect direct children of LICENSE/LICENSES/LICENCE/LICENCES directories, once, without traversing nested directories or symlinks. Count unresolved nested directories and failures. These candidates are evidence collection, not automatic legal classification/approval or exhaustive third-party/issue licensing.",
+ "validation":"Pinned membership reader with role count/schema/bounds guards; sampling order invariance and final exclusion; preserve all catalog bounds; online/cache-only/race preflight aggregates and private inventory replay exactly; full tests/vet/format/redacted scans before CI publication. Public output contains repository aggregates only, no raw tasks, source paths, license bodies or private membership.",
+ "interpretation":"No model training, search-quality scoring, final scoring or model release. Resource measurements for isolated cache-only preflight only; do not label acquisition as inference. Historical text review and broader coverage remain explicit until actually complete.",
+ "production_ready":false
+}
