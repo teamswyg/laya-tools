@@ -18,13 +18,15 @@ def main():
     ap.add_argument('--encoder-card', type=Path, required=True)
     ap.add_argument('--output', type=Path, required=True)
     ap.add_argument('--source-revision', default='uncommitted-preview-not-publishable')
+    ap.add_argument('--data', type=Path)
+    ap.add_argument('--trainer', choices=['train_pilot.py', 'pdca_train.py'], default='train_pilot.py')
     args = ap.parse_args()
     root = Path(__file__).resolve().parents[2]
     r = json.loads((args.run / 'results.json').read_text())
     args.output.mkdir(parents=True, exist_ok=False)
     files = {
         'head.safetensors': args.run / 'head.safetensors', 'results.json': args.run / 'results.json',
-        'training-data.tsv': root / 'benchmarks/training/pilot-v1.tsv', 'LICENSE': root / 'LICENSE',
+        'training-data.tsv': args.data or root / 'benchmarks/training/pilot-v1.tsv', 'LICENSE': root / 'LICENSE',
         'requirements.txt': root / 'scripts/training/requirements-pilot-macos-arm64.txt',
         'UPSTREAM_MODEL_CARD.md': args.base / 'README.md', 'ENCODER_MODEL_CARD.md': args.encoder_card,
     }
@@ -37,7 +39,7 @@ def main():
                   'head_sha256': digest(files['head.safetensors']), 'data_sha256': digest(files['training-data.tsv']),
                   'source_repository': 'https://github.com/teamswyg/laya-tools',
                   'source_revision': args.source_revision,
-                  'training_code_sha256': digest(root / 'scripts/training/train_pilot.py'),
+                  'training_code_sha256': digest(root / 'scripts/training' / args.trainer),
                   'base_files': [{'file': str(p.relative_to(args.base)), 'sha256': digest(p)}
                                  for p in sorted(args.base.rglob('*')) if p.is_file()]}
     (args.output / 'PROVENANCE.json').write_text(json.dumps(provenance, indent=2) + '\n')
@@ -52,6 +54,8 @@ This package contains replacement head parameters, not the encoder, tokenizer, S
     (args.output / 'NOTICE').write_text(notice)
     (args.output / 'MODIFICATIONS.md').write_text('Changed head/type_emb/scorer parameters using supervised choice labels on original synthetic development examples. Encoder and action head frozen. Temperature fitted on a small separate development calibration partition. Stored FP32 replacement parameters, not LoRA matrices or a standalone model. See results.json for regressions and limitations.\n')
     test, base = r['test'], r['base_test']
+    recipe = r.get('training_description', 'Two learning rates (1e-5, 5e-5) and up to five epochs were compared by validation NLL.')
+    data_note = r.get('dataset_description', 'All 88 dataset entries are newly authored English synthetic examples. Related conceptual templates occur across splits. A first short run was observed before extending training, so these are development partitions, not an untouched final holdout. Baseline uses original calibration while the candidate uses fitted calibration; probability-metric changes do not isolate weight-learning gains.')
     card = f'''---
 license: apache-2.0
 base_model: convaiinnovations/laya
@@ -72,7 +76,7 @@ tags:
 
 ## What changed
 
-The original Laya encoder and action/escalation head stayed frozen; {r['trainable_parameters']:,} head/type_emb/scorer parameters were eligible for updates on real Apple MPS, FP32, no CPU fallback. Two learning rates (1e-5, 5e-5) and up to five epochs were compared by validation NLL. Selected: learning rate {r['selected']['lr']}, epoch {r['selected']['epoch']}. The deployed part is about 100 MiB, avoiding a duplicate full encoder per specialist.
+The original Laya encoder and action/escalation head stayed frozen; {r['trainable_parameters']:,} head/type_emb/scorer parameters were eligible for updates on real Apple MPS, FP32, no CPU fallback. {recipe} Selected: learning rate {r['selected']['lr']}, epoch {r['selected']['epoch']}. The deployed part is about 100 MiB, avoiding a duplicate full encoder per specialist.
 
 Choices: {', '.join(r['labels'])}. Exact question and option ordering are in results.json. Calibrated temperature: {r['temperature']}. Frozen-weight integrity and saved-head reload checks passed.
 
@@ -80,7 +84,7 @@ Choices: {', '.join(r['labels'])}. Exact question and option ordering are in res
 
 Development test: tuned **{test['correct']}/{test['n']}**, original **{base['correct']}/{base['n']}**; confidence >=0.9 accepts **{test['accepted']}/{test['n']}**. Do not describe zero coverage or a regression as improved routing. Partition sizes: {json.dumps(r['split_counts'])}.
 
-All 88 dataset entries are newly authored English synthetic examples, Apache-2.0. They contain no private code, customer prompts or third-party dataset. Labels reflect a rubric, not real downstream model outcomes. Related conceptual templates occur across splits. A first short run was observed before extending training, so these are development partitions, **not an untouched final holdout**. Calibration/test samples are tiny. Baseline uses original calibration while the candidate uses fitted calibration; probability-metric changes do not isolate weight-learning gains. No cost-saving claim, no Korean validation, no independent repository goldens, no ONNX/Go parity. Optimizer resume is not verified.
+{data_note} Apache-2.0 original fixtures, with no private code, customer prompts or third-party dataset. Labels reflect a rubric, not real downstream model outcomes. Calibration/test samples are small. No cost-saving claim, no Korean validation, no independent repository goldens, no ONNX/Go parity. Optimizer resume is not verified.
 
 Process peak RSS: {r['peak_process_rss_bytes']/1024**3:.2f} GiB; step-end sampled MPS driver maximum: {r['step_end_mps_driver_max_bytes']/1024**3:.2f} GiB. These overlap in unified memory and must not be added. Driver samples are not continuous peaks. Measured loop including loading, evaluation, guards, hashes and checkpoint writes: {r['elapsed_seconds']:.2f} s; not a throughput benchmark.
 

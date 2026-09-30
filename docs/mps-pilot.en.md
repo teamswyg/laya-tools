@@ -54,3 +54,5 @@ Reviewed Laya and ModernBERT model cards declaring Apache-2.0 and the SDK licens
 These are head replacement weights, not LoRA adapters or standalone models. Combine with the exact base in FP32. `evaluate_head.py` provides a maintainer CPU reference. The default Go runtime model and automatic execution stay unchanged.
 
 Next prioritize evidence-backed public tasks, label improvement and family-separated data rather than unlimited epochs. Subsequent releases get new versions and the same integrity/CI/license gates. No unattended training/publication schedule has been created.
+
+[Subsequent PDCA tuning and next evaluation preparation](pdca-tuning.en.md)

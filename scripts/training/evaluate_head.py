@@ -49,7 +49,7 @@ def main():
     if args.check_reference:
         with (args.package / 'training-data.tsv').open() as f:
             rows = [r for r in csv.DictReader(f, delimiter='\t') if r['task'] == result['task']]
-        by_id = {f"{result['task']}-{i:03d}": r for i, r in enumerate(rows)}
+        by_id = {(r.get('id') or f"{result['task']}-{i:03d}"): r for i, r in enumerate(rows)}
         error, flips = 0., 0
         for item in result['test_predictions']:
             probs = predict(by_id[item['id']]['state'])
