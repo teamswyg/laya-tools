@@ -65,6 +65,9 @@ func Verify(dir string) (Manifest, error) {
 	if m.Schema == "riido-shallow-claim-bundle-v1" {
 		return VerifyShallowClaim(dir, m)
 	}
+	if m.Schema == "riido-coverage-claim-bundle-v1" {
+		return VerifyCoverageClaim(dir, m)
+	}
 	if m.Schema == "riido-spread-claim-bundle-v1" {
 		return VerifySpreadClaim(dir, m)
 	}

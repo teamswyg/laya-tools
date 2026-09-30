@@ -23,6 +23,18 @@ const spreadClaimResultsSHA = "ddb7b2546ec1c9740489bf29168e7d7b0b34692ebeb47251d
 
 var spreadClaimRepo = regexp.MustCompile(`^JooYoon/riidolaya-score-spread-research-v[0-9]+\.[0-9]+$`)
 
+const coverageClaimResultsSHA = "580f822349881d8cf278937df40844d1de66a5270d3ad0909d9eac5b94fbe9fb"
+
+var coverageClaimRepo = regexp.MustCompile(`^JooYoon/riidolaya-coverage-claim-research-v[0-9]+\.[0-9]+$`)
+
+type claimBundleKind uint8
+
+const (
+	costBundle claimBundleKind = iota
+	spreadBundle
+	coverageBundle
+)
+
 func verifyCostHead(b []byte, a retrievalbench.CostCandidate) error {
 	return verifyCostHeadShape(b, a, "riido-cost-claim-v1", retrievalbench.CostClaimPlanSHA256, 12)
 }
@@ -48,15 +60,20 @@ func verifyCostHeadShape(b []byte, a retrievalbench.CostCandidate, schema, plan 
 
 // VerifyCostClaim checks the exact reviewed research exports, not their utility.
 func VerifyCostClaim(dir string, m Manifest) (Manifest, error) {
-	return verifyCostBundle(dir, m, false)
+	return verifyCostBundle(dir, m, costBundle)
 }
 func VerifySpreadClaim(dir string, m Manifest) (Manifest, error) {
-	return verifyCostBundle(dir, m, true)
+	return verifyCostBundle(dir, m, spreadBundle)
 }
-func verifyCostBundle(dir string, m Manifest, spread bool) (Manifest, error) {
+func VerifyCoverageClaim(dir string, m Manifest) (Manifest, error) {
+	return verifyCostBundle(dir, m, coverageBundle)
+}
+func verifyCostBundle(dir string, m Manifest, kind claimBundleKind) (Manifest, error) {
 	schema, origin, headSchema, reportSchema := "riido-cost-claim-bundle-v1", "public_codesearchnet_cost_claim_20", "riido-cost-claim-v1", "riido-cost-claim-report-v1"
 	plan, resultHash, allowedRepo, dimension := retrievalbench.CostClaimPlanSHA256, costClaimResultsSHA, costClaimRepo, 12
-	if spread {
+	switch kind {
+	case costBundle:
+	case spreadBundle:
 		schema = "riido-spread-claim-bundle-v1"
 		origin = "public_codesearchnet_score_spread_21"
 		headSchema = "riido-spread-claim-v1"
@@ -65,6 +82,17 @@ func verifyCostBundle(dir string, m Manifest, spread bool) (Manifest, error) {
 		resultHash = spreadClaimResultsSHA
 		allowedRepo = spreadClaimRepo
 		dimension = 16
+	case coverageBundle:
+		schema = "riido-coverage-claim-bundle-v1"
+		origin = "public_codesearchnet_coverage_claim_25"
+		headSchema = "riido-coverage-claim-v1"
+		reportSchema = "riido-coverage-claim-report-v1"
+		plan = retrievalbench.CoverageClaimPlanSHA256
+		resultHash = coverageClaimResultsSHA
+		allowedRepo = coverageClaimRepo
+		dimension = 20
+	default:
+		return m, fmt.Errorf("unknown claim bundle kind")
 	}
 
 	if m.Schema != schema || !allowedRepo.MatchString(m.Repository) || !sha.MatchString(m.SourceRevision) || m.ParentRevision != "none" || m.Origin != origin || m.License != "apache-2.0" || m.ProductionReady || len(m.Files) != 36 {
