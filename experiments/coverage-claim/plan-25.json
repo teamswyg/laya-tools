@@ -1,0 +1,20 @@
+{
+  "schema": "riido-coverage-claim-plan-v1",
+  "questions": 2948,
+  "candidates": 3009,
+  "page_size": 20,
+  "control": "exact experiment21 replay with16 features and original two seeds; preserve all30 heads/report bytes",
+  "treatment": "append all4 pre-helper query coverage features from24 after original12 and spread4, dimension20; no heldout feature selection",
+  "penalties": [0, 0.25, 1, 4, 16],
+  "seeds": [1729, 2718],
+  "fit": "same weighted BCE with target baseline pages-helper pages-penalty>0 and absolute magnitude weight; FP32-rounded linear head, learning_rate .1,l2 .0001,epochs100,batch64; same validation minimum NLL epoch selection",
+  "folds": "unchanged test i/train i+1/validation i+2 over etcd,test-infra,lxd",
+  "selection": "unchanged validation-only90% call budget; candidate minimum validation pages, tie calls, tie smaller penalty; no heldout choices",
+  "primary": "20-feature cost_selected seed1729; seed2718 initialization replication, not independent data",
+  "gate": "unchanged21: pages<=always-helper,calls<=90%,Recall1/10>=raw,and learned policy Pareto-dominates gap rule pages/calls with one strict gain; separately compare both16-feature controls",
+  "resources": "whole training/evaluation process wall and RSS; extra extraction costs already scoped in24; no end-to-end LLM/GPU savings claim",
+  "replay": "all30 new heads/report byte-identical; old16-feature and12-feature exports unchanged after shared trainer refactor",
+  "limits": "same repeatedly observed2948 documentation queries; no fresh final evidence; single-feature weakness in24 does not preclude interaction but no promise of gain; larger dimension also changes parameter initialization/optimizer trajectory, no exact paired optimization-path claim",
+  "publication": "source/aggregate bilingual docs inGit, research heads onlyHF after exact-sourceCI/license/hash verification; no raw rows or automatic activation",
+  "production_ready": false
+}
