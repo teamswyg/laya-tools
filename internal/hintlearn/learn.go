@@ -1,5 +1,7 @@
 // Package hintlearn implements an experimental encoder-free sparse ranker.
-// Original synthetic data only; no trained weights are embedded in source.
+// Its dataset loader and ranking trainer use original synthetic data only.
+// Feature extraction and serialization are also shared by the external pair
+// trainer; no trained weights are embedded in source.
 package hintlearn
 
 import (

@@ -1,0 +1,20 @@
+{
+ "Schema":"riido-pair-training-plan-v1",
+ "SourceSHA256":"4d1a227fe3652992d1e98f43fa9dc1b8f54a6c27a1a24b9d182bdfb8cbc3274c",
+ "Seeds":[1729,2718],
+ "LearningRates":[0.05,0.2],
+ "L2":0.0001,
+ "Epochs":20,
+ "Batch":128,
+ "Modes":["fp32","ternary_ste"],
+ "Training":"development",
+ "Selection":"validation mean binary cross entropy; earliest epoch/config on exact tie; select separately by mode and seed",
+ "Calibration":"calibration only; maximize balanced accuracy; larger threshold on ties",
+ "Final":"reserve1",
+ "Preserve":"reserve2",
+ "Features":"hintlearn 8192 signed hashed unigram/bigram crosses and overlap; no intercept; existing RIIDOH01 format",
+ "Exports":"selected FP32 plus its INT8 and ternary PTQ; independently selected ternary STE; all eight exports reported",
+ "Fallback":"all final cases retained; out-of-scope inputs use development BM25 with calibration threshold",
+ "Primary":"FP32 seed1729; positive lower bound of paired group bootstrap balanced accuracy difference vs BM25 required; others exploratory",
+ "Promotion":false
+}

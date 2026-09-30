@@ -2,6 +2,7 @@
 
 [한국어](README.ko.md) · [Source audit](source-audit.json)
 
+[Real relevance training 02: promotion withheld on validation](TRAIN-02.en.md)
 The user requires **at least 2,400 final evaluation requests** before judging usefulness. The previous 24-case synthetic evaluation is a learning smoke test, not evidence for a production recommendation. Local execution and artifact size were measured; practical usefulness remains unverified.
 
 Count distinct requests, not candidates, pairwise comparisons or seed repetitions. Group paraphrases and shared code/repository/template cases across splits. Report unique source/code/group counts alongside requests; correlated cases are not independent samples. Prefer group-bootstrap confidence intervals. Once final data informs changes it becomes development data; two seeds do not double the sample size.

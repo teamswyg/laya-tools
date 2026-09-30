@@ -1,0 +1,315 @@
+{
+  "TrainingPositiveRate": 0.4806889816212377,
+  "PriorValidationNLL": 0.6938236925471408,
+  "Schema": "riido-pair-trained-v1",
+  "SourceSHA256": "4d1a227fe3652992d1e98f43fa9dc1b8f54a6c27a1a24b9d182bdfb8cbc3274c",
+  "PlanSHA256": "4d2edd0d105d91ba07b05239c429b61fbc49df29a0f7935c01a8783fc8234c0f",
+  "MembershipSHA256": "d90eda8e8a423eff44847ff46ef19b468a57ac2791d45c57e7e8ba39a4ee9902",
+  "Counts": {
+    "calibration": 604,
+    "development": 12189,
+    "final": 2400,
+    "reserve1": 2403,
+    "reserve2": 2401,
+    "validation": 607
+  },
+  "GroupCounts": {
+    "calibration": 176,
+    "development": 3754,
+    "final": 724,
+    "reserve1": 716,
+    "reserve2": 722,
+    "validation": 175
+  },
+  "TrainingEligible": 11263,
+  "TrainingExcluded": 926,
+  "ValidationEligible": 553,
+  "ValidationExcluded": 54,
+  "FeaturePayloadBytes": 70556830,
+  "Trials": [
+    {
+      "Config": {
+        "Seed": 1729,
+        "Mode": "fp32",
+        "LearningRate": 0.05,
+        "L2": 0.0001,
+        "Epochs": 20,
+        "Batch": 128
+      },
+      "Epoch": 1,
+      "ValidationNLL": 0.6936415731818731,
+      "TrainingNLL": 0.6929903558441822
+    },
+    {
+      "Config": {
+        "Seed": 1729,
+        "Mode": "fp32",
+        "LearningRate": 0.2,
+        "L2": 0.0001,
+        "Epochs": 20,
+        "Batch": 128
+      },
+      "Epoch": 19,
+      "ValidationNLL": 0.6935831873239209,
+      "TrainingNLL": 0.6802931462148268
+    },
+    {
+      "Config": {
+        "Seed": 1729,
+        "Mode": "ternary_ste",
+        "LearningRate": 0.05,
+        "L2": 0.0001,
+        "Epochs": 20,
+        "Batch": 128
+      },
+      "Epoch": 7,
+      "ValidationNLL": 0.6933328628653597,
+      "TrainingNLL": 0.6924504017563625
+    },
+    {
+      "Config": {
+        "Seed": 1729,
+        "Mode": "ternary_ste",
+        "LearningRate": 0.2,
+        "L2": 0.0001,
+        "Epochs": 20,
+        "Batch": 128
+      },
+      "Epoch": 2,
+      "ValidationNLL": 0.6933550220278965,
+      "TrainingNLL": 0.6923454390267048
+    },
+    {
+      "Config": {
+        "Seed": 2718,
+        "Mode": "fp32",
+        "LearningRate": 0.05,
+        "L2": 0.0001,
+        "Epochs": 20,
+        "Batch": 128
+      },
+      "Epoch": 1,
+      "ValidationNLL": 0.6934561390376237,
+      "TrainingNLL": 0.6930101901246476
+    },
+    {
+      "Config": {
+        "Seed": 2718,
+        "Mode": "fp32",
+        "LearningRate": 0.2,
+        "L2": 0.0001,
+        "Epochs": 20,
+        "Batch": 128
+      },
+      "Epoch": 20,
+      "ValidationNLL": 0.6933213231917823,
+      "TrainingNLL": 0.6796934268470514
+    },
+    {
+      "Config": {
+        "Seed": 2718,
+        "Mode": "ternary_ste",
+        "LearningRate": 0.05,
+        "L2": 0.0001,
+        "Epochs": 20,
+        "Batch": 128
+      },
+      "Epoch": 9,
+      "ValidationNLL": 0.693348284820025,
+      "TrainingNLL": 0.6922344958915555
+    },
+    {
+      "Config": {
+        "Seed": 2718,
+        "Mode": "ternary_ste",
+        "LearningRate": 0.2,
+        "L2": 0.0001,
+        "Epochs": 20,
+        "Batch": 128
+      },
+      "Epoch": 9,
+      "ValidationNLL": 0.6931346793332162,
+      "TrainingNLL": 0.6897377152499817
+    }
+  ],
+  "Models": [
+    {
+      "Mode": "fp32",
+      "Seed": 1729,
+      "File": "fp32-1729.hbin",
+      "SHA256": "7f13241d4d3a57c14e96e0b087912ec0320bfaa706bab8a09193cb96753e0ff3",
+      "Bytes": 32792,
+      "Fit": {
+        "Config": {
+          "Seed": 1729,
+          "Mode": "fp32",
+          "LearningRate": 0.2,
+          "L2": 0.0001,
+          "Epochs": 20,
+          "Batch": 128
+        },
+        "Epoch": 19,
+        "ValidationNLL": 0.6935831873239209,
+        "TrainingNLL": 0.6802931462148268
+      },
+      "ExportValidationNLL": 0.6935831873239209,
+      "ExportValidationAUC": 0.4937215507769581
+    },
+    {
+      "Mode": "int8",
+      "Seed": 1729,
+      "File": "int8-1729.hbin",
+      "SHA256": "88afaa1bd78c93c5c224ed9fc709c2ebe45bc2c681cb4112f99030f1c6cfad4d",
+      "Bytes": 8216,
+      "Fit": {
+        "Config": {
+          "Seed": 1729,
+          "Mode": "fp32",
+          "LearningRate": 0.2,
+          "L2": 0.0001,
+          "Epochs": 20,
+          "Batch": 128
+        },
+        "Epoch": 19,
+        "ValidationNLL": 0.6935831873239209,
+        "TrainingNLL": 0.6802931462148268
+      },
+      "ExportValidationNLL": 0.6935995204442033,
+      "ExportValidationAUC": 0.493459948725998
+    },
+    {
+      "Mode": "ternary_ptq",
+      "Seed": 1729,
+      "File": "ternary_ptq-1729.hbin",
+      "SHA256": "b68e71c433de6bac876fe4c04f074b1ccfb4439bc1a27082c8c7d8c455f9babc",
+      "Bytes": 1633,
+      "Fit": {
+        "Config": {
+          "Seed": 1729,
+          "Mode": "fp32",
+          "LearningRate": 0.2,
+          "L2": 0.0001,
+          "Epochs": 20,
+          "Batch": 128
+        },
+        "Epoch": 19,
+        "ValidationNLL": 0.6935831873239209,
+        "TrainingNLL": 0.6802931462148268
+      },
+      "ExportValidationNLL": 0.6931856383342875,
+      "ExportValidationAUC": 0.5027991419452729
+    },
+    {
+      "Mode": "ternary_ste",
+      "Seed": 1729,
+      "File": "ternary_ste-1729.hbin",
+      "SHA256": "1accbc47cd218fd8180562afb18a028cc67a3f8714ebaed5e091ec3e422e146c",
+      "Bytes": 1639,
+      "Fit": {
+        "Config": {
+          "Seed": 1729,
+          "Mode": "ternary_ste",
+          "LearningRate": 0.05,
+          "L2": 0.0001,
+          "Epochs": 20,
+          "Batch": 128
+        },
+        "Epoch": 7,
+        "ValidationNLL": 0.6933328628653597,
+        "TrainingNLL": 0.6924504017563625
+      },
+      "ExportValidationNLL": 0.6933328628653597,
+      "ExportValidationAUC": 0.47513472505624443
+    },
+    {
+      "Mode": "fp32",
+      "Seed": 2718,
+      "File": "fp32-2718.hbin",
+      "SHA256": "a6c9abfe7cee5225ea956909e7b3a384908a26a9f6b1ec2fb956bfce6898ab24",
+      "Bytes": 32792,
+      "Fit": {
+        "Config": {
+          "Seed": 2718,
+          "Mode": "fp32",
+          "LearningRate": 0.2,
+          "L2": 0.0001,
+          "Epochs": 20,
+          "Batch": 128
+        },
+        "Epoch": 20,
+        "ValidationNLL": 0.6933213231917823,
+        "TrainingNLL": 0.6796934268470514
+      },
+      "ExportValidationNLL": 0.6933213231917823,
+      "ExportValidationAUC": 0.5045126353790613
+    },
+    {
+      "Mode": "int8",
+      "Seed": 2718,
+      "File": "int8-2718.hbin",
+      "SHA256": "d1779c405cf5c7d5645d6fde83bbf7047f438cf0ff2ba2613f63ebfa053ec714",
+      "Bytes": 8216,
+      "Fit": {
+        "Config": {
+          "Seed": 2718,
+          "Mode": "fp32",
+          "LearningRate": 0.2,
+          "L2": 0.0001,
+          "Epochs": 20,
+          "Batch": 128
+        },
+        "Epoch": 20,
+        "ValidationNLL": 0.6933213231917823,
+        "TrainingNLL": 0.6796934268470514
+      },
+      "ExportValidationNLL": 0.6933162360689821,
+      "ExportValidationAUC": 0.5053366818395856
+    },
+    {
+      "Mode": "ternary_ptq",
+      "Seed": 2718,
+      "File": "ternary_ptq-2718.hbin",
+      "SHA256": "1a9c2dab4aa46910a996f54a97dfb15edee9c28575f2fe8e0c812681ecaa2c33",
+      "Bytes": 1636,
+      "Fit": {
+        "Config": {
+          "Seed": 2718,
+          "Mode": "fp32",
+          "LearningRate": 0.2,
+          "L2": 0.0001,
+          "Epochs": 20,
+          "Batch": 128
+        },
+        "Epoch": 20,
+        "ValidationNLL": 0.6933213231917823,
+        "TrainingNLL": 0.6796934268470514
+      },
+      "ExportValidationNLL": 0.693127290982787,
+      "ExportValidationAUC": 0.513256683932402
+    },
+    {
+      "Mode": "ternary_ste",
+      "Seed": 2718,
+      "File": "ternary_ste-2718.hbin",
+      "SHA256": "de011eaf59def4b7d63babcad82c95d0d9e39001fa40dc1a18194ed83c167e19",
+      "Bytes": 1630,
+      "Fit": {
+        "Config": {
+          "Seed": 2718,
+          "Mode": "ternary_ste",
+          "LearningRate": 0.2,
+          "L2": 0.0001,
+          "Epochs": 20,
+          "Batch": 128
+        },
+        "Epoch": 9,
+        "ValidationNLL": 0.6931346793332162,
+        "TrainingNLL": 0.6897377152499817
+      },
+      "ExportValidationNLL": 0.6931346793332162,
+      "ExportValidationAUC": 0.5061607283001098
+    }
+  ],
+  "Seconds": 3.599675666,
+  "Promotion": false
+}
