@@ -1,0 +1,16 @@
+{
+  "schema": "riido-real-task-audit-plan-v1",
+  "sources": [
+    {"repo": "SWE-bench/SWE-bench", "revision": "c6fe717fd7a4c3ac1daa4055a4fd082c6a1d28a2", "split": "test", "declared_rows": 2294},
+    {"repo": "SWE-bench/SWE-bench_Multilingual", "revision": "846e647b9f33c0b51b739d005d13d85493c9af09", "split": "test", "declared_rows": 300}
+  ],
+  "scope": "static local source audit only; no fitting, inference, executing eval scripts, patch application, container downloads, new model or HF raw-data publication",
+  "projection": "maintainer-only Parquet decoding with existing PyArrow; hash and schema verified first; project only instance_id, repo, base_commit and problem_statement in source order; exclude patches, hints, test lists, difficulty, eval scripts and image fields from the request projection; no runtime Python dependency",
+  "audit": "Go aggregate counts using sorted arrays: rows, unique instance ids, unique lowercase-whitespace-normalized nonempty requests, repository counts, repo/base-commit groups, missing or malformed fields; source-crossing duplicate ids/requests; query/repository overlap with the entire pinned prior CodeSearchNet projection; no raw queries or per-row hashes published",
+  "membership": "aggregate SHA256 of sorted source-tagged instance ids and normalized request digests; report projection/source hashes; retain local inputs and do not expose rows",
+  "interpretation": "distinct normalized strings are not proven semantic independence; public benchmark tasks may be in pretrained model data; issue-to-patch is not routing/decomposition ground truth; do not claim >=2400 independent final tasks from nominal row counts",
+  "licensing": "inspect official pinned cards and benchmark source license separately; card MIT is not blanket relicensing of upstream code/issues; missing Full card license and unresolved per-source conditions remain explicit; no training/republication approval inferred",
+  "next": "establish actual eligibility/counts before a separate freeze of evaluation-only groups and pre-fix source retrieval; keep existing final reserves untouched",
+  "replay": "aggregate JSON byte-identical; normalization, duplicate, source-overlap, field-validation and projection-leakage checks",
+  "production_ready": false
+}
