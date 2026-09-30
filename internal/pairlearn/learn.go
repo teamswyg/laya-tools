@@ -88,6 +88,7 @@ type Config struct {
 	Mode             string
 	LearningRate, L2 float64
 	Epochs, Batch    int
+	Dimension        int
 }
 type Result struct {
 	Config        Config
@@ -97,7 +98,7 @@ type Result struct {
 	Weights       []float64 `json:"-"`
 }
 
-func validate(d Dataset) error {
+func validate(d Dataset, dimension int) error {
 	if len(d.Labels) == 0 || len(d.Groups) != len(d.Labels) || len(d.Offsets) != len(d.Labels)+1 || len(d.Indices) != len(d.Values) || d.Offsets[0] != 0 || d.Offsets[len(d.Labels)] != len(d.Values) {
 		return fmt.Errorf("invalid sparse columns")
 	}
@@ -107,7 +108,7 @@ func validate(d Dataset) error {
 		}
 	}
 	for i, v := range d.Values {
-		if int(d.Indices[i]) >= hintlearn.Dimension || math.IsNaN(v) || math.IsInf(v, 0) {
+		if int(d.Indices[i]) >= dimension || math.IsNaN(v) || math.IsInf(v, 0) {
 			return fmt.Errorf("invalid feature")
 		}
 	}
@@ -115,11 +116,18 @@ func validate(d Dataset) error {
 }
 func Fit(train, validation Dataset, c Config) (Result, error) {
 	var best Result
+	dimension := c.Dimension
+	if dimension == 0 {
+		dimension = hintlearn.Dimension
+	}
+	if dimension < 1 || dimension > hintlearn.Dimension {
+		return best, fmt.Errorf("invalid dimension")
+	}
 	if train.Split != "development" || validation.Split != "validation" {
 		return best, fmt.Errorf("invalid training split")
 	}
 	for _, d := range []Dataset{train, validation} {
-		if e := validate(d); e != nil {
+		if e := validate(d, dimension); e != nil {
 			return best, e
 		}
 	}
@@ -134,7 +142,7 @@ func Fit(train, validation Dataset, c Config) (Result, error) {
 		return best, fmt.Errorf("invalid configuration")
 	}
 	rng := rand.New(rand.NewPCG(c.Seed, c.Seed+1))
-	w := make([]float64, hintlearn.Dimension)
+	w := make([]float64, dimension)
 	for i := range w {
 		w[i] = rng.NormFloat64() * .01
 	}

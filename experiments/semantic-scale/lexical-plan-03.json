@@ -1,0 +1,20 @@
+{
+ "schema":"riido-lexical-plan-v1",
+ "source_sha256":"4d1a227fe3652992d1e98f43fa9dc1b8f54a6c27a1a24b9d182bdfb8cbc3274c",
+ "partition":"unchanged riido-pair-groups-01",
+ "gradient":"eligible development only",
+ "selection":"eligible validation NLL; earliest epoch/config on exact tie; separately per variant/mode/seed",
+ "variants":["matching","matching_length"],
+ "dimension":16,
+ "seeds":[1729,2718],
+ "learning_rates":[0.05,0.2],
+ "modes":["fp32","ternary_ste"],
+ "epochs":100,
+ "batch":128,
+ "l2":0.0001,
+ "exports":"FP32, derived INT8/PTQ, independently selected STE; all reported",
+ "candidate":"matching FP32 seed1729 is primary; validation AUC >=0.60 and at least0.03 above matched BM25 required before considering reserve1; other variants exploratory",
+ "final":"reserve1 after sealing selected weights and calibration thresholds; otherwise preserve both reserves",
+ "promotion":false,
+ "limitations":"lexical control, not semantic understanding or evidence of LLM savings; validation reused across development cycles"
+}
