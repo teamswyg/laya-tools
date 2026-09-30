@@ -17,7 +17,7 @@ Reviewed 2026-09-30: pinned models, adapted code, Go dependencies linked into th
 | regexp2 v1.11.5 | [LICENSE](https://github.com/dlclark/regexp2/blob/v1.11.5/LICENSE) | MIT, Doug Clark; bundle full text with binaries |
 | onnxruntime_go v1.36.0 | [LICENSE](https://github.com/yalue/onnxruntime_go/blob/v1.36.0/LICENSE) | MIT, Nathan Otterness; also preserve Microsoft C-header MIT attribution |
 | golang.org/x/text v0.25.0 | [LICENSE](https://github.com/golang/text/blob/v0.25.0/LICENSE), PATENTS | Include BSD-3-Clause and additional patent grant |
-| Go runtime | Actual Go 1.27.0 LICENSE/PATENTS | Include BSD-3-Clause and patent grant |
+| Go runtime | Actual Go 1.27.1 LICENSE/PATENTS | Include BSD-3-Clause and patent grant |
 | ONNX Runtime 1.30.0 | [Official LICENSE](https://github.com/microsoft/onnxruntime/blob/v1.30.0/LICENSE), distribution ThirdPartyNotices.txt | Setup already verifies/installs both; also bundle MIT text for linked C-header attribution |
 
 laya-codex/keel remain references with no implementation copied. fast-laya-compaction was not ported because its license was not established. A directory's open-source description alone is not permission to copy.

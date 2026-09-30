@@ -17,7 +17,7 @@
 | regexp2 v1.11.5 | [LICENSE](https://github.com/dlclark/regexp2/blob/v1.11.5/LICENSE) | MIT, Doug Clark. 바이너리 배포에 원문 포함 |
 | onnxruntime_go v1.36.0 | [LICENSE](https://github.com/yalue/onnxruntime_go/blob/v1.36.0/LICENSE) | MIT, Nathan Otterness. 원문 포함. 포함된 Microsoft C 헤더에도 별도 MIT 고지 보존 |
 | golang.org/x/text v0.25.0 | [LICENSE](https://github.com/golang/text/blob/v0.25.0/LICENSE), PATENTS | BSD-3-Clause 및 추가 특허 허가문 포함 |
-| Go 런타임 | 실제 Go 1.27.0 배포판의 LICENSE/PATENTS | BSD-3-Clause 및 특허 허가문 포함 |
+| Go 런타임 | 실제 Go 1.27.1 배포판의 LICENSE/PATENTS | BSD-3-Clause 및 특허 허가문 포함 |
 | ONNX Runtime 1.30.0 | [공식 LICENSE](https://github.com/microsoft/onnxruntime/blob/v1.30.0/LICENSE) 및 공식 배포물의 ThirdPartyNotices.txt | MIT. setup은 이미 두 고지 파일을 해시 검증해 런타임과 함께 설치. CLI의 C 헤더 출처를 위해 MIT 원문도 바이너리 묶음에 포함 |
 
 이식하지 않은 laya-codex/keel 코드는 해당 기능의 아이디어 비교 자료입니다. fast-laya-compaction은 라이선스를 확인하지 못해 이식하지 않았습니다. 웹사이트가 오픈소스로 소개한다는 사실만으로 복사 허가가 생기지는 않습니다.

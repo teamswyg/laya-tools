@@ -83,7 +83,7 @@ Subscription-quota lookup, live price discovery, automatic policy changes based 
 
 Apple Silicon macOS is the primary target; Linux amd64 also runs in CI. Download the matching `riidolaya-v…-darwin-arm64.tar.gz` or `riidolaya-v…-linux-amd64.tar.gz` from [Releases](https://github.com/teamswyg/laya-tools/releases). Compare its SHA-256 against `SHA256SUMS` before extraction. Keep the bundled LICENSE, NOTICE, and licenses directory if redistributing it.
 
-Building from source requires Go 1.27 and a C compiler. On macOS, Command Line Tools supply the compiler.
+Building from source requires Go 1.27.1 and a C compiler. On macOS, Command Line Tools supply the compiler.
 
 ```sh
 git clone https://github.com/teamswyg/laya-tools.git

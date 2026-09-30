@@ -19,7 +19,7 @@ tar -xzf riidolaya-v0.3.0-darwin-arm64.tar.gz
 
 Linux는 `sha256sum`과 linux-amd64 파일을 사용합니다. 재배포할 때 LICENSE, NOTICE, licenses/도 함께 보존합니다. `./riidolaya`로 직접 실행할 수 있으며, 아래 예시는 실행 파일을 PATH에 등록했다고 가정합니다.
 
-Go 1.27과 C 컴파일러(macOS Command Line Tools)가 있다면 소스 빌드도 가능합니다.
+Go 1.27.1과 C 컴파일러(macOS Command Line Tools)가 있다면 소스 빌드도 가능합니다.
 
 ```sh
 git clone https://github.com/teamswyg/laya-tools.git
