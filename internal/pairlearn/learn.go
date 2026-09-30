@@ -22,6 +22,8 @@ type Dataset struct {
 	Labels   []float64
 	Groups   []int
 	Excluded int
+	// Optional nonnegative loss weights. Nil preserves the original objective.
+	SampleWeights []float64
 }
 
 func Prepare(rows []paireval.Row, split paireval.Split, name string) (Dataset, error) {
@@ -76,6 +78,14 @@ func logistic(s float64) float64 {
 }
 func loss(s, y float64) float64 { return math.Max(s, 0) - y*s + math.Log1p(math.Exp(-math.Abs(s))) }
 func NLL(d Dataset, w []float64) float64 {
+	if d.SampleWeights != nil {
+		v, total := 0., 0.
+		for i, y := range d.Labels {
+			v += d.SampleWeights[i] * loss(d.score(w, i), y)
+			total += d.SampleWeights[i]
+		}
+		return v / total
+	}
 	v := 0.
 	for i, y := range d.Labels {
 		v += loss(d.score(w, i), y)
@@ -99,6 +109,21 @@ type Result struct {
 }
 
 func validate(d Dataset, dimension int) error {
+	if d.SampleWeights != nil {
+		if len(d.SampleWeights) != len(d.Labels) {
+			return fmt.Errorf("weight length mismatch")
+		}
+		total := 0.
+		for _, w := range d.SampleWeights {
+			if math.IsNaN(w) || math.IsInf(w, 0) || w < 0 || w > 4096 {
+				return fmt.Errorf("invalid sample weight")
+			}
+			total += w
+		}
+		if !(total > 0) || math.IsInf(total, 0) {
+			return fmt.Errorf("invalid total sample weight")
+		}
+	}
 	if len(d.Labels) == 0 || len(d.Groups) != len(d.Labels) || len(d.Offsets) != len(d.Labels)+1 || len(d.Indices) != len(d.Values) || d.Offsets[0] != 0 || d.Offsets[len(d.Labels)] != len(d.Values) {
 		return fmt.Errorf("invalid sparse columns")
 	}
@@ -151,6 +176,17 @@ func Fit(train, validation Dataset, c Config) (Result, error) {
 		order[i] = i
 	}
 	grad := make([]float64, len(w))
+	weightScale := 1.
+	if train.SampleWeights != nil {
+		total := 0.
+		for _, v := range train.SampleWeights {
+			total += v
+		}
+		weightScale = float64(len(train.Labels)) / total
+		if math.IsInf(weightScale, 0) {
+			return best, fmt.Errorf("sample weights too small")
+		}
+	}
 	best = Result{Config: c, ValidationNLL: math.Inf(1)}
 	for epoch := 1; epoch <= c.Epochs; epoch++ {
 		rng.Shuffle(len(order), func(i, j int) { order[i], order[j] = order[j], order[i] })
@@ -161,6 +197,9 @@ func Fit(train, validation Dataset, c Config) (Result, error) {
 			qw := hintlearn.Quantize(w, c.Mode)
 			for _, i := range order[start:end] {
 				delta := logistic(train.score(qw, i)) - train.Labels[i]
+				if train.SampleWeights != nil {
+					delta *= train.SampleWeights[i] * weightScale
+				}
 				for k := train.Offsets[i]; k < train.Offsets[i+1]; k++ {
 					grad[train.Indices[k]] += delta * train.Values[k]
 				}

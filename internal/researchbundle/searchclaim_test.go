@@ -47,3 +47,20 @@ func TestManifestRejectsUnknownContent(t *testing.T) {
 		t.Fatalf("unexpected result %v", e)
 	}
 }
+
+func TestPageClaimRejectsOldHeadContract(t *testing.T) {
+	a := retrievalbench.ClaimModelResult{Mode: "fp32", EvaluationRepository: claimRepos[0], Seed: 1729, Epoch: 1, ValidationNLL: .5}
+	h := retrievalbench.ClaimHead{Schema: "riido-page-claim-v1", Mode: a.Mode, Seed: a.Seed, Epoch: a.Epoch, ValidationNLL: a.ValidationNLL, EvaluationRepository: claimRepos[0], TrainingRepository: claimRepos[1], ValidationRepository: claimRepos[2], PlanSHA256: retrievalbench.PageClaimPlanSHA256, Weights: make([]float64, 12)}
+	b, _ := json.Marshal(h)
+	if err := verifyClaimHeadContract(b, a, "riido-page-claim-v1", retrievalbench.PageClaimPlanSHA256); err != nil {
+		t.Fatal(err)
+	}
+	if err := verifyClaimHead(b, a); err == nil {
+		t.Fatal("page head accepted as old claim")
+	}
+	h.Schema = searchclaim.Schema
+	b, _ = json.Marshal(h)
+	if err := verifyClaimHeadContract(b, a, "riido-page-claim-v1", retrievalbench.PageClaimPlanSHA256); err == nil {
+		t.Fatal("old schema accepted as page head")
+	}
+}
