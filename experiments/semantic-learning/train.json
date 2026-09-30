@@ -1,0 +1,689 @@
+{
+  "schema": "riido-hint-pairs-v1",
+  "origin": "original_public_synthetic_domain_transfer",
+  "split": "train",
+  "documents": [
+    {
+      "id": "cache-keep",
+      "family": "cache",
+      "text": "cache keeps active entries and removes inactive entries"
+    },
+    {
+      "id": "cache-remove",
+      "family": "cache",
+      "text": "cache removes active entries and keeps inactive entries"
+    },
+    {
+      "id": "session-keep",
+      "family": "session",
+      "text": "session keeps active sessions and removes inactive sessions"
+    },
+    {
+      "id": "session-remove",
+      "family": "session",
+      "text": "session removes active sessions and keeps inactive sessions"
+    },
+    {
+      "id": "archive-keep",
+      "family": "archive",
+      "text": "archive keeps active files and removes inactive files"
+    },
+    {
+      "id": "archive-remove",
+      "family": "archive",
+      "text": "archive removes active files and keeps inactive files"
+    },
+    {
+      "id": "queue-keep",
+      "family": "queue",
+      "text": "queue keeps active messages and removes inactive messages"
+    },
+    {
+      "id": "queue-remove",
+      "family": "queue",
+      "text": "queue removes active messages and keeps inactive messages"
+    },
+    {
+      "id": "billing-keep",
+      "family": "billing",
+      "text": "billing keeps active invoices and removes inactive invoices"
+    },
+    {
+      "id": "billing-remove",
+      "family": "billing",
+      "text": "billing removes active invoices and keeps inactive invoices"
+    },
+    {
+      "id": "search-keep",
+      "family": "search",
+      "text": "search keeps active documents and removes inactive documents"
+    },
+    {
+      "id": "search-remove",
+      "family": "search",
+      "text": "search removes active documents and keeps inactive documents"
+    },
+    {
+      "id": "storage-keep",
+      "family": "storage",
+      "text": "storage keeps active objects and removes inactive objects"
+    },
+    {
+      "id": "storage-remove",
+      "family": "storage",
+      "text": "storage removes active objects and keeps inactive objects"
+    },
+    {
+      "id": "catalog-keep",
+      "family": "catalog",
+      "text": "catalog keeps active products and removes inactive products"
+    },
+    {
+      "id": "catalog-remove",
+      "family": "catalog",
+      "text": "catalog removes active products and keeps inactive products"
+    },
+    {
+      "id": "audit-keep",
+      "family": "audit",
+      "text": "audit keeps active events and removes inactive events"
+    },
+    {
+      "id": "audit-remove",
+      "family": "audit",
+      "text": "audit removes active events and keeps inactive events"
+    },
+    {
+      "id": "workflow-keep",
+      "family": "workflow",
+      "text": "workflow keeps active jobs and removes inactive jobs"
+    },
+    {
+      "id": "workflow-remove",
+      "family": "workflow",
+      "text": "workflow removes active jobs and keeps inactive jobs"
+    },
+    {
+      "id": "calendar-keep",
+      "family": "calendar",
+      "text": "calendar keeps active appointments and removes inactive appointments"
+    },
+    {
+      "id": "calendar-remove",
+      "family": "calendar",
+      "text": "calendar removes active appointments and keeps inactive appointments"
+    },
+    {
+      "id": "inventory-keep",
+      "family": "inventory",
+      "text": "inventory keeps active items and removes inactive items"
+    },
+    {
+      "id": "inventory-remove",
+      "family": "inventory",
+      "text": "inventory removes active items and keeps inactive items"
+    },
+    {
+      "id": "registry-keep",
+      "family": "registry",
+      "text": "registry keeps active packages and removes inactive packages"
+    },
+    {
+      "id": "registry-remove",
+      "family": "registry",
+      "text": "registry removes active packages and keeps inactive packages"
+    },
+    {
+      "id": "network-keep",
+      "family": "network",
+      "text": "network keeps active connections and removes inactive connections"
+    },
+    {
+      "id": "network-remove",
+      "family": "network",
+      "text": "network removes active connections and keeps inactive connections"
+    },
+    {
+      "id": "analytics-keep",
+      "family": "analytics",
+      "text": "analytics keeps active reports and removes inactive reports"
+    },
+    {
+      "id": "analytics-remove",
+      "family": "analytics",
+      "text": "analytics removes active reports and keeps inactive reports"
+    },
+    {
+      "id": "backup-keep",
+      "family": "backup",
+      "text": "backup keeps active snapshots and removes inactive snapshots"
+    },
+    {
+      "id": "backup-remove",
+      "family": "backup",
+      "text": "backup removes active snapshots and keeps inactive snapshots"
+    },
+    {
+      "id": "notification-keep",
+      "family": "notification",
+      "text": "notification keeps active alerts and removes inactive alerts"
+    },
+    {
+      "id": "notification-remove",
+      "family": "notification",
+      "text": "notification removes active alerts and keeps inactive alerts"
+    },
+    {
+      "id": "gateway-keep",
+      "family": "gateway",
+      "text": "gateway keeps active requests and removes inactive requests"
+    },
+    {
+      "id": "gateway-remove",
+      "family": "gateway",
+      "text": "gateway removes active requests and keeps inactive requests"
+    },
+    {
+      "id": "shipping-keep",
+      "family": "shipping",
+      "text": "shipping keeps active orders and removes inactive orders"
+    },
+    {
+      "id": "shipping-remove",
+      "family": "shipping",
+      "text": "shipping removes active orders and keeps inactive orders"
+    },
+    {
+      "id": "support-keep",
+      "family": "support",
+      "text": "support keeps active tickets and removes inactive tickets"
+    },
+    {
+      "id": "support-remove",
+      "family": "support",
+      "text": "support removes active tickets and keeps inactive tickets"
+    }
+  ],
+  "queries": [
+    {
+      "id": "cache-0",
+      "family": "cache",
+      "text": "cache retain active entries",
+      "target": "cache-keep"
+    },
+    {
+      "id": "cache-1",
+      "family": "cache",
+      "text": "cache discard active entries",
+      "target": "cache-remove"
+    },
+    {
+      "id": "cache-2",
+      "family": "cache",
+      "text": "cache discard inactive entries",
+      "target": "cache-keep"
+    },
+    {
+      "id": "cache-3",
+      "family": "cache",
+      "text": "cache retain inactive entries",
+      "target": "cache-remove"
+    },
+    {
+      "id": "session-0",
+      "family": "session",
+      "text": "session retain active sessions",
+      "target": "session-keep"
+    },
+    {
+      "id": "session-1",
+      "family": "session",
+      "text": "session discard active sessions",
+      "target": "session-remove"
+    },
+    {
+      "id": "session-2",
+      "family": "session",
+      "text": "session discard inactive sessions",
+      "target": "session-keep"
+    },
+    {
+      "id": "session-3",
+      "family": "session",
+      "text": "session retain inactive sessions",
+      "target": "session-remove"
+    },
+    {
+      "id": "archive-0",
+      "family": "archive",
+      "text": "archive retain active files",
+      "target": "archive-keep"
+    },
+    {
+      "id": "archive-1",
+      "family": "archive",
+      "text": "archive discard active files",
+      "target": "archive-remove"
+    },
+    {
+      "id": "archive-2",
+      "family": "archive",
+      "text": "archive discard inactive files",
+      "target": "archive-keep"
+    },
+    {
+      "id": "archive-3",
+      "family": "archive",
+      "text": "archive retain inactive files",
+      "target": "archive-remove"
+    },
+    {
+      "id": "queue-0",
+      "family": "queue",
+      "text": "queue retain active messages",
+      "target": "queue-keep"
+    },
+    {
+      "id": "queue-1",
+      "family": "queue",
+      "text": "queue discard active messages",
+      "target": "queue-remove"
+    },
+    {
+      "id": "queue-2",
+      "family": "queue",
+      "text": "queue discard inactive messages",
+      "target": "queue-keep"
+    },
+    {
+      "id": "queue-3",
+      "family": "queue",
+      "text": "queue retain inactive messages",
+      "target": "queue-remove"
+    },
+    {
+      "id": "billing-0",
+      "family": "billing",
+      "text": "billing retain active invoices",
+      "target": "billing-keep"
+    },
+    {
+      "id": "billing-1",
+      "family": "billing",
+      "text": "billing discard active invoices",
+      "target": "billing-remove"
+    },
+    {
+      "id": "billing-2",
+      "family": "billing",
+      "text": "billing discard inactive invoices",
+      "target": "billing-keep"
+    },
+    {
+      "id": "billing-3",
+      "family": "billing",
+      "text": "billing retain inactive invoices",
+      "target": "billing-remove"
+    },
+    {
+      "id": "search-0",
+      "family": "search",
+      "text": "search retain active documents",
+      "target": "search-keep"
+    },
+    {
+      "id": "search-1",
+      "family": "search",
+      "text": "search discard active documents",
+      "target": "search-remove"
+    },
+    {
+      "id": "search-2",
+      "family": "search",
+      "text": "search discard inactive documents",
+      "target": "search-keep"
+    },
+    {
+      "id": "search-3",
+      "family": "search",
+      "text": "search retain inactive documents",
+      "target": "search-remove"
+    },
+    {
+      "id": "storage-0",
+      "family": "storage",
+      "text": "storage retain active objects",
+      "target": "storage-keep"
+    },
+    {
+      "id": "storage-1",
+      "family": "storage",
+      "text": "storage discard active objects",
+      "target": "storage-remove"
+    },
+    {
+      "id": "storage-2",
+      "family": "storage",
+      "text": "storage discard inactive objects",
+      "target": "storage-keep"
+    },
+    {
+      "id": "storage-3",
+      "family": "storage",
+      "text": "storage retain inactive objects",
+      "target": "storage-remove"
+    },
+    {
+      "id": "catalog-0",
+      "family": "catalog",
+      "text": "catalog retain active products",
+      "target": "catalog-keep"
+    },
+    {
+      "id": "catalog-1",
+      "family": "catalog",
+      "text": "catalog discard active products",
+      "target": "catalog-remove"
+    },
+    {
+      "id": "catalog-2",
+      "family": "catalog",
+      "text": "catalog discard inactive products",
+      "target": "catalog-keep"
+    },
+    {
+      "id": "catalog-3",
+      "family": "catalog",
+      "text": "catalog retain inactive products",
+      "target": "catalog-remove"
+    },
+    {
+      "id": "audit-0",
+      "family": "audit",
+      "text": "audit retain active events",
+      "target": "audit-keep"
+    },
+    {
+      "id": "audit-1",
+      "family": "audit",
+      "text": "audit discard active events",
+      "target": "audit-remove"
+    },
+    {
+      "id": "audit-2",
+      "family": "audit",
+      "text": "audit discard inactive events",
+      "target": "audit-keep"
+    },
+    {
+      "id": "audit-3",
+      "family": "audit",
+      "text": "audit retain inactive events",
+      "target": "audit-remove"
+    },
+    {
+      "id": "workflow-0",
+      "family": "workflow",
+      "text": "workflow retain active jobs",
+      "target": "workflow-keep"
+    },
+    {
+      "id": "workflow-1",
+      "family": "workflow",
+      "text": "workflow discard active jobs",
+      "target": "workflow-remove"
+    },
+    {
+      "id": "workflow-2",
+      "family": "workflow",
+      "text": "workflow discard inactive jobs",
+      "target": "workflow-keep"
+    },
+    {
+      "id": "workflow-3",
+      "family": "workflow",
+      "text": "workflow retain inactive jobs",
+      "target": "workflow-remove"
+    },
+    {
+      "id": "calendar-0",
+      "family": "calendar",
+      "text": "calendar retain active appointments",
+      "target": "calendar-keep"
+    },
+    {
+      "id": "calendar-1",
+      "family": "calendar",
+      "text": "calendar discard active appointments",
+      "target": "calendar-remove"
+    },
+    {
+      "id": "calendar-2",
+      "family": "calendar",
+      "text": "calendar discard inactive appointments",
+      "target": "calendar-keep"
+    },
+    {
+      "id": "calendar-3",
+      "family": "calendar",
+      "text": "calendar retain inactive appointments",
+      "target": "calendar-remove"
+    },
+    {
+      "id": "inventory-0",
+      "family": "inventory",
+      "text": "inventory retain active items",
+      "target": "inventory-keep"
+    },
+    {
+      "id": "inventory-1",
+      "family": "inventory",
+      "text": "inventory discard active items",
+      "target": "inventory-remove"
+    },
+    {
+      "id": "inventory-2",
+      "family": "inventory",
+      "text": "inventory discard inactive items",
+      "target": "inventory-keep"
+    },
+    {
+      "id": "inventory-3",
+      "family": "inventory",
+      "text": "inventory retain inactive items",
+      "target": "inventory-remove"
+    },
+    {
+      "id": "registry-0",
+      "family": "registry",
+      "text": "registry retain active packages",
+      "target": "registry-keep"
+    },
+    {
+      "id": "registry-1",
+      "family": "registry",
+      "text": "registry discard active packages",
+      "target": "registry-remove"
+    },
+    {
+      "id": "registry-2",
+      "family": "registry",
+      "text": "registry discard inactive packages",
+      "target": "registry-keep"
+    },
+    {
+      "id": "registry-3",
+      "family": "registry",
+      "text": "registry retain inactive packages",
+      "target": "registry-remove"
+    },
+    {
+      "id": "network-0",
+      "family": "network",
+      "text": "network retain active connections",
+      "target": "network-keep"
+    },
+    {
+      "id": "network-1",
+      "family": "network",
+      "text": "network discard active connections",
+      "target": "network-remove"
+    },
+    {
+      "id": "network-2",
+      "family": "network",
+      "text": "network discard inactive connections",
+      "target": "network-keep"
+    },
+    {
+      "id": "network-3",
+      "family": "network",
+      "text": "network retain inactive connections",
+      "target": "network-remove"
+    },
+    {
+      "id": "analytics-0",
+      "family": "analytics",
+      "text": "analytics retain active reports",
+      "target": "analytics-keep"
+    },
+    {
+      "id": "analytics-1",
+      "family": "analytics",
+      "text": "analytics discard active reports",
+      "target": "analytics-remove"
+    },
+    {
+      "id": "analytics-2",
+      "family": "analytics",
+      "text": "analytics discard inactive reports",
+      "target": "analytics-keep"
+    },
+    {
+      "id": "analytics-3",
+      "family": "analytics",
+      "text": "analytics retain inactive reports",
+      "target": "analytics-remove"
+    },
+    {
+      "id": "backup-0",
+      "family": "backup",
+      "text": "backup retain active snapshots",
+      "target": "backup-keep"
+    },
+    {
+      "id": "backup-1",
+      "family": "backup",
+      "text": "backup discard active snapshots",
+      "target": "backup-remove"
+    },
+    {
+      "id": "backup-2",
+      "family": "backup",
+      "text": "backup discard inactive snapshots",
+      "target": "backup-keep"
+    },
+    {
+      "id": "backup-3",
+      "family": "backup",
+      "text": "backup retain inactive snapshots",
+      "target": "backup-remove"
+    },
+    {
+      "id": "notification-0",
+      "family": "notification",
+      "text": "notification retain active alerts",
+      "target": "notification-keep"
+    },
+    {
+      "id": "notification-1",
+      "family": "notification",
+      "text": "notification discard active alerts",
+      "target": "notification-remove"
+    },
+    {
+      "id": "notification-2",
+      "family": "notification",
+      "text": "notification discard inactive alerts",
+      "target": "notification-keep"
+    },
+    {
+      "id": "notification-3",
+      "family": "notification",
+      "text": "notification retain inactive alerts",
+      "target": "notification-remove"
+    },
+    {
+      "id": "gateway-0",
+      "family": "gateway",
+      "text": "gateway retain active requests",
+      "target": "gateway-keep"
+    },
+    {
+      "id": "gateway-1",
+      "family": "gateway",
+      "text": "gateway discard active requests",
+      "target": "gateway-remove"
+    },
+    {
+      "id": "gateway-2",
+      "family": "gateway",
+      "text": "gateway discard inactive requests",
+      "target": "gateway-keep"
+    },
+    {
+      "id": "gateway-3",
+      "family": "gateway",
+      "text": "gateway retain inactive requests",
+      "target": "gateway-remove"
+    },
+    {
+      "id": "shipping-0",
+      "family": "shipping",
+      "text": "shipping retain active orders",
+      "target": "shipping-keep"
+    },
+    {
+      "id": "shipping-1",
+      "family": "shipping",
+      "text": "shipping discard active orders",
+      "target": "shipping-remove"
+    },
+    {
+      "id": "shipping-2",
+      "family": "shipping",
+      "text": "shipping discard inactive orders",
+      "target": "shipping-keep"
+    },
+    {
+      "id": "shipping-3",
+      "family": "shipping",
+      "text": "shipping retain inactive orders",
+      "target": "shipping-remove"
+    },
+    {
+      "id": "support-0",
+      "family": "support",
+      "text": "support retain active tickets",
+      "target": "support-keep"
+    },
+    {
+      "id": "support-1",
+      "family": "support",
+      "text": "support discard active tickets",
+      "target": "support-remove"
+    },
+    {
+      "id": "support-2",
+      "family": "support",
+      "text": "support discard inactive tickets",
+      "target": "support-keep"
+    },
+    {
+      "id": "support-3",
+      "family": "support",
+      "text": "support retain inactive tickets",
+      "target": "support-remove"
+    }
+  ]
+}

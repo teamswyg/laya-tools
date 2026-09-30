@@ -3,13 +3,16 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io"
 	"os"
 	"slices"
 	"strings"
 
+	"github.com/teamswyg/laya-tools/internal/hintlearn"
 	"github.com/teamswyg/laya-tools/pkg/hintsearch"
 )
 
@@ -38,10 +41,12 @@ type response struct {
 	Snapshot   string      `json:"snapshot_id"`
 	Status     string      `json:"status"`
 	Policy     string      `json:"policy"`
+	ModelHash  string      `json:"model_sha256,omitempty"`
 	Candidates []candidate `json:"candidates"`
 }
 
-func run(in io.Reader, out io.Writer) error {
+func run(in io.Reader, out io.Writer) error { return runModel(in, out, nil, "") }
+func runModel(in io.Reader, out io.Writer, weights []float64, modelHash string) error {
 	// JSON escaping can expand every source byte sixfold. Bound the encoded request
 	// as well as the decoded catalog, query and identifier sizes.
 	const limit = 16 << 20
@@ -52,7 +57,7 @@ func run(in io.Reader, out io.Writer) error {
 	if len(data) > limit {
 		return fmt.Errorf("encoded request exceeds 16 MiB")
 	}
-	dec := json.NewDecoder(strings.NewReader(string(data)))
+	dec := json.NewDecoder(bytes.NewReader(data))
 	dec.DisallowUnknownFields()
 	var req request
 	if err := dec.Decode(&req); err != nil {
@@ -92,6 +97,21 @@ func run(in io.Reader, out io.Writer) error {
 	}
 	order := ranking.Order
 	policy := "bm25_complete"
+	if weights != nil {
+		if req.Hints != nil {
+			return fmt.Errorf("choose model or external hints, not both")
+		}
+		learned, _, modelErr := hintlearn.Rank(weights, req.Query, texts)
+		if modelErr != nil {
+			policy = "bm25_model_input_out_of_scope"
+		} else {
+			order, err = hintsearch.Interleave(order, learned)
+			if err != nil {
+				return err
+			}
+			policy = "model_bm25_interleave"
+		}
+	}
 	if req.Hints != nil {
 		h := req.Hints
 		if h.Snapshot != req.Snapshot || h.Query != req.Query {
@@ -113,7 +133,7 @@ func run(in io.Reader, out io.Writer) error {
 		}
 		policy = "hint_bm25_interleave"
 	}
-	res := response{Schema: "riido-hints-v1", Snapshot: req.Snapshot, Status: "unverified", Policy: policy, Candidates: make([]candidate, len(order))}
+	res := response{ModelHash: modelHash, Schema: "riido-hints-v1", Snapshot: req.Snapshot, Status: "unverified", Policy: policy, Candidates: make([]candidate, len(order))}
 	for i, d := range order {
 		res.Candidates[i] = candidate{ids[d], i + 1, ranking.Scores[d]}
 	}
@@ -122,8 +142,38 @@ func run(in io.Reader, out io.Writer) error {
 	return enc.Encode(res)
 }
 func main() {
-	if err := run(os.Stdin, os.Stdout); err != nil {
+	modelPath := flag.String("model", "", "optional research .hbin model")
+	expected := flag.String("sha256", "", "required pinned model SHA-256")
+	flag.Parse()
+	var weights []float64
+	var err error
+	if *modelPath != "" || *expected != "" {
+		weights, err = loadModel(*modelPath, *expected)
+	}
+	if err == nil {
+		err = runModel(os.Stdin, os.Stdout, weights, *expected)
+	}
+	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+}
+
+func loadModel(path, expected string) ([]float64, error) {
+	if path == "" || len(expected) != 64 {
+		return nil, fmt.Errorf("model and pinned sha256 must be provided together")
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	b, err := io.ReadAll(io.LimitReader(f, 24+hintlearn.Dimension*4+1))
+	if err != nil {
+		return nil, err
+	}
+	if hintlearn.Hash(b) != expected {
+		return nil, fmt.Errorf("model SHA-256 mismatch")
+	}
+	return hintlearn.Decode(b)
 }
