@@ -353,3 +353,9 @@ riidolaya plan --config examples/planner/config.json --request examples/planner/
 [PDCA 튜닝 설명](docs/pdca-tuning.ko.md)에서 고정된 평가 기준, 실제 MPS 학습,
 실패 기록과 다음 데이터 준비를 볼 수 있습니다. 진행 체크는 [이슈 #11](https://github.com/teamswyg/laya-tools/issues/11)에 기록합니다.
 현재 학습은 영어 합성 난이도 사례에 대한 유지보수 실험이며, 기본 Go 모델 교체나 실제 코딩 비용 절감의 증거는 아닙니다.
+
+### Go 초소형 헤드·3진 실험
+
+[별도 경량화 연구](experiments/tinyhead/README.ko.md)에서 v0.2 헤드를 Go로 실행하고 FP32·INT8·3진을 비교합니다.
+264건의 기존 합성 데이터에서 판단 변경 없이 20,772B 헤드를 660B로 줄였지만, 전체 Laya 인코더는 여전히 필요하며 3진이 더 빠르지는 않았습니다.
+[공개 HF 컬렉션](https://huggingface.co/collections/JooYoon/riidolaya-public-research-6abcbd5ddb1917912fc5de38) · [실험 #15](https://github.com/teamswyg/laya-tools/issues/15).

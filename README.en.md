@@ -283,3 +283,9 @@ The [PDCA tuning guide](docs/pdca-tuning.en.md) explains fixed evaluation gates,
 real MPS training, preserved failures and next-round data preparation. [Issue #11](https://github.com/teamswyg/laya-tools/issues/11)
 tracks execution. Training remains a maintainer experiment on authored English difficulty cases;
 it does not replace the default Go model or establish real coding-cost savings.
+
+### Go tiny-head and ternary research
+
+The [separate compression track](experiments/tinyhead/README.en.md) runs the v0.2 head in Go and compares FP32, INT8 and ternary formats.
+A 20,772-byte head shrank to 660 bytes without changing winners on 264 previously viewed synthetic cases. The full Laya encoder is still required, and ternary inference was slower.
+[Public HF collection](https://huggingface.co/collections/JooYoon/riidolaya-public-research-6abcbd5ddb1917912fc5de38) · [Experiment #15](https://github.com/teamswyg/laya-tools/issues/15).
