@@ -1,0 +1,9 @@
+{
+ "schema":"riido-file-path-index-scaling-plan-v1",
+ "reason":"interim metadata reveals many catalogs above existing4096-document bound; do not truncate candidates or select only small repositories",
+ "scope":"optional NewPathIndex and InterleavePathBaselineFirst for up to100000 unique canonical UTF8 relative paths,4096 bytes each,16MiB aggregate; inherit collector ceilings, preserve old constructors and merge limits",
+ "algorithm":"same global BM25 vocabulary/posting SoA and unique query terms, no sharded score normalization, immutable index and caller-owned ranking arrays; same baseline-first complete merge with linear seen array",
+ "verification":"small-input exact parity; useful target after4096 candidates; independent global IDF score; complete candidate permutation and rank bound under reverse hints for large input; reject invalid paths/duplicates/limits; measure original synthetic10000-path build and reused query allocations",
+ "interpretation":"file path lexical baseline and merging only, not file body semantics or model routing; model/features/CLI/session/deferred helper contracts stay unchanged; costs include index construction separately",
+ "publication":"code, aggregate benchmark findings and bilingual docs only; no real per-task candidates or source rows"
+}
