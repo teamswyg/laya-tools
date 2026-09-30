@@ -14,7 +14,123 @@ import (
 	"github.com/teamswyg/laya-tools/internal/filelabels"
 	"github.com/teamswyg/laya-tools/internal/githubmeta"
 	"github.com/teamswyg/laya-tools/internal/sweaudit"
+	"github.com/teamswyg/laya-tools/internal/trainingdata"
 )
+
+func TestConfigRequiresAllOverridesTogether(t *testing.T) {
+	names := [...]string{"plan", "plan-sha256", "checkpoint", "checkpoint-sha256"}
+	values := [...]string{"owned-plan.json", strings.Repeat("a", 64), "owned-checkpoint.json", strings.Repeat("b", 64)}
+	for mask := 0; mask < 1<<len(names); mask++ {
+		t.Run(fmt.Sprintf("combination_%04b", mask), func(t *testing.T) {
+			args := []string{"--out", "private-output"}
+			for i, name := range names {
+				if mask&(1<<i) != 0 {
+					args = append(args, "--"+name, values[i])
+				}
+			}
+			got, err := parseConfig(args)
+			if mask != 0 && mask != 15 {
+				if err == nil {
+					t.Fatal("partial override accepted", got)
+				}
+				return
+			}
+			if err != nil || got.out != "private-output" {
+				t.Fatal(got, err)
+			}
+			if mask == 0 {
+				if got.planPath != "experiments/path-cost-data/plan-43.json" || got.planSHA != planSHA || got.checkpointPath != ".cache/development-join-40-resume2/evidence.json" || got.checkpointSHA != checkpointSHA {
+					t.Fatal("43 defaults changed", got)
+				}
+			} else if got.planPath != values[0] || got.planSHA != values[1] || got.checkpointPath != values[2] || got.checkpointSHA != values[3] {
+				t.Fatal("explicit overrides ignored", got)
+			}
+		})
+	}
+	for _, bad := range []struct {
+		name  string
+		index int
+		value string
+	}{
+		{"empty_plan", 0, ""}, {"empty_checkpoint", 2, ""},
+		{"empty_plan_hash", 1, ""}, {"bad_plan_hash", 1, "not-hex"},
+		{"uppercase_checkpoint_hash", 3, strings.Repeat("A", 64)}, {"short_checkpoint_hash", 3, strings.Repeat("a", 62)},
+	} {
+		t.Run(bad.name, func(t *testing.T) {
+			vs := values
+			vs[bad.index] = bad.value
+			args := []string{"--out", "private-output"}
+			for i, name := range names {
+				args = append(args, "--"+name, vs[i])
+			}
+			if _, err := parseConfig(args); err == nil {
+				t.Fatal("invalid explicit override accepted")
+			}
+		})
+	}
+	for _, args := range [][]string{nil, {"--out", ""}, {"--out", "private-output", "unexpected"}, {"--out", "private-output", "--unknown"}} {
+		if _, err := parseConfig(args); err == nil {
+			t.Fatal("invalid arguments accepted", args)
+		}
+	}
+}
+
+func TestPlanPinsFixedScopeAndReportsActualHash(t *testing.T) {
+	ready := false
+	base := plan{Schema: "riido-path-cost-data-plan-v1", MembershipSHA256: trainingdata.MembershipSHA256, QueryProjectionSHA256: trainingdata.QueryProjectionSHA256, PatchProjectionSHA256: patchSHA, AvailabilityCheckpoint: "owned checkpoint", QueryReader: "fixed reader", FeatureOrder: "fixed features", Costs: "fixed costs", Denominators: "all development members", Integrity: "offline only", Validation: "owned tests", ProductionReady: &ready}
+	for _, mode := range []string{"valid", "hash", "schema", "membership", "query", "patch", "production", "missing_production", "missing_policy", "unknown", "trailing", "oversized"} {
+		t.Run(mode, func(t *testing.T) {
+			p := base
+			switch mode {
+			case "schema":
+				p.Schema = "different"
+			case "membership":
+				p.MembershipSHA256 = strings.Repeat("a", 64)
+			case "query":
+				p.QueryProjectionSHA256 = strings.Repeat("a", 64)
+			case "patch":
+				p.PatchProjectionSHA256 = strings.Repeat("a", 64)
+			case "production":
+				v := true
+				p.ProductionReady = &v
+			case "missing_production":
+				p.ProductionReady = nil
+			case "missing_policy":
+				p.Costs = " "
+			case "oversized":
+				p.Validation = strings.Repeat("v", (1<<20)+1)
+			}
+			raw, err := json.Marshal(p)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if mode == "unknown" {
+				raw = append(append(slices.Clone(raw[:len(raw)-1]), []byte(",\"fit\":true")...), '}')
+			} else if mode == "trailing" {
+				raw = append(raw, []byte(" {}")...)
+			}
+			name := filepath.Join(t.TempDir(), "plan.json")
+			if err = os.WriteFile(name, raw, 0600); err != nil {
+				t.Fatal(err)
+			}
+			h := digest(raw)
+			if mode == "hash" {
+				h = strings.Repeat("0", 64)
+			}
+			actual, err := readPlan(name, h)
+			if mode == "valid" {
+				if err != nil || actual != digest(raw) {
+					t.Fatal("verified plan digest missing", actual, err)
+				}
+			} else if err == nil || actual != "" {
+				t.Fatal("bad plan accepted", actual, err)
+			}
+		})
+	}
+	if got, err := readPlan(filepath.Join("..", "..", "experiments", "path-cost-data", "plan-43.json"), planSHA); err != nil || got != planSHA {
+		t.Fatal("original pinned plan unsupported", got, err)
+	}
+}
 
 func label(paths ...string) filelabels.DevelopmentLabel {
 	return filelabels.DevelopmentLabel{Label: filelabels.Label{ID: "task", Result: filelabels.Result{OldPaths: paths}}}
@@ -128,15 +244,64 @@ func TestCheckpointIntegrityAndRoles(t *testing.T) {
 			if mode == "hash" {
 				h = strings.Repeat("0", 64)
 			}
-			got, err := readCheckpoint(name, h, members)
+			got, actual, err := readCheckpoint(name, h, members)
 			if mode == "valid" {
-				if err != nil || len(got) != 1 {
-					t.Fatal(got, err)
+				if err != nil || len(got) != 1 || actual != digest(raw) {
+					t.Fatal(got, actual, err)
 				}
-			} else if err == nil {
+			} else if err == nil || actual != "" {
 				t.Fatal("bad checkpoint accepted")
 			}
 		})
+	}
+}
+
+func TestCatalogUnavailableStillRequiresPinnedRoot(t *testing.T) {
+	p, _, raw := checkpointFixture(t)
+	p.Status, p.CatalogSHA256 = "catalog_unavailable", ""
+	roots := t.TempDir()
+	// Using a regular file instead of a catalog directory proves that root-only
+	// verification does not consult, create or repair a catalog cache.
+	noCatalog := filepath.Join(t.TempDir(), "do-not-access")
+	if err := os.WriteFile(noCatalog, []byte("not a catalog directory"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := cachedPaths(p, roots, noCatalog); err == nil {
+		t.Fatal("catalog-unavailable row skipped required missing root")
+	}
+	if _, err := githubmeta.Root(context.Background(), p.Repository, p.BaseCommit, roots, func(context.Context, string) ([]byte, error) { return raw, nil }); err != nil {
+		t.Fatal(err)
+	}
+	if paths, err := cachedPaths(p, roots, noCatalog); err != nil || len(paths) != 0 {
+		t.Fatal("root-only verification consulted a catalog", paths, err)
+	}
+	for _, mode := range []string{"digest", "tree", "commit"} {
+		bad := p
+		switch mode {
+		case "digest":
+			bad.RootSHA256 = strings.Repeat("0", 64)
+		case "tree":
+			bad.TreeID = strings.Repeat("d", 40)
+		case "commit":
+			bad.BaseCommit = strings.Repeat("d", 40)
+		}
+		if _, err := cachedPaths(bad, roots, noCatalog); err == nil {
+			t.Fatal("changed root-only reference accepted", mode)
+		}
+	}
+	files, err := filepath.Glob(filepath.Join(roots, "*.json"))
+	if err != nil || len(files) != 1 {
+		t.Fatal(files, err)
+	}
+	if err = os.WriteFile(files[0], []byte("corrupt"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = cachedPaths(p, roots, noCatalog); err == nil {
+		t.Fatal("corrupt root-only reference accepted")
+	}
+	p.Status, p.RootSHA256, p.TreeID = "root_unavailable", "", ""
+	if paths, err := cachedPaths(p, roots, noCatalog); err != nil || len(paths) != 0 {
+		t.Fatal("checkpoint-unavailable root consulted later cache", paths, err)
 	}
 }
 func TestPinnedCacheMissingChangedAndCorruptAreFatal(t *testing.T) {

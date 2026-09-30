@@ -8,6 +8,8 @@ Use [`--session --limit 20`](experiments/hint-session/README.en.md) to reuse ran
 
 Static embedding control: [Go execution, packing and upstream parity](experiments/static-embedding/README.en.md). Code-relevance quality remains insufficient; this is not a default model.
 
+The next [tiny claim-head plan](experiments/path-cost-claim/README.en.md) requires at least **2,400 tasks each for training and validation**. Distinguish initial 24-task pilots from model configuration counts. [Source/cost readiness](experiments/path-cost-data/EXPANDED-45.en.md) shows insufficient validation, so actual corpus fitting has not started.
+
 [한국어](README.md) · **English** · [User Wiki](https://github.com/teamswyg/laya-tools/wiki) · [Documentation](docs/README.md)
 
 [![CI](https://github.com/teamswyg/laya-tools/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/teamswyg/laya-tools/actions/workflows/ci.yml)
