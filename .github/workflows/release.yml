@@ -27,14 +27,14 @@ jobs:
           TAG: ${{ github.ref_name }}
           TARGET: ${{ matrix.target }}
         run: |
-          go build -trimpath -ldflags="-s -w -X main.version=$TAG" -o laya ./cmd/laya
-          ./laya setup
-          ./laya bench --iterations 3
-          tar -czf "laya-$TAG-$TARGET.tar.gz" laya LICENSE NOTICE
+          go build -trimpath -ldflags="-s -w -X main.version=$TAG" -o riidolaya ./cmd/riidolaya
+          ./riidolaya setup
+          ./riidolaya bench --iterations 3
+          tar -czf "riidolaya-$TAG-$TARGET.tar.gz" riidolaya LICENSE NOTICE
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: laya-${{ matrix.target }}
-          path: laya-*.tar.gz
+          name: riidolaya-${{ matrix.target }}
+          path: riidolaya-*.tar.gz
   publish:
     needs: build
     permissions:

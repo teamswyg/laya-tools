@@ -26,13 +26,13 @@ var version = "dev"
 
 func main() {
 	if err := run(os.Args[1:]); err != nil {
-		fmt.Fprintln(os.Stderr, "laya:", err)
+		fmt.Fprintln(os.Stderr, "riidolaya:", err)
 		os.Exit(1)
 	}
 }
 func run(args []string) error {
 	if len(args) == 0 || args[0] == "help" || args[0] == "--help" {
-		fmt.Print(`laya — local code retrieval and experimental Codex model routing
+		fmt.Print(`riidolaya — local code retrieval and experimental Codex model routing
 
 Commands:
   setup     Download checksum-pinned model and native runtime
@@ -46,12 +46,12 @@ Commands:
   version   Print version
 
 Examples (flags precede the prompt):
-  laya setup
-  laya search --root . --json "where are redirects handled?"
-  laya search --lexical "redirect headers"
-  laya route --fast-model MODEL --strong-model MODEL "fix a typo"
-  laya codex --model MODEL "implement a feature"
-  laya bench --iterations 10 --cpu-profile cpu.pprof --heap-profile heap.pprof
+  riidolaya setup
+  riidolaya search --root . --json "where are redirects handled?"
+  riidolaya search --lexical "redirect headers"
+  riidolaya route --fast-model MODEL --strong-model MODEL "fix a typo"
+  riidolaya codex --model MODEL "implement a feature"
+  riidolaya bench --iterations 10 --cpu-profile cpu.pprof --heap-profile heap.pprof
 
 No credentials or source code are uploaded by search, route, serve, or mcp.
 The codex command starts your installed Codex CLI with its existing settings.
@@ -233,7 +233,7 @@ The codex command starts your installed Codex CLI with its existing settings.
 		}
 		return nil
 	default:
-		return fmt.Errorf("unknown command %q; run laya help", cmd)
+		return fmt.Errorf("unknown command %q; run riidolaya help", cmd)
 	}
 }
 func exists(p string) bool { _, err := os.Stat(p); return err == nil }

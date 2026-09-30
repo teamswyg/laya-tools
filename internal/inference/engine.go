@@ -51,7 +51,7 @@ func New(o Options) (*Engine, error) {
 	}
 	envOnce.Do(func() { ort.SetSharedLibraryPath(o.Runtime); envErr = ort.InitializeEnvironment() })
 	if envErr != nil {
-		return nil, fmt.Errorf("load native runtime: %w (run laya setup)", envErr)
+		return nil, fmt.Errorf("load native runtime: %w (run riidolaya setup)", envErr)
 	}
 	enc, err := LoadEncoder(filepath.Join(o.ModelDir, "tokenizer.json"))
 	if err != nil {

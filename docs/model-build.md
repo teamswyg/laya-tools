@@ -1,6 +1,6 @@
 # Rebuild the native models
 
-Normal users run `laya setup`; Python is not a runtime dependency.
+Normal users run `riidolaya setup`; Python is not a runtime dependency.
 
 The published INT8 artifacts were exported with laya 0.3.21, torch 2.14.0,
 transformers 5.17.0, onnx 1.23.1, onnxscript 0.7.2, onnxruntime 1.30.0.

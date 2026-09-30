@@ -45,8 +45,8 @@ Twelve original requests range from comment typos to multi-region migration and 
 git clone --branch 0.28.1 --depth 1 https://github.com/encode/httpx.git /tmp/httpx-eval
 go run ./cmd/eval --root /tmp/httpx-eval/httpx
 # Add --model-dir and --runtime to evaluate an installed checkpoint.
-laya bench --threads 4 --iterations 30
-laya serve < benchmarks/router-queries.jsonl
+riidolaya bench --threads 4 --iterations 30
+riidolaya serve < benchmarks/router-queries.jsonl
 ```
 
 Raw sanitized results are in [benchmarks/results](../benchmarks/results). They contain no local usernames, credentials, private source excerpts, or pprof files. Profiles remain local because they can contain host paths.
