@@ -1,0 +1,142 @@
+{
+  "repository": "minishlab/potion-base-2M",
+  "revision": "389b9f64be5aa4ae7a6bc6fe95ef20ce485ae5da",
+  "declared_license": "mit",
+  "files": [
+    {
+      "file": "README.md",
+      "bytes": 5202,
+      "sha256": "38af170acce93b5eb0c4e18659ab0b30581b2f6860f3e12d8ba8b8751e249363"
+    },
+    {
+      "file": "config.json",
+      "bytes": 200,
+      "sha256": "b2a89173391ca774c2d7323090a993a9a1553faa5b40eb37bb7cec6685fbea47"
+    },
+    {
+      "file": "model.safetensors",
+      "bytes": 7559256,
+      "sha256": "f95ffde02ad06f63ae38eb9d400038cd5ccaf8411ec3cb650c6025113f96cbb8"
+    },
+    {
+      "file": "special_tokens_map.json",
+      "bytes": 134,
+      "sha256": "a9e8fb6f99fb0b8803f0e6942fdf4d95d6645204620b67dc3310a1024bcbac59"
+    },
+    {
+      "file": "tokenizer.json",
+      "bytes": 683666,
+      "sha256": "e67e803f624fb4d67dea1c730d06e1067e1b14d830e2c2202569e3ef0f70bb50"
+    },
+    {
+      "file": "tokenizer_config.json",
+      "bytes": 1431,
+      "sha256": "6725995e3ab3039857ff5bd99178a7cdf42863abb04449e7bb31feb1f55fe567"
+    },
+    {
+      "file": "vocab.txt",
+      "bytes": 219690,
+      "sha256": "1394523a67ddd404a825428018c0582a6998bcfa044ecbcbf1f4d71adb94c61c"
+    }
+  ],
+  "tensors": {
+    "embeddings": {
+      "dtype": "F32",
+      "shape": [
+        29528,
+        64
+      ],
+      "data_offsets": [
+        0,
+        7559168
+      ]
+    }
+  },
+  "normalizer": {
+    "type": "BertNormalizer",
+    "clean_text": true,
+    "handle_chinese_chars": true,
+    "strip_accents": null,
+    "lowercase": true
+  },
+  "pre_tokenizer": {
+    "type": "BertPreTokenizer"
+  },
+  "model_type": "WordPiece",
+  "vocab_size": 29528,
+  "post_processor": {
+    "type": "TemplateProcessing",
+    "single": [
+      {
+        "SpecialToken": {
+          "id": "[CLS]",
+          "type_id": 0
+        }
+      },
+      {
+        "Sequence": {
+          "id": "A",
+          "type_id": 0
+        }
+      },
+      {
+        "SpecialToken": {
+          "id": "[SEP]",
+          "type_id": 0
+        }
+      }
+    ],
+    "pair": [
+      {
+        "SpecialToken": {
+          "id": "[CLS]",
+          "type_id": 0
+        }
+      },
+      {
+        "Sequence": {
+          "id": "A",
+          "type_id": 0
+        }
+      },
+      {
+        "SpecialToken": {
+          "id": "[SEP]",
+          "type_id": 0
+        }
+      },
+      {
+        "Sequence": {
+          "id": "B",
+          "type_id": 1
+        }
+      },
+      {
+        "SpecialToken": {
+          "id": "[SEP]",
+          "type_id": 1
+        }
+      }
+    ],
+    "special_tokens": {
+      "[CLS]": {
+        "id": "[CLS]",
+        "ids": [
+          101
+        ],
+        "tokens": [
+          "[CLS]"
+        ]
+      },
+      "[SEP]": {
+        "id": "[SEP]",
+        "ids": [
+          102
+        ],
+        "tokens": [
+          "[SEP]"
+        ]
+      }
+    }
+  }
+}

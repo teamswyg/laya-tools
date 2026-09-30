@@ -32,6 +32,12 @@ jobs:
       - name: Policy packages have no native runtime dependency
         run: CGO_ENABLED=0 go test ./pkg/...
       - run: go build -trimpath -o bin/riidolaya ./cmd/riidolaya
+      - name: Static embedding source and Go parity (CPU, no Python runtime)
+        shell: bash
+        run: |
+          go run ./cmd/riido-staticprobe --stage setup --model-dir .cache/static-test-model
+          RIIDO_STATIC_MODEL_DIR="$PWD/.cache/static-test-model" CGO_ENABLED=0 go test -count=1 -v ./internal/staticembed
+          RIIDO_STATIC_MODEL_DIR="$PWD/.cache/static-test-model" go test -race -count=1 ./internal/staticembed
       - name: Install verified public runtime and checkpoint
         run: ./bin/riidolaya setup
       - name: Native inference and reference tokenizer parity

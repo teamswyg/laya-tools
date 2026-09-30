@@ -1,0 +1,18 @@
+{
+ "schema":"riido-static-plan-v1",
+ "source_model":"minishlab/potion-base-2M",
+ "source_revision":"389b9f64be5aa4ae7a6bc6fe95ef20ce485ae5da",
+ "pair_source_sha256":"4d1a227fe3652992d1e98f43fa9dc1b8f54a6c27a1a24b9d182bdfb8cbc3274c",
+ "reference_commit":"38c7bc9c93808ee15602265ba96a9b8fda58783f",
+ "modes":["fp32","int8","ternary"],
+ "int8":"per token row maxabs/127 scale, nearest integer clipped to [-127,127]",
+ "ternary":"per token row meanabs scale; abs(weight)>=0.7*scale retains sign; packed 2 bits/coefficient including unused fourth code",
+ "scoring":"cosine of normalized mean static token vectors; no task-specific fitting in this cycle",
+ "validation":"same 553 eligible validation pairs; report 54 scope exclusions; no reserve scoring",
+ "controls":"BM25 statistics from development documents, token overlap; compare previous lexical controls on the same cohort",
+ "primary":"FP32 cosine; validation AUC>=0.60 and >=0.03 above matched BM25 before considering a separately frozen reserve1 protocol",
+ "normalization":"pinned WordPiece/BertNormalizer; no automatic special tokens; discard unknown IDs; no silent input truncation",
+ "reference_tolerance":0.000002,
+ "promotion":false,
+ "limitations":"general English pretrained source; public-data pretraining overlap unknown; no code retrieval or agent cost claim"
+}
