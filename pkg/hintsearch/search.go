@@ -10,10 +10,12 @@ import (
 	"sort"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 )
 
 const MaxDocuments = 4096
 const MaxQueryBytes = 8192
+const MaxLongQueryBytes = 128 << 10
 const MaxCatalogBytes = 2 << 20
 
 type occurrence struct {
@@ -112,8 +114,26 @@ func (idx *Index) Rank(query string) (Ranking, error) {
 // Invalid queries return before modifying dst. Rank retains independently owned
 // results for callers that need to hold multiple rankings simultaneously.
 func (idx *Index) RankInto(query string, dst Ranking) (Ranking, error) {
-	if strings.TrimSpace(query) == "" || len(query) > MaxQueryBytes {
-		return Ranking{}, fmt.Errorf("require nonempty query of at most %d bytes", MaxQueryBytes)
+	return idx.rankInto(query, dst, MaxQueryBytes)
+}
+
+// RankLongInto explicitly accepts complete UTF-8 queries up to 128KiB without
+// truncation or summarization. Scoring and ties are identical to RankInto.
+// This only extends lexical search, not model/feature/session input contracts.
+// Buffers belong to the caller; use separate buffers for concurrent calls.
+func (idx *Index) RankLongInto(query string, dst Ranking) (Ranking, error) {
+	if len(query) > MaxLongQueryBytes {
+		return Ranking{}, fmt.Errorf("query exceeds %d bytes", MaxLongQueryBytes)
+	}
+	if !utf8.ValidString(query) {
+		return Ranking{}, fmt.Errorf("require UTF-8 query")
+	}
+	return idx.rankInto(query, dst, MaxLongQueryBytes)
+}
+
+func (idx *Index) rankInto(query string, dst Ranking, limit int) (Ranking, error) {
+	if len(query) > limit || strings.TrimSpace(query) == "" {
+		return Ranking{}, fmt.Errorf("require nonempty query of at most %d bytes", limit)
 	}
 	n := len(idx.norms)
 	if cap(dst.Order) < n {
