@@ -1,0 +1,16 @@
+{
+  "schema": "riido-claim-signal-audit-plan-v1",
+  "questions": 2948,
+  "input": "frozen experiment 21 sixteen baseline-only features, same source hashes and 3009 candidates",
+  "purpose": "distinguish detecting any page effect from discriminating harmful versus beneficial helper calls before adding features or retraining",
+  "targets": ["harm_vs_rest", "benefit_vs_rest", "harm_vs_benefit"],
+  "labels": "page size20; positive harm means helper pages greater than baseline; positive benefit means fewer; harm_vs_benefit excludes page ties and is explicitly a subgroup, not 2948 independent harmful examples",
+  "features": "all 16 existing features, report all including constant bias; no new features, threshold, model fitting, or production policy",
+  "folds": "same test i/train i+1/validation i+2 over etcd,test-infra,lxd",
+  "orientation": "for each feature/target, choose sign using training-only AUC; raw AUC below .5 flips sign, otherwise +1; ties choose +1; missing either class is an error for frozen corpus",
+  "metrics": "training/validation/evaluation cases, positives, positive prevalence, oriented ROC AUC and noninterpolated average precision with equal scores grouped; exact ties cannot be split; report each fold and unweighted mean evaluation AUC/AP across three repositories",
+  "interpretation": "diagnostic only; no significance or policy benefit claim from choosing a high observed feature; AP compare with target prevalence; multiple comparisons and repeatedly observed repositories remain limitations; univariate weakness does not prove no multivariate signal",
+  "replay": "full JSON byte-identical rerun; ties, single class, malformed scores and held-out mutation tests",
+  "publication": "aggregate diagnostics and Go source only; no raw queries/labels/predictions or new model weights; no HF model release for a feature audit",
+  "production_ready": false
+}
