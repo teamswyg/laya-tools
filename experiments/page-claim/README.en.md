@@ -26,6 +26,8 @@ On Apple M4 Pro CPU, source verification, search, 12 fits and 24 exports took 1.
 
 ## Next evidence needed
 
+Of 2,948 queries, 2,470 have equal page counts and therefore zero weight. The loss does not reward skipping the helper on those queries; call reduction appears only in the acceptance gate, not the training loss. Feature insufficiency is therefore not established as the cause. A separate next experiment should precommit helper-call budgets and threshold selection rules, selecting only on the validation repository. This experiment will not adjust its threshold after observing results.
+
 Changing the objective did not produce useful discrimination with these features/settings. This does not prove semantic learning impossible. Before fitting another variant, test whether additional runtime features contain a signal separating helper benefit and harm. Features requiring auxiliary search cannot justify avoiding that search. At least 2,400 independent real-user questions and actual verification-cost evaluation remain outstanding.
 
 ```sh
