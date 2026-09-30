@@ -14,8 +14,12 @@ var SpreadNames = [SpreadDimension]string{"top20_relative_mean", "top20_relative
 // index-produced ranks, uses no outcomes or auxiliary ranking, and allocates no
 // storage on valid input. Scores outside the inspected prefix are not read.
 func ScoreSpread(b hintsearch.Ranking) ([SpreadDimension]float64, error) {
+	return scoreSpread(b, hintsearch.MaxDocuments)
+}
+
+func scoreSpread(b hintsearch.Ranking, maxDocuments int) ([SpreadDimension]float64, error) {
 	var f [SpreadDimension]float64
-	if len(b.Order) == 0 || len(b.Order) != len(b.Scores) || len(b.Order) > hintsearch.MaxDocuments {
+	if len(b.Order) == 0 || len(b.Order) != len(b.Scores) || len(b.Order) > maxDocuments {
 		return f, fmt.Errorf("invalid ranking shape")
 	}
 	n := min(20, len(b.Order))

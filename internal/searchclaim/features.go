@@ -18,14 +18,18 @@ const Schema = "riido-search-claim-v1"
 var Names = [Dimension]string{"bias", "query_words", "query_bytes", "uppercase_fraction", "digit_fraction", "underscore_fraction", "camel_boundaries_per_word", "unique_word_fraction", "top_score_squashed", "top_two_gap_squashed", "top_ten_positive_fraction", "positive_catalog_fraction"}
 
 func Features(query string, baseline hintsearch.Ranking) ([Dimension]float64, error) {
+	return features(query, baseline, hintsearch.MaxQueryBytes, hintsearch.MaxDocuments)
+}
+
+func features(query string, baseline hintsearch.Ranking, maxQueryBytes, maxDocuments int) ([Dimension]float64, error) {
 	var f [Dimension]float64
-	if strings.TrimSpace(query) == "" || len(query) > hintsearch.MaxQueryBytes || len(baseline.Order) == 0 || len(baseline.Order) > hintsearch.MaxDocuments || len(baseline.Order) != len(baseline.Scores) {
+	if strings.TrimSpace(query) == "" || len(query) > maxQueryBytes || len(baseline.Order) == 0 || len(baseline.Order) > maxDocuments || len(baseline.Order) != len(baseline.Scores) {
 		return f, fmt.Errorf("invalid runtime feature input")
 	}
 	words := strings.FieldsFunc(strings.ToLower(query), func(r rune) bool { return !unicode.IsLetter(r) && !unicode.IsDigit(r) })
 	f[0] = 1
 	f[1] = math.Min(float64(len(words))/64, 1)
-	f[2] = float64(len(query)) / hintsearch.MaxQueryBytes
+	f[2] = math.Min(float64(len(query))/hintsearch.MaxQueryBytes, 1)
 	count, upper, digits, under, camel := 0, 0, 0, 0, 0
 	var prev rune
 	for _, r := range query {
