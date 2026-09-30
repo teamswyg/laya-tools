@@ -1,6 +1,8 @@
 package conalaaudit
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -31,5 +33,33 @@ func TestParserRejectsMalformed(t *testing.T) {
 	rows, err := parse([]byte("{\"question_id\":1,\"intent\":\"a\",\"rewritten_intent\":null,\"snippet\":\"x\"}\n"))
 	if err != nil || len(rows) != 1 || rows[0].Rewrite != "" {
 		t.Fatal("nullable rewrite", err)
+	}
+}
+
+func TestTransitiveLinksAcrossDifferentKeys(t *testing.T) {
+	r := Audit([]Row{{1, "a", "", "x"}, {1, "b", "", "y"}}, []Row{{2, "c", "", "y"}})
+	if r.ConnectedGroups != 1 || r.LargestGroup != 3 || r.RowsInCrossSplitGroups != 3 {
+		t.Fatal("transitive links lost", r)
+	}
+}
+
+func TestReadRequiresPinnedHashAndBound(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "source.jsonl")
+	data := []byte(`{"question_id":1,"intent":"public synthetic","rewritten_intent":"","snippet":"x"}`)
+	if err := os.WriteFile(path, data, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Read(path, hash(data)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Read(path, strings.Repeat("0", 64)); err == nil {
+		t.Fatal("accepted hash mismatch")
+	}
+	large := []byte(strings.Repeat("x", (2<<20)+1))
+	if err := os.WriteFile(path, large, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Read(path, hash(large)); err == nil {
+		t.Fatal("accepted oversized file")
 	}
 }
