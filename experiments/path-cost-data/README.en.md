@@ -1,5 +1,7 @@
 # Experiment 43: per-task search cost data
 
+Follow-up: [expanded checkpoint costs/source readiness](EXPANDED-45.en.md) and the [FP32 plan requiring at least 2,400 tasks each for training and validation](../path-cost-claim/README.en.md). Results below belong to the frozen experiment43 checkpoint and are not replaced by later acquisition.
+
 **Keep all 13,021 development tasks in the denominator and execute real search on the fixed checkpoint's 2,248 catalogs. On 2,236 scoreable tasks, total first-target pages decrease from 26,226 to 24,781, but 302 tasks get worse versus 143 that improve. Only five validation tasks are scoreable, so this cannot establish model quality or select a model.**
 
 ## Purpose

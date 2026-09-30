@@ -27,6 +27,26 @@ const planSHA = "68b7f4f3ded46a9c7d3a96ada0824d046e193f454febf4d65a6095c19baf10d
 const checkpointSHA = "2cfeff79d68a652181b6129914d25062ddce3c33f698106178502fcd709fa6fa"
 const patchSHA = "6bed55ca053705e59b1362f982b86cbd977fa3d216312a018b1657dfb9fd284b"
 
+type config struct {
+	out, planPath, planSHA, checkpointPath, checkpointSHA string
+}
+
+type plan struct {
+	Schema                 string `json:"schema"`
+	MembershipSHA256       string `json:"membership_sha256"`
+	QueryProjectionSHA256  string `json:"query_projection_sha256"`
+	PatchProjectionSHA256  string `json:"patch_projection_sha256"`
+	AvailabilityCheckpoint string `json:"availability_checkpoint"`
+	QueryReader            string `json:"query_reader"`
+	FeatureOrder           string `json:"feature_order"`
+	Costs                  string `json:"costs"`
+	Denominators           string `json:"denominators"`
+	Integrity              string `json:"integrity"`
+	Command                string `json:"command"`
+	Validation             string `json:"validation"`
+	ProductionReady        *bool  `json:"production_ready"`
+}
+
 type checkpoint struct {
 	Role, Repository, ID, BaseCommit  string
 	RootSHA256, TreeID, CatalogSHA256 string
@@ -66,23 +86,19 @@ func main() {
 	}
 }
 func run() error {
-	out := flag.String("out", "", "new private output directory")
-	flag.Parse()
-	if *out == "" {
-		return fmt.Errorf("require output")
-	}
-	b, err := os.ReadFile("experiments/path-cost-data/plan-43.json")
+	cfg, err := parseConfig(os.Args[1:])
 	if err != nil {
 		return err
 	}
-	if digest(b) != planSHA {
-		return fmt.Errorf("plan mismatch")
+	planHash, err := readPlan(cfg.planPath, cfg.planSHA)
+	if err != nil {
+		return err
 	}
 	members, err := trainingdata.ReadDevelopment(".cache/training-partition-37/membership.json")
 	if err != nil {
 		return err
 	}
-	points, err := readCheckpoint(".cache/development-join-40-resume2/evidence.json", checkpointSHA, members)
+	points, checkpointHash, err := readCheckpoint(cfg.checkpointPath, cfg.checkpointSHA, members)
 	if err != nil {
 		return err
 	}
@@ -98,14 +114,15 @@ func run() error {
 		}
 		p := points[i]
 		v := example{Role: m.Role, Repository: m.Task.Repository, ID: m.Task.ID}
+		// Required roots remain pinned even when a complete catalog is unavailable.
+		paths, err := cachedPaths(p, ".cache/training-roots-38", ".cache/training-catalogs-38")
+		if err != nil {
+			return err
+		}
 		if p.CatalogSHA256 == "" {
 			v.Status = "checkpoint_unavailable"
 			rows = append(rows, v)
 			return nil
-		}
-		paths, err := cachedPaths(p, ".cache/training-roots-38", ".cache/training-catalogs-38")
-		if err != nil {
-			return err
 		}
 		// Gold is not an input to ranking, features or the always-on selector.
 		selection, rankErr := fileeval.RankSelected(q.Request, paths, func([searchclaim.PathDimension]float64) (bool, error) { return true, nil })
@@ -133,7 +150,7 @@ func run() error {
 		return fmt.Errorf("output denominator mismatch")
 	}
 	slices.SortFunc(rows, func(a, b example) int { return strings.Compare(a.ID, b.ID) })
-	r := report{Schema: "riido-path-cost-data-report-v1", PlanSHA256: planSHA, MembershipSHA256: trainingdata.MembershipSHA256, QuerySHA256: trainingdata.QueryProjectionSHA256, PatchSHA256: patchSHA, CheckpointSHA256: checkpointSHA, FeatureSchema: searchclaim.PathSchema, PageSize: 20}
+	r := report{Schema: "riido-path-cost-data-report-v1", PlanSHA256: planHash, MembershipSHA256: trainingdata.MembershipSHA256, QuerySHA256: trainingdata.QueryProjectionSHA256, PatchSHA256: patchSHA, CheckpointSHA256: checkpointHash, FeatureSchema: searchclaim.PathSchema, PageSize: 20}
 	r.Total, r.Roles, r.Repositories, err = summarize(rows)
 	if err != nil {
 		return err
@@ -144,41 +161,103 @@ func run() error {
 	}
 	raw = append(raw, '\n')
 	r.ExamplesSHA256 = digest(raw)
-	b, err = json.MarshalIndent(r, "", "  ")
+	b, err := json.MarshalIndent(r, "", "  ")
 	if err != nil {
 		return err
 	}
 	// No publication before every source, callback and aggregate has succeeded.
-	if err = os.Mkdir(*out, 0700); err != nil {
+	if err = os.Mkdir(cfg.out, 0700); err != nil {
 		return err
 	}
-	if err = os.WriteFile(filepath.Join(*out, "examples.json"), raw, 0600); err != nil {
+	if err = os.WriteFile(filepath.Join(cfg.out, "examples.json"), raw, 0600); err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(*out, "results.json"), append(b, '\n'), 0600)
+	return os.WriteFile(filepath.Join(cfg.out, "results.json"), append(b, '\n'), 0600)
 }
 
-func readCheckpoint(path, expected string, members []sweaudit.TaskRole) ([]checkpoint, error) {
+func parseConfig(args []string) (config, error) {
+	c := config{planPath: "experiments/path-cost-data/plan-43.json", planSHA: planSHA, checkpointPath: ".cache/development-join-40-resume2/evidence.json", checkpointSHA: checkpointSHA}
+	f := flag.NewFlagSet("riido-pathcostdata", flag.ContinueOnError)
+	f.StringVar(&c.out, "out", "", "new private output directory")
+	f.StringVar(&c.planPath, "plan", c.planPath, "pinned preparation plan; requires all four overrides")
+	f.StringVar(&c.planSHA, "plan-sha256", c.planSHA, "SHA256 of preparation plan; requires all four overrides")
+	f.StringVar(&c.checkpointPath, "checkpoint", c.checkpointPath, "pinned availability checkpoint; requires all four overrides")
+	f.StringVar(&c.checkpointSHA, "checkpoint-sha256", c.checkpointSHA, "SHA256 of availability checkpoint; requires all four overrides")
+	if err := f.Parse(args); err != nil {
+		return config{}, err
+	}
+	if c.out == "" || f.NArg() != 0 {
+		return config{}, fmt.Errorf("require output and no positional arguments")
+	}
+	count := 0
+	f.Visit(func(v *flag.Flag) {
+		if v.Name == "plan" || v.Name == "plan-sha256" || v.Name == "checkpoint" || v.Name == "checkpoint-sha256" {
+			count++
+		}
+	})
+	if count != 0 && count != 4 {
+		return config{}, fmt.Errorf("require all four plan and checkpoint overrides together")
+	}
+	if c.planPath == "" || c.checkpointPath == "" || !hexDigest(c.planSHA, 32) || !hexDigest(c.checkpointSHA, 32) {
+		return config{}, fmt.Errorf("invalid plan or checkpoint path/hash")
+	}
+	return c, nil
+}
+
+func readPlan(path, expected string) (string, error) {
+	b, actual, err := readPinned(path, expected, 1<<20, "plan")
+	if err != nil {
+		return "", err
+	}
+	var p plan
+	d := json.NewDecoder(bytes.NewReader(b))
+	d.DisallowUnknownFields()
+	if d.Decode(&p) != nil || d.Decode(new(any)) != io.EOF {
+		return "", fmt.Errorf("plan schema invalid")
+	}
+	if p.Schema != "riido-path-cost-data-plan-v1" || p.MembershipSHA256 != trainingdata.MembershipSHA256 || p.QueryProjectionSHA256 != trainingdata.QueryProjectionSHA256 || p.PatchProjectionSHA256 != patchSHA || p.ProductionReady == nil || *p.ProductionReady {
+		return "", fmt.Errorf("plan changes fixed preparation scope")
+	}
+	for _, text := range []string{p.AvailabilityCheckpoint, p.QueryReader, p.FeatureOrder, p.Costs, p.Denominators, p.Integrity, p.Validation} {
+		if strings.TrimSpace(text) == "" {
+			return "", fmt.Errorf("plan policy missing")
+		}
+	}
+	// Policy text documents the experiment; it never configures source, features,
+	// page size, fitting, final scoring or production activation in this command.
+	return actual, nil
+}
+
+func readPinned(path, expected string, limit int64, name string) ([]byte, string, error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	defer f.Close()
-	b, err := io.ReadAll(io.LimitReader(f, (16<<20)+1))
+	b, err := io.ReadAll(io.LimitReader(f, limit+1))
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
-	if len(b) > 16<<20 || digest(b) != expected {
-		return nil, fmt.Errorf("checkpoint size or hash mismatch")
+	actual := digest(b)
+	if int64(len(b)) > limit || !hexDigest(expected, 32) || actual != expected {
+		return nil, "", fmt.Errorf("%s size or hash mismatch", name)
+	}
+	return b, actual, nil
+}
+
+func readCheckpoint(path, expected string, members []sweaudit.TaskRole) ([]checkpoint, string, error) {
+	b, actual, err := readPinned(path, expected, 16<<20, "checkpoint")
+	if err != nil {
+		return nil, "", err
 	}
 	var rows []checkpoint
 	d := json.NewDecoder(bytes.NewReader(b))
 	d.DisallowUnknownFields()
 	if d.Decode(&rows) != nil || d.Decode(new(any)) != io.EOF {
-		return nil, fmt.Errorf("checkpoint schema invalid")
+		return nil, "", fmt.Errorf("checkpoint schema invalid")
 	}
 	if len(rows) != len(members) || len(rows) == 0 {
-		return nil, fmt.Errorf("checkpoint count mismatch")
+		return nil, "", fmt.Errorf("checkpoint count mismatch")
 	}
 	slices.SortFunc(rows, func(a, b checkpoint) int { return strings.Compare(a.ID, b.ID) })
 	ms := slices.Clone(members)
@@ -186,26 +265,26 @@ func readCheckpoint(path, expected string, members []sweaudit.TaskRole) ([]check
 	for i, p := range rows {
 		m := ms[i]
 		if (m.Role != "train" && m.Role != "validation") || p.Role != m.Role || p.Repository != m.Task.Repository || p.ID != m.Task.ID || p.BaseCommit != m.Task.BaseCommit || (i > 0 && rows[i-1].ID == p.ID) {
-			return nil, fmt.Errorf("checkpoint membership mismatch")
+			return nil, "", fmt.Errorf("checkpoint membership mismatch")
 		}
 		switch p.Status {
 		case "root_unavailable":
 			if p.RootSHA256 != "" || p.TreeID != "" || p.CatalogSHA256 != "" {
-				return nil, fmt.Errorf("unexpected unavailable root digest")
+				return nil, "", fmt.Errorf("unexpected unavailable root digest")
 			}
 		case "catalog_unavailable":
 			if !hexDigest(p.RootSHA256, 32) || !hexDigest(p.TreeID, 20) || p.CatalogSHA256 != "" {
-				return nil, fmt.Errorf("invalid unavailable catalog identity")
+				return nil, "", fmt.Errorf("invalid unavailable catalog identity")
 			}
 		case "matched", "unusable_target":
 			if !hexDigest(p.RootSHA256, 32) || !hexDigest(p.TreeID, 20) || !hexDigest(p.CatalogSHA256, 32) {
-				return nil, fmt.Errorf("invalid available catalog identity")
+				return nil, "", fmt.Errorf("invalid available catalog identity")
 			}
 		default:
-			return nil, fmt.Errorf("unknown checkpoint status")
+			return nil, "", fmt.Errorf("unknown checkpoint status")
 		}
 	}
-	return rows, nil
+	return rows, actual, nil
 }
 func hexDigest(s string, n int) bool {
 	b, e := hex.DecodeString(s)
@@ -215,6 +294,12 @@ func offline(context.Context, string) ([]byte, error) {
 	return nil, fmt.Errorf("checkpoint-required cache missing; network disabled")
 }
 func cachedPaths(p checkpoint, roots, catalogs string) ([]string, error) {
+	if p.RootSHA256 == "" {
+		if p.TreeID != "" || p.CatalogSHA256 != "" {
+			return nil, fmt.Errorf("catalog lacks required root identity")
+		}
+		return nil, nil
+	}
 	b, err := githubmeta.Root(context.Background(), p.Repository, p.BaseCommit, roots, offline)
 	if err != nil {
 		return nil, err
@@ -228,6 +313,10 @@ func cachedPaths(p checkpoint, roots, catalogs string) ([]string, error) {
 	}
 	if tree != p.TreeID {
 		return nil, fmt.Errorf("checkpoint tree mismatch")
+	}
+	if p.CatalogSHA256 == "" {
+		// A root-only checkpoint is verified without consulting newer catalogs.
+		return nil, nil
 	}
 	c, err := githubmeta.RecursiveCatalog(context.Background(), p.Repository, tree, catalogs, offline)
 	if err != nil {
