@@ -18,6 +18,7 @@ func run() (runErr error) {
 	stage := flag.String("stage", "audit", "audit or evaluate")
 	plan := flag.String("plan", "experiments/retrieval-baseline/plan-07.json", "fixed evaluation plan")
 	cpuProfile := flag.String("cpuprofile", "", "optional new local CPU profile path; never publish raw profiles")
+	reuseRank := flag.Bool("reuse-rank", false, "reuse caller-owned ranking arrays between questions")
 	flag.Parse()
 	if *stage != "audit" && *stage != "evaluate" {
 		return fmt.Errorf("invalid stage")
@@ -71,7 +72,7 @@ func run() (runErr error) {
 	}{Schema: "riido-retrieval-proxy-v1", Stage: *stage, MembershipSHA256: membership, Rows: len(selected), Sources: audit}
 	if *stage == "evaluate" {
 		for _, mode := range []string{"raw", "identifiers"} {
-			r, e := retrievalbench.Evaluate(selected, mode)
+			r, e := retrievalbench.EvaluateWithReuse(selected, mode, *reuseRank)
 			if e != nil {
 				return e
 			}

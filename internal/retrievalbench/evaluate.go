@@ -1,7 +1,12 @@
 package retrievalbench
 
 import (
+	"crypto/sha256"
+	"encoding/binary"
+	"encoding/hex"
 	"fmt"
+	"math"
+	"runtime"
 	"sort"
 	"strings"
 	"time"
@@ -18,11 +23,14 @@ type Metrics struct {
 	QueryP50Nanos, QueryP95Nanos              int64
 }
 type Result struct {
-	Mode                         string
-	Documents, CatalogBytes      int
-	BuildNanos                   int64
-	All, NamePresent, NameAbsent Metrics
-	ByRepository                 map[string]Metrics
+	Mode                            string
+	Documents, CatalogBytes         int
+	BuildNanos                      int64
+	All, NamePresent, NameAbsent    Metrics
+	ByRepository                    map[string]Metrics
+	ReuseRankArrays                 bool
+	RankTraceSHA256                 string
+	LoopAllocatedBytes, LoopMallocs uint64
 }
 type query struct {
 	text       string
@@ -110,7 +118,12 @@ func summarize(obs []observation) Metrics {
 // Evaluate uses known targets only; other documents remain unjudged.
 // No learning, threshold selection, truncation or candidate dropping occurs.
 func Evaluate(rows []Row, mode string) (Result, error) {
+	return EvaluateWithReuse(rows, mode, false)
+}
+
+func EvaluateWithReuse(rows []Row, mode string, reuse bool) (Result, error) {
 	r := Result{Mode: mode, Documents: len(rows), ByRepository: map[string]Metrics{}}
+	r.ReuseRankArrays = reuse
 	if mode != "raw" && mode != "identifiers" {
 		return r, fmt.Errorf("unknown mode")
 	}
@@ -131,16 +144,34 @@ func Evaluate(rows []Row, mode string) (Result, error) {
 	qs := queries(rows)
 	var all, named, unnamed []observation
 	byRepo := map[string][]observation{}
+	var scratch hintsearch.Ranking
+	trace := sha256.New()
+	var encoded [16]byte
+	var before, after runtime.MemStats
+	runtime.ReadMemStats(&before)
 	for _, q := range qs {
 		start = time.Now()
 		text := q.text
 		if mode == "identifiers" {
 			text = lexicalhint.NormalizeText(text)
 		}
-		ranking, e := idx.Rank(text)
+		var ranking hintsearch.Ranking
+		if reuse {
+			scratch, e = idx.RankInto(text, scratch)
+			ranking = scratch
+		} else {
+			ranking, e = idx.Rank(text)
+		}
 		elapsed := time.Since(start).Nanoseconds()
 		if e != nil {
 			return r, e
+		}
+		queryHash := sha256.Sum256([]byte(q.text))
+		trace.Write(queryHash[:])
+		for _, id := range ranking.Order {
+			binary.LittleEndian.PutUint64(encoded[:8], uint64(id))
+			binary.LittleEndian.PutUint64(encoded[8:], math.Float64bits(ranking.Scores[id]))
+			trace.Write(encoded[:])
 		}
 		rank := len(rows) + 1
 		for p, id := range ranking.Order {
@@ -162,6 +193,10 @@ func Evaluate(rows []Row, mode string) (Result, error) {
 		}
 		byRepo[q.repository] = append(byRepo[q.repository], o)
 	}
+	runtime.ReadMemStats(&after)
+	r.LoopAllocatedBytes = after.TotalAlloc - before.TotalAlloc
+	r.LoopMallocs = after.Mallocs - before.Mallocs
+	r.RankTraceSHA256 = hex.EncodeToString(trace.Sum(nil))
 	r.All = summarize(all)
 	r.NamePresent = summarize(named)
 	r.NameAbsent = summarize(unnamed)

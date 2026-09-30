@@ -1,6 +1,7 @@
 package hintsearch
 
 import (
+	"fmt"
 	"math"
 	"reflect"
 	"strings"
@@ -26,6 +27,107 @@ func TestBM25Reference(t *testing.T) {
 	}
 	if !reflect.DeepEqual(r.Order, []int{0, 1, 2}) {
 		t.Fatal(r.Order)
+	}
+}
+
+func TestRankIntoResetsScoresAndRetainsTies(t *testing.T) {
+	idx, _ := New([]string{"alpha alpha beta", "alpha gamma", "delta"})
+	var scratch Ranking
+	for _, query := range []string{"alpha", "delta", "unknown", "!!!", "alpha alpha", "gamma", "beta"} {
+		want, err := idx.Rank(query)
+		if err != nil {
+			t.Fatal(err)
+		}
+		scratch, err = idx.RankInto(query, scratch)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !reflect.DeepEqual(scratch, want) {
+			t.Fatalf("stale ranking for %q: %+v != %+v", query, scratch, want)
+		}
+	}
+	orderPtr, scorePtr := &scratch.Order[0], &scratch.Scores[0]
+	keptOrder := append([]int(nil), scratch.Order...)
+	keptScores := append([]float64(nil), scratch.Scores...)
+	if _, err := idx.RankInto(" ", scratch); err == nil {
+		t.Fatal("accepted invalid query")
+	}
+	if !reflect.DeepEqual(scratch.Order, keptOrder) || !reflect.DeepEqual(scratch.Scores, keptScores) {
+		t.Fatal("invalid input mutated result")
+	}
+	scratch, _ = idx.RankInto("unknown", scratch)
+	if &scratch.Order[0] != orderPtr || &scratch.Scores[0] != scorePtr {
+		t.Fatal("did not reuse arrays")
+	}
+	if !reflect.DeepEqual(scratch.Order, []int{0, 1, 2}) || !reflect.DeepEqual(scratch.Scores, []float64{0, 0, 0}) {
+		t.Fatal("lost zero-score candidates")
+	}
+}
+
+func TestRankIntoResizeAcrossIndexes(t *testing.T) {
+	var scratch Ranking
+	for _, docs := range [][]string{{"one"}, {"one", "two", "three", "one"}, {"two", "one"}} {
+		idx, _ := New(docs)
+		var err error
+		scratch, err = idx.RankInto("one", scratch)
+		if err != nil {
+			t.Fatal(err)
+		}
+		want, _ := idx.Rank("one")
+		if !reflect.DeepEqual(scratch, want) {
+			t.Fatal("resize changed ranking")
+		}
+	}
+}
+
+func TestConcurrentRankInto(t *testing.T) {
+	idx, _ := New([]string{"alpha", "beta", "gamma"})
+	var wg sync.WaitGroup
+	for worker := 0; worker < 8; worker++ {
+		wg.Go(func() {
+			var scratch Ranking
+			for i := 0; i < 100; i++ {
+				var err error
+				scratch, err = idx.RankInto("beta", scratch)
+				if err != nil || scratch.Order[0] != 1 || scratch.Scores[0] != 0 {
+					t.Error("workspace interference")
+				}
+				scratch.Order[0] = 0
+				scratch.Scores[0] = 999
+			}
+		})
+	}
+	wg.Wait()
+}
+
+func BenchmarkRankReuse(b *testing.B) {
+	for _, n := range []int{64, 3009} {
+		docs := make([]string, n)
+		for i := range docs {
+			docs[i] = fmt.Sprintf("payment idempotency retries item%d group%d", i, i%17)
+		}
+		idx, _ := New(docs)
+		for _, reuse := range []bool{false, true} {
+			b.Run(fmt.Sprintf("documents=%d/reuse=%t", n, reuse), func(b *testing.B) {
+				var scratch Ranking
+				if reuse {
+					scratch, _ = idx.Rank("payment group3")
+				}
+				b.ReportAllocs()
+				b.ResetTimer()
+				for b.Loop() {
+					var err error
+					if reuse {
+						scratch, err = idx.RankInto("payment group3", scratch)
+					} else {
+						scratch, err = idx.Rank("payment group3")
+					}
+					if err != nil {
+						b.Fatal(err)
+					}
+				}
+			})
+		}
 	}
 }
 func TestEmptyVocabularyAndUnicode(t *testing.T) {
