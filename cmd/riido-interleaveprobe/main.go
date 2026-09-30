@@ -13,6 +13,7 @@ import (
 func run() error {
 	input := flag.String("input", ".cache/retrieval-audit-06.jsonl", "pinned local projection")
 	archives := flag.String("archives", ".cache/retrieval-source-07", "pinned ZIP directory")
+	pageCost := flag.Bool("page-cost", false, "measure oracle page counts and search-work proxy")
 	flag.Parse()
 	rows, e := retrievalbench.ReadRows(*input)
 	if e != nil {
@@ -29,7 +30,12 @@ func run() error {
 	if len(rows) != 3009 || hex.EncodeToString(h.Sum(nil)) != "3a6d161ac50e16f18b841645968f47af32055350e460c99a96d733ff217ff37d" {
 		return fmt.Errorf("membership mismatch")
 	}
-	r, e := retrievalbench.ProbeInterleave(rows)
+	var r any
+	if *pageCost {
+		r, e = retrievalbench.ProbePageCost(rows)
+	} else {
+		r, e = retrievalbench.ProbeInterleave(rows)
+	}
 	if e != nil {
 		return e
 	}
