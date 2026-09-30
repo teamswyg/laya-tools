@@ -274,3 +274,5 @@ This example recommends `example-fast` → `example-strong` with `direction: upg
 These are recommendations only. No active Codex conversation is switched and no failure is automatically detected or retried. An integrating agent must update the current model and assessment at each task stage.
 
 [GitHub Actions performance replay](docs/performance-replay.en.md): manually compare CPU time, peak RSS, and results across fixed scenarios.
+
+[Array layout, lock/SIMD review, and difficulty golden results](docs/layout-and-goldens.en.md)

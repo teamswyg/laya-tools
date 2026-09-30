@@ -1,0 +1,640 @@
+{
+  "arch": "arm64",
+  "fixture_sha256": "daf5f63767bff7db9ad10bf580b1680cef9f64361e517afb7eb6fea203d1cbd4",
+  "go": "go1.27.1",
+  "load_ms": 655.332,
+  "note": "Author-labeled development golden set, fixed before inference. Not independent labels, coding success, or held-out calibration. Korean policy abstentions excluded from raw accuracy. Confusion order: fast, standard, strong. No downstream coding model executed.",
+  "os": "darwin",
+  "rows": [
+    {
+      "task": {
+        "id": "typo",
+        "stage": 1,
+        "language": "en",
+        "prompt": "Correct recieve to receive in a code comment.",
+        "expected": "fast",
+        "rationale": "Single spelling replacement."
+      },
+      "result": {
+        "tier": "strong",
+        "suggested_tier": "standard",
+        "model": "example-strong",
+        "reason": "low confidence or truncated input; preserve strong model",
+        "confidence": 0.5627688619714821,
+        "probabilities": [
+          0.27841458125632224,
+          0.5627688619714821,
+          0.15881655677219567
+        ],
+        "abstained": true,
+        "truncated": false
+      },
+      "raw_correct": false,
+      "ms": 46.79
+    },
+    {
+      "task": {
+        "id": "format",
+        "stage": 1,
+        "language": "en",
+        "prompt": "Run gofmt on one Go file without changing behavior.",
+        "expected": "fast",
+        "rationale": "Mechanical formatting."
+      },
+      "result": {
+        "tier": "strong",
+        "suggested_tier": "standard",
+        "model": "example-strong",
+        "reason": "low confidence or truncated input; preserve strong model",
+        "confidence": 0.4790684170912721,
+        "probabilities": [
+          0.41691850480043496,
+          0.4790684170912721,
+          0.10401307810829281
+        ],
+        "abstained": true,
+        "truncated": false
+      },
+      "raw_correct": false,
+      "ms": 47.05
+    },
+    {
+      "task": {
+        "id": "rename",
+        "stage": 1,
+        "language": "en",
+        "prompt": "Rename a local variable from x to count in one five-line function.",
+        "expected": "fast",
+        "rationale": "Bounded local rename."
+      },
+      "result": {
+        "tier": "strong",
+        "suggested_tier": "fast",
+        "model": "example-strong",
+        "reason": "low confidence or truncated input; preserve strong model",
+        "confidence": 0.7273944257076579,
+        "probabilities": [
+          0.7273944257076579,
+          0.21696544160513698,
+          0.05564013268720522
+        ],
+        "abstained": true,
+        "truncated": false
+      },
+      "raw_correct": true,
+      "ms": 45.327
+    },
+    {
+      "task": {
+        "id": "parser",
+        "stage": 1,
+        "language": "en",
+        "prompt": "Fix quoted-comma handling in a CSV parser and add regression tests.",
+        "expected": "standard",
+        "rationale": "Bounded parsing behavior and tests."
+      },
+      "result": {
+        "tier": "strong",
+        "suggested_tier": "standard",
+        "model": "example-strong",
+        "reason": "low confidence or truncated input; preserve strong model",
+        "confidence": 0.5870858453374077,
+        "probabilities": [
+          0.3294615544844546,
+          0.5870858453374077,
+          0.08345260017813783
+        ],
+        "abstained": true,
+        "truncated": false
+      },
+      "raw_correct": true,
+      "ms": 45.671
+    },
+    {
+      "task": {
+        "id": "endpoint",
+        "stage": 1,
+        "language": "en",
+        "prompt": "Add a paginated list endpoint with validation and tests.",
+        "expected": "standard",
+        "rationale": "Ordinary bounded feature."
+      },
+      "result": {
+        "tier": "strong",
+        "suggested_tier": "standard",
+        "model": "example-strong",
+        "reason": "low confidence or truncated input; preserve strong model",
+        "confidence": 0.6002191585391553,
+        "probabilities": [
+          0.29879860251749873,
+          0.6002191585391553,
+          0.10098223894334588
+        ],
+        "abstained": true,
+        "truncated": false
+      },
+      "raw_correct": true,
+      "ms": 43.864
+    },
+    {
+      "task": {
+        "id": "cache",
+        "stage": 1,
+        "language": "en",
+        "prompt": "Add an expiring cache around one function and test expiration.",
+        "expected": "standard",
+        "rationale": "Stateful bounded feature."
+      },
+      "result": {
+        "tier": "strong",
+        "suggested_tier": "standard",
+        "model": "example-strong",
+        "reason": "low confidence or truncated input; preserve strong model",
+        "confidence": 0.5312603023464507,
+        "probabilities": [
+          0.3939610754239387,
+          0.5312603023464507,
+          0.07477862222961058
+        ],
+        "abstained": true,
+        "truncated": false
+      },
+      "raw_correct": true,
+      "ms": 45.039
+    },
+    {
+      "task": {
+        "id": "migration",
+        "stage": 1,
+        "language": "en",
+        "prompt": "Design a zero-downtime schema migration across a multi-region system.",
+        "expected": "strong",
+        "rationale": "Cross-system migration and compatibility."
+      },
+      "result": {
+        "tier": "strong",
+        "suggested_tier": "standard",
+        "model": "example-strong",
+        "reason": "low confidence or truncated input; preserve strong model",
+        "confidence": 0.47360431974295175,
+        "probabilities": [
+          0.15720614724472615,
+          0.47360431974295175,
+          0.3691895330123221
+        ],
+        "abstained": true,
+        "truncated": false
+      },
+      "raw_correct": false,
+      "ms": 45.588
+    },
+    {
+      "task": {
+        "id": "race",
+        "stage": 1,
+        "language": "en",
+        "prompt": "Diagnose a duplicate-payment race across three concurrent services.",
+        "expected": "strong",
+        "rationale": "Distributed concurrency and financial correctness."
+      },
+      "result": {
+        "tier": "strong",
+        "suggested_tier": "strong",
+        "model": "example-strong",
+        "reason": "low confidence or truncated input; preserve strong model",
+        "confidence": 0.46657480720209393,
+        "probabilities": [
+          0.16340773279662815,
+          0.3700174600012779,
+          0.46657480720209393
+        ],
+        "abstained": true,
+        "truncated": false
+      },
+      "raw_correct": true,
+      "ms": 44.941
+    },
+    {
+      "task": {
+        "id": "security",
+        "stage": 1,
+        "language": "en",
+        "prompt": "Audit tenant isolation and repair cross-tenant privilege escalation paths.",
+        "expected": "strong",
+        "rationale": "Security boundary investigation."
+      },
+      "result": {
+        "tier": "strong",
+        "suggested_tier": "standard",
+        "model": "example-strong",
+        "reason": "low confidence or truncated input; preserve strong model",
+        "confidence": 0.5735307667468419,
+        "probabilities": [
+          0.15314569009136134,
+          0.5735307667468419,
+          0.2733235431617967
+        ],
+        "abstained": true,
+        "truncated": false
+      },
+      "raw_correct": false,
+      "ms": 45.881
+    },
+    {
+      "task": {
+        "id": "ko-typo",
+        "stage": 1,
+        "language": "ko",
+        "prompt": "주석에서 오타 하나를 수정해줘.",
+        "expected": "fast",
+        "rationale": "Single typo; Korean policy guard expected."
+      },
+      "result": {
+        "tier": "strong",
+        "model": "example-strong",
+        "reason": "Korean routing is unvalidated",
+        "abstained": true,
+        "truncated": false
+      },
+      "raw_correct": false,
+      "ms": 0.001
+    },
+    {
+      "task": {
+        "id": "ko-feature",
+        "stage": 1,
+        "language": "ko",
+        "prompt": "입력 검증 함수를 추가하고 테스트해줘.",
+        "expected": "standard",
+        "rationale": "Bounded feature; Korean policy guard expected."
+      },
+      "result": {
+        "tier": "strong",
+        "model": "example-strong",
+        "reason": "Korean routing is unvalidated",
+        "abstained": true,
+        "truncated": false
+      },
+      "raw_correct": false,
+      "ms": 0
+    },
+    {
+      "task": {
+        "id": "ko-race",
+        "stage": 1,
+        "language": "ko",
+        "prompt": "여러 서비스에 걸친 동시성 오류와 데이터 손실 원인을 분석해줘.",
+        "expected": "strong",
+        "rationale": "Cross-service concurrency; Korean policy guard expected."
+      },
+      "result": {
+        "tier": "strong",
+        "model": "example-strong",
+        "reason": "Korean routing is unvalidated",
+        "abstained": true,
+        "truncated": false
+      },
+      "raw_correct": false,
+      "ms": 0
+    },
+    {
+      "task": {
+        "id": "readme",
+        "stage": 2,
+        "language": "en",
+        "prompt": "Add a final period to the README introduction.",
+        "expected": "fast",
+        "rationale": "Single punctuation edit."
+      },
+      "result": {
+        "tier": "strong",
+        "suggested_tier": "fast",
+        "model": "example-strong",
+        "reason": "low confidence or truncated input; preserve strong model",
+        "confidence": 0.530292758544238,
+        "probabilities": [
+          0.530292758544238,
+          0.38455147410381896,
+          0.08515576735194298
+        ],
+        "abstained": true,
+        "truncated": false
+      },
+      "raw_correct": true,
+      "ms": 45.063
+    },
+    {
+      "task": {
+        "id": "constant",
+        "stage": 2,
+        "language": "en",
+        "prompt": "Change the documented example port from 8080 to 9090.",
+        "expected": "fast",
+        "rationale": "Single example constant."
+      },
+      "result": {
+        "tier": "strong",
+        "suggested_tier": "fast",
+        "model": "example-strong",
+        "reason": "low confidence or truncated input; preserve strong model",
+        "confidence": 0.5441919779657168,
+        "probabilities": [
+          0.5441919779657168,
+          0.3929007134807158,
+          0.06290730855356738
+        ],
+        "abstained": true,
+        "truncated": false
+      },
+      "raw_correct": true,
+      "ms": 44.981
+    },
+    {
+      "task": {
+        "id": "comment",
+        "stage": 2,
+        "language": "en",
+        "prompt": "Remove a duplicate comment line without changing code.",
+        "expected": "fast",
+        "rationale": "Mechanical deletion."
+      },
+      "result": {
+        "tier": "strong",
+        "suggested_tier": "fast",
+        "model": "example-strong",
+        "reason": "low confidence or truncated input; preserve strong model",
+        "confidence": 0.617826861958767,
+        "probabilities": [
+          0.617826861958767,
+          0.3118604188414905,
+          0.07031271919974245
+        ],
+        "abstained": true,
+        "truncated": false
+      },
+      "raw_correct": true,
+      "ms": 44.686
+    },
+    {
+      "task": {
+        "id": "closed-engine",
+        "stage": 2,
+        "language": "en",
+        "prompt": "Return an error when Predict is called after Engine.Close and add regression coverage.",
+        "expected": "standard",
+        "rationale": "Actual bounded lifecycle fix in this repository."
+      },
+      "result": {
+        "tier": "strong",
+        "suggested_tier": "standard",
+        "model": "example-strong",
+        "reason": "low confidence or truncated input; preserve strong model",
+        "confidence": 0.664067290282553,
+        "probabilities": [
+          0.25492313812827366,
+          0.664067290282553,
+          0.08100957158917335
+        ],
+        "abstained": true,
+        "truncated": false
+      },
+      "raw_correct": true,
+      "ms": 46.384
+    },
+    {
+      "task": {
+        "id": "golden-loader",
+        "stage": 2,
+        "language": "en",
+        "prompt": "Validate task IDs and difficulty labels in a JSON evaluation fixture loader.",
+        "expected": "standard",
+        "rationale": "Actual bounded input-validation task."
+      },
+      "result": {
+        "tier": "strong",
+        "suggested_tier": "standard",
+        "model": "example-strong",
+        "reason": "low confidence or truncated input; preserve strong model",
+        "confidence": 0.5133666153053361,
+        "probabilities": [
+          0.3422140966707158,
+          0.5133666153053361,
+          0.14441928802394824
+        ],
+        "abstained": true,
+        "truncated": false
+      },
+      "raw_correct": true,
+      "ms": 45.131
+    },
+    {
+      "task": {
+        "id": "json-report",
+        "stage": 2,
+        "language": "en",
+        "prompt": "Add expected-versus-predicted confusion counts to the routing evaluation report.",
+        "expected": "standard",
+        "rationale": "Actual bounded evaluation feature."
+      },
+      "result": {
+        "tier": "strong",
+        "suggested_tier": "standard",
+        "model": "example-strong",
+        "reason": "low confidence or truncated input; preserve strong model",
+        "confidence": 0.533590524462862,
+        "probabilities": [
+          0.27067690959784535,
+          0.533590524462862,
+          0.1957325659392927
+        ],
+        "abstained": true,
+        "truncated": false
+      },
+      "raw_correct": true,
+      "ms": 45.463
+    },
+    {
+      "task": {
+        "id": "search-soa",
+        "stage": 2,
+        "language": "en",
+        "prompt": "Replace per-document BM25 maps with SoA postings while preserving scores, ordering, and concurrent read safety.",
+        "expected": "strong",
+        "rationale": "Actual multi-part algorithm/layout refactor."
+      },
+      "result": {
+        "tier": "strong",
+        "suggested_tier": "standard",
+        "model": "example-strong",
+        "reason": "low confidence or truncated input; preserve strong model",
+        "confidence": 0.5872773693666543,
+        "probabilities": [
+          0.27861383689249053,
+          0.5872773693666543,
+          0.13410879374085527
+        ],
+        "abstained": true,
+        "truncated": false
+      },
+      "raw_correct": false,
+      "ms": 51.482
+    },
+    {
+      "task": {
+        "id": "lock-lifetime",
+        "stage": 2,
+        "language": "en",
+        "prompt": "Analyze inference session lifetime races and tokenizer cache ownership before removing locks.",
+        "expected": "strong",
+        "rationale": "Shared mutable native resource lifetime."
+      },
+      "result": {
+        "tier": "strong",
+        "suggested_tier": "standard",
+        "model": "example-strong",
+        "reason": "low confidence or truncated input; preserve strong model",
+        "confidence": 0.5229166020994995,
+        "probabilities": [
+          0.16810145352051545,
+          0.5229166020994995,
+          0.30898194437998505
+        ],
+        "abstained": true,
+        "truncated": false
+      },
+      "raw_correct": false,
+      "ms": 45.345
+    },
+    {
+      "task": {
+        "id": "simd-dispatch",
+        "stage": 2,
+        "language": "en",
+        "prompt": "Design portable ARM64 and x86 SIMD dispatch with scalar parity and floating-point regression coverage.",
+        "expected": "strong",
+        "rationale": "Architecture-specific numerical optimization."
+      },
+      "result": {
+        "tier": "strong",
+        "suggested_tier": "standard",
+        "model": "example-strong",
+        "reason": "low confidence or truncated input; preserve strong model",
+        "confidence": 0.47655614323209217,
+        "probabilities": [
+          0.22299510430641953,
+          0.47655614323209217,
+          0.3004487524614884
+        ],
+        "abstained": true,
+        "truncated": false
+      },
+      "raw_correct": false,
+      "ms": 47.702
+    },
+    {
+      "task": {
+        "id": "null-handling",
+        "stage": 2,
+        "language": "en",
+        "prompt": "Handle null input in a configuration parser and test malformed values.",
+        "expected": "standard",
+        "rationale": "Bounded validation fix."
+      },
+      "result": {
+        "tier": "strong",
+        "suggested_tier": "standard",
+        "model": "example-strong",
+        "reason": "low confidence or truncated input; preserve strong model",
+        "confidence": 0.49638812992537484,
+        "probabilities": [
+          0.3404693085063277,
+          0.49638812992537484,
+          0.16314256156829746
+        ],
+        "abstained": true,
+        "truncated": false
+      },
+      "raw_correct": true,
+      "ms": 44.538
+    },
+    {
+      "task": {
+        "id": "deadlock",
+        "stage": 2,
+        "language": "en",
+        "prompt": "Diagnose a rare shutdown deadlock involving native inference and request cancellation.",
+        "expected": "strong",
+        "rationale": "Ambiguous concurrent lifecycle failure."
+      },
+      "result": {
+        "tier": "strong",
+        "suggested_tier": "strong",
+        "model": "example-strong",
+        "reason": "low confidence or truncated input; preserve strong model",
+        "confidence": 0.5094519842604858,
+        "probabilities": [
+          0.13201061546741144,
+          0.3585374002721028,
+          0.5094519842604858
+        ],
+        "abstained": true,
+        "truncated": false
+      },
+      "raw_correct": true,
+      "ms": 45.638
+    },
+    {
+      "task": {
+        "id": "markdown-link",
+        "stage": 2,
+        "language": "en",
+        "prompt": "Fix one broken relative link in the README.",
+        "expected": "fast",
+        "rationale": "One known link replacement."
+      },
+      "result": {
+        "tier": "strong",
+        "suggested_tier": "fast",
+        "model": "example-strong",
+        "reason": "low confidence or truncated input; preserve strong model",
+        "confidence": 0.4873039479030303,
+        "probabilities": [
+          0.4873039479030303,
+          0.4319306423755068,
+          0.08076540972146297
+        ],
+        "abstained": true,
+        "truncated": false
+      },
+      "raw_correct": true,
+      "ms": 45.08
+    }
+  ],
+  "schema": 1,
+  "stage": 2,
+  "summary": {
+    "cases": 24,
+    "judged": 21,
+    "raw_correct": 14,
+    "accepted": 0,
+    "accepted_correct": 0,
+    "accepted_under_routes": 0,
+    "confusion_expected_by_predicted": [
+      [
+        5,
+        2,
+        0
+      ],
+      [
+        0,
+        7,
+        0
+      ],
+      [
+        0,
+        5,
+        2
+      ]
+    ]
+  }
+}

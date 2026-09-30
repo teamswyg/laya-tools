@@ -1,0 +1,328 @@
+{
+  "arch": "arm64",
+  "fixture_sha256": "daf5f63767bff7db9ad10bf580b1680cef9f64361e517afb7eb6fea203d1cbd4",
+  "go": "go1.27.1",
+  "load_ms": 1061.42,
+  "note": "Author-labeled development golden set, fixed before inference. Not independent labels, coding success, or held-out calibration. Korean policy abstentions excluded from raw accuracy. Confusion order: fast, standard, strong. No downstream coding model executed.",
+  "os": "darwin",
+  "rows": [
+    {
+      "task": {
+        "id": "typo",
+        "stage": 1,
+        "language": "en",
+        "prompt": "Correct recieve to receive in a code comment.",
+        "expected": "fast",
+        "rationale": "Single spelling replacement."
+      },
+      "result": {
+        "tier": "strong",
+        "suggested_tier": "standard",
+        "model": "example-strong",
+        "reason": "low confidence or truncated input; preserve strong model",
+        "confidence": 0.5627688619714821,
+        "probabilities": [
+          0.27841458125632224,
+          0.5627688619714821,
+          0.15881655677219567
+        ],
+        "abstained": true,
+        "truncated": false
+      },
+      "raw_correct": false,
+      "ms": 61.627
+    },
+    {
+      "task": {
+        "id": "format",
+        "stage": 1,
+        "language": "en",
+        "prompt": "Run gofmt on one Go file without changing behavior.",
+        "expected": "fast",
+        "rationale": "Mechanical formatting."
+      },
+      "result": {
+        "tier": "strong",
+        "suggested_tier": "standard",
+        "model": "example-strong",
+        "reason": "low confidence or truncated input; preserve strong model",
+        "confidence": 0.4790684170912721,
+        "probabilities": [
+          0.41691850480043496,
+          0.4790684170912721,
+          0.10401307810829281
+        ],
+        "abstained": true,
+        "truncated": false
+      },
+      "raw_correct": false,
+      "ms": 45.218
+    },
+    {
+      "task": {
+        "id": "rename",
+        "stage": 1,
+        "language": "en",
+        "prompt": "Rename a local variable from x to count in one five-line function.",
+        "expected": "fast",
+        "rationale": "Bounded local rename."
+      },
+      "result": {
+        "tier": "strong",
+        "suggested_tier": "fast",
+        "model": "example-strong",
+        "reason": "low confidence or truncated input; preserve strong model",
+        "confidence": 0.7273944257076579,
+        "probabilities": [
+          0.7273944257076579,
+          0.21696544160513698,
+          0.05564013268720522
+        ],
+        "abstained": true,
+        "truncated": false
+      },
+      "raw_correct": true,
+      "ms": 45.397
+    },
+    {
+      "task": {
+        "id": "parser",
+        "stage": 1,
+        "language": "en",
+        "prompt": "Fix quoted-comma handling in a CSV parser and add regression tests.",
+        "expected": "standard",
+        "rationale": "Bounded parsing behavior and tests."
+      },
+      "result": {
+        "tier": "strong",
+        "suggested_tier": "standard",
+        "model": "example-strong",
+        "reason": "low confidence or truncated input; preserve strong model",
+        "confidence": 0.5870858453374077,
+        "probabilities": [
+          0.3294615544844546,
+          0.5870858453374077,
+          0.08345260017813783
+        ],
+        "abstained": true,
+        "truncated": false
+      },
+      "raw_correct": true,
+      "ms": 45.635
+    },
+    {
+      "task": {
+        "id": "endpoint",
+        "stage": 1,
+        "language": "en",
+        "prompt": "Add a paginated list endpoint with validation and tests.",
+        "expected": "standard",
+        "rationale": "Ordinary bounded feature."
+      },
+      "result": {
+        "tier": "strong",
+        "suggested_tier": "standard",
+        "model": "example-strong",
+        "reason": "low confidence or truncated input; preserve strong model",
+        "confidence": 0.6002191585391553,
+        "probabilities": [
+          0.29879860251749873,
+          0.6002191585391553,
+          0.10098223894334588
+        ],
+        "abstained": true,
+        "truncated": false
+      },
+      "raw_correct": true,
+      "ms": 44.77
+    },
+    {
+      "task": {
+        "id": "cache",
+        "stage": 1,
+        "language": "en",
+        "prompt": "Add an expiring cache around one function and test expiration.",
+        "expected": "standard",
+        "rationale": "Stateful bounded feature."
+      },
+      "result": {
+        "tier": "strong",
+        "suggested_tier": "standard",
+        "model": "example-strong",
+        "reason": "low confidence or truncated input; preserve strong model",
+        "confidence": 0.5312603023464507,
+        "probabilities": [
+          0.3939610754239387,
+          0.5312603023464507,
+          0.07477862222961058
+        ],
+        "abstained": true,
+        "truncated": false
+      },
+      "raw_correct": true,
+      "ms": 43.924
+    },
+    {
+      "task": {
+        "id": "migration",
+        "stage": 1,
+        "language": "en",
+        "prompt": "Design a zero-downtime schema migration across a multi-region system.",
+        "expected": "strong",
+        "rationale": "Cross-system migration and compatibility."
+      },
+      "result": {
+        "tier": "strong",
+        "suggested_tier": "standard",
+        "model": "example-strong",
+        "reason": "low confidence or truncated input; preserve strong model",
+        "confidence": 0.47360431974295175,
+        "probabilities": [
+          0.15720614724472615,
+          0.47360431974295175,
+          0.3691895330123221
+        ],
+        "abstained": true,
+        "truncated": false
+      },
+      "raw_correct": false,
+      "ms": 45.062
+    },
+    {
+      "task": {
+        "id": "race",
+        "stage": 1,
+        "language": "en",
+        "prompt": "Diagnose a duplicate-payment race across three concurrent services.",
+        "expected": "strong",
+        "rationale": "Distributed concurrency and financial correctness."
+      },
+      "result": {
+        "tier": "strong",
+        "suggested_tier": "strong",
+        "model": "example-strong",
+        "reason": "low confidence or truncated input; preserve strong model",
+        "confidence": 0.46657480720209393,
+        "probabilities": [
+          0.16340773279662815,
+          0.3700174600012779,
+          0.46657480720209393
+        ],
+        "abstained": true,
+        "truncated": false
+      },
+      "raw_correct": true,
+      "ms": 43.425
+    },
+    {
+      "task": {
+        "id": "security",
+        "stage": 1,
+        "language": "en",
+        "prompt": "Audit tenant isolation and repair cross-tenant privilege escalation paths.",
+        "expected": "strong",
+        "rationale": "Security boundary investigation."
+      },
+      "result": {
+        "tier": "strong",
+        "suggested_tier": "standard",
+        "model": "example-strong",
+        "reason": "low confidence or truncated input; preserve strong model",
+        "confidence": 0.5735307667468419,
+        "probabilities": [
+          0.15314569009136134,
+          0.5735307667468419,
+          0.2733235431617967
+        ],
+        "abstained": true,
+        "truncated": false
+      },
+      "raw_correct": false,
+      "ms": 44.555
+    },
+    {
+      "task": {
+        "id": "ko-typo",
+        "stage": 1,
+        "language": "ko",
+        "prompt": "주석에서 오타 하나를 수정해줘.",
+        "expected": "fast",
+        "rationale": "Single typo; Korean policy guard expected."
+      },
+      "result": {
+        "tier": "strong",
+        "model": "example-strong",
+        "reason": "Korean routing is unvalidated",
+        "abstained": true,
+        "truncated": false
+      },
+      "raw_correct": false,
+      "ms": 0.001
+    },
+    {
+      "task": {
+        "id": "ko-feature",
+        "stage": 1,
+        "language": "ko",
+        "prompt": "입력 검증 함수를 추가하고 테스트해줘.",
+        "expected": "standard",
+        "rationale": "Bounded feature; Korean policy guard expected."
+      },
+      "result": {
+        "tier": "strong",
+        "model": "example-strong",
+        "reason": "Korean routing is unvalidated",
+        "abstained": true,
+        "truncated": false
+      },
+      "raw_correct": false,
+      "ms": 0
+    },
+    {
+      "task": {
+        "id": "ko-race",
+        "stage": 1,
+        "language": "ko",
+        "prompt": "여러 서비스에 걸친 동시성 오류와 데이터 손실 원인을 분석해줘.",
+        "expected": "strong",
+        "rationale": "Cross-service concurrency; Korean policy guard expected."
+      },
+      "result": {
+        "tier": "strong",
+        "model": "example-strong",
+        "reason": "Korean routing is unvalidated",
+        "abstained": true,
+        "truncated": false
+      },
+      "raw_correct": false,
+      "ms": 0
+    }
+  ],
+  "schema": 1,
+  "stage": 1,
+  "summary": {
+    "cases": 12,
+    "judged": 9,
+    "raw_correct": 5,
+    "accepted": 0,
+    "accepted_correct": 0,
+    "accepted_under_routes": 0,
+    "confusion_expected_by_predicted": [
+      [
+        1,
+        2,
+        0
+      ],
+      [
+        0,
+        3,
+        0
+      ],
+      [
+        0,
+        2,
+        1
+      ]
+    ]
+  }
+}

@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"unicode"
@@ -26,15 +27,24 @@ type Chunk struct {
 	Lexical   float64  `json:"lexical_score"`
 	Relevance *float64 `json:"relevance,omitempty"`
 	Truncated bool     `json:"truncated,omitempty"`
-	tf        map[string]int
-	length    int
 }
+
+// posting separates hot numeric arrays from cold source text (SoA).
+type posting struct {
+	chunks  []int
+	weights []float64
+}
+
+// Index is immutable after Load. Concurrent searches use request-local scores.
+// Callers must not modify Chunks, including while a Search is running.
 type Index struct {
-	Chunks []Chunk
-	df     map[string]int
-	avg    float64
-	Bytes  int
-	Files  int
+	Chunks     []Chunk
+	vocabulary map[string]int
+	postings   []posting
+	lengths    []int
+	avg        float64
+	Bytes      int
+	Files      int
 }
 type Scorer interface {
 	Predict(string, string, string, []string) (inference.Prediction, error)
@@ -106,7 +116,7 @@ func Load(root string) (*Index, error) {
 	if err != nil {
 		return nil, err
 	}
-	idx := &Index{df: map[string]int{}}
+	idx := &Index{vocabulary: map[string]int{}}
 	for _, path := range paths {
 		if !safePath(path) {
 			continue
@@ -141,11 +151,20 @@ func Load(root string) (*Index, error) {
 			for _, t := range terms {
 				tf[t]++
 			}
-			for t := range tf {
-				idx.df[t]++
+			for t, count := range tf {
+				id, ok := idx.vocabulary[t]
+				if !ok {
+					id = len(idx.postings)
+					idx.vocabulary[t] = id
+					idx.postings = append(idx.postings, posting{})
+				}
+				post := &idx.postings[id]
+				post.chunks = append(post.chunks, len(idx.Chunks))
+				post.weights = append(post.weights, float64(count))
 			}
+			idx.lengths = append(idx.lengths, len(terms))
 			idx.avg += float64(len(terms))
-			idx.Chunks = append(idx.Chunks, Chunk{Path: filepath.ToSlash(path), Start: start + 1, End: end, Text: text, tf: tf, length: len(terms)})
+			idx.Chunks = append(idx.Chunks, Chunk{Path: filepath.ToSlash(path), Start: start + 1, End: end, Text: text})
 			if len(idx.Chunks) > 50000 {
 				return nil, fmt.Errorf("source exceeds 50000 chunks; search a smaller root")
 			}
@@ -156,6 +175,16 @@ func Load(root string) (*Index, error) {
 	}
 	if len(idx.Chunks) > 0 {
 		idx.avg /= float64(len(idx.Chunks))
+		for i := range idx.postings {
+			p := &idx.postings[i]
+			df := len(p.chunks)
+			idf := math.Log(1 + (float64(len(idx.Chunks)-df)+.5)/(float64(df)+.5))
+			for j, chunk := range p.chunks {
+				f := p.weights[j]
+				p.weights[j] = idf * f * 2.2 / (f + 1.2*(.25+.75*float64(idx.lengths[chunk])/idx.avg))
+			}
+		}
+		idx.lengths = nil
 	}
 	return idx, nil
 }
@@ -167,32 +196,48 @@ func (idx *Index) Search(query, candidateQuery string, k, limit int, scorer Scor
 	if candidateQuery == "" {
 		candidateQuery = query
 	}
-	seen := map[string]bool{}
+	// Resolve strings once, then score only documents containing each term.
 	terms := Terms(candidateQuery)
-	var ranked []Chunk
-	for _, c := range idx.Chunks {
-		s := 0.0
-		clear(seen)
-		for _, t := range terms {
-			if seen[t] {
-				continue
-			}
-			seen[t] = true
-			f := float64(c.tf[t])
-			if f == 0 {
-				continue
-			}
-			idf := math.Log(1 + (float64(len(idx.Chunks)-idx.df[t])+.5)/(float64(idx.df[t])+.5))
-			s += idf * f * 2.2 / (f + 1.2*(.25+.75*float64(c.length)/idx.avg))
+	ids := make([]int, 0, len(terms))
+	scores := make([]float64, len(idx.Chunks))
+	for _, term := range terms {
+		id, ok := idx.vocabulary[term]
+		if !ok || slices.Contains(ids, id) {
+			continue
 		}
-		if s > 0 {
-			c.Score = s
-			c.Lexical = s
-			ranked = append(ranked, c)
+		ids = append(ids, id)
+		p := &idx.postings[id]
+		for j, chunk := range p.chunks {
+			scores[chunk] += p.weights[j]
 		}
 	}
-	sortChunks(ranked)
-	ranked = ranked[:min(k, len(ranked))]
+	type hit struct {
+		chunk int
+		score float64
+	}
+	hits := make([]hit, 0)
+	for i, score := range scores {
+		if score > 0 {
+			hits = append(hits, hit{i, score})
+		}
+	}
+	sort.Slice(hits, func(i, j int) bool {
+		if hits[i].score != hits[j].score {
+			return hits[i].score > hits[j].score
+		}
+		a, b := idx.Chunks[hits[i].chunk], idx.Chunks[hits[j].chunk]
+		if a.Path != b.Path {
+			return a.Path < b.Path
+		}
+		return a.Start < b.Start
+	})
+	ranked := make([]Chunk, min(k, len(hits)))
+	for i := range ranked {
+		h := hits[i]
+		ranked[i] = idx.Chunks[h.chunk]
+		ranked[i].Score = h.score
+		ranked[i].Lexical = h.score
+	}
 	r.Candidates = len(ranked)
 	if len(ranked) == 0 {
 		r.Warnings = append(r.Warnings, "No lexical candidates. Try code identifiers or --candidate-query with English terms; reranking cannot recover absent candidates.")
