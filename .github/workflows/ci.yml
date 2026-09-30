@@ -1,0 +1,64 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-15]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
+        with:
+          go-version-file: go.mod
+      - run: test -z "$(gofmt -l cmd internal)"
+      - run: go test -race ./...
+      - run: go vet ./...
+      - run: go build -trimpath -o bin/laya ./cmd/laya
+      - name: Install verified public runtime and checkpoint
+        run: ./bin/laya setup
+      - name: Native inference and reference tokenizer parity
+        shell: bash
+        run: |
+          if [[ "$RUNNER_OS" == macOS ]]; then
+            export LAYA_MODEL_DIR="$HOME/Library/Caches/laya-tools/base"
+            export LAYA_RUNTIME="$HOME/Library/Caches/laya-tools/runtime/libonnxruntime.1.30.0.dylib"
+          else
+            export LAYA_MODEL_DIR="$HOME/.cache/laya-tools/base"
+            export LAYA_RUNTIME="$HOME/.cache/laya-tools/runtime/libonnxruntime.so.1.30.0"
+          fi
+          go test -count=1 -v ./internal/inference
+          ./bin/laya bench --iterations 3
+      - run: ./bin/laya search --lexical --json --root . 'routing confidence'
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
+        with:
+          go-version-file: go.mod
+      - run: go run github.com/zricethezav/gitleaks/v8@v8.24.3 git --redact --no-banner
+  quality:
+    if: always()
+    needs: [test, secrets]
+    runs-on: ubuntu-latest
+    steps:
+      - name: All required checks passed
+        env:
+          TEST_RESULT: ${{ needs.test.result }}
+          SECRET_RESULT: ${{ needs.secrets.result }}
+        run: test "$TEST_RESULT" = success && test "$SECRET_RESULT" = success

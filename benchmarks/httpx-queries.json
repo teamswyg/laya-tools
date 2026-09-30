@@ -1,0 +1,212 @@
+[
+  {
+    "id": "redirect_method",
+    "lang": "en",
+    "query": "Which HTTP verb is used after a 303 response redirects a POST request?",
+    "gold": [
+      {
+        "path": "_client.py",
+        "line": 494
+      }
+    ]
+  },
+  {
+    "id": "redirect_auth",
+    "lang": "en",
+    "query": "Where are credentials stripped when a redirect goes to a different host?",
+    "gold": [
+      {
+        "path": "_client.py",
+        "line": 546
+      }
+    ]
+  },
+  {
+    "id": "proxy_env",
+    "lang": "en",
+    "query": "How do environment variables control proxy bypass for localhost and particular domains?",
+    "gold": [
+      {
+        "path": "_utils.py",
+        "line": 30
+      }
+    ]
+  },
+  {
+    "id": "digest_challenge",
+    "lang": "en",
+    "query": "How is a server digest authentication challenge parsed into realm nonce and algorithm?",
+    "gold": [
+      {
+        "path": "_auth.py",
+        "line": 224
+      }
+    ]
+  },
+  {
+    "id": "gzip",
+    "lang": "en",
+    "query": "Where is a gzip compressed response body decompressed and corrupt data handled?",
+    "gold": [
+      {
+        "path": "_decoders.py",
+        "line": 95
+      },
+      {
+        "path": "_decoders.py",
+        "line": 92
+      }
+    ]
+  },
+  {
+    "id": "cookie_conflict",
+    "lang": "en",
+    "query": "What happens when looking up a cookie name that exists on multiple domains?",
+    "gold": [
+      {
+        "path": "_models.py",
+        "line": 1143
+      }
+    ]
+  },
+  {
+    "id": "status_error",
+    "lang": "en",
+    "query": "Where does an unsuccessful HTTP status become an exception with a helpful error message?",
+    "gold": [
+      {
+        "path": "_models.py",
+        "line": 794
+      }
+    ]
+  },
+  {
+    "id": "stream_lines",
+    "lang": "en",
+    "query": "How are partial lines buffered across chunks when decoding a streamed text response?",
+    "gold": [
+      {
+        "path": "_decoders.py",
+        "line": 333
+      }
+    ]
+  },
+  {
+    "id": "unicode_host",
+    "lang": "en",
+    "query": "Where are international domain names converted to ASCII with IDNA?",
+    "gold": [
+      {
+        "path": "_urlparse.py",
+        "line": 348
+      }
+    ]
+  },
+  {
+    "id": "transport_errors",
+    "lang": "en",
+    "query": "How are low level network exceptions converted into the library's public exception types?",
+    "gold": [
+      {
+        "path": "_transports/default.py",
+        "line": 96
+      }
+    ]
+  },
+  {
+    "id": "response_encoding",
+    "lang": "en",
+    "query": "How is the character encoding of response text chosen from headers or a default?",
+    "gold": [
+      {
+        "path": "_models.py",
+        "line": 653
+      },
+      {
+        "path": "_models.py",
+        "line": 689
+      }
+    ]
+  },
+  {
+    "id": "base_url",
+    "lang": "en",
+    "query": "Where is a relative URL combined with the client's base address and slash handling?",
+    "gold": [
+      {
+        "path": "_client.py",
+        "line": 391
+      }
+    ]
+  },
+  {
+    "id": "ko_redirect",
+    "lang": "ko",
+    "query": "HTTP 303 응답 뒤에 POST를 GET으로 바꾸는 코드는 어디야?",
+    "gold": [
+      {
+        "path": "_client.py",
+        "line": 494
+      }
+    ]
+  },
+  {
+    "id": "ko_auth",
+    "lang": "ko",
+    "query": "redirect로 다른 host에 갈 때 Authorization 헤더를 제거하는 부분을 찾아줘",
+    "gold": [
+      {
+        "path": "_client.py",
+        "line": 546
+      }
+    ]
+  },
+  {
+    "id": "ko_proxy",
+    "lang": "ko",
+    "query": "NO_PROXY 환경 변수로 localhost 프록시 우회를 처리하는 코드는?",
+    "gold": [
+      {
+        "path": "_utils.py",
+        "line": 30
+      }
+    ]
+  },
+  {
+    "id": "ko_gzip",
+    "lang": "ko",
+    "query": "gzip 응답 압축을 풀고 오류를 처리하는 함수를 찾아줘",
+    "gold": [
+      {
+        "path": "_decoders.py",
+        "line": 95
+      },
+      {
+        "path": "_decoders.py",
+        "line": 92
+      }
+    ]
+  },
+  {
+    "id": "ko_cookie",
+    "lang": "ko",
+    "query": "여러 도메인에 같은 이름의 쿠키가 있을 때 어떻게 처리해?",
+    "gold": [
+      {
+        "path": "_models.py",
+        "line": 1143
+      }
+    ]
+  },
+  {
+    "id": "ko_lines",
+    "lang": "ko",
+    "query": "스트리밍 텍스트에서 청크에 걸친 줄바꿈과 미완성 줄을 처리하는 부분은?",
+    "gold": [
+      {
+        "path": "_decoders.py",
+        "line": 333
+      }
+    ]
+  }
+]

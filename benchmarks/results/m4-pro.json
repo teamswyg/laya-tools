@@ -1,0 +1,111 @@
+{
+  "date": "2026-09-30",
+  "hardware": "Apple M4 Pro, 24 GiB unified memory",
+  "os": "macOS 26.6.2 arm64",
+  "workload": "single 47-token noul decision, 1 warmup then 30 serial calls per thread setting",
+  "threads": [
+    {
+      "go_heap_bytes": 13955280,
+      "go_sys_bytes": 31885576,
+      "iterations": 30,
+      "load_ms": 667.324,
+      "note": "Go heap excludes native model allocations; CoreML request does not prove GPU execution",
+      "probabilities": [
+        0.15083861960163733,
+        0.8491613803983628
+      ],
+      "provider_requested": "cpu",
+      "threads": 1,
+      "tokens": 47,
+      "warm_max_ms": 40.836,
+      "warm_median_ms": 40.289,
+      "warm_min_ms": 39.631,
+      "peak_rss_bytes": 1476804608
+    },
+    {
+      "go_heap_bytes": 13302944,
+      "go_sys_bytes": 31377672,
+      "iterations": 30,
+      "load_ms": 646.844,
+      "note": "Go heap excludes native model allocations; CoreML request does not prove GPU execution",
+      "probabilities": [
+        0.15083861960163733,
+        0.8491613803983628
+      ],
+      "provider_requested": "cpu",
+      "threads": 2,
+      "tokens": 47,
+      "warm_max_ms": 34.034,
+      "warm_median_ms": 32.71,
+      "warm_min_ms": 30.751,
+      "peak_rss_bytes": 1479819264
+    },
+    {
+      "go_heap_bytes": 13519472,
+      "go_sys_bytes": 32131336,
+      "iterations": 30,
+      "load_ms": 624.468,
+      "note": "Go heap excludes native model allocations; CoreML request does not prove GPU execution",
+      "probabilities": [
+        0.15083861960163733,
+        0.8491613803983628
+      ],
+      "provider_requested": "cpu",
+      "threads": 4,
+      "tokens": 47,
+      "warm_max_ms": 26.945,
+      "warm_median_ms": 26.281,
+      "warm_min_ms": 25.603,
+      "peak_rss_bytes": 1490321408
+    },
+    {
+      "go_heap_bytes": 13451104,
+      "go_sys_bytes": 31885576,
+      "iterations": 30,
+      "load_ms": 619.51,
+      "note": "Go heap excludes native model allocations; CoreML request does not prove GPU execution",
+      "probabilities": [
+        0.15083861960163733,
+        0.8491613803983628
+      ],
+      "provider_requested": "cpu",
+      "threads": 8,
+      "tokens": 47,
+      "warm_max_ms": 25.14,
+      "warm_median_ms": 23.561,
+      "warm_min_ms": 23.206,
+      "peak_rss_bytes": 1479933952
+    }
+  ],
+  "warm_residency": {
+    "rss_bytes_after_one_route": 1483505664,
+    "method": "macOS ps -o rss= (KiB converted to bytes); warm Go JSONL process before shutdown"
+  },
+  "fp32": {
+    "go_heap_bytes": 13212032,
+    "go_sys_bytes": 32200984,
+    "iterations": 20,
+    "load_ms": 2347.3,
+    "note": "Go heap excludes native model allocations; CoreML request does not prove GPU execution",
+    "probabilities": [
+      0.15498936176321249,
+      0.8450106382367875
+    ],
+    "provider_requested": "cpu",
+    "threads": 4,
+    "tokens": 47,
+    "warm_max_ms": 137.967,
+    "warm_median_ms": 38.537,
+    "warm_min_ms": 35.733
+  },
+  "coreml": {
+    "status": "initialization_failed",
+    "error": "HandleNegativeAxis: axis 2 is not in valid range [-2,1]",
+    "gpu_counters_measured": false
+  },
+  "limitations": [
+    "single machine, one short prompt; not a coding end-to-end benchmark",
+    "OS caches were warm; load_ms is session initialization, not first download",
+    "Go heap excludes native allocations; peak RSS includes initialization peaks"
+  ]
+}

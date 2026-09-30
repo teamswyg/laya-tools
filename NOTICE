@@ -1,0 +1,22 @@
+Laya Tools — Copyright 2026 teamswyg contributors. Apache-2.0.
+
+Model and architecture sources (Apache-2.0):
+- convaiinnovations/laya: 55cf4c4ebb4ebe31b2550e8bdf3bd21b99753851
+  https://huggingface.co/convaiinnovations/laya
+- tindang/laya-code (r1): 25f97e5a2ec5f8cf7218a4f67504367d8832e1fe
+  https://huggingface.co/tindang/laya-code
+- NandhaKishorM/laya: 6d942c92081fbc139e736bbd9ac0023223c29b7f
+  https://github.com/NandhaKishorM/laya
+  scripts/export_onnx.py is reproduced from upstream; sequence formatting in
+  internal/inference/tokenizer.go follows laya.common.build_sequence.
+  Model archives include the model cards and Apache-2.0 license.
+
+ONNX Runtime 1.30.0 is separately downloaded from Microsoft's official releases
+(MIT); LICENSE and ThirdPartyNotices.txt are preserved in the runtime cache.
+Go dependencies and licenses remain available via go.mod/go.sum and their sources.
+
+The optional evaluation corpus is encode/httpx 0.28.1 (BSD-3-Clause), commit
+26d48e0634e6ee9cdc0533996db289ce4b430177. It is downloaded separately and is not
+redistributed here. Benchmark questions are original development fixtures.
+Inspired by Jevgrep and pilotspace/laya-codex; no claim of affiliation or matching
+quality/cost results. No implementation code copied from those projects.
