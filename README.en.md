@@ -2,6 +2,8 @@
 
 Separate research: [semantic hints](experiments/semantic-hints/PLAN.en.md) explores very cheap suggestions that improve expensive search ordering. Independent of difficulty routing; [nonlearned baseline results](experiments/semantic-hints/README.md) are available.
 
+Static embedding control: [Go execution, packing and upstream parity](experiments/static-embedding/README.en.md). Code-relevance quality remains insufficient; this is not a default model.
+
 [한국어](README.md) · **English** · [User Wiki](https://github.com/teamswyg/laya-tools/wiki) · [Documentation](docs/README.md)
 
 [![CI](https://github.com/teamswyg/laya-tools/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/teamswyg/laya-tools/actions/workflows/ci.yml)
