@@ -42,13 +42,17 @@ func words(s string) []string {
 // New snapshots the text into a sorted vocabulary and posting arrays. No model,
 // network, tokenizer assets or Python runtime is required.
 func New(documents []string) (*Index, error) {
-	if len(documents) == 0 || len(documents) > MaxDocuments {
-		return nil, fmt.Errorf("require 1..%d documents", MaxDocuments)
+	return newIndex(documents, MaxDocuments, MaxCatalogBytes)
+}
+
+func newIndex(documents []string, maxDocuments, maxBytes int) (*Index, error) {
+	if len(documents) == 0 || len(documents) > maxDocuments {
+		return nil, fmt.Errorf("require 1..%d documents", maxDocuments)
 	}
 	total := 0
 	for _, s := range documents {
-		if len(s) > MaxCatalogBytes-total {
-			return nil, fmt.Errorf("catalog exceeds %d bytes", MaxCatalogBytes)
+		if len(s) > maxBytes-total {
+			return nil, fmt.Errorf("catalog exceeds %d bytes", maxBytes)
 		}
 		total += len(s)
 	}
@@ -199,8 +203,12 @@ func InterleaveBaselineFirst(baseline, hints []int) ([]int, error) {
 }
 
 func interleave(baseline, hints []int, baselineFirst bool) ([]int, error) {
+	return interleaveBounded(baseline, hints, baselineFirst, MaxDocuments)
+}
+
+func interleaveBounded(baseline, hints []int, baselineFirst bool, limit int) ([]int, error) {
 	n := len(baseline)
-	if n == 0 || n > MaxDocuments || len(hints) > n {
+	if n == 0 || n > limit || len(hints) > n {
 		return nil, fmt.Errorf("invalid candidate counts")
 	}
 	seen := make([]bool, n)
