@@ -62,6 +62,10 @@ func InspectRoot(repo string, b []byte) (RootObservation, error) {
 		if entry.Path == "" || strings.Contains(entry.Path, "/") || !commitPattern.MatchString(entry.SHA) {
 			return r, fmt.Errorf("malformed root entry")
 		}
+		validMode := (entry.Type == "blob" && (entry.Mode == "100644" || entry.Mode == "100755" || entry.Mode == "120000")) || (entry.Type == "tree" && entry.Mode == "040000") || (entry.Type == "commit" && entry.Mode == "160000")
+		if !validMode {
+			return r, fmt.Errorf("invalid root object type or mode")
+		}
 		paths = append(paths, entry.Path)
 		p := strings.ToUpper(entry.Path)
 		if entry.Type == "blob" && (p == "LICENSE" || strings.HasPrefix(p, "LICENSE.") || strings.HasPrefix(p, "LICENSE-") || p == "COPYING" || strings.HasPrefix(p, "COPYING.") || p == "NOTICE" || strings.HasPrefix(p, "NOTICE.")) {
