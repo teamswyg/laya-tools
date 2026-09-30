@@ -10,6 +10,8 @@
 
 [작은 주장 모델 실험](experiments/path-cost-claim/RESULTS-46.ko.md)은 실제 학습 **4,456개·검증 2,599개**로 10개 후보를 실행했습니다. 규모 기준은 충족했지만 유용성 기준은 실패했습니다. 초기 24문제와 모델 설정 수를 구분하며, 최종 평가 2,402개는 아직 평가하지 않았습니다. 전체 준비·학습·정책 재생의 warm 실행은 최대 RSS 약 108.6MiB였으며, 단일 추론이나 Codex 절감 측정값은 아닙니다.
 
+[골든셋 규모 안내](docs/golden-set-scale.ko.md)는 24개 예비 시험과 최소 2,400개 평가의 차이, 학습·검증·최종 평가 분리, 검색·모델 라우팅·저장소 선택·작업 분할별 정답을 설명합니다.
+
 **한국어** · [English](README.en.md) · [사용자 Wiki](https://github.com/teamswyg/laya-tools/wiki) · [문서 목록](docs/README.md)
 
 [![CI](https://github.com/teamswyg/laya-tools/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/teamswyg/laya-tools/actions/workflows/ci.yml)

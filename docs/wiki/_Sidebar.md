@@ -117,3 +117,5 @@
 - [24개와 2,400개: 작은 주장 모델 학습 기준](Path-Claim-Plan-46-KO) · [24 versus 2,400: tiny claim fitting requirements](Path-Claim-Plan-46-EN)
 
 - [실제 수천 개 학습·실패·메모리](Path-Claim-Results-46-KO) · [Actual training, failed gates and memory](Path-Claim-Results-46-EN)
+
+- [골든셋 규모와 도메인 구분](https://github.com/teamswyg/laya-tools/blob/main/docs/golden-set-scale.ko.md) · [Golden-set scale and domain boundaries](https://github.com/teamswyg/laya-tools/blob/main/docs/golden-set-scale.en.md)
