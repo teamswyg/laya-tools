@@ -1,0 +1,68 @@
+{
+  "schema": "riido-search-claim-plan-09",
+  "source_projection_sha256": "e813e272dc6be1f7428d537a328dd392ba2acdce7afc13c8cc04993b09fd42a0",
+  "candidate_membership_sha256": "3a6d161ac50e16f18b841645968f47af32055350e460c99a96d733ff217ff37d",
+  "questions": 2948,
+  "candidates": 3009,
+  "feature_schema": "riido-search-claim-v1",
+  "dimension": 12,
+  "features": "query shape and raw baseline score statistics only; no gold target/name/repository/auxiliary outcome features",
+  "label": "1 iff auxiliary-first interleave has strictly lower first-known-target rank than raw baseline",
+  "folds": [
+    {
+      "evaluation": "etcd-io/etcd",
+      "training": "kubernetes/test-infra",
+      "validation": "lxc/lxd"
+    },
+    {
+      "evaluation": "kubernetes/test-infra",
+      "training": "lxc/lxd",
+      "validation": "etcd-io/etcd"
+    },
+    {
+      "evaluation": "lxc/lxd",
+      "training": "etcd-io/etcd",
+      "validation": "kubernetes/test-infra"
+    }
+  ],
+  "catalog": "all 3009 code documents visible to every fold as a retrieval catalog; held-out query labels never used in that fold training/selection",
+  "training": {
+    "modes": [
+      "fp32",
+      "ternary_ste"
+    ],
+    "seeds": [
+      1729,
+      2718
+    ],
+    "learning_rate": 0.1,
+    "l2": 0.0001,
+    "epochs": 100,
+    "batch": 64,
+    "epoch_selection": "minimum validation BCE, earliest tie"
+  },
+  "derived_modes": [
+    "int8",
+    "ternary_ptq"
+  ],
+  "decision": "fixed margin >=0 suggests auxiliary-first interleave; otherwise complete raw baseline",
+  "controls": [
+    "raw baseline",
+    "always auxiliary-first interleave"
+  ],
+  "primary": "fp32 seed1729; aggregate each question once from its held-out repository fold",
+  "exploratory_gate": {
+    "mean_rank_relative_reduction_at_least": 0.1,
+    "recall1_not_below_baseline": true,
+    "recall10_not_below_baseline": true
+  },
+  "production_promotion": false,
+  "limitations": [
+    "Previously observed documentation proxy from only three repositories; not a fresh independent final task evaluation",
+    "Gold name-presence strata are not runtime signals",
+    "Binary improvement labels ignore improvement magnitude and extra search CPU; report resulting ranks and call rate separately",
+    "Models and labels for a held-out repository appear in other folds; never combine these heads for a claimed independent test",
+    "No CoSQA reserve training or scoring; no paid LLM calls",
+    "No true 1.58-bit packed inference claim from JSON coefficient files"
+  ]
+}

@@ -3,10 +3,12 @@
 package researchbundle
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -46,11 +48,19 @@ func Verify(dir string) (Manifest, error) {
 	if e != nil {
 		return m, e
 	}
-	if e = json.Unmarshal(b, &m); e != nil {
+	decoder := json.NewDecoder(bytes.NewReader(b))
+	decoder.DisallowUnknownFields()
+	if e = decoder.Decode(&m); e != nil {
 		return m, e
+	}
+	if e = decoder.Decode(new(any)); e != io.EOF {
+		return m, fmt.Errorf("extra manifest content")
 	}
 	if m.Schema == "riido-alignment-bundle-v1" {
 		return VerifyAlignment(dir, m)
+	}
+	if m.Schema == "riido-search-claim-bundle-v1" {
+		return VerifySearchClaim(dir, m)
 	}
 	if m.Schema == "riido-qat-bundle-v1" {
 		return VerifyQAT(dir, m)

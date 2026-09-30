@@ -1,0 +1,3 @@
+package main
+
+const PlanSHA256 = "ae516f0bf1019453da32de70f63a72cfc7f6291efb45db811a222d0650f77725"
