@@ -1,0 +1,21 @@
+{
+  "schema": "riido-page-budget-plan-15",
+  "questions": 2948,
+  "candidates": 3009,
+  "page_size": 20,
+  "source_model_repository": "JooYoon/riidolaya-page-claim-research-v0.1",
+  "source_model_revision": "4e0addaa24d407bb11282f193e039c943a08bd0a",
+  "source_manifest_sha256": "28ac81989edbe98f0551f6e470f58cdce7114019dddda803974a801ecd7bc2b5",
+  "training": "No refitting; reuse the 24 frozen experiment-14 heads and their original train/validation/test repository identities",
+  "budgets_percent": [25, 50, 75, 90],
+  "primary": "fp32 seed 1729, validation helper-call cap 90 percent",
+  "replication": "fp32 seed 2718 at the same cap; do not choose a winning seed",
+  "heuristic_control": "negative normalized baseline top-two score gap = -runtime feature 9; lower gap receives higher helper priority",
+  "selection": "On validation repository only: enumerate all distinct score thresholds using score >= threshold, plus disabled. Among thresholds with calls <= floor(n*budget/100), minimize total pages; ties prefer fewer helper calls. Never split score ties.",
+  "test": "Apply selected threshold unchanged to held-out repository; report actual call rate, which may exceed the validation cap under distribution shift",
+  "aggregate": "Each held-out query appears exactly once for each scorer/budget combination",
+  "exploratory_gate": "pages <= always-helper, actual calls <= the stated cap, Recall1/10 >= raw baseline; additionally learned policy must have no more pages and no more calls than calibrated gap heuristic at same budget, with at least one strict improvement",
+  "cost_scope": "Output pages and auxiliary-call count are separate objectives. No CPU-to-token conversion or LLM savings assertion.",
+  "independence": "Previously observed three-repository docstring proxy; model epoch and threshold share validation data, evaluation labels excluded from both; not an independent final evaluation",
+  "production_ready": false
+}
