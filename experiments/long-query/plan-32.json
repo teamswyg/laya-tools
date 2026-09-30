@@ -1,0 +1,13 @@
+{
+  "schema": "riido-long-query-plan-v1",
+  "selection_sha256": "fa58c4e51ae307963eb587813e49adf70d987dcb4893f6ee1aa6050bc6b80a5a",
+  "purpose": "retain all2400 frozen tasks, including53 requests beyond8192 bytes; this is an input execution contract, not retrieval quality or model evaluation",
+  "contract": "add opt-in RankLongInto with128KiB UTF8 query bound, no truncation/windowing/summary, one complete tokenization and unique-term BM25 scoring; preserve existing8192-byte Rank/RankInto contract and scores; caller-owned buffers and immutable index remain",
+  "evaluation": "recompute pinned selection; execute every complete request once against a fixed original4096-document synthetic catalog used solely to measure input processing; compare exact short-query scores/order with existing API, report all failures without replacing requests; never use task answers or patches",
+  "catalog": "4096 generated documents: fmt.Sprintf(document %04d source code function error test implementation branch repository, i); not actual task repositories or relevance evidence",
+  "verification": "Unicode/bounds/invalid input/no buffer mutation, meaningful term after8192 bytes, short parity, independent full-query scoring oracle, concurrent independent buffers; exact aggregate replay; full race/vet and secret scan",
+  "resources": "process maximum RSS and wall/user/system time separate from in-process ranking allocation delta and elapsed time; report synthetic catalog limitation; no inference/GPU/LLM savings claim",
+  "output": "public aggregate counts and input byte totals only; no raw tasks, per-task hashes/predictions, model weights or profiles",
+  "next": "full pre-fix file catalogs and patch-derived file-localization comparison, with missing labels and candidate limits explicit; preserve separate unseen reserves",
+  "production_ready": false
+}
