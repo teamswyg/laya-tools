@@ -211,11 +211,13 @@ func (e *Encoder) Build(state, kind, instruction string, options []string, maxLe
 	}
 	opts := make([][]int64, len(options))
 	budget := 192
+	optionsTruncated := false
 	for i, s := range options {
 		ids, err := e.Encode(" " + s)
 		if err != nil {
 			return Sequence{}, err
 		}
+		optionsTruncated = optionsTruncated || len(ids) > 48
 		opts[i] = append([]int64{e.mask}, ids[:min(48, len(ids))]...)
 		budget -= len(opts[i])
 	}
@@ -223,6 +225,7 @@ func (e *Encoder) Build(state, kind, instruction string, options []string, maxLe
 		per := max(4, (192-16)/len(options))
 		budget = 192
 		for i, o := range opts {
+			optionsTruncated = optionsTruncated || len(o) > per
 			opts[i] = o[:min(per, len(o))]
 			budget -= len(opts[i])
 		}
@@ -240,7 +243,7 @@ func (e *Encoder) Build(state, kind, instruction string, options []string, maxLe
 		return Sequence{}, err
 	}
 	room := maxLen - len(ids) - 1
-	truncated := len(st) > room || len(head) > max(8, budget)
+	truncated := optionsTruncated || len(st) > room || len(head) > max(8, budget)
 	ids = append(ids, st[:min(room, len(st))]...)
 	ids = append(ids, e.sep)
 	return Sequence{IDs: ids, Markers: markers, Truncated: truncated}, nil

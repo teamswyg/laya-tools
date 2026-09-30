@@ -185,6 +185,26 @@ riidolaya plan --config examples/planner/config.json --request examples/planner/
 
 예제의 가격·품질·확신도는 설명용 가상 값입니다. `plan`은 비용을 추정할 뿐 유료 모델 호출이나 실제 모델 변경을 하지 않습니다. 현재 Codex 대화에도 자동 적용되지 않습니다. 가격 기반 추정은 Codex 구독 사용량 계산이 아니며, 실제 비용 절감은 아직 미검증입니다. 에이전트는 JSON의 `plan.status`가 `recommend`, `hold`, `blocked` 중 무엇인지 확인하면 됩니다.
 
+## GitHub 저장소 선택 preview
+
+뤼이도가 알고 있는 저장소 이름·역할 요약·키워드를 로컬 JSON으로 받아 작업에 맞는 후보를 보여줍니다. 공개 패키지는 `pkg/reporouter`입니다. 실제 저장소 조회·clone·작업 실행이나 뤼이도 연결은 하지 않습니다.
+
+```sh
+riidolaya repo-preview --catalog examples/repositories/catalog.json --json 'refund invoices'
+riidolaya repo-preview --catalog examples/repositories/catalog.json --laya --json 'refund invoices'
+riidolaya repo-serve --catalog examples/repositories/catalog.json --laya
+```
+
+기본은 모델 없는 키워드 검색이며 `--laya`는 영어용 로컬 모델을 추가하는 실험 옵션입니다. **첫 가상 예제 평가에서는 Laya의 이득을 확인하지 못했습니다:** 원시 선택 8/15 정답, 기본 기준을 통과한 추천 0건. 키워드만 사용한 프로세스는 약 11.5MiB, Laya를 로딩한 프로세스는 약 1.40GiB 최대 RSS였습니다. 쉬운 개발 예제 결과로 운영 정확도를 주장하지 않습니다.
+
+[라우팅 적합성·preview 사용법·측정 결과](docs/repository-routing-preview.ko.md)에 한계와 뤼이도 연결 순서를 정리했습니다. 모든 결과는 preview이며 `candidate`를 실행 허가로 해석하지 않습니다.
+
+## 오픈소스 라이선스와 배포 고지
+
+현재 구성 요소는 확인된 Apache-2.0/MIT/BSD-3-Clause 조건을 따라 수정·재배포할 수 있도록 고지를 보존합니다. 기존 모델 묶음에서 누락한 laya-code NOTICE와 CLI 의존성 고지를 보완했고, `models-v2`에 변환 내역·출처를 포함했습니다. 새 버전의 `riidolaya setup`으로 고지가 포함된 모델 묶음을 받습니다.
+
+[라이선스 검토 문서](docs/license-audit.ko.md)는 원문, 의무, 실제 수정, 남은 한계를 구분합니다. CI는 의존성 변경과 고지 누락을 검사하지만, 모델 학습 데이터의 권리까지 보증하지는 않습니다.
+
 ## 사람과 에이전트가 함께 쓰는 인터페이스
 
 사람에게는 일반 텍스트, 에이전트에는 `--json`을 제공합니다. 오류는 stderr와 0이 아닌 종료 코드로 알립니다. 질문 대신 `-`를 전달하면 stdin에서 입력을 읽습니다.

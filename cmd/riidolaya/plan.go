@@ -13,7 +13,7 @@ import (
 
 func readPlanJSON(path string, value any) error {
 	if path == "" {
-		return fmt.Errorf("--config and --request are required")
+		return fmt.Errorf("JSON file path is required")
 	}
 	var r io.Reader = os.Stdin
 	if path != "-" {

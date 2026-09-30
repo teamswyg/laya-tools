@@ -23,7 +23,9 @@ For a Go model directory:
 - copy `laya.int8.onnx` to `model.onnx`;
 - copy `tokenizer/tokenizer.json` to `tokenizer.json`;
 - copy `rl_agent_config.json` to `config.json`;
-- include Apache-2.0 LICENSE and the pinned model's MODEL_CARD.md.
+- include Apache-2.0 LICENSE and the pinned model's MODEL_CARD.md;
+- preserve upstream NOTICE (including the laya-code copyright/attribution),
+  add MODIFICATIONS.md and PROVENANCE.json, and mark the converted ONNX doc_string.
 
 Run tokenizer reference parity and native positive/negative decision tests:
 
@@ -37,7 +39,10 @@ and special tokens. Runtime code implements the pinned tokenizer in Go. Only
 this English NFC/ByteLevel/BPE format is accepted; arbitrary multilingual models
 are not implicitly supported.
 
-Archives contain only those five flat files. Remove host metadata from tar headers.
+Current models-v2 archives contain those eight flat files.
+`scripts/package_model_notices.py` adds missing attribution to the original v1
+exports and verifies the serialized ONNX graph is unchanged; use the maintainer
+export environment with onnx installed. It does not retrain or requantize. Remove host metadata from tar headers.
 Compute the archive SHA-256 and every file's SHA-256, publish a new model version,
 then update internal/assets/manifest.json via a CI-checked PR. Never overwrite
 existing pinned model assets. CI verifies integrity on download; model license
