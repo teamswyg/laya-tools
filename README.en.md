@@ -258,3 +258,17 @@ go test -bench . -benchmem ./internal/search
 Native tests need `LAYA_MODEL_DIR` and `LAYA_RUNTIME`; CI sets them after setup. See [model builds](docs/model-build.md) and [design](docs/design.en.md). Use public or original fixtures; never publish private source, actual user prompts, credentials, or raw profiles. Model/runtime revisions, licenses, and checksums are pinned.
 
 Project license: Apache-2.0. Upstream terms and attribution: [NOTICE](NOTICE) and [licenses](licenses).
+
+## Recommend upgrades as well as downgrades
+
+Easy work can move down; difficult work can move to a stronger model. Set the current model with request JSON `current` and capability ordering with catalog `rank`. A higher price alone does not mean an upgrade.
+
+```sh
+riidolaya plan --config examples/planner/config.json --request examples/planner/upgrade.json --json
+```
+
+This example recommends `example-fast` → `example-strong` with `direction: upgrade` and `reason: quality_upgrade`. The existing `request.json` demonstrates a downgrade. This example uses a supplied assessment without invoking Laya. Append an English task description to let local Laya assess complexity instead.
+
+`direction` is `upgrade`, `downgrade`, `lateral` (same rank), `initial` (first selection), or `unchanged` (hold); blocked plans omit it. Upgrades prioritize quality over cache payback and cooldown, but still respect budgets, capabilities, context limits, and manual pins. Uncertain Laya output is not upgrade evidence; if the current model also fails the constraints, the result is `blocked`. With default configuration, catalog confidence must also reach 0.9: the switch upgrade threshold of 0.5 alone is insufficient.
+
+These are recommendations only. No active Codex conversation is switched and no failure is automatically detected or retried. An integrating agent must update the current model and assessment at each task stage.

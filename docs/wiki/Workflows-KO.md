@@ -69,3 +69,17 @@ riidolaya codex --model YOUR_MODEL --dry-run 'Implement the feature'
 route 출력의 `suggested_tier`는 모델 제안, `tier`는 정책 적용 결과이며 `abstained: true`는 강한 능력을 유지하도록 보류했다는 뜻입니다. 높은 분류 확률이 코딩 성공을 보장하지 않습니다. 직접 지정한 `--model`이 우선합니다.
 
 다음: [에이전트·Go 연동](https://github.com/teamswyg/laya-tools/wiki/Agents-and-Go-KO) 또는 [문제 해결](https://github.com/teamswyg/laya-tools/wiki/Performance-and-Troubleshooting-KO).
+
+## 모델을 올리거나 내리는 양방향 추천
+
+쉬운 작업은 낮추고, 어려운 작업은 현재 모델보다 강한 모델로 올릴 수 있습니다. 현재 모델은 요청 JSON의 `current`, 성능 순서는 설정의 `rank`로 지정합니다. 가격이 비싸다는 이유만으로 상향으로 판단하지 않습니다.
+
+```sh
+riidolaya plan --config examples/planner/config.json --request examples/planner/upgrade.json --json
+```
+
+이 예제는 `example-fast`에서 `example-strong`으로 `direction: upgrade`, `reason: quality_upgrade`를 반환합니다. 기존 `request.json`은 하향 예제입니다. 위 예제는 직접 제공한 난이도 평가를 사용하며 Laya 추론은 실행하지 않습니다. 명령 끝에 영어 작업 설명을 붙이면 로컬 Laya가 난이도를 평가합니다.
+
+`direction`은 `upgrade`(상향), `downgrade`(하향), `lateral`(같은 등급), `initial`(첫 선택), `unchanged`(유지)이며, `blocked`에는 없습니다. 상향은 비용 회수 기간이나 전환 대기 횟수보다 품질을 우선하지만 예산·기능·컨텍스트 제약과 수동 고정은 무시하지 않습니다. Laya의 불확실한 판단은 상향 근거로 바꾸지 않으며, 현재 모델도 요구 조건을 못 맞추면 `blocked`입니다. 기본 설정에서는 catalog의 확신도 기준 0.9도 통과해야 하므로 switch의 상향 기준 0.5만 넘는다고 추천하지 않습니다.
+
+추천만 반환합니다. 진행 중인 Codex 대화를 자동 전환하거나 실패를 감지해 재실행하지 않습니다. 연동하는 에이전트가 작업 단계마다 현재 모델과 평가를 갱신해 호출해야 합니다.

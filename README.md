@@ -329,3 +329,17 @@ go test -bench . -benchmem ./internal/search
 비공개 저장소의 코드, 실제 사용자 작업 프롬프트, 인증 정보와 원본 프로파일은 공개하지 않습니다. 공개 또는 직접 작성한 테스트 자료만 사용합니다. 모델과 런타임의 버전·라이선스·체크섬도 기록합니다.
 
 라이선스: Apache-2.0. 외부 구성 요소와 모델 출처는 [NOTICE](NOTICE)에 정리되어 있습니다.
+
+## 모델을 올리거나 내리는 양방향 추천
+
+쉬운 작업은 낮추고, 어려운 작업은 현재 모델보다 강한 모델로 올릴 수 있습니다. 현재 모델은 요청 JSON의 `current`, 성능 순서는 설정의 `rank`로 지정합니다. 가격이 비싸다는 이유만으로 상향으로 판단하지 않습니다.
+
+```sh
+riidolaya plan --config examples/planner/config.json --request examples/planner/upgrade.json --json
+```
+
+이 예제는 `example-fast`에서 `example-strong`으로 `direction: upgrade`, `reason: quality_upgrade`를 반환합니다. 기존 `request.json`은 하향 예제입니다. 위 예제는 직접 제공한 난이도 평가를 사용하며 Laya 추론은 실행하지 않습니다. 명령 끝에 영어 작업 설명을 붙이면 로컬 Laya가 난이도를 평가합니다.
+
+`direction`은 `upgrade`(상향), `downgrade`(하향), `lateral`(같은 등급), `initial`(첫 선택), `unchanged`(유지)이며, `blocked`에는 없습니다. 상향은 비용 회수 기간이나 전환 대기 횟수보다 품질을 우선하지만 예산·기능·컨텍스트 제약과 수동 고정은 무시하지 않습니다. Laya의 불확실한 판단은 상향 근거로 바꾸지 않으며, 현재 모델도 요구 조건을 못 맞추면 `blocked`입니다. 기본 설정에서는 catalog의 확신도 기준 0.9도 통과해야 하므로 switch의 상향 기준 0.5만 넘는다고 추천하지 않습니다.
+
+추천만 반환합니다. 진행 중인 Codex 대화를 자동 전환하거나 실패를 감지해 재실행하지 않습니다. 연동하는 에이전트가 작업 단계마다 현재 모델과 평가를 갱신해 호출해야 합니다.

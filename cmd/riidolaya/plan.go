@@ -77,6 +77,7 @@ func runPlan(a *app.App, configPath, requestPath, query string, jsonOut bool) er
 	fmt.Printf("%s: %s\n", p.Status, p.Reason)
 	if p.RecommendedModel != "" {
 		fmt.Printf("recommended model: %s\n", p.RecommendedModel)
+		fmt.Printf("direction: %s\n", p.Direction)
 	}
 	for _, v := range p.Selection.Candidates {
 		fmt.Printf("%s eligible=%t reasons=%v\n", v.ID, v.Eligible, v.Reasons)

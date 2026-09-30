@@ -69,3 +69,17 @@ The first only recommends. The second shows the proposed command. Removing `--dr
 In route output, `suggested_tier` is the model's proposal; `tier` is the applied policy; `abstained: true` explains retaining stronger capability. A high classification probability is not a coding-success guarantee. An explicit `--model` override wins.
 
 Next: [Agent/Go integration](https://github.com/teamswyg/laya-tools/wiki/Agents-and-Go-EN) or [troubleshooting](https://github.com/teamswyg/laya-tools/wiki/Performance-and-Troubleshooting-EN).
+
+## Recommend upgrades as well as downgrades
+
+Easy work can move down; difficult work can move to a stronger model. Set the current model with request JSON `current` and capability ordering with catalog `rank`. A higher price alone does not mean an upgrade.
+
+```sh
+riidolaya plan --config examples/planner/config.json --request examples/planner/upgrade.json --json
+```
+
+This example recommends `example-fast` → `example-strong` with `direction: upgrade` and `reason: quality_upgrade`. The existing `request.json` demonstrates a downgrade. This example uses a supplied assessment without invoking Laya. Append an English task description to let local Laya assess complexity instead.
+
+`direction` is `upgrade`, `downgrade`, `lateral` (same rank), `initial` (first selection), or `unchanged` (hold); blocked plans omit it. Upgrades prioritize quality over cache payback and cooldown, but still respect budgets, capabilities, context limits, and manual pins. Uncertain Laya output is not upgrade evidence; if the current model also fails the constraints, the result is `blocked`. With default configuration, catalog confidence must also reach 0.9: the switch upgrade threshold of 0.5 alone is insufficient.
+
+These are recommendations only. No active Codex conversation is switched and no failure is automatically detected or retried. An integrating agent must update the current model and assessment at each task stage.
