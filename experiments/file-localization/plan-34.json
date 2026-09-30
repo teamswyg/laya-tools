@@ -1,0 +1,14 @@
+{
+ "schema":"riido-file-localization-plan-v1",
+ "selection_sha256":"fa58c4e51ae307963eb587813e49adf70d987dcb4893f6ee1aa6050bc6b80a5a",
+ "inputs":"all2400 frozen complete queries and sorted pre-fix blob paths from experiment33; retain executable and symlink paths without dereferencing, no extension/vendor/test filtering; no patch/answer inputs in ranking",
+ "policies":"primary comparison: original path BM25 versus baseline-first interleave with identifier-normalized path/query BM25 using existing lexicalhint.NormalizeText; also report normalized-only control; fixed defaults and no training, threshold tuning or best-seed selection",
+ "bounds":"NewPathIndex original canonical identities, normalized text independently bounded16MiB; original and normalized queries bounded128KiB; auxiliary failure explicitly falls back to baseline; candidate completeness errors remain failures in2400 denominator, never replaced",
+ "labels":"experiment33 old-file labels used only after rankings;2398 tasks have old targets,2 new-file-only tasks stay in2400 denominator with applicability explicitly reported; unsupported/parse failures not silently relabeled",
+ "metrics":"per-policy first-target Hit@1/10/100 and reciprocal-rank sums divided by all2400; also report evaluable task count and per-repository aggregates; total old labels and found labels; AllTargets@10; on tasks with at least one mapped old target compare ceil(first_rank/20) pages and improved/worsened/tied counts, missing/all-new cases separately excluded from this applicable cost denominator",
+ "interpretation":"first-file and changed-file labels are partial localization proxies, not task success/difficulty/decomposition or actual agent verification; page counts assume perfect equal-cost recognition; helper always runs when supported, no LLM/call/token savings claim",
+ "gate":"primary interleave must not increase applicable total pages or lower all2400 Hit@10 versus baseline; report every harm case count in aggregate even if totals improve; passing is only a lexical localization result, never production-ready",
+ "resources":"sequential per-task index construction and complete ranking; measure process RSS/wall separately from aggregate results; fixed offline catalog cache, no source downloads during scoring; no private per-task results or profiles published",
+ "execution":"do not publish final scoring until all2400 catalogs are available or unresolved failures are explicitly documented; freeze this plan before any task ranking, exact aggregate replay, full tests and redacted scans",
+ "production_ready":false
+}
