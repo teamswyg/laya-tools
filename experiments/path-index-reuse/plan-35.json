@@ -1,0 +1,11 @@
+{
+ "schema":"riido-path-index-reuse-plan-v1",
+ "baseline_source":"22e195c7324ceb2722a9c0f69809f7f9c4ae9a29",
+ "selection_sha256":"fa58c4e51ae307963eb587813e49adf70d987dcb4893f6ee1aa6050bc6b80a5a",
+ "hypothesis":"Adjacent frozen tasks may have identical complete path catalogs despite distinct historical snapshots. Reuse at most one immutable baseline/normalized index pair when every ordered original path matches exactly. No labels, hashes alone, approximate matching or repository identity determine reuse.",
+ "contract":"Preserve independent query rankings and fallback semantics; no shared mutable buffers or global cache; per-worker ownership, bounded one-catalog retention. Standalone Rank stays compatible. Invalid/changed paths must not use a stale index.",
+ "validation":"Before optimization, instrument full three-policy ranking stream with deterministic SHA256 over length-framed IDs, policy IDs and complete ordered candidate positions. Compare all2400 aggregate bytes and full ranking stream digest before/after. Test alternating changed/same paths, caller mutation, failed input recovery, query normalization limit failures and concurrent independent workers under race.",
+ "measurement":"Keep baseline and optimized binaries from this checkout. Run sequential baseline/optimized/optimized/baseline offline, all2400 each, no simultaneous local benchmark jobs. Report every wall/RSS observation, CPU time, loop time and cache build/hit counts. Do not claim pure inference, GPU or actual agent savings. Profile a public synthetic repeated-path benchmark separately.",
+ "acceptance":"Exact full rankings and aggregates, bounded retained cache, no relaxed input limits or changed search policy. Require lower median complete-run wall time without higher maximum observed RSS before calling the measured tradeoff favorable. Otherwise retain findings and withhold default evaluator adoption.",
+ "scope":"Performance-only development experiment. No quality tuning, training, final-reserve scoring, model promotion or Hugging Face release. No private queries, paths, labels or profiles published. Changes still require full local checks and CI."
+}

@@ -4,6 +4,7 @@ package fileeval
 import (
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/teamswyg/laya-tools/internal/lexicalhint"
 	"github.com/teamswyg/laya-tools/pkg/hintsearch"
@@ -13,28 +14,72 @@ const Baseline = 0
 const Normalized = 1
 const Interleaved = 2
 
+// Ranker retains at most one immutable index pair for an exact ordered path
+// catalog. It belongs to one worker: do not call its methods concurrently.
+// Results are independently owned; no ranking buffers or labels are cached.
+type Ranker struct {
+	paths     []string
+	base, aux *hintsearch.Index
+	auxReady  bool
+	stats     CacheStats
+}
+
+type CacheStats struct{ CatalogBuilds, CatalogHits int }
+
+func (r *Ranker) Stats() CacheStats { return r.stats }
+
 // Rank has no label input. Every order retains the full sorted path catalog.
-func Rank(query string, paths []string) (orders [3][]int, auxFailed bool, err error) {
+// This standalone form retains no cache between calls.
+func Rank(query string, paths []string) ([3][]int, bool, error) {
+	return new(Ranker).rank(query, paths, false)
+}
+
+// Rank reuses indexes only when every original path matches in order. Full
+// equality, rather than repository names or a hash, establishes cache identity.
+func (r *Ranker) Rank(query string, paths []string) ([3][]int, bool, error) {
+	return r.rank(query, paths, true)
+}
+
+func (r *Ranker) rank(query string, paths []string, retain bool) (orders [3][]int, auxFailed bool, err error) {
 	if !slices.IsSorted(paths) {
 		return orders, false, fmt.Errorf("require sorted path identities")
 	}
-	idx, e := hintsearch.NewPathIndex(paths)
-	if e != nil {
-		return orders, false, e
+	if r.base == nil || !slices.Equal(r.paths, paths) {
+		idx, e := hintsearch.NewPathIndex(paths)
+		if e != nil {
+			return orders, false, e
+		}
+		// Own the slice and strings so caller replacement cannot change cache keys.
+		var owned []string
+		if retain {
+			owned = make([]string, len(paths))
+			for i, p := range paths {
+				owned[i] = strings.Clone(p)
+			}
+		}
+		r.paths, r.base, r.aux, r.auxReady = owned, idx, nil, false
+		r.stats.CatalogBuilds++
+	} else {
+		r.stats.CatalogHits++
 	}
-	base, e := idx.RankLongInto(query, hintsearch.Ranking{})
+	base, e := r.base.RankLongInto(query, hintsearch.Ranking{})
 	if e != nil {
 		return orders, false, e
 	}
 	orders[Baseline] = base.Order
-	texts := make([]string, len(paths))
-	for i, p := range paths {
-		texts[i] = lexicalhint.NormalizeText(p)
+	if !r.auxReady {
+		texts := make([]string, len(paths))
+		for i, p := range paths {
+			texts[i] = lexicalhint.NormalizeText(p)
+		}
+		r.aux, e = hintsearch.NewPathTextIndex(paths, texts)
+		r.auxReady = true
 	}
-	aux, e := hintsearch.NewPathTextIndex(paths, texts)
 	var ranked hintsearch.Ranking
-	if e == nil {
-		ranked, e = aux.RankLongInto(lexicalhint.NormalizeText(query), hintsearch.Ranking{})
+	if r.aux != nil {
+		ranked, e = r.aux.RankLongInto(lexicalhint.NormalizeText(query), hintsearch.Ranking{})
+	} else {
+		e = fmt.Errorf("normalized catalog unavailable")
 	}
 	if e != nil {
 		orders[Normalized] = slices.Clone(base.Order)
