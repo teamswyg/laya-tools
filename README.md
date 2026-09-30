@@ -8,7 +8,7 @@
 
 정적 임베딩 비교군: [Go 실행·압축·원본 일치 검증](experiments/static-embedding/README.ko.md). 코드 관련성 성능은 아직 부족하며 기본 모델로 적용하지 않습니다.
 
-다음 [작은 주장 모델 계획](experiments/path-cost-claim/README.ko.md)은 학습·검증 각각 최소 **2,400개**를 요구합니다. 초기 24문제 예비 시험과 모델 설정 수를 구분하며, [출처·비용 준비 검사](experiments/path-cost-data/EXPANDED-45.ko.md)에서 검증 부족을 확인해 실제 코퍼스 학습은 아직 시작하지 않았습니다.
+[작은 주장 모델 실험](experiments/path-cost-claim/RESULTS-46.ko.md)은 실제 학습 **4,456개·검증 2,599개**로 10개 후보를 실행했습니다. 규모 기준은 충족했지만 유용성 기준은 실패했습니다. 초기 24문제와 모델 설정 수를 구분하며, 최종 평가 2,402개는 아직 평가하지 않았습니다. 전체 준비·학습·정책 재생의 warm 실행은 최대 RSS 약 108.6MiB였으며, 단일 추론이나 Codex 절감 측정값은 아닙니다.
 
 **한국어** · [English](README.en.md) · [사용자 Wiki](https://github.com/teamswyg/laya-tools/wiki) · [문서 목록](docs/README.md)
 

@@ -140,6 +140,10 @@ func validate(d Dataset, dimension int) error {
 	return nil
 }
 func Fit(train, validation Dataset, c Config) (Result, error) {
+	return fit(train, validation, c, nil)
+}
+
+func fit(train, validation Dataset, c Config, observer *fitObserver) (Result, error) {
 	var best Result
 	dimension := c.Dimension
 	if dimension == 0 {
@@ -188,6 +192,9 @@ func Fit(train, validation Dataset, c Config) (Result, error) {
 		}
 	}
 	best = Result{Config: c, ValidationNLL: math.Inf(1)}
+	if observer != nil {
+		observer.start(train, validation, c)
+	}
 	for epoch := 1; epoch <= c.Epochs; epoch++ {
 		rng.Shuffle(len(order), func(i, j int) { order[i], order[j] = order[j], order[i] })
 		for start := 0; start < len(order); start += c.Batch {
@@ -211,12 +218,18 @@ func Fit(train, validation Dataset, c Config) (Result, error) {
 		qw := hintlearn.Quantize(w, c.Mode)
 		nll := NLL(validation, qw)
 		if math.IsNaN(nll) || math.IsInf(nll, 0) {
+			if observer != nil {
+				observer.fail(epoch, "nonfinite_validation_nll")
+			}
 			return best, fmt.Errorf("nonfinite training")
 		}
 		if nll < best.ValidationNLL {
 			best.Epoch = epoch
 			best.ValidationNLL = nll
 			best.Weights = qw
+		}
+		if observer != nil {
+			observer.record(EpochTrace{Epoch: epoch, TrainingNLL: NLL(train, qw), ValidationNLL: nll, IsNewBest: best.Epoch == epoch, BestEpochSoFar: best.Epoch})
 		}
 	}
 	best.TrainingNLL = NLL(train, best.Weights)

@@ -8,7 +8,7 @@ Use [`--session --limit 20`](experiments/hint-session/README.en.md) to reuse ran
 
 Static embedding control: [Go execution, packing and upstream parity](experiments/static-embedding/README.en.md). Code-relevance quality remains insufficient; this is not a default model.
 
-The next [tiny claim-head plan](experiments/path-cost-claim/README.en.md) requires at least **2,400 tasks each for training and validation**. Distinguish initial 24-task pilots from model configuration counts. [Source/cost readiness](experiments/path-cost-data/EXPANDED-45.en.md) shows insufficient validation, so actual corpus fitting has not started.
+The [tiny claim-head experiment](experiments/path-cost-claim/RESULTS-46.en.md) ran all ten candidates on **4,456 training and 2,599 validation tasks**. It met the scale requirement but failed usefulness gates. Initial 24-task pilots and model configuration counts are different; the 2,402 final tasks remain unscored. One warm preparation/training/policy-replay run peaked at about 108.6MiB RSS, not single-inference memory or demonstrated Codex savings.
 
 [한국어](README.md) · **English** · [User Wiki](https://github.com/teamswyg/laya-tools/wiki) · [Documentation](docs/README.md)
 
