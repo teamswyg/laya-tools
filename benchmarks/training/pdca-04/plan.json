@@ -1,0 +1,50 @@
+{
+  "cycle": "pdca-04",
+  "primary_task": "difficulty",
+  "status": "pre_registered_before_training",
+  "scope": "initial measured improvement on authored family-disjoint English evaluation, not production or coding savings",
+  "train_sources": [
+    "pilot-v1 difficulty train only",
+    "families.json train; all viewed earlier final tests are development training"
+  ],
+  "selection": "Validation mean NLL plus mean cross-order Jensen-Shannon divergence (weight 1), using all six orders; both seeds frozen before final check",
+  "learning_rates": [
+    3e-05
+  ],
+  "max_epochs": 12,
+  "seeds": [
+    1729,
+    2718
+  ],
+  "temperature_range": [
+    0.5,
+    5.0
+  ],
+  "gate": 0.9,
+  "criteria": {
+    "minimum_accuracy": 0.8,
+    "no_accuracy_regression_against_base": true,
+    "minimum_strong_recall": 0.875,
+    "strong_to_fast_errors": 0,
+    "minimum_coverage": 0.25,
+    "minimum_accepted_precision": 0.9,
+    "improvement_any": {
+      "accuracy_absolute_gain": 0.1,
+      "brier_relative_reduction": 0.1
+    },
+    "max_permutation_winner_flip_rate": 0.1,
+    "max_legacy_accuracy_regression": 0.05,
+    "both_seeds_must_pass": true
+  },
+  "limits": {
+    "process_rss_gib": 5,
+    "minimum_system_free_percent": 20,
+    "minimum_disk_free_gib": 30,
+    "minutes_per_seed": 20
+  },
+  "failure_policy": "Do not lower criteria; a viewed test becomes development data, require a new family holdout for a new cycle. Preserve all failures.",
+  "train_orders_per_update": 3,
+  "validation_all_permutations": true,
+  "consistency_weight": 1.0,
+  "calibration_policy": "New eight-family 24-case calibration; prior calibration becomes validation. Same temperature grid and 0.9 gate for base and tuned."
+}

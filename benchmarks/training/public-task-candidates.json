@@ -1,0 +1,108 @@
+{
+  "schema_version": 1,
+  "license": "Apache-2.0",
+  "origin": "original_task_prompts_for_public_repository",
+  "purpose": "Next evidence-backed evaluation preparation; excluded from current training",
+  "limitations": [
+    "Single repository, six tasks, two shared code families: not independent six families.",
+    "Expected tiers are hypotheses, not measured model capability.",
+    "A passing existing test suite alone does not prove the requested change.",
+    "No paid model runs have been started."
+  ],
+  "tasks": [
+    {
+      "id": "comment-budget-period",
+      "family": "catalog-budget",
+      "source_url": "https://github.com/teamswyg/laya-tools/blob/6b2c1bdfd38bea5a9a2c11433ffcfcb94c4143a3/pkg/catalog/catalog.go",
+      "source_revision": "6b2c1bdfd38bea5a9a2c11433ffcfcb94c4143a3",
+      "source_path": "pkg/catalog/catalog.go",
+      "prompt": "Replace only the Usage snapshot comment with: Snapshot supplied by the caller for a single budget period; no reservation is made.",
+      "expected_tier_hypothesis": "fast",
+      "rationale": "Exact prose edit, no behavior change.",
+      "acceptance": [
+        "Diff changes exactly the requested comment; gofmt and Go tests remain clean."
+      ],
+      "model_outcomes": [],
+      "status": "candidate_not_executed_not_training_label"
+    },
+    {
+      "id": "comment-preview-authority",
+      "family": "repo-preview",
+      "source_url": "https://github.com/teamswyg/laya-tools/blob/6b2c1bdfd38bea5a9a2c11433ffcfcb94c4143a3/pkg/reporouter/router.go",
+      "source_revision": "6b2c1bdfd38bea5a9a2c11433ffcfcb94c4143a3",
+      "source_path": "pkg/reporouter/router.go",
+      "prompt": "Change the Result.Status comment to: candidate, suggest, or abstain; a suggestion never authorizes execution.",
+      "expected_tier_hypothesis": "fast",
+      "rationale": "One supplied comment replacement.",
+      "acceptance": [
+        "Only the requested comment changes."
+      ],
+      "model_outcomes": [],
+      "status": "candidate_not_executed_not_training_label"
+    },
+    {
+      "id": "catalog-min-context",
+      "family": "catalog-budget",
+      "source_url": "https://github.com/teamswyg/laya-tools/blob/6b2c1bdfd38bea5a9a2c11433ffcfcb94c4143a3/pkg/catalog/catalog.go",
+      "source_revision": "6b2c1bdfd38bea5a9a2c11433ffcfcb94c4143a3",
+      "source_path": "pkg/catalog/catalog.go",
+      "prompt": "Add an optional minimum-context requirement to catalog.Request. Reject negative values and mark models below it ineligible while preserving existing zero-value behavior.",
+      "expected_tier_hypothesis": "standard",
+      "rationale": "Bounded schema, predicate and test change.",
+      "acceptance": [
+        "New tests cover zero, negative, exact boundary and insufficient context.",
+        "Existing catalog and planner tests pass."
+      ],
+      "model_outcomes": [],
+      "status": "candidate_not_executed_not_training_label"
+    },
+    {
+      "id": "repo-prefix-filter",
+      "family": "repo-preview",
+      "source_url": "https://github.com/teamswyg/laya-tools/blob/6b2c1bdfd38bea5a9a2c11433ffcfcb94c4143a3/pkg/reporouter/router.go",
+      "source_revision": "6b2c1bdfd38bea5a9a2c11433ffcfcb94c4143a3",
+      "source_path": "pkg/reporouter/router.go",
+      "prompt": "Add an optional organization allowlist to repository preview configuration. Filter before lexical scoring and judge invocation; an empty allowlist preserves current behavior.",
+      "expected_tier_hypothesis": "standard",
+      "rationale": "Bounded filter with observable judge inputs.",
+      "acceptance": [
+        "Tests show excluded organizations never reach Judge.",
+        "Case normalization and an empty eligible set have explicit behavior."
+      ],
+      "model_outcomes": [],
+      "status": "candidate_not_executed_not_training_label"
+    },
+    {
+      "id": "reservation-ledger",
+      "family": "catalog-budget",
+      "source_url": "https://github.com/teamswyg/laya-tools/blob/6b2c1bdfd38bea5a9a2c11433ffcfcb94c4143a3/pkg/catalog/catalog.go",
+      "source_revision": "6b2c1bdfd38bea5a9a2c11433ffcfcb94c4143a3",
+      "source_path": "pkg/catalog/catalog.go",
+      "prompt": "Design and implement an opt-in concurrent budget reservation ledger around selection. Concurrent callers must not collectively exceed a budget; release and commit must be idempotent under cancellation. Preserve the pure existing Select API.",
+      "expected_tier_hypothesis": "strong",
+      "rationale": "New state lifecycle, concurrent accounting and cancellation invariants.",
+      "acceptance": [
+        "Race tests plus deterministic interleaving tests enforce budget conservation.",
+        "Duplicate commit/release and cancellation cannot create negative spend or double reservations."
+      ],
+      "model_outcomes": [],
+      "status": "candidate_not_executed_not_training_label"
+    },
+    {
+      "id": "snapshot-index-refresh",
+      "family": "repo-preview",
+      "source_url": "https://github.com/teamswyg/laya-tools/blob/6b2c1bdfd38bea5a9a2c11433ffcfcb94c4143a3/pkg/reporouter/router.go",
+      "source_revision": "6b2c1bdfd38bea5a9a2c11433ffcfcb94c4143a3",
+      "source_path": "pkg/reporouter/router.go",
+      "prompt": "Add opt-in concurrent repository index refresh with snapshot isolation. Each preview must use one complete permission-filtered generation; retired generations cannot leak revoked repositories to later previews. Define in-flight revocation semantics and test them.",
+      "expected_tier_hypothesis": "strong",
+      "rationale": "Concurrency and permission boundary design with multi-stage readers.",
+      "acceptance": [
+        "Race tests and controlled interleavings exercise refresh during candidate scoring and judgment.",
+        "Document the exact linearization point and in-flight revocation contract."
+      ],
+      "model_outcomes": [],
+      "status": "candidate_not_executed_not_training_label"
+    }
+  ]
+}

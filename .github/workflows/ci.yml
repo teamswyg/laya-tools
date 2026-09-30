@@ -27,6 +27,8 @@ jobs:
       - run: go vet ./...
       - name: Maintainer publication guards (offline, no training dependencies)
         run: python3 -m unittest discover -s scripts/training -p test_publication.py
+      - name: Frozen PDCA plan and family boundaries (offline)
+        run: python3 -m unittest discover -s scripts/training -p "test_pdca_*.py"
       - name: Policy packages have no native runtime dependency
         run: CGO_ENABLED=0 go test ./pkg/...
       - run: go build -trimpath -o bin/riidolaya ./cmd/riidolaya

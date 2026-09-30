@@ -103,12 +103,12 @@ def metrics(logits, labels, temperature=1.0):
         mask = (confidence >= i / 10) & ((confidence < (i + 1) / 10) if i < 9 else (confidence <= 1))
         if mask.any():
             ece += float(mask.float().mean() * (confidence[mask].mean() - correct[mask].float().mean()).abs())
-    return {'n': len(labels), 'correct': int(correct.sum()), 'accuracy': float(correct.float().mean()),
+    return {'n': len(labels), 'correct': int(correct.sum()), 'accuracy': int(correct.sum()) / len(labels),
             'nll': float(torch.nn.functional.cross_entropy(logits / temperature, target)),
             'brier': float(((p - torch.nn.functional.one_hot(target, logits.shape[1]))**2).sum(-1).mean()),
             'ece_10_bins': ece, 'accepted': int(accepted.sum()),
-            'accepted_correct': int((accepted & correct).sum()), 'coverage': float(accepted.float().mean()),
-            'accepted_precision': float(correct[accepted].float().mean()) if accepted.any() else None}
+            'accepted_correct': int((accepted & correct).sum()), 'coverage': int(accepted.sum()) / len(labels),
+            'accepted_precision': int((accepted & correct).sum()) / int(accepted.sum()) if accepted.any() else None}
 
 
 def main():

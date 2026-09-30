@@ -1,0 +1,57 @@
+{
+  "cycle": "pdca-05",
+  "primary_task": "difficulty",
+  "status": "pre_registered_before_training",
+  "scope": "initial measured improvement on authored family-disjoint English evaluation, not production or coding savings",
+  "train_sources": [
+    "pilot-v1 difficulty train only",
+    "families.json train; all viewed earlier final tests are development training"
+  ],
+  "selection": "Mean validation classification error plus alternative-order winner flip rate plus 0.1 times order JS; all six orders; both seeds frozen before final check",
+  "learning_rates": [
+    1e-05
+  ],
+  "max_epochs": 6,
+  "seeds": [
+    1729,
+    2718
+  ],
+  "temperature_range": [
+    0.5,
+    5.0
+  ],
+  "gate": 0.9,
+  "criteria": {
+    "minimum_accuracy": 0.8,
+    "no_accuracy_regression_against_base": true,
+    "minimum_strong_recall": 0.875,
+    "strong_to_fast_errors": 0,
+    "minimum_coverage": 0.25,
+    "minimum_accepted_precision": 0.9,
+    "improvement_any": {
+      "accuracy_absolute_gain": 0.1,
+      "brier_relative_reduction": 0.1
+    },
+    "max_permutation_winner_flip_rate": 0.1,
+    "max_legacy_accuracy_regression": 0.05,
+    "both_seeds_must_pass": true
+  },
+  "limits": {
+    "process_rss_gib": 5,
+    "minimum_system_free_percent": 20,
+    "minimum_disk_free_gib": 30,
+    "minutes_per_seed": 20
+  },
+  "failure_policy": "Do not lower criteria; a viewed test becomes development data, require a new family holdout for a new cycle. Preserve all failures.",
+  "train_orders_per_update": 6,
+  "validation_all_permutations": true,
+  "consistency_weight": 1.0,
+  "calibration_policy": "Same untouched 24 calibration cases from PDCA-04; same grid for baseline and tuned.",
+  "selection_objective": "error_plus_flip_plus_js",
+  "initial_head_source_cycle": "pdca-03",
+  "initial_heads": {
+    "1729": "4eb3589fb51f431b19dbe1be1ad95701bd694fb781f2357f2dfd68c832b80aff",
+    "2718": "0a56c1eb1a460e536cf00ee98df96485de361d76c1b3d73a2208efb01788fdfa"
+  },
+  "final_policy": "Reuse PDCA-04 final/calibration only because no final inference occurred in that aborted validation-only run. No viewed test is re-sealed."
+}

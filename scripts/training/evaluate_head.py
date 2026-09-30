@@ -30,14 +30,25 @@ def main():
     model.load_state_dict(load_file(args.base / 'model.safetensors'), strict=True, assign=True)
     model = model.float()
     head = load_file(args.package / 'head.safetensors')
-    expected = {n for n, _ in model.named_parameters() if n.startswith(('head.', 'type_emb.', 'scorer.'))}
-    if set(head) != expected:
-        raise ValueError('Head parameter set mismatch')
-    model.load_state_dict(head, strict=False)
+    fixed = result.get('format') == 'laya-encoder-fixed-tier-linear-v1'
+    if fixed:
+        from fixed_tier import FixedTier, state_feature
+        tier = FixedTier(result['feature_width'])
+        tier.load_state_dict(head, strict=True)
+        tier.eval()
+    else:
+        expected = {n for n, _ in model.named_parameters() if n.startswith(('head.', 'type_emb.', 'scorer.'))}
+        if set(head) != expected:
+            raise ValueError('Head parameter set mismatch')
+        model.load_state_dict(head, strict=False)
     model.eval()
     model.encoder.config.reference_compile = False
     tok = AutoTokenizer.from_pretrained(args.base / 'tokenizer', local_files_only=True)
     def predict(text):
+        if fixed:
+            with torch.no_grad():
+                z = tier(state_feature(model, tok, text)[None])[0]
+                return torch.softmax(z / result['temperature'], -1)
         ids, markers, stats = build_sequence(tok, text, result['question'], 512, 192, return_stats=True)
         full, _ = build_sequence(tok, text, result['question'], 8192, 192)
         if ids != full or stats['tokens_per_option'] is not None:
@@ -49,7 +60,7 @@ def main():
     if args.check_reference:
         with (args.package / 'training-data.tsv').open() as f:
             rows = [r for r in csv.DictReader(f, delimiter='\t') if r['task'] == result['task']]
-        by_id = {f"{result['task']}-{i:03d}": r for i, r in enumerate(rows)}
+        by_id = {(r.get('id') or f"{result['task']}-{i:03d}"): r for i, r in enumerate(rows)}
         error, flips = 0., 0
         for item in result['test_predictions']:
             probs = predict(by_id[item['id']]['state'])

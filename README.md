@@ -347,3 +347,9 @@ riidolaya plan --config examples/planner/config.json --request examples/planner/
 [GitHub Actions 기능별 성능 검사](docs/performance-replay.ko.md): 고정 시나리오의 CPU 시간·최대 RSS·실행 결과를 수동 실행으로 비교합니다.
 
 [배열·lock·SIMD 검토와 난이도 골든셋 결과](docs/layout-and-goldens.ko.md)
+
+## 로컬 학습과 평가
+
+[PDCA 튜닝 설명](docs/pdca-tuning.ko.md)에서 고정된 평가 기준, 실제 MPS 학습,
+실패 기록과 다음 데이터 준비를 볼 수 있습니다. 진행 체크는 [이슈 #11](https://github.com/teamswyg/laya-tools/issues/11)에 기록합니다.
+현재 학습은 영어 합성 난이도 사례에 대한 유지보수 실험이며, 기본 Go 모델 교체나 실제 코딩 비용 절감의 증거는 아닙니다.
