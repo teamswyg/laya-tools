@@ -29,6 +29,7 @@ type observation struct {
 func run() error {
 	out := flag.String("out", "", "new private output directory")
 	offline := flag.Bool("offline", false, "never fetch missing catalogs")
+	repair := flag.Bool("repair-subtrees", false, "resolve oversized/truncated trees through bounded subtrees")
 	budget := flag.Int("request-budget", 2000, "maximum new requests, 0..2000; cached catalogs still checked")
 	flag.Parse()
 	if *out == "" || *budget < 0 || *budget > 2000 {
@@ -41,6 +42,16 @@ func run() error {
 	h := sha256.Sum256(b)
 	if hex.EncodeToString(h[:]) != planHash {
 		return fmt.Errorf("plan mismatch")
+	}
+	if *repair {
+		p, err := os.ReadFile("experiments/file-catalogs/subtree-plan-33.json")
+		if err != nil {
+			return err
+		}
+		h := sha256.Sum256(p)
+		if hex.EncodeToString(h[:]) != "a573bf55723e3c363999abd0027b8dc94a3e863921133f297e8a65dca349fcd4" {
+			return fmt.Errorf("subtree plan mismatch")
+		}
 	}
 	full, e := sweaudit.Read(".cache/real-task-full-28.jsonl", sweaudit.FullProjectionSHA256)
 	if e != nil {
@@ -78,7 +89,9 @@ func run() error {
 		}
 		requests++
 		last = time.Now()
-		return githubmeta.FetchCatalog(ctx, endpoint)
+		requestCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+		defer cancel()
+		return githubmeta.FetchCatalog(requestCtx, endpoint)
 	}
 	noFetch := func(context.Context, string) ([]byte, error) { return nil, fmt.Errorf("root cache missing") }
 	var observations []observation
@@ -92,9 +105,13 @@ func run() error {
 			var treeID string
 			treeID, _, e = sweaudit.TreeEntries(s.Repository, b)
 			if e == nil {
-				ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-				c, err := githubmeta.RecursiveCatalog(ctx, s.Repository, treeID, ".cache/file-catalogs-33", fetch)
-				cancel()
+				var c githubmeta.Catalog
+				var err error
+				if *repair {
+					c, err = githubmeta.CompleteCatalog(context.Background(), s.Repository, treeID, ".cache/file-catalogs-33", ".cache/file-catalog-subtrees-33", fetch)
+				} else {
+					c, err = githubmeta.RecursiveCatalog(context.Background(), s.Repository, treeID, ".cache/file-catalogs-33", fetch)
+				}
 				e = err
 				if e == nil {
 					r.Available = 1

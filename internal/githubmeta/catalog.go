@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -19,8 +20,11 @@ import (
 )
 
 const MaxCatalogResponseBytes = 8 << 20
+const MaxStoredCatalogBytes = 32 << 20
 const MaxTreeEntries = 100000
 const MaxTreePathBytes = 16 << 20
+
+var ErrTruncatedTree = errors.New("recursive tree is truncated")
 
 type Catalog struct {
 	SHA       string               `json:"sha"`
@@ -33,19 +37,32 @@ func FetchCatalog(ctx context.Context, endpoint string) ([]byte, error) {
 }
 
 func decodeCatalog(b []byte, expected string) (Catalog, error) {
+	if len(b) > MaxCatalogResponseBytes {
+		return Catalog{}, ErrResponseLimit
+	}
+	return decodeCatalogLimit(b, expected, MaxCatalogResponseBytes)
+}
+
+func decodeCatalogLimit(b []byte, expected string, limit int) (Catalog, error) {
 	var raw struct {
 		SHA       string
 		Truncated *bool
 		Tree      []sweaudit.TreeEntry
 	}
-	if len(b) > MaxCatalogResponseBytes || !revisionPattern.MatchString(expected) {
+	if len(b) > limit || !revisionPattern.MatchString(expected) {
 		return Catalog{}, fmt.Errorf("catalog response bound or identity")
 	}
 	if e := json.Unmarshal(b, &raw); e != nil {
 		return Catalog{}, fmt.Errorf("invalid catalog JSON")
 	}
-	if raw.SHA != expected || raw.Truncated == nil || *raw.Truncated || len(raw.Tree) == 0 || len(raw.Tree) > MaxTreeEntries {
+	if raw.SHA != expected || raw.Truncated == nil {
 		return Catalog{}, fmt.Errorf("incomplete or mismatched catalog")
+	}
+	if *raw.Truncated {
+		return Catalog{}, ErrTruncatedTree
+	}
+	if len(raw.Tree) == 0 || len(raw.Tree) > MaxTreeEntries {
+		return Catalog{}, fmt.Errorf("catalog entry bound")
 	}
 	total := 0
 	for _, v := range raw.Tree {
@@ -93,11 +110,16 @@ func RecursiveCatalog(ctx context.Context, repo, treeID, cache string, fetch fun
 			return Catalog{}, fmt.Errorf("invalid catalog cache")
 		}
 		defer z.Close()
-		b, e := io.ReadAll(io.LimitReader(z, MaxCatalogResponseBytes+1))
+		b, e := io.ReadAll(io.LimitReader(z, MaxStoredCatalogBytes+1))
 		if e != nil {
 			return Catalog{}, fmt.Errorf("invalid compressed catalog")
 		}
-		return decodeCatalog(b, treeID)
+		c, e := decodeCatalogLimit(b, treeID, MaxStoredCatalogBytes)
+		if e != nil {
+			// Corrupt cached data must not trigger a network repair silently.
+			return Catalog{}, fmt.Errorf("invalid cached catalog: %v", e)
+		}
+		return c, nil
 	}
 	if !os.IsNotExist(e) {
 		return Catalog{}, e
@@ -110,17 +132,24 @@ func RecursiveCatalog(ctx context.Context, repo, treeID, cache string, fetch fun
 	if e != nil {
 		return Catalog{}, e
 	}
-	b, e = json.Marshal(c)
+	return saveCatalog(repo, treeID, cache, c)
+}
+
+func saveCatalog(repo, treeID, cache string, c Catalog) (Catalog, error) {
+	b, e := json.Marshal(c)
 	if e != nil {
 		return Catalog{}, e
 	}
-	if len(b) > MaxCatalogResponseBytes {
-		return Catalog{}, fmt.Errorf("normalized catalog bound")
+	c, e = decodeCatalogLimit(b, treeID, MaxStoredCatalogBytes)
+	if e != nil {
+		return Catalog{}, e
 	}
+	key := sha256.Sum256([]byte(repo + "\x00" + treeID))
+	name := filepath.Join(cache, hex.EncodeToString(key[:])+".json.gz")
 	if e = os.MkdirAll(cache, 0700); e != nil {
 		return Catalog{}, e
 	}
-	f, e = os.CreateTemp(cache, ".catalog-*.tmp")
+	f, e := os.CreateTemp(cache, ".catalog-*.tmp")
 	if e != nil {
 		return Catalog{}, e
 	}

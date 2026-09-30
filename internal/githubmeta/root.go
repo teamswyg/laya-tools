@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -17,16 +18,20 @@ import (
 
 const MaxResponseBytes = 2 << 20
 
+var ErrResponseLimit = errors.New("GitHub metadata response exceeds bound")
+
 var repositoryPattern = regexp.MustCompile(`^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$`)
 var revisionPattern = regexp.MustCompile(`^[0-9a-f]{40}$`)
 
 type boundedBuffer struct {
-	b     []byte
-	limit int
+	b        []byte
+	limit    int
+	exceeded bool
 }
 
 func (b *boundedBuffer) Write(p []byte) (int, error) {
 	if len(b.b)+len(p) > b.limit {
+		b.exceeded = true
 		return 0, fmt.Errorf("API output limit")
 	}
 	b.b = append(b.b, p...)
@@ -42,6 +47,12 @@ func fetchBounded(ctx context.Context, endpoint string, limit int) ([]byte, erro
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
 	if e := cmd.Run(); e != nil {
+		if stdout.exceeded {
+			return nil, ErrResponseLimit
+		}
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
 		return nil, fmt.Errorf("GitHub metadata request failed")
 	}
 	return stdout.b, nil
