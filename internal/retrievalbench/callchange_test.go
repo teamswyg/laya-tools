@@ -13,7 +13,7 @@ func TestCallChangeConservationAndConcentration(t *testing.T) {
 	if r.IncreasedCases != 3 || r.IncreasedPages != 28 || r.DecreasedCases != 1 || r.DecreasedPages != 22 || r.New.Pages-r.Old.Pages != 6 || r.UnchangedCases != 2 {
 		t.Fatalf("wrong accounting %+v", r)
 	}
-	if r.LargestPositiveSums != [3]int{22, 28, 28} || r.Buckets[0].Cases != 1 || r.Buckets[1].Cases != 1 || r.Buckets[2].Cases != 0 || r.Buckets[3].Cases != 1 {
+	if r.LargestPositiveShares[0] != 22.0/28 || r.LargestPositiveSums != [3]int{22, 28, 28} || r.Buckets[0].Cases != 1 || r.Buckets[1].Cases != 1 || r.Buckets[2].Cases != 0 || r.Buckets[3].Cases != 1 {
 		t.Fatal("wrong concentration/buckets")
 	}
 	if r.Transitions[0].Cases != 1 || r.Transitions[1].Cases != 2 || r.Transitions[2].Cases != 2 || r.Transitions[3].Cases != 1 {
