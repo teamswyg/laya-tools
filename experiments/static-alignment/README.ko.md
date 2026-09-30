@@ -57,3 +57,7 @@ Go 시험은 기존 어휘 특징 동일성, holdout 내용 변경의 학습 격
 [원 저자](https://github.com/github/CodeSearchNet#licenses)와 HF 카드는 코드마다 원 저장소 라이선스를 따라야 한다고 설명한다. 우선 kubernetes/test-infra, lxc/lxd, etcd-io/etcd의 데이터가 가리키는 실제 commit에서 Apache-2.0 루트 라이선스를 확인했다. 이것만으로 vendored 파일이나 모든213개 저장소의 권리를 확인했다고 주장하지 않는다. 생성 코드·중복·vendor/별도 고지·저장소 그룹 분리와 query 설명 노출 여부를 점검한 뒤 별도 검색 계획을 고정한다. 원천 전체를 MIT로 표시하지 않는다.
 
 원문·라벨·가중치는 Git에 넣지 않았다. 학습·실행은 Go, Parquet 메타데이터 점검만 로컬 유지보수용 Python을 사용했다. HF에는 원문이나 검증 전 새 모델을 올리지 않았다. 목적은 코드 관련성의 실패를 감추는 쉬운 시험을 만드는 것이 아니라, 분류·검색·실제 작업 각각의 증거를 확보하는 것이다.
+
+## 검증한 연구 결과 공개
+
+[HF 고정 연구 묶음](https://huggingface.co/JooYoon/riidolaya-alignment-research-v0.1/tree/ffa60a148618d2c61e9ea2e391e6f11291291b7b)에는 40개 학습 층과 문서를 포함한 47개 파일이 있다. 공개 저장소에서 다시 내려받아 전체 파일 목록과 바이트·SHA256을 확인했고 `riido-hubcheck --require-ci`도 통과했다. 소스 `1b9091c72e72d21c330b9d3e58cfe47957f73be0`의 CI가 통과한 뒤 업로드했으며 [PR28](https://github.com/teamswyg/laya-tools/pull/28)은 병합됐다. 이는 배포 무결성 검증이며 품질 합격이 아니다. JSON 학습 층은 압축된 1.58-bit 실행 모델이 아니고, 어휘 대조군 외에는 별도 인코더가 필요하다. 기본 적용과 LLM 절감 주장은 없다.
