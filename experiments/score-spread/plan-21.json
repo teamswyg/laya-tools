@@ -1,0 +1,21 @@
+{
+  "schema": "riido-score-spread-plan-v1",
+  "questions": 2948,
+  "candidates": 3009,
+  "page_size": 20,
+  "control": "exact experiment 20 replay, 12 features",
+  "treatment": "same cost objective and selection with four added baseline-score features; dimension 16",
+  "features": ["top20 mean of scores divided by maximum score", "top20 population standard deviation of scores divided by maximum score", "top20 fraction of total score belonging to first candidate", "top20 last score divided by first score"],
+  "feature_contract": "n=min(20,candidate count), zero vector if maximum zero; operate on existing baseline ranking only, no auxiliary outcome, gold target or repository identity; use score/top ratios to avoid overflow; fixed array output; no allocation",
+  "penalties": [0, 0.25, 1, 4, 16],
+  "seeds": [1729, 2718],
+  "fit": "FP32 weighted BCE; learning_rate .1, l2 .0001, epochs 100, batch 64; same fitter and validation epoch selection as 20",
+  "folds": "unchanged test i/train i+1/validation i+2 over etcd, test-infra, lxd",
+  "selection": "same validation-only 90% budget threshold then penalty selection as 20; no held-out selection",
+  "primary": "16-feature cost_selected seed 1729; seed 2718 independent initialization check, not independent data",
+  "gate": "unchanged 20/15 gate; pages<=always-helper, calls<=90%, Recall1/10>=raw and learned policies Pareto dominate gap in pages/calls with at least one strict gain",
+  "resources": "measure additive feature extraction allocations/time on synthetic rankings; full training/evaluation process RSS and wall separately; no LLM cost conversion",
+  "replay": "all 30 treatment heads/report byte-identical; old 30 control heads/report byte-identical to verified 20 archive",
+  "independence": "exploratory existing 2948 docstring queries; no claim of fresh final evidence or CoSQA reserve use",
+  "production_ready": false
+}
