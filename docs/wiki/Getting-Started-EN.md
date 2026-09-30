@@ -19,7 +19,7 @@ tar -xzf riidolaya-v0.3.0-darwin-arm64.tar.gz
 
 On Linux use `sha256sum` and the linux-amd64 archive. Keep LICENSE, NOTICE, and licenses/ with redistributed copies. You can run `./riidolaya` directly; examples below assume you have placed the executable on PATH.
 
-Alternatively, build from source with Go 1.27 and a C compiler (macOS Command Line Tools):
+Alternatively, build from source with Go 1.27.1 and a C compiler (macOS Command Line Tools):
 
 ```sh
 git clone https://github.com/teamswyg/laya-tools.git

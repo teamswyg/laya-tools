@@ -91,7 +91,7 @@ laya.tools는 Laya를 기반으로 만든 런타임, 라우팅, 에이전트 도
 
 Apple Silicon macOS를 우선 대상으로 만들었으며 Linux amd64도 CI에서 검사합니다. [릴리스](https://github.com/teamswyg/laya-tools/releases)의 운영체제에 맞는 실행 파일을 사용할 수 있습니다. 명령 이름을 반영한 `riidolaya-v…-darwin-arm64.tar.gz` 또는 `riidolaya-v…-linux-amd64.tar.gz`를 선택합니다. 다운로드한 압축파일은 함께 제공되는 `SHA256SUMS`와 비교한 뒤 풀어 주세요.
 
-소스에서 빌드하려면 Go 1.27과 C 컴파일러가 필요합니다. macOS에서는 Command Line Tools가 C 컴파일러를 제공합니다.
+소스에서 빌드하려면 Go 1.27.1과 C 컴파일러가 필요합니다. macOS에서는 Command Line Tools가 C 컴파일러를 제공합니다.
 
 ```sh
 git clone https://github.com/teamswyg/laya-tools.git
