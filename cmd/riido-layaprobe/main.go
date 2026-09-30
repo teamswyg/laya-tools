@@ -20,13 +20,20 @@ func run() error {
 	input := flag.String("input", ".cache/semantic-scale/cosqa-all.json", "pinned CoSQA source")
 	model := flag.String("model-dir", ".cache/models-v2/code", "pinned code checkpoint")
 	native := flag.String("runtime", assets.Runtime(), "pinned ONNX Runtime library")
+	protocol := flag.String("protocol", "noul", "noul (documented primary) or choice (initial diagnostic)")
 	flag.Parse()
 	start := time.Now()
-	plan, err := os.ReadFile("experiments/laya-relevance/plan-17.json")
+	planFile, planHash := "experiments/laya-relevance/plan-17b.json", layaprobe.DocumentedPlanSHA256
+	if *protocol == "choice" {
+		planFile, planHash = "experiments/laya-relevance/plan-17.json", layaprobe.PlanSHA256
+	} else if *protocol != "noul" {
+		return fmt.Errorf("unknown protocol")
+	}
+	plan, err := os.ReadFile(planFile)
 	if err != nil {
 		return err
 	}
-	if paireval.Hash(plan) != layaprobe.PlanSHA256 {
+	if paireval.Hash(plan) != planHash {
 		return fmt.Errorf("plan mismatch")
 	}
 	if err := assets.Verify(*model, map[string]string{"model.onnx": layaprobe.ModelSHA256, "config.json": "febbcac345d8142d649567746a83446e458c49b0e61256811ac0b36e72a1169f", "tokenizer.json": "6c8aaa9a542084f2457eab775d4eeb51f92a70c0fd9de28d5edb0ddec3c08d30"}); err != nil {
@@ -73,12 +80,12 @@ func run() error {
 	}
 	defer engine.Close()
 	last := time.Now()
-	report, err := layaprobe.Run(rows, split, engine, guard, func(cases, calls int) {
+	report, err := layaprobe.RunProtocol(rows, split, engine, guard, func(cases, calls int) {
 		if time.Since(last) >= 20*time.Second {
 			fmt.Fprintf(os.Stderr, "validation cases visited=%d native calls=%d elapsed_seconds=%.1f\n", cases, calls, time.Since(start).Seconds())
 			last = time.Now()
 		}
-	})
+	}, *protocol)
 	if err != nil {
 		return err
 	}

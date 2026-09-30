@@ -51,3 +51,30 @@ func TestGuardAndProbabilityFailures(t *testing.T) {
 		}
 	}
 }
+
+type documentedFake struct{ calls int }
+
+func (p *documentedFake) Predict(state, kind, instruction string, options []string) (inference.Prediction, error) {
+	if kind != "noul" || !strings.HasPrefix(state, "File: [unavailable]\n") || !strings.Contains(instruction, "Is this source code relevant to the software change:") {
+		return inference.Prediction{}, fmt.Errorf("wrong documented protocol")
+	}
+	if p.calls%2 == 0 && options[0] != "false: no, the statement does not hold" {
+		return inference.Prediction{}, fmt.Errorf("wrong documented order")
+	}
+	probs := [][2]float64{{.1, .9}, {.1, .9}, {.8, .2}, {.8, .2}}
+	v := probs[p.calls]
+	p.calls++
+	return inference.Prediction{Probabilities: []float64{v[0], v[1]}}, nil
+}
+func TestDocumentedPrimaryIsForwardNotAverage(t *testing.T) {
+	yes, no := 1, 0
+	rows := []paireval.Row{{Code: "a", Query: "a", Label: &yes}, {Code: "b", Query: "b", Label: &no}}
+	split := paireval.Split{Rows: []paireval.Membership{{Split: "validation"}, {Split: "validation"}}}
+	r, err := RunProtocol(rows, split, &documentedFake{}, func() error { return nil }, func(int, int) {}, "noul")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.PlanSHA256 != DocumentedPlanSHA256 || r.PrimaryAUC == nil || *r.PrimaryAUC != 1 || r.ReverseAUC == nil || *r.ReverseAUC != 0 || r.AveragedAUC == nil || *r.AveragedAUC != .5 {
+		t.Fatal("documented primary mapping wrong", r)
+	}
+}
