@@ -2,6 +2,8 @@
 
 [한국어](mps-training.ko.md) · [Plan issue #11](https://github.com/teamswyg/laya-tools/issues/11)
 
+This is the initial readiness record. See [real MPS pilot results](mps-pilot.en.md) for subsequent completed model training.
+
 End users need only the Go binary. Python here is exclusively for maintainer training/conversion experiments; it is not added to the `riidolaya` runtime or default CI.
 
 ## What was actually verified

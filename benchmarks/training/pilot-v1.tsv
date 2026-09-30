@@ -1,0 +1,89 @@
+task	split	label	state
+difficulty	train	fast	Correct the misspelled word recieve in one CLI help string; behavior stays identical.
+difficulty	train	fast	Apply gofmt to the specified Go file without changing expressions.
+difficulty	train	fast	Replace an obsolete documentation URL with the supplied verified URL.
+difficulty	train	fast	Rename a local variable inside a ten-line helper; no exported API changes.
+difficulty	train	fast	Change the displayed copyright year in the license notice template.
+difficulty	train	fast	Add the provided example command to README; the command was already tested.
+difficulty	train	fast	Remove a duplicated sentence from the installation guide.
+difficulty	train	fast	Sort the existing import block using the standard formatter.
+difficulty	train	standard	Add a --limit integer option, validate positive values and cover invalid inputs with tests.
+difficulty	train	standard	Implement JSON output for the existing result structure with compatibility tests.
+difficulty	train	standard	Fix an off-by-one pagination bug whose failing test and affected function are supplied.
+difficulty	train	standard	Add request timeout propagation to a bounded HTTP client helper and test cancellation.
+difficulty	train	standard	Add table-driven coverage for missing config fields using existing validation rules.
+difficulty	train	standard	Add a Linux CI build to a project with a working macOS build and no native dependencies.
+difficulty	train	standard	Implement deterministic sorting of search results with ties broken by path and line.
+difficulty	train	standard	Add a dry-run mode to a local file renaming command and verify that no files change.
+difficulty	train	strong	Diagnose an intermittent deadlock between session shutdown and concurrent inference; lock ordering is unknown.
+difficulty	train	strong	Design a backwards-compatible database migration with rollback while writers remain active.
+difficulty	train	strong	Investigate privilege escalation through interacting authorization middleware and cache invalidation.
+difficulty	train	strong	Resolve a goroutine leak that occurs only under cancellation and backpressure across three services.
+difficulty	train	strong	Preserve exactly-once payment effects despite retries and partial transaction failures.
+difficulty	train	strong	Redesign native session ownership so concurrent Close and Predict cannot cause use-after-free.
+difficulty	train	strong	Find why a distributed lease occasionally permits two leaders after network partitions.
+difficulty	train	strong	Reduce memory allocations in a shared index without changing ordering, ownership or concurrent read guarantees.
+difficulty	validation	fast	Fix punctuation in a single existing error message without changing its condition.
+difficulty	validation	fast	Update a comment to match the already implemented parameter name.
+difficulty	validation	standard	Add CSV export for a known schema and tests for escaping commas and quotes.
+difficulty	validation	standard	Handle an empty search query with the documented error and add regression coverage.
+difficulty	validation	strong	Investigate a race between snapshot readers and index replacement under load.
+difficulty	validation	strong	Specify crash recovery for a multi-file atomic update interrupted between writes.
+difficulty	calibration	fast	Replace a broken badge URL with the supplied replacement in the project overview.
+difficulty	calibration	fast	Remove trailing spaces from one markdown document.
+difficulty	calibration	fast	Correct the spelling of a private test function name without modifying assertions.
+difficulty	calibration	standard	Support an optional environment variable overriding a config default, with precedence tests.
+difficulty	calibration	standard	Implement a stable deduplication helper preserving input order and test duplicate values.
+difficulty	calibration	standard	Add a maximum response-size guard to a synchronous downloader and cover oversized responses.
+difficulty	calibration	strong	Fix cross-tenant data leakage caused by a cache key missing part of the authorization context.
+difficulty	calibration	strong	Analyze nondeterministic corruption of a shared memory-mapped file during concurrent updates.
+difficulty	calibration	strong	Plan a public protocol change that supports old and new clients during rolling upgrades.
+difficulty	test	fast	Change one user-facing heading from Quickstart to Getting started; no links or code change.
+difficulty	test	fast	Insert the supplied missing comma in a prose paragraph.
+difficulty	test	fast	Remove an unused private constant after the compiler identifies its only declaration.
+difficulty	test	standard	Add a list subcommand over an existing local catalog, including filtering and CLI tests.
+difficulty	test	standard	Fix a reproducible Unicode slicing bug in an isolated formatting helper.
+difficulty	test	standard	Implement bounded exponential retry for a testable idempotent HTTP operation.
+difficulty	test	strong	Make a bank transfer preserve balance invariants across process crashes and duplicate submissions.
+difficulty	test	strong	Diagnose inconsistent results across CPU architectures in a quantized native inference pipeline.
+difficulty	test	strong	Introduce fine-grained locking into a shared scheduler while proving cancellation and shutdown remain safe.
+decomposition	train	keep_atomic	Fix one misspelled CLI word. Candidate: assign each character replacement to a separate worker, then merge. One tiny string is the entire output.
+decomposition	train	keep_atomic	Update one atomic compare-and-swap operation. Candidate: separate reading, checking and writing into unrelated workers; the invariant must hold as one operation.
+decomposition	train	keep_atomic	Rename a private three-line helper. Candidate: create four coordination stages for declaration, call site, comment and final spelling; the change takes one local edit.
+decomposition	train	keep_atomic	Repair one transaction invariant. Candidate: distribute debit and credit corrections without a shared transaction contract or joint correctness check.
+decomposition	train	split_sequential	Add a new response field. Candidate: first fix its schema and compatibility contract, then implement the serializer from that contract, then run integration tests.
+decomposition	train	split_sequential	Investigate a reproducible crash. Candidate: reproduce the crash and locate the cause, implement a fix using that evidence, then verify regression behavior.
+decomposition	train	split_sequential	Migrate an index format. Candidate: write and verify a converter, apply it to a fixture, then validate new-reader compatibility on its output.
+decomposition	train	split_sequential	Change a command interface. Candidate: determine supported arguments, implement parsing, then generate help from the resulting parser.
+decomposition	train	split_parallel	Update two independent library modules under fixed interfaces. Candidate: each worker edits only its own module and tests; neither imports the other; merge followed by integration tests.
+decomposition	train	split_parallel	Document two stable commands. Candidate: write separate pages using fixed verified outputs, with no shared generated file; validate all links after both finish.
+decomposition	train	split_parallel	Add tests for unrelated pure math and string helpers. Candidate: separate test files and no global fixtures; both helpers are unchanged; run the full suite afterward.
+decomposition	train	split_parallel	Implement two CLI adapters for a finalized interface. Candidate: distinct directories, no shared writes or services, isolated tests; integrate after both pass.
+decomposition	train	needs_context	Refactor two services. Candidate says they can run together but provides no API contract, shared resources or integration criteria.
+decomposition	train	needs_context	Improve deployment reliability. No candidate subtasks, affected repository revision or success criteria are supplied.
+decomposition	train	needs_context	Change two database tables. Candidate assigns separate workers but foreign keys and transaction dependencies are not known.
+decomposition	train	needs_context	Optimize a cache and its callers. Candidate omits ownership rules and whether callers mutate returned entries.
+decomposition	validation	keep_atomic	Fix a one-byte fixture typo. Candidate spreads that byte change across multiple dependent agents with no distinct deliverables.
+decomposition	validation	keep_atomic	Change an inseparable checksum expression. Candidate splits its operands into independent unvalidated edits even though all must satisfy one invariant.
+decomposition	validation	split_sequential	Publish a generated API guide. Candidate first finalizes the API, next generates the guide from that exact interface, then checks examples against the build.
+decomposition	validation	split_sequential	Repair failing compatibility tests. Candidate first identifies the changed contract, next fixes implementation, then reruns the old-client suite.
+decomposition	validation	split_parallel	Add independent benchmarks for two immutable data structures. Candidate uses separate benchmark files and isolated local data; combine the reports after both complete.
+decomposition	validation	split_parallel	Translate separate documentation pages from frozen source text. Candidate gives each worker one page with no shared output; a final link check covers both.
+decomposition	validation	needs_context	Modify authentication and session storage together. Candidate lists files but does not specify token invalidation semantics or shared state.
+decomposition	validation	needs_context	Run workers across two repositories. Candidate lacks pinned revisions and does not identify which repository consumes the other's artifacts.
+decomposition	calibration	keep_atomic	Replace one default boolean literal. Candidate adds three handoffs despite a single known output and one direct assertion.
+decomposition	calibration	keep_atomic	Repair an atomic file replacement sequence. Candidate separates rename and cleanup into workers that cannot coordinate the required crash invariant.
+decomposition	calibration	split_sequential	Add an import format. Candidate defines the grammar, implements the parser from that grammar, and finally tests complete import behavior.
+decomposition	calibration	split_sequential	Tune a failing query. Candidate captures its execution plan, uses that observation to choose an index, then measures the revised query.
+decomposition	calibration	split_parallel	Add isolated formatting tests for two existing independent commands. Candidate uses different files and temporary directories; no global configuration changes; final full test run.
+decomposition	calibration	split_parallel	Implement separate read-only exporters using an immutable documented input format. Candidate isolates output files and joins with final acceptance tests.
+decomposition	calibration	needs_context	Upgrade a dependency in two packages. Candidate omits whether they share a module file or generated bindings.
+decomposition	calibration	needs_context	Split a flaky test investigation between workers. Candidate has no reproduction steps, test isolation information or target environment.
+decomposition	test	keep_atomic	Correct a punctuation mark in an error string. Candidate creates a planning worker, an editing worker and a reporting worker for that single character.
+decomposition	test	keep_atomic	Enforce one lock-protected state transition. Candidate splits the protected condition and update into independent changes without preserving their joint invariant.
+decomposition	test	split_sequential	Add a binary protocol reader. Candidate freezes the wire format, implements decoding against it, then validates interoperability with a fixture producer.
+decomposition	test	split_sequential	Investigate a platform-specific bug. Candidate reproduces it on the target OS, derives a fix from that result, and finally runs the platform regression suite.
+decomposition	test	split_parallel	Create two independent example programs for a stable library. Candidate writes separate directories with isolated outputs; neither program depends on the other; final build validates both.
+decomposition	test	split_parallel	Review two unrelated pure utility modules. Candidate gives each worker distinct source and tests, with no edits to shared state; aggregate findings after both finish.
+decomposition	test	needs_context	Plan a payment and ledger refactor. Candidate proposes parallel workers but transaction boundaries and reconciliation requirements are missing.
+decomposition	test	needs_context	Change configuration across plugins. Candidate does not describe the central registry, initialization order or shared generated files.
