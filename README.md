@@ -1,92 +1,247 @@
 # laya-tools
 
-Local Laya inference in a Go binary: bounded code search and **experimental, opt-in Codex model routing**. Built first for Apple Silicon macOS, with Linux amd64 CI and releases. No Python process, model API, account, or API key is needed at runtime.
+**모델 선택을 프로젝트가 직접 관리하기 위한 로컬 AI 라우터 실험입니다.**
 
-This is an early prototype, not a demonstrated Codex cost reduction product. Laya classifies decisions; Codex still does the coding. See [measurements](docs/measurements.md) and the [Korean design explanation](docs/design.ko.md).
+작은 판단 모델인 [Laya](https://huggingface.co/convaiinnovations/laya)를 로컬에서 실행하고, 작업에 필요한 모델의 수준을 판단합니다. 실제 코딩은 Codex가 맡습니다. 코드 검색에서는 큰 모델에 전달할 후보 코드의 순서를 Laya가 조정합니다.
 
-## Quick start
+검색·라우팅·토큰화·추론 호출·에이전트 인터페이스를 Go로 구현했습니다. 사용자가 도구를 실행할 때 Python이나 별도 모델 API 키는 필요하지 않습니다. **Codex 연동은 선택 사항**이며, 향후 riido-daemon에서 사용할 인터페이스도 Go 기반으로 발전시킵니다.
 
-Download the matching `laya-v…-darwin-arm64.tar.gz` or `linux-amd64` archive from [releases](https://github.com/teamswyg/laya-tools/releases), check it against `SHA256SUMS`, and extract it. Or build with Go 1.27 and a C compiler:
+> 현재는 직접 사용하며 검증하는 초기 버전입니다. 로컬 실행과 CI는 구현했지만, 실제 Codex 비용이나 포함 사용량을 줄였다는 결과는 아직 없습니다.
 
-```sh
-go build -trimpath -o bin/laya ./cmd/laya
-./bin/laya setup
-./bin/laya search --root /path/to/repository --json 'where are redirect headers removed?'
+## 왜 만들었나요?
+
+이 프로젝트는 Codex 요금제와 포함 사용량의 변경에 관한 안내를 계기로 시작했습니다. 모델은 다양해지고, 같은 작업이라도 어떤 모델과 추론 설정을 선택하느냐에 따라 사용량·속도·완성도가 달라집니다. 그런데 작업을 시작하기 전에 필요한 능력과 소모량을 예상하는 일은 여전히 사람의 판단에 많이 의존합니다.
+
+주석의 오타를 수정하는 일과 여러 서비스에 걸친 동시성 장애를 해결하는 일에 같은 수준의 모델이 필요한지, 프로젝트 관리 관점에서 직접 판단해 보고 싶었습니다. 개발·실험에 사용할 수 있는 에이전트 사용량을 활용해 도구를 만들고, 반복적인 작은 판단은 로컬 모델에 맡기는 것이 출발점입니다.
+
+프로젝트의 가설은 다음과 같습니다.
+
+> **AI 에이전트에 어떤 모델을 배정할지는 프로젝트의 품질·예산·일정을 함께 다루는 독립적인 관리 영역이다. 따라서 그 선택 정책을 프로젝트가 소유하는 라우터가 필요하다.**
+
+서비스 제공자의 수익 유인과 사용자의 비용 절감 목표는 항상 일치하지 않을 수 있습니다. 공급자가 자동으로 가장 경제적인 모델을 배정해 줄 것이라고 전제하기보다는, 사용자가 작업별 선택 기준과 결과를 관찰하고 조절할 수 있어야 한다고 봅니다.
+
+이는 특정 기업이 앞으로 최적화를 하지 않을 것이라거나 의도적으로 토큰을 낭비하게 만든다는 단정이 아닙니다. 공급자도 최적화를 발전시킬 수 있지만, 프로젝트별 성공 기준과 예산에 맞는 선택까지 보장되는지는 별도로 검증해야 한다는 문제의식입니다. 구체적인 요금과 포함 사용량은 바뀔 수 있으므로 특정 가격표에 의존해 설계하지 않습니다.
+
+목표는 작은 모델을 최대한 많이 쓰는 것이 아니라 **작업을 성공적으로 끝내는 데 드는 전체 비용을 낮추는 것**입니다. 저렴한 모델이 실패해 재시도를 반복하면 오히려 손해일 수 있습니다. 따라서 사용량뿐 아니라 성공률, 걸린 시간, 재작업까지 함께 평가해야 합니다.
+
+## Laya가 하는 일과 Codex가 하는 일
+
+Laya는 코드를 생성하는 모델이 아닙니다. 입력을 읽고 주어진 선택지 중 하나를 고르는 작은 판단 모델입니다. Jevgrep 같은 도구의 접근법을 참고하되, 이 프로젝트의 실제 로컬 추론에는 공개 Laya 가중치를 사용합니다. Jev와 Laya가 같은 모델이라는 뜻은 아닙니다.
+
+```mermaid
+flowchart LR
+    A[새 작업 요청] --> B[로컬 Laya: 필요한 능력 분류]
+    B --> C[프로젝트의 모델 선택 정책]
+    C --> D[빠른 모델]
+    C --> E[보통 모델]
+    C --> F[강한 모델 또는 기존 기본값]
+    D --> G[Codex가 실제 작업 수행]
+    E --> G
+    F --> G
 ```
 
-`setup` downloads SHA-256-pinned public weights and ONNX Runtime. Initial model download is about 455 MiB compressed / 575 MiB installed. It verifies both the archive and installed files. Subsequent search/routing is local. macOS cache: `~/Library/Caches/laya-tools`; Linux: `~/.cache/laya-tools`. Override with `LAYA_CACHE`.
+예를 들어 오타 수정은 빠른 모델 후보, 일반적인 기능 구현은 보통 모델 후보, 어려운 디버깅이나 설계는 강한 모델 후보입니다. 이는 분류 기준의 예시이며 현재 모델의 정확도를 보장하는 설명은 아닙니다.
 
-One Go executable orchestrates the work; the cached native inference library and model files remain separate. This is not a self-contained 10 MB AI model. See measured whole-process memory below.
+Laya의 추천과 실제 적용 결과는 구분합니다. 확신도가 낮거나 입력이 잘렸거나 지원 범위 밖이라면 강한 모델을 유지합니다. 사용자가 모델을 직접 지정한 경우에는 그 선택이 우선합니다.
 
-## Code search
+현재 라우터는 **새 Codex CLI 세션을 시작할 때 한 번** 선택합니다. 실행 중인 대화의 모델을 바꾸거나 API 요청을 가로채지는 않습니다.
+
+## 현재 가능한 기능
+
+| 기능 | 하는 일 |
+|---|---|
+| `search` | 코드 후보를 키워드로 찾고, 선택적으로 Laya가 관련성 순서를 조정합니다. |
+| `route` | 모델을 추천하고 적용 정책의 결과만 보여줍니다. Codex를 실행하지 않습니다. |
+| `codex` | 선택된 모델로 설치된 Codex CLI의 새 작업을 시작합니다. |
+| `serve` | 모델을 메모리에 유지하고 JSONL 요청을 순서대로 처리합니다. |
+| `mcp` | 에이전트에 코드 검색과 모델 추천 도구를 제공합니다. |
+| `bench` | 로딩 시간·추론 시간과 Go 프로파일을 측정합니다. |
+| `setup` / `doctor` | 모델 설치·무결성 확인과 로컬 환경 진단을 수행합니다. |
+
+요금제의 남은 사용량 조회, 실시간 가격 비교, 사용량에 따른 자동 정책 변경, 실패 후 강한 모델로 재시도하는 기능은 **아직 구현하지 않았습니다**. 현재 자동 선택 기준은 요청의 난이도 분류와 명시적인 정책입니다.
+
+## 설치와 첫 실행
+
+Apple Silicon macOS를 우선 대상으로 만들었으며 Linux amd64도 CI에서 검사합니다. [릴리스](https://github.com/teamswyg/laya-tools/releases)의 운영체제에 맞는 실행 파일을 사용할 수 있습니다. 다운로드한 압축파일은 함께 제공되는 `SHA256SUMS`와 비교한 뒤 풀어 주세요.
+
+소스에서 빌드하려면 Go 1.27과 C 컴파일러가 필요합니다. macOS에서는 Command Line Tools가 C 컴파일러를 제공합니다.
 
 ```sh
-laya search --root . 'where is the retry policy implemented?'
-laya search --root . --lexical --json 'retry timeout'  # no model loaded
+git clone https://github.com/teamswyg/laya-tools.git
+cd laya-tools
+go build -trimpath -o bin/laya ./cmd/laya
+
+./bin/laya setup
+./bin/laya doctor
+./bin/laya search --root . 'where is routing confidence checked?'
+```
+
+아래 예시는 실행 파일이 PATH에 등록되어 `laya`로 실행되는 경우입니다. 소스 빌드 직후에는 `laya` 대신 `./bin/laya`를 사용하면 됩니다. **옵션은 질문 앞에** 적습니다.
+
+`setup`은 공개 모델과 ONNX Runtime을 내려받아 압축파일과 내부 파일의 SHA-256을 검증합니다. 최초 모델 다운로드는 약 455 MiB이고, 설치된 모델 파일은 약 572 MiB입니다. 이후 검색과 라우팅 추론은 로컬에서 수행됩니다.
+
+캐시 위치는 macOS의 `~/Library/Caches/laya-tools`, Linux의 `~/.cache/laya-tools`입니다. `LAYA_CACHE`로 변경할 수 있습니다. Go 실행 파일 하나가 동작을 관리하지만, 모델과 네이티브 추론 라이브러리는 캐시에 별도로 존재합니다.
+
+Laya의 공개 가중치를 로컬에서 사용하므로 Laya 판단마다 외부 API 사용료가 발생하지 않습니다. 다만 로컬 메모리·CPU·전력은 사용하며, 이후 실행하는 Codex의 사용량은 기존 요금제나 과금 정책을 따릅니다.
+
+## 코드 검색 사용법
+
+```sh
+# 관련 코드의 경로, 줄 번호, 본문을 출력합니다.
+laya search --root /path/to/repository 'where are redirect headers removed?'
+
+# Laya 없이 가벼운 키워드 검색만 실행합니다.
+laya search --root . --lexical --json 'redirect authorization'
+
+# 코드 관련성 평가용 파생 모델을 설치하고 사용합니다.
 laya setup --checkpoint code
 laya search --checkpoint code --candidates 8 --limit 3 'redirect authentication'
+
+# 한국어 질문의 후보 검색에 영어 식별자 힌트를 줍니다.
 laya search --candidate-query 'gzip decoder' 'gzip 압축을 해제하는 코드'
 ```
 
-Git supplies tracked/untracked and ignore-aware file listing at repository roots. Install `rg` for non-root directories. Hidden files, common generated folders, symlinks, obvious credential filenames, binary files, and files over 256 KiB are skipped. Only listed code/text extensions are read. Limits: 32 MiB source, 50,000 chunks, 64 candidates, 512 model tokens per candidate. Results include paths, exact line ranges, excerpts, lexical/relevance scores, and a truncation flag. `--candidate-query` only changes lexical retrieval; Laya still reads the original question.
+검색은 `키워드 후보 검색 → Laya 관련성 평가 → 중복 구간 제거 → 코드 일부 반환` 순서입니다. 기본값은 후보 8개를 평가하고 결과 최대 3개를 반환합니다. 벡터 데이터베이스는 만들지 않습니다.
 
-BM25 retrieves candidates; Laya reranks them; overlapping output windows are suppressed. No embeddings database or background index is created. Each request reindexes the current files, avoiding stale edits; the model stays warm in `serve`/`mcp`. Missing native assets fall back to lexical search with an explicit warning. A zero lexical match cannot be recovered by reranking. English Laya's Korean accuracy is unvalidated.
+Git 저장소 루트에서는 Git의 파일 목록과 무시 규칙을 사용합니다. 저장소 하위 폴더나 일반 디렉터리 검색에는 `rg`가 필요합니다. 파일 변경이 반영되도록 요청마다 목록과 내용을 다시 읽습니다. `serve`와 `mcp`는 추론 모델을 계속 유지하지만 코드 인덱스를 영구 저장하지 않습니다.
 
-## Optional router
+읽는 양과 메모리 사용을 제한하기 위해 숨김 파일, 일반적인 생성 폴더, 심볼릭 링크, 명백한 자격증명 파일명, 바이너리와 256 KiB보다 큰 파일을 제외합니다. 전체 소스 32 MiB, 코드 구간 50,000개, 후보 64개까지 허용합니다. 후보 하나의 모델 입력은 최대 512토큰이며 잘린 경우 결과에 표시합니다. 이 제외 규칙은 모든 비밀정보를 탐지하는 보안 스캐너를 대신하지 않습니다.
 
-Nothing changes your Codex configuration automatically. Model IDs are supplied by the user; no price assumptions or hardcoded model catalog.
+키워드 검색에서 후보가 없으면 Laya도 되살릴 수 없습니다. 영어 기반 체크포인트이므로 한국어 품질은 아직 검증되지 않았습니다. 모델이나 런타임이 없으면 경고와 함께 키워드 검색으로 대체합니다.
+
+## 모델 라우터 사용법
+
+실제 모델 이름은 사용자가 지정합니다. 모델 이름과 가격을 코드에 고정하지 않으므로 공급자의 모델 구성이 바뀌어도 정책을 바꿔 사용할 수 있습니다.
 
 ```sh
+# 실제로 사용할 수 있는 모델 ID로 바꿔 입력합니다.
 export LAYA_FAST_MODEL='your-fast-model-id'
 export LAYA_STANDARD_MODEL='your-standard-model-id'
 export LAYA_STRONG_MODEL='your-strong-model-id'
+
+# 추천과 정책 적용 결과만 확인합니다.
 laya route --json 'Fix a spelling mistake in this comment'
+
+# Codex를 실행하지 않고 전달될 인자를 확인합니다.
 laya codex --dry-run 'Investigate a concurrency bug'
+
+# 추천 결과로 새 Codex CLI 세션을 시작합니다.
 laya codex 'Investigate a concurrency bug'
+
+# 사용자가 지정한 모델이 라우터의 판단보다 우선합니다.
 laya codex --model 'your-explicit-model-id' 'Implement the feature'
 ```
 
-`route` recommends only. `codex` chooses once for a **new** interactive CLI session, releases Laya memory, then launches your installed `codex --model … -- PROMPT`. Empty strong-model settings preserve Codex's configured default. Explicit model selection wins. It never rewrites credentials, proxies API traffic, alters sandbox/approval settings, or switches a running conversation's model. The resulting Codex session communicates with its normal provider.
+`route`는 추천만 반환합니다. `codex`는 Laya 메모리를 해제한 뒤 기존에 설치된 Codex를 실행합니다. 로그인 정보나 API 키를 별도로 읽거나 저장하지 않고, Codex의 권한·승인 설정도 변경하지 않습니다. 실제 Codex 작업은 기존 공급자와 통신합니다.
 
-Low confidence (default 0.9), truncated inputs, inference failure, missing tier models, and Korean requests preserve the strong/default model. Probabilities are not calibrated task-success guarantees. The base checkpoint is recommended for routing; `code` is a relevance finetune. Automatic quality-based retries and cost accounting are future work, not implemented features.
+강한 모델을 지정하지 않으면 원래 Codex의 기본 모델을 유지합니다. 다음 조건에서도 강한 모델 또는 기존 기본값을 사용합니다.
 
-## Humans and agents
+- 확신도가 기준값보다 낮음: 기본 `0.9`.
+- 입력이 모델의 토큰 한도를 넘어 잘림.
+- 모델 로딩이나 추론 실패.
+- 선택된 등급의 모델 이름이 설정되지 않음.
+- 아직 난이도 분류를 검증하지 않은 한국어 요청.
 
-Human output by default; stable JSON with `--json`; errors go to stderr with nonzero exit status. Put flags before the query. Pass `-` to read a prompt from stdin.
+JSON의 `suggested_tier`는 Laya가 제안한 등급, `tier`와 `model`은 정책을 적용한 결과입니다. `confidence`는 **제안한 등급의 확률**이며, 작업 성공 가능성이나 최종 모델의 정확도를 뜻하지 않습니다. `abstained`가 참이면 더 약한 모델로 내리는 판단을 보류한 것입니다.
+
+라우팅에는 기본 `base` 체크포인트를 권장합니다. `code`는 코드 관련성 평가용 파생 모델입니다. 현재 기본 확신도 설정이 매우 보수적이라는 점은 아래 측정 결과에서 확인할 수 있습니다.
+
+## 사람과 에이전트가 함께 쓰는 인터페이스
+
+사람에게는 일반 텍스트, 에이전트에는 `--json`을 제공합니다. 오류는 stderr와 0이 아닌 종료 코드로 알립니다. 질문 대신 `-`를 전달하면 stdin에서 입력을 읽습니다.
+
+여러 요청을 처리할 때는 모델을 한 번만 로드하는 JSONL 모드를 사용할 수 있습니다.
 
 ```sh
 laya serve --root /path/to/repository
-# send one JSON object per line; one response per line:
+```
+
+입력은 한 줄에 JSON 객체 하나이며, 응답도 한 줄에 하나입니다.
+
+```json
 {"id":1,"op":"search","query":"redirect authentication"}
 {"id":2,"op":"route","query":"Fix a typo"}
 ```
 
-`serve` keeps one model in memory and processes requests sequentially. `laya mcp --root /path/to/repository` exposes stdio tools `search_code` and `route_model`. Optional Codex registration (uses an absolute executable path):
+MCP 서버는 다음과 같이 실행합니다.
+
+```sh
+laya mcp --root /path/to/repository
+```
+
+`search_code`와 `route_model` 두 도구를 제공합니다. Codex에서 쓰고 싶을 때만 명시적으로 등록합니다.
 
 ```sh
 codex mcp add laya -- /absolute/path/to/laya mcp --root /absolute/path/to/repository
 ```
 
-Registration is opt-in. The running model may use the search tool, but the routing tool can only recommend a model for a new task. No daemon, launch agent, open network port, or app settings are installed automatically.
+MCP의 라우팅 도구도 새 작업에 쓸 모델을 추천할 뿐, 현재 대화의 모델을 변경하지는 않습니다. macOS 자동 실행 서비스나 네트워크 포트도 자동으로 만들지 않습니다.
 
-## Measure, don't assume
+## riido-daemon과의 연동 방향
+
+목표는 모델 선택을 riido-daemon의 작업 실행 정책으로 가져오는 것입니다. 지금은 Go에서 실행 파일을 호출하고 JSON/JSONL 응답을 읽는 방식으로 연동할 수 있습니다. 이미 riido-daemon에 연결되었다는 뜻은 아닙니다.
+
+향후에는 다음 정보를 함께 다루는 방향을 검토합니다.
+
+- 작업 종류와 실패했을 때의 영향.
+- 프로젝트별 예산과 원하는 응답 시간.
+- 모델별 실제 성공률, 사용량, 소요 시간.
+- 판단 보류와 강한 모델 재시도 기준.
+
+장기적으로 재사용 가능한 Go 패키지 인터페이스를 정리할 계획입니다. 현재 패키지들은 `internal/`에 있으므로 외부 프로젝트가 Go 라이브러리로 직접 import하는 공개 SDK는 아직 제공하지 않습니다.
+
+사용자 실행 경로는 Go입니다. 원본 Laya 모델을 ONNX로 변환하고 기준 결과를 비교하는 **모델 유지보수용 Python 스크립트는 별도로 남아 있습니다**. 설치된 도구를 실행하거나 riido-daemon에서 호출할 때 Python을 띄우는 구조는 아닙니다.
+
+## 지금까지의 측정 결과
+
+Apple M4 Pro / 24 GiB / macOS에서의 초기 측정입니다. 자세한 조건과 원본 결과는 [측정 문서](docs/measurements.md)와 [결과 파일](benchmarks/results)에 있습니다.
+
+| 항목 | 관찰 결과 |
+|---|---|
+| 짧은 판단 요청, 모델이 이미 로드된 상태 | CPU 설정별 중앙값 약 24~40ms |
+| 기본 CPU 4스레드의 짧은 판단 | 중앙값 약 26ms |
+| 모델 포함 전체 프로세스 메모리 | INT8 시험의 최대 RSS 약 1.4GiB |
+| 코드 검색 재정렬 | 개발 질문에서 대략 1.6~1.8초 추가 소요, 일부 정확도 개선 |
+| 기본 라우터 정책 | 시험 요청 12개 모두 강한 모델 유지 |
+| Core ML / GPU | 현재 동적 변환 모델의 초기화 오류로 미검증 |
+
+따라서 지금 버전의 결론은 “Laya를 추가하면 무조건 더 싸고 빠르다”가 아닙니다. **현재 라우터 시험에서는 모델 하향 선택이 0건이었고, 비용 절감도 증명하지 못했습니다.** 코드 검색 역시 키워드만으로 잘 찾는 경우에는 Laya를 추가하는 것이 더 느립니다.
+
+이 프로젝트는 이런 결과를 감추지 않고 선택 기준을 검증하기 위한 실험 환경입니다. 추후 동일한 코딩 과제에서 성공률·총 사용량·걸린 시간·재시도를 함께 비교해야 합니다. 기본값을 낮춰 숫자만 좋아 보이게 만드는 것은 목표가 아닙니다.
+
+## CPU·메모리·GPU 측정
 
 ```sh
 laya bench --iterations 30 --threads 4
 laya bench --cpu-profile cpu.pprof --heap-profile heap.pprof --ort-profile ort-trace
+
 go tool pprof -top cpu.pprof
-/usr/bin/time -l laya bench --iterations 30  # macOS process peak RSS
+go tool pprof -top heap.pprof
+
+# macOS: 전체 프로세스의 최대 메모리도 따로 봅니다.
+/usr/bin/time -l laya bench --iterations 30
 ```
 
-Go pprof covers Go allocations and CPU samples; native inference often appears as `runtime.cgocall`/unknown. It does **not** report GPU memory or all native allocations. ORT trace records actual provider execution; Instruments is needed for GPU counters. Do not publish raw profiles from private workspaces: profiles may contain local paths. `--provider coreml` is experimental and currently fails for the dynamic exported graph on the tested Mac. CPU INT8 is the working default. The FP32 graph is a developer export, not downloaded by normal setup.
+Go pprof는 Go 메모리와 CPU 샘플을 보여줍니다. 네이티브 모델 추론은 `runtime.cgocall`이나 이름 없는 프레임으로 보일 수 있으며, **전체 네이티브 메모리나 GPU 메모리를 나타내지 않습니다**. 실제 실행 공급자는 ONNX Runtime 추적으로, GPU 세부 수치는 macOS Instruments 같은 도구로 따로 확인해야 합니다.
 
-## CI as the approval gate
+`--provider coreml`은 실험 옵션입니다. 현재 시험에서는 모델 초기화에 실패했으므로 CPU INT8을 기본값으로 사용합니다. 파일 프로파일에는 로컬 경로 등이 포함될 수 있어 공개 저장소에 올리지 않습니다.
 
-[CI](.github/workflows/ci.yml) runs race-enabled tests, formatting, vet, real native model inference/tokenizer parity on Linux and macOS, and a redacted secret scan. The `quality` status is required by branch protection; reviewer count is zero. Trusted same-repository PRs queue automatically for squash merge after checks. Fork PRs run unprivileged tests and are not auto-approved. The privileged automerge workflow never checks out PR code. CI failures stop the loop for another code/test iteration.
+## 사람 승인 대신 CI를 개발의 검토 기준으로
 
-Version tags run fresh tests and native inference before publishing binaries and checksums. There is no human approval environment. CI is a deterministic gate, not an AI correctness proof. Public model releases are separately pinned in [the manifest](internal/assets/manifest.json).
+개발 루프는 `변경 → 테스트 → PR → CI 검증 → 자동 병합 → 릴리스 검사`입니다. 메인 브랜치에는 `quality` 검사 통과가 필요하고, 사람 리뷰 승인은 요구하지 않습니다.
 
-## Development
+[CI](.github/workflows/ci.yml)는 다음을 확인합니다.
+
+- Go 포맷, 경쟁 상태 검사 포함 테스트, 정적 검사.
+- macOS와 Linux에서 실제 모델 다운로드 및 네이티브 추론.
+- Python 원본 기준과 Go 토큰화 결과의 일치.
+- 공개 이력에 대한 비밀정보 검사.
+
+쓰기 권한이 있는 작성자의 동일 저장소 PR은 검사가 통과하면 자동 squash 병합합니다. Draft PR은 자동 병합 대상이 아닙니다. 외부 fork PR은 권한이 제한된 환경에서 검사하며 자동 병합 대상으로 취급하지 않습니다. 병합 권한이 있는 워크플로는 PR 코드를 체크아웃하거나 실행하지 않습니다.
+
+버전 태그는 테스트와 실제 추론을 다시 통과해야 바이너리와 체크섬을 배포합니다. 별도의 사람 승인 환경은 두지 않습니다. CI는 객관적인 검사 기준이며 모든 의미적 오류를 잡는다는 보장은 아닙니다. 이 정책은 **프로젝트 개발 변경의 승인 방식**이며, 사용자의 Codex 실행 권한을 자동으로 풀어주는 설정은 아닙니다.
+
+## 개발과 재현
 
 ```sh
 go test -race ./...
@@ -94,6 +249,8 @@ go vet ./...
 go test -bench . -benchmem ./internal/search
 ```
 
-Native tests additionally require `LAYA_MODEL_DIR` (contains `model.onnx`, `tokenizer.json`, `config.json`) and `LAYA_RUNTIME`. These are set in CI after `setup`. For reference export, see [build instructions](docs/model-build.md). Python is used **only by model maintainers for export/reference comparison**, never by the installed Go CLI.
+네이티브 통합 검사는 `LAYA_MODEL_DIR`과 `LAYA_RUNTIME`을 지정해야 합니다. CI에서는 `setup` 이후 자동으로 지정합니다. 모델 변환은 [모델 빌드 문서](docs/model-build.md), 라우터 개요는 [설계 설명](docs/design.ko.md)을 참고하세요.
 
-Apache-2.0. Third-party sources and model revisions: [NOTICE](NOTICE).
+비공개 저장소의 코드, 실제 사용자 작업 프롬프트, 인증 정보와 원본 프로파일은 공개하지 않습니다. 공개 또는 직접 작성한 테스트 자료만 사용합니다. 모델과 런타임의 버전·라이선스·체크섬도 기록합니다.
+
+라이선스: Apache-2.0. 외부 구성 요소와 모델 출처는 [NOTICE](NOTICE)에 정리되어 있습니다.

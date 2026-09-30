@@ -227,6 +227,9 @@ The codex command starts your installed Codex CLI with its existing settings.
 				model = "(Codex default)"
 			}
 			fmt.Printf("%s → %s\n%s\n", route.Tier, model, route.Reason)
+			if route.SuggestedTier != "" {
+				fmt.Printf("Laya proposal: %s (%.3f); threshold: %.2f\n", route.SuggestedTier, route.Confidence, *threshold)
+			}
 		}
 		return nil
 	default:

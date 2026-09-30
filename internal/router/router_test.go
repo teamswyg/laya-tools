@@ -3,6 +3,7 @@ package router
 import (
 	"errors"
 	"github.com/teamswyg/laya-tools/internal/inference"
+	"math"
 	"strings"
 	"testing"
 )
@@ -44,5 +45,17 @@ func TestRoutingPolicy(t *testing.T) {
 	}
 	if _, err := Route(strings.Repeat("x", 65537), "", c, nil); err == nil {
 		t.Fatal("accepted oversized prompt")
+	}
+}
+
+func TestRejectNonfiniteThreshold(t *testing.T) {
+	for _, v := range []float64{math.NaN(), math.Inf(1)} {
+		c := Config{Threshold: v}
+		if NeedsInference("test", "", c) {
+			t.Fatal("nonfinite threshold attempts model load")
+		}
+		if _, err := Route("test", "", c, nil); err == nil {
+			t.Fatal("nonfinite threshold accepted")
+		}
 	}
 }

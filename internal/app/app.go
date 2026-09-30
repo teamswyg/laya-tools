@@ -86,7 +86,7 @@ func (a *App) Process(req Request) Response {
 		}
 	case "route":
 		var scorer router.Scorer
-		if req.Model == "" {
+		if router.NeedsInference(req.Query, req.Model, a.RouteConfig) {
 			if e, e2 := a.Engine(); e2 == nil {
 				scorer = e
 			}
