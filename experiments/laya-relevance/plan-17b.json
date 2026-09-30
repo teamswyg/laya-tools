@@ -1,0 +1,23 @@
+{
+  "schema": "riido-laya-relevance-plan-17b",
+  "reason": "Model card and existing search runtime use typed noul relevance, unlike initial general-choice plan 17. Freeze this correction before opening either aggregate result; retain 17 as a distinct protocol diagnostic.",
+  "source_sha256": "4d1a227fe3652992d1e98f43fa9dc1b8f54a6c27a1a24b9d182bdfb8cbc3274c",
+  "membership_sha256": "d90eda8e8a423eff44847ff46ef19b468a57ac2791d45c57e7e8ba39a4ee9902",
+  "split": "validation only, unchanged existing InScope filter; no reserve scoring",
+  "model_sha256": "0e3665bcf1aa7d8b224af93b5e10d8c86796227f7741da92f6c8a786364a44db",
+  "provider": "cpu",
+  "threads": 4,
+  "max_tokens": 512,
+  "kind": "noul",
+  "state": "File: [unavailable]\n{code}",
+  "instruction": "Is this source code relevant to the software change: \"{query}\"?",
+  "options": ["false: no, the statement does not hold", "true: yes, the statement holds"],
+  "primary": "Probability of true in the documented false/true ordering; no fitting, threshold sweep or order averaging for the primary",
+  "order_control": "Reverse options as a diagnostic only; report reverse and averaged AUC separately",
+  "path_scope": "CoSQA has no file path metadata; unavailable marker is explicit and may differ from training context",
+  "control": "Matched BM25 fitted only on development codes",
+  "truncation": "Exclude both orders and matched BM25 if either order truncates",
+  "exploratory_gate": "primary AUC >= 0.60 and >= matched BM25 AUC + 0.03; not production promotion",
+  "resource_guard": "One native session sequentially; one hour, sampled process RSS <=8 GiB between calls",
+  "scope": "INT8 code checkpoint protocol probe, not all Laya models or FP32 capability; read full source for hashes/partition metadata, infer validation only"
+}
