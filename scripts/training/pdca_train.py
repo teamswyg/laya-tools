@@ -84,6 +84,14 @@ def evaluate(model, tok, rows, started, out, order=(0, 1, 2)):
     return torch.stack(values)
 
 
+def order_js(canonical_logits):
+    """Jensen-Shannon divergence across choice orders, with gradients to every order."""
+    probability = torch.softmax(canonical_logits, dim=-1)
+    mean = probability.mean(dim=0)
+    return (probability * (probability.clamp_min(1e-9).log() -
+                           mean.clamp_min(1e-9).log())).sum(dim=-1).mean()
+
+
 def train(args, plan, rows):
     if args.out.exists(): raise ValueError('New output directory required')
     args.out.mkdir(parents=True)
@@ -117,13 +125,23 @@ def train(args, plan, rows):
                 else:
                     orders = [rng.choice(permutations)]
                 mean_loss = 0.
+                joint_losses, canonical_logits = [], []
                 for permutation in orders:
                     item = make_item(tok, row, permutation)
                     logits = forward(model, tok, item)
                     loss = torch.nn.functional.cross_entropy(logits, torch.tensor([item['label']], device='mps'))
                     if not torch.isfinite(loss): raise RuntimeError('Non-finite loss')
-                    (loss / len(orders)).backward()
+                    if plan.get('consistency_weight', 0):
+                        joint_losses.append(loss)
+                        canonical_logits.append(logits[0, [permutation.index(i) for i in range(3)]])
+                    else:
+                        (loss / len(orders)).backward()
                     mean_loss += float(loss.detach()) / len(orders)
+                if joint_losses:
+                    loss = torch.stack(joint_losses).mean() + plan['consistency_weight'] * order_js(torch.stack(canonical_logits))
+                    if not torch.isfinite(loss): raise RuntimeError('Non-finite joint loss')
+                    loss.backward()
+                    mean_loss = float(loss.detach())
                 parameters = [p for p in model.parameters() if p.requires_grad]
                 if not torch.isfinite(loss) or any(p.grad is None or not torch.isfinite(p.grad).all() for p in parameters):
                     raise RuntimeError('Non-finite update')
@@ -133,13 +151,19 @@ def train(args, plan, rows):
                 driver_max = max(driver_max, torch.mps.driver_allocated_memory())
                 loss_total += mean_loss; updates += 1
             val_orders = permutations if plan.get('validation_all_permutations') else [(0,1,2)]
-            val_logits = torch.cat([evaluate(model,tok,validation,start,args.out,order) for order in val_orders])
+            val_by_order = torch.stack([evaluate(model,tok,validation,start,args.out,order) for order in val_orders])
+            val_logits = val_by_order.flatten(0, 1)
             val = metrics(val_logits, target * len(val_orders))
             record = {'lr': lr, 'epoch': epoch+1, 'training_loss': loss_total / len(training), 'validation': val}
+            score = val['nll']
+            if plan.get('consistency_weight', 0):
+                record['validation_order_js'] = float(order_js(val_by_order))
+                score += plan['consistency_weight'] * record['validation_order_js']
+            record['selection_score'] = score
             records.append(record)
             print(json.dumps(record), flush=True)
-            if val['nll'] < best_loss:
-                best_loss, selected = val['nll'], record
+            if score < best_loss:
+                best_loss, selected = score, record
                 save_file(head_state(model), args.out / 'head.safetensors')
         del optimizer
         torch.mps.empty_cache()

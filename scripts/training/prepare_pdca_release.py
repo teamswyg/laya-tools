@@ -36,7 +36,7 @@ def main():
             raise ValueError('Changed candidate')
         entries.append((run,selection,evaluation))
     if sorted(e[1]['seed'] for e in entries) != sorted(plan['seeds']): raise ValueError('Required independent seeds missing')
-    run,s,e=min(entries,key=lambda x:x[1]['selection']['validation']['nll'])
+    run,s,e=min(entries,key=lambda x:x[1]['selection'].get('selection_score', x[1]['selection']['validation']['nll']))
     head=load_file(run/'head.safetensors')
     if file_hash(args.base/'model.safetensors')!=BASE_SHA: raise ValueError('Wrong base')
     with safe_open(args.base/'model.safetensors',framework='pt') as base:
@@ -55,7 +55,7 @@ def main():
     description=(f"{plan['cycle']} trained learning rates {plan['learning_rates']} for up to "
                  f"{plan['max_epochs']} epochs on two seeds; {plan.get('train_orders_per_update',1)} "
                  f"option orders per update. Selection: {plan['selection']}. "
-                 "Both seeds passed pre-registered checks; release selection uses validation NLL only.")
+                 "Both seeds passed pre-registered checks; release selection uses the pre-registered validation objective only.")
     dataset=(f"{len(rows)} authored English cases: {counts['train']} train, "
              f"{counts['validation']} validation, {counts['calibration']} calibration, "
              f"{counts['test']} held-out test. Training includes 24 prior training examples. "

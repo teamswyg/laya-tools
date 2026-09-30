@@ -36,14 +36,14 @@ repository generalization.
 - Both seeds pass every condition.
 
 The original and tuned model use the same calibration data and temperature grid.
-The calibration set has only 12 cases. Six choice-order evaluations of one case
+Calibration has 12 cases in cycles 1–3 and 24 fresh cases in cycle 4; both are small. Six choice-order evaluations of one case
 are not six independent examples.
 
 ## Reproduction and resource limits
 
 Frozen plans and fixtures live in [PDCA-01](../benchmarks/training/pdca-01),
 [PDCA-02](../benchmarks/training/pdca-02) and
-[PDCA-03](../benchmarks/training/pdca-03).
+[PDCA-03](../benchmarks/training/pdca-03) and [PDCA-04](../benchmarks/training/pdca-04).
 Python is maintainer-only; the user runtime stays Go.
 
 Freeze encoder/action-head weights and train head/type_emb/scorer on MPS with
@@ -80,3 +80,5 @@ Next steps:
 Record origins and licenses. Do not collect or publish private code, customer
 prompts or credentials. No new paid model executions or unattended recurring
 training schedule have been started.
+
+Cycle 4 adds cross-order Jensen–Shannon divergence to training loss and the validation selection objective. Inference remains one pass in one option order.

@@ -35,13 +35,13 @@
 - 두 seed 모두 위 조건 통과.
 
 원본과 학습 모델 모두 동일 calibration 데이터와 temperature 탐색 범위를
-사용합니다. 작은 12건 calibration의 한계는 남습니다. 선택지 순서를 여섯 번
+사용합니다. calibration은 사이클 1~3에서 12건, 사이클 4에서 새 24건이며 여전히 작습니다. 선택지 순서를 여섯 번
 평가한 수는 독립 사례 수로 세지 않습니다.
 
 ## 재현과 자원
 
 [PDCA-01](../benchmarks/training/pdca-01), [PDCA-02](../benchmarks/training/pdca-02),
-[PDCA-03](../benchmarks/training/pdca-03)에 고정 계획과 데이터가 있습니다.
+[PDCA-03](../benchmarks/training/pdca-03), [PDCA-04](../benchmarks/training/pdca-04)에 고정 계획과 데이터가 있습니다.
 유지보수자만 Python 학습 환경을 사용하고 사용자 런타임은 Go를 유지합니다.
 
 MPS에서 encoder/action head를 동결하고 head/type_emb/scorer를 학습합니다.
@@ -75,3 +75,5 @@ CI에는 torch나 모델 다운로드 없이 실행되는 고정 계획/가족 �
 
 새 데이터의 출처·라이선스를 기록하며 비공개 코드, 고객 요청 원문, 토큰은
 수집/게시하지 않습니다. 새 유료 모델 실행이나 자동 반복 일정은 시작하지 않았습니다.
+
+사이클 4는 선택지 순서 간 확률 차이(JS divergence)를 학습 손실과 validation 선택 기준에 더합니다. 추론은 여전히 한 가지 순서로 한 번 수행합니다.

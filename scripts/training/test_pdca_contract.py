@@ -73,5 +73,26 @@ class PDCAContractTest(unittest.TestCase):
                           for s in ('train','validation','calibration','test')},
                          {'train':108,'validation':24,'calibration':12,'test':24})
 
+    def test_fourth_cycle_new_calibration_and_order_objective(self):
+        root = ROOT / 'benchmarks/training/pdca-04'
+        for name, sha in {
+            'plan.json': '1167cd9a3eb041a4be4ff35ff54b0d54b1663fb9ca8c06c42f7de531bc4201af',
+            'families.json': '2f31908d03210c94248cf74e29cd905045d1e168af69653332ae34263768ccfd',
+        }.items():
+            self.assertEqual(hashlib.sha256((root/name).read_bytes()).hexdigest(), sha)
+        plan = json.loads((root/'plan.json').read_text())
+        first = json.loads((ROOT/'benchmarks/training/pdca-01/plan.json').read_text())
+        self.assertEqual(plan['criteria'], first['criteria'])
+        self.assertEqual(plan['gate'], first['gate'])
+        self.assertEqual(plan['consistency_weight'], 1)
+        families = json.loads((root/'families.json').read_text())
+        old = json.loads((ROOT/'benchmarks/training/pdca-03/families.json').read_text())
+        old_names = {f['family'] for f in old}
+        self.assertFalse(old_names & {f['family'] for f in families if f['split'] in ('test', 'calibration')})
+        self.assertEqual(len(families), len({f['family'] for f in families}))
+        self.assertEqual({s:sum(len(f['cases']) for f in families if f['split']==s)
+                          for s in ('train','validation','calibration','test')},
+                         {'train':132,'validation':36,'calibration':24,'test':24})
+
 
 if __name__=='__main__': unittest.main()
