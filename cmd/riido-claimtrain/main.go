@@ -40,6 +40,13 @@ func run() error {
 	if len(selected) != 3009 {
 		return fmt.Errorf("candidate count mismatch")
 	}
+	membership := sha256.New()
+	for _, row := range selected {
+		fmt.Fprintln(membership, retrievalbench.CandidateID(row))
+	}
+	if hex.EncodeToString(membership.Sum(nil)) != "3a6d161ac50e16f18b841645968f47af32055350e460c99a96d733ff217ff37d" {
+		return fmt.Errorf("candidate membership mismatch")
+	}
 	examples, e := retrievalbench.PrepareClaims(selected)
 	if e != nil {
 		return e
