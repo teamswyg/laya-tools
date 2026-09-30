@@ -35,14 +35,23 @@ func frozenConfig(seed uint64) pairlearn.Config {
 // validating actual rows against the readiness seal. It offers no configuration
 // or readiness override. It neither selects thresholds/winners nor evaluates
 // final tasks, proves permissions, publishes models or activates a policy.
-//
-// pairlearn currently exposes selected epoch/NLL only; full per-epoch traces are
-// not supplied by this adapter. A real experiment runner must address that plan
-// requirement before claiming complete plan-46 execution.
 func Fit(rows []Row, readiness Readiness) (Fits, error) {
+	result, _, err := fit(rows, readiness, false)
+	return result, err
+}
+
+// FitWithTrace runs the same fixed ten attempts and records every finite epoch
+// for each attempted candidate. An incomplete trace is a failed trial. This
+// still does not select thresholds, score final tasks or approve release.
+func FitWithTrace(rows []Row, readiness Readiness) (Fits, [10]pairlearn.Trace, error) {
+	return fit(rows, readiness, true)
+}
+
+func fit(rows []Row, readiness Readiness, traced bool) (Fits, [10]pairlearn.Trace, error) {
 	result := Fits{Readiness: readiness}
+	var traces [10]pairlearn.Trace
 	if err := VerifyReadiness(rows, readiness); err != nil {
-		return result, err
+		return result, traces, err
 	}
 	failed := false
 	i := 0
@@ -58,12 +67,18 @@ func Fit(rows []Row, readiness Readiness) (Fits, error) {
 				trial.Failure = validationErr.Error()
 			default:
 				trial.Attempted = true
-				fit, err := pairlearn.Fit(train, validation, frozenConfig(seed))
+				var learned pairlearn.Result
+				var err error
+				if traced {
+					learned, traces[i], err = pairlearn.FitWithTrace(train, validation, frozenConfig(seed))
+				} else {
+					learned, err = pairlearn.Fit(train, validation, frozenConfig(seed))
+				}
 				if err != nil {
 					trial.Failure = err.Error()
 				} else {
-					trial.Epoch, trial.TrainingNLL, trial.ValidationNLL = fit.Epoch, fit.TrainingNLL, fit.ValidationNLL
-					for j, w := range fit.Weights {
+					trial.Epoch, trial.TrainingNLL, trial.ValidationNLL = learned.Epoch, learned.TrainingNLL, learned.ValidationNLL
+					for j, w := range learned.Weights {
 						trial.Weights[j] = float32(w)
 					}
 					trial.Fitted = true
@@ -76,7 +91,7 @@ func Fit(rows []Row, readiness Readiness) (Fits, error) {
 		}
 	}
 	if failed {
-		return result, fmt.Errorf("one or more registered path fits failed")
+		return result, traces, fmt.Errorf("one or more registered path fits failed")
 	}
-	return result, nil
+	return result, traces, nil
 }
