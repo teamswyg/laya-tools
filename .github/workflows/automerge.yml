@@ -8,9 +8,8 @@ permissions:
 jobs:
   enable:
     if: >-
-      !github.event.pull_request.draft &&
-      github.event.pull_request.head.repo.full_name == github.repository &&
-      contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.pull_request.author_association)
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     steps:
       # Deliberately no checkout or execution of PR code in this privileged workflow.
@@ -19,5 +18,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
           PR_SHA: ${{ github.event.pull_request.head.sha }}
-        run: gh pr merge "$PR_NUMBER" --auto --squash --match-head-commit "$PR_SHA"
+        run: |
+          permission=$(gh api "repos/$GH_REPO/collaborators/$PR_AUTHOR/permission" --jq .permission)
+          case "$permission" in
+            admin|maintain|write) gh pr merge "$PR_NUMBER" --auto --squash --match-head-commit "$PR_SHA" ;;
+            *) echo "Author has no repository write permission; leaving PR unqueued." ;;
+          esac

@@ -159,6 +159,12 @@ func install(ctx context.Context, a Artifact, dest string) error {
 		if err != nil {
 			return err
 		}
+		// Official runtime archives also contain dSYM debug files with the same
+		// basename as the library. Accept only flat model files or package/lib files.
+		parts := strings.Split(strings.TrimPrefix(hdr.Name, "./"), "/")
+		if len(parts) > 3 || len(parts) == 3 && parts[1] != "lib" {
+			continue
+		}
 		name := filepath.Base(hdr.Name)
 		if _, ok := a.Files[name]; !ok {
 			continue
