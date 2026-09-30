@@ -110,19 +110,65 @@ func TrainSpreadClaims(xs []ClaimExample, extra [][searchclaim.SpreadDimension]f
 	}
 	return trainCostClaims(xs, extra, out, plan)
 }
-func trainCostClaims(xs []ClaimExample, extra [][searchclaim.SpreadDimension]float64, out, plan string) (CostClaimReport, error) {
-	expectedPlan, headSchema := CostClaimPlanSHA256, "riido-cost-claim-v1"
-	dimension := searchclaim.Dimension
-	if extra != nil {
-		expectedPlan = SpreadClaimPlanSHA256
-		headSchema = "riido-spread-claim-v1"
-		dimension += searchclaim.SpreadDimension
-	}
 
-	r := CostClaimReport{Schema: "riido-cost-claim-report-v1", PlanSHA256: plan, Questions: len(xs), Dimension: dimension, PageSize: 20}
-	if extra != nil {
-		r.Schema = "riido-spread-claim-report-v1"
+const CoverageClaimPlanSHA256 = "57f8898268ffd08bf6c81d08a7d0461843c4238d9c0cbc7beb1aafac752fa88a"
+
+// Extended columns preserve existing 12/16-feature schemas and arithmetic.
+// Rows are fixed contiguous arrays; active width is frozen by the experiment.
+func extendClaimColumns(spread [][searchclaim.SpreadDimension]float64) [][8]float64 {
+	if spread == nil {
+		return nil
 	}
+	out := make([][8]float64, len(spread))
+	for i := range spread {
+		copy(out[i][:4], spread[i][:])
+	}
+	return out
+}
+func TrainCoverageClaims(xs []ClaimExample, spread [][searchclaim.SpreadDimension]float64, coverage [][searchclaim.CoverageDimension]float64, out, plan string) (CostClaimReport, error) {
+	if len(spread) != len(xs) || len(coverage) != len(xs) {
+		return CostClaimReport{}, fmt.Errorf("coverage row count mismatch")
+	}
+	values := extendClaimColumns(spread)
+	for i := range coverage {
+		copy(values[i][4:], coverage[i][:])
+	}
+	return trainClaimColumns(xs, values, 8, out, plan)
+}
+func trainCostClaims(xs []ClaimExample, extra [][searchclaim.SpreadDimension]float64, out, plan string) (CostClaimReport, error) {
+	width := 0
+	if extra != nil {
+		width = 4
+	}
+	return trainClaimColumns(xs, extendClaimColumns(extra), width, out, plan)
+}
+func costScoresColumns(xs []ClaimExample, extra [][8]float64, width int, w []float64) []float64 {
+	r := costScores(xs, w)
+	if w != nil {
+		for i := range xs {
+			for j := 0; j < width; j++ {
+				r[i] += w[searchclaim.Dimension+j] * extra[i][j]
+			}
+		}
+	}
+	return r
+}
+func trainClaimColumns(xs []ClaimExample, extra [][8]float64, width int, out, plan string) (CostClaimReport, error) {
+	expectedPlan, headSchema, reportSchema := CostClaimPlanSHA256, "riido-cost-claim-v1", "riido-cost-claim-report-v1"
+	switch width {
+	case 0:
+	case 4:
+		expectedPlan, headSchema, reportSchema = SpreadClaimPlanSHA256, "riido-spread-claim-v1", "riido-spread-claim-report-v1"
+	case 8:
+		expectedPlan, headSchema, reportSchema = CoverageClaimPlanSHA256, "riido-coverage-claim-v1", "riido-coverage-claim-report-v1"
+	default:
+		return CostClaimReport{}, fmt.Errorf("invalid feature width")
+	}
+	if (width == 0 && len(extra) != 0) || (width > 0 && len(extra) != len(xs)) {
+		return CostClaimReport{}, fmt.Errorf("extra column shape mismatch")
+	}
+	dimension := searchclaim.Dimension + width
+	r := CostClaimReport{Schema: reportSchema, PlanSHA256: plan, Questions: len(xs), Dimension: dimension, PageSize: 20}
 	if plan != expectedPlan || len(xs) != 2948 {
 		return r, fmt.Errorf("plan or question count mismatch")
 	}
@@ -163,7 +209,7 @@ func trainCostClaims(xs []ClaimExample, extra [][searchclaim.SpreadDimension]flo
 	for fold, testRepo := range claimRepositories {
 		trainRepo, valRepo := claimRepositories[(fold+1)%3], claimRepositories[(fold+2)%3]
 		var validation, test []ClaimExample
-		var valExtra, testExtra [][searchclaim.SpreadDimension]float64
+		var valExtra, testExtra [][8]float64
 		for xi, x := range xs {
 			if x.Repository == valRepo {
 				validation = append(validation, x)
@@ -189,11 +235,11 @@ func trainCostClaims(xs []ClaimExample, extra [][searchclaim.SpreadDimension]flo
 			var candidates [5]CostCandidate
 			var weights [5][]float64
 			for pi, penalty := range costPenalties {
-				train, err := costClaimDatasetExtra(xs, extra, trainRepo, "development", penalty)
+				train, err := costClaimDatasetColumns(xs, extra, width, trainRepo, "development", penalty)
 				if err != nil {
 					return r, err
 				}
-				val, err := costClaimDatasetExtra(xs, extra, valRepo, "validation", penalty)
+				val, err := costClaimDatasetColumns(xs, extra, width, valRepo, "validation", penalty)
 				if err != nil {
 					return r, err
 				}
@@ -201,7 +247,7 @@ func trainCostClaims(xs []ClaimExample, extra [][searchclaim.SpreadDimension]flo
 				if err != nil {
 					return r, err
 				}
-				threshold, err := CalibratePageBudget(validation, costScoresExtra(validation, valExtra, fit.Weights), 90)
+				threshold, err := CalibratePageBudget(validation, costScoresColumns(validation, valExtra, width, fit.Weights), 90)
 				if err != nil {
 					return r, err
 				}
@@ -228,7 +274,7 @@ func trainCostClaims(xs []ClaimExample, extra [][searchclaim.SpreadDimension]flo
 			}
 			for policy, pi := range []int{0, best} {
 				c := candidates[pi]
-				selected := applyPageBudget(test, costScoresExtra(test, testExtra, weights[pi]), c.Threshold)
+				selected := applyPageBudget(test, costScoresColumns(test, testExtra, width, weights[pi]), c.Threshold)
 				slot := 1 + policy*2 + si
 				combined[slot] = append(combined[slot], selected...)
 				r.Folds = append(r.Folds, CostFold{[]string{"zero_penalty", "cost_selected"}[policy], testRepo, c.File, c.SHA256, seed, c.Penalty, c.Threshold, budgetMetrics(selected)})
@@ -260,6 +306,20 @@ func trainCostClaims(xs []ClaimExample, extra [][searchclaim.SpreadDimension]flo
 }
 
 func costClaimDatasetExtra(xs []ClaimExample, extra [][searchclaim.SpreadDimension]float64, repo, split string, penalty float64) (pairlearn.Dataset, error) {
+	width := 0
+	if extra != nil {
+		width = 4
+	}
+	return costClaimDatasetColumns(xs, extendClaimColumns(extra), width, repo, split, penalty)
+}
+func costClaimDatasetColumns(xs []ClaimExample, extra [][8]float64, width int, repo, split string, penalty float64) (pairlearn.Dataset, error) {
+	if width != 0 && width != 4 && width != 8 {
+		return pairlearn.Dataset{}, fmt.Errorf("invalid extra width")
+	}
+
+	if (width == 0 && len(extra) != 0) || (width > 0 && len(extra) != len(xs)) {
+		return pairlearn.Dataset{}, fmt.Errorf("extra column shape mismatch")
+	}
 	d, err := costClaimDataset(xs, repo, split, penalty)
 	if err != nil || extra == nil {
 		return d, err
@@ -268,7 +328,7 @@ func costClaimDatasetExtra(xs []ClaimExample, extra [][searchclaim.SpreadDimensi
 		return d, fmt.Errorf("extra feature length mismatch")
 	}
 	offsets := []int{0}
-	indices := make([]uint16, 0, len(d.Indices)+len(d.Labels)*searchclaim.SpreadDimension)
+	indices := make([]uint16, 0, len(d.Indices)+len(d.Labels)*width)
 	values := make([]float64, 0, cap(indices))
 	row := 0
 	for i, x := range xs {
@@ -277,7 +337,7 @@ func costClaimDatasetExtra(xs []ClaimExample, extra [][searchclaim.SpreadDimensi
 		}
 		indices = append(indices, d.Indices[d.Offsets[row]:d.Offsets[row+1]]...)
 		values = append(values, d.Values[d.Offsets[row]:d.Offsets[row+1]]...)
-		for j, v := range extra[i] {
+		for j, v := range extra[i][:width] {
 			if math.IsNaN(v) || math.IsInf(v, 0) || v < 0 || v > 1 {
 				return d, fmt.Errorf("invalid extra feature")
 			}
