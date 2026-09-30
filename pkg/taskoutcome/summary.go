@@ -84,6 +84,7 @@ type Summary struct {
 	TurnsCompleted       int      `json:"turns_completed"`
 	TurnsFailed          int      `json:"turns_failed"`
 	ErrorEvents          int      `json:"error_events"`
+	StartupErrorItems    int      `json:"startup_error_items"`
 	DiscardedItemEvents  int      `json:"discarded_item_events"`
 	UnknownControlEvents int      `json:"unknown_control_events"`
 	LifecycleComplete    bool     `json:"lifecycle_complete"`
@@ -118,6 +119,7 @@ type limits struct{ trace, line, events, turns int }
 type event struct {
 	kind  string
 	usage [4]*int64
+	item  json.RawMessage
 }
 
 // Summarize consumes the trace once. Limits include all trace bytes, including
@@ -204,9 +206,23 @@ func summarize(in io.Reader, m Metadata, bound limits) (Summary, error) {
 			default:
 				if strings.HasPrefix(e.kind, "item.") {
 					if !active {
-						return Summary{}, ErrLifecycle
+						// Codex0.158 can emit a completed error diagnostic after
+						// thread creation and before its first turn. This narrow
+						// startup exception never admits orphan/late/other items.
+						if e.kind != "item.completed" || !thread || threadHasTurn {
+							return Summary{}, ErrLifecycle
+						}
+						startupError, err := startupErrorItem(e.item)
+						if err != nil {
+							return Summary{}, err
+						}
+						if !startupError {
+							return Summary{}, ErrLifecycle
+						}
+						s.StartupErrorItems++
+					} else {
+						s.DiscardedItemEvents++
 					}
-					s.DiscardedItemEvents++
 				} else {
 					s.UnknownControlEvents++
 				}
@@ -222,13 +238,13 @@ func summarize(in io.Reader, m Metadata, bound limits) (Summary, error) {
 	if s.LifecycleComplete {
 		s.TraceStatus = "completed_turns"
 	}
-	if s.TurnsFailed > 0 || s.ErrorEvents > 0 {
+	if s.TurnsFailed > 0 || s.ErrorEvents > 0 || s.StartupErrorItems > 0 {
 		s.TraceStatus = "observed_failure"
 	}
 	if s.UnknownControlEvents > 0 {
 		s.TraceStatus = "unknown_controls"
 	}
-	complete := s.LifecycleComplete && s.TurnsFailed == 0 && s.ErrorEvents == 0 && s.UnknownControlEvents == 0
+	complete := s.LifecycleComplete && s.TurnsFailed == 0 && s.ErrorEvents == 0 && s.StartupErrorItems == 0 && s.UnknownControlEvents == 0
 	for _, f := range []*FieldUsage{&s.Usage.Input, &s.Usage.Cached, &s.Usage.Output, &s.Usage.Reasoning} {
 		f.Complete = complete && f.ObservedTurns == s.TurnsStarted
 		if f.Complete {
@@ -307,6 +323,8 @@ func parseEvent(body []byte) (event, error) {
 			}
 		case "usage":
 			rawUsage = value
+		case "item":
+			e.item = value
 		}
 	}
 	if _, err := d.Token(); err != nil || seen&1 == 0 {
@@ -327,6 +345,64 @@ func parseEvent(body []byte) (event, error) {
 		}
 	}
 	return e, nil
+}
+
+// Decode only the startup diagnostic's control type. ID/message values are
+// checked for string shape and immediately discarded, never decoded or stored.
+// Existing active-turn items retain their opaque, bounded discard behavior.
+func startupErrorItem(body []byte) (bool, error) {
+	d := json.NewDecoder(bytes.NewReader(body))
+	t, err := d.Token()
+	if err != nil || t != json.Delim('{') {
+		return false, ErrJSON
+	}
+	var seen uint8
+	kind := ""
+	for d.More() {
+		key, err := d.Token()
+		if err != nil {
+			return false, ErrJSON
+		}
+		name, ok := key.(string)
+		if !ok {
+			return false, ErrJSON
+		}
+		var bit uint8
+		switch name {
+		case "type":
+			bit = 1
+		case "id":
+			bit = 2
+		case "message":
+			bit = 4
+		}
+		if bit != 0 && seen&bit != 0 {
+			return false, ErrDuplicate
+		}
+		seen |= bit
+		var value json.RawMessage
+		if d.Decode(&value) != nil {
+			return false, ErrJSON
+		}
+		if name == "type" {
+			if json.Unmarshal(value, &kind) != nil || kind == "" || len(kind) > 128 {
+				return false, ErrJSON
+			}
+		}
+		if name == "id" || name == "message" {
+			trimmed := bytes.TrimSpace(value)
+			if len(trimmed) == 0 || trimmed[0] != '"' {
+				return false, ErrJSON
+			}
+		}
+	}
+	if _, err := d.Token(); err != nil || seen&7 != 7 {
+		return false, ErrJSON
+	}
+	if _, err := d.Token(); err != io.EOF {
+		return false, ErrJSON
+	}
+	return kind == "error", nil
 }
 
 func parseUsage(body []byte) ([4]*int64, error) {

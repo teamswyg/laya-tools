@@ -212,3 +212,119 @@ func TestIndependentCallOwnership(t *testing.T) {
 }
 
 var _ io.Reader = brokenReader{}
+
+// Authored schema fixtures reproduce the observed event classes/order only;
+// no real CLI trace, provider message or account ID is embedded here.
+const startupThread = `{"type":"thread.started","thread_id":"authored-startup-thread"}` + "\n"
+const startupDiagnostic = `{"type":"item.completed","item":{"id":"authored-diagnostic-item","message":"authored startup diagnostic body","type":"error"}}` + "\n"
+
+func TestStartupErrorBeforeFirstTurnSummarizesObservedFailure(t *testing.T) {
+	trace := startupThread + startupDiagnostic + `{"type":"turn.started"}` + "\n" + `{"type":"error","message":"authored terminal diagnostic body"}` + "\n" + `{"type":"turn.failed"}` + "\n"
+	s := read(t, trace)
+	if s.Events != 5 || s.ThreadsStarted != 1 || s.StartupErrorItems != 1 || s.DiscardedItemEvents != 0 || s.TurnsStarted != 1 || s.TurnsFailed != 1 || s.ErrorEvents != 1 || !s.LifecycleComplete || s.TraceStatus != "observed_failure" || s.UsageComplete {
+		t.Fatal("startup diagnostic was rejected or promoted to completion")
+	}
+	for _, field := range []FieldUsage{s.Usage.Input, s.Usage.Cached, s.Usage.Output, s.Usage.Reasoning} {
+		if field.ObservedTotal != nil || field.Total != nil || field.Complete || field.ObservedTurns != 0 {
+			t.Fatal("missing usage invented zero")
+		}
+	}
+	b, e := json.Marshal(s)
+	if e != nil {
+		t.Fatal(e)
+	}
+	for _, discarded := range []string{"authored-startup-thread", "authored-diagnostic-item", "authored startup diagnostic body", "authored terminal diagnostic body"} {
+		if strings.Contains(string(b), discarded) {
+			t.Fatal("startup ID/message retained")
+		}
+	}
+	h := sha256.Sum256([]byte(trace))
+	if s.TraceSHA256 != hex.EncodeToString(h[:]) || s.TraceBytes != int64(len(trace)) {
+		t.Fatal("startup event bytes omitted from trace binding")
+	}
+	if s.ObservedModel != "unknown" || s.ProcessExit != "unknown" || s.TaskAcceptance != "unknown" {
+		t.Fatal("startup evidence became provider/process/acceptance attestation")
+	}
+}
+
+func TestStartupErrorKeepsPartialObservationsButWholeUsageUnknown(t *testing.T) {
+	for _, suffix := range []string{completed, completed + `{"type":"turn.started"}` + "\n" + `{"type":"turn.failed"}`, completed + `{"type":"turn.started"}` + "\n" + `{"type":"turn.completed","usage":null}`} {
+		s := read(t, startupThread+startupDiagnostic+`{"type":"turn.started"}`+"\n"+suffix)
+		if s.StartupErrorItems != 1 || s.UsageComplete || s.Usage.Input.Total != nil || s.Usage.Cached.Total != nil || s.Usage.Output.Total != nil || s.Usage.Input.ObservedTotal == nil || *s.Usage.Input.ObservedTotal != 10 || *s.Usage.Cached.ObservedTotal != 4 || *s.Usage.Output.ObservedTotal != 3 || s.TraceStatus != "observed_failure" {
+			t.Fatal("later completed turn erased startup failure or partial usage")
+		}
+	}
+	s := read(t, startupThread+startupDiagnostic)
+	if s.LifecycleComplete || s.UsageComplete || s.Usage.Input.Total != nil || s.TraceStatus != "observed_failure" {
+		t.Fatal("startup-only diagnostic invented a turn")
+	}
+}
+
+func TestStartupExceptionRejectsOtherItemsAndWrongPhase(t *testing.T) {
+	for _, trace := range []string{
+		startupDiagnostic,
+		startupThread + strings.Replace(startupDiagnostic, `"type":"error"`, `"type":"agent_message"`, 1),
+		startupThread + strings.Replace(startupDiagnostic, `"type":"item.completed"`, `"type":"item.updated"`, 1),
+		start + completed + startupDiagnostic,
+		startupThread + startupDiagnostic + `{"type":"thread.started"}`,
+	} {
+		if s, e := Summarize(strings.NewReader(trace), Metadata{}); e != ErrLifecycle || s.Schema != "" {
+			t.Fatal("startup exception admitted orphan/other/late item or empty duplicate thread")
+		}
+	}
+	// The same opaque diagnostic during an active turn keeps its existing item
+	// behavior; startup-specific controls do not inspect or reclassify it.
+	s := read(t, start+startupDiagnostic+completed)
+	if s.StartupErrorItems != 0 || s.DiscardedItemEvents != 1 || !s.UsageComplete {
+		t.Fatal("active item behavior changed")
+	}
+}
+
+func TestStartupDiagnosticControlShapeAndDuplicates(t *testing.T) {
+	for _, tc := range []struct {
+		item string
+		code ErrorCode
+	}{
+		{`null`, ErrJSON}, {`[]`, ErrJSON}, {`{}`, ErrJSON},
+		{`{"type":"error","id":1,"message":"authored"}`, ErrJSON},
+		{`{"type":"error","id":"authored","message":{}}`, ErrJSON},
+		{`{"type":"error","id":"authored"}`, ErrJSON},
+		{`{"type":null,"id":"authored","message":"authored"}`, ErrJSON},
+		{`{"type":"error","\u0074ype":"error","id":"authored","message":"authored"}`, ErrDuplicate},
+		{`{"type":"error","id":"authored","id":"other","message":"authored"}`, ErrDuplicate},
+		{`{"type":"error","id":"authored","message":"authored","message":"other"}`, ErrDuplicate},
+	} {
+		trace := startupThread + `{"type":"item.completed","item":` + tc.item + `}`
+		if s, e := Summarize(strings.NewReader(trace), Metadata{}); e != tc.code || s.Schema != "" {
+			t.Fatalf("startup control expected %s, got %v", tc.code, e)
+		}
+	}
+	// Existing top-level duplicate and usage checks still apply before startup
+	// lifecycle handling, rather than silently ignoring diagnostic metadata.
+	for _, tc := range []struct {
+		event string
+		code  ErrorCode
+	}{
+		{`{"type":"item.completed","item":{"id":"a","message":"b","type":"error"},"item":{"id":"c","message":"d","type":"error"}}`, ErrDuplicate},
+		{`{"type":"item.completed","item":{"id":"a","message":"b","type":"error"},"usage":{"input_tokens":-1}}`, ErrUsage},
+	} {
+		if _, e := Summarize(strings.NewReader(startupThread+tc.event), Metadata{}); e != tc.code {
+			t.Fatal("startup exception bypassed existing duplicate/usage guard")
+		}
+	}
+}
+
+func TestStartupDiagnosticRemainsWithinTraceBounds(t *testing.T) {
+	trace := startupThread + startupDiagnostic + `{"type":"turn.started"}` + "\n" + completed
+	if _, e := summarize(strings.NewReader(trace), Metadata{}, limits{len(trace), MaxLineBytes, 4, 1}); e != nil {
+		t.Fatal("bounded startup sequence rejected", e)
+	}
+	for _, tc := range []struct {
+		bound limits
+		code  ErrorCode
+	}{{limits{len(trace) - 1, MaxLineBytes, 4, 1}, ErrTraceSize}, {limits{len(trace), 16, 4, 1}, ErrLineSize}, {limits{len(trace), MaxLineBytes, 3, 1}, ErrEvents}} {
+		if _, e := summarize(strings.NewReader(trace), Metadata{}, tc.bound); e != tc.code {
+			t.Fatal("startup sequence bypassed byte/line/event bound")
+		}
+	}
+}
