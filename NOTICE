@@ -24,3 +24,19 @@ quality/cost results. No implementation code copied from those projects.
 Community shout-out: https://laya.tools/ — an independent Laya project directory
 by Nielogiczny. Referenced for ecosystem discovery; not affiliated or endorsed.
 The executable is named riidolaya to distinguish it from the upstream model/SDK.
+
+Routing policy adaptations:
+- mmornati/system-one-router (Apache-2.0)
+  commit a437d00bca33a4c10038b37a5efe04dc0e3d40bb, internal/router/score.go
+  https://github.com/mmornati/system-one-router
+  Selection structure adapted in pkg/catalog; modified constraints, validation,
+  budget projection, unknown-price handling, and no below-floor fallback.
+  Original license: licenses/system-one-router.LICENSE.
+- siiick/pi-pignon (MIT), Copyright (c) 2026 Nicolas Chaintron
+  commit 4d97d1a35134b813bac6a8e345a1bf9b0bbf0bdb, src/policy.ts
+  https://github.com/siiick/pi-pignon
+  Cache-payback formula and switch guards ported to pkg/switchpolicy, with
+  explicit unknown-data holds and stricter lateral-switch validation.
+  Copyright and full permission notice: licenses/pi-pignon.LICENSE.
+  The adapted portions retain the upstream MIT terms.
+See docs/ecosystem.ko.md for scope, differences, and research-only references.

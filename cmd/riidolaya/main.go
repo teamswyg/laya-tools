@@ -38,6 +38,7 @@ Commands:
   setup     Download checksum-pinned model and native runtime
   search    Find line-addressable code excerpts (default: 8 candidates, 3 hits)
   route     Recommend a configured model; abstain on uncertain decisions
+  plan      Compare configured models, budgets, and cache switch costs (dry plan)
   codex     Route one new task, then launch the existing Codex CLI
   serve     Warm JSONL service: one {"op":"search|route","query":"..."} per line
   mcp       Warm stdio MCP server (search_code and route_model)
@@ -85,6 +86,8 @@ The codex command starts your installed Codex CLI with its existing settings.
 	cpu := f.String("cpu-profile", "", "write Go CPU pprof locally")
 	heap := f.String("heap-profile", "", "write Go heap pprof locally")
 	ortProfile := f.String("ort-profile", "", "native profiling file prefix (local)")
+	planConfig := f.String("config", "", "plan catalog and switch policy JSON")
+	planRequest := f.String("request", "", "plan request JSON file or - for stdin")
 	dry := f.Bool("dry-run", false, "show Codex argv without launching")
 	if err := f.Parse(args[1:]); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -128,6 +131,8 @@ The codex command starts your installed Codex CLI with its existing settings.
 	}
 
 	switch cmd {
+	case "plan":
+		return runPlan(a, *planConfig, *planRequest, strings.Join(f.Args(), " "), *jsonOut)
 	case "setup":
 		return assets.Setup(context.Background(), *modelName, os.Stderr)
 	case "doctor":

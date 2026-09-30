@@ -1,0 +1,13 @@
+{
+  "catalog": {
+    "quality_floors": [0.5, 0.75, 0.95],
+    "min_confidence": 0.9,
+    "load_penalty": 0.1,
+    "models": [
+      {"id":"example-fast", "rank":0, "quality":0.6, "context":32768, "tools":true, "price":{"input":1,"output":2,"cache_read":0.1,"cache_write":1}},
+      {"id":"example-standard", "rank":1, "quality":0.8, "context":65536, "tools":true, "price":{"input":3,"output":10,"cache_read":0.3,"cache_write":3}},
+      {"id":"example-strong", "rank":2, "quality":0.98, "context":131072, "tools":true, "vision":true, "price":{"input":10,"output":30,"cache_read":1,"cache_write":10}}
+    ]
+  },
+  "switch": {"upgrade_confidence":0.5,"downgrade_confidence":0.9,"cooldown":2,"max_payback_requests":3}
+}
