@@ -1,0 +1,9 @@
+{
+ "schema":"riido-path-feature-contract-plan-v1",
+ "purpose":"Prepare inference-available numeric features for a later fixed-development cost-head experiment, before inspecting new path-ranking cost labels. This step runs synthetic contract checks only; no new real-data feature extraction, fitting or model selection.",
+ "features":"Exactly existing12 searchclaim numeric features plus4 ScoreSpread features. Preserve short-input values. For long queries, clamp query_bytes/8192 to1; word count and camel features retain prior clamps. All16 values must be finite in[0,1]. No task/repository ID, token identity, path text, gold path/rank or auxiliary ranking is an input.",
+ "bounds":"New opt-in PathFeatures permits UTF8 queries through the existing128KiB long-query bound and rankings through100000 path documents. Existing Features and ScoreSpread retain8192-byte/4096-document rejection boundaries. Reuse internal computation instead of widening default APIs.",
+ "validation":"Exact short-input equivalence to existing12+4 functions; long Unicode query and10000-item synthetic ranking, explicit bounds and invalid UTF8/nonfinite scores, deterministic output and unchanged caller arrays. Do not benchmark during acquisition or claim latency/memory improvements from contract tests.",
+ "compatibility":"New riido-path-claim-v1 schema; do not silently attach old small-catalog weights to the new domain. Fallback remains default and later training must provide empirical value before quantization/promotion. This prepares all feature dimensions, not evidence that they predict useful hints.",
+ "production_ready":false
+}
