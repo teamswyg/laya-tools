@@ -50,3 +50,5 @@ laya serve < benchmarks/router-queries.jsonl
 ```
 
 Raw sanitized results are in [benchmarks/results](../benchmarks/results). They contain no local usernames, credentials, private source excerpts, or pprof files. Profiles remain local because they can contain host paths.
+
+Additional memory experiment: disabling ORT weight prepacking reduced the short-run peak RSS from about 1.39 GiB to 1.24 GiB, but warm median latency increased from about 27 ms to 47.5 ms and quantized probabilities shifted. That tradeoff was not enabled in the shipped defaults. The warm JSONL process itself used about 1.38 GiB RSS in a separate measurement, so the model is not merely a transient startup allocation.
