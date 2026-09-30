@@ -92,9 +92,8 @@ def main():
     guard(started)
     result = {'Schema':'riido-source-scores-v1','RequestsSHA256':digest(a.requests),'PlanSHA256':PLAN_SHA,'ModelSHA256':pins['source_weights'],'Cases':scores,'TokenParityMatches':len(scores),'Seconds':time.monotonic()-started,'PeakRSSBytes':resource.getrusage(resource.RUSAGE_SELF).ru_maxrss,'Versions':versions}
     # Contains row-level scores; local-only, never publish to Git or HF.
-    with a.out.open('x') as f:
+    with os.fdopen(os.open(a.out, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), 'w') as f:
         json.dump(result,f)
-    os.chmod(a.out,0o600)
     print(json.dumps({'completed_calls':len(scores),'seconds':result['Seconds'],'peak_rss_bytes':result['PeakRSSBytes']}))
 
 
