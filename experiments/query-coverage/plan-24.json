@@ -1,0 +1,16 @@
+{
+  "schema": "riido-query-coverage-plan-v1",
+  "questions": 2948,
+  "candidates": 3009,
+  "hypothesis": "direct query-term coverage in baseline candidates may contain information missing from score distributions; measure it before the next multivariate training comparison",
+  "features": ["first candidate fraction of unique query terms present", "mean fraction across baseline top min(20,n)", "population standard deviation of those fractions", "fraction of unique query terms absent from the entire baseline vocabulary"],
+  "contract": "same Unicode/lowercase word tokenizer as baseline BM25, unique query terms, punctuation-only query gives zeros; existing sorted term/posting arrays and original candidate ids only; no raw-code rescanning, auxiliary index/ranking, gold, repository or label inputs; no persistent index expansion",
+  "scope": "new public bounded Go index coverage method plus four research features, not a new model or policy; keep old feature dimensions/contracts unchanged",
+  "evaluation": "same three repository folds and training-only orientation as audit23; report all four features on harm/rest, benefit/rest and harm/benefit; all 2948 questions counted once per full target, 478-case non-tie subgroup labeled separately",
+  "controls": "replay entire 16-feature audit23 byte-identically after shared preparation changes; no claim of independent final evidence",
+  "resources": "synthetic coverage extraction time/bytes/allocations including query tokenization; existing index setup outside timing; compare with baseline ranking on same fixture, separate measurements not total speedup; pprof CPU locally, whole audit process wall/RSS separately",
+  "tests": "repeated query terms, case/Unicode, absent terms, zero-token queries, bounded ids/duplicates, known coverage values, read-only concurrent callers, feature equivalence to direct scanning on public synthetic text",
+  "interpretation": "diagnostic AUC/AP cannot establish policy savings; weak univariate results alone cannot reject useful interactions; follow with a separately precommitted 16-vs20 feature training comparison at unchanged objective/selection, without selecting features by heldout scores",
+  "publication": "public source and aggregate results, no raw corpus/queries/predictions, no new HF weight repository for a feature audit",
+  "production_ready": false
+}

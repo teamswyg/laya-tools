@@ -39,7 +39,19 @@ func PrepareBaselineFirstSpreadClaims(rows []Row) ([]ClaimExample, [][searchclai
 	}
 	return xs, extra, nil
 }
+
+// PrepareCoverageClaims freezes four additional term-presence signals before
+// helper ranking or target ranks. The old feature arrays remain unchanged.
+func PrepareCoverageClaims(rows []Row) ([]ClaimExample, [][searchclaim.SpreadDimension]float64, [][searchclaim.CoverageDimension]float64, error) {
+	var spread [][searchclaim.SpreadDimension]float64
+	var coverage [][searchclaim.CoverageDimension]float64
+	xs, e := prepareClaimsWithExtras(rows, true, &spread, &coverage)
+	return xs, spread, coverage, e
+}
 func prepareClaimsWithSpread(rows []Row, baselineFirst bool, extra *[][searchclaim.SpreadDimension]float64) ([]ClaimExample, error) {
+	return prepareClaimsWithExtras(rows, baselineFirst, extra, nil)
+}
+func prepareClaimsWithExtras(rows []Row, baselineFirst bool, extra *[][searchclaim.SpreadDimension]float64, coverage *[][searchclaim.CoverageDimension]float64) ([]ClaimExample, error) {
 	docs := make([]string, len(rows))
 	normalized := make([]string, len(rows))
 	for i, r := range rows {
@@ -76,6 +88,13 @@ func prepareClaimsWithSpread(rows []Row, baselineFirst bool, extra *[][searchcla
 				return nil, err
 			}
 			*extra = append(*extra, spread)
+		}
+		if coverage != nil {
+			values, err := searchclaim.QueryCoverage(q.text, baseline, base)
+			if err != nil {
+				return nil, err
+			}
+			*coverage = append(*coverage, values)
 		}
 		additional, e = aux.RankInto(lexicalhint.NormalizeText(q.text), additional)
 		if e != nil {
