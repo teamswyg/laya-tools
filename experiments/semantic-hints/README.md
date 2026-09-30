@@ -29,3 +29,5 @@ OS `/usr/bin/time -l` for the built executable: maximum RSS **11,321,344 bytes (
 Next PDCA: create new family-separated labels and negatives; train a single encoder-free relevance head with FP32/INT8/ternary controls; keep this fixture as development-only; evaluate against exact-token and BM25 baselines on a new sealed final set. Repeated identical predictions are not independent evidence. No Hugging Face model release is justified by this baseline run.
 
 다음 PDCA는 새 가족 분리 데이터와 어려운 음성을 만들고, 인코더 없는 관련성 헤드 하나를 FP32/INT8/3진 대조군으로 학습하는 것입니다. BM25도 비교군에 추가합니다. 이번 자료는 개발용으로만 사용하며 최종 세트는 새로 봉인합니다. 새 학습 모델이 없어 이번에는 Hugging Face 모델 버전을 만들지 않습니다.
+
+PDCA 02 adds a reusable Go BM25 index, a JSON hint CLI, and a fallback scheduler tested against bad hints: [한국어](CYCLE-02.ko.md) · [English](CYCLE-02.en.md). The original results above remain the cycle-01 record; [cycle-02 results](results-02.json) are separate.
