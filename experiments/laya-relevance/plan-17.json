@@ -1,0 +1,21 @@
+{
+  "schema": "riido-laya-relevance-plan-17",
+  "source_sha256": "4d1a227fe3652992d1e98f43fa9dc1b8f54a6c27a1a24b9d182bdfb8cbc3274c",
+  "membership_sha256": "d90eda8e8a423eff44847ff46ef19b468a57ac2791d45c57e7e8ba39a4ee9902",
+  "split": "validation only: 607 pairs, existing paireval.InScope expected 553 before tokenizer exclusions",
+  "model": "existing checksum-pinned code-int8-v2 ONNX checkpoint; no refitting or prompt sweep",
+  "model_sha256": "0e3665bcf1aa7d8b224af93b5e10d8c86796227f7741da92f6c8a786364a44db",
+  "provider": "cpu",
+  "threads": 4,
+  "max_tokens": 512,
+  "state": "Request:\n{query}\n\nCode:\n{code}",
+  "instruction": "Which statement best describes the relationship between the request and the code?",
+  "options": ["The code implements the request.", "The code does not implement the request."],
+  "order_control": "Run both option orders; primary score is arithmetic mean of the probability assigned to implements. Report each order AUC and mean absolute score difference.",
+  "truncation": "Exclude from all matched metrics if either order truncates; report exclusions explicitly",
+  "control": "BM25 fitted on development code only, measured on exactly the same eligible validation pairs",
+  "exploratory_gate": "primary AUC >= 0.60 and >= matched BM25 AUC + 0.03",
+  "resource_guard": "One native session, sequential cases, at most 60 minutes; check current process RSS <= 8 GiB between cases. This is not a within-call memory hard limit.",
+  "reporting": "Aggregate metrics and resource summaries only; no raw texts or row predictions in Git",
+  "scope": "Teacher-signal probe, not a tiny model or proved semantic representation; no reserve scoring, model publication, default change or LLM savings claim"
+}
