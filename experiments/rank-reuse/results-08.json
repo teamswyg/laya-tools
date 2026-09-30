@@ -1,0 +1,185 @@
+{
+  "schema": "riido-rank-reuse-08",
+  "source_commit": "2a4dc0b",
+  "hardware": "Apple M4 Pro",
+  "go": "1.27.1",
+  "corpus_questions": 2948,
+  "candidate_functions": 3009,
+  "corpus_plan_sha256": "1621f0bcf83d161afb63f9478c6a9063931565ec803746564bef4fe4ea330c32",
+  "all_prior_quality_metrics_identical": true,
+  "all_complete_order_and_score_traces_identical": true,
+  "run_order": [
+    "fresh-1",
+    "reuse-1",
+    "reuse-2",
+    "fresh-2"
+  ],
+  "runs": [
+    {
+      "run": "fresh-1",
+      "wall_seconds": 1.89,
+      "user_cpu_seconds": 1.56,
+      "peak_rss_bytes": 102465536,
+      "modes": [
+        {
+          "Mode": "raw",
+          "ReuseRankArrays": false,
+          "RankTraceSHA256": "ee5bff04cae9c6f41535451da8dd12919c50e63d6bf0c1e95c53cb5f5fe1935f",
+          "LoopAllocatedBytes": 147708944,
+          "LoopMallocs": 20960,
+          "query_p50_ns": 164167,
+          "query_p95_ns": 214292
+        },
+        {
+          "Mode": "identifiers",
+          "ReuseRankArrays": false,
+          "RankTraceSHA256": "2d12dcfe2621f6bda36b0b2a0bc1c04f25364f5dce9c858dcb0f22221c7d9493",
+          "LoopAllocatedBytes": 151170136,
+          "LoopMallocs": 41717,
+          "query_p50_ns": 179041,
+          "query_p95_ns": 220042
+        }
+      ],
+      "output_sha256": "6c291346a66eecf0d3ce74307527eb8e5a70242b02db75ccbfe30c65a8c773e2"
+    },
+    {
+      "run": "reuse-1",
+      "wall_seconds": 1.5,
+      "user_cpu_seconds": 1.51,
+      "peak_rss_bytes": 92291072,
+      "modes": [
+        {
+          "Mode": "raw",
+          "ReuseRankArrays": true,
+          "RankTraceSHA256": "ee5bff04cae9c6f41535451da8dd12919c50e63d6bf0c1e95c53cb5f5fe1935f",
+          "LoopAllocatedBytes": 2857776,
+          "LoopMallocs": 15064,
+          "query_p50_ns": 164209,
+          "query_p95_ns": 214833
+        },
+        {
+          "Mode": "identifiers",
+          "ReuseRankArrays": true,
+          "RankTraceSHA256": "2d12dcfe2621f6bda36b0b2a0bc1c04f25364f5dce9c858dcb0f22221c7d9493",
+          "LoopAllocatedBytes": 6319112,
+          "LoopMallocs": 35823,
+          "query_p50_ns": 177750,
+          "query_p95_ns": 218166
+        }
+      ],
+      "output_sha256": "3a7a380cc0637dc35d30ef5be8bcc2b65ab317ff82e3e65699190f881640bb57"
+    },
+    {
+      "run": "reuse-2",
+      "wall_seconds": 1.5,
+      "user_cpu_seconds": 1.52,
+      "peak_rss_bytes": 93503488,
+      "modes": [
+        {
+          "Mode": "raw",
+          "ReuseRankArrays": true,
+          "RankTraceSHA256": "ee5bff04cae9c6f41535451da8dd12919c50e63d6bf0c1e95c53cb5f5fe1935f",
+          "LoopAllocatedBytes": 2857776,
+          "LoopMallocs": 15064,
+          "query_p50_ns": 163875,
+          "query_p95_ns": 211583
+        },
+        {
+          "Mode": "identifiers",
+          "ReuseRankArrays": true,
+          "RankTraceSHA256": "2d12dcfe2621f6bda36b0b2a0bc1c04f25364f5dce9c858dcb0f22221c7d9493",
+          "LoopAllocatedBytes": 6319112,
+          "LoopMallocs": 35823,
+          "query_p50_ns": 177833,
+          "query_p95_ns": 215958
+        }
+      ],
+      "output_sha256": "621e479afe9b96bcd6fbf8d83365ebbbf8c2dd1f5ad34f537909172cd712060a"
+    },
+    {
+      "run": "fresh-2",
+      "wall_seconds": 1.52,
+      "user_cpu_seconds": 1.55,
+      "peak_rss_bytes": 91062272,
+      "modes": [
+        {
+          "Mode": "raw",
+          "ReuseRankArrays": false,
+          "RankTraceSHA256": "ee5bff04cae9c6f41535451da8dd12919c50e63d6bf0c1e95c53cb5f5fe1935f",
+          "LoopAllocatedBytes": 147714072,
+          "LoopMallocs": 20966,
+          "query_p50_ns": 165791,
+          "query_p95_ns": 218041
+        },
+        {
+          "Mode": "identifiers",
+          "ReuseRankArrays": false,
+          "RankTraceSHA256": "2d12dcfe2621f6bda36b0b2a0bc1c04f25364f5dce9c858dcb0f22221c7d9493",
+          "LoopAllocatedBytes": 151170152,
+          "LoopMallocs": 41717,
+          "query_p50_ns": 180416,
+          "query_p95_ns": 224958
+        }
+      ],
+      "output_sha256": "0780aa63200c2bdcdf77633fe0315a60f36068b1ee10ddf9e25be13ebb4dc250"
+    }
+  ],
+  "microbenchmarks": [
+    {
+      "documents": 64,
+      "reuse": false,
+      "repeats": 5,
+      "ns_op_median": 655.3,
+      "ns_op_range": [
+        652.1,
+        686.5
+      ],
+      "bytes_op": 1112,
+      "allocations_op": 5
+    },
+    {
+      "documents": 64,
+      "reuse": true,
+      "repeats": 5,
+      "ns_op_median": 588.9,
+      "ns_op_range": [
+        581.7,
+        597.0
+      ],
+      "bytes_op": 88,
+      "allocations_op": 3
+    },
+    {
+      "documents": 3009,
+      "reuse": false,
+      "repeats": 5,
+      "ns_op_median": 59595.0,
+      "ns_op_range": [
+        59469.0,
+        59702.0
+      ],
+      "bytes_op": 49240,
+      "allocations_op": 5
+    },
+    {
+      "documents": 3009,
+      "reuse": true,
+      "repeats": 5,
+      "ns_op_median": 59493.0,
+      "ns_op_range": [
+        59427.0,
+        59897.0
+      ],
+      "bytes_op": 88,
+      "allocations_op": 3
+    }
+  ],
+  "limits": [
+    "Loop allocation includes ranking, preprocessing, trace hashing and metric collection; it is cumulative allocation, not resident memory.",
+    "Per-query timing includes normalization and ranking, excluding trace hashing and target checking.",
+    "Microbenchmark repeats one original fixture query; it is not the 2948-query corpus.",
+    "Only two corpus runs per configuration; no statistical latency/RSS improvement claim.",
+    "Caller must use separate buffers for concurrent calls and copy results before reusing arrays if retaining them.",
+    "No new trained model, held-out evaluation, user-task success or LLM savings demonstrated."
+  ]
+}

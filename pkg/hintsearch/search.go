@@ -102,10 +102,32 @@ type Ranking struct {
 // Rank returns all document positions, with stable catalog order for ties.
 // The caller owns the result and can rank concurrently against the same Index.
 func (idx *Index) Rank(query string) (Ranking, error) {
+	return idx.RankInto(query, Ranking{})
+}
+
+// RankInto reuses caller-owned result arrays when their capacity is sufficient.
+// Every score and position is reset on success, including zero-score candidates.
+// The returned slices may alias dst and are overwritten by its next reuse.
+// Keep separate buffers for concurrent calls; the Index remains immutable.
+// Invalid queries return before modifying dst. Rank retains independently owned
+// results for callers that need to hold multiple rankings simultaneously.
+func (idx *Index) RankInto(query string, dst Ranking) (Ranking, error) {
 	if strings.TrimSpace(query) == "" || len(query) > MaxQueryBytes {
 		return Ranking{}, fmt.Errorf("require nonempty query of at most %d bytes", MaxQueryBytes)
 	}
-	r := Ranking{make([]int, len(idx.norms)), make([]float64, len(idx.norms))}
+	n := len(idx.norms)
+	if cap(dst.Order) < n {
+		dst.Order = make([]int, n)
+	} else {
+		dst.Order = dst.Order[:n]
+	}
+	if cap(dst.Scores) < n {
+		dst.Scores = make([]float64, n)
+	} else {
+		dst.Scores = dst.Scores[:n]
+		clear(dst.Scores)
+	}
+	r := dst
 	ts := words(query)
 	sort.Strings(ts)
 	ts = slices.Compact(ts)
