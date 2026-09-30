@@ -29,6 +29,9 @@ func verifyClaimHead(b []byte, a retrievalbench.ClaimModelResult) error {
 }
 
 func verifyClaimHeadContract(b []byte, a retrievalbench.ClaimModelResult, schema, plan string) error {
+	return verifyClaimHeadDimension(b, a, schema, plan, searchclaim.Dimension)
+}
+func verifyClaimHeadDimension(b []byte, a retrievalbench.ClaimModelResult, schema, plan string, dimension int) error {
 	var h retrievalbench.ClaimHead
 	d := json.NewDecoder(bytes.NewReader(b))
 	d.DisallowUnknownFields()
@@ -47,7 +50,7 @@ func verifyClaimHeadContract(b []byte, a retrievalbench.ClaimModelResult, schema
 	if fold < 0 {
 		return fmt.Errorf("unknown fold")
 	}
-	if h.Schema != schema || h.Mode != a.Mode || h.Seed != a.Seed || h.PlanSHA256 != plan || h.EvaluationRepository != a.EvaluationRepository || h.TrainingRepository != claimRepos[(fold+1)%3] || h.ValidationRepository != claimRepos[(fold+2)%3] || h.Epoch != a.Epoch || h.ValidationNLL != a.ValidationNLL || len(h.Weights) != searchclaim.Dimension {
+	if h.Schema != schema || h.Mode != a.Mode || h.Seed != a.Seed || h.PlanSHA256 != plan || h.EvaluationRepository != a.EvaluationRepository || h.TrainingRepository != claimRepos[(fold+1)%3] || h.ValidationRepository != claimRepos[(fold+2)%3] || h.Epoch != a.Epoch || h.ValidationNLL != a.ValidationNLL || len(h.Weights) != dimension {
 		return fmt.Errorf("head contract mismatch")
 	}
 	if h.Epoch < 1 || h.Epoch > 100 || math.IsNaN(h.ValidationNLL) || math.IsInf(h.ValidationNLL, 0) {
