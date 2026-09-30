@@ -37,3 +37,20 @@ func TestCostHeadPolicyAndFoldIntegrity(t *testing.T) {
 		t.Fatal("accepted extra field")
 	}
 }
+
+func TestSpreadHeadRequiresNewFeatureContract(t *testing.T) {
+	a := retrievalbench.CostCandidate{EvaluationRepository: claimRepos[0], Seed: 1729, Epoch: 1, Penalty: 1, ValidationWeightedNLL: .5}
+	h := retrievalbench.CostClaimHead{Head: retrievalbench.ClaimHead{Schema: "riido-spread-claim-v1", Mode: "fp32", TrainingRepository: claimRepos[1], ValidationRepository: claimRepos[2], EvaluationRepository: claimRepos[0], PlanSHA256: retrievalbench.SpreadClaimPlanSHA256, Seed: 1729, Epoch: 1, ValidationNLL: .5, Weights: make([]float64, 16)}, Penalty: 1}
+	b, _ := json.Marshal(h)
+	if e := verifyCostHeadShape(b, a, "riido-spread-claim-v1", retrievalbench.SpreadClaimPlanSHA256, 16); e != nil {
+		t.Fatal(e)
+	}
+	if e := verifyCostHead(b, a); e == nil {
+		t.Fatal("accepted v2 head as v1")
+	}
+	h.Head.Weights = h.Head.Weights[:12]
+	b, _ = json.Marshal(h)
+	if e := verifyCostHeadShape(b, a, "riido-spread-claim-v1", retrievalbench.SpreadClaimPlanSHA256, 16); e == nil {
+		t.Fatal("accepted missing extra coefficients")
+	}
+}

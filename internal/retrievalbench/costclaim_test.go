@@ -63,3 +63,30 @@ func TestCostSelectionUsesValidationPagesThenCallsThenPenalty(t *testing.T) {
 		t.Fatal("used unrelated metadata to choose candidate")
 	}
 }
+
+func TestExtraFeaturesPreserveTargetsAndSplit(t *testing.T) {
+	xs := []ClaimExample{{Repository: "train", Group: 1, BaselineRank: 41, InterleavedRank: 1}, {Repository: "test", Group: 2, BaselineRank: 1, InterleavedRank: 1}}
+	xs[0].Features[0] = 1
+	extra := [][4]float64{{.5, 0, .25, 1}, {1, 1, 1, 1}}
+	old, _ := costClaimDataset(xs, "train", "development", .25)
+	d, e := costClaimDatasetExtra(xs, extra, "train", "development", .25)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if !reflect.DeepEqual(d.Labels, old.Labels) || !reflect.DeepEqual(d.SampleWeights, old.SampleWeights) || !reflect.DeepEqual(d.Groups, old.Groups) || !reflect.DeepEqual(d.Indices, []uint16{0, 12, 14, 15}) {
+		t.Fatalf("unexpected extra dataset %+v", d)
+	}
+	xs[1].BaselineRank = 3009
+	extra[1] = [4]float64{0, 0, 0, 0}
+	again, e := costClaimDatasetExtra(xs, extra, "train", "development", .25)
+	if e != nil || !reflect.DeepEqual(d, again) {
+		t.Fatal("held-out state changed training")
+	}
+	if _, e := costClaimDatasetExtra(xs, extra[:1], "train", "development", .25); e == nil {
+		t.Fatal("accepted short features")
+	}
+	extra[0][0] = math.NaN()
+	if _, e := costClaimDatasetExtra(xs, extra, "train", "development", .25); e == nil {
+		t.Fatal("accepted nonfinite feature")
+	}
+}

@@ -26,6 +26,20 @@ func PrepareBaselineFirstClaims(rows []Row) ([]ClaimExample, error) {
 }
 
 func prepareClaims(rows []Row, baselineFirst bool) ([]ClaimExample, error) {
+	return prepareClaimsWithSpread(rows, baselineFirst, nil)
+}
+
+// PrepareBaselineFirstSpreadClaims keeps additional features in a parallel
+// fixed-width array, preserving the v1 example and runtime feature contracts.
+func PrepareBaselineFirstSpreadClaims(rows []Row) ([]ClaimExample, [][searchclaim.SpreadDimension]float64, error) {
+	var extra [][searchclaim.SpreadDimension]float64
+	xs, err := prepareClaimsWithSpread(rows, true, &extra)
+	if err != nil {
+		return nil, nil, err
+	}
+	return xs, extra, nil
+}
+func prepareClaimsWithSpread(rows []Row, baselineFirst bool, extra *[][searchclaim.SpreadDimension]float64) ([]ClaimExample, error) {
 	docs := make([]string, len(rows))
 	normalized := make([]string, len(rows))
 	for i, r := range rows {
@@ -55,6 +69,13 @@ func prepareClaims(rows []Row, baselineFirst bool) ([]ClaimExample, error) {
 		f, e := searchclaim.Features(q.text, baseline)
 		if e != nil {
 			return nil, e
+		}
+		if extra != nil {
+			spread, err := searchclaim.ScoreSpread(baseline)
+			if err != nil {
+				return nil, err
+			}
+			*extra = append(*extra, spread)
 		}
 		additional, e = aux.RankInto(lexicalhint.NormalizeText(q.text), additional)
 		if e != nil {
