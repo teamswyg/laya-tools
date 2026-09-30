@@ -1,0 +1,9 @@
+{
+ "schema":"riido-deferred-path-search-plan-v1",
+ "purpose":"Make optional auxiliary path search genuinely conditional at runtime rather than merely counting a precomputed result as an avoided call. No learned policy or quality improvement is claimed in this implementation step.",
+ "contract":"New opt-in selector receives only the fixed16 PathFeatures values by value and returns(bool,error). Nil selector returns baseline without even computing model features. False/error returns full baseline order. True builds/ranks normalized paths lazily and interleaves baseline-first. Feature/selector/auxiliary failures explicitly fall back; an invalid baseline remains an error.",
+ "structure":"Factor shared baseline and auxiliary operations out of existing Ranker. Preserve old Rank outputs, exact catalog cache identity and independently owned results. Standalone selected search retains no cross-call catalog cache; Ranker reuse remains explicit per worker. Add actual baseline-rank/auxiliary-build/auxiliary-rank attempt counters, not logical estimated calls. No global state or locks.",
+ "validation":"Independent existing ranking reference; always-on equality, always-off exact baseline and zero auxiliary work, selector failure fallback, invalid baseline, lazy first use after skip, cached reuse and catalog mutation, long queries/large catalogs, per-worker race isolation and full permutation preservation. Synthetic execution evidence only, no real development/final ranking costs or new fit.",
+ "measurement":"No performance benchmark concurrent with acquisition. Work counters establish omitted execution, not total time/token/LLM cost savings. Actual end-to-end quality and cost must be measured after a useful selector is trained under a separate plan.",
+ "production_ready":false
+}

@@ -22,6 +22,7 @@ type Ranker struct {
 	base, aux *hintsearch.Index
 	auxReady  bool
 	stats     CacheStats
+	work      WorkStats
 }
 
 type CacheStats struct{ CatalogBuilds, CatalogHits int }
@@ -40,14 +41,14 @@ func (r *Ranker) Rank(query string, paths []string) ([3][]int, bool, error) {
 	return r.rank(query, paths, true)
 }
 
-func (r *Ranker) rank(query string, paths []string, retain bool) (orders [3][]int, auxFailed bool, err error) {
+func (r *Ranker) baseline(query string, paths []string, retain bool) (hintsearch.Ranking, error) {
 	if !slices.IsSorted(paths) {
-		return orders, false, fmt.Errorf("require sorted path identities")
+		return hintsearch.Ranking{}, fmt.Errorf("require sorted path identities")
 	}
 	if r.base == nil || !slices.Equal(r.paths, paths) {
 		idx, e := hintsearch.NewPathIndex(paths)
 		if e != nil {
-			return orders, false, e
+			return hintsearch.Ranking{}, e
 		}
 		// Own the slice and strings so caller replacement cannot change cache keys.
 		var owned []string
@@ -62,12 +63,17 @@ func (r *Ranker) rank(query string, paths []string, retain bool) (orders [3][]in
 	} else {
 		r.stats.CatalogHits++
 	}
+	r.work.BaselineRankAttempts++
 	base, e := r.base.RankLongInto(query, hintsearch.Ranking{})
 	if e != nil {
-		return orders, false, e
+		return hintsearch.Ranking{}, e
 	}
-	orders[Baseline] = base.Order
+	return base, nil
+}
+func (r *Ranker) auxiliary(query string, paths []string) (hintsearch.Ranking, error) {
+	var e error
 	if !r.auxReady {
+		r.work.AuxiliaryBuildAttempts++
 		texts := make([]string, len(paths))
 		for i, p := range paths {
 			texts[i] = lexicalhint.NormalizeText(p)
@@ -77,10 +83,20 @@ func (r *Ranker) rank(query string, paths []string, retain bool) (orders [3][]in
 	}
 	var ranked hintsearch.Ranking
 	if r.aux != nil {
+		r.work.AuxiliaryRankAttempts++
 		ranked, e = r.aux.RankLongInto(lexicalhint.NormalizeText(query), hintsearch.Ranking{})
 	} else {
 		e = fmt.Errorf("normalized catalog unavailable")
 	}
+	return ranked, e
+}
+func (r *Ranker) rank(query string, paths []string, retain bool) (orders [3][]int, auxFailed bool, err error) {
+	base, e := r.baseline(query, paths, retain)
+	if e != nil {
+		return orders, false, e
+	}
+	orders[Baseline] = base.Order
+	ranked, e := r.auxiliary(query, paths)
 	if e != nil {
 		orders[Normalized] = slices.Clone(base.Order)
 		orders[Interleaved] = slices.Clone(base.Order)
