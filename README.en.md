@@ -12,6 +12,8 @@ The [tiny claim-head experiment](experiments/path-cost-claim/RESULTS-46.en.md) r
 
 The [golden-set scale guide](docs/golden-set-scale.en.md) explains the difference between a 24-case pilot and a minimum 2,400-request evaluation, separated training/validation/final sets, and the evidence required for search, model routing, repository selection, and task decomposition.
 
+[Usage recording and independent task verification](docs/task-outcomes.en.md) summarize existing Codex telemetry and separately check requirements for public tasks. Authored examples test the tools; they are not actual model outcomes or evidence of cost savings.
+
 [한국어](README.md) · **English** · [User Wiki](https://github.com/teamswyg/laya-tools/wiki) · [Documentation](docs/README.md)
 
 [![CI](https://github.com/teamswyg/laya-tools/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/teamswyg/laya-tools/actions/workflows/ci.yml)

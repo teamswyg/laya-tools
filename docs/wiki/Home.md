@@ -19,6 +19,8 @@
 
 **Golden sets / 골든셋:** [24개와 2,400개의 의미 및 도메인별 정답](https://github.com/teamswyg/laya-tools/blob/main/docs/golden-set-scale.ko.md) / [Scale, held-out evaluation and domain-specific evidence](https://github.com/teamswyg/laya-tools/blob/main/docs/golden-set-scale.en.md). Search evidence alone does not validate Codex model routing. / 검색 결과만으로 Codex 모델 라우팅을 검증했다고 볼 수 없습니다.
 
+**Usage and task completion / 사용량과 작업 완료:** [한국어 사용법](https://github.com/teamswyg/laya-tools/blob/main/docs/task-outcomes.ko.md) / [English guide](https://github.com/teamswyg/laya-tools/blob/main/docs/task-outcomes.en.md). Existing telemetry and independent acceptance are separate; missing evidence stays unknown. Authored examples are tool checks, not model outcomes. / 기존 기록의 사용량과 독립 작업 검증을 따로 확인하며, 누락은 미확정으로 남깁니다. 직접 작성한 예제는 도구 검사이며 모델 작업 결과가 아닙니다.
+
 ## What do you want to do? / 무엇을 하고 싶나요?
 
 | Goal / 목적 | English | 한국어 |
