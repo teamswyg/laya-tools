@@ -55,3 +55,5 @@ Validation output must be a new file. This is an experimental vector supplier; i
 Plain mean-vector cosine did not transfer general-English semantics to this code-relevance task. Retain the lexical control while testing identifier normalization, a small learned query/code alignment layer and, if justified, task-specific static embedding tuning. Extra memory without quality gains is not a reason to adopt a model. Go packed execution is now available, but candidate retrieval and LLM savings remain unverified.
 
 MIT is the model author's declaration, not proof of all upstream-data rights or absence of pretraining overlap. Preserve the CoSQA distinction between MIT code and C-UDA data; no raw rows/labels are redistributed. Upstream weights remain local and were not copied to Git or our HF account. New-model publication requires provenance, verification and license/content review.
+
+Follow-up: [preprocessing and small alignment-head comparison 05](../static-alignment/README.en.md).

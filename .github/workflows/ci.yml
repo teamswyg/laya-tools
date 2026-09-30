@@ -36,8 +36,8 @@ jobs:
         shell: bash
         run: |
           go run ./cmd/riido-staticprobe --stage setup --model-dir .cache/static-test-model
-          RIIDO_STATIC_MODEL_DIR="$PWD/.cache/static-test-model" CGO_ENABLED=0 go test -count=1 -v ./internal/staticembed
-          RIIDO_STATIC_MODEL_DIR="$PWD/.cache/static-test-model" go test -race -count=1 ./internal/staticembed
+          RIIDO_STATIC_MODEL_DIR="$PWD/.cache/static-test-model" CGO_ENABLED=0 go test -count=1 -v ./internal/staticembed ./internal/alignment
+          RIIDO_STATIC_MODEL_DIR="$PWD/.cache/static-test-model" go test -race -count=1 ./internal/staticembed ./internal/alignment
       - name: Install verified public runtime and checkpoint
         run: ./bin/riidolaya setup
       - name: Native inference and reference tokenizer parity
