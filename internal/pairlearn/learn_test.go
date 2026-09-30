@@ -79,3 +79,30 @@ func TestPrepareHoldoutIsolationAndRuntimeParity(t *testing.T) {
 		t.Fatalf("cache changed scoring: %g != %g", got, want)
 	}
 }
+
+func TestSmallDimension(t *testing.T) {
+	a, b := fixture("development", 1), fixture("validation", 2)
+	c := Config{Seed: 1729, Mode: "fp32", LearningRate: .2, L2: .0001, Epochs: 20, Batch: 4, Dimension: 2}
+	r, e := Fit(a, b, c)
+	if e != nil || len(r.Weights) != 2 || r.ValidationNLL >= .3 {
+		t.Fatal(r, e)
+	}
+	c.Dimension = 1
+	if _, e = Fit(a, b, c); e == nil {
+		t.Fatal("out of dimension accepted")
+	}
+}
+
+func TestDefaultDimensionCompatibility(t *testing.T) {
+	a, b := fixture("development", 1), fixture("validation", 2)
+	c := Config{Seed: 1729, Mode: "fp32", LearningRate: .2, L2: .0001, Epochs: 2, Batch: 4}
+	x, e := Fit(a, b, c)
+	if e != nil {
+		t.Fatal(e)
+	}
+	c.Dimension = hintlearn.Dimension
+	y, e := Fit(a, b, c)
+	if e != nil || !reflect.DeepEqual(x.Weights, y.Weights) || x.ValidationNLL != y.ValidationNLL {
+		t.Fatal("default changed", e)
+	}
+}

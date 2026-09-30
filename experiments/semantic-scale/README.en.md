@@ -52,3 +52,5 @@ go run ./cmd/riido-corpusaudit \
 The Go auditor prints no query/code text and checks file bounds/hash, connected leakage groups and conflicting duplicates.
 
 Follow-up completed: [actual2,400-pair results](PAIR-01.en.md). Current models did not establish improvement over BM25. The pending status above records the earlier source-audit stage; see the follow-up for evaluation status.
+
+[Low-cost feature learning 03](LEXICAL-03.en.md)
