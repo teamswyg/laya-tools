@@ -2,6 +2,8 @@
 
 별도 연구: **아주 작은 힌트로 비싼 탐색의 순서를 개선**하는 [의미 탐색 힌트 실험](experiments/semantic-hints/PLAN.ko.md)을 진행합니다. 모델 없이 직접 시험할 수 있는 [선택형 보조 검색](experiments/baseline-first/README.ko.md)은 `riido-hints --identifier-hints`로 실행합니다. 2,948개 문서 설명의 결과와 한계를 공개하며, 기존 난이도 라우터 및 기본 설정과 독립적입니다.
 
+에이전트가 일부 후보부터 읽게 하려면 [`--limit 20` 페이지 출력](experiments/hint-pagination/README.ko.md)을 함께 사용하세요. 다음 cursor로 나머지를 복원할 수 있으며, 실제 토큰 절감은 별도 검증 중입니다.
+
 정적 임베딩 비교군: [Go 실행·압축·원본 일치 검증](experiments/static-embedding/README.ko.md). 코드 관련성 성능은 아직 부족하며 기본 모델로 적용하지 않습니다.
 
 **한국어** · [English](README.en.md) · [사용자 Wiki](https://github.com/teamswyg/laya-tools/wiki) · [문서 목록](docs/README.md)

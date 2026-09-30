@@ -2,6 +2,8 @@
 
 Separate research: [semantic hints](experiments/semantic-hints/PLAN.en.md) explores cheap suggestions for expensive search. Try the model-free [opt-in search helper](experiments/baseline-first/README.en.md) with `riido-hints --identifier-hints`. Results and limitations cover 2,948 documentation queries; difficulty routing and defaults remain independent.
 
+Use [`--limit 20` pagination](experiments/hint-pagination/README.en.md) to let agents read a small candidate batch first. Remaining candidates are recoverable through the next cursor; actual token savings remain unverified.
+
 Static embedding control: [Go execution, packing and upstream parity](experiments/static-embedding/README.en.md). Code-relevance quality remains insufficient; this is not a default model.
 
 [한국어](README.md) · **English** · [User Wiki](https://github.com/teamswyg/laya-tools/wiki) · [Documentation](docs/README.md)
