@@ -7,6 +7,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sync"
 	"time"
 )
@@ -75,6 +76,13 @@ func New(o Options) (*Engine, error) {
 	defer so.Destroy()
 	for _, err = range []error{so.SetIntraOpNumThreads(o.Threads), so.SetInterOpNumThreads(1), so.SetGraphOptimizationLevel(ort.GraphOptimizationLevelEnableAll), so.SetCpuMemArena(false), so.SetMemPattern(false)} {
 		if err != nil {
+			return nil, err
+		}
+	}
+	// Full-range U8S8 can saturate on x86 CPUs without VNNI. Ask ORT to
+	// select its precision-preserving U8U8 path on affected AVX2/AVX512 hosts.
+	if runtime.GOARCH == "amd64" {
+		if err = so.AddSessionConfigEntry("session.x64quantprecision", "1"); err != nil {
 			return nil, err
 		}
 	}

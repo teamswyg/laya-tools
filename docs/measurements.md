@@ -52,3 +52,19 @@ riidolaya serve < benchmarks/router-queries.jsonl
 Raw sanitized results are in [benchmarks/results](../benchmarks/results). They contain no local usernames, credentials, private source excerpts, or pprof files. Profiles remain local because they can contain host paths.
 
 Additional memory experiment: disabling ORT weight prepacking reduced the short-run peak RSS from about 1.39 GiB to 1.24 GiB, but warm median latency increased from about 27 ms to 47.5 ms and quantized probabilities shifted. That tradeoff was not enabled in the shipped defaults. The warm JSONL process itself used about 1.38 GiB RSS in a separate measurement, so the model is not merely a transient startup allocation.
+
+
+## x86 INT8 portability
+
+A later Linux CI run failed the existing positive/negative semantic smoke test:
+both outputs were near 0.5, although the same checkpoint had passed earlier jobs
+and continued to pass on Apple Silicon. The checkpoint checksums and tokenizer
+reference parity still passed. This is consistent with the U8S8 saturation risk
+on x86 CPUs lacking VNNI documented by [ONNX Runtime](https://onnxruntime.ai/docs/performance/model-optimizations/quantization.html).
+
+The runtime now enables ONNX Runtime's `session.x64quantprecision=1` on amd64,
+which selects the precision-preserving path on affected AVX2/AVX512 processors
+([upstream option definition](https://github.com/microsoft/onnxruntime/blob/v1.30.0/include/onnxruntime/core/session/onnxruntime_session_options_config_keys.h)).
+The original semantic tests remain required. This does not change the Apple
+Silicon settings or establish accuracy on every x86 CPU. Linux CI now logs CPU
+capabilities to make future differences diagnosable.
