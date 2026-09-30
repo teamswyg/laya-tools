@@ -4,6 +4,8 @@ Separate research: [semantic hints](experiments/semantic-hints/PLAN.en.md) explo
 
 Use [`--limit 20` pagination](experiments/hint-pagination/README.en.md) to let agents read a small candidate batch first. Remaining candidates are recoverable through the next cursor; actual token savings remain unverified.
 
+Use [`--session --limit 20`](experiments/hint-session/README.en.md) to reuse rankings across pages. After the initial request, send cursors instead of resubmitting the catalog; close input to end the session.
+
 Static embedding control: [Go execution, packing and upstream parity](experiments/static-embedding/README.en.md). Code-relevance quality remains insufficient; this is not a default model.
 
 [한국어](README.md) · **English** · [User Wiki](https://github.com/teamswyg/laya-tools/wiki) · [Documentation](docs/README.md)

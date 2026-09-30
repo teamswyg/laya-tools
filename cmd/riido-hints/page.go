@@ -60,6 +60,13 @@ func selectPage(req request, modelHash string, identifiers bool, policy string, 
 		return 0, 0, nil, e
 	}
 	digest := hex.EncodeToString(h.Sum(nil))
+	return selectDigestPage(digest, len(order), p)
+}
+
+func selectDigestPage(digest string, total int, p pageOptions) (int, int, *pageInfo, error) {
+	if err := p.validate(); err != nil || p.Limit == 0 {
+		return 0, 0, nil, fmt.Errorf("require a valid page limit")
+	}
 	start := 0
 	if p.Cursor != "" {
 		b, e := base64.RawURLEncoding.DecodeString(p.Cursor)
@@ -75,14 +82,14 @@ func selectPage(req request, modelHash string, identifiers bool, policy string, 
 		if e := d.Decode(new(any)); e != io.EOF {
 			return 0, 0, nil, fmt.Errorf("extra cursor content")
 		}
-		if c.Version != 1 || c.Hash != digest || c.Offset <= 0 || c.Offset >= len(order) {
+		if c.Version != 1 || c.Hash != digest || c.Offset <= 0 || c.Offset >= total {
 			return 0, 0, nil, fmt.Errorf("cursor does not match current request, ranking or position")
 		}
 		start = c.Offset
 	}
-	end := min(start+p.Limit, len(order))
-	info := &pageInfo{Total: len(order), Offset: start, Returned: end - start, RankingSHA256: digest}
-	if end < len(order) {
+	end := min(start+p.Limit, total)
+	info := &pageInfo{Total: total, Offset: start, Returned: end - start, RankingSHA256: digest}
+	if end < total {
 		b, e := json.Marshal(pageCursor{1, end, digest})
 		if e != nil {
 			return 0, 0, nil, e
