@@ -1,0 +1,13 @@
+{
+ "schema":"riido-pre-fix-file-catalog-plan-v1",
+ "selection_sha256":"fa58c4e51ae307963eb587813e49adf70d987dcb4893f6ee1aa6050bc6b80a5a",
+ "scope":"all2400 fixed evaluation snapshots, no task replacement or scoring; acquire complete recursive tree metadata pinned to root tree IDs from verified experiment30 caches; no source bodies or patch labels",
+ "integrity":"require expected tree ID, explicit truncated=false, valid entry identities/types/modes, unique canonical relative UTF8 paths; reject incomplete trees rather than using partial candidates",
+ "bounds":"single network request at a time, minimum300ms spacing,30s timeout,8MiB API response,100000 entries,4096 bytes per path,16MiB total path bytes; maximum2000 new requests per invocation, explicit offline and request-budget controls; keep API reserve and resume from cache",
+ "cache":"deduplicate by repository and immutable tree ID; gzip normalized validated metadata,0600 files and0700 directory, atomic save; bounded decompression and repeat validation on read; no raw API errors, credentials, source contents or local paths published",
+ "candidate_contract":"retain every blob including executable and symlink entries as file paths without dereferencing or execution; count gitlinks separately and do not pretend recursive traversal covers their target repositories; preserve all blob paths regardless of extension/vendor/test status",
+ "report":"per-repository snapshot coverage, regular/symlink/gitlink counts, maximum files/path bytes, catalog bound exceedances relative to existing4096-document/2MiB runtime; failures remain in2400 denominator; aggregate only, local per-snapshot catalogs stay private",
+ "validation":"injected malformed/truncated/mismatched/oversized/duplicate responses, cache reuse/corruption, exact offline replay, full race/vet/format/redacted scans; measure cache bytes and cache-only RSS/time separately from network",
+ "next":"use complete paths for pre-fix file-localization baseline and fallible hints, with patch labels separate from candidate construction; address actual catalog sizes before scoring without silently dropping hard tasks",
+ "production_ready":false
+}
