@@ -20,9 +20,9 @@
     {"id": "sol-low", "requested_model": "gpt-6.1-sol", "requested_reasoning": "low"}
   ],
   "tasks": [
-    {"id": "comment-preview-authority", "family": "repo-preview", "expected_tier_hypothesis": "fast"},
-    {"id": "comment-budget-period", "family": "catalog-budget", "expected_tier_hypothesis": "fast"},
-    {"id": "catalog-min-context", "family": "catalog-budget", "expected_tier_hypothesis": "standard"}
+    {"id": "comment-preview-authority", "family": "repo-preview", "expected_tier_hypothesis": "fast", "spec_sha256": "a01f1c95e818511d6bcac35a0eb20b0b6c943a73b4fe7652a550bb0036dbd747"},
+    {"id": "comment-budget-period", "family": "catalog-budget", "expected_tier_hypothesis": "fast", "spec_sha256": "00333f0814e4bcb28bc06b9172f21672dace61eea3f6537af40dfe77a3c59fe4"},
+    {"id": "catalog-min-context", "family": "catalog-budget", "expected_tier_hypothesis": "standard", "spec_sha256": "884eb30b9310817c78fe8071e20881b865bb61a603a75327e83d39f6625d7e25"}
   ],
   "ordered_attempts": [
     {"ordinal": 1, "task": "comment-preview-authority", "profile": "luna-low"},
@@ -33,25 +33,27 @@
     {"ordinal": 6, "task": "catalog-min-context", "profile": "sol-low"}
   ],
   "execution": {
-    "max_model_invocations": 6,
+    "max_codex_cli_invocations": 6,
     "concurrency": 1,
     "model_attempt_timeout_seconds": 120,
     "independent_verification_timeout_seconds": 45,
     "stdout_max_bytes": 67108864,
     "stderr_max_bytes": 1048576,
     "fresh_public_workspace_per_attempt": true,
-    "implicit_retries_resume_fallback": false,
-    "limits": "All started attempts count, including provider/auth failures, timeout, capture/parse failure and verifier unknown. No silent repeat to improve a result. Parent-process time is measured separately from verifier time; child CPU/RSS if captured is local CLI, never remote model GPU or backend memory. Fixed invocation count and wall limits bound this pilot; monetary/subscription usage is unknown rather than guessed from tokens."
+    "executor_retries_resume_fallback": false,
+    "internal_model_request_count": "unknown",
+    "provider_retry_count": "unknown",
+    "limits": "All started CLI attempts count, including provider/auth failures, timeout, capture/parse failure and verifier unknown. One Codex CLI invocation may contain multiple internal model requests and provider retries; those counts are unknown. No executor-level silent repeat to improve a result. Parent-process time is measured separately from verifier time; child CPU/RSS if captured is local CLI, never remote model GPU or backend memory. Fixed CLI invocation count and wall limits bound this pilot; monetary/subscription usage is unknown rather than guessed from tokens."
   },
   "isolation": "macOS only until other enforcement is proven. Use current Codex named permissions profile with root deny, platform minimal read, fresh workspace write, temporary and slash-tmp deny, explicit trusted Go toolchain read, generated-command network disabled, never-approval and no user config/rules/skills/MCP/history inheritance. A real offline probe must demonstrate workspace write, sibling read denial and network denial to a live host-control endpoint before inference. No main checkout edits. Kill/wait child process group before candidate snapshot; retain private traces and numeric record, remove copied authentication after terminal cleanup.",
   "routing_hypothesis": {
-    "method": "Score each exact public TaskSpec prompt once before coding outcomes using unchanged pinned base Laya INT8 and existing router threshold0.8. Record probabilities, truncation, suggested/applied tier and abstention as predictions only. Do not select only tasks or profiles which agree with the predictions.",
+    "method": "Score each exact public TaskSpec prompt once before coding outcomes using unchanged pinned base Laya INT8 and existing router default threshold0.9. Record probabilities, truncation, suggested/applied tier and abstention as predictions only. Do not select only tasks or profiles which agree with the predictions.",
     "source_revision": "daf73cfd45089216b023642763f45e84dd48a4c5",
     "checkpoint": "base-int8-v2",
     "model_onnx_sha256": "30ceb27f768813d044402d0d7cbc1f6d954c827ae26a21f13d66ba658e36f872",
     "tokenizer_sha256": "6c8aaa9a542084f2457eab775d4eeb51f92a70c0fd9de28d5edb0ddec3c08d30",
     "runtime_darwin_arm64_sha256": "bcc9110f9d638a119de2db7afb3ba9a1da8085f0cb3401e1c48ae1caf450b6fa",
-    "threshold": 0.8,
+    "threshold": 0.9,
     "configured_fast": "gpt-6-luna",
     "configured_standard": "gpt-6.1-sol",
     "configured_strong": "gpt-6-astra",
@@ -60,7 +62,7 @@
     "training": false
   },
   "evidence": "Use immutable TaskSpec plus independently pinned base and contract tests. Verify after each terminal candidate snapshot; accepted means only this declared closure. Treat unchanged baseline as rejected and unsupported candidate shape/isolation failure as unknown. Preserve exact stdout/stderr byte hashes privately bound to the owned invocation; publish no raw traces/IDs/credentials/local paths/private source. Task outcome records are public numeric/enum reports for these original Apache-2.0 public fixtures only.",
-  "analysis": "Report all six planned attempts with launched or prelaunch status. A profile success requires process exit0, complete valid core usage and accepted independent closure; keep other observations separately. Compare reported input/cache/output/optional reasoning and time on paired tasks descriptively only, not money/quota. Cached input and reasoning are subsets, never added twice. Failed/incomplete usage remains unknown while observed partial sums survive. Three distinct tasks in two code families are not six independent tasks, population quality proof, model calibration, or a final 2400-case evaluation. Do not fit/train a router on this pilot or reinterpret expected tiers as measured capability.",
+  "analysis": "Report all six planned attempts with launched or prelaunch status. Report closure acceptance independently from process termination and usage completeness; unknown usage must not turn a verified accepted candidate into a failure label. An end-to-end measurement-complete attempt requires process exit0, complete valid core usage and accepted independent closure. Compare reported input/cache/output/optional reasoning and time on paired tasks descriptively only, not money/quota. Cached input and reasoning are subsets, never added twice. Failed/incomplete usage remains unknown while observed partial sums survive. Three distinct tasks in two code families are not six independent tasks, population quality proof, model calibration, or a final 2400-case evaluation. Do not fit/train a router on this pilot or reinterpret expected tiers as measured capability.",
   "stop": "Refuse before inference on changed CLI binary/version, auth mode, base/spec, unsupported isolation or failed permission probe. Stop remaining scheduled attempts on an executor-integrity, credential-isolation or persistent resource failure; retain all attempted records and explicit unexecuted entries. Individual task rejection alone does not cancel the other fixed comparisons. No threshold/gate relaxation or protected-final scoring.",
   "publication": "Branch/PR and exact-head CI quality merge gate; race/vet/format/redacted secrets before push. GitHub records code/plans/numeric results and KO/EN guidance. Model binaries, raw traces, authentication and caches stay local; this cycle creates no new model release or production activation. HF may reference the public research record without claiming new weights or validated routing.",
   "training_performed": false,
