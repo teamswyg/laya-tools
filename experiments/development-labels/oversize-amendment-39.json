@@ -1,0 +1,8 @@
+{
+ "schema":"riido-development-label-oversize-amendment-v1",
+ "trigger":"The first real projection stopped at its planned16MiB row bound. A second diagnostic-only replay reproduced a117856291-byte JSON row at cumulative146725507bytes. Failed private outputs were removed. No Go label analysis or model training occurred.",
+ "change":"Keep original total256MiB and row16MiB guards. At Arrow level, after selecting development IDs, compute UTF8 patch byte lengths before materializing patch strings. For patches above existing2MiB parser limit, emit instance_id,patch:null,patch_bytes,oversized:true only. For other patches emit the original string and matching byte length,oversized:false. Do not raise parser bounds or silently drop tasks.",
+ "interpretation":"Oversized targets count as explicit parse failures and oversized tasks in the full13021 denominator. Their paths are unknown, never empty-success or assumed new-only. Go validates null/flag/length consistency and independently recomputes lengths for normal patches. Runtime does not retain or decode oversized patch text. Arrow may decompress the Parquet chunk; no claim of eliminating maintainer projection peak memory.",
+ "validation":"Add synthetic oversize projection and Go schema tests, check no oversize raw text in output, preserve exact task counts and strict final exclusion. Record initial failure and changed protocol in bilingual docs. No quality threshold, membership or dataset selection changes.",
+ "production_ready":false
+}

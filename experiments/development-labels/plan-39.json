@@ -1,0 +1,12 @@
+{
+ "schema":"riido-development-label-plan-v1",
+ "membership_file_sha256":"5ceb4aa4681784431606f2ff4410c9225b9639d88a18f618b9de70fa2c5da1fd",
+ "source_sha256":"0ba403a7060af657e1f0476937a703726c07da15b759836694b16e553705a10f",
+ "scope":"Prepare patch-header path labels for all7335 train and5686 validation representatives only. Reject final2402 and all unselected siblings. Keep fixed membership, repositories and denominators. No training, ranking, outcomes or final-label analysis.",
+ "projection":"Existing maintainer-only PyArrow reads pinned19008-row Parquet. Validate pinned membership and select development IDs at Arrow level before converting patch records to Python objects/output. Parquet may internally decompress unselected bytes; do not claim byte-level nonaccess. Only instance_id and patch are emitted, exclusive0600 private output. No dataset code or patch execution. Source and projection are not published.",
+ "bounds":"Projection<=256MiB; JSONL row<=16MiB; exact13021 selected IDs, no duplicates/missing. Go verifies the entire SHA256 before parsing with bounded streaming buffers; existing evaluation reader remains32MiB/4096rows. Patch parser retains its2MiB limit; oversized or invalid patches count as parse errors without changing the cohort. Fail the projection if outer bounds are exceeded, never truncate.",
+ "validation":"Synthetic rejected final/unknown/duplicate/missing IDs, invalid schema/hash, boundary guards, owned label strings and unchanged input; replay projection and Go outputs exactly; complete race/vet/format/redacted scans before publication. If acquisition runs concurrently, do not report isolated resource timing.",
+ "outputs":"Public per-role/per-repository counts: total, parse errors, unsupported blocks, no-old-path cases, new files, old-path references/maxima. Private task labels and row-level diagnostics remain local. Pin resulting projection SHA256 after first deterministic preparation and reproduce it before treating counts as stable.",
+ "limits":"Paths are target labels only, never inference features. No catalog-membership completeness claim before a separate join with complete cached pre-fix catalogs. No historical license or issue-text approval; no model training or HF release in this step. Training/later release remains subject to source conditions. No difficulty/decomposition/router quality inference from patch paths.",
+ "production_ready":false
+}
