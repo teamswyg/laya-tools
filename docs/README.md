@@ -9,6 +9,8 @@ Choose a language; both versions cover the same features, measurements, and limi
 |---|---|---|
 | Project overview / 프로젝트 개요 | [README](../README.en.md) | [README](../README.md) |
 | Router design / 라우터 설계 | [Design](design.en.md) | [설계](design.ko.md) |
+| Decomposition decision plan / 작업 분할 판단 계획 | [Preview](decomposition-preview.en.md) | [Preview](decomposition-preview.ko.md) |
+| Maintainer MPS preparation / 유지보수 MPS 준비 | [Readiness and limits](mps-training.en.md) | [준비 검사와 한계](mps-training.ko.md) |
 | Upstream adaptations / 생태계 이식 | [Ecosystem](ecosystem.en.md) | [생태계](ecosystem.ko.md) |
 | Repository selection preview / 저장소 선택 | [Preview and evaluation](repository-routing-preview.en.md) | [Preview와 평가](repository-routing-preview.ko.md) |
 | License audit / 라이선스 검토 | [Audit](license-audit.en.md) | [검토](license-audit.ko.md) |

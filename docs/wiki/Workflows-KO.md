@@ -83,3 +83,11 @@ riidolaya plan --config examples/planner/config.json --request examples/planner/
 `direction`은 `upgrade`(상향), `downgrade`(하향), `lateral`(같은 등급), `initial`(첫 선택), `unchanged`(유지)이며, `blocked`에는 없습니다. 상향은 비용 회수 기간이나 전환 대기 횟수보다 품질을 우선하지만 예산·기능·컨텍스트 제약과 수동 고정은 무시하지 않습니다. Laya의 불확실한 판단은 상향 근거로 바꾸지 않으며, 현재 모델도 요구 조건을 못 맞추면 `blocked`입니다. 기본 설정에서는 catalog의 확신도 기준 0.9도 통과해야 하므로 switch의 상향 기준 0.5만 넘는다고 추천하지 않습니다.
 
 추천만 반환합니다. 진행 중인 Codex 대화를 자동 전환하거나 실패를 감지해 재실행하지 않습니다. 연동하는 에이전트가 작업 단계마다 현재 모델과 평가를 갱신해 호출해야 합니다.
+
+## 작업을 나눌지 판단하기 — 설계 preview
+
+분할 판단은 아직 실행 기능이 아닙니다. 생성 에이전트가 후보 작업 계획을 만들고, Laya가 그대로 처리/순차 분할/병렬 분할/정보 부족 중 선택하도록 평가·학습할 계획입니다. Go는 의존성과 알려진 공유 자원 충돌, 실행 예산을 검사합니다. Laya가 하위 작업의 내용이나 코드를 생성하는 구조는 아닙니다.
+
+예를 들어 계약 확정 뒤 구현하는 작업은 순서가 필요하고, 이미 계약이 고정된 독립 모듈은 일부 병렬 진행이 가능합니다. 파일이 다르다는 이유만으로 독립적이라고 판단하지 않습니다. 실제 절감 여부는 계획 작성과 통합·재시도까지 포함한 비용 및 성공률로 검증합니다.
+
+[분할 판단 설계와 외부 자료 검토](https://github.com/teamswyg/laya-tools/blob/main/docs/decomposition-preview.ko.md) · [MPS 학습 준비](https://github.com/teamswyg/laya-tools/blob/main/docs/mps-training.ko.md) · [진행 이슈 #11](https://github.com/teamswyg/laya-tools/issues/11)
