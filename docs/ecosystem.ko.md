@@ -1,5 +1,7 @@
 # Laya 생태계에서 가져온 정책 모듈
 
+한국어 · [English](ecosystem.en.md)
+
 [laya.tools](https://laya.tools/)는 Nielogiczny가 운영하는 독립 커뮤니티 디렉터리입니다. 프로젝트를 찾는 데 도움을 받았습니다. 이 저장소가 해당 사이트나 Laya 제작사의 공식 제품이라는 뜻은 아닙니다.
 
 2026-09-30에 [라우팅](https://laya.tools/laya-for-routing), [코딩 도구](https://laya.tools/laya-for-coding-tools), [검색/RAG](https://laya.tools/laya-for-search-and-rag) 목록을 확인하고, 아래 저장소의 공개 소스와 라이선스를 조사했습니다. 상위 프로젝트의 성능 주장을 우리 도구의 실측 결과로 사용하지 않습니다.

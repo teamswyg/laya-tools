@@ -1,5 +1,7 @@
 # Rebuild the native models
 
+[한국어](model-build.ko.md) · English
+
 Normal users run `riidolaya setup`; Python is not a runtime dependency.
 
 The published INT8 artifacts were exported with laya 0.3.21, torch 2.14.0,
