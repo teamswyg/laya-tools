@@ -65,7 +65,7 @@ func (a *App) Process(req Request) Response {
 				if err == nil {
 					scorer = e
 				} else {
-					warning = "Laya unavailable: using lexical search. Run laya setup or check model/runtime paths."
+					warning = "Laya unavailable: using lexical search. Run riidolaya setup or check model/runtime paths."
 					err = nil
 				}
 			}

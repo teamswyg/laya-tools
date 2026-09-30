@@ -2,6 +2,8 @@
 
 **모델 선택을 프로젝트가 직접 관리하기 위한 로컬 AI 라우터 실험입니다.**
 
+실행 명령어는 **`riidolaya`**입니다. 저장소와 Go 모듈 이름은 `laya-tools`를 유지하며, 기반 모델 Laya와 이 도구의 명령 이름을 구분합니다.
+
 작은 판단 모델인 [Laya](https://huggingface.co/convaiinnovations/laya)를 로컬에서 실행하고, 작업에 필요한 모델의 수준을 판단합니다. 실제 코딩은 Codex가 맡습니다. 코드 검색에서는 큰 모델에 전달할 후보 코드의 순서를 Laya가 조정합니다.
 
 검색·라우팅·토큰화·추론 호출·에이전트 인터페이스를 Go로 구현했습니다. 사용자가 도구를 실행할 때 Python이나 별도 모델 API 키는 필요하지 않습니다. **Codex 연동은 선택 사항**이며, 향후 riido-daemon에서 사용할 인터페이스도 Go 기반으로 발전시킵니다.
@@ -46,6 +48,19 @@ Laya의 추천과 실제 적용 결과는 구분합니다. 확신도가 낮거�
 
 현재 라우터는 **새 Codex CLI 세션을 시작할 때 한 번** 선택합니다. 실행 중인 대화의 모델을 바꾸거나 API 요청을 가로채지는 않습니다.
 
+## 샤라웃: Laya 생태계와 laya.tools
+
+[Laya](https://huggingface.co/convaiinnovations/laya) 모델과 [오픈소스 SDK](https://github.com/NandhaKishorM/laya)를 공개한 개발자들, 그리고 활용 사례를 모아 소개하는 **[laya.tools](https://laya.tools/)**에 감사드립니다.
+
+laya.tools는 Laya를 기반으로 만든 런타임, 라우팅, 에이전트 도구, 코드 검색과 데모를 찾아볼 수 있는 커뮤니티 디렉터리입니다. 이 프로젝트가 탐색하는 “작은 로컬 모델로 선택을 판단하고, 큰 모델은 필요한 작업에 배정한다”는 접근을 이해하는 데 유용한 사례들을 소개합니다.
+
+- [프로젝트 디렉터리](https://laya.tools/): 런타임·라우팅·검색 등 용도와 실행 플랫폼별 프로젝트 탐색.
+- [로컬 실행 가이드](https://laya.tools/guides/run-laya-locally): Laya를 직접 실행해 보기 위한 참고 자료.
+- [쇼케이스](https://laya.tools/showcase): 작은 판단 모델을 실제 도구와 연결한 데모 모음.
+- 디렉터리에 소개된 **laya-mlx**, **laya-coreml** 같은 Apple Silicon 런타임도 향후 구현 방식과 성능을 비교할 참고 대상입니다.
+
+사이트는 스스로 독립적인 커뮤니티 디렉터리라고 밝히고 있습니다. 이 프로젝트는 laya.tools나 Laya 개발팀의 공식 제품 또는 제휴 프로젝트가 아닙니다. 소개된 다른 프로젝트의 속도·메모리·비용 절감 수치를 우리 도구의 성능으로 가져오지 않으며, 자체 측정 결과는 따로 기록합니다.
+
 ## 현재 가능한 기능
 
 | 기능 | 하는 일 |
@@ -62,21 +77,23 @@ Laya의 추천과 실제 적용 결과는 구분합니다. 확신도가 낮거�
 
 ## 설치와 첫 실행
 
-Apple Silicon macOS를 우선 대상으로 만들었으며 Linux amd64도 CI에서 검사합니다. [릴리스](https://github.com/teamswyg/laya-tools/releases)의 운영체제에 맞는 실행 파일을 사용할 수 있습니다. 다운로드한 압축파일은 함께 제공되는 `SHA256SUMS`와 비교한 뒤 풀어 주세요.
+Apple Silicon macOS를 우선 대상으로 만들었으며 Linux amd64도 CI에서 검사합니다. [릴리스](https://github.com/teamswyg/laya-tools/releases)의 운영체제에 맞는 실행 파일을 사용할 수 있습니다. 명령 이름을 반영한 `riidolaya-v…-darwin-arm64.tar.gz` 또는 `riidolaya-v…-linux-amd64.tar.gz`를 선택합니다. 다운로드한 압축파일은 함께 제공되는 `SHA256SUMS`와 비교한 뒤 풀어 주세요.
 
 소스에서 빌드하려면 Go 1.27과 C 컴파일러가 필요합니다. macOS에서는 Command Line Tools가 C 컴파일러를 제공합니다.
 
 ```sh
 git clone https://github.com/teamswyg/laya-tools.git
 cd laya-tools
-go build -trimpath -o bin/laya ./cmd/laya
+go build -trimpath -o bin/riidolaya ./cmd/riidolaya
 
-./bin/laya setup
-./bin/laya doctor
-./bin/laya search --root . 'where is routing confidence checked?'
+./bin/riidolaya setup
+./bin/riidolaya doctor
+./bin/riidolaya search --root . 'where is routing confidence checked?'
 ```
 
-아래 예시는 실행 파일이 PATH에 등록되어 `laya`로 실행되는 경우입니다. 소스 빌드 직후에는 `laya` 대신 `./bin/laya`를 사용하면 됩니다. **옵션은 질문 앞에** 적습니다.
+v0.1.0의 실행 명령은 `laya`였으며, 새 버전부터 `riidolaya`를 사용합니다. 기존 모델 캐시와 `LAYA_*` 환경변수는 그대로 재사용합니다.
+
+아래 예시는 실행 파일이 PATH에 등록되어 `riidolaya`로 실행되는 경우입니다. 소스 빌드 직후에는 `riidolaya` 대신 `./bin/riidolaya`를 사용하면 됩니다. **옵션은 질문 앞에** 적습니다.
 
 `setup`은 공개 모델과 ONNX Runtime을 내려받아 압축파일과 내부 파일의 SHA-256을 검증합니다. 최초 모델 다운로드는 약 455 MiB이고, 설치된 모델 파일은 약 572 MiB입니다. 이후 검색과 라우팅 추론은 로컬에서 수행됩니다.
 
@@ -88,17 +105,17 @@ Laya의 공개 가중치를 로컬에서 사용하므로 Laya 판단마다 외�
 
 ```sh
 # 관련 코드의 경로, 줄 번호, 본문을 출력합니다.
-laya search --root /path/to/repository 'where are redirect headers removed?'
+riidolaya search --root /path/to/repository 'where are redirect headers removed?'
 
 # Laya 없이 가벼운 키워드 검색만 실행합니다.
-laya search --root . --lexical --json 'redirect authorization'
+riidolaya search --root . --lexical --json 'redirect authorization'
 
 # 코드 관련성 평가용 파생 모델을 설치하고 사용합니다.
-laya setup --checkpoint code
-laya search --checkpoint code --candidates 8 --limit 3 'redirect authentication'
+riidolaya setup --checkpoint code
+riidolaya search --checkpoint code --candidates 8 --limit 3 'redirect authentication'
 
 # 한국어 질문의 후보 검색에 영어 식별자 힌트를 줍니다.
-laya search --candidate-query 'gzip decoder' 'gzip 압축을 해제하는 코드'
+riidolaya search --candidate-query 'gzip decoder' 'gzip 압축을 해제하는 코드'
 ```
 
 검색은 `키워드 후보 검색 → Laya 관련성 평가 → 중복 구간 제거 → 코드 일부 반환` 순서입니다. 기본값은 후보 8개를 평가하고 결과 최대 3개를 반환합니다. 벡터 데이터베이스는 만들지 않습니다.
@@ -120,16 +137,16 @@ export LAYA_STANDARD_MODEL='your-standard-model-id'
 export LAYA_STRONG_MODEL='your-strong-model-id'
 
 # 추천과 정책 적용 결과만 확인합니다.
-laya route --json 'Fix a spelling mistake in this comment'
+riidolaya route --json 'Fix a spelling mistake in this comment'
 
 # Codex를 실행하지 않고 전달될 인자를 확인합니다.
-laya codex --dry-run 'Investigate a concurrency bug'
+riidolaya codex --dry-run 'Investigate a concurrency bug'
 
 # 추천 결과로 새 Codex CLI 세션을 시작합니다.
-laya codex 'Investigate a concurrency bug'
+riidolaya codex 'Investigate a concurrency bug'
 
 # 사용자가 지정한 모델이 라우터의 판단보다 우선합니다.
-laya codex --model 'your-explicit-model-id' 'Implement the feature'
+riidolaya codex --model 'your-explicit-model-id' 'Implement the feature'
 ```
 
 `route`는 추천만 반환합니다. `codex`는 Laya 메모리를 해제한 뒤 기존에 설치된 Codex를 실행합니다. 로그인 정보나 API 키를 별도로 읽거나 저장하지 않고, Codex의 권한·승인 설정도 변경하지 않습니다. 실제 Codex 작업은 기존 공급자와 통신합니다.
@@ -153,7 +170,7 @@ JSON의 `suggested_tier`는 Laya가 제안한 등급, `tier`와 `model`은 정�
 여러 요청을 처리할 때는 모델을 한 번만 로드하는 JSONL 모드를 사용할 수 있습니다.
 
 ```sh
-laya serve --root /path/to/repository
+riidolaya serve --root /path/to/repository
 ```
 
 입력은 한 줄에 JSON 객체 하나이며, 응답도 한 줄에 하나입니다.
@@ -166,13 +183,13 @@ laya serve --root /path/to/repository
 MCP 서버는 다음과 같이 실행합니다.
 
 ```sh
-laya mcp --root /path/to/repository
+riidolaya mcp --root /path/to/repository
 ```
 
 `search_code`와 `route_model` 두 도구를 제공합니다. Codex에서 쓰고 싶을 때만 명시적으로 등록합니다.
 
 ```sh
-codex mcp add laya -- /absolute/path/to/laya mcp --root /absolute/path/to/repository
+codex mcp add riidolaya -- /absolute/path/to/riidolaya mcp --root /absolute/path/to/repository
 ```
 
 MCP의 라우팅 도구도 새 작업에 쓸 모델을 추천할 뿐, 현재 대화의 모델을 변경하지는 않습니다. macOS 자동 실행 서비스나 네트워크 포트도 자동으로 만들지 않습니다.
@@ -212,14 +229,14 @@ Apple M4 Pro / 24 GiB / macOS에서의 초기 측정입니다. 자세한 조건�
 ## CPU·메모리·GPU 측정
 
 ```sh
-laya bench --iterations 30 --threads 4
-laya bench --cpu-profile cpu.pprof --heap-profile heap.pprof --ort-profile ort-trace
+riidolaya bench --iterations 30 --threads 4
+riidolaya bench --cpu-profile cpu.pprof --heap-profile heap.pprof --ort-profile ort-trace
 
 go tool pprof -top cpu.pprof
 go tool pprof -top heap.pprof
 
 # macOS: 전체 프로세스의 최대 메모리도 따로 봅니다.
-/usr/bin/time -l laya bench --iterations 30
+/usr/bin/time -l riidolaya bench --iterations 30
 ```
 
 Go pprof는 Go 메모리와 CPU 샘플을 보여줍니다. 네이티브 모델 추론은 `runtime.cgocall`이나 이름 없는 프레임으로 보일 수 있으며, **전체 네이티브 메모리나 GPU 메모리를 나타내지 않습니다**. 실제 실행 공급자는 ONNX Runtime 추적으로, GPU 세부 수치는 macOS Instruments 같은 도구로 따로 확인해야 합니다.

@@ -25,9 +25,9 @@ jobs:
       - run: test -z "$(gofmt -l cmd internal)"
       - run: go test -race ./...
       - run: go vet ./...
-      - run: go build -trimpath -o bin/laya ./cmd/laya
+      - run: go build -trimpath -o bin/riidolaya ./cmd/riidolaya
       - name: Install verified public runtime and checkpoint
-        run: ./bin/laya setup
+        run: ./bin/riidolaya setup
       - name: Native inference and reference tokenizer parity
         shell: bash
         run: |
@@ -35,12 +35,13 @@ jobs:
             export LAYA_MODEL_DIR="$HOME/Library/Caches/laya-tools/base"
             export LAYA_RUNTIME="$HOME/Library/Caches/laya-tools/runtime/libonnxruntime.1.30.0.dylib"
           else
+            lscpu
             export LAYA_MODEL_DIR="$HOME/.cache/laya-tools/base"
             export LAYA_RUNTIME="$HOME/.cache/laya-tools/runtime/libonnxruntime.so.1.30.0"
           fi
           go test -count=1 -v ./internal/inference
-          ./bin/laya bench --iterations 3
-      - run: ./bin/laya search --lexical --json --root . 'routing confidence'
+          ./bin/riidolaya bench --iterations 3
+      - run: ./bin/riidolaya search --lexical --json --root . 'routing confidence'
   secrets:
     runs-on: ubuntu-latest
     steps:
