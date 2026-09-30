@@ -38,7 +38,8 @@ def main():
                   'source_repository': 'https://github.com/teamswyg/laya-tools',
                   'source_revision': args.source_revision,
                   'training_code_sha256': digest(root / 'scripts/training/train_pilot.py'),
-                  'base_files_sha256': {str(p.relative_to(args.base)): digest(p) for p in args.base.rglob('*') if p.is_file()}}
+                  'base_files': [{'file': str(p.relative_to(args.base)), 'sha256': digest(p)}
+                                 for p in sorted(args.base.rglob('*')) if p.is_file()]}
     (args.output / 'PROVENANCE.json').write_text(json.dumps(provenance, indent=2) + '\n')
     notice = '''Experimental riidolaya head fine-tune. Copyright 2026 teamswyg contributors. Apache-2.0.
 Derived from Laya by Convai Innovations: https://huggingface.co/convaiinnovations/laya
