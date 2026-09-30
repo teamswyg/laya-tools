@@ -20,6 +20,7 @@ import (
 )
 
 const planSHA = "cb5a480bd51f4a7961d89b969cc98f9431d8d83af01e7089362566a29c51d6d1"
+const fairPlanSHA = "f3b4b78126382c7a3af55e0e5be081b493ae52d7748d58e875ff97aab88fa99f"
 const rootCache = ".cache/training-roots-38"
 const catalogCache = ".cache/training-catalogs-38"
 const treeCache = ".cache/training-subtrees-38"
@@ -79,10 +80,11 @@ func writeJSON(path string, x any) error {
 func run() error {
 	out := flag.String("out", "", "new private result directory")
 	mode := flag.String("mode", "sample", "sample or all development tasks")
+	order := flag.String("order", "serial", "serial or fair (all mode only)")
 	offline := flag.Bool("offline", false, "never fetch an uncached object")
 	budget := flag.Int("request-budget", 256, "maximum new requests,1..2000")
 	flag.Parse()
-	if *out == "" || (*mode != "sample" && *mode != "all") || *budget < 1 || *budget > 2000 {
+	if *out == "" || (*mode != "sample" && *mode != "all") || *budget < 1 || *budget > 2000 || (*order != "serial" && *order != "fair") || (*order == "fair" && *mode != "all") {
 		return fmt.Errorf("invalid output, mode or request budget")
 	}
 	plan, e := os.ReadFile("experiments/training-catalogs/plan-38.json")
@@ -104,6 +106,20 @@ func run() error {
 		rows, e = trainingdata.Samples(rows)
 		if e != nil || len(rows) != 25 {
 			return fmt.Errorf("sample membership changed")
+		}
+	}
+	if *order == "fair" {
+		amendment, err := os.ReadFile("experiments/training-catalogs/plan-44.json")
+		if err != nil {
+			return err
+		}
+		h := sha256.Sum256(amendment)
+		if hex.EncodeToString(h[:]) != fairPlanSHA {
+			return fmt.Errorf("schedule amendment changed")
+		}
+		rows, e = trainingdata.FairOrder(rows)
+		if e != nil {
+			return e
 		}
 	}
 	if e = os.Mkdir(*out, 0700); e != nil {
@@ -261,6 +277,11 @@ func run() error {
 	}{"riido-training-catalog-v1", planSHA, trainingdata.MembershipSHA256, trainingdata.PartitionSHA256, *mode, total, repositories, 13021, 2402, len(objects), *mode == "all" && total.Catalogs == 13021, false, false, false, false}
 	for i, x := range []any{report, objects, failures} {
 		if e = writeJSON(filepath.Join(*out, []string{"results.json", "inventory.json", "failures.json"}[i]), x); e != nil {
+			return e
+		}
+	}
+	if *order == "fair" {
+		if e = writeJSON(filepath.Join(*out, "schedule.json"), struct{ Schema, AmendmentSHA256, MembershipSHA256 string }{"role-repository-round-robin-v1", fairPlanSHA, trainingdata.MembershipSHA256}); e != nil {
 			return e
 		}
 	}
