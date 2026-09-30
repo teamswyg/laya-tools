@@ -14,4 +14,6 @@ A failed child prevents root persistence; already verified child caches remain r
 go run ./cmd/riido-filecatalog --repair-subtrees --request-budget 1500 --out .cache/file-catalogs-repair-new
 ```
 
-Tests cover trigger classification, ordinary-error non-expansion, missing-child non-persistence, complete assembly, cache reuse and cycle/depth bounds. Full local Go race/vet, formatting and redacted checks passed. Actual repair remains running; final all-2,400 coverage and offline replay must be verified separately. This is not retrieval quality or LLM cost evidence.
+Tests cover trigger classification, ordinary-error non-expansion, missing-child non-persistence, complete assembly, cache reuse and cycle/depth bounds. Full local Go race/vet, formatting and redacted checks passed. Actual repair, final all-2,400 coverage and offline replay are complete. This is not retrieval quality or LLM cost evidence.
+
+Follow-up: recovery terminated successfully after763 requests with final coverage2,400/2,400. [Final aggregate](results-33.json).

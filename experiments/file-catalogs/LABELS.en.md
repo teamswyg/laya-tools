@@ -24,4 +24,4 @@ go run ./cmd/riido-filelabels --out .cache/file-labels-new
 
 Pinned query and separate patch projections are required. A new directory receives public-safe `results.json` and private `labels.json`. Both reproduce byte for byte. Tests cover header/body isolation, new files, renames, binary/Unicode paths, duplicates, invalid paths and schema/hash checks. Maintainer converter isolation, permissions and overwrite guards passed locally with PyArrow; CI does not gain a PyArrow dependency.
 
-Actual catalog membership and ranking have not yet been evaluated. Finish source acquisition and freeze scoring rules before comparison. Existing reserves and models are unchanged.
+Actual catalog membership and ranking have not yet been evaluated. Source acquisition is complete; comparison follows the separately frozen scoring plan. Existing reserves and models are unchanged.
