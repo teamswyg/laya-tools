@@ -43,6 +43,7 @@ jobs:
           fi
           go test -count=1 -v ./internal/inference
           ./bin/riidolaya bench --iterations 3
+          ./bin/riidolaya repo-preview --catalog examples/repositories/catalog.json --laya --json "refund invoices"
       - run: ./bin/riidolaya search --lexical --json --root . 'routing confidence'
   secrets:
     runs-on: ubuntu-latest

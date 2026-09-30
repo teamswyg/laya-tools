@@ -38,6 +38,8 @@ Commands:
   setup     Download checksum-pinned model and native runtime
   search    Find line-addressable code excerpts (default: 8 candidates, 3 hits)
   route     Recommend a configured model; abstain on uncertain decisions
+  repo-preview  Preview repository selection from a local catalog
+  repo-serve    Warm JSONL repository preview (no execution)
   plan      Compare configured models, budgets, and cache switch costs (dry plan)
   codex     Route one new task, then launch the existing Codex CLI
   serve     Warm JSONL service: one {"op":"search|route","query":"..."} per line
@@ -86,6 +88,8 @@ The codex command starts your installed Codex CLI with its existing settings.
 	cpu := f.String("cpu-profile", "", "write Go CPU pprof locally")
 	heap := f.String("heap-profile", "", "write Go heap pprof locally")
 	ortProfile := f.String("ort-profile", "", "native profiling file prefix (local)")
+	repoCatalog := f.String("catalog", "", "local repository catalog JSON file")
+	withLaya := f.Bool("laya", false, "opt in to English Laya repository selection")
 	planConfig := f.String("config", "", "plan catalog and switch policy JSON")
 	planRequest := f.String("request", "", "plan request JSON file or - for stdin")
 	dry := f.Bool("dry-run", false, "show Codex argv without launching")
@@ -131,6 +135,11 @@ The codex command starts your installed Codex CLI with its existing settings.
 	}
 
 	switch cmd {
+	case "repo-preview", "repo-serve":
+		if *withLaya && *modelName != "base" {
+			return fmt.Errorf("repository choice preview requires the base checkpoint")
+		}
+		return runRepos(a, *repoCatalog, strings.Join(f.Args(), " "), *withLaya, cmd == "repo-serve", *jsonOut, *threshold)
 	case "plan":
 		return runPlan(a, *planConfig, *planRequest, strings.Join(f.Args(), " "), *jsonOut)
 	case "setup":

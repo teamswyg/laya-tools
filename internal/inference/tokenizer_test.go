@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -64,6 +65,29 @@ func TestNativeInference(t *testing.T) {
 		}
 		if state[15] == 'f' && p.Winner != 0 {
 			t.Fatal("negative reference failed")
+		}
+	}
+}
+
+func TestOptionTruncationReported(t *testing.T) {
+	dir := os.Getenv("LAYA_MODEL_DIR")
+	if dir == "" {
+		t.Skip("set model directory for tokenizer")
+	}
+	enc, err := LoadEncoder(filepath.Join(dir, "tokenizer.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, options := range [][]string{
+		{strings.Repeat("long description ", 60), "other"},
+		{strings.Repeat("alpha ", 30), strings.Repeat("beta ", 30), strings.Repeat("gamma ", 30), strings.Repeat("delta ", 30), strings.Repeat("omega ", 30), strings.Repeat("zeta ", 30)},
+	} {
+		seq, err := enc.Build("short task", "choice", "Choose", options, 512)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !seq.Truncated {
+			t.Fatal("silently truncated an option")
 		}
 	}
 }
