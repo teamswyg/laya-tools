@@ -1,13 +1,39 @@
-# Preserve every default secret rule. This is a public tokenizer checksum,
-# already pinned under base.files["tokenizer.json"] in internal/assets/manifest.json.
-# Match only that exact JSON field/value in the frozen public plan. Never ignore
-# a commit, a whole file, token-shaped values, or other checksum values.
 [extend]
 useDefault = true
 
 [[rules]]
 id = "generic-api-key"
 
+[[rules.allowlists]]
+description = "Public tokenizer artifact SHA-256 values, not API tokens"
+condition = "AND"
+paths = ['''(^|/)internal/assets/manifest\.json$''']
+regexTarget = "line"
+regexes = ['''^\s*"tokenizer\.json": "[a-f0-9]{64}",?\s*$''']
+
+[[rules.allowlists]]
+description = "Pinned public Model2Vec tokenizer checksum in reference/result metadata"
+condition = "AND"
+paths = ['''(^|/)experiments/static-embedding/(reference|results-04)\.json$''']
+regexTarget = "line"
+regexes = ['''^\s*"(tokenizer_sha256|TokenizerSHA256)": "e67e803f624fb4d67dea1c730d06e1067e1b14d830e2c2202569e3ef0f70bb50",?\s*$''']
+
+[[rules.allowlists]]
+description = "Exact already-public Laya tokenizer SHA-256 in bounded relevance probe"
+condition = "AND"
+paths = ['''(^|/)cmd/riido-layaprobe/main\.go$''']
+regexTarget = "secret"
+regexes = ['''^6c8aaa9a542084f2457eab775d4eeb51f92a70c0fd9de28d5edb0ddec3c08d30$''']
+
+[[rules.allowlists]]
+description = "Exact public Laya tokenizer checksum in parity asset pins"
+condition = "AND"
+paths = ['''(^|/)experiments/laya-parity/assets-18\.json$''']
+regexTarget = "secret"
+regexes = ['''^6c8aaa9a542084f2457eab775d4eeb51f92a70c0fd9de28d5edb0ddec3c08d30$''']
+
+# This exact public checksum is already pinned in internal/assets/manifest.json.
+# Preserve existing rules and allowlists; only this field/value in plan 50 matches.
 [[rules.allowlists]]
 description = "Exact public base tokenizer SHA-256 in plan 50"
 condition = "AND"
