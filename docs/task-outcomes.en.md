@@ -183,3 +183,8 @@ The authored JSONL fixtures and public code verification examples explain tool
 behavior. They do not constitute actual model outcomes. The implementation scope
 and validation plan are recorded in the
 [precommitted plan](../experiments/task-outcomes/plan-49.json).
+
+[Actual tool execution on authored fixtures](../experiments/task-outcomes/fixtures-49.json)
+records two summaries, acceptance of the exact comment change, and rejection of
+an unchanged base. Tool exit codes are separate from model process exits; there
+are zero actual model outcomes in this record.
