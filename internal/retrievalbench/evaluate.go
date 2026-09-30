@@ -55,7 +55,9 @@ func queries(rows []Row) []query {
 		if !ok {
 			n = len(out)
 			m[q] = n
-			out = append(out, query{text: q, repository: r.Repository})
+			// Keep source case for camel-case splitting. The deduplication key
+			// must not become the actual input to a case-sensitive preprocessor.
+			out = append(out, query{text: strings.Join(strings.Fields(r.Query), " "), repository: r.Repository})
 		}
 		out[n].targets = append(out[n].targets, i)
 		out[n].named = out[n].named || namePresent(q, r.Name)
@@ -63,7 +65,9 @@ func queries(rows []Row) []query {
 			out[n].repository = "multiple"
 		}
 	}
-	sort.Slice(out, func(i, j int) bool { return digest([]byte(out[i].text)) < digest([]byte(out[j].text)) })
+	sort.Slice(out, func(i, j int) bool {
+		return digest([]byte(Normalize(out[i].text))) < digest([]byte(Normalize(out[j].text)))
+	})
 	return out
 }
 func summarize(obs []observation) Metrics {

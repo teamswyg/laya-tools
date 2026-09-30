@@ -27,7 +27,7 @@ func TestRepeatedQueryHasMultipleKnownTargets(t *testing.T) {
 		t.Fatal("counted candidates as questions")
 	}
 	for _, q := range qs {
-		if q.text == "same query" && (len(q.targets) != 2 || q.repository != "multiple") {
+		if Normalize(q.text) == "same query" && (len(q.targets) != 2 || q.repository != "multiple") {
 			t.Fatal("lost known targets")
 		}
 	}
@@ -37,6 +37,13 @@ func TestRepeatedQueryHasMultipleKnownTargets(t *testing.T) {
 	}
 	if r.All.Queries != 2 || r.NameAbsent.Queries != 1 || r.NamePresent.Queries != 1 {
 		t.Fatalf("bad strata %+v", r)
+	}
+}
+
+func TestDeduplicationPreservesCaseForQueryPreprocessing(t *testing.T) {
+	qs := queries([]Row{{Repository: "a", Query: "  ReadFileContents   now "}, {Repository: "a", Query: "readfilecontents now"}})
+	if len(qs) != 1 || qs[0].text != "ReadFileContents now" {
+		t.Fatalf("lost query case: %+v", qs)
 	}
 }
 func TestMetrics(t *testing.T) {
