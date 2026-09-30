@@ -283,3 +283,30 @@ func (m *Model) Predict(x, scratch []float64) ([3]float64, error) {
 	}
 	return p, nil
 }
+
+// FoldSource returns the equivalent FP32 folded parameters with identity affine
+// normalization. It is useful for training shadow weights without the old affine.
+func FoldSource(s Source) (Source, error) {
+	m, e := Build(s, Float32, 0)
+	if e != nil {
+		return Source{}, e
+	}
+	out := Source{Gamma: make([]float64, m.width), Beta: make([]float64, m.width), Weight: make([]float64, 3*m.width), Bias: m.bias, Temperature: m.temperature}
+	for i := range out.Gamma {
+		out.Gamma[i] = 1
+	}
+	for i := range out.Weight {
+		out.Weight[i] = get(m.payload[4*i:])
+	}
+	return out, nil
+}
+
+// WithTemperature creates an independent immutable calibrated model.
+func (m *Model) WithTemperature(t float64) (*Model, error) {
+	if !finite(t) || t <= 0 || !finite(f32(t)) || f32(t) <= 0 {
+		return nil, errors.New("invalid temperature")
+	}
+	b := m.Encode()
+	put(b[16:], t)
+	return Decode(b)
+}

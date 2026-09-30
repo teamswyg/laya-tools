@@ -359,3 +359,7 @@ riidolaya plan --config examples/planner/config.json --request examples/planner/
 [별도 경량화 연구](experiments/tinyhead/README.ko.md)에서 v0.2 헤드를 Go로 실행하고 FP32·INT8·3진을 비교합니다.
 264건의 기존 합성 데이터에서 판단 변경 없이 20,772B 헤드를 660B로 줄였지만, 전체 Laya 인코더는 여전히 필요하며 3진이 더 빠르지는 않았습니다.
 [공개 HF 컬렉션](https://huggingface.co/collections/JooYoon/riidolaya-public-research-6abcbd5ddb1917912fc5de38) · [실험 #15](https://github.com/teamswyg/laya-tools/issues/15).
+
+[3진 QAT 학습·PDCA 결과](experiments/ternary-qat/README.ko.md): Go로 32개 후보를 실제 학습하고 572B 헤드를 만들었습니다.
+새 합성 final에서 부모 33/36 → 두 seed 모두 34/36이며, 파일 전체는 선형 계수당 1.490bit입니다.
+인코더는 그대로이고, 확률 품질은 일부 나빠져 실험 모델로만 제공합니다. [진행 이슈 #17](https://github.com/teamswyg/laya-tools/issues/17).

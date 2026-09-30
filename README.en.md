@@ -289,3 +289,7 @@ it does not replace the default Go model or establish real coding-cost savings.
 The [separate compression track](experiments/tinyhead/README.en.md) runs the v0.2 head in Go and compares FP32, INT8 and ternary formats.
 A 20,772-byte head shrank to 660 bytes without changing winners on 264 previously viewed synthetic cases. The full Laya encoder is still required, and ternary inference was slower.
 [Public HF collection](https://huggingface.co/collections/JooYoon/riidolaya-public-research-6abcbd5ddb1917912fc5de38) · [Experiment #15](https://github.com/teamswyg/laya-tools/issues/15).
+
+[Ternary QAT and PDCA results](experiments/ternary-qat/README.en.md): 32 Go training candidates produced 572-byte heads.
+On a new synthetic final, parent 33/36 became 34/36 for both seeds; complete files use 1.490 bits per linear coefficient.
+The encoder remains unchanged and some probability-quality metrics worsened, so these are experimental only. [Issue #17](https://github.com/teamswyg/laya-tools/issues/17).

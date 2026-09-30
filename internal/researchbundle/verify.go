@@ -49,6 +49,9 @@ func Verify(dir string) (Manifest, error) {
 	if e = json.Unmarshal(b, &m); e != nil {
 		return m, e
 	}
+	if m.Schema == "riido-qat-bundle-v1" {
+		return VerifyQAT(dir, m)
+	}
 	if m.Schema != "riido-tinyhead-bundle-v1" || !repo.MatchString(m.Repository) || !sha.MatchString(m.SourceRevision) || m.ParentRevision != "f648bad968b0e8c2b04cf0596b1c664721060fef" || m.Origin != "original_synthetic_pdca06_development" || m.License != "apache-2.0" || m.ProductionReady || len(m.Files) != len(names) {
 		return m, fmt.Errorf("invalid public experimental manifest")
 	}
