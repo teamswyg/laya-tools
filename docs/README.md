@@ -17,6 +17,8 @@ Choose a language; both versions cover the same features, measurements, and limi
 | License audit / 라이선스 검토 | [Audit](license-audit.en.md) | [검토](license-audit.ko.md) |
 | Initial measurements / 초기 측정 | [Measurements](measurements.md) | [측정](measurements.ko.md) |
 | Golden-set scale and domain boundaries / 골든셋 규모와 도메인 구분 | [24 versus 2,400](golden-set-scale.en.md) | [24개와 2,400개의 의미](golden-set-scale.ko.md) |
+| Usage recording and independent task verification / 사용량 기록·독립 작업 검증 | [Use and evidence limits](task-outcomes.en.md) | [사용법과 증거 범위](task-outcomes.ko.md) |
+| Training-only search-helper headroom / 학습용 검색 방식의 개선 여지 | [4,456 requests, stop decision and resources](../experiments/path-helper-headroom/RESULTS-48.en.md) | [4,456개 결과·중단 판단·자원](../experiments/path-helper-headroom/RESULTS-48.ko.md) |
 | 2,400+ tasks per role: actual tiny-head training / 실제 작은 주장 모델 학습 | [Results, failure and memory](../experiments/path-cost-claim/RESULTS-46.en.md) | [결과·실패·메모리](../experiments/path-cost-claim/RESULTS-46.ko.md) |
 | Historical source review 47 / 과거 출처 검토 47 | [Source scope](../experiments/path-cost-data/SOURCE-REVIEW-47.en.md) | [출처 범위](../experiments/path-cost-data/SOURCE-REVIEW-47.ko.md) |
 | Maintainer model export / 유지보수 모델 변환 | [Model build](model-build.md) | [모델 빌드](model-build.ko.md) |

@@ -46,7 +46,8 @@
       "source_url": "https://github.com/teamswyg/laya-tools/blob/6b2c1bdfd38bea5a9a2c11433ffcfcb94c4143a3/pkg/catalog/catalog.go",
       "source_revision": "6b2c1bdfd38bea5a9a2c11433ffcfcb94c4143a3",
       "source_path": "pkg/catalog/catalog.go",
-      "prompt": "Add an optional minimum-context requirement to catalog.Request. Reject negative values and mark models below it ineligible while preserving existing zero-value behavior.",
+      "acceptance_spec_version": "catalog-min-context-v2",
+      "prompt": "Add Request.MinContext as an optional int field with JSON name min_context,omitempty. Reject negative values. A model with Context below MinContext must be ineligible with reason min_context_required. Preserve existing zero-value behavior.",
       "expected_tier_hypothesis": "standard",
       "rationale": "Bounded schema, predicate and test change.",
       "acceptance": [

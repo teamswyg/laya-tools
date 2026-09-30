@@ -1,0 +1,28 @@
+{
+  "schema": "riido-path-helper-headroom-plan-v1",
+  "status": "precommitted_training_only_screen_not_run",
+  "base_revision": "38802962a8953b2c94c5b86f56ae5b7706dbdd0c",
+  "scope": "Compare exactly three label-blind, path-only original Go helpers on experiment46's 4456 eligible training representatives. No fitting, new validation rankings, final outcomes, model invocation, activation, weights or source body acquisition. Existing failed experiment46 remains authoritative.",
+  "input_seal_sha256": "3e8793cb0f3c5d23473fedfd3d4faed58c05dbd3949e77308ca1f8ee56f39187",
+  "source_evidence_sha256": "1da77c56769b6e60c8dd9ca947ac60265737984e6129223a424787354644a115",
+  "cost_examples_sha256": "fb8ce49e0111f7da0a2070381bd7109a556ed6e3a36aba7ab2e1d58852165084",
+  "availability_checkpoint_sha256": "98c28f1c858fbd2609c4e0e1088677f0a77873d21a0c5d70bfd5b970c0607cf4",
+  "membership_sha256": "5ceb4aa4681784431606f2ff4410c9225b9639d88a18f618b9de70fa2c5da1fd",
+  "query_projection_sha256": "82419343bf7a06daffe79b2145800648e776f971a0f6f873fd11277602a87f51",
+  "patch_projection_sha256": "6bed55ca053705e59b1362f982b86cbd977fa3d216312a018b1657dfb9fd284b",
+  "selection": "Revalidate experiment46 source/cost/input hashes and numeric-row seal offline. Select train roles only from the resulting private Costs. Recompute baseline and old helper costs byte-for-byte before comparing new helpers. Keep all7335 original train members in coverage with prior exclusion reasons; do not replace requests, use validation outcomes to choose a helper, or count repeats as requests.",
+  "variants": [
+    {"id":"normalized-positive64","rule":"Use unchanged identifier NormalizeText for full path/query BM25; retain only strictly positive auxiliary scores, first64 in stable rank order, then baseline-first partial interleave."},
+    {"id":"joined-fields-rrf64","rule":"For full paths and basenames independently, retain lower-case joined identifiers alongside unchanged split identifiers. Rank both BM25 fields against the same joined-plus-split full query. Sum 1/(60+one-based-rank) only for strictly positive field scores. Fixed equal field weights; positive fused evidence first64, catalog-index ties; baseline-first partial interleave."},
+    {"id":"explicit-path64","rule":"Read complete query tokens consisting of Unicode letters/digits and underscore,dot,hyphen,slash. Require slash or dot and an exact case-sensitive full-path or slash-boundary suffix match against the catalog. Sort evidence by more matched path segments, then more token bytes, then catalog index; deduplicate and keep64. No exact evidence yields unchanged baseline. This hypothesis is kept separate from BM25 fusion."}
+  ],
+  "bounds": "Complete UTF-8 queries<=128KiB, unique canonical paths<=100000 and16MiB, each aligned text catalog<=16MiB. Each new textual helper field preflights<=262144 lexical tokens and index vocabulary<=131072. Explicit anchors are sorted/compacted, and unique-anchor count times path count must be<=8000000 before any suffix comparisons; excess falls back with no partial hints. Fail closed to baseline with a recorded reason on auxiliary bounds/errors, rather than truncating input or dropping a task. Caller-owned arrays, immutable indexes, sequential worker, no global locks.",
+  "metrics": "Report training-only baseline, legacy control and each fixed helper: pages20 to first mapped target, Hit1/10/100, All10, per-repository and equal-repository macro; wins/losses/ties, sum positive gains, sum negative gains, optimistic oracle positive-page-gain divided by baseline pages, real auxiliary attempts/fallbacks/coverage. Record a deterministic private ranking/evidence digest without publishing task IDs, paths, queries, labels or coefficients. Oracle knows gold and is not deployable.",
+  "interpretation": "The unchanged experiment46 advancement gate requires>=5percent page reduction plus its quality/call/repository constraints. Training-only oracle headroom>=5percent is only a necessary screen; below5percent stops that helper before claim fitting. Do not lower the5percent gate, choose favorable seeds or manufacture labels. Above5percent requires a separately precommitted fitting/selection experiment and untouched final confirmation; no new winner is chosen from validation in this screen.",
+  "resources": "Measure sequential isolated full offline screen wall/user/system/maxRSS; target<=256MiB and report exceedance. Run exact offline replay and meaningful error/permutation/label-independence/race tests. Use a public original fixture for optional Go heap pprof; do not equate Go heap with total RSS or infer GPU/LLM savings.",
+  "references": "Independent implementation informed by pinned Apache2 laya-codex580bc73c2ed95fd319db93ef725f30bf35047428 identifier/retriever concepts and original2009 RRF formula. No upstream code or GPL Spiral code/tables copied. No license or public-model grant inferred from numeric-source evidence.",
+  "training_performed": false,
+  "validation_scored": false,
+  "final_scored": false,
+  "production_ready": false
+}

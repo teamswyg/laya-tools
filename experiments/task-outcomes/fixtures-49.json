@@ -1,0 +1,312 @@
+{
+  "schema": "riido-authored-task-tool-fixture-result-v1",
+  "source_revision": "828d2c8dec00d144de7ddec96c27b6e20fe74311",
+  "platform": "darwin/arm64",
+  "go_version": "go1.27.1",
+  "scope": "Offline Go parser and independent verifier exercised against authored public fixtures. These are tool-execution results, not actual model outcomes. Hashes do not prove trace producer provenance.",
+  "authored": true,
+  "actual_model_evaluation_performed": false,
+  "actual_model_outcomes": 0,
+  "parser_fixtures": [
+    {
+      "fixture": "complete-authored",
+      "tool_exit_code": 0,
+      "summary": {
+        "schema": "riido-codex-jsonl-summary-v1",
+        "requested_metadata": {},
+        "metadata_evidence": "caller_requested_unverified",
+        "trace_provenance": "unknown",
+        "observed_model": "unknown",
+        "process_exit": "unknown",
+        "execution_time": "unknown",
+        "task_acceptance": "unknown",
+        "trace_bytes_sha256": "bf69069ea53a5768c0c63670080208326d126e1dcaec66f523f6952c2a7a135c",
+        "trace_bytes": 505,
+        "events": 6,
+        "threads_started": 1,
+        "turns_started": 2,
+        "turns_completed": 2,
+        "turns_failed": 0,
+        "error_events": 0,
+        "discarded_item_events": 1,
+        "unknown_control_events": 0,
+        "lifecycle_complete": true,
+        "trace_status": "completed_turns",
+        "usage_complete": true,
+        "usage": {
+          "input_tokens": {
+            "observed_total": 250,
+            "observed_turns": 2,
+            "missing_completed_turns": 0,
+            "total": 250,
+            "complete": true
+          },
+          "cached_input_tokens": {
+            "observed_total": 110,
+            "observed_turns": 2,
+            "missing_completed_turns": 0,
+            "total": 110,
+            "complete": true
+          },
+          "output_tokens": {
+            "observed_total": 50,
+            "observed_turns": 2,
+            "missing_completed_turns": 0,
+            "total": 50,
+            "complete": true
+          },
+          "reasoning_output_tokens": {
+            "observed_total": 5,
+            "observed_turns": 1,
+            "missing_completed_turns": 1,
+            "total": null,
+            "complete": false
+          }
+        }
+      }
+    },
+    {
+      "fixture": "partial-authored",
+      "tool_exit_code": 0,
+      "summary": {
+        "schema": "riido-codex-jsonl-summary-v1",
+        "requested_metadata": {},
+        "metadata_evidence": "caller_requested_unverified",
+        "trace_provenance": "unknown",
+        "observed_model": "unknown",
+        "process_exit": "unknown",
+        "execution_time": "unknown",
+        "task_acceptance": "unknown",
+        "trace_bytes_sha256": "568d54edc7760d50b35d7633533f72c764371fbb62ee03f1174abd5ec1ca8de6",
+        "trace_bytes": 295,
+        "events": 5,
+        "threads_started": 1,
+        "turns_started": 2,
+        "turns_completed": 1,
+        "turns_failed": 1,
+        "error_events": 0,
+        "discarded_item_events": 0,
+        "unknown_control_events": 0,
+        "lifecycle_complete": true,
+        "trace_status": "observed_failure",
+        "usage_complete": false,
+        "usage": {
+          "input_tokens": {
+            "observed_total": 100,
+            "observed_turns": 1,
+            "missing_completed_turns": 0,
+            "total": null,
+            "complete": false
+          },
+          "cached_input_tokens": {
+            "observed_total": null,
+            "observed_turns": 0,
+            "missing_completed_turns": 1,
+            "total": null,
+            "complete": false
+          },
+          "output_tokens": {
+            "observed_total": 20,
+            "observed_turns": 1,
+            "missing_completed_turns": 0,
+            "total": null,
+            "complete": false
+          },
+          "reasoning_output_tokens": {
+            "observed_total": null,
+            "observed_turns": 0,
+            "missing_completed_turns": 1,
+            "total": null,
+            "complete": false
+          }
+        }
+      }
+    }
+  ],
+  "verifier_fixtures": [
+    {
+      "fixture": "authored-exact-budget-comment",
+      "expected": "accepted",
+      "tool_exit_code": 0,
+      "report": {
+        "schema": "riido-task-verification-v1",
+        "task_id": "comment-budget-period",
+        "spec_version": 2,
+        "spec_sha256": "00333f0814e4bcb28bc06b9172f21672dace61eea3f6537af40dfe77a3c59fe4",
+        "base_revision": "6b2c1bdfd38bea5a9a2c11433ffcfcb94c4143a3",
+        "base_sha256": "1e25c882b634c35ef12a07bc3cc19e322d6e33fa0f23a127dd687ded8aa03b6b",
+        "candidate_sha256": "ba34461ecca45768433f165fd61c10aef003b975e69112e15883813dc476f789",
+        "candidate_scope": "task_closure",
+        "status": "accepted",
+        "accepted": true,
+        "checks": [
+          {
+            "name": "base_pin",
+            "passed": true,
+            "code": "pinned_public_bytes_verified"
+          },
+          {
+            "name": "requested_change",
+            "passed": true,
+            "code": "exact_comment_change"
+          },
+          {
+            "name": "format",
+            "passed": true,
+            "code": "gofmt_clean"
+          },
+          {
+            "name": "independent_tests",
+            "passed": true,
+            "code": "independent_pinned_tests_passed"
+          }
+        ],
+        "base_files": [
+          {
+            "path": "go.mod",
+            "sha256": "d3dac31b277d3945ff0333c5099e5e5c47807bd8310b0c9d71d29dbdeff8e9ec"
+          },
+          {
+            "path": "pkg/catalog/catalog.go",
+            "sha256": "b425fbe634d2a945c703e58497de61db0b85d2aa3b098bc8d7565868b233307a"
+          },
+          {
+            "path": "pkg/catalog/catalog_test.go",
+            "sha256": "f305a4810566fe7607d7a1b88bced06a4f3b8283efde4feffa4bcb960018cc31"
+          }
+        ],
+        "candidate_files": [
+          {
+            "path": "go.mod",
+            "sha256": "d3dac31b277d3945ff0333c5099e5e5c47807bd8310b0c9d71d29dbdeff8e9ec"
+          },
+          {
+            "path": "pkg/catalog/catalog.go",
+            "sha256": "639aed8fc13967b7f3aaca64ba3c45bfcf1bc9c0d68a2a2b67cce2b581ec3221"
+          },
+          {
+            "path": "pkg/catalog/catalog_test.go",
+            "sha256": "f305a4810566fe7607d7a1b88bced06a4f3b8283efde4feffa4bcb960018cc31"
+          }
+        ],
+        "independent_tests": 16,
+        "execution_isolated": true,
+        "candidate_tests_used": false
+      }
+    },
+    {
+      "fixture": "unchanged-min-context-base",
+      "expected": "rejected",
+      "tool_exit_code": 1,
+      "report": {
+        "schema": "riido-task-verification-v1",
+        "task_id": "catalog-min-context",
+        "spec_version": 2,
+        "spec_sha256": "884eb30b9310817c78fe8071e20881b865bb61a603a75327e83d39f6625d7e25",
+        "base_revision": "6b2c1bdfd38bea5a9a2c11433ffcfcb94c4143a3",
+        "base_sha256": "fbe015de5ea3287dcd83face0e3ca400f2a603aa7b7e7d26c7f9eb7215f71238",
+        "candidate_sha256": "fbe015de5ea3287dcd83face0e3ca400f2a603aa7b7e7d26c7f9eb7215f71238",
+        "candidate_scope": "task_closure",
+        "status": "rejected",
+        "accepted": false,
+        "checks": [
+          {
+            "name": "base_pin",
+            "passed": true,
+            "code": "pinned_public_bytes_verified"
+          },
+          {
+            "name": "requested_change",
+            "passed": false,
+            "code": "unchanged_base"
+          }
+        ],
+        "base_files": [
+          {
+            "path": "examples/planner/config.json",
+            "sha256": "288ecaac052b95d6a8d04384f59b0a224cdf0fbe115711dd52d346b3446192bd"
+          },
+          {
+            "path": "examples/planner/request.json",
+            "sha256": "c0cc45f17f2d52ff6aa4d5eaa446ce0ecf8abfec1dd600a58067f1370af2956e"
+          },
+          {
+            "path": "go.mod",
+            "sha256": "d3dac31b277d3945ff0333c5099e5e5c47807bd8310b0c9d71d29dbdeff8e9ec"
+          },
+          {
+            "path": "pkg/catalog/catalog.go",
+            "sha256": "b425fbe634d2a945c703e58497de61db0b85d2aa3b098bc8d7565868b233307a"
+          },
+          {
+            "path": "pkg/catalog/catalog_test.go",
+            "sha256": "f305a4810566fe7607d7a1b88bced06a4f3b8283efde4feffa4bcb960018cc31"
+          },
+          {
+            "path": "pkg/planner/planner.go",
+            "sha256": "43a1b4850fbcc000827f42a336e38f30cae14a6cf32e2d7cfa899844d295c43a"
+          },
+          {
+            "path": "pkg/planner/planner_test.go",
+            "sha256": "8b730928a75d96a13b218af405d88833faeacda096ee946730919477a8718f65"
+          },
+          {
+            "path": "pkg/switchpolicy/policy.go",
+            "sha256": "b5ce347968ca572a13ab8eb645f5d4de7faba6e6eaa455394b44133e77d1aaf0"
+          },
+          {
+            "path": "pkg/switchpolicy/policy_test.go",
+            "sha256": "34cc45d094115053df6c80ffd027302ba973121953c1cfaa5b56be8b22077a95"
+          }
+        ],
+        "candidate_files": [
+          {
+            "path": "examples/planner/config.json",
+            "sha256": "288ecaac052b95d6a8d04384f59b0a224cdf0fbe115711dd52d346b3446192bd"
+          },
+          {
+            "path": "examples/planner/request.json",
+            "sha256": "c0cc45f17f2d52ff6aa4d5eaa446ce0ecf8abfec1dd600a58067f1370af2956e"
+          },
+          {
+            "path": "go.mod",
+            "sha256": "d3dac31b277d3945ff0333c5099e5e5c47807bd8310b0c9d71d29dbdeff8e9ec"
+          },
+          {
+            "path": "pkg/catalog/catalog.go",
+            "sha256": "b425fbe634d2a945c703e58497de61db0b85d2aa3b098bc8d7565868b233307a"
+          },
+          {
+            "path": "pkg/catalog/catalog_test.go",
+            "sha256": "f305a4810566fe7607d7a1b88bced06a4f3b8283efde4feffa4bcb960018cc31"
+          },
+          {
+            "path": "pkg/planner/planner.go",
+            "sha256": "43a1b4850fbcc000827f42a336e38f30cae14a6cf32e2d7cfa899844d295c43a"
+          },
+          {
+            "path": "pkg/planner/planner_test.go",
+            "sha256": "8b730928a75d96a13b218af405d88833faeacda096ee946730919477a8718f65"
+          },
+          {
+            "path": "pkg/switchpolicy/policy.go",
+            "sha256": "b5ce347968ca572a13ab8eb645f5d4de7faba6e6eaa455394b44133e77d1aaf0"
+          },
+          {
+            "path": "pkg/switchpolicy/policy_test.go",
+            "sha256": "34cc45d094115053df6c80ffd027302ba973121953c1cfaa5b56be8b22077a95"
+          }
+        ],
+        "independent_tests": 0,
+        "execution_isolated": false,
+        "candidate_tests_used": false
+      }
+    }
+  ],
+  "production_ready": false,
+  "tool_binary_sha256": {
+    "taskoutcome": "0f8911eac434cb092a5423c7542bc644cca3a8ef9b13e77175e933677f209822",
+    "taskverify": "bebcc079c4db174a5d522ef4ef35011b887af7243a577809772920e5cebb3d02"
+  },
+  "passed_test_event_count_is_task_sample_count": false
+}

@@ -12,6 +12,10 @@
 
 [골든셋 규모 안내](docs/golden-set-scale.ko.md)는 24개 예비 시험과 최소 2,400개 평가의 차이, 학습·검증·최종 평가 분리, 검색·모델 라우팅·저장소 선택·작업 분할별 정답을 설명합니다.
 
+[사용량 기록과 독립 작업 검증](docs/task-outcomes.ko.md)을 준비했습니다. 기존 Codex 기록의 사용량과 공개 작업의 요구사항 충족 여부를 따로 확인합니다. 직접 작성한 예제로 도구를 검사했으며, 실제 모델 작업 결과나 비용 절감으로 세지 않습니다.
+
+[경량 검색 방식 세 가지](experiments/path-helper-headroom/RESULTS-48.ko.md)를 학습용 4,456개 전체에서 비교했습니다. 정답을 미리 아는 선택의 개선 여지도 3.09%·3.68%·1.36%로 기존 5% 기준에 못 미쳐 추가 학습을 중단했습니다. 전체 실행·재실행은 약 82초, 최대 RSS 106.7–107.3MiB였으며 단일 추론이나 Codex 절감 측정은 아닙니다.
+
 **한국어** · [English](README.en.md) · [사용자 Wiki](https://github.com/teamswyg/laya-tools/wiki) · [문서 목록](docs/README.md)
 
 [![CI](https://github.com/teamswyg/laya-tools/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/teamswyg/laya-tools/actions/workflows/ci.yml)
