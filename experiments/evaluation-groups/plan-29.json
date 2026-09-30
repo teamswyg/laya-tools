@@ -1,0 +1,14 @@
+{
+  "schema": "riido-evaluation-groups-plan-v1",
+  "input": "experiment28's two pinned request projections, 2594 rows; no answers or new model scoring",
+  "edges": "connect rows sharing an exact instance_id, a lowercase-whitespace-normalized request, or repository/base_commit; compute transitive connected components using sorted keys and array union-find",
+  "representative": "lexicographically smallest source-tagged instance id per component; component signature is SHA256 of sorted length-prefixed source-tagged ids; sort components by signature then representative id",
+  "selection": "take first2400 components if at least2400 exist, else report shortfall without weakening grouping; one representative per component; entire source corpus remains evaluation-only, unselected rows are NOT training or calibration data",
+  "input_budget_audit": "report full request UTF8 byte lengths, max, count >8192 and total bytes; no truncation, length-based filtering or changed selection",
+  "output": "public aggregate component-size distribution, source/repository counts and membership hashes; local-only selected identity/source/repository/base_commit manifest with no request text; deterministic replay; no per-row ids or hashes committed",
+  "source_preflight": "separately query GitHub root tree at one selected pre-fix commit per represented repository (lexicographically smallest selected source-tagged id), with bounded local caching; report metadata response sizes, availability and root license candidates only; no code download or execution, no claim that sample licenses cover all snapshots",
+  "boundaries": "not proof of semantic independence or absence of pretraining contamination; repository correlations remain; use grouped/repository uncertainty when evaluating; selection is provisional for task/source eligibility and must not be silently replaced based on outcomes",
+  "licensing": "historical source license coverage remains incomplete; no training or raw-data/model publication authorization inferred",
+  "tests": "transitive cross-key connections, order invariance, duplicate collapse, strict2400 shortfall, no input mutation or raw-text output, stable selected membership",
+  "production_ready": false
+}
