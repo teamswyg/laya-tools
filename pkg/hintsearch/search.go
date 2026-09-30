@@ -172,12 +172,14 @@ func (idx *Index) rankInto(query string, dst Ranking, limit int) (Ranking, error
 	for i := range r.Order {
 		r.Order[i] = i
 	}
-	sort.Slice(r.Order, func(i, j int) bool {
-		a, b := r.Order[i], r.Order[j]
+	slices.SortFunc(r.Order, func(a, b int) int {
 		if r.Scores[a] == r.Scores[b] {
-			return a < b
+			return a - b
 		}
-		return r.Scores[a] > r.Scores[b]
+		if r.Scores[a] > r.Scores[b] {
+			return -1
+		}
+		return 1
 	})
 	return r, nil
 }

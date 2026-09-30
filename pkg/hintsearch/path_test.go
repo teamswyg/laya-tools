@@ -130,3 +130,14 @@ func BenchmarkPathRank10000(b *testing.B) {
 		}
 	}
 }
+
+func TestPathIndexAtMaximumCount(t *testing.T) {
+	idx, err := NewPathIndex(pathFixture(MaxPathDocuments))
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := idx.RankLongInto("needle", Ranking{})
+	if err != nil || len(result.Order) != MaxPathDocuments || result.Order[0] != MaxPathDocuments-1 {
+		t.Fatalf("maximum-count search failed: %v", err)
+	}
+}
