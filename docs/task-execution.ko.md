@@ -25,7 +25,15 @@
 
 ## 이번 개발 파일럿의 범위
 
-[사전 계획 50](../experiments/task-outcomes/plan-50.json)은 기존 공개 개발 작업
+[사전 계획 50](../experiments/task-outcomes/plan-50.json)은 배포형 실행기가 Go 도구
+경로를 찾지 못해 코딩 모델 실행 전에 중단했습니다.
+[그 결과](../experiments/task-outcomes/RESULTS-50.ko.md)를 보존하며, 수정한 실행기를
+이전 계획의 성공 결과로 덮어쓰지 않습니다.
+
+도구 경로 수정을 반영한 [별도 사전 계획 51](../experiments/task-outcomes/plan-51.json)은
+같은 공개 개발 작업·프로필·순서·임계값·한도를 유지합니다. 이 사용법은 계획 51을
+기준으로 합니다. 계획은 커밋 `14fdad230ad6cebbee194b09ed8b6df7916a19cc`에 고정했습니다.
+계획 51은 기존 공개 개발 작업
 3개를 두 요청 프로필로 비교합니다. `luna-low`는 `gpt-6-luna`와 `low`,
 `sol-low`는 `gpt-6.1-sol`과 `low`를 명시합니다. 순서는 계획에 고정되어 있고,
 최대 **Codex CLI 실행 6번**, 한 번에 하나, 각 작업 실행 120초와 별도 검사
@@ -57,7 +65,8 @@
 
 [미리 기록한 예측](../experiments/task-outcomes/routing-predictions-50.json)은
 기존 고정 Laya INT8 모델을 CPU, 한 스레드, 기본 임계값 `0.9`로 실행한 결과입니다.
-임계값을 바꾸거나 이 세 작업으로 학습하지 않았습니다.
+임계값을 바꾸거나 이 세 작업으로 학습하지 않았습니다. 계획 51은 이 예측을
+변경 없이 참조하며, 새 예측이나 새로운 독립 작업 세 개로 세지 않습니다.
 
 | 작업 | 작성자의 예상 난이도 | Laya의 제안 | 가장 큰 확률 | 적용 tier |
 | --- | --- | --- | ---: | --- |
@@ -82,18 +91,28 @@
 
 ```sh
 mkdir -p .cache/bin
-go build -o .cache/bin/riido-taskrun ./cmd/riido-taskrun
+go build -trimpath -o .cache/bin/riido-taskrun ./cmd/riido-taskrun
 .cache/bin/riido-taskrun --help
 .cache/bin/riido-taskrun --task comment-preview-authority --spec
 ```
 
 `--help`와 `--spec`은 모델을 실행하지 않습니다. 기본 호출도 실행을 거절합니다.
 실제 실행 전에는 사전 계획, 공개 기준 파일, 고정한 Codex 실행 파일과 버전,
-기존 로컬 ChatGPT 로그인이 준비되어 있어야 합니다. 현재 지원 버전은
+신뢰할 Go 설치, 기존 로컬 ChatGPT 로그인이 준비되어 있어야 합니다. 현재 지원 버전은
 `codex-cli 0.158.0`이며, 실행 파일 해시가 계획과 다르면 추론 전에 거절합니다.
 버전이나 계획을 바꾼 경우에는 새 계획을 먼저 정해야 합니다.
 
-다음은 **계획 50의 첫 시도를 실제로 실행하는** 예입니다. `/absolute/...`는
+`-trimpath`로 만든 배포형 바이너리는 기본 Go 설치 경로가 없을 수 있으므로
+`--go-root`로 신뢰할 Go 1.27.1 설치 디렉터리를 명시합니다. 실행기는 `bin/go`의
+실제 경로·버전·bytes의 SHA-256을 검사하고 계획 51의 고정값과 비교합니다.
+기본 경로가 없는데 이 옵션도 주지 않으면 `trusted_toolchain_unavailable`로
+실행 전에 거절합니다. 호스트의 PATH를 임의로 따라가거나 Go를 새로 내려받지 않습니다.
+
+다음은 **계획 51에서 사용한 실행 구문을 보존한** 예입니다. 이 계획은 현재
+[두 시도 후 중단](../experiments/task-outcomes/RESULTS-51.ko.md)했으므로 재개하지
+않습니다. 새 실제 실행은 별도 계획을 먼저 고정하세요. 계획의 실행 파일 해시는
+관측한 Mac 설치에 고정되어 있어 다른 설치라면 새 도구 해시도 확인해야 합니다.
+`/absolute/...`는
 설명을 위한 자리 표시자입니다. 자신의 절대 경로로 지정해야 하며, 비공개
 출력 디렉터리는 아직 존재하지 않아야 합니다. 이는 예제를 읽는 것과 달리
 계정 사용량을 소비할 수 있는 실행입니다.
@@ -111,8 +130,9 @@ go build -o .cache/bin/riido-taskrun ./cmd/riido-taskrun
   --codex-bin /absolute/trusted/codex \
   --codex-sha256 788a818fbb9596869c7a487554507cb8bdca17584b8671112b23f9e225ba35c8 \
   --codex-version 'codex-cli 0.158.0' \
-  --plan-file /absolute/laya-tools/experiments/task-outcomes/plan-50.json \
-  --plan-sha256 186a59fd11f09cce4e1e26fe3b79919a7bf1fc65db19caa25a3d2aa7aaa1a967 \
+  --go-root /absolute/trusted/go-toolchain \
+  --plan-file /absolute/laya-tools/experiments/task-outcomes/plan-51.json \
+  --plan-sha256 acf4786f7330529e04af12d4f7dbf40b0bbc2b6a9c527ecb879aee9d8c1510b0 \
   --attempt-ordinal 1 \
   --task-spec-sha256 a01f1c95e818511d6bcac35a0eb20b0b6c943a73b4fe7652a550bb0036dbd747 \
   --auth-source-dir /absolute/private/codex-login \
@@ -132,6 +152,8 @@ go build -o .cache/bin/riido-taskrun ./cmd/riido-taskrun
 형제 디렉터리 접근은 거절합니다. 실제 사전 확인 실행에서 이 제한을 검증할
 수 없으면 모델을 시작하지 않습니다. 이는 Codex CLI 자체의 공식 서비스
 통신과 별개의 제한입니다. 평소 쓰는 체크아웃을 수정하지 않습니다.
+명령 실행에는 확인한 같은 Go 설치와 제한된 환경을 사용합니다. Go 도구·모듈의
+추가 다운로드와 CGO는 끄고, 독립 검사에도 같은 설치 경로를 전달합니다.
 
 stdout JSONL·stderr·후보 파일·`record.json`은 로컬 비공개 디렉터리에 남습니다.
 GitHub나 Hugging Face로 자동 전송하지 않습니다. 공개 기록에는 이 공개 작업의
@@ -146,6 +168,7 @@ GitHub나 Hugging Face로 자동 전송하지 않습니다. 공개 기록에는 
 | `applied_request` | 실제로 자식 CLI에 전달한 요청. 공급자가 그 모델을 사용했다는 증거와는 별개 |
 | `observed_model` | 현재는 `unknown`. 요청 모델과 같은 값으로 채우지 않음 |
 | `process_status`·`exit_code` | CLI 종료 상태. 코드가 맞는지와는 별개 |
+| `go_version`·`go_binary_sha256` | 실행 전에 확인하고 계획과 비교한 로컬 Go 도구의 버전과 실행 파일 해시 |
 | `verification_status` | `accepted`, `rejected`, `verifier_unknown` 등의 독립 검사 결과 |
 | `usage_summary` | 유효하게 읽은 사용량. 실패 시 읽은 부분을 보존하고, 전체 미확정을 0으로 만들지 않음 |
 | `whole_attempt_usage_complete` | 정상 종료와 프로세스 그룹 정리, 두 출력의 완전한 회수, 모든 turn의 기본 사용량이 갖춰졌는지 |
@@ -166,10 +189,10 @@ stdout은 64 MiB, stderr는 1 MiB로 제한합니다. 시간·회수 한도·파
 
 | `riido-taskrun` 종료 코드 | 의미 |
 | ---: | --- |
-| 0 | CLI가 0으로 종료하고 독립 검사가 대상 범위의 요구사항을 수용. 사용량이 완전하다는 뜻은 아님 |
+| 0 | CLI가 0으로 종료하고 독립 검사가 대상 범위의 요구사항을 수용하며 복사한 인증을 정리함. 사용량이 완전하다는 뜻은 아님 |
 | 1 | 시작한 시도의 불성공을 기록. JSON의 실행·검사 상태로 원인을 구분해야 함 |
 | 2 | 인자·고정값·인증·격리 등의 시작 전 거절, 또는 출력 오류 |
-| 3 | 시도는 기록했지만 수용 확인·후보 회수·기록 저장 등의 근거가 미확정 |
+| 3 | 시도는 기록했지만 수용 확인·후보 회수·기록 저장 등의 근거가 미확정이거나 인증 정리가 실패 |
 | `--help`·`--spec`의 0 | 정보 출력 성공. 모델 실행이나 후보 수용을 한 것은 아님 |
 
 에이전트는 종료 코드만으로 학습 라벨을 만들지 않고 JSON의 실행·검사·사용량을
@@ -180,10 +203,16 @@ stdout은 64 MiB, stderr는 1 MiB로 제한합니다. 시간·회수 한도·파
 ## 지금 확인하는 것과 다음 단계
 
 이 문서의 예는 실행 방법을 설명하며, 실제 코딩 모델의 결과를 보고하는 것이
-아닙니다. [계획 50](../experiments/task-outcomes/plan-50.json)과
+아닙니다. [중단한 계획 50의 결과](../experiments/task-outcomes/RESULTS-50.ko.md),
+[새 계획 51](../experiments/task-outcomes/plan-51.json),
 [사전 예측](../experiments/task-outcomes/routing-predictions-50.json)은 실행 후
 기록과 구분해야 합니다. 이 단계에서는 새 학습, 모델 가중치 공개, 실사용
 라우팅 활성화나 최종 2,400건 채점을 하지 않습니다.
+
+[실험 51 결과](../experiments/task-outcomes/RESULTS-51.ko.md)는 두 시도 후
+측정 호환성 문제로 중단한 기록입니다. 위 계획 51의 명령은 방법을 설명하는
+보존된 예시이며 중단한 계획을 재개하는 지시가 아닙니다. 새 실제 실행은
+사용 가능한 프로필을 확인하고 별도 계획·새 출력 디렉터리로 고정해야 합니다.
 
 적은 개발 작업으로 먼저 성공·실패·미확정 근거를 정확하게 남길 수 있는지
 확인합니다. 이후 서로 다른 공개 작업을 늘리고 같은 조건에서 모델별 성공과

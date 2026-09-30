@@ -29,7 +29,15 @@ absence of other attempts.
 
 ## Scope of this development pilot
 
-[Precommitted plan 50](../experiments/task-outcomes/plan-50.json) compares three
+[Precommitted plan 50](../experiments/task-outcomes/plan-50.json) stopped before
+coding-model launch when the packaged executor could not resolve its Go toolchain.
+[Those results](../experiments/task-outcomes/RESULTS-50.en.md) are retained; modified
+code does not overwrite that plan with successful outcomes.
+
+The separately [precommitted plan 51](../experiments/task-outcomes/plan-51.json)
+includes the toolchain repair and preserves the same task/profile selection,
+order, threshold, and limits. This guide uses plan 51, committed at
+`14fdad230ad6cebbee194b09ed8b6df7916a19cc`. It compares three
 existing public development tasks with two explicit requested profiles.
 `luna-low` requests `gpt-6-luna` with `low`; `sol-low` requests `gpt-6.1-sol` with
 `low`. The plan fixes the order and allows at most **six Codex CLI invocations**,
@@ -67,7 +75,8 @@ rates or sufficient training labels and cannot replace the
 The [recorded predictions](../experiments/task-outcomes/routing-predictions-50.json)
 used the unchanged pinned Laya INT8 checkpoint on CPU with one thread and the
 default threshold of `0.9`. No threshold adjustment or training on these three
-tasks took place.
+tasks took place. Plan 51 references these unchanged predictions; it does not
+count them as new predictions or three new independent tasks.
 
 | Task | Author's difficulty hypothesis | Laya suggestion | Largest probability | Applied tier |
 | --- | --- | --- | ---: | --- |
@@ -94,19 +103,31 @@ requirement.
 
 ```sh
 mkdir -p .cache/bin
-go build -o .cache/bin/riido-taskrun ./cmd/riido-taskrun
+go build -trimpath -o .cache/bin/riido-taskrun ./cmd/riido-taskrun
 .cache/bin/riido-taskrun --help
 .cache/bin/riido-taskrun --task comment-preview-authority --spec
 ```
 
 `--help` and `--spec` launch no model. A default invocation refuses execution.
 An actual attempt requires the precommitted plan, pinned public base, trusted
-Codex executable and version, and an existing local ChatGPT login. The current
+Codex executable and version, trusted Go installation, and an existing local
+ChatGPT login. The current
 supported version is `codex-cli 0.158.0`; an executable hash that differs from
 the plan is refused before inference. A changed version or plan requires a new
 plan first.
 
-The following example **actually executes the first attempt in plan 50**.
+A deployment-style `-trimpath` binary may have no default Go installation path.
+Pass an explicit trusted Go 1.27.1 installation with `--go-root`. The executor
+checks the resolved `bin/go`, version, and executable-byte SHA-256 against plan
+51's pins. Without a usable default or explicit root, it refuses before
+inference with `trusted_toolchain_unavailable`. It does not follow an arbitrary
+host PATH or download another toolchain.
+
+The following example **preserves the invocation used for plan 51**. That plan
+[stopped after two attempts](../experiments/task-outcomes/RESULTS-51.en.md) and must
+not be resumed. Freeze a separate plan before a new actual run. Executable pins
+refer to the observed Mac installation; another installation requires newly
+verified tool hashes too.
 `/absolute/...` values are placeholders; supply your own absolute paths. The
 private output directory must not exist yet. Unlike reading an example, this
 invocation may consume account usage.
@@ -124,8 +145,9 @@ The output must be beneath an OS temporary directory. A repository or
   --codex-bin /absolute/trusted/codex \
   --codex-sha256 788a818fbb9596869c7a487554507cb8bdca17584b8671112b23f9e225ba35c8 \
   --codex-version 'codex-cli 0.158.0' \
-  --plan-file /absolute/laya-tools/experiments/task-outcomes/plan-50.json \
-  --plan-sha256 186a59fd11f09cce4e1e26fe3b79919a7bf1fc65db19caa25a3d2aa7aaa1a967 \
+  --go-root /absolute/trusted/go-toolchain \
+  --plan-file /absolute/laya-tools/experiments/task-outcomes/plan-51.json \
+  --plan-sha256 acf4786f7330529e04af12d4f7dbf40b0bbc2b6a9c527ecb879aee9d8c1510b0 \
   --attempt-ordinal 1 \
   --task-spec-sha256 a01f1c95e818511d6bcac35a0eb20b0b6c943a73b4fe7652a550bb0036dbd747 \
   --auth-source-dir /absolute/private/codex-login \
@@ -147,6 +169,9 @@ access by model-generated commands and access to sibling directories. A real
 pre-inference probe must demonstrate the enforcement; otherwise no model attempt
 starts. These command permissions are separate from the parent Codex CLI's
 communication with its official service. The ordinary checkout is not modified.
+Commands use the verified Go installation and a controlled environment with
+toolchain/module downloads and CGO disabled. The same installation is passed to
+independent verification.
 
 Raw stdout JSONL, stderr, candidate files, and `record.json` stay in the local
 private directory. The executor does not upload them to GitHub or Hugging Face.
@@ -162,6 +187,7 @@ absolute paths.
 | `applied_request` | The explicit request passed to the child CLI; it does not attest to the provider's actual model |
 | `observed_model` | Currently `unknown`; do not populate it from the requested model |
 | `process_status`, `exit_code` | CLI termination evidence, separate from code correctness |
+| `go_version`, `go_binary_sha256` | Version and executable hash of the local Go toolchain checked against the plan before inference |
 | `verification_status` | Independent result such as `accepted`, `rejected`, or `verifier_unknown` |
 | `usage_summary` | Validly parsed usage, retaining partial observations rather than replacing unknown totals with zero |
 | `whole_attempt_usage_complete` | Whether successful termination and process-group cleanup, complete stdout/stderr collection, and core usage for every turn are all present |
@@ -184,10 +210,10 @@ scope. These cannot all be labeled as model capability failures.
 
 | `riido-taskrun` exit code | Meaning |
 | ---: | --- |
-| 0 | The CLI exited zero and the independent checks accepted the declared closure; usage may still be incomplete |
+| 0 | The CLI exited zero, independent checks accepted the declared closure, and copied authentication was cleaned up; usage may still be incomplete |
 | 1 | A started unsuccessful attempt was recorded; read the JSON process and verification states to distinguish the cause |
 | 2 | Prelaunch refusal for arguments, pins, authentication, isolation, or related conditions, or an output error |
-| 3 | An attempt was recorded but acceptance, candidate collection, record persistence, or related evidence is unavailable |
+| 3 | An attempt was recorded but acceptance, candidate collection, record persistence, or related evidence is unavailable, or authentication cleanup failed |
 | 0 from `--help` or `--spec` | Information output succeeded; no model invocation or candidate acceptance occurred |
 
 Agents should not create training labels from exit codes alone. Read process,
@@ -199,10 +225,16 @@ that the plan was published before outcomes.
 ## What this establishes and what comes next
 
 The examples in this guide explain execution; they do not report actual coding
-model outcomes. Keep [plan 50](../experiments/task-outcomes/plan-50.json) and its
+model outcomes. Keep the [stopped plan 50 results](../experiments/task-outcomes/RESULTS-50.en.md),
+[new plan 51](../experiments/task-outcomes/plan-51.json), and
 [prior predictions](../experiments/task-outcomes/routing-predictions-50.json)
 separate from post-execution records. This stage performs no new training,
 model-weight release, production routing activation, or final 2,400-case scoring.
+
+[Results 51](../experiments/task-outcomes/RESULTS-51.en.md) preserve two attempts
+and the measurement-compatibility stop. The example above documents syntax;
+it does not authorize resuming that stopped plan. A new actual run needs verified
+available profiles, a separate frozen plan and fresh output directories.
 
 The small development pilot first checks that success, failure, and unknown
 evidence can be recorded correctly. Later, distinct public tasks and paired

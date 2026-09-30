@@ -5,6 +5,10 @@ Choose a language; both versions cover the same features, measurements, and limi
 
 **Start with the [user Wiki](https://github.com/teamswyg/laya-tools/wiki) / 처음에는 [사용자 Wiki](https://github.com/teamswyg/laya-tools/wiki)를 보세요.**
 
+Latest owned task evidence: two CLI attempts on one public comment task, zero accepted candidates. One failed the exact contract; the other requested profile was unsupported. This does not establish two capability labels, profile savings, or final routing performance. The target remains at least 2,400 independent final requests per evaluation domain.
+
+최근 실제 작업 기록은 한 공개 주석 작업의 CLI 두 시도이며 수용된 후보는 0건입니다. 하나는 정확한 계약 실패, 다른 하나는 요청 프로필 지원 오류입니다. 두 능력 라벨·프로필 절감·최종 라우팅 성능을 입증하지 않습니다. 영역별 독립 최종 요청 최소 2,400건의 목표는 유지합니다.
+
 | Topic / 주제 | English | 한국어 |
 |---|---|---|
 | Project overview / 프로젝트 개요 | [README](../README.en.md) | [README](../README.md) |
@@ -19,8 +23,10 @@ Choose a language; both versions cover the same features, measurements, and limi
 | Golden-set scale and domain boundaries / 골든셋 규모와 도메인 구분 | [24 versus 2,400](golden-set-scale.en.md) | [24개와 2,400개의 의미](golden-set-scale.ko.md) |
 | Usage recording and independent task verification / 사용량 기록·독립 작업 검증 | [Use and evidence limits](task-outcomes.en.md) | [사용법과 증거 범위](task-outcomes.ko.md) |
 | Explicit public task execution / 명시적 공개 작업 실행 | [Owned process and evidence](task-execution.en.md) | [직접 실행과 근거 연결](task-execution.ko.md) |
+| Owned coding attempts 51 / 실제 코딩 시도 51 | [Two attempts, no profile comparison](../experiments/task-outcomes/RESULTS-51.en.md) | [두 시도와 비교 중단](../experiments/task-outcomes/RESULTS-51.ko.md) |
+| Stopped packaging pilot 50 / 패키징 문제로 중단한 파일럿 50 | [Prelaunch refusal](../experiments/task-outcomes/RESULTS-50.en.md) | [모델 실행 전 거절](../experiments/task-outcomes/RESULTS-50.ko.md) |
 | Training-only search-helper headroom / 학습용 검색 방식의 개선 여지 | [4,456 requests, stop decision and resources](../experiments/path-helper-headroom/RESULTS-48.en.md) | [4,456개 결과·중단 판단·자원](../experiments/path-helper-headroom/RESULTS-48.ko.md) |
-| 2,400+ tasks per role: actual tiny-head training / 실제 작은 주장 모델 학습 | [Results, failure and memory](../experiments/path-cost-claim/RESULTS-46.en.md) | [결과·실패·메모리](../experiments/path-cost-claim/RESULTS-46.ko.md) |
+| Search-claim training 4,456 / validation 2,599 / 검색 주장 학습·검증 | [Results, failure and memory](../experiments/path-cost-claim/RESULTS-46.en.md) | [결과·실패·메모리](../experiments/path-cost-claim/RESULTS-46.ko.md) |
 | Historical source review 47 / 과거 출처 검토 47 | [Source scope](../experiments/path-cost-data/SOURCE-REVIEW-47.en.md) | [출처 범위](../experiments/path-cost-data/SOURCE-REVIEW-47.ko.md) |
 | Maintainer model export / 유지보수 모델 변환 | [Model build](model-build.md) | [모델 빌드](model-build.ko.md) |
 
