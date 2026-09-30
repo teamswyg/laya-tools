@@ -1,6 +1,6 @@
 # laya-tools
 
-Separate research: [semantic hints](experiments/semantic-hints/PLAN.en.md) explores very cheap suggestions that improve expensive search ordering. Independent of difficulty routing; [nonlearned baseline results](experiments/semantic-hints/README.md) are available.
+Separate research: [semantic hints](experiments/semantic-hints/PLAN.en.md) explores cheap suggestions for expensive search. Try the model-free [opt-in search helper](experiments/baseline-first/README.en.md) with `riido-hints --identifier-hints`. Results and limitations cover 2,948 documentation queries; difficulty routing and defaults remain independent.
 
 Static embedding control: [Go execution, packing and upstream parity](experiments/static-embedding/README.en.md). Code-relevance quality remains insufficient; this is not a default model.
 

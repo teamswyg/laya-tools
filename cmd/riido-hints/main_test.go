@@ -10,6 +10,48 @@ import (
 	"testing"
 )
 
+func TestIdentifierHintsPreserveFirstAndAllCandidates(t *testing.T) {
+	req := request{Snapshot: "public-fixture", Query: "read config", Documents: []document{{"a", "read"}, {"b", "config"}, {"c", "func ReadConfig() {}"}}}
+	b, _ := json.Marshal(req)
+	var out bytes.Buffer
+	if e := runPolicy(bytes.NewReader(b), &out, nil, "", true); e != nil {
+		t.Fatal(e)
+	}
+	var r response
+	if e := json.Unmarshal(out.Bytes(), &r); e != nil {
+		t.Fatal(e)
+	}
+	if r.Policy != "identifier_bm25_baseline_first" || r.Status != "unverified" || len(r.Candidates) != 3 || r.Candidates[0].ID != "a" || r.Candidates[1].ID != "c" || r.Candidates[2].ID != "b" {
+		t.Fatalf("unexpected ranking %+v", r)
+	}
+	if strings.Contains(out.String(), "ReadConfig") {
+		t.Fatal("source text leaked")
+	}
+}
+
+func TestIdentifierHintsFallbackAndConflict(t *testing.T) {
+	req := request{Snapshot: "s", Query: "!!!", Documents: []document{{"a", "one"}, {"b", "two"}}}
+	b, _ := json.Marshal(req)
+	var out bytes.Buffer
+	if e := runPolicy(bytes.NewReader(b), &out, nil, "", true); e != nil {
+		t.Fatal(e)
+	}
+	var r response
+	json.Unmarshal(out.Bytes(), &r)
+	if r.Policy != "bm25_identifier_input_out_of_scope" || len(r.Candidates) != 2 || r.Candidates[0].ID != "a" {
+		t.Fatal(r)
+	}
+	req.Hints = &hints{Snapshot: "s", Query: "!!!", IDs: []string{"b"}}
+	b, _ = json.Marshal(req)
+	out.Reset()
+	if e := runPolicy(bytes.NewReader(b), &out, nil, "", true); e == nil || out.Len() != 0 {
+		t.Fatal("accepted conflicting hints")
+	}
+	if e := runPolicy(bytes.NewReader(b), &out, []float64{1}, "test", true); e == nil {
+		t.Fatal("accepted model and identifiers")
+	}
+}
+
 func TestUnverifiedCatalog(t *testing.T) {
 	req := request{Snapshot: "s1", Query: "payment", Documents: []document{{"a", "payment retry"}, {"b", "cache expiry"}}, Hints: &hints{"s1", "payment", []string{"b"}}}
 	data, _ := json.Marshal(req)

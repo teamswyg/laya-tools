@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/teamswyg/laya-tools/internal/hintlearn"
+	"github.com/teamswyg/laya-tools/internal/lexicalhint"
 	"github.com/teamswyg/laya-tools/pkg/hintsearch"
 )
 
@@ -47,6 +48,13 @@ type response struct {
 
 func run(in io.Reader, out io.Writer) error { return runModel(in, out, nil, "") }
 func runModel(in io.Reader, out io.Writer, weights []float64, modelHash string) error {
+	return runPolicy(in, out, weights, modelHash, false)
+}
+
+func runPolicy(in io.Reader, out io.Writer, weights []float64, modelHash string, identifierHints bool) error {
+	if identifierHints && weights != nil {
+		return fmt.Errorf("choose model or identifier hints, not both")
+	}
 	// JSON escaping can expand every source byte sixfold. Bound the encoded request
 	// as well as the decoded catalog, query and identifier sizes.
 	const limit = 16 << 20
@@ -97,6 +105,30 @@ func runModel(in io.Reader, out io.Writer, weights []float64, modelHash string) 
 	}
 	order := ranking.Order
 	policy := "bm25_complete"
+	if identifierHints {
+		if req.Hints != nil {
+			return fmt.Errorf("choose external or identifier hints, not both")
+		}
+		normalized := make([]string, len(texts))
+		for i, text := range texts {
+			normalized[i] = lexicalhint.NormalizeText(text)
+		}
+		aux, auxErr := hintsearch.New(normalized)
+		if auxErr == nil {
+			var additional hintsearch.Ranking
+			additional, auxErr = aux.Rank(lexicalhint.NormalizeText(req.Query))
+			if auxErr == nil {
+				order, err = hintsearch.InterleaveBaselineFirst(order, additional.Order)
+				if err != nil {
+					return err
+				}
+				policy = "identifier_bm25_baseline_first"
+			}
+		}
+		if auxErr != nil {
+			policy = "bm25_identifier_input_out_of_scope"
+		}
+	}
 	if weights != nil {
 		if req.Hints != nil {
 			return fmt.Errorf("choose model or external hints, not both")
@@ -144,6 +176,7 @@ func runModel(in io.Reader, out io.Writer, weights []float64, modelHash string) 
 func main() {
 	modelPath := flag.String("model", "", "optional research .hbin model")
 	expected := flag.String("sha256", "", "required pinned model SHA-256")
+	identifierHints := flag.Bool("identifier-hints", false, "experimental identifier-split hints; preserve baseline first candidate")
 	flag.Parse()
 	var weights []float64
 	var err error
@@ -151,7 +184,7 @@ func main() {
 		weights, err = loadModel(*modelPath, *expected)
 	}
 	if err == nil {
-		err = runModel(os.Stdin, os.Stdout, weights, *expected)
+		err = runPolicy(os.Stdin, os.Stdout, weights, *expected, *identifierHints)
 	}
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
