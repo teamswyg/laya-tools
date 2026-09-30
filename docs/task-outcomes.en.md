@@ -80,6 +80,8 @@ summary of a real private task still needs a separate review before publication.
 - `usage_complete` is true only when input, cached input, and output are known
   for every turn and the lifecycle ends cleanly. Failed or open turns and unknown
   control events preserve observed values but prevent complete totals.
+  This applies to the supplied trace; it does not prove that other attempts or
+  trace files were not omitted.
 - The actual model, process exit, execution time, producer provenance, and
   `task_acceptance` remain `unknown` in this summarizer.
 
@@ -136,14 +138,17 @@ The two tasks requiring behavioral tests run only when macOS `sandbox-exec`
 isolation is available. The verifier copies the declared public source and
 pinned tests into a temporary directory, configured to avoid network access and
 the host's authentication environment. If isolation is unavailable or execution
-or time limits prevent verification, the result is `verifier_unknown`.
+is cancelled or the overall verification deadline or output limit prevents
+completion, the result is `verifier_unknown`. Actual requirement failures in
+independent tests reject the candidate.
 Behavioral verification of these two tasks is currently unknown on other OSes.
 `comment-preview-authority` uses static checks without executing candidate code,
 so it is separate from that restriction. This is not a general security verifier
 that approves arbitrary repositories or arbitrary code execution.
 
 The verification JSON binds the task specification, base, and candidate-file
-hashes to check results. Read `status` and the individual check codes rather than
+hashes to check results. `independent_tests` counts passed Go test/subtest events,
+not distinct task-request samples. Read `status` and the individual check codes rather than
 treating every `accepted: false` as an incorrect implementation.
 `verifier_unknown` may indicate an unavailable verification environment.
 Candidate code outside the supported structure is also reported as unknown with
@@ -154,8 +159,8 @@ does not establish that the implementation fails its requirements.
 | Command | Exit code | Meaning |
 | --- | ---: | --- |
 | `riido-taskoutcome` | 0 | Summary or help output succeeded; this is not task success |
-| `riido-taskoutcome` | 1 | Input, parsing, limit, or output error |
-| `riido-taskoutcome` | 2 | Invalid command arguments |
+| `riido-taskoutcome` | 1 | Input, metadata validation, parsing, limit, or output error |
+| `riido-taskoutcome` | 2 | Invalid argument syntax, such as an unknown option |
 | `riido-taskverify` verification | 0 | Requirements accepted within the declared task closure |
 | `riido-taskverify` verification | 1 | Candidate rejected |
 | `riido-taskverify` verification | 2 | Invalid invocation, base files, output, or related call error |
@@ -175,6 +180,6 @@ verification bound to the candidate files. Completion rate and usage per task
 must be compared together to evaluate upward or downward routing.
 
 The authored JSONL fixtures and public code verification examples explain tool
-behavior. They do not constitute actual model outcomes or predeclare that the
-verifier's final tests have passed. The implementation scope and validation plan
-are recorded in the [precommitted plan](../experiments/task-outcomes/plan-49.json).
+behavior. They do not constitute actual model outcomes. The implementation scope
+and validation plan are recorded in the
+[precommitted plan](../experiments/task-outcomes/plan-49.json).

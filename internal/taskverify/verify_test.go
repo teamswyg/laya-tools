@@ -269,6 +269,24 @@ func TestOutputLimitCancels(t *testing.T) {
 	}
 }
 
+func TestExecutionOutputLimitIsUnknown(t *testing.T) {
+	files := pinnedFixture(t, "catalog-min-context")
+	dir := minimumCandidate(t, files, "correct")
+	// The requested behavior is correct, but the candidate emits more than the
+	// bounded output budget during actual independently authored/pinned tests.
+	replaceCandidate(t, dir, "pkg/catalog/catalog.go", "func Select(c Config, r Request) (Selection, error) {", "func Select(c Config, r Request) (Selection, error) {\nfmt.Print(strings.Repeat(\"x\", 2<<20))")
+	r := verifyFixture(t, "catalog-min-context", files, dir)
+	if !sandboxSupported() {
+		if r.Accepted || r.Status != "verifier_unknown" {
+			t.Fatal("unsupported isolation claimed an output-limited behavior result", r)
+		}
+		return
+	}
+	if r.Accepted || r.Status != "verifier_unknown" || !r.ExecutionIsolated || r.Checks[len(r.Checks)-1].Code != "test_output_limit" {
+		t.Fatal("execution output limit treated as an incorrect task outcome or accepted", r)
+	}
+}
+
 func TestSandboxBlocksHostFilesNetworkAndInheritedSecrets(t *testing.T) {
 	if !sandboxSupported() {
 		t.Skip("behavior executor is unsupported; Verify reports verifier_unknown")

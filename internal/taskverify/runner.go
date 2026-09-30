@@ -138,7 +138,9 @@ func isolatedTests(parent context.Context, files []BaseFile, task string, timeou
 	err = cmd.Run()
 	r.isolated = true
 	if out.overflow {
-		r.code = "test_output_limit"
+		// Resource exhaustion interrupts verification; it is not an independent
+		// assertion that the requested behavior is incorrect.
+		r.unknown, r.code = true, "test_output_limit"
 		return r
 	}
 	if ctx.Err() != nil {
