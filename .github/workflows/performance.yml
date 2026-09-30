@@ -1,0 +1,52 @@
+name: Performance replay
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: performance-replay
+  cancel-in-progress: false
+jobs:
+  replay:
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        os: [ubuntu-latest, macos-15]
+    runs-on: ${{ matrix.os }}
+    env:
+      LAYA_CACHE: ${{ github.workspace }}/.cache/laya-performance
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
+        with:
+          go-version-file: go.mod
+      - name: Build measurement executables
+        run: |
+          mkdir -p .cache/performance
+          go build -trimpath -o bin/riidolaya ./cmd/riidolaya
+          go build -trimpath -o bin/repoeval ./cmd/repoeval
+          go build -trimpath -o bin/perfsuite ./cmd/perfsuite
+      - name: Download checksum-verified base checkpoint and CPU runtime
+        run: ./bin/riidolaya setup
+      - name: Run fixed public scenarios
+        run: ./bin/perfsuite --repeats 1 --output .cache/performance/report.json --summary .cache/performance/summary.md
+      - name: Publish job summary
+        if: always()
+        shell: bash
+        run: |
+          if [[ -f .cache/performance/summary.md ]]; then
+            cat .cache/performance/summary.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo 'Replay did not finish; inspect failed setup/build or timeout steps.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: performance-${{ matrix.os }}
+          path: .cache/performance/
+          retention-days: 7
+          if-no-files-found: warn

@@ -343,3 +343,5 @@ riidolaya plan --config examples/planner/config.json --request examples/planner/
 `direction`은 `upgrade`(상향), `downgrade`(하향), `lateral`(같은 등급), `initial`(첫 선택), `unchanged`(유지)이며, `blocked`에는 없습니다. 상향은 비용 회수 기간이나 전환 대기 횟수보다 품질을 우선하지만 예산·기능·컨텍스트 제약과 수동 고정은 무시하지 않습니다. Laya의 불확실한 판단은 상향 근거로 바꾸지 않으며, 현재 모델도 요구 조건을 못 맞추면 `blocked`입니다. 기본 설정에서는 catalog의 확신도 기준 0.9도 통과해야 하므로 switch의 상향 기준 0.5만 넘는다고 추천하지 않습니다.
 
 추천만 반환합니다. 진행 중인 Codex 대화를 자동 전환하거나 실패를 감지해 재실행하지 않습니다. 연동하는 에이전트가 작업 단계마다 현재 모델과 평가를 갱신해 호출해야 합니다.
+
+[GitHub Actions 기능별 성능 검사](docs/performance-replay.ko.md): 고정 시나리오의 CPU 시간·최대 RSS·실행 결과를 수동 실행으로 비교합니다.
