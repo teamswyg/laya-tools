@@ -16,6 +16,16 @@ const MaxPathCatalogBytes = 16 << 20
 // Paths are text: no files are opened and no symlinks are followed. Callers
 // remain responsible for permissions and historical catalog completeness.
 func NewPathIndex(paths []string) (*Index, error) {
+	return NewPathTextIndex(paths, paths)
+}
+
+// NewPathTextIndex keeps unique path identities while indexing aligned text,
+// for example identifier-normalized paths. Equal text for different files is
+// allowed. Both path and text catalogs are independently bounded to 16MiB.
+func NewPathTextIndex(paths, texts []string) (*Index, error) {
+	if len(paths) != len(texts) {
+		return nil, fmt.Errorf("path and text counts differ")
+	}
 	if len(paths) == 0 || len(paths) > MaxPathDocuments {
 		return nil, fmt.Errorf("require 1..%d file paths", MaxPathDocuments)
 	}
@@ -34,7 +44,12 @@ func NewPathIndex(paths []string) (*Index, error) {
 	if len(slices.Compact(unique)) != len(paths) {
 		return nil, fmt.Errorf("duplicate file path")
 	}
-	return newIndex(paths, MaxPathDocuments, MaxPathCatalogBytes)
+	for _, text := range texts {
+		if !utf8.ValidString(text) {
+			return nil, fmt.Errorf("require UTF-8 path text")
+		}
+	}
+	return newIndex(texts, MaxPathDocuments, MaxPathCatalogBytes)
 }
 
 // InterleavePathBaselineFirst preserves every candidate for large path indexes.

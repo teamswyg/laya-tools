@@ -141,3 +141,21 @@ func TestPathIndexAtMaximumCount(t *testing.T) {
 		t.Fatalf("maximum-count search failed: %v", err)
 	}
 }
+
+func TestAlignedNormalizedPathText(t *testing.T) {
+	paths := []string{"A.go", "a.go"}
+	idx, e := NewPathTextIndex(paths, []string{"a go", "a go"})
+	if e != nil {
+		t.Fatal(e)
+	}
+	result, e := idx.Rank("a")
+	if e != nil || len(result.Order) != 2 || result.Scores[0] != result.Scores[1] {
+		t.Fatal("equal text collapsed distinct paths")
+	}
+	if _, e = NewPathTextIndex(paths, []string{"a"}); e == nil {
+		t.Fatal("mismatched columns")
+	}
+	if _, e = NewPathTextIndex(paths, []string{strings.Repeat("x", MaxPathCatalogBytes+1), ""}); e == nil {
+		t.Fatal("unbounded normalized text")
+	}
+}
