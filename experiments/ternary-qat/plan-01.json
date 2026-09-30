@@ -1,0 +1,59 @@
+{
+  "experiment": "ternary-qat-01",
+  "status": "pre_registered_before_training",
+  "parent": "JooYoon/riidolaya-tinyhead-experiment-v0.1",
+  "parent_revision": "9921e2bafeeb6429d773b03f4d95f8a348634c0a",
+  "parent_head_revision": "f648bad968b0e8c2b04cf0596b1c664721060fef",
+  "development_feature_sha256": "32fcfb1558361361bc41895e2ea4606be0922270ea3abda89cc6f7c913f7f3fe",
+  "final_families_sha256": "4bdcbf79e282b4d10a66c6c854b88f1b13507a5fd788aa1ca4ea45990574cfcf",
+  "architecture": "frozen Laya encoder, fixed normalization, ternary 3-class linear head",
+  "training": "Go CPU: FP64 shadow weights, packed ternary forward, identity straight-through gradient, recomputed detached row scales, minibatch SGD",
+  "seeds": [
+    1729,
+    2718
+  ],
+  "thresholds": [
+    1.0,
+    1.3,
+    1.6,
+    2.0
+  ],
+  "learning_rates": [
+    0.0003,
+    0.001
+  ],
+  "epochs": 80,
+  "batch_size": 30,
+  "weight_decay": 0.001,
+  "training_temperature": 0.5,
+  "calibration_temperatures": [
+    0.5,
+    0.75,
+    1.0,
+    1.5,
+    2.0,
+    3.0,
+    5.0
+  ],
+  "selection": "minimum validation NLL among heads <=600 bytes; calibration only after selection; select both seeds before opening final",
+  "confidence_gate": 0.9,
+  "acceptance": {
+    "max_head_bytes": 600,
+    "minimum_accuracy": 0.8,
+    "max_accuracy_drop_vs_parent": 0.03,
+    "minimum_strong_recall": 0.875,
+    "strong_to_fast_errors": 0,
+    "minimum_accepted_precision": 0.9,
+    "minimum_coverage": 0.25,
+    "both_seeds_required": true
+  },
+  "final_scope": "36 newly authored family-separated English cases; single author, synthetic expected tiers, not observed coding outcomes",
+  "failure_policy": "retain all runs; never relax thresholds; final becomes development after check, use a fresh set for later tuning",
+  "limits": {
+    "max_training_seconds_per_candidate": 120,
+    "minimum_disk_free_gib": 30,
+    "max_encoder_process_rss_gib": 5
+  },
+  "publication": "new immutable experimental version after exact source CI; artifacts only on HF; do not promote default router",
+  "gradient_clip_l2": 5
+}
