@@ -22,9 +22,11 @@ jobs:
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
         with:
           go-version-file: go.mod
-      - run: test -z "$(gofmt -l cmd internal)"
+      - run: test -z "$(gofmt -l cmd internal pkg)"
       - run: go test -race ./...
       - run: go vet ./...
+      - name: Policy packages have no native runtime dependency
+        run: CGO_ENABLED=0 go test ./pkg/...
       - run: go build -trimpath -o bin/riidolaya ./cmd/riidolaya
       - name: Install verified public runtime and checkpoint
         run: ./bin/riidolaya setup

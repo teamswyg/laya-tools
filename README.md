@@ -163,6 +163,28 @@ JSON의 `suggested_tier`는 Laya가 제안한 등급, `tier`와 `model`은 정�
 
 라우팅에는 기본 `base` 체크포인트를 권장합니다. `code`는 코드 관련성 평가용 파생 모델입니다. 현재 기본 확신도 설정이 매우 보수적이라는 점은 아래 측정 결과에서 확인할 수 있습니다.
 
+## 생태계에서 가져온 Go 정책 모듈
+
+[laya.tools](https://laya.tools/)에서 찾은 **system-one-router**와 **pi-pignon**을 참고해 재사용 가능한 정책을 추가했습니다. 출처·고정 커밋·라이선스·변경점은 [생태계 조사와 이식 문서](docs/ecosystem.ko.md)에 정리했습니다.
+
+| 공개 패키지 | 하는 일 |
+|---|---|
+| `pkg/catalog` | 필요한 품질·도구·컨텍스트·예산 조건을 만족하는 후보 중 추정 비용 비교 |
+| `pkg/switchpolicy` | 잦은 모델 변경을 막고, 변경으로 잃는 캐시 비용을 회수할 수 있는지 판단 |
+| `pkg/planner` | 두 정책을 합쳐 추천·유지·보류 결과와 근거 반환 |
+
+쉽게 말하면 **Laya는 작업 난이도를 판단하고, Go 정책은 그 판단을 그대로 실행해도 되는지 검사합니다.** 예산이나 품질 조건을 통과하지 못하면 저렴한 모델이 있어도 추천하지 않습니다.
+
+```sh
+# 저장소 루트에서, 모델 로딩 없이 가상 예제로 정책 확인
+riidolaya plan --config examples/planner/config.json --request examples/planner/request.json --json
+
+# 마지막에 작업 문장을 주면 로컬 Laya 분류도 사용
+riidolaya plan --config examples/planner/config.json --request examples/planner/request.json --json 'Fix a spelling mistake in a comment'
+```
+
+예제의 가격·품질·확신도는 설명용 가상 값입니다. `plan`은 비용을 추정할 뿐 유료 모델 호출이나 실제 모델 변경을 하지 않습니다. 현재 Codex 대화에도 자동 적용되지 않습니다. 가격 기반 추정은 Codex 구독 사용량 계산이 아니며, 실제 비용 절감은 아직 미검증입니다. 에이전트는 JSON의 `plan.status`가 `recommend`, `hold`, `blocked` 중 무엇인지 확인하면 됩니다.
+
 ## 사람과 에이전트가 함께 쓰는 인터페이스
 
 사람에게는 일반 텍스트, 에이전트에는 `--json`을 제공합니다. 오류는 stderr와 0이 아닌 종료 코드로 알립니다. 질문 대신 `-`를 전달하면 stdin에서 입력을 읽습니다.
@@ -205,7 +227,7 @@ MCP의 라우팅 도구도 새 작업에 쓸 모델을 추천할 뿐, 현재 대
 - 모델별 실제 성공률, 사용량, 소요 시간.
 - 판단 보류와 강한 모델 재시도 기준.
 
-장기적으로 재사용 가능한 Go 패키지 인터페이스를 정리할 계획입니다. 현재 패키지들은 `internal/`에 있으므로 외부 프로젝트가 Go 라이브러리로 직접 import하는 공개 SDK는 아직 제공하지 않습니다.
+이제 `pkg/catalog`, `pkg/switchpolicy`, `pkg/planner`를 외부 Go 프로그램에서 직접 import할 수 있습니다. 정책 패키지는 CGO나 모델 파일 없이 실행됩니다. 모델 추론과 기존 검색 엔진은 계속 `internal/`에 있으며, riido-daemon의 상태 저장·실제 실행 연결은 아직 구현하지 않았습니다.
 
 사용자 실행 경로는 Go입니다. 원본 Laya 모델을 ONNX로 변환하고 기준 결과를 비교하는 **모델 유지보수용 Python 스크립트는 별도로 남아 있습니다**. 설치된 도구를 실행하거나 riido-daemon에서 호출할 때 Python을 띄우는 구조는 아닙니다.
 
