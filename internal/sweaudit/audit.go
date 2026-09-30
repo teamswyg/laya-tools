@@ -74,6 +74,9 @@ func keys(rows []Row, field int) []string {
 		switch field {
 		case 0:
 			s = r.ID
+			if strings.TrimSpace(s) == "" {
+				s = ""
+			}
 		case 1:
 			s = normalized(r.Request)
 			if s != "" {

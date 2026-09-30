@@ -33,6 +33,10 @@ func TestIdentityAndOverlap(t *testing.T) {
 	}
 }
 func TestMalformedFieldsAndProjection(t *testing.T) {
+	blank := count([]Row{{ID: " \t"}})
+	if blank.EmptyIDs != 1 || blank.DistinctIDs != 0 {
+		t.Fatal("blank identifier counted as distinct")
+	}
 	c := count([]Row{{}, {"id", "bad", "xyz", " \t"}})
 	if c.EmptyIDs != 1 || c.EmptyRequests != 2 || c.InvalidRepositories != 2 || c.InvalidBaseCommits != 2 || c.DistinctRequests != 0 || c.DistinctSnapshots != 0 {
 		t.Fatalf("bad malformed accounting: %+v", c)
