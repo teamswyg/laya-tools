@@ -1,0 +1,11 @@
+{
+ "schema":"riido-complete-subtree-repair-plan-v1",
+ "trigger":"only confirmed recursive response-size limit or explicit truncated=true; ordinary network/auth/identity/path failures do not silently switch strategies",
+ "source":"https://docs.github.com/en/rest/git/trees#get-a-tree documents recursive response limits and non-recursive subtree traversal",
+ "strategy":"discard partial recursive output; fetch validated non-recursive entries by exact tree ID and resolve each child subtree, using complete recursive child responses where possible; reuse immutable subtree caches; never include symlink or submodule targets",
+ "bounds":"retain8MiB per recursive network response and2MiB non-recursive validation; same100000 entries/4096-byte paths/16MiB total path budget; aggregate normalized cache may use32MiB decompressed rather than8MiB; depth64 and1000 expanded non-recursive trees per root; existing per-invocation request budget and300ms spacing;30s per request",
+ "integrity":"every child tree ID comes from verified parent entries; append prefixed complete child paths, validate duplicate/path/parent/type/size rules on the full assembled result; persist a root catalog only when every subtree succeeds; never turn an incomplete tree into a complete flag",
+ "compatibility":"existing complete compressed catalogs remain readable; same selected2400 tasks and file paths, no score/label-driven filtering; recording a larger complete catalog does not relax quality gates",
+ "validation":"injected truncation and response-limit triggers, non-trigger errors, child failure without root persistence, full assembly and offline cache reuse; actual remaining catalogs then exact offline replay",
+ "publication":"aggregate recovery/size findings only, source catalogs and object IDs stay local"
+}
