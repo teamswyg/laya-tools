@@ -1,0 +1,14 @@
+{
+  "schema": "riido-page-cost-plan-12",
+  "questions": 2948,
+  "candidates": 3009,
+  "primary_page_size": 20,
+  "sensitivity_page_sizes": [1, 5, 10, 20, 50],
+  "policies": ["baseline", "identifier_baseline_first"],
+  "pages": "ceil(first known target rank / page size)",
+  "emitted_candidates": "min(candidates, pages * page size)",
+  "search_work_proxy": "baseline pages versus 2 * helper pages; equal per-index work assumption, not measured CPU/time",
+  "stopping_assumption": "An oracle recognizes the first known target; no actual agent verification is measured",
+  "independence": "Already observed docstring proxy questions from three repositories, not an independent final evaluation",
+  "purpose": "Measure page-cost labels before choosing a new training loss. No model promotion or LLM savings claim."
+}
