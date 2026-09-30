@@ -95,6 +95,7 @@ type prepared struct {
 
 func run() error {
 	out := flag.String("out", "", "new aggregate output directory")
+	reuse := flag.Bool("reuse-path-indexes", false, "reuse one exact path catalog per sequential worker")
 	flag.Parse()
 	if *out == "" {
 		return fmt.Errorf("require output")
@@ -169,6 +170,12 @@ func run() error {
 		repos[i] = newAggregate(r.Repository)
 	}
 	started := time.Now()
+	digest := newRankingDigest()
+	var ranker fileeval.Ranker
+	rank := fileeval.Rank
+	if *reuse {
+		rank = ranker.Rank
+	}
 	for n, t := range tasks {
 		ri, ok := slices.BinarySearchFunc(repos, t.Selected.Repository, func(a aggregate, b string) int { return strings.Compare(a.Repository, b) })
 		if !ok {
@@ -196,13 +203,14 @@ func run() error {
 				paths = append(paths, entry.Path)
 			}
 		}
-		orders, fallback, e := fileeval.Rank(t.Query, paths)
+		orders, fallback, e := rank(t.Query, paths)
 		if e != nil {
 			for _, r := range targets {
 				r.RankingFailures++
 			}
 			continue
 		}
+		digest.add(t.Selected.ID, orders)
 		if fallback {
 			for _, r := range targets {
 				r.AuxiliaryFallbacks++
@@ -245,6 +253,10 @@ func run() error {
 	if e = os.WriteFile(filepath.Join(*out, "results.json"), append(b, '\n'), 0600); e != nil {
 		return e
 	}
+	if *reuse {
+		fmt.Fprintf(os.Stderr, "path_index_cache=%+v\n", ranker.Stats())
+	}
+	fmt.Fprintf(os.Stderr, "ranking_sha256=%x\n", digest.h.Sum(nil))
 	fmt.Fprintf(os.Stderr, "evaluation_loop_elapsed_ns=%d\n", time.Since(started).Nanoseconds())
 	return nil
 }
