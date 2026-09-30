@@ -1,6 +1,16 @@
 # laya-tools
 
+**한국어** · [English](README.en.md) · [사용자 Wiki](https://github.com/teamswyg/laya-tools/wiki) · [문서 목록](docs/README.md)
+
+[![CI](https://github.com/teamswyg/laya-tools/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/teamswyg/laya-tools/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/teamswyg/laya-tools)](https://github.com/teamswyg/laya-tools/releases/latest)
+[![Go](https://img.shields.io/github/go-mod/go-version/teamswyg/laya-tools?logo=go)](go.mod)
+[![Project license](https://img.shields.io/badge/project_license-Apache--2.0-blue)](LICENSE)
+[![Status](https://img.shields.io/badge/status-experimental-orange)](docs/repository-routing-preview.ko.md)
+
 **모델 선택을 프로젝트가 직접 관리하기 위한 로컬 AI 라우터 실험입니다.**
+
+[처음 시작하기](https://github.com/teamswyg/laya-tools/wiki/Getting-Started-KO)에서 모델 다운로드 없이 첫 결과를 확인할 수 있습니다. 코드 검색·모델 선택 계획·저장소 preview 중 필요한 기능부터 선택하세요.
 
 실행 명령어는 **`riidolaya`**입니다. 저장소와 Go 모듈 이름은 `laya-tools`를 유지하며, 기반 모델 Laya와 이 도구의 명령 이름을 구분합니다.
 
@@ -67,6 +77,8 @@ laya.tools는 Laya를 기반으로 만든 런타임, 라우팅, 에이전트 도
 |---|---|
 | `search` | 코드 후보를 키워드로 찾고, 선택적으로 Laya가 관련성 순서를 조정합니다. |
 | `route` | 모델을 추천하고 적용 정책의 결과만 보여줍니다. Codex를 실행하지 않습니다. |
+| `plan` | 설정한 모델·예산·전환 비용을 비교하고 실행 전 계획만 반환합니다. |
+| `repo-preview` / `repo-serve` | 로컬 목록으로 저장소 선택을 preview합니다. 단일 요청 또는 warm JSONL을 지원합니다. |
 | `codex` | 선택된 모델로 설치된 Codex CLI의 새 작업을 시작합니다. |
 | `serve` | 모델을 메모리에 유지하고 JSONL 요청을 순서대로 처리합니다. |
 | `mcp` | 에이전트에 코드 검색과 모델 추천 도구를 제공합니다. |
@@ -86,6 +98,9 @@ git clone https://github.com/teamswyg/laya-tools.git
 cd laya-tools
 go build -trimpath -o bin/riidolaya ./cmd/riidolaya
 
+./bin/riidolaya search --root . --lexical --json 'routing confidence'
+
+# 선택 사항: 로컬 모델과 네이티브 런타임 설치
 ./bin/riidolaya setup
 ./bin/riidolaya doctor
 ./bin/riidolaya search --root . 'where is routing confidence checked?'
@@ -95,7 +110,7 @@ v0.1.0의 실행 명령은 `laya`였으며, 새 버전부터 `riidolaya`를 사�
 
 아래 예시는 실행 파일이 PATH에 등록되어 `riidolaya`로 실행되는 경우입니다. 소스 빌드 직후에는 `riidolaya` 대신 `./bin/riidolaya`를 사용하면 됩니다. **옵션은 질문 앞에** 적습니다.
 
-`setup`은 공개 모델과 ONNX Runtime을 내려받아 압축파일과 내부 파일의 SHA-256을 검증합니다. 최초 모델 다운로드는 약 455 MiB이고, 설치된 모델 파일은 약 572 MiB입니다. 이후 검색과 라우팅 추론은 로컬에서 수행됩니다.
+`setup`은 공개 모델과 ONNX Runtime을 내려받아 압축파일과 내부 파일의 SHA-256을 검증합니다. 최초 모델 다운로드는 약 446 MiB이고, 설치된 모델 파일은 약 572 MiB입니다. 이후 검색과 라우팅 추론은 로컬에서 수행됩니다.
 
 캐시 위치는 macOS의 `~/Library/Caches/laya-tools`, Linux의 `~/.cache/laya-tools`입니다. `LAYA_CACHE`로 변경할 수 있습니다. Go 실행 파일 하나가 동작을 관리하지만, 모델과 네이티브 추론 라이브러리는 캐시에 별도로 존재합니다.
 
@@ -207,7 +222,7 @@ riidolaya repo-serve --catalog examples/repositories/catalog.json --laya
 
 ## 사람과 에이전트가 함께 쓰는 인터페이스
 
-사람에게는 일반 텍스트, 에이전트에는 `--json`을 제공합니다. 오류는 stderr와 0이 아닌 종료 코드로 알립니다. 질문 대신 `-`를 전달하면 stdin에서 입력을 읽습니다.
+사람에게는 일반 텍스트, 에이전트에는 `--json`을 제공합니다. 오류는 stderr와 0이 아닌 종료 코드로 알립니다. `search`·`route`·`codex`는 질문 대신 `-`를 전달하면 stdin에서 읽습니다. `plan --request -`는 JSON 요청을 읽습니다. `repo-preview`는 질문 인자, `repo-serve`는 JSONL을 받습니다.
 
 여러 요청을 처리할 때는 모델을 한 번만 로드하는 JSONL 모드를 사용할 수 있습니다.
 
@@ -247,7 +262,7 @@ MCP의 라우팅 도구도 새 작업에 쓸 모델을 추천할 뿐, 현재 대
 - 모델별 실제 성공률, 사용량, 소요 시간.
 - 판단 보류와 강한 모델 재시도 기준.
 
-이제 `pkg/catalog`, `pkg/switchpolicy`, `pkg/planner`를 외부 Go 프로그램에서 직접 import할 수 있습니다. 정책 패키지는 CGO나 모델 파일 없이 실행됩니다. 모델 추론과 기존 검색 엔진은 계속 `internal/`에 있으며, riido-daemon의 상태 저장·실제 실행 연결은 아직 구현하지 않았습니다.
+이제 `pkg/catalog`, `pkg/switchpolicy`, `pkg/planner`, `pkg/reporouter`를 외부 Go 프로그램에서 직접 import할 수 있습니다. 정책 패키지는 CGO나 모델 파일 없이 실행됩니다. 모델 추론과 기존 검색 엔진은 계속 `internal/`에 있으며, riido-daemon의 상태 저장·실제 실행 연결은 아직 구현하지 않았습니다.
 
 사용자 실행 경로는 Go입니다. 원본 Laya 모델을 ONNX로 변환하고 기준 결과를 비교하는 **모델 유지보수용 Python 스크립트는 별도로 남아 있습니다**. 설치된 도구를 실행하거나 riido-daemon에서 호출할 때 Python을 띄우는 구조는 아닙니다.
 
@@ -295,6 +310,7 @@ Go pprof는 Go 메모리와 CPU 샘플을 보여줍니다. 네이티브 모델 �
 - macOS와 Linux에서 실제 모델 다운로드 및 네이티브 추론.
 - Python 원본 기준과 Go 토큰화 결과의 일치.
 - 공개 이력에 대한 비밀정보 검사.
+- 실제 의존성 버전과 라이선스 고지 목록 검사.
 
 쓰기 권한이 있는 작성자의 동일 저장소 PR은 검사가 통과하면 자동 squash 병합합니다. Draft PR은 자동 병합 대상이 아닙니다. 외부 fork PR은 권한이 제한된 환경에서 검사하며 자동 병합 대상으로 취급하지 않습니다. 병합 권한이 있는 워크플로는 PR 코드를 체크아웃하거나 실행하지 않습니다.
 

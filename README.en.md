@@ -1,0 +1,260 @@
+# laya-tools
+
+[한국어](README.md) · **English** · [User Wiki](https://github.com/teamswyg/laya-tools/wiki) · [Documentation](docs/README.md)
+
+[![CI](https://github.com/teamswyg/laya-tools/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/teamswyg/laya-tools/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/teamswyg/laya-tools)](https://github.com/teamswyg/laya-tools/releases/latest)
+[![Go](https://img.shields.io/github/go-mod/go-version/teamswyg/laya-tools?logo=go)](go.mod)
+[![Project license](https://img.shields.io/badge/project_license-Apache--2.0-blue)](LICENSE)
+[![Status](https://img.shields.io/badge/status-experimental-orange)](docs/repository-routing-preview.en.md)
+
+**A local experiment in letting projects own their AI model selection policies.**
+
+The executable is **`riidolaya`**. The repository and Go module remain `laya-tools`, distinct from the upstream Laya model and SDK.
+
+[Start here](https://github.com/teamswyg/laya-tools/wiki/Getting-Started-EN) for installation and a first result without downloading a model. Choose code search, model planning, or repository preview according to the job you want to do.
+
+We run the small [Laya](https://huggingface.co/convaiinnovations/laya) decision model locally to classify task requirements. Codex performs the actual coding. In code search, Laya can reorder candidate excerpts before a larger model reads them.
+
+Search, routing, tokenization, inference calls, and agent interfaces are implemented in Go. Users need neither Python nor a separate model API key. **Codex integration is optional.** Interfaces are being developed for eventual use in riido-daemon.
+
+> This is an early experiment. Local execution and CI work, but reductions in actual Codex cost or subscription usage have not been demonstrated.
+
+## Why this project exists
+
+The project began after a notice about changes to Codex plans and included usage. Models differ in capability, usage, latency, and reasoning settings, while predicting what a task needs still relies heavily on human judgment.
+
+A typo in a comment and a concurrency failure across services may not need the same model. We use development capacity to explore that distinction and investigate whether a local model can handle repeated small decisions.
+
+Our hypothesis is that **assigning models to AI agents is a separate project-management responsibility involving quality, budget, and schedule. The project should own that policy.**
+
+Providers' commercial incentives and users' cost goals may not always align. Users should be able to observe and adjust selection criteria rather than assume a provider always assigns the most economical model. This is not a claim that any company deliberately wastes tokens or will stop optimizing. Provider improvements do not establish whether a particular project's success criteria and budget are met. The design does not depend on a specific, changing price table.
+
+The goal is lower total cost of successful completion, not maximum use of small models. A cheaper model that repeatedly fails can cost more. Evaluate success, elapsed time, usage, and rework together.
+
+## What Laya and Codex do
+
+Laya is a decision classifier, not a code generator. It reads input and chooses among supplied options. Jevgrep inspired parts of this approach, but our local inference uses public Laya weights; Jev and Laya are not the same model.
+
+```mermaid
+flowchart LR
+    A[New task] --> B[Local Laya capability classification]
+    B --> C[Project selection policy]
+    C --> D[Fast model]
+    C --> E[Standard model]
+    C --> F[Strong model or existing default]
+    D --> G[Codex performs the task]
+    E --> G
+    F --> G
+```
+
+Typos, ordinary bounded features, and difficult debugging are examples of fast, standard, and strong categories. These are classification criteria, not accuracy guarantees. Low confidence, truncated input, or unsupported conditions retain the strong/default model. An explicit model override wins.
+
+Routing happens once when starting a **new Codex CLI session**. It neither switches a live conversation nor intercepts API requests.
+
+## Shout-out: Laya and laya.tools
+
+Thanks to the developers of [Laya](https://huggingface.co/convaiinnovations/laya), its [open-source SDK](https://github.com/NandhaKishorM/laya), and **[laya.tools](https://laya.tools/)**, an independent community directory of runtimes, routing, agent tools, search, and demos.
+
+- [Directory](https://laya.tools/): projects organized by use case and platform.
+- [Local execution guide](https://laya.tools/guides/run-laya-locally).
+- [Showcase](https://laya.tools/showcase).
+- Apple Silicon runtimes such as laya-mlx and laya-coreml are candidates for future comparison.
+
+We are not an official product or affiliate of laya.tools or the Laya team. Other projects' performance claims are not measurements of this tool.
+
+## Available features
+
+| Command | Purpose |
+|---|---|
+| `search` | Find code by keywords and optionally rerank with Laya. |
+| `route` | Recommend a model without running Codex. |
+| `plan` | Compare a configured model catalog, budgets, and switching costs without execution. |
+| `repo-preview` / `repo-serve` | Preview repository candidates from local metadata; one request or warm JSONL. |
+| `codex` | Start a new task in the installed Codex CLI. |
+| `serve` | Keep the model loaded for sequential search/route JSONL requests. |
+| `mcp` | Expose code search and model recommendations to agents. |
+| `bench` | Measure model startup and inference; optionally collect Go profiles. |
+| `setup` / `doctor` | Install verified assets and inspect the local environment. |
+
+Subscription-quota lookup, live price discovery, automatic policy changes based on remaining usage, and retrying failed work on a stronger model are not implemented. Current automatic model selection uses task classification and explicit policy.
+
+## Installation and first run
+
+Apple Silicon macOS is the primary target; Linux amd64 also runs in CI. Download the matching `riidolaya-v…-darwin-arm64.tar.gz` or `riidolaya-v…-linux-amd64.tar.gz` from [Releases](https://github.com/teamswyg/laya-tools/releases). Compare its SHA-256 against `SHA256SUMS` before extraction. Keep the bundled LICENSE, NOTICE, and licenses directory if redistributing it.
+
+Building from source requires Go 1.27 and a C compiler. On macOS, Command Line Tools supply the compiler.
+
+```sh
+git clone https://github.com/teamswyg/laya-tools.git
+cd laya-tools
+go build -trimpath -o bin/riidolaya ./cmd/riidolaya
+
+# A first result without downloading a model
+./bin/riidolaya search --root . --lexical --json 'routing confidence'
+
+# Optional: install the local model and native runtime
+./bin/riidolaya setup
+./bin/riidolaya doctor
+./bin/riidolaya search --root . 'where is routing confidence checked?'
+```
+
+v0.1.0 used the command `laya`; current versions use `riidolaya`. Existing `LAYA_*` environment variables and the cache location remain supported. `setup` updates older model bundles to the current, checksum-pinned bundle.
+
+Examples below assume `riidolaya` is on PATH. After a source build, use `./bin/riidolaya` instead. **Put flags before the query.**
+
+`setup` downloads the public model and ONNX Runtime and verifies archive and file SHA-256 values. The current model archive is about 446 MiB; its model file is about 572 MiB. Subsequent inference is local. Caches are `~/Library/Caches/laya-tools` on macOS and `~/.cache/laya-tools` on Linux; override with `LAYA_CACHE`. The executable uses separate cached model and native-library files.
+
+Local Laya decisions incur no external model API fee, but consume CPU, RAM, and power. Downstream Codex usage follows your existing plan or billing arrangement.
+
+## Code search
+
+```sh
+riidolaya search --root /path/to/repository 'where are redirect headers removed?'
+riidolaya search --root . --lexical --json 'redirect authorization'
+riidolaya setup --checkpoint code
+riidolaya search --checkpoint code --candidates 8 --limit 3 'redirect authentication'
+riidolaya search --candidate-query 'gzip decoder' 'gzip 압축을 해제하는 코드'
+```
+
+The pipeline is keyword candidates → optional Laya relevance → overlapping excerpt removal → paths, line numbers, and excerpts. Defaults are eight candidates and up to three results. No vector database is created.
+
+At a Git root, search uses Git file lists and ignore rules. Subdirectories and ordinary directories require `rg`. Files are read again on each request. `serve` and `mcp` keep the model loaded, not a permanent code index.
+
+Bounds include 32 MiB of source, 50,000 chunks, 256 KiB per file, 64 candidates, and 512 model tokens per candidate. Hidden files, vendor directories, symlinks, obvious credential filenames, and binaries are excluded. These rules are not a comprehensive secret scanner. Truncation is reported.
+
+Laya cannot recover a relevant file absent from the keyword shortlist. Korean retrieval quality is unvalidated. If the model or runtime is unavailable, search returns keyword results with a warning.
+
+## Model routing
+
+Configure actual model IDs available to you. Model names and prices are not hardcoded.
+
+```sh
+export LAYA_FAST_MODEL='your-fast-model-id'
+export LAYA_STANDARD_MODEL='your-standard-model-id'
+export LAYA_STRONG_MODEL='your-strong-model-id'
+
+riidolaya route --json 'Fix a spelling mistake in this comment'
+riidolaya codex --dry-run 'Investigate a concurrency bug'
+riidolaya codex 'Investigate a concurrency bug'
+riidolaya codex --model 'your-explicit-model-id' 'Implement the feature'
+```
+
+`route` only recommends. `codex` frees Laya memory and starts your installed Codex with its existing authentication, permissions, and approval settings. The Codex task communicates with its normal provider; the router does not separately read or store credentials.
+
+An empty strong-model setting preserves the Codex default. The strong/default model is also retained for confidence below 0.9, truncated input, inference/loading failure, an unconfigured selected tier, and Korean requests whose difficulty classification has not been validated.
+
+JSON `suggested_tier` is Laya's proposal; `tier` and `model` are the policy result. `confidence` is the probability assigned to the proposed tier, not coding success probability. `abstained` means the downgrade decision was withheld. Use the base checkpoint for routing; code is a relevance-reranking derivative.
+
+## Reusable Go policies from the ecosystem
+
+We adapted ideas/code from **system-one-router** and **pi-pignon**, discovered through [laya.tools](https://laya.tools/). [Sources, pinned revisions, licenses, and modifications](docs/ecosystem.en.md) are documented.
+
+| Package | Purpose |
+|---|---|
+| `pkg/catalog` | Compare estimated cost among candidates meeting quality, capability, context, and budget constraints. |
+| `pkg/switchpolicy` | Avoid frequent switches and estimate whether savings repay lost cache value. |
+| `pkg/planner` | Combine policies into recommend, hold, or blocked decisions. |
+
+Laya assesses difficulty; deterministic Go rules decide whether a proposed choice meets project constraints.
+
+```sh
+riidolaya plan --config examples/planner/config.json --request examples/planner/request.json --json
+riidolaya plan --config examples/planner/config.json --request examples/planner/request.json --json 'Fix a spelling mistake in a comment'
+```
+
+Example prices, quality scores, and confidence are fictional. A trailing task adds local Laya classification; otherwise the plan needs no model. `plan` calls no paid model, switches no active conversation, and does not measure subscription quota. Agents must inspect `plan.status`: `recommend`, `hold`, or `blocked`.
+
+## GitHub repository preview
+
+`pkg/reporouter` accepts a local catalog of names, role summaries, and keywords. It does not fetch or clone repositories, execute work, or connect itself to riido-daemon.
+
+```sh
+riidolaya repo-preview --catalog examples/repositories/catalog.json --json 'refund invoices'
+riidolaya repo-preview --catalog examples/repositories/catalog.json --laya --json 'refund invoices'
+riidolaya repo-serve --catalog examples/repositories/catalog.json --laya
+```
+
+Keyword search is the default; `--laya` adds experimental English classification. The first synthetic evaluation did **not** demonstrate benefit: raw model choices were correct for 8/15 judgments, with zero recommendations passing the default policy. Peak RSS was about 11.5 MiB without the model and 1.40 GiB with it. Easy development fixtures do not establish production accuracy.
+
+See [suitability, usage, measurements, and integration boundaries](docs/repository-routing-preview.en.md). Every result is a preview; `candidate` is not execution authorization.
+
+## Licensing and redistribution
+
+We preserve notices under the identified Apache-2.0, MIT, and BSD-3-Clause terms. The omitted laya-code NOTICE and CLI dependency notices were corrected, and models-v2 includes provenance and modification notices. Run `riidolaya setup` with the current version for the corrected bundles.
+
+The [license audit](docs/license-audit.en.md) distinguishes obligations, fixes, and unresolved issues. CI detects dependency drift and missing notices, but does not establish rights to all training data.
+
+## Interfaces for people and agents
+
+Use plain text for people and `--json` for agents. Errors go to stderr with a nonzero exit code. `search`, `route`, and `codex` accept `-` as the query to read stdin; `plan --request -` reads a JSON request. `repo-preview` uses a query argument, and `repo-serve` accepts JSONL.
+
+```sh
+riidolaya serve --root /path/to/repository
+```
+
+One JSON object per input/output line:
+
+```json
+{"id":1,"op":"search","query":"redirect authentication"}
+{"id":2,"op":"route","query":"Fix a typo"}
+```
+
+```sh
+riidolaya mcp --root /path/to/repository
+# Optional registration in Codex
+codex mcp add riidolaya -- /absolute/path/to/riidolaya mcp --root /absolute/path/to/repository
+```
+
+MCP exposes `search_code` and `route_model`. It does not switch the current conversation's model. No network listener or macOS startup service is installed automatically.
+
+## Integration with riido-daemon
+
+The goal is to make selection a riido-daemon execution policy. JSON/JSONL invocation is available now, and `pkg/catalog`, `pkg/switchpolicy`, `pkg/planner`, and `pkg/reporouter` are importable Go packages without native-model dependencies. Native inference/search remain internal. State storage and an execution adapter have not been integrated into riido-daemon.
+
+Future policy inputs include task risk, budget, desired latency, measured success/usage/duration, and abstention/escalation criteria. Python remains only for maintainer model export/reference work, not user execution.
+
+## Measurements so far
+
+Initial Apple M4 Pro / 24 GiB measurements; see [details](docs/measurements.md) and [raw results](benchmarks/results).
+
+| Item | Observation |
+|---|---|
+| Short warm decision across CPU settings | Median roughly 24–40 ms |
+| Default four-thread decision | Median roughly 26 ms |
+| Whole process including INT8 model | Peak RSS roughly 1.4 GiB |
+| Code reranking | Roughly 1.6–1.8 seconds added in development questions; limited accuracy gains |
+| Initial model router | All 12 requests retained the strong/default model |
+| Core ML / GPU | Dynamic-model initialization failed; unvalidated |
+
+These results demonstrate neither model downgrades nor cost savings. Laya adds latency where lexical search already works. Future comparisons must hold coding tasks constant and measure success, total usage, duration, and retries; lowering thresholds just to improve apparent numbers is not the goal.
+
+## CPU, memory, and GPU measurement
+
+```sh
+riidolaya bench --iterations 30 --threads 4
+riidolaya bench --cpu-profile cpu.pprof --heap-profile heap.pprof --ort-profile ort-trace
+go tool pprof -top cpu.pprof
+go tool pprof -top heap.pprof
+/usr/bin/time -l riidolaya bench --iterations 30  # macOS
+```
+
+Go pprof excludes native/GPU memory. Native work may appear as `runtime.cgocall` or unnamed frames. Use ONNX Runtime traces to investigate execution providers and macOS Instruments for GPU details. Core ML is experimental; the tested export failed initialization, so CPU INT8 remains the default. Keep profiles private because they may include local paths.
+
+## CI as the development merge gate
+
+The loop is change → tests → PR → CI → merge → release checks. Main requires `quality`; human reviewer approval is not required. CI checks formatting, race tests, vet, macOS/Linux native inference, reference tokenizer parity, secrets, and license inventory.
+
+Trusted same-repository, non-draft PRs queue for automatic squash merge. Fork PRs do not receive automatic merge authority. The privileged merge workflow does not check out or execute PR code. Versioned releases also require tests and native inference. CI cannot prove the absence of semantic bugs; this development policy does not relax the user's Codex permissions.
+
+## Development and reproduction
+
+```sh
+go test -race ./...
+go vet ./...
+go test -bench . -benchmem ./internal/search
+```
+
+Native tests need `LAYA_MODEL_DIR` and `LAYA_RUNTIME`; CI sets them after setup. See [model builds](docs/model-build.md) and [design](docs/design.en.md). Use public or original fixtures; never publish private source, actual user prompts, credentials, or raw profiles. Model/runtime revisions, licenses, and checksums are pinned.
+
+Project license: Apache-2.0. Upstream terms and attribution: [NOTICE](NOTICE) and [licenses](licenses).

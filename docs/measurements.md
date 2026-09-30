@@ -1,5 +1,7 @@
 # Initial measurements — 2026-09-30
 
+[한국어](measurements.ko.md) · English
+
 Hardware: Apple M4 Pro, 24 GiB unified memory, macOS 26.6.2 arm64. Production inference is the Go binary + ONNX Runtime 1.30.0. These are development measurements, not held-out accuracy or demonstrated Codex bill savings.
 
 ## Short decisions
