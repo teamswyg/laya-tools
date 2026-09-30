@@ -1,0 +1,16 @@
+{
+  "schema": "riido-pair-evaluation-plan-v1",
+  "source_sha256": "4d1a227fe3652992d1e98f43fa9dc1b8f54a6c27a1a24b9d182bdfb8cbc3274c",
+  "seed": "riido-pair-groups-01",
+  "grouping": "connected normalized query or whitespace-normalized exact code; no claim of exhaustive semantic clone detection",
+  "minimum_rows": {"final":2400,"reserve1":2400,"reserve2":2400,"validation":600,"calibration":600},
+  "remaining": "development",
+  "selection": "group order by SHA256(seed + canonical group key); ignore labels and model scores",
+  "evaluation": "query-code binary relevance, not candidate retrieval",
+  "threshold": "maximize calibration balanced accuracy, ties choose larger threshold",
+  "fallback": "out-of-scope model inputs use BM25 prediction with its calibration threshold; all final rows retained",
+  "uncertainty": "500 paired connected-group bootstrap replicates, seed1729; 95% percentile interval of balanced accuracy difference vs BM25",
+  "models": "all 8 archived synthetic probe exports, no CoSQA training or model selection",
+  "promotion": false,
+  "go_no_go": "usefulness remains unproven without retrieval/agent evaluation; model candidate needs positive lower CI for balanced-accuracy delta vs BM25 and no hidden exclusions"
+}
