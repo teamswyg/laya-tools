@@ -14,6 +14,8 @@ The [golden-set scale guide](docs/golden-set-scale.en.md) explains the differenc
 
 [Usage recording and independent task verification](docs/task-outcomes.en.md) summarize existing Codex telemetry and separately check requirements for public tasks. Authored examples test the tools; they are not actual model outcomes or evidence of cost savings.
 
+The opt-in [public task executor](docs/task-execution.en.md) connects an explicitly requested Codex process, usage, candidate files and independent acceptance in Go. Failed and timed-out attempts remain recorded; a small development pilot is separate from final golden-set evaluation.
+
 [Three lightweight search helpers](experiments/path-helper-headroom/RESULTS-48.en.md) were compared on all 4,456 eligible training requests. Even label-knowing selection had only 3.09%, 3.68%, and 1.36% improvement headroom, below the unchanged 5% gate, so further fitting stopped. Full execution and replay took about 82 seconds with 106.7–107.3MiB peak RSS; these are not single-inference or Codex savings measurements.
 
 [한국어](README.md) · **English** · [User Wiki](https://github.com/teamswyg/laya-tools/wiki) · [Documentation](docs/README.md)

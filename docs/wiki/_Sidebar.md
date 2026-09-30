@@ -120,4 +120,5 @@
 
 - [골든셋 규모와 도메인 구분](https://github.com/teamswyg/laya-tools/blob/main/docs/golden-set-scale.ko.md) · [Golden-set scale and domain boundaries](https://github.com/teamswyg/laya-tools/blob/main/docs/golden-set-scale.en.md)
 - [사용량 기록·독립 작업 검증](https://github.com/teamswyg/laya-tools/blob/main/docs/task-outcomes.ko.md) · [Usage recording and independent task verification](https://github.com/teamswyg/laya-tools/blob/main/docs/task-outcomes.en.md)
+- [공개 작업 실행·근거 연결](https://github.com/teamswyg/laya-tools/blob/main/docs/task-execution.ko.md) · [Explicit public task execution](https://github.com/teamswyg/laya-tools/blob/main/docs/task-execution.en.md)
 - [학습용 4,456개 검색 비교·중단 판단](https://github.com/teamswyg/laya-tools/blob/main/experiments/path-helper-headroom/RESULTS-48.ko.md) · [4,456-request helper screen and stop decision](https://github.com/teamswyg/laya-tools/blob/main/experiments/path-helper-headroom/RESULTS-48.en.md)

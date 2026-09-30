@@ -21,6 +21,8 @@
 
 **Usage and task completion / 사용량과 작업 완료:** [한국어 사용법](https://github.com/teamswyg/laya-tools/blob/main/docs/task-outcomes.ko.md) / [English guide](https://github.com/teamswyg/laya-tools/blob/main/docs/task-outcomes.en.md). Existing telemetry and independent acceptance are separate; missing evidence stays unknown. Authored examples are tool checks, not model outcomes. / 기존 기록의 사용량과 독립 작업 검증을 따로 확인하며, 누락은 미확정으로 남깁니다. 직접 작성한 예제는 도구 검사이며 모델 작업 결과가 아닙니다.
 
+**Explicit task execution / 명시적 작업 실행:** [한국어](https://github.com/teamswyg/laya-tools/blob/main/docs/task-execution.ko.md) / [English](https://github.com/teamswyg/laya-tools/blob/main/docs/task-execution.en.md). An opt-in Go executor binds a public task's CLI invocation, usage, candidate and independent checks; failures stay visible. The development pilot is separate from final routing evaluation. / 선택적 Go 실행기로 공개 작업의 CLI 실행·사용량·후보·독립 검사를 연결하고 실패도 기록합니다. 개발 파일럿은 최종 라우팅 평가와 구분합니다.
+
 **Search helper screen / 검색 방식 비교:** [한국어 결과](https://github.com/teamswyg/laya-tools/blob/main/experiments/path-helper-headroom/RESULTS-48.ko.md) / [English results](https://github.com/teamswyg/laya-tools/blob/main/experiments/path-helper-headroom/RESULTS-48.en.md). Three fixed helpers failed the 5% necessary headroom gate on 4,456 training requests; fitting stopped. Full runs used 106.7–107.3MiB peak RSS. / 학습용 4,456개에서 세 후보 모두 5% 개선 여지 기준에 못 미쳐 추가 학습을 중단했습니다. 전체 실행의 최대 RSS는 106.7–107.3MiB였습니다.
 
 ## What do you want to do? / 무엇을 하고 싶나요?
