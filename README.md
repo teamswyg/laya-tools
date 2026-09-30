@@ -1,6 +1,6 @@
 # laya-tools
 
-별도 연구: **아주 작은 힌트로 비싼 탐색의 순서를 개선**하는 [의미 탐색 힌트 실험](experiments/semantic-hints/PLAN.ko.md)을 시작했습니다. 기존 난이도 라우터와 독립적이며 [비학습 기준선 결과](experiments/semantic-hints/README.md)를 공개합니다.
+별도 연구: **아주 작은 힌트로 비싼 탐색의 순서를 개선**하는 [의미 탐색 힌트 실험](experiments/semantic-hints/PLAN.ko.md)을 진행합니다. 모델 없이 직접 시험할 수 있는 [선택형 보조 검색](experiments/baseline-first/README.ko.md)은 `riido-hints --identifier-hints`로 실행합니다. 2,948개 문서 설명의 결과와 한계를 공개하며, 기존 난이도 라우터 및 기본 설정과 독립적입니다.
 
 정적 임베딩 비교군: [Go 실행·압축·원본 일치 검증](experiments/static-embedding/README.ko.md). 코드 관련성 성능은 아직 부족하며 기본 모델로 적용하지 않습니다.
 

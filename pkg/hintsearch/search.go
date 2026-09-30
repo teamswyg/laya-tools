@@ -167,6 +167,18 @@ func (idx *Index) RankInto(query string, dst Ranking) (Ranking, error) {
 // NOT a bound on wall time, token costs, multiple-evidence completion, or hint
 // construction. Callers must bound those costs separately. No candidate is lost.
 func Interleave(baseline, hints []int) ([]int, error) {
+	return interleave(baseline, hints, false)
+}
+
+// InterleaveBaselineFirst preserves the baseline's first candidate and then
+// alternates baseline and hint candidates. Partial hints are supported. With
+// accurate unit-cost verification, baseline rank r is reached within
+// min(n, 2*r-1) checks. This does not bound time, tokens or hint construction.
+func InterleaveBaselineFirst(baseline, hints []int) ([]int, error) {
+	return interleave(baseline, hints, true)
+}
+
+func interleave(baseline, hints []int, baselineFirst bool) ([]int, error) {
 	n := len(baseline)
 	if n == 0 || n > MaxDocuments || len(hints) > n {
 		return nil, fmt.Errorf("invalid candidate counts")
@@ -188,7 +200,7 @@ func Interleave(baseline, hints []int) ([]int, error) {
 	clear(seen)
 	out := make([]int, 0, n)
 	h, b := 0, 0
-	for len(out) < n {
+	emitHint := func() {
 		for h < len(hints) && seen[hints[h]] {
 			h++
 		}
@@ -198,6 +210,8 @@ func Interleave(baseline, hints []int) ([]int, error) {
 			seen[d] = true
 			out = append(out, d)
 		}
+	}
+	emitBaseline := func() {
 		for b < n && seen[baseline[b]] {
 			b++
 		}
@@ -206,6 +220,15 @@ func Interleave(baseline, hints []int) ([]int, error) {
 			b++
 			seen[d] = true
 			out = append(out, d)
+		}
+	}
+	for len(out) < n {
+		if baselineFirst {
+			emitBaseline()
+			emitHint()
+		} else {
+			emitHint()
+			emitBaseline()
 		}
 	}
 	return out, nil

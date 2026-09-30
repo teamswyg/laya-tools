@@ -154,6 +154,9 @@ func TestBounds(t *testing.T) {
 		}
 	}
 	for _, args := range [][2][]int{{nil, nil}, {{0, 0}, nil}, {{1}, nil}, {{0}, {1}}, {{0}, {0, 0}}} {
+		if _, err := InterleaveBaselineFirst(args[0], args[1]); err == nil {
+			t.Fatal("invalid baseline-first permutation accepted")
+		}
 		if _, err := Interleave(args[0], args[1]); err == nil {
 			t.Fatal("invalid permutation accepted")
 		}
@@ -171,6 +174,25 @@ func TestInterleaveBoundExhaustive(t *testing.T) {
 		visit = func(k int) {
 			if k == n {
 				for length := 0; length <= n; length++ {
+					first, err := InterleaveBaselineFirst(base, h[:length])
+					if err != nil {
+						t.Fatal(err)
+					}
+					if len(first) != n || first[0] != base[0] {
+						t.Fatal("baseline first candidate lost")
+					}
+					positions := make([]int, n)
+					for p, id := range first {
+						if id < 0 || id >= n || positions[id] != 0 {
+							t.Fatal("duplicate/invalid candidate")
+						}
+						positions[id] = p + 1
+					}
+					for p, id := range base {
+						if positions[id] == 0 || positions[id] > min(n, 2*(p+1)-1) {
+							t.Fatalf("baseline-first bound: base=%v hints=%v out=%v", base, h[:length], first)
+						}
+					}
 					out, err := Interleave(base, h[:length])
 					if err != nil {
 						t.Fatal(err)

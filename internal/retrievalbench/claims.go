@@ -18,6 +18,14 @@ type ClaimExample struct {
 }
 
 func PrepareClaims(rows []Row) ([]ClaimExample, error) {
+	return prepareClaims(rows, false)
+}
+
+func PrepareBaselineFirstClaims(rows []Row) ([]ClaimExample, error) {
+	return prepareClaims(rows, true)
+}
+
+func prepareClaims(rows []Row, baselineFirst bool) ([]ClaimExample, error) {
 	docs := make([]string, len(rows))
 	normalized := make([]string, len(rows))
 	for i, r := range rows {
@@ -52,7 +60,12 @@ func PrepareClaims(rows []Row) ([]ClaimExample, error) {
 		if e != nil {
 			return nil, e
 		}
-		order, e := hintsearch.Interleave(baseline.Order, additional.Order)
+		var order []int
+		if baselineFirst {
+			order, e = hintsearch.InterleaveBaselineFirst(baseline.Order, additional.Order)
+		} else {
+			order, e = hintsearch.Interleave(baseline.Order, additional.Order)
+		}
 		if e != nil {
 			return nil, e
 		}
@@ -67,7 +80,11 @@ func PrepareClaims(rows []Row) ([]ClaimExample, error) {
 			return len(order) + 1
 		}
 		br, ar, ir := rank(baseline.Order), rank(additional.Order), rank(order)
-		if ir > min(len(rows), 2*br) {
+		bound := 2 * br
+		if baselineFirst {
+			bound--
+		}
+		if ir > min(len(rows), bound) {
 			return nil, fmt.Errorf("interleave bound violated")
 		}
 		out = append(out, ClaimExample{f, q.repository, i, br, ar, ir})
