@@ -7,18 +7,36 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"runtime/pprof"
 
 	"github.com/teamswyg/laya-tools/internal/retrievalbench"
 )
 
-func run() error {
+func run() (runErr error) {
 	input := flag.String("input", ".cache/retrieval-audit-06.jsonl", "pinned local corpus projection")
 	archives := flag.String("archives", ".cache/retrieval-source-07", "pinned source ZIP directory")
 	stage := flag.String("stage", "audit", "audit or evaluate")
 	plan := flag.String("plan", "experiments/retrieval-baseline/plan-07.json", "fixed evaluation plan")
+	cpuProfile := flag.String("cpuprofile", "", "optional new local CPU profile path; never publish raw profiles")
 	flag.Parse()
 	if *stage != "audit" && *stage != "evaluate" {
 		return fmt.Errorf("invalid stage")
+	}
+	if *cpuProfile != "" {
+		f, e := os.OpenFile(*cpuProfile, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+		if e != nil {
+			return e
+		}
+		if e = pprof.StartCPUProfile(f); e != nil {
+			f.Close()
+			return e
+		}
+		defer func() {
+			pprof.StopCPUProfile()
+			if e := f.Close(); runErr == nil {
+				runErr = e
+			}
+		}()
 	}
 	planBytes, e := os.ReadFile(*plan)
 	if e != nil {
