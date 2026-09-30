@@ -1,0 +1,15 @@
+{
+  "schema": "riido-call-change-audit-plan-v1",
+  "questions": 2948,
+  "previous": "immutable16-feature experiment21 cost_selected, seeds1729/2718",
+  "current": "immutable20-feature experiment25 cost_selected, seeds1729/2718",
+  "method": "verify both release manifests and all archive hashes; re-create pinned features; apply frozen heads/thresholds with no fitting or recalibration; reproduce all prior fold and aggregate metrics exactly",
+  "transitions": ["neither_calls", "new_only_calls", "old_only_calls", "both_call"],
+  "metrics": "per repository and pooled per seed: transition counts, old/new calls/pages, positive page-loss counts/sums, negative page-gain counts/sums, zero changes, top10 gains/losses, old/new benefit/harm/tie accounting",
+  "concentration": "sum of largest1/3/10 positive per-question page increases, divided by total positive increases if nonzero; fixed positive-loss buckets1,2-5,6-20,21+; do not divide by net difference or expose question ids/text/rank rows",
+  "invariants": "all transitions partition cases; positive increases-negative improvements equals new pages-old pages; unchanged call decisions imply identical ranks/pages; pooled records reproduce2948 questions and published metrics for both seeds",
+  "scope": "post-hoc diagnostic on already observed development data; no independent final evidence, threshold changes, new model, HF weight release or deployment gate relaxation",
+  "replay": "full aggregate report byte-identical; synthetic boundary/sign/topK/transition tests",
+  "next_decision": "use measured concentration and direction of changed calls to distinguish missing beneficial retrieval from added harmful retrieval before choosing another intervention",
+  "production_ready": false
+}
