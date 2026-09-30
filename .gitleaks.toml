@@ -1,0 +1,12 @@
+[extend]
+useDefault = true
+
+[[rules]]
+id = "generic-api-key"
+
+[[rules.allowlists]]
+description = "Public tokenizer artifact SHA-256 values, not API tokens"
+condition = "AND"
+paths = ['''(^|/)internal/assets/manifest\.json$''']
+regexTarget = "line"
+regexes = ['''^\s*"tokenizer\.json": "[a-f0-9]{64}",?\s*$''']
