@@ -3,6 +3,9 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"github.com/teamswyg/laya-tools/internal/hintlearn"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -43,5 +46,47 @@ func TestStrictRequest(t *testing.T) {
 		if err := run(strings.NewReader(s), &bytes.Buffer{}); err == nil {
 			t.Fatal("bad request accepted")
 		}
+	}
+}
+
+func TestModelFallbackScope(t *testing.T) {
+	req := request{Snapshot: "s", Query: strings.Repeat("word ", 65), Documents: []document{{"a", "word"}, {"b", "other"}}}
+	data, _ := json.Marshal(req)
+	var out bytes.Buffer
+	if err := runModel(bytes.NewReader(data), &out, make([]float64, 8192), strings.Repeat("0", 64)); err != nil {
+		t.Fatal(err)
+	}
+	var res response
+	json.Unmarshal(out.Bytes(), &res)
+	if res.Policy != "bm25_model_input_out_of_scope" || len(res.Candidates) != 2 {
+		t.Fatal(res)
+	}
+	req.Query = "word"
+	req.Hints = &hints{"s", "word", []string{"a"}}
+	data, _ = json.Marshal(req)
+	if err := runModel(bytes.NewReader(data), &bytes.Buffer{}, make([]float64, 8192), strings.Repeat("0", 64)); err == nil {
+		t.Fatal("ambiguous hints allowed")
+	}
+}
+
+func TestPinnedModelIntegrity(t *testing.T) {
+	b, err := hintlearn.Encode(make([]float64, hintlearn.Dimension), "int8")
+	if err != nil {
+		t.Fatal(err)
+	}
+	file := filepath.Join(t.TempDir(), "model.hbin")
+	if err = os.WriteFile(file, b, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = loadModel(file, hintlearn.Hash(b)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = loadModel(file, strings.Repeat("0", 64)); err == nil {
+		t.Fatal("wrong hash accepted")
+	}
+	b[0] = 'X'
+	os.WriteFile(file, b, 0600)
+	if _, err = loadModel(file, hintlearn.Hash(b)); err == nil {
+		t.Fatal("corrupt model accepted")
 	}
 }

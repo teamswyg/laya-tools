@@ -1,0 +1,29 @@
+{
+  "schema": "riido-hint-learning-plan-v1",
+  "dimension": 8192,
+  "epochs": 60,
+  "seeds": [
+    1729,
+    2718
+  ],
+  "learning_rates": [
+    0.05,
+    0.2
+  ],
+  "modes": [
+    "fp32",
+    "ternary_ste"
+  ],
+  "threshold": 0.7,
+  "selection": "validation mean target rank; tie validation NLL; no final access before selection",
+  "scope": "shared retain/discard grammar, held-out domain nouns; not unseen operation or general semantic transfer",
+  "gates": {
+    "final_recall_at_4": 0.95,
+    "mean_checks_ratio_vs_bm25": 0.8
+  },
+  "files": {
+    "train.json": "1beadf2d94c46b8c084cbf1a7afe2307e13f22065cc4c20be03aed650e29419d",
+    "validation.json": "ee54021de2cc124fbdedfb8c57908b72303a61382b2fa017ea064e09944e0307",
+    "final.json": "507b8c3536017a180a699c6e9da71f3418707b2b3aa9a4fd54b28be7f31150bb"
+  }
+}
