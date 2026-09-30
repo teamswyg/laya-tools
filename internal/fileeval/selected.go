@@ -23,7 +23,11 @@ func workDelta(after, before WorkStats) WorkStats {
 type Selector func([searchclaim.PathDimension]float64) (bool, error)
 
 type Selection struct {
-	Order                                                []int
+	Order []int
+	// BaselineOrder preserves the already computed baseline for paired scoring.
+	// Treat both orders as read-only: they may alias within this result when
+	// auxiliary search is skipped or falls back. Later calls do not change them.
+	BaselineOrder                                        []int
 	Features                                             [searchclaim.PathDimension]float64
 	FeaturesAvailable, AuxiliaryRequested, AuxiliaryUsed bool
 	Fallback                                             string
@@ -49,6 +53,7 @@ func (r *Ranker) selected(query string, paths []string, selector Selector, retai
 		return result, e
 	}
 	result.Order = base.Order
+	result.BaselineOrder = base.Order
 	if selector == nil {
 		return result, nil
 	}

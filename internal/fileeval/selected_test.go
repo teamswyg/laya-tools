@@ -50,6 +50,11 @@ func TestSelectedReferenceParityAndSkippedWork(t *testing.T) {
 		if on.Order[0] != ref[Baseline][0] {
 			t.Fatal("lost first baseline")
 		}
+		for _, out := range []Selection{off, nilPolicy, on} {
+			if !slices.Equal(out.BaselineOrder, ref[Baseline]) {
+				t.Fatal("paired baseline differs from independent reference")
+			}
+		}
 		permutation(t, on.Order, len(paths))
 	}
 }
@@ -61,6 +66,7 @@ func TestSelectedLazyReuseMutationAndOwnership(t *testing.T) {
 		t.Fatal("eager helper", e)
 	}
 	held := slices.Clone(first.Order)
+	heldBaseline := slices.Clone(first.BaselineOrder)
 	second, e := r.RankSelected("read file", paths, func(f [searchclaim.PathDimension]float64) (bool, error) { f[0] = 0; return true, nil })
 	if e != nil || r.aux == nil || !r.auxReady || second.Work != (WorkStats{1, 1, 1}) || second.Features[0] != 1 {
 		t.Fatal("lazy first use or feature alias", second, e)
@@ -82,7 +88,7 @@ func TestSelectedLazyReuseMutationAndOwnership(t *testing.T) {
 	if e != nil || !slices.Equal(fifth.Order, ref[Interleaved]) {
 		t.Fatal("changed snapshot mismatch")
 	}
-	if !slices.Equal(first.Order, held) {
+	if !slices.Equal(first.Order, held) || !slices.Equal(first.BaselineOrder, heldBaseline) {
 		t.Fatal("later work changed earlier output")
 	}
 	if r.WorkStats() != (WorkStats{5, 2, 3}) {
