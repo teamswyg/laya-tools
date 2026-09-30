@@ -17,6 +17,8 @@
 
 **Latest / 최근 연구:** [학습 4,456개·검증 2,599개 결과](https://github.com/teamswyg/laya-tools/wiki/Path-Claim-Results-46-KO) / [4,456 training and 2,599 validation examples](https://github.com/teamswyg/laya-tools/wiki/Path-Claim-Results-46-EN). All ten tiny-head fits completed; usefulness gates failed. / 작은 모델 10개 학습은 완료했지만 유용성 기준은 실패했습니다.
 
+**Golden sets / 골든셋:** [24개와 2,400개의 의미 및 도메인별 정답](https://github.com/teamswyg/laya-tools/blob/main/docs/golden-set-scale.ko.md) / [Scale, held-out evaluation and domain-specific evidence](https://github.com/teamswyg/laya-tools/blob/main/docs/golden-set-scale.en.md). Search evidence alone does not validate Codex model routing. / 검색 결과만으로 Codex 모델 라우팅을 검증했다고 볼 수 없습니다.
+
 ## What do you want to do? / 무엇을 하고 싶나요?
 
 | Goal / 목적 | English | 한국어 |

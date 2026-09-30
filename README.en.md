@@ -10,6 +10,8 @@ Static embedding control: [Go execution, packing and upstream parity](experiment
 
 The [tiny claim-head experiment](experiments/path-cost-claim/RESULTS-46.en.md) ran all ten candidates on **4,456 training and 2,599 validation tasks**. It met the scale requirement but failed usefulness gates. Initial 24-task pilots and model configuration counts are different; the 2,402 final tasks remain unscored. One warm preparation/training/policy-replay run peaked at about 108.6MiB RSS, not single-inference memory or demonstrated Codex savings.
 
+The [golden-set scale guide](docs/golden-set-scale.en.md) explains the difference between a 24-case pilot and a minimum 2,400-request evaluation, separated training/validation/final sets, and the evidence required for search, model routing, repository selection, and task decomposition.
+
 [한국어](README.md) · **English** · [User Wiki](https://github.com/teamswyg/laya-tools/wiki) · [Documentation](docs/README.md)
 
 [![CI](https://github.com/teamswyg/laya-tools/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/teamswyg/laya-tools/actions/workflows/ci.yml)
