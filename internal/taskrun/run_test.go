@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -355,11 +356,11 @@ func TestCaptureBoundHashesFullObservedBytes(t *testing.T) {
 }
 
 func TestCanonicalArgsProfileAndHashes(t *testing.T) {
-	profile, canonical, e := permissionsConfig()
+	profile, canonical, e := permissionsConfig(runtime.GOROOT())
 	if e != nil {
 		t.Fatal(e)
 	}
-	args := invocationArgs("fixture-model", "low", "$WORKSPACE", canonical)
+	args := invocationArgs("fixture-model", "low", "$WORKSPACE", canonical, "$GOROOT")
 	joined := strings.Join(args, "\n")
 	for _, flag := range []string{"--no-daemon", "--ignore-user-config", "--ignore-rules", "--ephemeral", "--json", "--skip-git-repo-check", "--disable", "apps", "hooks", "multi_agent", "memories", "skill_mcp_dependency_install", `web_search="disabled"`, `approval_policy="never"`, `default_permissions="riido-task"`, `permissions.riido-task.network.enabled=false`, `shell_environment_policy.inherit="none"`, `shell_environment_policy.set=`, `"GOTMPDIR"=`, `"GOCACHE"=`, `"GOPROXY"="off"`, `:root`, `:tmpdir`, `:slash_tmp`} {
 		if !strings.Contains(joined, flag) {
@@ -369,7 +370,7 @@ func TestCanonicalArgsProfileAndHashes(t *testing.T) {
 	if strings.Contains(joined, "--sandbox") || strings.Contains(joined, "--resume") || strings.Contains(joined, "API_KEY") || strings.Contains(joined, runtime.GOROOT()) || !strings.Contains(profile, strconvQuoteRoot()) {
 		t.Fatal("unsafe or path-dependent arguments")
 	}
-	if digestJSON(args) != digestJSON(invocationArgs("fixture-model", "low", "$WORKSPACE", canonical)) {
+	if digestJSON(args) != digestJSON(invocationArgs("fixture-model", "low", "$WORKSPACE", canonical, "$GOROOT")) {
 		t.Fatal("canonical hash drift")
 	}
 }
@@ -469,5 +470,104 @@ func TestUnsupportedOSNeverLaunches(t *testing.T) {
 	r, e := Run(context.Background(), req)
 	if e != Error("execution_isolation_unavailable") || r.Started {
 		t.Fatal("unsupported OS launched")
+	}
+}
+
+func TestTrimpathPackagedExecutorExplicitGoRoot(t *testing.T) {
+	requireDarwin(t)
+	body := `/usr/bin/sed -i '' 's#// Snapshot for one caller-defined budget period. This is not a reservation ledger.#// Snapshot supplied by the caller for a single budget period; no reservation is made.#' pkg/catalog/catalog.go
+` + completeTrace
+	req := fixtureRequest(t, body)
+	req.TaskID = "comment-budget-period"
+	spec, _ := taskverify.TaskSpec(req.TaskID)
+	req.ExpectedSpecSHA256 = digestJSON(spec)
+	writePlan(t, &req, filepath.Dir(req.PrivateDir))
+	root, e := filepath.EvalSymlinks(runtime.GOROOT())
+	if e != nil {
+		t.Fatal(e)
+	}
+	packaged := filepath.Join(filepath.Dir(req.PrivateDir), "riido-taskrun-trimpath")
+	repo, e := filepath.Abs("../..")
+	if e != nil {
+		t.Fatal(e)
+	}
+	buildCtx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+	build := exec.CommandContext(buildCtx, filepath.Join(root, "bin", "go"), "build", "-trimpath", "-o", packaged, "./cmd/riido-taskrun")
+	build.Dir = repo
+	build.Env = append(os.Environ(), "GOROOT="+root, "GOTOOLCHAIN=local", "GOPROXY=off", "GOSUMDB=off")
+	if out, e := build.CombinedOutput(); e != nil {
+		t.Fatalf("authored packaged fixture build failed: %v (%d diagnostic bytes)", e, len(out))
+	}
+	args := []string{"--execute", "--task", req.TaskID, "--model", req.Model, "--reasoning", req.Reasoning, "--base-dir", req.BaseDir, "--private-dir", req.PrivateDir, "--codex-bin", req.CodexBinary, "--codex-sha256", req.ExpectedCLIHash, "--codex-version", req.ExpectedCLIVersion, "--plan-file", req.PlanFile, "--plan-sha256", req.PlanSHA256, "--attempt-ordinal", "1", "--task-spec-sha256", req.ExpectedSpecSHA256, "--timeout", "2s"}
+	// No inherited GOROOT or PATH-discovered Go toolchain is available to the
+	// packaged process. The authored CLI fixture performs no model inference.
+	env := []string{"PATH=/usr/bin:/bin:/usr/sbin:/sbin", "HOME=" + filepath.Dir(req.PrivateDir), "TMPDIR=" + os.TempDir(), "LANG=en_US.UTF-8"}
+	missing := exec.CommandContext(buildCtx, packaged, args...)
+	missing.Env = env
+	var missingOut, missingErr bytes.Buffer
+	missing.Stdout = &missingOut
+	missing.Stderr = &missingErr
+	if e := missing.Run(); e == nil || missingOut.Len() != 0 || strings.TrimSpace(missingErr.String()) != "trusted_toolchain_unavailable" {
+		t.Fatal("trimpath missing explicit toolchain was not a clean prelaunch refusal")
+	}
+	cmd := exec.CommandContext(buildCtx, packaged, append(args, "--go-root", root)...)
+	cmd.Env = env
+	var out, diagnostics bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &diagnostics
+	if e := cmd.Run(); e != nil {
+		t.Fatalf("authored packaged execution failed: %v (%d redacted diagnostic bytes)", e, diagnostics.Len())
+	}
+	var r Record
+	if json.Unmarshal(out.Bytes(), &r) != nil || !r.Started || r.VerificationStatus != "accepted" || !r.Verification.ExecutionIsolated || r.Verification.IndependentTests == 0 || !r.WholeAttemptUsageComplete || r.GoVersion != "go version "+PinnedGoVersion+" "+runtime.GOOS+"/"+runtime.GOARCH || len(r.GoBinarySHA256) != 64 {
+		t.Fatal("packaged authored fixture did not prove behavioral acceptance and toolchain binding")
+	}
+	if bytes.Contains(out.Bytes(), []byte(root)) || bytes.Contains(out.Bytes(), []byte(req.PrivateDir)) {
+		t.Fatal("packaged report leaked local toolchain or private paths")
+	}
+}
+
+func TestExplicitToolchainValidationRefusesMissingOrNonExecutable(t *testing.T) {
+	root := t.TempDir()
+	os.Mkdir(filepath.Join(root, "bin"), 0700)
+	os.WriteFile(filepath.Join(root, "bin", "go"), []byte("authored nonexecutable fixture"), 0600)
+	for _, supplied := range []string{"relative-go-root", filepath.Join(root, "missing"), root} {
+		if _, e := resolveGoRoot(context.Background(), supplied); e != Error("trusted_toolchain_unavailable") {
+			t.Fatal("invalid toolchain accepted")
+		}
+	}
+}
+
+func TestSuppliedPlanToolchainPinsAreVerifiedBeforeAttempt(t *testing.T) {
+	requireDarwin(t)
+	toolchain, e := resolveGoRoot(context.Background(), runtime.GOROOT())
+	if e != nil {
+		t.Fatal(e)
+	}
+	for _, tc := range []struct{ name, version, hash string }{{"wrong_hash", toolchain.version, strings.Repeat("0", 64)}, {"wrong_version", "go version go0.0.0 fixture/fixture", toolchain.hash}, {"missing_version", "", toolchain.hash}} {
+		t.Run(tc.name, func(t *testing.T) {
+			req := fixtureRequest(t, completeTrace)
+			b, e := os.ReadFile(req.PlanFile)
+			if e != nil {
+				t.Fatal(e)
+			}
+			var p plan
+			if json.Unmarshal(b, &p) != nil {
+				t.Fatal("fixture plan")
+			}
+			pins, _ := json.Marshal(struct {
+				Version string `json:"version"`
+				Hash    string `json:"binary_sha256"`
+			}{tc.version, tc.hash})
+			p.GoToolchain = pins
+			b, _ = json.Marshal(p)
+			os.WriteFile(req.PlanFile, b, 0600)
+			req.PlanSHA256 = digest(b)
+			r, e := Run(context.Background(), req)
+			if e != Error("planned_go_toolchain_mismatch") || r.Started {
+				t.Fatal("mismatched planned toolchain launched")
+			}
+		})
 	}
 }

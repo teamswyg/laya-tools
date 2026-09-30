@@ -14,10 +14,11 @@ import (
 const MaxPlanBytes = 64 << 10
 
 type plan struct {
-	Schema     string `json:"schema"`
-	Status     string `json:"status"`
-	PublicBase string `json:"public_task_base_revision"`
-	CLI        struct {
+	GoToolchain json.RawMessage `json:"go_toolchain,omitempty"`
+	Schema      string          `json:"schema"`
+	Status      string          `json:"status"`
+	PublicBase  string          `json:"public_task_base_revision"`
+	CLI         struct {
 		Version string `json:"version"`
 		Hash    string `json:"binary_sha256"`
 	} `json:"cli"`
@@ -47,7 +48,7 @@ type plan struct {
 	} `json:"execution"`
 }
 
-func validatePlan(req Request) (string, error) {
+func validatePlan(req Request, toolchain trustedToolchain) (string, error) {
 	root, e := os.OpenRoot(filepath.Dir(req.PlanFile))
 	if e != nil {
 		return "", Error("plan_unavailable")
@@ -63,6 +64,15 @@ func validatePlan(req Request) (string, error) {
 	var p plan
 	if json.Unmarshal(b, &p) != nil {
 		return "", Error("invalid_plan")
+	}
+	if len(p.GoToolchain) != 0 {
+		var pins struct {
+			Version string `json:"version"`
+			Hash    string `json:"binary_sha256"`
+		}
+		if json.Unmarshal(p.GoToolchain, &pins) != nil || pins.Version == "" || pins.Hash == "" || pins.Version != toolchain.version || pins.Hash != toolchain.hash {
+			return "", Error("planned_go_toolchain_mismatch")
+		}
 	}
 	if p.Schema != "riido-task-outcome-pilot-plan-v1" || p.Status != "precommitted_development_pilot_not_final_routing_evaluation" || p.PublicBase != taskverify.BaseRevision || p.CLI.Hash != req.ExpectedCLIHash || p.CLI.Version != req.ExpectedCLIVersion {
 		return "", Error("plan_pin_mismatch")

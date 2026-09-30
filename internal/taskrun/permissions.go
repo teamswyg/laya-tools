@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -16,9 +15,8 @@ import (
 
 const profileName = "riido-task"
 
-func permissionsConfig() (string, string, error) {
-	toolchain, e := filepath.EvalSymlinks(runtime.GOROOT())
-	if e != nil || !filepath.IsAbs(toolchain) {
+func permissionsConfig(toolchain string) (string, string, error) {
+	if toolchain == "" || !filepath.IsAbs(toolchain) {
 		return "", "", Error("trusted_toolchain_unavailable")
 	}
 	st, e := os.Stat(filepath.Join(toolchain, "bin", "go"))
@@ -33,19 +31,16 @@ func permissionsConfig() (string, string, error) {
 	return profile, canonical, nil
 }
 
-func invocationArgs(model, reasoning, workspace, profile string) []string {
+func invocationArgs(model, reasoning, workspace, profile, goRoot string) []string {
 	q := strconv.Quote
 	root := filepath.Join(workspace, ".riido-runtime")
-	commandEnv := `shell_environment_policy.set={"PATH"=` + q(filepath.Join(runtime.GOROOT(), "bin")+":/usr/bin:/bin:/usr/sbin:/sbin") + `,"HOME"=` + q(filepath.Join(root, "home")) + `,"CODEX_HOME"=` + q(filepath.Join(root, "unauthed-codex-home")) + `,"TMPDIR"=` + q(filepath.Join(root, "tmp")) + `,"GOTMPDIR"=` + q(filepath.Join(root, "tmp")) + `,"GOCACHE"=` + q(filepath.Join(root, "gocache")) + `,"GOTOOLCHAIN"="local","GOPROXY"="off","GOSUMDB"="off","CGO_ENABLED"="0","LANG"="en_US.UTF-8","LC_ALL"="en_US.UTF-8"}`
-	if workspace == "$WORKSPACE" {
-		commandEnv = strings.ReplaceAll(commandEnv, runtime.GOROOT(), "$GOROOT")
-	}
+	commandEnv := `shell_environment_policy.set={"PATH"=` + q(filepath.Join(goRoot, "bin")+":/usr/bin:/bin:/usr/sbin:/sbin") + `,"GOROOT"=` + q(goRoot) + `,"HOME"=` + q(filepath.Join(root, "home")) + `,"CODEX_HOME"=` + q(filepath.Join(root, "unauthed-codex-home")) + `,"TMPDIR"=` + q(filepath.Join(root, "tmp")) + `,"GOTMPDIR"=` + q(filepath.Join(root, "tmp")) + `,"GOCACHE"=` + q(filepath.Join(root, "gocache")) + `,"GOTOOLCHAIN"="local","GOPROXY"="off","GOSUMDB"="off","CGO_ENABLED"="0","LANG"="en_US.UTF-8","LC_ALL"="en_US.UTF-8"}`
 	return []string{"--no-daemon", "exec", "--ignore-user-config", "--ignore-rules", "--ephemeral", "--json", "--skip-git-repo-check", "--disable", "apps", "--disable", "hooks", "--disable", "multi_agent", "--disable", "multi_agent_v2", "--disable", "memories", "--disable", "skill_mcp_dependency_install", "--color", "never", "-C", workspace, "-m", model, "-c", "model_reasoning_effort=" + q(reasoning), "-c", `approval_policy="never"`, "-c", `web_search="disabled"`, "-c", `default_permissions="riido-task"`, "-c", profile, "-c", "permissions.riido-task.network.enabled=false", "-c", `shell_environment_policy.inherit="none"`, "-c", commandEnv, "-"}
 }
 
 // This preflight is a fixed offline probe, never model inference. A successful
 // version string alone is not evidence that the requested profile is enforced.
-func permissionProbe(ctx context.Context, binary, workspace, private, home string, env []string, profile string) error {
+func permissionProbe(ctx context.Context, binary, workspace, private, home string, env []string, profile, goRoot string) error {
 	sentinel := filepath.Join(private, "outside-sentinel")
 	if os.WriteFile(sentinel, []byte("authored-public-isolation-probe"), 0600) != nil {
 		return Error("permission_probe_setup_failed")
@@ -75,7 +70,7 @@ func permissionProbe(ctx context.Context, binary, workspace, private, home strin
 	if _, e = os.Stat(auth); e != nil {
 		auth = sentinel
 	}
-	args := []string{"--no-daemon", "sandbox", "-C", workspace, "-P", profileName, "-c", profile, "-c", "permissions.riido-task.network.enabled=false", "--", "/bin/sh", "-c", script, "probe", sentinel, url, auth, filepath.Join(runtime.GOROOT(), "bin", "go")}
+	args := []string{"--no-daemon", "sandbox", "-C", workspace, "-P", profileName, "-c", profile, "-c", "permissions.riido-task.network.enabled=false", "--", "/bin/sh", "-c", script, "probe", sentinel, url, auth, filepath.Join(goRoot, "bin", "go")}
 	probeCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(probeCtx, binary, args...)

@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
 )
 
@@ -38,7 +39,7 @@ func (w *boundedOutput) Write(p []byte) (int, error) {
 	return w.b.Write(p)
 }
 
-func isolatedTests(parent context.Context, files []BaseFile, task string, timeout time.Duration) testOutcome {
+func isolatedTests(parent context.Context, files []BaseFile, task string, timeout time.Duration, goRoot string) testOutcome {
 	r := testOutcome{code: "independent_tests_failed"}
 	if !sandboxSupported() {
 		r.unknown, r.code = true, "isolation_unavailable"
@@ -91,13 +92,20 @@ func isolatedTests(parent context.Context, files []BaseFile, task string, timeou
 			return r
 		}
 	}
-	toolchain, err := filepath.EvalSymlinks(runtime.GOROOT())
+	if goRoot == "" {
+		goRoot = runtime.GOROOT()
+	}
+	if goRoot == "" || !filepath.IsAbs(goRoot) || strings.ContainsAny(goRoot, "\x00\r\n") {
+		r.unknown, r.code = true, "trusted_go_unavailable"
+		return r
+	}
+	toolchain, err := filepath.EvalSymlinks(goRoot)
 	if err != nil {
 		r.unknown, r.code = true, "trusted_go_unavailable"
 		return r
 	}
 	goBinary := filepath.Join(toolchain, "bin", "go")
-	if st, e := os.Stat(goBinary); e != nil || !st.Mode().IsRegular() {
+	if st, e := os.Lstat(goBinary); e != nil || !st.Mode().IsRegular() || st.Mode()&0111 == 0 {
 		r.unknown, r.code = true, "trusted_go_unavailable"
 		return r
 	}
@@ -115,7 +123,7 @@ func isolatedTests(parent context.Context, files []BaseFile, task string, timeou
 	probeOut := &boundedOutput{cancel: cancel}
 	probe.Stdout, probe.Stderr = probeOut, probeOut
 	probe.WaitDelay = time.Second
-	if probe.Run() != nil || probeOut.overflow || !bytes.HasPrefix(probeOut.b.Bytes(), []byte("go version ")) {
+	if probe.Run() != nil || probeOut.overflow || strings.TrimSpace(probeOut.b.String()) != "go version go1.27.1 "+runtime.GOOS+"/"+runtime.GOARCH {
 		r.unknown, r.code = true, "isolation_execution_unavailable"
 		return r
 	}

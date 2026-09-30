@@ -38,6 +38,7 @@ func parse(args []string) (config, error) {
 	f.StringVar(&c.request.ExpectedSpecSHA256, "task-spec-sha256", "", "expected TaskSpec SHA-256, also checked against the plan")
 	f.StringVar(&c.request.ExpectedCLIHash, "codex-sha256", "", "expected trusted executable SHA-256")
 	f.StringVar(&c.request.ExpectedCLIVersion, "codex-version", "", "exact expected version string; currently codex-cli0.158.0")
+	f.StringVar(&c.request.GoRoot, "go-root", "", "optional absolute trusted Go1.27.1 installation; required when packaged trimpath binary has no defaultGOROOT")
 	f.DurationVar(&c.request.Timeout, "timeout", taskrun.DefaultTimeout, "one main-attempt wall deadline, at most180s; independent verification has its own45s")
 	f.BoolVar(&c.spec, "spec", false, "print the public specification; never launch Codex")
 	if f.Parse(args) != nil || f.NArg() != 0 {
@@ -58,7 +59,7 @@ func execute(args []string, out, diagnostics io.Writer) int {
 
 func executeContext(ctx context.Context, args []string, out, diagnostics io.Writer) int {
 	if len(args) == 1 && (args[0] == "--help" || args[0] == "-h") {
-		fmt.Fprintln(out, "riido-taskrun --task catalog-min-context --spec\nriido-taskrun --execute --task TASK --model MODEL --reasoning low --base-dir BASE --private-dir NEW --codex-bin BIN --codex-sha256 SHA --codex-version 'codex-cli 0.158.0' --plan-file PLAN --plan-sha256 PLAN_SHA --attempt-ordinal N --task-spec-sha256 SPEC_SHA [--auth-source-dir AUTH] [--timeout 120s]\nOwns one explicit bounded public attempt on supported macOS. Raw traces stay private; no retries, resume, fallback or provider-identity claims. Exit0=accepted and process exited0,1=recorded unsuccessful attempt,2=prelaunch refusal,3=acceptance unavailable. Help/spec launch nothing.")
+		fmt.Fprintln(out, "riido-taskrun --task catalog-min-context --spec\nriido-taskrun --execute --task TASK --model MODEL --reasoning low --base-dir BASE --private-dir NEW --codex-bin BIN --codex-sha256 SHA --codex-version 'codex-cli 0.158.0' --plan-file PLAN --plan-sha256 PLAN_SHA --attempt-ordinal N --task-spec-sha256 SPEC_SHA [--go-root GOROOT] [--auth-source-dir AUTH] [--timeout 120s]\nOwns one explicit bounded public attempt on supported macOS. Packaged trimpath builds need explicit --go-root when no compiled-in Go installation is available. Raw traces stay private; no retries, resume, fallback or provider-identity claims. Exit0=accepted and process exited0,1=recorded unsuccessful attempt,2=prelaunch refusal,3=acceptance unavailable. Help/spec launch nothing.")
 		return 0
 	}
 	c, e := parse(args)

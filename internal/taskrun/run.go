@@ -46,6 +46,7 @@ type Request struct {
 	ExpectedSpecSHA256 string
 	ExpectedCLIHash    string
 	ExpectedCLIVersion string
+	GoRoot             string
 	Timeout            time.Duration
 }
 
@@ -88,6 +89,8 @@ type Record struct {
 	CodexVersion              string                `json:"codex_version"`
 	ExecutableSHA256          string                `json:"executable_sha256"`
 	ExecutableEvidence        string                `json:"executable_evidence"`
+	GoVersion                 string                `json:"go_version"`
+	GoBinarySHA256            string                `json:"go_binary_sha256"`
 	InvocationSHA256          string                `json:"canonical_invocation_sha256"`
 	PermissionsSHA256         string                `json:"canonical_permissions_sha256"`
 	PermissionsProbe          string                `json:"permissions_probe"`
@@ -154,6 +157,9 @@ func validateRequest(req Request) error {
 	}
 	if req.AuthSourceDir != "" && (!filepath.IsAbs(req.AuthSourceDir) || strings.ContainsAny(req.AuthSourceDir, "\x00\r\n")) {
 		return Error("invalid_auth_source")
+	}
+	if req.GoRoot != "" && (!filepath.IsAbs(req.GoRoot) || strings.ContainsAny(req.GoRoot, "\x00\r\n")) {
+		return Error("invalid_go_root")
 	}
 	return nil
 }
@@ -275,9 +281,9 @@ func stageAuth(source, home string) error {
 	return nil
 }
 
-func ownedEnvironment(private, home, workspace string) []string {
+func ownedEnvironment(private, home, workspace, goRoot string) []string {
 	// No inherited PATH, user config, API keys, token variables or shell startup.
-	return []string{"HOME=" + filepath.Join(private, "home"), "CODEX_HOME=" + home, "TMPDIR=" + filepath.Join(private, "tmp"), "PATH=" + filepath.Join(runtime.GOROOT(), "bin") + ":/usr/bin:/bin:/usr/sbin:/sbin", "LANG=en_US.UTF-8", "LC_ALL=en_US.UTF-8", "NO_COLOR=1", "TERM=dumb", "GOTOOLCHAIN=local", "GOPROXY=off", "GOSUMDB=off", "CGO_ENABLED=0", "GOCACHE=" + filepath.Join(workspace, ".gocache")}
+	return []string{"HOME=" + filepath.Join(private, "home"), "CODEX_HOME=" + home, "TMPDIR=" + filepath.Join(private, "tmp"), "PATH=" + filepath.Join(goRoot, "bin") + ":/usr/bin:/bin:/usr/sbin:/sbin", "GOROOT=" + goRoot, "LANG=en_US.UTF-8", "LC_ALL=en_US.UTF-8", "NO_COLOR=1", "TERM=dumb", "GOTOOLCHAIN=local", "GOPROXY=off", "GOSUMDB=off", "CGO_ENABLED=0", "GOCACHE=" + filepath.Join(workspace, ".gocache")}
 }
 
 func executableIdentity(binary string, env []string, expected string) (string, string, error) {
@@ -340,6 +346,8 @@ type canonicalInvocation struct {
 	TimeoutMillis int64    `json:"timeout_millis"`
 	Permissions   string   `json:"permissions_sha256"`
 	Plan          string   `json:"plan_sha256"`
+	GoVersion     string   `json:"go_version"`
+	GoBinary      string   `json:"go_binary_sha256"`
 }
 
 // Run never retries, resumes or falls back. An error means no main attempt was
@@ -357,6 +365,11 @@ func Run(ctx context.Context, req Request) (Record, error) {
 	if !executionSupported() {
 		return Record{}, Error("execution_isolation_unavailable")
 	}
+	toolchain, e := resolveGoRoot(ctx, req.GoRoot)
+	if e != nil {
+		return Record{}, e
+	}
+	req.GoRoot = toolchain.root
 	resolvedBinary, e := filepath.EvalSymlinks(req.CodexBinary)
 	if e != nil {
 		return Record{}, Error("trusted_executable_unavailable")
@@ -367,7 +380,7 @@ func Run(ctx context.Context, req Request) (Record, error) {
 		return Record{}, e
 	}
 	req.PrivateDir = private
-	profileID, e := validatePlan(req)
+	profileID, e := validatePlan(req, toolchain)
 	if e != nil {
 		return Record{}, e
 	}
@@ -395,7 +408,7 @@ func Run(ctx context.Context, req Request) (Record, error) {
 	if e = stageAuth(req.AuthSourceDir, home); e != nil {
 		return Record{}, e
 	}
-	env := ownedEnvironment(req.PrivateDir, home, workspace)
+	env := ownedEnvironment(req.PrivateDir, home, workspace, req.GoRoot)
 	executableSHA, version, e := executableIdentity(req.CodexBinary, env, req.ExpectedCLIHash)
 	if e != nil {
 		return Record{}, e
@@ -404,11 +417,11 @@ func Run(ctx context.Context, req Request) (Record, error) {
 		return Record{}, Error("trusted_executable_pin_mismatch")
 	}
 	spec, _ := taskverify.TaskSpec(req.TaskID)
-	profile, canonicalPermissions, e := permissionsConfig()
+	profile, canonicalPermissions, e := permissionsConfig(req.GoRoot)
 	if e != nil {
 		return Record{}, e
 	}
-	if e = permissionProbe(ctx, req.CodexBinary, workspace, req.PrivateDir, home, env, profile); e != nil {
+	if e = permissionProbe(ctx, req.CodexBinary, workspace, req.PrivateDir, home, env, profile, req.GoRoot); e != nil {
 		return Record{}, e
 	}
 	if e = os.MkdirAll(filepath.Join(workspace, ".riido-runtime", "tmp"), 0700); e != nil {
@@ -417,12 +430,14 @@ func Run(ctx context.Context, req Request) (Record, error) {
 	if e = os.MkdirAll(filepath.Join(workspace, ".riido-runtime", "home"), 0700); e != nil {
 		return Record{}, Error("private_stage_failed")
 	}
-	args := invocationArgs(req.Model, req.Reasoning, workspace, profile)
+	args := invocationArgs(req.Model, req.Reasoning, workspace, profile, req.GoRoot)
 	r := Record{Schema: Schema, PlanSHA256: req.PlanSHA256, PlanEvidence: "supplied_plan_bytes_and_ordered_attempt_validated_precommit_not_attested", AttemptOrdinal: req.AttemptOrdinal, ProfileID: profileID, Provenance: "executor_owned_single_attempt", TaskID: req.TaskID, TaskSpecSHA256: digestJSON(spec), PromptSHA256: digest([]byte(spec.Prompt)), BaseRevision: taskverify.BaseRevision, BaseSHA256: digestJSON(hashes(base)), WorkspaceSHA256: digestJSON(hashes(all)), CodexVersion: version, ExecutableSHA256: executableSHA, PermissionsSHA256: digest([]byte(canonicalPermissions)), PermissionsProbe: "workspace_allowed_sibling_read_write_and_network_denied", ObservedModel: "unknown", AttemptScope: "one_owned_process_no_retries_other_attempts_unassessed", SummaryStatus: "unknown", CandidateStatus: "unknown", VerificationStatus: "unknown", OutsideClosure: "unassessed_including_runtime_cache_and_added_files"}
 	r.Applied = AppliedRequest{Model: req.Model, Reasoning: req.Reasoning, Evidence: "explicit_executor_request_not_provider_identity", Profile: profileName, Approvals: "never"}
 	r.AuthCleanup = "pending"
 	r.ExecutableEvidence = "resolved_path_and_prelaunch_byte_pins_not_host_attestation"
-	r.InvocationSHA256 = digestJSON(canonicalInvocation{Args: invocationArgs(req.Model, req.Reasoning, "$WORKSPACE", canonicalPermissions), Task: req.TaskID, Model: req.Model, Reasoning: req.Reasoning, Version: version, Executable: executableSHA, Prompt: r.PromptSHA256, Workspace: r.WorkspaceSHA256, TimeoutMillis: req.Timeout.Milliseconds(), Permissions: r.PermissionsSHA256, Plan: req.PlanSHA256})
+	r.GoVersion = toolchain.version
+	r.GoBinarySHA256 = toolchain.hash
+	r.InvocationSHA256 = digestJSON(canonicalInvocation{Args: invocationArgs(req.Model, req.Reasoning, "$WORKSPACE", canonicalPermissions, "$GOROOT"), Task: req.TaskID, Model: req.Model, Reasoning: req.Reasoning, Version: version, Executable: executableSHA, Prompt: r.PromptSHA256, Workspace: r.WorkspaceSHA256, TimeoutMillis: req.Timeout.Milliseconds(), Permissions: r.PermissionsSHA256, Plan: req.PlanSHA256, GoVersion: toolchain.version, GoBinary: toolchain.hash})
 	childCtx, cancel := context.WithTimeout(ctx, req.Timeout)
 	defer cancel()
 	cmd := exec.CommandContext(childCtx, req.CodexBinary, args...)
@@ -531,7 +546,7 @@ func Run(ctx context.Context, req Request) (Record, error) {
 			r.CandidateFileCount = len(files)
 			r.CandidateStatus = "captured_task_closure"
 			verifyStart := time.Now()
-			report, err := taskverify.Verify(ctx, taskverify.Request{TaskID: req.TaskID, BaseRevision: taskverify.BaseRevision, BaseFiles: base, CandidateDir: candidate, Timeout: taskverify.DefaultTimeout})
+			report, err := taskverify.Verify(ctx, taskverify.Request{TaskID: req.TaskID, BaseRevision: taskverify.BaseRevision, BaseFiles: base, CandidateDir: candidate, Timeout: taskverify.DefaultTimeout, GoRoot: req.GoRoot})
 			verifyMillis := time.Since(verifyStart).Milliseconds()
 			r.VerificationWallMillis = &verifyMillis
 			if err == nil {
