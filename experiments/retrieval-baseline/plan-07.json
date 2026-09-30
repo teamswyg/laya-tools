@@ -1,0 +1,37 @@
+{
+  "schema": "riido-retrieval-plan-07",
+  "source_projection_sha256": "e813e272dc6be1f7428d537a328dd392ba2acdce7afc13c8cc04993b09fd42a0",
+  "membership_sha256": "3a6d161ac50e16f18b841645968f47af32055350e460c99a96d733ff217ff37d",
+  "documents": 3009,
+  "distinct_questions": 2948,
+  "minimum_questions": 2400,
+  "modes": [
+    "raw",
+    "identifiers"
+  ],
+  "primary_comparison": "identifiers versus raw BM25; all questions and name-present/absent strata",
+  "selection": "three root-license-checked repositories; exclude generated markers, nested notices, other license headers, verbatim question in code; exact source fragment match required",
+  "candidate_order": "SHA256(repository NUL path NUL code), no query/label dependent ordering",
+  "ground_truth": "all known targets for normalized identical query; other candidates unjudged",
+  "metrics": [
+    "Recall@1",
+    "Recall@5",
+    "Recall@10",
+    "MRR",
+    "mean/p50/p95 known-target rank",
+    "build time including normalization",
+    "query p50/p95 including normalization",
+    "whole process peak RSS"
+  ],
+  "training": false,
+  "holdouts_used": false,
+  "production_promotion": false,
+  "limitations": [
+    "documentation proxy; no actual user task success or LLM savings",
+    "only three source repositories; not repository-generalization evidence",
+    "no confidence claim from treating every query as independent",
+    "public pretrained overlap not applicable to these nonlearned baselines; semantic clones not fully audited",
+    "source-header checks are evidence, not exhaustive legal clearance"
+  ],
+  "freeze": "committed before first real-corpus ranking; fixture tests are not corpus evaluation"
+}
