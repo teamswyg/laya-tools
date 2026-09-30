@@ -50,3 +50,5 @@ Plan/data hashes were fixed before fitting. Eight selected models were stored be
 Apple M4 Pro, Go1.27.1: whole training wall2.34s/userCPU1.18s, maximum RSS26,607,616B (25.4MiB), zero swaps. One INT8 CLI process: maximum RSS5,701,632B (5.44MiB), wall0.37s including startup/loading, zero swaps. This is not warm p95 or total agent memory. No GPU used.
 
 Code and original synthetic data are published under the project's Apache-2.0 terms. No third-party weights/data were copied. Weights stay local and excluded from GitHub; a new HF release awaits a strict publication verifier for this format. Overall usefulness remains an active goal.
+
+Updated requirement: prepare [at least2,400 evaluation requests](../semantic-scale/README.en.md). A pass on the24-case probe is not a deployment recommendation.
