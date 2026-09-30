@@ -2,6 +2,8 @@
 
 [English](mps-training.en.md) · [계획 이슈 #11](https://github.com/teamswyg/laya-tools/issues/11)
 
+이 문서는 최초 준비 검사 기록입니다. 이후 완료된 실제 모델 학습은 [MPS pilot 결과](mps-pilot.ko.md)를 확인하세요.
+
 일반 사용자는 Go 바이너리만 사용합니다. 이 문서의 Python은 유지보수자의 학습·변환 실험에만 필요합니다. `riidolaya`의 실행 의존성이나 기본 CI에 추가하지 않습니다.
 
 ## 이번에 확인한 것

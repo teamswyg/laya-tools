@@ -1,0 +1,317 @@
+{
+  "schema_version": 1,
+  "status": "experimental_synthetic_pilot",
+  "task": "difficulty",
+  "base_revision": "55cf4c4ebb4ebe31b2550e8bdf3bd21b99753851",
+  "base_sha256": "891102d372688fc2a094dac56a384bc537b87c63f21f9f3dac0be2b7cbc8d86c",
+  "data_sha256": "83eba49aafcfe62eadcab1ce897762ca81de193fc54405bc62a44c2c078f3a18",
+  "seed": 1729,
+  "labels": [
+    "fast",
+    "standard",
+    "strong"
+  ],
+  "question": {
+    "t": "choice",
+    "ins": "Select the minimum coding capability needed to complete the user's request correctly.",
+    "crit": {
+      "fast": "a small, obvious edit, typo, formatting, or straightforward factual question",
+      "standard": "a bounded feature or bug fix with ordinary implementation and tests",
+      "strong": "difficult debugging, architecture, security, concurrency, migrations, or ambiguous multi-file work"
+    }
+  },
+  "split_counts": {
+    "train": 24,
+    "validation": 6,
+    "calibration": 9,
+    "test": 9
+  },
+  "max_len": 512,
+  "head_max_len": 192,
+  "device": "mps",
+  "dtype": "float32",
+  "cpu_fallback": false,
+  "trainable_parameters": 26248193,
+  "trainable_names": [
+    "head.layers.0.self_attn.in_proj_weight",
+    "head.layers.0.self_attn.in_proj_bias",
+    "head.layers.0.self_attn.out_proj.weight",
+    "head.layers.0.self_attn.out_proj.bias",
+    "head.layers.0.linear1.weight",
+    "head.layers.0.linear1.bias",
+    "head.layers.0.linear2.weight",
+    "head.layers.0.linear2.bias",
+    "head.layers.0.norm1.weight",
+    "head.layers.0.norm1.bias",
+    "head.layers.0.norm2.weight",
+    "head.layers.0.norm2.bias",
+    "head.layers.1.self_attn.in_proj_weight",
+    "head.layers.1.self_attn.in_proj_bias",
+    "head.layers.1.self_attn.out_proj.weight",
+    "head.layers.1.self_attn.out_proj.bias",
+    "head.layers.1.linear1.weight",
+    "head.layers.1.linear1.bias",
+    "head.layers.1.linear2.weight",
+    "head.layers.1.linear2.bias",
+    "head.layers.1.norm1.weight",
+    "head.layers.1.norm1.bias",
+    "head.layers.1.norm2.weight",
+    "head.layers.1.norm2.bias",
+    "type_emb.weight",
+    "scorer.0.weight",
+    "scorer.0.bias",
+    "scorer.1.weight",
+    "scorer.1.bias",
+    "scorer.3.weight",
+    "scorer.3.bias"
+  ],
+  "frozen_weights_unchanged": true,
+  "head_weights_changed": true,
+  "base_validation": {
+    "n": 6,
+    "correct": 4,
+    "accuracy": 0.6666666865348816,
+    "nll": 0.5781771540641785,
+    "brier": 0.36400559544563293,
+    "ece_10_bins": 0.27397945523262024,
+    "accepted": 0,
+    "accepted_correct": 0,
+    "coverage": 0.0,
+    "accepted_precision": null
+  },
+  "candidates": [
+    {
+      "lr": 1e-05,
+      "epoch": 1,
+      "validation": {
+        "n": 6,
+        "correct": 4,
+        "accuracy": 0.6666666865348816,
+        "nll": 0.5674328207969666,
+        "brier": 0.35602688789367676,
+        "ece_10_bins": 0.2699549961835146,
+        "accepted": 0,
+        "accepted_correct": 0,
+        "coverage": 0.0,
+        "accepted_precision": null
+      }
+    },
+    {
+      "lr": 1e-05,
+      "epoch": 2,
+      "validation": {
+        "n": 6,
+        "correct": 4,
+        "accuracy": 0.6666666865348816,
+        "nll": 0.5580351948738098,
+        "brier": 0.3493173122406006,
+        "ece_10_bins": 0.2666673809289932,
+        "accepted": 0,
+        "accepted_correct": 0,
+        "coverage": 0.0,
+        "accepted_precision": null
+      }
+    },
+    {
+      "lr": 5e-05,
+      "epoch": 1,
+      "validation": {
+        "n": 6,
+        "correct": 4,
+        "accuracy": 0.6666666865348816,
+        "nll": 0.5239462852478027,
+        "brier": 0.3240373432636261,
+        "ece_10_bins": 0.3805929273366928,
+        "accepted": 0,
+        "accepted_correct": 0,
+        "coverage": 0.0,
+        "accepted_precision": null
+      }
+    },
+    {
+      "lr": 5e-05,
+      "epoch": 2,
+      "validation": {
+        "n": 6,
+        "correct": 5,
+        "accuracy": 0.8333333134651184,
+        "nll": 0.47045907378196716,
+        "brier": 0.28701603412628174,
+        "ece_10_bins": 0.2400137484073639,
+        "accepted": 0,
+        "accepted_correct": 0,
+        "coverage": 0.0,
+        "accepted_precision": null
+      }
+    }
+  ],
+  "selected": {
+    "lr": 5e-05,
+    "epoch": 2,
+    "validation": {
+      "n": 6,
+      "correct": 5,
+      "accuracy": 0.8333333134651184,
+      "nll": 0.47045907378196716,
+      "brier": 0.28701603412628174,
+      "ece_10_bins": 0.2400137484073639,
+      "accepted": 0,
+      "accepted_correct": 0,
+      "coverage": 0.0,
+      "accepted_precision": null
+    }
+  },
+  "temperature": 1.55,
+  "calibration": {
+    "n": 9,
+    "correct": 6,
+    "accuracy": 0.6666666865348816,
+    "nll": 0.7342075705528259,
+    "brier": 0.4488013982772827,
+    "ece_10_bins": 0.20423458889126778,
+    "accepted": 0,
+    "accepted_correct": 0,
+    "coverage": 0.0,
+    "accepted_precision": null
+  },
+  "test": {
+    "n": 9,
+    "correct": 6,
+    "accuracy": 0.6666666865348816,
+    "nll": 0.6558576822280884,
+    "brier": 0.37295377254486084,
+    "ece_10_bins": 0.21187112480401993,
+    "accepted": 0,
+    "accepted_correct": 0,
+    "coverage": 0.0,
+    "accepted_precision": null
+  },
+  "base_test": {
+    "n": 9,
+    "correct": 6,
+    "accuracy": 0.6666666865348816,
+    "nll": 0.7384887933731079,
+    "brier": 0.43029868602752686,
+    "ece_10_bins": 0.22289758548140526,
+    "accepted": 0,
+    "accepted_correct": 0,
+    "coverage": 0.0,
+    "accepted_precision": null
+  },
+  "test_predictions": [
+    {
+      "id": "difficulty-039",
+      "expected": "fast",
+      "predicted": "fast",
+      "probabilities": [
+        0.790634274482727,
+        0.19265547394752502,
+        0.016710301861166954
+      ]
+    },
+    {
+      "id": "difficulty-040",
+      "expected": "fast",
+      "predicted": "fast",
+      "probabilities": [
+        0.8015432953834534,
+        0.17248885333538055,
+        0.02596786618232727
+      ]
+    },
+    {
+      "id": "difficulty-041",
+      "expected": "fast",
+      "predicted": "fast",
+      "probabilities": [
+        0.6555320620536804,
+        0.29356521368026733,
+        0.05090273544192314
+      ]
+    },
+    {
+      "id": "difficulty-042",
+      "expected": "standard",
+      "predicted": "standard",
+      "probabilities": [
+        0.18211309611797333,
+        0.7621262073516846,
+        0.055760759860277176
+      ]
+    },
+    {
+      "id": "difficulty-043",
+      "expected": "standard",
+      "predicted": "standard",
+      "probabilities": [
+        0.3134470283985138,
+        0.629226565361023,
+        0.057326436042785645
+      ]
+    },
+    {
+      "id": "difficulty-044",
+      "expected": "standard",
+      "predicted": "standard",
+      "probabilities": [
+        0.16937124729156494,
+        0.7463171482086182,
+        0.08431155979633331
+      ]
+    },
+    {
+      "id": "difficulty-045",
+      "expected": "strong",
+      "predicted": "standard",
+      "probabilities": [
+        0.19579868018627167,
+        0.6771718263626099,
+        0.12702949345111847
+      ]
+    },
+    {
+      "id": "difficulty-046",
+      "expected": "strong",
+      "predicted": "standard",
+      "probabilities": [
+        0.2403874695301056,
+        0.40773001313209534,
+        0.35188254714012146
+      ]
+    },
+    {
+      "id": "difficulty-047",
+      "expected": "strong",
+      "predicted": "standard",
+      "probabilities": [
+        0.02725946716964245,
+        0.5616611838340759,
+        0.4110793471336365
+      ]
+    }
+  ],
+  "updates": 96,
+  "first_loss": 0.5173646211624146,
+  "last_loss": 0.5380336046218872,
+  "reload_max_logit_error": 0.0,
+  "optimizer_resume_verified": false,
+  "elapsed_seconds": 25.18468404188752,
+  "peak_process_rss_bytes": 1924317184,
+  "step_end_mps_allocated_max_bytes": 2003953664,
+  "step_end_mps_driver_max_bytes": 3250634752,
+  "limits": {
+    "process_rss_gib": 5,
+    "min_free_disk_gib": 30,
+    "min_system_free_percent": 20,
+    "mps_memory_fraction": 0.25,
+    "minutes": 20
+  },
+  "limitations": [
+    "Original synthetic development data; not independent repository goldens",
+    "Tiny calibration/test partitions; no production claim",
+    "No end-to-end coding cost evaluation",
+    "Head replacement weights require exact base; not a standalone or Go ONNX artifact",
+    "Step-end MPS samples are not peaks; unified memory overlaps RSS",
+    "Saved optimizer checkpoint; resume training not yet validated"
+  ]
+}
