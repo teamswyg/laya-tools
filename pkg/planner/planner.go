@@ -25,6 +25,7 @@ type Plan struct {
 	Mode             string                 `json:"mode"`
 	Status           string                 `json:"status"` // recommend, hold, or blocked
 	RecommendedModel string                 `json:"recommended_model,omitempty"`
+	Direction        string                 `json:"direction,omitempty"` // upgrade, downgrade, lateral, initial, or unchanged; absent when blocked
 	Reason           string                 `json:"reason"`
 	Selection        catalog.Selection      `json:"selection"`
 	Switch           *switchpolicy.Decision `json:"switch,omitempty"`
@@ -74,12 +75,23 @@ func Build(c Config, r Request) (Plan, error) {
 	p.Reason = d.Reason
 	if d.Action == "recommend" {
 		p.Status, p.RecommendedModel = "recommend", target.ID
+		switch {
+		case current == nil:
+			p.Direction = "initial"
+		case target.Rank > current.Rank:
+			p.Direction = "upgrade"
+		case target.Rank < current.Rank:
+			p.Direction = "downgrade"
+		default:
+			p.Direction = "lateral"
+		}
 		return p, nil
 	}
 	// A switch guard cannot authorize keeping a model that violates constraints.
 	for _, v := range s.Candidates {
 		if current != nil && v.ID == current.ID && v.Eligible {
 			p.Status, p.RecommendedModel = "hold", current.ID
+			p.Direction = "unchanged"
 			return p, nil
 		}
 	}

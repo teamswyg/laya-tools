@@ -74,3 +74,49 @@ func BenchmarkBuild(b *testing.B) {
 		}
 	}
 }
+
+func TestBidirectionalPlans(t *testing.T) {
+	for _, tc := range []struct {
+		name, status, direction, model string
+		change                         func(*planner.Config, *planner.Request)
+	}{
+		{"downgrade", "recommend", "downgrade", "example-fast", func(c *planner.Config, r *planner.Request) {}},
+		{"upgrade", "recommend", "upgrade", "example-strong", func(c *planner.Config, r *planner.Request) {
+			r.Current = "example-fast"
+			r.Assessment.Tier = 2
+			n := 0
+			r.PromptsSinceSwitch = &n
+		}},
+		{"pinned upgrade blocked", "blocked", "", "", func(c *planner.Config, r *planner.Request) {
+			r.Current = "example-fast"
+			r.Assessment.Tier = 2
+			r.Pinned = true
+		}},
+		{"uncertain upgrade blocked", "blocked", "", "", func(c *planner.Config, r *planner.Request) {
+			r.Current = "example-fast"
+			r.Assessment.Tier = 2
+			r.Assessment.Uncertain = true
+		}},
+		{"upgrade budget blocked", "blocked", "", "", func(c *planner.Config, r *planner.Request) {
+			r.Current = "example-fast"
+			r.Assessment.Tier = 2
+			zero := 0.0
+			c.Catalog.Models[2].BudgetUSD = &zero
+		}},
+		{"hold", "hold", "unchanged", "example-strong", func(c *planner.Config, r *planner.Request) { r.Pinned = true }},
+		{"initial", "recommend", "initial", "example-fast", func(c *planner.Config, r *planner.Request) { r.Current = ""; r.ContextTokens = 0 }},
+		{"lateral", "recommend", "lateral", "example-fast", func(c *planner.Config, r *planner.Request) { c.Catalog.Models[0].Rank = c.Catalog.Models[2].Rank }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c, r := fixtures(t)
+			tc.change(&c, &r)
+			p, err := planner.Build(c, r)
+			if err != nil || p.Status != tc.status || p.Direction != tc.direction || p.RecommendedModel != tc.model {
+				t.Fatalf("plan=%+v err=%v", p, err)
+			}
+			if tc.name == "upgrade" && p.Reason != "quality_upgrade" {
+				t.Fatal(p)
+			}
+		})
+	}
+}
