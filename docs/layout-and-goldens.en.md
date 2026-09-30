@@ -20,7 +20,7 @@ Apple M4 Pro, Go 1.27.1, 256 synthetic source files plus two existing fixture fi
 | Index construction | 66.42 ms/op | 71.53 ms/op | About 7.7% slower |
 | Index build allocations | 15.81 MB/op | 15.91 MB/op | About 0.6% higher; not retained heap |
 
-This improves repeated retrieval, not total one-shot CLI or model inference latency by 2×. [Raw results](../benchmarks/results/layout-goldens-20260930) are public. Local pprof showed map access/assignment and the search path, but substantial macOS runtime/GC work too. Raw profiles are not published and do not establish a single dominant cause.
+This improves repeated retrieval, not total one-shot CLI or model inference latency by 2×. Current App CLI/JSONL/MCP search rebuilds the index on each request: end-to-end improvement on that path is unproven and construction cost can increase. No index cache or invalidation policy was added. [Raw results](../benchmarks/results/layout-goldens-20260930) are public. Local pprof showed map access/assignment and the search path, but substantial macOS runtime/GC work too. Raw profiles are not published and do not establish a single dominant cause.
 
 ## SIMD and synchronization review
 
