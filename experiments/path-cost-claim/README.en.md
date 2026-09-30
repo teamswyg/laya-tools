@@ -1,6 +1,6 @@
 # Experiment 46 plan: a tiny auxiliary-search claim model
 
-**Corpus fitting has not started.** Freeze the [first FP32 plan](plan-46.json) before inspecting the new cost rows. The model will suggest when auxiliary file search may be worth trying. Ten candidate models are planned; that is not the number of evaluated tasks.
+**All ten candidates were fitted on 4,456 training and 2,599 validation examples; usefulness gates failed.** Start with the [results and resource observation](RESULTS-46.en.md). Below is the explanation of the [first FP32 plan](plan-46.json), committed before cost inspection. Ten candidates are not ten evaluated tasks. Neither the plan nor its gates were changed after observing results.
 
 ## What do 24 and 2,400 count?
 
@@ -23,7 +23,7 @@ Inputs are the fixed 16 numeric features from baseline search. Raw queries, repo
 
 Require at least 2,400 source-qualified successful cost rows in both training and validation, with at least 100 in each of five validation repositories. Keep all 7,335 training and 5,686 validation tasks in coverage. Missing data, invalid targets and source conditions do not become negative labels. Protect the 2,402 final tasks until model and threshold are sealed and final evaluation is separately prepared.
 
-The [experiment 45 readiness join](../path-cost-data/readiness-45.json) yields **3,048 training and 107 validation** rows after joining conditional source candidates with successful costs. Training count alone does not permit fitting. These are operational candidates for a narrow local numeric scope, not proof of all historical issue rights or public-release permission.
+The [earlier experiment 45 readiness join](../path-cost-data/readiness-45.json) had **3,048 training and 107 validation** rows, so fitting did not start. Additional acquisition produced an [actual input seal](input-46.json) with **4,456 training and 2,599 validation** examples, meeting both gates. These are operational candidates for a narrow local numeric scope, not proof of all historical issue rights or public-release permission.
 
 ## Objective and candidate count
 
@@ -41,6 +41,6 @@ There are 16 FP32 coefficients, with Go-owned contiguous training columns. Discl
 
 ## Implementation preparation and remaining work
 
-The existing Go learner supports dimension16, while old three-repository wrappers do not fit the new cohort. `internal/pathclaim` prepares the numeric dataset, fixed conditions and model format. Synthetic test fitting does not mean real corpus fitting is complete. The future runner must execute all ten trials, capture every epoch, seal actual input/source/runner hashes, measure resources and review publication notices.
+`cmd/riido-pathclaim`, `internal/pathinput` and `internal/pathclaim` join reviewed source, measured costs, fixed conditions and model formats. All ten actual trials and every epoch were executed; reproduction and resources are recorded in the [results](RESULTS-46.en.md). The maintainer runner reuses the same binary after input sealing and does not automatically score final, register a production policy or publish weights. Raw user/source text and model files are excluded from Git.
 
 After useful FP32 signal, separately compare FP32/INT8/ternary PTQ/ternary training with identical inputs and budgets. Packing 16 coefficients alone need not accelerate the whole pipeline. File search still needs actual agent completion and total usage evidence; model up/down routing, dependency-aware decomposition and repository selection require their own golden sets. First-target pages cannot replace the full project objective.

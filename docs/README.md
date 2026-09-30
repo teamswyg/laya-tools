@@ -16,6 +16,8 @@ Choose a language; both versions cover the same features, measurements, and limi
 | Repository selection preview / 저장소 선택 | [Preview and evaluation](repository-routing-preview.en.md) | [Preview와 평가](repository-routing-preview.ko.md) |
 | License audit / 라이선스 검토 | [Audit](license-audit.en.md) | [검토](license-audit.ko.md) |
 | Initial measurements / 초기 측정 | [Measurements](measurements.md) | [측정](measurements.ko.md) |
+| 2,400+ tasks per role: actual tiny-head training / 실제 작은 주장 모델 학습 | [Results, failure and memory](../experiments/path-cost-claim/RESULTS-46.en.md) | [결과·실패·메모리](../experiments/path-cost-claim/RESULTS-46.ko.md) |
+| Historical source review 47 / 과거 출처 검토 47 | [Source scope](../experiments/path-cost-data/SOURCE-REVIEW-47.en.md) | [출처 범위](../experiments/path-cost-data/SOURCE-REVIEW-47.ko.md) |
 | Maintainer model export / 유지보수 모델 변환 | [Model build](model-build.md) | [모델 빌드](model-build.ko.md) |
 
 The Wiki focuses on installation, choosing a workflow, interpreting results, integrating agents/Go, and troubleshooting. These documents retain technical evidence and provenance. Raw data, fixture JSON, and license originals are shared across languages rather than translated.
