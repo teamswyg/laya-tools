@@ -83,3 +83,11 @@ This example recommends `example-fast` → `example-strong` with `direction: upg
 `direction` is `upgrade`, `downgrade`, `lateral` (same rank), `initial` (first selection), or `unchanged` (hold); blocked plans omit it. Upgrades prioritize quality over cache payback and cooldown, but still respect budgets, capabilities, context limits, and manual pins. Uncertain Laya output is not upgrade evidence; if the current model also fails the constraints, the result is `blocked`. With default configuration, catalog confidence must also reach 0.9: the switch upgrade threshold of 0.5 alone is insufficient.
 
 These are recommendations only. No active Codex conversation is switched and no failure is automatically detected or retried. An integrating agent must update the current model and assessment at each task stage.
+
+## Deciding whether to split work — design preview
+
+Decomposition is not an executable feature yet. A generative agent proposes a plan; Laya will be evaluated/trained to choose keep atomic, split sequentially, split with parallel work, or request more context. Go checks dependencies, declared shared-resource conflicts, and budgets. Laya does not generate subtask descriptions or code.
+
+For example, establishing a contract before implementation needs ordering; independent modules with fixed contracts may have concurrent work. Different files alone do not establish independence. Measure savings using success rates and total cost including planning, integration, and retries.
+
+[Decomposition design and external review](https://github.com/teamswyg/laya-tools/blob/main/docs/decomposition-preview.en.md) · [MPS training preparation](https://github.com/teamswyg/laya-tools/blob/main/docs/mps-training.en.md) · [Tracking issue #11](https://github.com/teamswyg/laya-tools/issues/11)
