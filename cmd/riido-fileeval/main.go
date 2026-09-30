@@ -245,7 +245,7 @@ func run() error {
 	if e = os.WriteFile(filepath.Join(*out, "results.json"), append(b, '\n'), 0600); e != nil {
 		return e
 	}
-	fmt.Fprintf(os.Stderr, "index_and_rank_elapsed_ns=%d\n", time.Since(started).Nanoseconds())
+	fmt.Fprintf(os.Stderr, "evaluation_loop_elapsed_ns=%d\n", time.Since(started).Nanoseconds())
 	return nil
 }
 func main() {
