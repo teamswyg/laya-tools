@@ -1,0 +1,21 @@
+{
+  "schema": "riido-laya-original-plan-v1",
+  "purpose": "Matched original-weight FP32 validation versus fixed experiment 17b INT8; not training or independent final evaluation",
+  "source_revision": "tindang/laya-code@25f97e5a2ec5f8cf7218a4f67504367d8832e1fe",
+  "source_weights_sha256": "e759adc16a499aef407d4d5672b912ad20baf15d44248e835b3ee3ff5da91b4a",
+  "data_sha256": "4d1a227fe3652992d1e98f43fa9dc1b8f54a6c27a1a24b9d182bdfb8cbc3274c",
+  "membership_sha256": "d90eda8e8a423eff44847ff46ef19b468a57ac2791d45c57e7e8ba39a4ee9902",
+  "split": "validation only, 607 cases; original 4096-byte/64-word scope yields 553 before token exclusions",
+  "protocol": "same documented noul state, question and two option orders as 17b; forward true probability is primary; reverse and average are diagnostics",
+  "primary": "eligible matched AUC; gate >=0.60 and >= matched BM25+0.03, unchanged from 17b",
+  "baseline": "17b fixed INT8 aggregate and development-only BM25 statistics",
+  "execution": "Go prepares only validation inputs without labels; Python original FP32 CPU scores them; Go verifies exact request sequence and evaluates",
+  "token_parity": "Python independently reconstructs upstream tokens/markers for every request and aborts on mismatch",
+  "threads": 4,
+  "maximum_tokens": 512,
+  "inference_time_limit_seconds": 900,
+  "sampled_rss_limit_gib": 8,
+  "limits": "checked between calls; not a within-call hard cap",
+  "reserves": "read only during original full-source hashing and group partitioning; never model-scored",
+  "production_ready": false
+}
