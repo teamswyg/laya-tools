@@ -1,0 +1,90 @@
+{
+  "schema": "riido-task-routing-predictions-v1",
+  "plan_sha256": "186a59fd11f09cce4e1e26fe3b79919a7bf1fc65db19caa25a3d2aa7aaa1a967",
+  "router_source_revision": "daf73cfd45089216b023642763f45e84dd48a4c5",
+  "router_binary_sha256": "a611fea13921fb89b8c8dffbf76b4deeb60d1d2427856bdb527b95aa58313164",
+  "router_clean_vcs_build_observed": true,
+  "provider_requested": "cpu",
+  "threads": 1,
+  "threshold": 0.9,
+  "predictions": [
+    {
+      "task": "comment-preview-authority",
+      "expected_tier_hypothesis": "fast",
+      "spec_sha256": "a01f1c95e818511d6bcac35a0eb20b0b6c943a73b4fe7652a550bb0036dbd747",
+      "exact_spec_prompt_sha256": "2febc4a1262a840b8b765d65bccc9d8d92ad868696adb9d9e31495b3064c80c2",
+      "route_stdout_sha256": "e4090aa3e494902c555360365c5b81a0a6c9215fb4616ae33e0fbd42289cf10e",
+      "prediction": {
+        "tier": "strong",
+        "suggested_tier": "standard",
+        "model": "gpt-6-astra",
+        "reason": "low confidence or truncated input; preserve strong model",
+        "confidence": 0.47952823351238144,
+        "probabilities": [
+          0.38341184436233244,
+          0.47952823351238144,
+          0.13705992212528623
+        ],
+        "abstained": true,
+        "truncated": false
+      },
+      "process_wall_seconds": 0.98,
+      "app_elapsed_ms": 957.832,
+      "max_process_rss_bytes": 1486143488,
+      "peak_process_memory_footprint_bytes": 1455671432
+    },
+    {
+      "task": "comment-budget-period",
+      "expected_tier_hypothesis": "fast",
+      "spec_sha256": "00333f0814e4bcb28bc06b9172f21672dace61eea3f6537af40dfe77a3c59fe4",
+      "exact_spec_prompt_sha256": "1fbe57a2a946c9318a1836e8ca403328215484e56558aed22eaa7c66934e6b70",
+      "route_stdout_sha256": "e48a723e50f001ec372d03d4652a85ba06d48525096f29da55fa1dcdb2e26c7b",
+      "prediction": {
+        "tier": "strong",
+        "suggested_tier": "fast",
+        "model": "gpt-6-astra",
+        "reason": "low confidence or truncated input; preserve strong model",
+        "confidence": 0.48601889392019726,
+        "probabilities": [
+          0.48601889392019726,
+          0.4344192681332926,
+          0.07956183794651014
+        ],
+        "abstained": true,
+        "truncated": false
+      },
+      "process_wall_seconds": 0.7,
+      "app_elapsed_ms": 686.809,
+      "max_process_rss_bytes": 1482211328,
+      "peak_process_memory_footprint_bytes": 1451772016
+    },
+    {
+      "task": "catalog-min-context",
+      "expected_tier_hypothesis": "standard",
+      "spec_sha256": "884eb30b9310817c78fe8071e20881b865bb61a603a75327e83d39f6625d7e25",
+      "exact_spec_prompt_sha256": "118c6741fb150ced6b148e46eb27537d1261179f2d2bc736f5348a159bfa584b",
+      "route_stdout_sha256": "8412f1f6330511dd666e679920dac4722ee99998f822e52fa8ee87829bd2fc0c",
+      "prediction": {
+        "tier": "strong",
+        "suggested_tier": "standard",
+        "model": "gpt-6-astra",
+        "reason": "low confidence or truncated input; preserve strong model",
+        "confidence": 0.5911432562280451,
+        "probabilities": [
+          0.29239510168848015,
+          0.5911432562280451,
+          0.11646164208347469
+        ],
+        "abstained": true,
+        "truncated": false
+      },
+      "process_wall_seconds": 0.72,
+      "app_elapsed_ms": 702.793,
+      "max_process_rss_bytes": 1486192640,
+      "peak_process_memory_footprint_bytes": 1455753328
+    }
+  ],
+  "limitations": "Three existing public development tasks in two shared code families. Predictions recorded before coding profile outcomes, not validated capability probabilities. Each resource observation is one cold CLI process including native model/session loading and a single request, not warm request latency, Go heap, GPU memory or remote coding-model resource use. All three abstain at unchanged default threshold; no threshold selection, new final scoring, fitting, weights or production activation.",
+  "coding_profile_outcomes_observed_at_recording": false,
+  "training_performed": false
+}
