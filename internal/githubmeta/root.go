@@ -33,8 +33,12 @@ func (b *boundedBuffer) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 func Fetch(ctx context.Context, endpoint string) ([]byte, error) {
+	return fetchBounded(ctx, endpoint, MaxResponseBytes)
+}
+
+func fetchBounded(ctx context.Context, endpoint string, limit int) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, "gh", "api", endpoint)
-	stdout, stderr := &boundedBuffer{limit: MaxResponseBytes}, &boundedBuffer{limit: 4096}
+	stdout, stderr := &boundedBuffer{limit: limit}, &boundedBuffer{limit: 4096}
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
 	if e := cmd.Run(); e != nil {
