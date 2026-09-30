@@ -135,7 +135,8 @@ func Parse(patch string) (Result, error) {
 			r.UnsupportedBlocks++
 			return
 		}
-		r.OldPaths = append(r.OldPaths, p)
+		// Do not retain the full raw patch backing a short header substring.
+		r.OldPaths = append(r.OldPaths, strings.Clone(p))
 	}
 	for _, line := range strings.Split(patch, "\n") {
 		if strings.HasPrefix(line, "diff --git ") {
