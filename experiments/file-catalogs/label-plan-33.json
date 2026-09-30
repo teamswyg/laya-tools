@@ -1,0 +1,10 @@
+{
+ "schema":"riido-pre-fix-file-label-plan-v1",
+ "purpose":"prepare patch-derived old-file labels separately from query/candidate construction, before actual2400-task scoring",
+ "source":"same pinned Full and Multilingual Parquet files as experiment28; maintainer-only projection of instance_id and patch; Go runtime parser",
+ "contract":"parse Git unified diff metadata only, never execute/apply patches; old paths from pre-hunk --- a/ headers, rename-from metadata, or unambiguous diff headers for metadata-only/binary blocks; new-file blocks have no pre-fix target; unsupported/ambiguous blocks remain explicit and do not become guessed labels",
+ "bounds":"patch maximum2MiB UTF8, canonical relative paths maximum4096 bytes, no absolute/traversal/NUL; quoted Git paths decoded, body lines never treated as headers; deduplicate old paths with explicit counts",
+ "separation":"raw patches and per-task labels stay private and evaluation-only; no labels in index, query features, hint construction or training; all2400 requests remain in denominator and unavailable/unsupported/new-file-only cases reported",
+ "interpretation":"changed files are imperfect and non-exhaustive relevance labels, not difficulty/success/decomposition ground truth; no scoring or model selection until evaluation policy is separately frozen",
+ "publication":"only parser/converter code, original synthetic fixtures and aggregate label-coverage findings"
+}
