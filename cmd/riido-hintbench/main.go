@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 	"unicode"
+
+	"github.com/teamswyg/laya-tools/pkg/hintsearch"
 )
 
 type fixture struct{ Document, Direct, Paraphrase, Opposite string }
@@ -106,21 +108,54 @@ func intersect(a, b bitset, width int) int {
 }
 
 type index struct {
+	bm25         *hintsearch.Index
 	terms        [][]string
 	small, large []bitset
 }
 
 func newIndex() index {
 	var x index
+	var documents []string
 	for _, f := range fixtures {
+		documents = append(documents, f.Document)
 		t := tokens(f.Document)
 		x.terms = append(x.terms, t)
 		x.small = append(x.small, encode(t, 256))
 		x.large = append(x.large, encode(t, 4096))
 	}
+	x.bm25, _ = hintsearch.New(documents)
 	return x
 }
 func (x index) rank(text, method string) []int {
+	if method == "bm25" {
+		r, err := x.bm25.Rank(text)
+		if err != nil {
+			panic(err)
+		}
+		return r.Order
+	}
+	if strings.HasPrefix(method, "bounded_") {
+		base := x.rank(text, "bm25")
+		var hints []int
+		switch method {
+		case "bounded_tokens":
+			hints = x.rank(text, "tokens")
+		case "bounded_shuffle":
+			hints = x.rank(text, "fixed_shuffle")
+		case "bounded_reverse":
+			hints = append([]int(nil), base...)
+			for i, j := 0, len(hints)-1; i < j; i, j = i+1, j-1 {
+				hints[i], hints[j] = hints[j], hints[i]
+			}
+		default:
+			panic("unknown bounded method")
+		}
+		out, err := hintsearch.Interleave(base, hints)
+		if err != nil {
+			panic(err)
+		}
+		return out
+	}
 	n := len(x.terms)
 	order := make([]int, n)
 	scores := make([]int, n)
@@ -225,7 +260,7 @@ func main() {
 	x := newIndex()
 	qs := queries()
 	var rs []result
-	for _, m := range []string{"catalog_order", "fixed_shuffle", "tokens", "hash256", "hash4096"} {
+	for _, m := range []string{"catalog_order", "fixed_shuffle", "tokens", "hash256", "hash4096", "bm25", "bounded_tokens", "bounded_shuffle", "bounded_reverse"} {
 		rs = append(rs, measure(x, qs, m))
 	}
 	e := json.NewEncoder(os.Stdout)
@@ -234,7 +269,7 @@ func main() {
 		Schema, Scope, Go, Platform string
 		Candidates, Queries         int
 		Results                     []result
-	}{"semantic-hints-baseline-v1", "authored synthetic development; no trained model; oracle checks are not LLM calls", runtime.Version(), runtime.GOOS + "/" + runtime.GOARCH, len(fixtures), len(qs), rs}); err != nil {
+	}{"semantic-hints-baseline-v2", "authored synthetic development; no trained model; oracle checks are not LLM calls", runtime.Version(), runtime.GOOS + "/" + runtime.GOARCH, len(fixtures), len(qs), rs}); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
