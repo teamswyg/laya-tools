@@ -34,7 +34,7 @@ One M4 Pro CPU cache replay took 0.63s wall, 0.39s user, 0.13s sys and 29,130,75
 
 ## Source conditions
 
-The acquired Matplotlib text permits analysis/testing with notice preservation and a change summary for distributed derivatives. Separate font/image terms are also present, so a single repository-wide assumption is insufficient. Axum package text includes MIT; the selected historical Terraform text is MPL 2.0. Do not substitute a current repository license for historical conditions. These are representative text checks, not completed legal review of all 159 bodies.
+The acquired Matplotlib text permits analysis/testing with notice preservation and a change summary for distributed derivatives. Separate font/image terms are also present, so a single repository-wide assumption is insufficient. Axum package text includes MIT; the selected historical Terraform text is Business Source License 1.1. MPL 2.0 is named as the Change License, not evidence that the current conditions are MPL. The text permits non-production use and separately defines an Additional Use Grant and version-specific change timing. Do not substitute a current repository license for historical conditions. These are representative text checks, not completed legal review of all 159 bodies.
 
 - MIT requires preservation of copyright and permission notices in copies or substantial portions. [Official text](https://opensource.org/license/mit)
 - Apache 2.0 redistribution includes license-copy, modification-notice, attribution and applicable NOTICE requirements. [Official section 4](https://www.apache.org/licenses/LICENSE-2.0)
