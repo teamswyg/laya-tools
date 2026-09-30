@@ -20,6 +20,29 @@ type rootTree struct {
 	Tree      []struct{ Path, Mode, Type, SHA string } `json:"tree"`
 }
 
+// TreeEntries exposes validated metadata, never file contents.
+func TreeEntries(repo string, b []byte) (string, []TreeEntry, error) {
+	if _, err := InspectRoot(repo, b); err != nil {
+		return "", nil, err
+	}
+	var tree rootTree
+	if err := json.Unmarshal(b, &tree); err != nil {
+		return "", nil, err
+	}
+	entries := make([]TreeEntry, len(tree.Tree))
+	for i, e := range tree.Tree {
+		entries[i] = TreeEntry{e.Path, e.Mode, e.Type, e.SHA}
+	}
+	return tree.SHA, entries, nil
+}
+
+type TreeEntry struct{ Path, Mode, Type, SHA string }
+
+func LicenseName(path string) bool {
+	p := strings.ToUpper(path)
+	return p == "LICENSE" || strings.HasPrefix(p, "LICENSE.") || strings.HasPrefix(p, "LICENSE-") || p == "COPYING" || strings.HasPrefix(p, "COPYING.") || p == "NOTICE" || strings.HasPrefix(p, "NOTICE.")
+}
+
 // PreflightSamples chooses by identity, never by source size or outcome.
 func PreflightSamples(selected []Selection) ([]Selection, error) {
 	if len(selected) == 0 || len(selected) > 2400 {
@@ -67,8 +90,7 @@ func InspectRoot(repo string, b []byte) (RootObservation, error) {
 			return r, fmt.Errorf("invalid root object type or mode")
 		}
 		paths = append(paths, entry.Path)
-		p := strings.ToUpper(entry.Path)
-		if entry.Type == "blob" && (p == "LICENSE" || strings.HasPrefix(p, "LICENSE.") || strings.HasPrefix(p, "LICENSE-") || p == "COPYING" || strings.HasPrefix(p, "COPYING.") || p == "NOTICE" || strings.HasPrefix(p, "NOTICE.")) {
+		if entry.Type == "blob" && LicenseName(entry.Path) {
 			r.LicenseCandidates = append(r.LicenseCandidates, entry.Path)
 		}
 	}
