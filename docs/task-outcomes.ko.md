@@ -8,10 +8,13 @@
 별도로 검사하는 `riido-taskverify`의 사용법을 설명합니다. 두 도구는 모델을
 실행하지 않습니다. Codex 연동도 선택 사항입니다.
 
-현재 [공개 작업 후보](../benchmarks/training/public-task-candidates.json)의 실제
-`model_outcomes`는 총 **0건**입니다. 이번 구현에서는 새 유료 모델 실행을 하지
-않았습니다. 아래 예제는 직접 작성한 파서 입력 또는 공개 코드의 검증 방법이며,
-모델의 완료율·성능·비용 절감 증거가 아닙니다.
+현재 [공개 작업 후보](../benchmarks/training/public-task-candidates.json)의
+`model_outcomes`에는 **한 공개 작업의 요청 프로필 시도 기록 2건**이 연결되어
+있습니다. 하나는 정확한 주석 계약을 통과하지 못한 후보, 다른 하나는 요청
+프로필의 서비스 지원 오류입니다. 독립적으로 수용한 후보는 0건이며, 두 개의
+모델 능력 라벨이나 비용 절감 증거가 아닙니다. 자세한 실제 기록은
+[실험 51](../experiments/task-outcomes/RESULTS-51.ko.md)에 있습니다.
+아래 예제는 별도로 직접 작성한 파서 입력 또는 공개 코드 검증 방법입니다.
 
 ## 기존 기록 집계하기
 
@@ -19,8 +22,8 @@
 
 ```sh
 mkdir -p .cache/bin
-go build -o .cache/bin/riido-taskoutcome ./cmd/riido-taskoutcome
-go build -o .cache/bin/riido-taskverify ./cmd/riido-taskverify
+go build -trimpath -o .cache/bin/riido-taskoutcome ./cmd/riido-taskoutcome
+go build -trimpath -o .cache/bin/riido-taskverify ./cmd/riido-taskverify
 ```
 
 먼저 공개된 직접 작성 예제로 출력 형식을 확인할 수 있습니다.
@@ -75,17 +78,26 @@ go build -o .cache/bin/riido-taskverify ./cmd/riido-taskverify
 - `null` 또는 `unknown`은 미확정입니다. 관측한 **0**과 다릅니다. 캐시 필드만
   없으면 입력·출력 관측값은 보존됩니다.
 - `usage_complete`는 모든 turn의 입력·캐시·출력과 깨끗한 종료를 확인했을
-  때만 참입니다. 실패·열린 turn·알 수 없는 control 이벤트가 있으면 부분
+  때만 참입니다. 실패·초기 오류·열린 turn·알 수 없는 control 이벤트가 있으면 부분
   관측값을 보존하되 전체 합계를 확정하지 않습니다.
   이는 제공된 기록의 범위이며, 다른 시도나 기록 파일이 누락되지 않았다는
   증거는 아닙니다.
 - 실제 모델, 프로세스 종료 상태, 실행 시간, 기록의 생산 출처,
   `task_acceptance`는 이 집계기에서 `unknown`입니다.
+- `startup_error_items`는 `thread.started` 뒤 첫 `turn.started` 전에 나온
+  `item.completed`의 `error` 항목 수입니다. 이 좁은 초기 진단 형식의 개수만
+  기록하고 원문·ID는 버립니다. 오류가 있으면 이후 turn이 끝나도 전체 사용량은
+  미확정입니다. 이 필드 자체는 프로필 가용성 오류의 원인을 분류하지 않습니다.
 
 입력 SHA-256은 공백과 개행까지 포함한 정확한 bytes를 연결합니다. 누가
 작성했는지, 실제 모델이 실행됐는지 또는 작업을 완료했는지는 증명하지 않습니다.
-집계와 아래 검증 결과를 자동으로 하나의 실제 모델 성과로 연결하는 실행기는
-아직 이 도구의 범위에 없습니다.
+본 집계기가 모델을 실행하거나 결과의 생산 출처를 검증하지는 않습니다.
+그 연결은 별도의 [선택적 실행기](task-execution.ko.md)가 제공합니다.
+
+초기 오류 처리 보완은 실험 51의 두 번째 원본 실행 기록을 바꾸지 않습니다.
+그 기록의 `summary_status: parse_failed`는 당시 고정한 집계기의 실제 결과로
+유지합니다. 새 집계기로 재해석한다면 원본을 참조하는 별도 버전의 기록으로
+남겨야 하며, 없던 사용량이나 작업 성공을 만들어내지 않습니다.
 
 집계기는 메시지·reasoning 원문·도구 명령·파일 본문·로컬 경로·thread/item ID를
 출력에 보관하지 않습니다. 기본 한도는 전체 64 MiB, 한 줄 1 MiB, 이벤트
@@ -121,12 +133,18 @@ SHA-256을 확인합니다. 후보 디렉터리는 같은 기준에서 작업을
 .cache/bin/riido-taskverify \
   --task catalog-min-context \
   --base-dir internal/taskverify/testdata/base \
-  --candidate-dir .cache/task-candidates/catalog-min-context
+  --candidate-dir .cache/task-candidates/catalog-min-context \
+  --go-root /absolute/trusted/go-toolchain
 ```
 
 위 후보 디렉터리를 만들어 주거나 작업을 대신 수행하는 명령은 아닙니다.
 다른 두 작업도 `--task`와 후보 디렉터리를 해당 작업으로 바꾸어 사용할 수
 있습니다. `--help`에서 간단한 사용법을 확인할 수 있습니다.
+`--go-root`에는 `bin/go`를 포함한 신뢰할 Go 1.27.1 설치의 절대 경로를 지정합니다.
+`-trimpath`로 만든 바이너리에 기본 Go 설치 경로가 없으면, 동작 검사가 필요한
+작업에는 이 옵션이 필요합니다. 설치 경로나 격리된 Go 실행을 확인할 수 없으면
+작업 실패로 단정하지 않고 `verifier_unknown`으로 남깁니다. 후보 코드를 실행하지
+않는 주석 정적 검사와는 구분됩니다.
 
 동작 테스트가 필요한 두 작업은 macOS의 `sandbox-exec` 격리를 사용할 수 있을
 때만 테스트합니다. 정해진 공개 소스와 고정 테스트를 임시 디렉터리에 넣고,
@@ -163,18 +181,27 @@ SHA-256을 확인합니다. 후보 디렉터리는 같은 기준에서 작업을
 에이전트는 JSON 필드와 종료 코드를 함께 읽어야 합니다. 파싱이 성공했다는
 이유로 작업 완료를 기록하거나, `--spec`의 종료 코드로 후보를 승인하지 마세요.
 
-## 실제 라우터 비교에 앞으로 필요한 기록
+## 실제 실행과 역사적 예제를 구분하기
 
-이 도구들은 사용량 읽기와 요구사항 검사라는 두 부분을 준비합니다. 실제
-라우터 평가에는 같은 작업 명세·기준 파일에 대한 모델별 실제 실행, 모든
-시도와 재시도의 사용량, 요청값과 관측된 실행 근거, 후보 파일을 연결한 독립
-검증이 더 필요합니다. 그 결과로 완료율과 작업당 사용량을 함께 비교해야
-상향·하향 라우팅의 유용성을 판단할 수 있습니다.
+[실험 50](../experiments/task-outcomes/RESULTS-50.ko.md)은 실행기 패키징 문제로
+코딩 모델 본 실행 전에 중단했습니다.
+[실험 51](../experiments/task-outcomes/RESULTS-51.ko.md)은 한 주석 작업의 직접
+소유한 CLI 시도 두 건을 연결했지만, 첫 후보 거절과 두 번째 프로필 지원 오류·
+초기 오류 집계의 호환성 공백으로 나머지 네 항목을 중단했습니다. 첫 시도의
+사용량은 완전히 관측했고 두 번째는 미확정입니다. 비교 가능한 두 프로필의
+능력 결과나 절감 효과는 확보하지 못했습니다.
+
+실제 라우터 평가에는 같은 작업 명세·기준 파일에서 실행할 수 있는 모델들의
+독립 수용 결과, 모든 시도·재시도의 사용량과 요청·관측 근거가 더 필요합니다.
+완료율과 전체 작업당 사용량을 함께 비교해야 상향·하향 라우팅의 유용성을
+판단할 수 있습니다. [골든셋 설계](golden-set-scale.ko.md)의 영역별 최소
+2,400개 최종 요청 목표는 이 개발 기록으로 대체하지 않습니다.
 
 현재 직접 작성한 JSONL 예제와 공개 코드 검증 예제는 도구의 동작을 설명하는
-자료입니다. 실제 모델 작업 결과가 아닙니다. 구현 범위와 검증 계획은
-[사전 계획](../experiments/task-outcomes/plan-49.json)에 기록되어 있습니다.
+자료입니다. 실제 모델 작업 결과가 아닙니다. 이 초기 도구 구현의 범위와 검증
+계획은 역사적 [계획 49](../experiments/task-outcomes/plan-49.json)에 있습니다.
 
 [직접 작성한 예제의 실제 도구 실행 기록](../experiments/task-outcomes/fixtures-49.json)은
 집계 두 건, 정확한 주석 변경의 수용, 변경 없는 기준 파일의 거절을 담습니다.
-여기서 도구 종료 코드는 모델 프로세스의 종료 코드가 아니며, 모델 결과는 0건입니다.
+여기서 도구 종료 코드는 모델 프로세스의 종료 코드가 아니며, **그 역사적 예제
+기록의 모델 결과는 0건**입니다. 이후 실험 51의 실제 시도 기록과 구분합니다.

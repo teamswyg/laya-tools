@@ -9,10 +9,12 @@ existing execution trace, and `riido-taskverify`, which checks candidate files
 independently. Neither tool launches a model. Codex integration remains optional.
 
 The [public task candidates](../benchmarks/training/public-task-candidates.json)
-currently contain **0 actual `model_outcomes` records**. No new paid model run
-was performed in this implementation cycle. The examples below are authored
-parser inputs or ways to check public code. They are not evidence of a model's
-completion rate, performance, or savings.
+now link **two requested-profile attempt records for one public task** through
+`model_outcomes`. One candidate failed the exact comment contract; the other
+profile returned a service support error. Zero candidates were independently
+accepted. These are not two capability labels or savings evidence. Read
+[experiment 51](../experiments/task-outcomes/RESULTS-51.en.md) for actual records.
+The examples below are separate authored parser inputs or ways to check public code.
 
 ## Summarize an existing trace
 
@@ -20,8 +22,8 @@ Build the Go binaries from the repository root. Python is not required at runtim
 
 ```sh
 mkdir -p .cache/bin
-go build -o .cache/bin/riido-taskoutcome ./cmd/riido-taskoutcome
-go build -o .cache/bin/riido-taskverify ./cmd/riido-taskverify
+go build -trimpath -o .cache/bin/riido-taskoutcome ./cmd/riido-taskoutcome
+go build -trimpath -o .cache/bin/riido-taskverify ./cmd/riido-taskverify
 ```
 
 Start with the public authored fixtures to inspect the output format.
@@ -78,17 +80,30 @@ summary of a real private task still needs a separate review before publication.
 - `null` or `unknown` means unknown, not an observed **0**. Missing cached input
   alone does not discard observed input or output.
 - `usage_complete` is true only when input, cached input, and output are known
-  for every turn and the lifecycle ends cleanly. Failed or open turns and unknown
-  control events preserve observed values but prevent complete totals.
+  for every turn and the lifecycle ends cleanly. Failed or open turns, startup
+  errors, and unknown control events preserve observed values but prevent complete
+  totals.
   This applies to the supplied trace; it does not prove that other attempts or
   trace files were not omitted.
 - The actual model, process exit, execution time, producer provenance, and
   `task_acceptance` remain `unknown` in this summarizer.
+- `startup_error_items` counts `item.completed` error diagnostics after
+  `thread.started` and before its first `turn.started`. This narrow compatibility
+  handling discards raw text and IDs. A startup error leaves whole usage unknown
+  even if a later turn completes. This field does not classify the cause of a
+  profile availability failure.
 
 The input SHA-256 binds the exact bytes, including whitespace and newlines. It
 does not prove who produced the trace, whether a model ran, or whether the task
-succeeded. An executor that automatically binds this summary and the verifier
-report into an actual model outcome is outside this tool's current scope.
+succeeded. This summarizer does not launch models or establish producer
+provenance. That binding is provided by the separate
+[opt-in executor](task-execution.en.md).
+
+The startup compatibility fix does not alter experiment 51's second original
+attempt record. Its `summary_status: parse_failed` remains the actual result of
+the frozen parser at that time. Any reanalysis with a new parser needs a
+separately versioned record referencing the original; it does not create missing
+usage or task success.
 
 The summarizer does not retain messages, reasoning text, tool commands, file
 bodies, local paths, or thread/item IDs in its output. Default limits are 64 MiB
@@ -127,12 +142,18 @@ prepared** candidate:
 .cache/bin/riido-taskverify \
   --task catalog-min-context \
   --base-dir internal/taskverify/testdata/base \
-  --candidate-dir .cache/task-candidates/catalog-min-context
+  --candidate-dir .cache/task-candidates/catalog-min-context \
+  --go-root /absolute/trusted/go-toolchain
 ```
 
 The command does not create that candidate or perform the task. Use the matching
 task ID and candidate directory for either comment task. `--help` prints concise
 usage instructions.
+Set `--go-root` to the absolute path of a trusted Go 1.27.1 installation containing
+`bin/go`. A packaged `-trimpath` binary without a default Go installation needs
+this option for behavioral checks. Unavailable toolchain resolution or isolated
+Go execution remains `verifier_unknown`, not an incorrect candidate label. This
+is separate from the comment task's static checks without candidate execution.
 
 The two tasks requiring behavioral tests run only when macOS `sandbox-exec`
 isolation is available. The verifier copies the declared public source and
@@ -170,21 +191,31 @@ does not establish that the implementation fails its requirements.
 Agents should read both JSON fields and exit codes. Successful parsing does not
 complete a task, and `--spec` exit code 0 does not approve a candidate.
 
-## Evidence still needed for an actual router comparison
+## Separate actual attempts from historical authored fixtures
 
-These tools prepare two components: reading usage and checking requirements.
-An actual router evaluation additionally needs real model executions against the
-same task specification and base files, usage for all attempts and retries,
-requested settings separated from observed execution evidence, and independent
-verification bound to the candidate files. Completion rate and usage per task
-must be compared together to evaluate upward or downward routing.
+[Experiment 50](../experiments/task-outcomes/RESULTS-50.en.md) stopped before a main
+coding-model process because of executor packaging.
+[Experiment 51](../experiments/task-outcomes/RESULTS-51.en.md) connected two owned
+CLI attempts on one comment task. Candidate rejection in the first and profile
+support failure plus startup-parser incompatibility in the second left the
+remaining four entries unexecuted. First-attempt usage is complete; second-attempt
+usage is unknown. No comparable two-profile capability results or savings were
+established.
+
+Actual routing evaluation still needs independently accepted outcomes from
+executable profiles on the same specification and base, usage across all
+attempts/retries, and requested/observed evidence. Compare completion rate with
+whole-task usage to evaluate upward and downward routing. These development
+records do not replace the [golden-set design](golden-set-scale.en.md)'s target
+of at least 2,400 final requests per evaluated domain.
 
 The authored JSONL fixtures and public code verification examples explain tool
-behavior. They do not constitute actual model outcomes. The implementation scope
-and validation plan are recorded in the
-[precommitted plan](../experiments/task-outcomes/plan-49.json).
+behavior. They do not constitute actual model outcomes. The original tool scope
+and validation plan are in historical
+[plan 49](../experiments/task-outcomes/plan-49.json).
 
 [Actual tool execution on authored fixtures](../experiments/task-outcomes/fixtures-49.json)
 records two summaries, acceptance of the exact comment change, and rejection of
 an unchanged base. Tool exit codes are separate from model process exits; there
-are zero actual model outcomes in this record.
+are **zero actual model outcomes in that historical authored record**, separate
+from experiment 51's later owned attempts.

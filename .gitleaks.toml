@@ -31,3 +31,19 @@ condition = "AND"
 paths = ['''(^|/)experiments/laya-parity/assets-18\.json$''']
 regexTarget = "secret"
 regexes = ['''^6c8aaa9a542084f2457eab775d4eeb51f92a70c0fd9de28d5edb0ddec3c08d30$''']
+
+# This exact public checksum is already pinned in internal/assets/manifest.json.
+# Preserve existing rules and allowlists; only this field/value in plan 50 matches.
+[[rules.allowlists]]
+description = "Exact public base tokenizer SHA-256 in plan 50"
+condition = "AND"
+paths = ['''^experiments/task-outcomes/plan-50\.json$''']
+regexTarget = "line"
+regexes = ['''^\s*"tokenizer_sha256":\s*"6c8aaa9a542084f2457eab775d4eeb51f92a70c0fd9de28d5edb0ddec3c08d30"\s*,?\s*$''']
+
+[[rules.allowlists]]
+description = "Exact public base tokenizer file checksum in plan 51"
+condition = "AND"
+paths = ['''^experiments/task-outcomes/plan-51\.json$''']
+regexTarget = "line"
+regexes = ['''^\s*"tokenizer\.json":\s*"6c8aaa9a542084f2457eab775d4eeb51f92a70c0fd9de28d5edb0ddec3c08d30"\s*,?\s*$''']

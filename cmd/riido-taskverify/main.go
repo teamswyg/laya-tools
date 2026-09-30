@@ -17,9 +17,9 @@ import (
 )
 
 type config struct {
-	task, base, candidate string
-	spec                  bool
-	timeout               time.Duration
+	task, base, candidate, goRoot string
+	spec                          bool
+	timeout                       time.Duration
 }
 
 func parse(args []string) (config, error) {
@@ -29,6 +29,7 @@ func parse(args []string) (config, error) {
 	f.StringVar(&c.task, "task", "", "public task ID; use --spec to inspect its exact acceptance contract")
 	f.StringVar(&c.base, "base-dir", "", "private local copy of the pinned public base closure")
 	f.StringVar(&c.candidate, "candidate-dir", "", "candidate checkout; only task-closure files are assessed")
+	f.StringVar(&c.goRoot, "go-root", "", "optional absolute trusted Go1.27.1 installation for packaged trimpath behavioral checks")
 	f.BoolVar(&c.spec, "spec", false, "print the public task specification without executing checks")
 	f.DurationVar(&c.timeout, "timeout", taskverify.DefaultTimeout, "isolated verification timeout, at most60s")
 	if e := f.Parse(args); e != nil {
@@ -87,7 +88,7 @@ func readBase(dir, task string) ([]taskverify.BaseFile, error) {
 }
 func execute(args []string, out, diagnostics io.Writer) int {
 	if len(args) == 1 && (args[0] == "--help" || args[0] == "-h") {
-		fmt.Fprintln(out, "riido-taskverify --task catalog-min-context --spec\nriido-taskverify --task catalog-min-context --base-dir BASE --candidate-dir CANDIDATE\nVerifies a bounded public task closure; no model is launched. Exit0=accepted,1=rejected,2=invalid,3=verification unavailable. Candidate-owned tests are not acceptance evidence.")
+		fmt.Fprintln(out, "riido-taskverify --task catalog-min-context --spec\nriido-taskverify --task catalog-min-context --base-dir BASE --candidate-dir CANDIDATE [--go-root GOROOT]\nVerifies a bounded public task closure; no model is launched. Packaged trimpath builds require an explicit trusted Go1.27.1 installation for behavioral checks when no default root is available. Exit0=accepted,1=rejected,2=invalid,3=verification unavailable. Candidate-owned tests are not acceptance evidence.")
 		return 0
 	}
 	c, e := parse(args)
@@ -108,7 +109,7 @@ func execute(args []string, out, diagnostics io.Writer) int {
 		fmt.Fprintln(diagnostics, e)
 		return 2
 	}
-	r, e := taskverify.Verify(context.Background(), taskverify.Request{TaskID: c.task, BaseRevision: taskverify.BaseRevision, BaseFiles: base, CandidateDir: c.candidate, Timeout: c.timeout})
+	r, e := taskverify.Verify(context.Background(), taskverify.Request{TaskID: c.task, BaseRevision: taskverify.BaseRevision, BaseFiles: base, CandidateDir: c.candidate, Timeout: c.timeout, GoRoot: c.goRoot})
 	if e != nil {
 		fmt.Fprintln(diagnostics, e)
 		return 2

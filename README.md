@@ -14,6 +14,8 @@
 
 [사용량 기록과 독립 작업 검증](docs/task-outcomes.ko.md)을 준비했습니다. 기존 Codex 기록의 사용량과 공개 작업의 요구사항 충족 여부를 따로 확인합니다. 직접 작성한 예제로 도구를 검사했으며, 실제 모델 작업 결과나 비용 절감으로 세지 않습니다.
 
+[공개 작업 실행기](docs/task-execution.ko.md)는 명시적으로 요청한 Codex 실행, 사용량, 결과 파일과 독립 검사를 연결하는 선택적 Go 개발 도구입니다. 실패·시간 초과도 기록하며, 현재 작은 개발 파일럿과 최종 골든셋 평가를 구분합니다.
+
 [경량 검색 방식 세 가지](experiments/path-helper-headroom/RESULTS-48.ko.md)를 학습용 4,456개 전체에서 비교했습니다. 정답을 미리 아는 선택의 개선 여지도 3.09%·3.68%·1.36%로 기존 5% 기준에 못 미쳐 추가 학습을 중단했습니다. 전체 실행·재실행은 약 82초, 최대 RSS 106.7–107.3MiB였으며 단일 추론이나 Codex 절감 측정은 아닙니다.
 
 **한국어** · [English](README.en.md) · [사용자 Wiki](https://github.com/teamswyg/laya-tools/wiki) · [문서 목록](docs/README.md)

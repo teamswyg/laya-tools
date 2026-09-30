@@ -42,6 +42,10 @@ type Request struct {
 	BaseFiles    []BaseFile
 	CandidateDir string
 	Timeout      time.Duration
+	// GoRoot optionally supplies the trusted offline installation for packaged
+	// trimpath callers whose runtime has no compiled-in GOROOT. It never changes
+	// process-global environment and is used only for isolated behavioral checks.
+	GoRoot string
 }
 
 type FileHash struct {
@@ -327,7 +331,7 @@ func Verify(ctx context.Context, req Request) (Report, error) {
 			execution[i].Data = bytes.Clone(source)
 		}
 	}
-	outcome := isolatedTests(ctx, execution, req.TaskID, req.Timeout)
+	outcome := isolatedTests(ctx, execution, req.TaskID, req.Timeout, req.GoRoot)
 	r.ExecutionIsolated, r.IndependentTests = outcome.isolated, outcome.tests
 	r.Checks = append(r.Checks, Check{"independent_tests", outcome.passed, outcome.code})
 	if outcome.unknown {

@@ -1,0 +1,229 @@
+{
+  "schema": "riido-task-outcome-pilot-results-v1",
+  "status": "stopped_after_two_owned_attempts_on_measurement_compatibility_failure",
+  "plan_file": "experiments/task-outcomes/plan-51.json",
+  "plan_sha256": "acf4786f7330529e04af12d4f7dbf40b0bbc2b6a9c527ecb879aee9d8c1510b0",
+  "plan_precommit_revision": "14fdad230ad6cebbee194b09ed8b6df7916a19cc",
+  "executor_source_revision": "14fdad230ad6cebbee194b09ed8b6df7916a19cc",
+  "executor_binary_sha256": "e7164ebe838a85a8d3fe87a82c5a32ceed65c98e5aa1b0643cb34f682be5e65c",
+  "executor_clean_trimpath_vcs_build_observed": true,
+  "go_version": "go version go1.27.1 darwin/arm64",
+  "go_binary_sha256": "132b69336a1f809932a8a20b0201dbbb980e86e3a323ae32e893639d83d71598",
+  "public_task_base_revision": "6b2c1bdfd38bea5a9a2c11433ffcfcb94c4143a3",
+  "counts": {
+    "planned_coding_cli_main_invocations": 6,
+    "owned_coding_cli_main_invocations_started": 2,
+    "prelaunch_refusals": 0,
+    "planned_entries_not_executed": 4,
+    "distinct_planned_public_development_tasks": 3,
+    "distinct_tasks_actually_attempted": 1,
+    "planned_code_families": 2,
+    "requested_profiles": 2,
+    "owned_attempts_with_complete_core_usage": 1,
+    "independently_accepted_closures": 0,
+    "observed_changed_coding_candidates": 1,
+    "requested_profile_support_errors": 1,
+    "original_summary_parse_failures": 1
+  },
+  "planned_entries": [
+    {
+      "ordinal": 1,
+      "task": "comment-preview-authority",
+      "profile": "luna-low",
+      "status": "owned_attempt_recorded",
+      "started": true,
+      "public_record": "experiments/task-outcomes/attempt-51-01.json",
+      "public_record_sha256": "78e193c64321a2412b6c66766d9565b5339c4e23825d03b88a32892c0b198cd8",
+      "requested_model": "gpt-6-luna",
+      "requested_reasoning": "low",
+      "observed_model": "unknown",
+      "process_status": "exited_zero",
+      "exit_code": 0,
+      "main_process_wall_millis": 17401,
+      "independent_verification_wall_millis": 0,
+      "verification_status": "rejected",
+      "verification_codes": [
+        "pinned_public_bytes_verified",
+        "not_exact_comment_change"
+      ],
+      "original_summary_status": "parsed",
+      "whole_attempt_usage_complete": true,
+      "usage": {
+        "input_tokens": {
+          "observed_total": 53150,
+          "observed_turns": 1,
+          "missing_completed_turns": 0,
+          "total": 53150,
+          "complete": true
+        },
+        "cached_input_tokens": {
+          "observed_total": 43776,
+          "observed_turns": 1,
+          "missing_completed_turns": 0,
+          "total": 43776,
+          "complete": true
+        },
+        "output_tokens": {
+          "observed_total": 338,
+          "observed_turns": 1,
+          "missing_completed_turns": 0,
+          "total": 338,
+          "complete": true
+        },
+        "reasoning_output_tokens": {
+          "observed_total": 0,
+          "observed_turns": 1,
+          "missing_completed_turns": 0,
+          "total": 0,
+          "complete": true
+        }
+      },
+      "outcome_interpretation": "Changed candidate omitted the final period required by the exact comment contract; rejected within this declared scope only.",
+      "training_label_eligible": false
+    },
+    {
+      "ordinal": 2,
+      "task": "comment-preview-authority",
+      "profile": "sol-low",
+      "status": "owned_attempt_recorded",
+      "started": true,
+      "public_record": "experiments/task-outcomes/attempt-51-02.json",
+      "public_record_sha256": "c80b19e26720c2968ef13fa6145186859e00d650bf63d1f317597e00e4bb3dec",
+      "requested_model": "gpt-6.1-sol",
+      "requested_reasoning": "low",
+      "observed_model": "unknown",
+      "process_status": "nonzero_exit",
+      "exit_code": 1,
+      "main_process_wall_millis": 1798,
+      "independent_verification_wall_millis": 0,
+      "verification_status": "rejected",
+      "verification_codes": [
+        "pinned_public_bytes_verified",
+        "unchanged_base"
+      ],
+      "original_summary_status": "parse_failed",
+      "whole_attempt_usage_complete": false,
+      "usage": null,
+      "outcome_interpretation": "Requested profile returned unsupported-for-ChatGPT error; candidate stayed unchanged. This is not a coding capability label. Startup error item also exposed parser lifecycle compatibility gap.",
+      "training_label_eligible": false
+    },
+    {
+      "ordinal": 3,
+      "task": "comment-budget-period",
+      "profile": "sol-low",
+      "status": "not_executed_measurement_integrity_stop",
+      "started": false,
+      "exit_code": null,
+      "verification_status": "not_assessed",
+      "usage": null,
+      "observed_model": "unknown",
+      "training_label_eligible": false
+    },
+    {
+      "ordinal": 4,
+      "task": "comment-budget-period",
+      "profile": "luna-low",
+      "status": "not_executed_measurement_integrity_stop",
+      "started": false,
+      "exit_code": null,
+      "verification_status": "not_assessed",
+      "usage": null,
+      "observed_model": "unknown",
+      "training_label_eligible": false
+    },
+    {
+      "ordinal": 5,
+      "task": "catalog-min-context",
+      "profile": "luna-low",
+      "status": "not_executed_measurement_integrity_stop",
+      "started": false,
+      "exit_code": null,
+      "verification_status": "not_assessed",
+      "usage": null,
+      "observed_model": "unknown",
+      "training_label_eligible": false
+    },
+    {
+      "ordinal": 6,
+      "task": "catalog-min-context",
+      "profile": "sol-low",
+      "status": "not_executed_measurement_integrity_stop",
+      "started": false,
+      "exit_code": null,
+      "verification_status": "not_assessed",
+      "usage": null,
+      "observed_model": "unknown",
+      "training_label_eligible": false
+    }
+  ],
+  "supplemental_private_trace_observation": {
+    "attempt_ordinal": 2,
+    "evidence": "Maintainer inspected only control names and sanitized boolean matches on the exact executor-owned trace bytes; raw messages and identifiers remain private. This supplements rather than overwrites the original parser record.",
+    "bound_trace_sha256": "a7dcb1b0b94ab151e29bf7cae783996439f4089fb56860920b3cdb32de88dc51",
+    "event_sequence": [
+      "thread.started",
+      "item.completed",
+      "turn.started",
+      "error",
+      "turn.failed"
+    ],
+    "initial_completed_item_type": "error",
+    "provider_error_matches_unsupported_pattern": true,
+    "provider_error_mentions_chatgpt_account": true,
+    "authentication_error_observed": false,
+    "timeout_error_observed": false,
+    "original_parser_error_code": "invalid_lifecycle",
+    "cause_of_account_availability_verified": false
+  },
+  "integrity_stop": "The expected pinned CLI emitted an initial error item before turn.started, which the frozen measurement parser rejected. Stop remaining four planned entries, preserve both owned records, repair compatibility under authored tests, and freeze a separate executable-profile comparison. Never silently replace the unsupported profile or rerun these attempts under plan51.",
+  "prior_laya_predictions": {
+    "file": "experiments/task-outcomes/routing-predictions-50.json",
+    "file_sha256": "bee88a6c02ab0d9af23b57649b5d324aebd59d3e825b78f8868e823d75773dac",
+    "reused_unchanged": true,
+    "count": 3,
+    "abstentions": 3,
+    "threshold": 0.9,
+    "resource_scope": "Prior one cold CPU process per prompt, approximately1.48GB max RSS including native loading; not warm query, Go heap, GPU or remote coding-model resources."
+  },
+  "analysis": {
+    "requested_profile_pair_comparison_possible": false,
+    "successful_routing_claim": false,
+    "quota_or_monetary_savings_claim": false,
+    "full_attempt_core_usage_observed_only_for_ordinal": 1,
+    "token_accounting": "Ordinal1 reported53150 input tokens, of which43776 cached;338 output, optionalreasoning0. Cached is a subset of input, reasoning a subset of output. Unknown ordinal2 usage is null, not zero; internal request/retry counts and subscription cost remain unknown.",
+    "scope": "Two owned CLI attempts on one development request, from a plan of three requests in two shared code families. Only one changed coding candidate was observed; the other profile was rejected by the service. Exact-comment acceptance and provider availability are separate outcomes. No population accuracy, sufficient training labels, or final2400-task validation.",
+    "observed_model_identity": "unknown; applied explicit CLI requests are recorded but are not provider attestations"
+  },
+  "model_availability_reference": "https://learn.chatgpt.com/docs/models",
+  "model_availability_reference_fetched": "2026-10-01",
+  "model_availability_limit": "Official documentation lists the requested identifier but says availability depends on rollout, sign-in and client. The local unsupported error does not establish global unavailability or its account/client cause.",
+  "training_performed": false,
+  "protected_final_scored": false,
+  "new_weights_released": false,
+  "production_ready": false,
+  "post_stop_reanalysis": {
+    "file": "experiments/task-outcomes/reanalysis-51-02.json",
+    "file_sha256": "f699f05abc6f463760a6643e1d32a52aac068ba7e0f184f6e1e53a6f34f29661",
+    "parser_source_revision": "67c583173d0653aa4d5732ffeadd87f4fd124099",
+    "parser_binary_sha256": "3fdbb93cfcf58a0be485370da4f87260addeb019ed9b8ad87a7b9116fe75bedc",
+    "clean_trimpath_vcs_build_observed": true,
+    "source_trace_sha256": "a7dcb1b0b94ab151e29bf7cae783996439f4089fb56860920b3cdb32de88dc51",
+    "startup_error_items": 1,
+    "turns_failed": 1,
+    "error_events": 1,
+    "usage_complete": false,
+    "new_model_invocation": false,
+    "original_attempt_record_overwritten": false,
+    "scope": "Read exact private trace with a separately versioned corrected parser after the integrity stop. All usage fields remain null; successful parsing does not create measured tokens, coding success, provider identity or a new task attempt."
+  },
+  "local_code_verification": {
+    "race_all_packages": "passed",
+    "vet_all_packages": "passed",
+    "formatting": "passed",
+    "independent_readonly_review": "ready",
+    "packaged_taskrun_behavioral_regression": "passed_authored_fake_cli_no_model",
+    "packaged_standalone_verifier": "accepted_authored_budget_comment_16_test_events_isolated",
+    "secret_scan_controls": "exact_allowlisted_public_pin_passes_changed_key_and_changed_value_each_detected",
+    "scope": "Actual code/tool checks, distinct from real model outcomes and native Laya predictions."
+  }
+}
