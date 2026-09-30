@@ -111,3 +111,8 @@ func Score(w []float64, x [Dimension]float64) float64 {
 	}
 	return s
 }
+
+// NormalizeText exposes the same identifier/word splitting used by Features.
+// It removes punctuation, preserves token order/repetition and does not filter
+// keywords. Callers must enforce a post-normalization byte budget too.
+func NormalizeText(s string) string { return strings.Join(tokens(s), " ") }

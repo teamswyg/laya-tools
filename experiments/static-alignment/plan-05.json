@@ -1,0 +1,23 @@
+{
+ "schema":"riido-alignment-plan-v1",
+ "pair_source_sha256":"4d1a227fe3652992d1e98f43fa9dc1b8f54a6c27a1a24b9d182bdfb8cbc3274c",
+ "embedding_revision":"389b9f64be5aa4ae7a6bc6fe95ef20ce485ae5da",
+ "gradient":"eligible development only; frozen encoder",
+ "selection":"eligible validation BCE; earliest epoch/config on exact tie, separately per variant/encoder/head/seed",
+ "normalization":"both query and code: shared camel/snake splitting, lowercase, letter/digit tokens joined by spaces; no token filtering, no truncation",
+ "variants":{"lexical":16,"normalized_cosine":17,"normalized_alignment":145},
+ "alignment_features":"16 matching features with length slots zero; cosine; 64 elementwise products scaled by8; 64 absolute differences",
+ "encoder_modes":["fp32","ternary"],
+ "head_modes":["fp32","ternary_ste"],
+ "seeds":[1729,2718],
+ "learning_rates":[0.05,0.2],
+ "epochs":100,
+ "batch":128,
+ "l2":0.0001,
+ "control":"lexical variant only once without encoder; reproduce previous matching FP32 seed1729",
+ "exports":"chosen FP32 plus derived INT8/PTQ; separately selected ternary STE; all variants and seeds reported",
+ "primary":"normalized_alignment / FP32 encoder / FP32 head / seed1729; validation AUC>=0.60 and >=0.03 above matched BM25 to consider a separately frozen reserve1 evaluation",
+ "reserves":"neither reserve1 nor reserve2 is scored in this training command",
+ "promotion":false,
+ "limitations":"validation reused in previous development; unknown upstream pretraining overlap; no candidate retrieval or LLM savings claim"
+}

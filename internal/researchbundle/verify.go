@@ -49,6 +49,9 @@ func Verify(dir string) (Manifest, error) {
 	if e = json.Unmarshal(b, &m); e != nil {
 		return m, e
 	}
+	if m.Schema == "riido-alignment-bundle-v1" {
+		return VerifyAlignment(dir, m)
+	}
 	if m.Schema == "riido-qat-bundle-v1" {
 		return VerifyQAT(dir, m)
 	}
