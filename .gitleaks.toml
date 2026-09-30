@@ -17,3 +17,10 @@ condition = "AND"
 paths = ['''(^|/)experiments/static-embedding/(reference|results-04)\.json$''']
 regexTarget = "line"
 regexes = ['''^\s*"(tokenizer_sha256|TokenizerSHA256)": "e67e803f624fb4d67dea1c730d06e1067e1b14d830e2c2202569e3ef0f70bb50",?\s*$''']
+
+[[rules.allowlists]]
+description = "Exact already-public Laya tokenizer SHA-256 in bounded relevance probe"
+condition = "AND"
+paths = ['''(^|/)cmd/riido-layaprobe/main\.go$''']
+regexTarget = "secret"
+regexes = ['''^6c8aaa9a542084f2457eab775d4eeb51f92a70c0fd9de28d5edb0ddec3c08d30$''']
