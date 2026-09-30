@@ -82,6 +82,8 @@ func run() error {
 	}
 	noFetch := func(context.Context, string) ([]byte, error) { return nil, fmt.Errorf("root cache missing") }
 	var observations []observation
+	// Diagnostics remain private, including source identities and local errors.
+	var failures []struct{ Repository, BaseCommit, Error string }
 	available := 0
 	for i, s := range selected {
 		r := observation{Repository: s.Repository, Snapshots: 1}
@@ -122,6 +124,7 @@ func run() error {
 		}
 		if e != nil {
 			r.Unavailable = 1
+			failures = append(failures, struct{ Repository, BaseCommit, Error string }{s.Repository, s.BaseCommit, e.Error()})
 		}
 		observations = append(observations, r)
 		if (i+1)%100 == 0 {
@@ -160,6 +163,13 @@ func run() error {
 		return e
 	}
 	if e = os.WriteFile(filepath.Join(*out, "results.json"), append(b, '\n'), 0600); e != nil {
+		return e
+	}
+	b, e = json.MarshalIndent(failures, "", "  ")
+	if e != nil {
+		return e
+	}
+	if e = os.WriteFile(filepath.Join(*out, "failures.json"), append(b, '\n'), 0600); e != nil {
 		return e
 	}
 	fmt.Fprintf(os.Stderr, "completed available=%d/2400 network_requests=%d\n", available, requests)

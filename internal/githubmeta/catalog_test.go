@@ -28,7 +28,8 @@ func TestCatalogValidation(t *testing.T) {
 			t.Fatal("accepted malformed catalog")
 		}
 	}
-	if _, e := decodeCatalog([]byte(`{"sha":"`+valid.SHA+`","tree":[]}`), valid.SHA); e == nil {
+	missingFlag := strings.Replace(string(b), `"truncated":false,`, "", 1)
+	if _, e := decodeCatalog([]byte(missingFlag), valid.SHA); e == nil {
 		t.Fatal("missing truncation flag")
 	}
 	if _, e := decodeCatalog([]byte(strings.Repeat("x", MaxCatalogResponseBytes+1)), valid.SHA); e == nil {
