@@ -39,8 +39,14 @@ def main():
     run,s,e=min(entries,key=lambda x:x[1]['selection'].get('selection_score', x[1]['selection']['validation']['nll']))
     head=load_file(run/'head.safetensors')
     if file_hash(args.base/'model.safetensors')!=BASE_SHA: raise ValueError('Wrong base')
-    with safe_open(args.base/'model.safetensors',framework='pt') as base:
-        changed=any(not torch.equal(value,base.get_tensor(name).float()) for name,value in head.items())
+    fixed = s.get('format') == 'laya-encoder-fixed-tier-linear-v1'
+    if fixed:
+        from fixed_tier import FixedTier
+        FixedTier(s['feature_width']).load_state_dict(head, strict=True)
+        changed = s.get('head_weights_changed') is True
+    else:
+        with safe_open(args.base/'model.safetensors',framework='pt') as base:
+            changed=any(not torch.equal(value,base.get_tensor(name).float()) for name,value in head.items())
     if not changed: raise ValueError('No learned change')
     args.out.mkdir(parents=True)
     shutil.copyfile(run/'head.safetensors',args.out/'head.safetensors')
@@ -59,6 +65,12 @@ def main():
     if plan.get('initial_head_source_cycle'):
         description += (f" Warm-started from the matching {plan['initial_head_source_cycle']} seed head; "
                         "fresh optimizer, not an optimizer-resume equivalence claim.")
+    if fixed:
+        description = (f"{plan['cycle']} trains a new fixed-tier LayerNorm/Linear classifier on "
+                       f"state-only mean embeddings from the entirely frozen Laya encoder. "
+                       f"Learning rates {plan['learning_rates']}, up to {plan['max_epochs']} epochs; "
+                       "two seeds, validation NLL selection. Output-order invariance is structural, "
+                       "not a repair of the original arbitrary-choice head.")
     dataset=(f"{len(rows)} authored English cases: {counts['train']} train, "
              f"{counts['validation']} validation, {counts['calibration']} calibration, "
              f"{counts['test']} held-out test. Training includes 24 prior training examples. "
@@ -80,6 +92,8 @@ def main():
             'step_end_mps_driver_max_bytes':s['sampled_driver_max_bytes'],
             'training_description':description,
             'dataset_description':dataset,
+            'format':s.get('format', 'fp32-head-replacement-not-lora'),
+            'feature_width':s.get('feature_width'),
             'pdca_plan':plan,'confirmation_results':[x[2] for x in entries]}
     (args.out/'results.json').write_text(json.dumps(report,indent=2)+'\n')
     print(json.dumps({'selected_seed':s['seed'],'accuracy':e['tuned']['accuracy'],'coverage':e['tuned']['coverage']}))

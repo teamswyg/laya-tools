@@ -79,3 +79,19 @@ CI에는 torch나 모델 다운로드 없이 실행되는 고정 계획/가족 �
 사이클 4는 선택지 순서 간 확률 차이(JS divergence)를 학습 손실과 validation 선택 기준에 더합니다. 추론은 여전히 한 가지 순서로 한 번 수행합니다.
 
 [모든 시도의 실측 표](pdca-results.ko.md). 사이클 4는 validation만 보고 중단했고 final은 실행하지 않았습니다. 사이클 5는 사이클 3의 정확한 head에서 새 optimizer로 시작하며, 여섯 순서를 동시에 비교합니다. 선택 기준은 validation 분류 오류율 + 순서 뒤집힘 비율 + 0.1×JS입니다. final 통과 기준은 그대로입니다.
+
+## 가중치 계보
+
+```mermaid
+graph LR
+    B["Original Laya (pinned)"] --> P["Difficulty pilot v0.1"]
+    B --> D["Decomposition pilot v0.1"]
+    B --> C3["Difficulty PDCA-03, two seeds"]
+    C3 --> C5["Difficulty PDCA-05, matching seeds"]
+```
+
+사이클 1/2/4도 각각 원본에서 시작한 별도 시도입니다. 위 그림은 현재 후보의 부모 관계를 설명하며 성능 순위가 아닙니다. 두 seed는 각각 검증하고, 배포 후보 하나는 validation 목적함수로 선택합니다.
+
+## 고정 난이도 head 전환
+
+[PDCA-06](../benchmarks/training/pdca-06)은 원본 인코더의 state-only 평균 임베딩을 재사용하고 새 LayerNorm/Linear 분류기 5,123개 파라미터만 학습합니다. 기존 head 교체 형식과 호환되지 않으며 난이도 세 등급 전용입니다. 가중치 계보는 원본 Laya encoder → 새 PDCA-06 head이며 PDCA-05 head를 이어받지 않습니다. 최종 숫자와 한계는 [실측 기록](pdca-results.ko.md)을 참조하세요.

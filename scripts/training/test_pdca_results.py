@@ -19,6 +19,9 @@ class MeasurementAudit(unittest.TestCase):
                 for key, name in [('data_sha256', 'families.json'), ('plan_sha256', 'plan.json')]:
                     self.assertEqual(r[key], hashlib.sha256((data/name).read_bytes()).hexdigest())
                     self.assertEqual(r[key], selection[key])
+                plan = json.loads((data/'plan.json').read_text())
+                if plan.get('initial_heads'):
+                    self.assertEqual(selection['initial_head_sha256'], plan['initial_heads'][str(r['seed'])])
                 self.assertEqual(r['selected_head_sha256'], selection['head_sha256'])
                 self.assertFalse(selection['final_test_used_for_selection'])
                 self.assertEqual(r['passed'], all(r['criteria'].values()))

@@ -1,0 +1,722 @@
+[
+  {
+    "family": "cli-errors",
+    "split": "train",
+    "cases": [
+      "Correct one punctuation mark in the existing CLI failure message; the failing condition is unchanged.",
+      "Add a documented exit code for a missing local input file and tests for that case.",
+      "Find why the CLI occasionally reports success after a cancelled native operation has partially written output; the failing interleaving is unknown."
+    ]
+  },
+  {
+    "family": "configuration",
+    "split": "train",
+    "cases": [
+      "Replace the misspelled configuration heading with the supplied spelling.",
+      "Add a positive integer setting and validate its range with unit tests.",
+      "Redesign live configuration reload so concurrent requests cannot observe a mixture of old and new authorization rules."
+    ]
+  },
+  {
+    "family": "json-records",
+    "split": "train",
+    "cases": [
+      "Change one example JSON string literal in documentation to the supplied text.",
+      "Add JSON serialization of an existing record with stable field names and round-trip tests.",
+      "Preserve compatibility when independently deployed clients disagree on signed JSON canonicalization and silently reject valid records."
+    ]
+  },
+  {
+    "family": "file-writes",
+    "split": "train",
+    "cases": [
+      "Rename a private local variable in a small file-path helper without changing behavior.",
+      "Add an overwrite flag to a synchronous file writer with tests for an existing file.",
+      "Guarantee a multi-file update can recover after a crash at any write boundary without readers observing inconsistent state."
+    ]
+  },
+  {
+    "family": "queue-ownership",
+    "split": "train",
+    "cases": [
+      "Fix the spelling of the word queue in a code comment.",
+      "Add a queue-length getter under the existing ownership rules and test empty and nonempty cases.",
+      "Diagnose jobs being executed twice when a lease expires during a stalled worker and an acknowledgement arrives late."
+    ]
+  },
+  {
+    "family": "http-retries",
+    "split": "train",
+    "cases": [
+      "Replace one obsolete HTTP documentation link with the supplied replacement.",
+      "Add a timeout parameter to an isolated HTTP GET helper and test timeout behavior.",
+      "Ensure a retrying distributed operation does not repeat external side effects when its acknowledgement is lost and its transaction may already have committed."
+    ]
+  },
+  {
+    "family": "cache-lifetime",
+    "split": "train",
+    "cases": [
+      "Apply the standard formatter to the cache example source with no semantic edits.",
+      "Add expiry checks to a bounded synchronous cache and unit tests using a fake clock.",
+      "Investigate stale cross-tenant cache entries that survive permission revocation through interacting invalidation paths."
+    ]
+  },
+  {
+    "family": "native-lifetime",
+    "split": "train",
+    "cases": [
+      "Correct a comment naming the native library; do not change any bindings.",
+      "Add argument validation before a native call and test rejection without loading the library.",
+      "Prevent a native handle from being freed while another goroutine is executing inference, including cancellation and reentrant shutdown."
+    ]
+  },
+  {
+    "family": "pagination",
+    "split": "train",
+    "cases": [
+      "Fix a typo in a pagination example's prose caption.",
+      "Implement a page-size parameter with a documented maximum and bounded endpoint tests.",
+      "Preserve consistent pagination while rows are concurrently inserted and deleted across replicas with different visibility snapshots."
+    ]
+  },
+  {
+    "family": "archive-parser",
+    "split": "train",
+    "cases": [
+      "Rename a private archive test to match the supplied naming convention.",
+      "Reject malformed archive headers using a specified grammar and add parser regression tests.",
+      "Eliminate path traversal across symbolic links and extraction races while preserving valid archive behavior under adversarial concurrent filesystem changes."
+    ]
+  },
+  {
+    "family": "scheduler",
+    "split": "train",
+    "cases": [
+      "Replace a scheduler help heading with the supplied wording.",
+      "Add a weekday filter to an existing single-threaded scheduler with boundary tests.",
+      "Prove cancellation and shutdown cannot deadlock when workers reschedule jobs while holding different internal locks."
+    ]
+  },
+  {
+    "family": "release-metadata",
+    "split": "train",
+    "cases": [
+      "Update the release badge URL to a supplied exact URL.",
+      "Add SHA-256 entries to a release manifest and test mismatched files.",
+      "Design a signing-key rotation protocol that prevents rollback and still verifies releases made by old clients during a staged rollout."
+    ]
+  },
+  {
+    "family": "image-resizing",
+    "split": "validation",
+    "cases": [
+      "Correct one typo in the image helper's doc comment.",
+      "Add aspect-ratio preservation to a bounded image resize function with small fixture tests.",
+      "Diagnose nondeterministic image-buffer corruption when multiple asynchronous stages reuse pooled native memory."
+    ]
+  },
+  {
+    "family": "sql-query",
+    "split": "validation",
+    "cases": [
+      "Change capitalization in the title of a SQL example.",
+      "Add a documented optional filter to one query builder with parameter-binding tests.",
+      "Prevent lost updates in an accounting aggregate maintained by transactions spanning shards during concurrent retries."
+    ]
+  },
+  {
+    "family": "plugin-loading",
+    "split": "validation",
+    "cases": [
+      "Replace the supplied plugin name in one documentation sentence.",
+      "Add a version field to a plugin descriptor and reject unsupported versions with tests.",
+      "Resolve a process crash caused by plugin unload racing with callbacks into a shared native ABI across library versions."
+    ]
+  },
+  {
+    "family": "metrics-export",
+    "split": "validation",
+    "cases": [
+      "Fix a misspelled metrics unit in an existing comment.",
+      "Add one counter to the established metrics exporter with a test for its output.",
+      "Find why a lock-free metrics ring loses entries only after wraparound when producers and the exporter run concurrently."
+    ]
+  },
+  {
+    "family": "mail-template",
+    "split": "validation",
+    "cases": [
+      "Correct a word in a checked-in email template without changing placeholders.",
+      "Add a new documented template placeholder and tests for missing values.",
+      "Prevent notification duplication after failures between committing an outbox entry and acknowledging an external mail provider."
+    ]
+  },
+  {
+    "family": "time-format",
+    "split": "validation",
+    "cases": [
+      "Replace a prose date example with the supplied corrected date.",
+      "Add RFC3339 formatting to a known timestamp helper and test invalid input.",
+      "Reconcile event ordering when clocks move backwards and disconnected nodes later merge logs without losing causal dependencies."
+    ]
+  },
+  {
+    "family": "package-resolver",
+    "split": "validation",
+    "cases": [
+      "Fix punctuation in the package resolver's README heading.",
+      "Add a deterministic tie-break rule to an isolated dependency candidate sorter with tests.",
+      "Redesign dependency resolution to preserve reproducible builds across conflicting transitive constraints and platform-specific native variants."
+    ]
+  },
+  {
+    "family": "object-storage",
+    "split": "validation",
+    "cases": [
+      "Update a single storage example URL to an explicitly supplied value.",
+      "Add maximum object-size validation before upload with mock-client tests.",
+      "Guarantee readers cannot observe a half-published snapshot when a multi-object upload fails midway and concurrent garbage collection runs."
+    ]
+  },
+  {
+    "family": "terminal-table",
+    "split": "train",
+    "cases": [
+      "Remove a duplicated word from the table renderer documentation.",
+      "Implement right alignment for numeric table cells and verify Unicode width using fixture tests.",
+      "Investigate terminal output corruption caused by asynchronous redraw, cancellation and reused byte buffers with uncertain ownership."
+    ]
+  },
+  {
+    "family": "binary-decoder",
+    "split": "train",
+    "cases": [
+      "Correct a spelling mistake in a binary decoder comment.",
+      "Add support for a specified little-endian integer field and reject truncated input with unit tests.",
+      "Maintain wire compatibility during a rolling binary-protocol change where old and new nodes disagree on field boundaries and recovery behavior."
+    ]
+  },
+  {
+    "family": "websocket-session",
+    "split": "train",
+    "cases": [
+      "Change one websocket example caption to the supplied text.",
+      "Add a configurable ping interval to an established session helper with fake-clock tests.",
+      "Resolve messages being delivered after session revocation when reconnect, buffered writes and authorization updates occur concurrently."
+    ]
+  },
+  {
+    "family": "memory-arena",
+    "split": "train",
+    "cases": [
+      "Run the existing formatter on an arena example without changing any operations.",
+      "Add a bounds check to an isolated arena allocation wrapper and test failure without allocation.",
+      "Determine why a shared arena occasionally reuses live objects after generation counters wrap while readers retain references."
+    ]
+  },
+  {
+    "family": "feature-rollout",
+    "split": "train",
+    "cases": [
+      "Fix a misspelled feature name in a non-executable documentation sentence.",
+      "Add a percentage-range validator to a rollout setting and test endpoints and invalid values.",
+      "Make a distributed feature rollout preserve authorization invariants when nodes cache different flag versions and rollback is partial."
+    ]
+  },
+  {
+    "family": "search-ranking",
+    "split": "train",
+    "cases": [
+      "Replace one incorrect reference link in the search ranking guide with the supplied link.",
+      "Implement a documented deterministic sort tie-breaker for equal search scores and add tests.",
+      "Explain and fix platform-dependent ranking drift caused by quantization, floating-point order and native threading without violating reproducibility guarantees."
+    ]
+  },
+  {
+    "family": "audit-log",
+    "split": "train",
+    "cases": [
+      "Correct capitalization in an audit log example heading.",
+      "Add a new fixed metadata field to an existing audit record and test its JSON representation.",
+      "Guarantee tamper evidence and correct ordering when concurrent writers append audit events and a crash occurs between signing and durable persistence."
+    ]
+  },
+  {
+    "family": "resource-pool",
+    "split": "train",
+    "cases": [
+      "Rename a private resource-pool test to an explicitly supplied name without changing assertions.",
+      "Implement a maximum idle count for a pool with a supplied ownership contract and deterministic unit tests.",
+      "Diagnose a rare deadlock caused by resource eviction callbacks acquiring locks in a different order from concurrent pool shutdown."
+    ]
+  },
+  {
+    "family": "permissions-help",
+    "split": "train",
+    "cases": [
+      "In the security permissions guide, fix one spelling error in the supplied sentence. Do not alter any permission checks.",
+      "Add a permission-name validator with an explicitly listed set of accepted names and unit tests.",
+      "Find how permission revocation can race with a cached authorization decision and allow a request to access another tenant's resource."
+    ]
+  },
+  {
+    "family": "thread-docs",
+    "split": "train",
+    "cases": [
+      "Change the supplied heading in a concurrency tutorial; no code or locking behavior changes.",
+      "Add an optional worker-count flag using existing worker ownership rules and tests for zero and negative values.",
+      "Debug a hang where worker callbacks acquire the queue lock while shutdown owns the registry lock and waits for those callbacks."
+    ]
+  },
+  {
+    "family": "local-examples",
+    "split": "train",
+    "cases": [
+      "Rename the private variable tmp to output in a supplied five-line native-memory example; preserve every operation.",
+      "Add an example runner that reads one known fixture and prints its result, including a CLI integration test.",
+      "Repair object ownership when the example runner borrows native buffers that may be reused by a background allocator before output completes."
+    ]
+  },
+  {
+    "family": "migration-docs",
+    "split": "train",
+    "cases": [
+      "Correct the supplied date in the database migration README. No migration code or schema changes.",
+      "Validate a migration filename against a documented naming pattern and test accepted and rejected names.",
+      "Roll out a schema change without downtime when old writers and new readers coexist and rollback must preserve all prior data."
+    ]
+  },
+  {
+    "family": "formatting-only",
+    "split": "train",
+    "cases": [
+      "Apply gofmt to the named locking helper without changing statements, conditions or ordering.",
+      "Add a structured logging field to an existing request handler and verify its value with a captured logger.",
+      "Explain a data race in the logger when a request reuses a mutable field map after an asynchronous exporter has retained it."
+    ]
+  },
+  {
+    "family": "simple-refactors",
+    "split": "train",
+    "cases": [
+      "Remove a provably unused private constant identified by the compiler; no other edits are required.",
+      "Extract a duplicated pure validation function into a shared package and add behavior-preserving tests for its callers.",
+      "Split shared mutable scheduler state across packages while preserving cancellation, publication ordering and deadlock freedom."
+    ]
+  },
+  {
+    "family": "binary-fixtures",
+    "split": "train",
+    "cases": [
+      "Replace the prose label above a binary fixture with the exact supplied wording.",
+      "Extend a binary fixture reader with one specified checksum field and tests for invalid checksums.",
+      "Diagnose why different CPU architectures accept different signed binary messages because of alignment, overflow and canonical encoding differences."
+    ]
+  },
+  {
+    "family": "routing-manual",
+    "split": "train",
+    "cases": [
+      "Fix a broken link in the model-routing manual using the supplied replacement URL.",
+      "Add deterministic tie breaking to a model catalog selector and tests for equal ranks.",
+      "Design safe model switching when concurrent tasks share state, tool permissions differ and partially completed effects cannot be repeated."
+    ]
+  },
+  {
+    "family": "compression-stream",
+    "split": "train",
+    "cases": [
+      "Correct an accidental duplicate word in the compression helper's comment; executable code remains unchanged.",
+      "Add a compressed-output flag to a synchronous stream writer with round-trip and invalid-option tests.",
+      "Find intermittent stream corruption when cancellation releases pooled buffers that a native compression worker still owns."
+    ]
+  },
+  {
+    "family": "dns-cache",
+    "split": "train",
+    "cases": [
+      "Replace one outdated URL in the DNS cache guide with an exact supplied URL.",
+      "Add a TTL range validator to a DNS cache configuration with tests for boundaries.",
+      "Prevent connections from using revoked destinations when DNS changes race with cached connection reuse and authorization updates."
+    ]
+  },
+  {
+    "family": "csv-report",
+    "split": "train",
+    "cases": [
+      "Correct the spelling of a column name in a documentation example only.",
+      "Add CSV quoting for commas, quotes and newlines to an isolated report exporter with regression tests.",
+      "Maintain a consistent report snapshot while distributed writers concurrently modify related records and nodes fail during snapshot publication."
+    ]
+  },
+  {
+    "family": "filesystem-watch",
+    "split": "train",
+    "cases": [
+      "Rename a private watcher test to the supplied name without modifying its assertions.",
+      "Add a documented file-extension filter to an existing watcher and test matching and nonmatching paths.",
+      "Resolve missed and duplicate filesystem events when rename, delete, reconnect and replay occur in different orders across platforms."
+    ]
+  },
+  {
+    "family": "encrypted-backup",
+    "split": "train",
+    "cases": [
+      "Fix a punctuation error in the encryption README; algorithms and key handling stay unchanged.",
+      "Add a required-key-file argument check to a backup command and test the missing-file error.",
+      "Design encrypted backup rotation so crash recovery and concurrent garbage collection cannot discard the only decryptable copy during key changes."
+    ]
+  },
+  {
+    "family": "dependency-graph",
+    "split": "train",
+    "cases": [
+      "Apply the formatter to the provided dependency graph example with no semantic changes.",
+      "Add a cycle detector to a small in-memory dependency graph using a specified algorithm and unit tests.",
+      "Preserve task execution guarantees when a live dependency graph is modified while workers commit irreversible effects and cancellation propagates."
+    ]
+  },
+  {
+    "family": "terminal-colors",
+    "split": "train",
+    "cases": [
+      "Change one prose heading in the terminal-color guide to the provided text.",
+      "Add a --no-color flag through the existing output helper and test both modes.",
+      "Investigate a race in terminal state restoration when signal handlers interrupt concurrent interactive sessions using shared native handles."
+    ]
+  },
+  {
+    "family": "sharded-counter",
+    "split": "train",
+    "cases": [
+      "Fix the supplied typo in a sharded-counter comment without changing arithmetic.",
+      "Add a snapshot-to-JSON method for an existing immutable counter result with serialization tests.",
+      "Prevent counts from being lost or duplicated when shards transfer ownership during retries, failures and delayed acknowledgements."
+    ]
+  },
+  {
+    "family": "localization-catalog",
+    "split": "validation",
+    "cases": [
+      "In the translation guide, replace a misspelled heading with the exact supplied text.",
+      "Add fallback to the default locale when an explicitly requested translation key is missing, with unit tests.",
+      "Resolve locale cache contamination when requests with different tenant permissions concurrently rebuild and swap catalogs."
+    ]
+  },
+  {
+    "family": "multipart-parser",
+    "split": "validation",
+    "cases": [
+      "Fix one punctuation mark in the multipart parser comment without touching executable statements.",
+      "Reject an upload part exceeding a documented size limit and test the boundary.",
+      "Diagnose partial payload corruption when aborted multipart uploads return buffers to a pool while asynchronous validation still reads them."
+    ]
+  },
+  {
+    "family": "event-replay",
+    "split": "validation",
+    "cases": [
+      "Rename a private replay test to the provided identifier, preserving its assertions.",
+      "Add a maximum replay count argument and test zero and negative values.",
+      "Design event replay so process crashes and delayed acknowledgements cannot repeat external payments after ownership transfers between consumers."
+    ]
+  },
+  {
+    "family": "certificate-loader",
+    "split": "validation",
+    "cases": [
+      "Replace the old certificate documentation URL with the supplied address.",
+      "Validate that a configured certificate file exists and is nonempty before starting a command, with tests.",
+      "Prevent trust-policy violations during concurrent certificate rotation when cached sessions and disconnected nodes retain incompatible trust roots."
+    ]
+  },
+  {
+    "family": "audio-ring",
+    "split": "train",
+    "cases": [
+      "Correct the supplied spelling error in an audio-buffer comment; leave code unchanged.",
+      "Add validation of a specified sample-rate range to an isolated audio configuration parser and cover boundaries with tests.",
+      "Track down intermittent corrupted audio when a native callback retains a pooled buffer past cancellation and another producer reuses it."
+    ]
+  },
+  {
+    "family": "inventory-reservation",
+    "split": "train",
+    "cases": [
+      "Replace one outdated inventory guide link with the provided replacement.",
+      "Add a positive-quantity validator to an existing reservation request and test invalid inputs.",
+      "Prevent overselling when reservation leases expire during network partitions and late confirmations arrive after another worker has reassigned stock."
+    ]
+  },
+  {
+    "family": "pdf-metadata",
+    "split": "train",
+    "cases": [
+      "Change the capitalization of one prose heading in the PDF metadata guide.",
+      "Add an optional author field to an existing PDF metadata record with serialization tests.",
+      "Investigate native memory corruption when concurrent PDF renders outlive their cancelled request and share a font cache being destroyed."
+    ]
+  },
+  {
+    "family": "session-tokens",
+    "split": "train",
+    "cases": [
+      "Fix punctuation in a session-token code comment without modifying authentication logic.",
+      "Add a documented token-length check before parsing and tests for accepted and rejected lengths.",
+      "Preserve immediate session revocation across replicated caches when tokens are refreshed concurrently and one replica recovers from an older snapshot."
+    ]
+  },
+  {
+    "family": "path-matcher",
+    "split": "train",
+    "cases": [
+      "Apply gofmt to the named path-matcher example without changing its behavior.",
+      "Implement a documented filename-suffix filter in a pure helper and test matching and nonmatching names.",
+      "Eliminate a sandbox escape where symbolic links change between path authorization and opening the file under concurrent attacker-controlled renames."
+    ]
+  },
+  {
+    "family": "billing-export",
+    "split": "train",
+    "cases": [
+      "Rename the private billing export test to the exact supplied name and keep every assertion.",
+      "Add a fixed currency-code column to an existing CSV exporter and update fixture tests.",
+      "Ensure billing exports do not omit or duplicate ledger entries while shards rebalance during concurrent writes and a partially completed export is resumed."
+    ]
+  },
+  {
+    "family": "game-state",
+    "split": "train",
+    "cases": [
+      "Remove an accidental repeated word from the game-state tutorial.",
+      "Add a reset method to an isolated score value using the specified zero state and unit tests.",
+      "Explain divergent game replays across architectures when floating-point reductions and asynchronous state updates change ordering despite identical inputs."
+    ]
+  },
+  {
+    "family": "process-supervisor",
+    "split": "train",
+    "cases": [
+      "Replace a supervisor help caption with the exact wording supplied in the request.",
+      "Add a configurable restart delay through the existing synchronous supervisor interface and test bounds with a fake clock.",
+      "Resolve a rare shutdown deadlock involving child-exit callbacks, the process registry lock and a concurrent restart that transfers handle ownership."
+    ]
+  },
+  {
+    "family": "webhook-delivery",
+    "split": "calibration",
+    "cases": [
+      "Correct a misspelled heading in the webhook guide using the provided replacement.",
+      "Add an allowed-status-code list to a synchronous webhook response validator and test it.",
+      "Prevent duplicate irreversible actions when a webhook receiver commits its transaction but the sender times out and delivery ownership changes."
+    ]
+  },
+  {
+    "family": "thumbnail-cache",
+    "split": "calibration",
+    "cases": [
+      "Replace one old thumbnail example URL with the exact new URL.",
+      "Add a maximum thumbnail width validator with tests at the documented boundaries.",
+      "Resolve stale private thumbnails being served after permission revocation when distributed caches rebuild entries concurrently."
+    ]
+  },
+  {
+    "family": "event-journal",
+    "split": "calibration",
+    "cases": [
+      "Fix a punctuation error in the event-journal comment without changing persistence code.",
+      "Add a fixed version field to the journal metadata serializer and verify round trips.",
+      "Recover a journal after crashes between checksum, append and index publication without replaying committed effects twice."
+    ]
+  },
+  {
+    "family": "socket-cleanup",
+    "split": "calibration",
+    "cases": [
+      "Rename a private socket cleanup test to the supplied identifier and retain its assertions.",
+      "Add a specified upper bound to a socket timeout setting and test invalid values.",
+      "Find a use-after-free when a native socket callback accesses connection state during simultaneous cancellation, reconnect and shutdown."
+    ]
+  },
+  {
+    "family": "tree-formatter",
+    "split": "calibration",
+    "cases": [
+      "Apply the standard formatter to the supplied tree-printing example without semantic edits.",
+      "Add indentation-width configuration to an isolated tree renderer with fixture tests.",
+      "Make tree snapshots consistent while parallel writers move subtrees and readers traverse nodes using shared generation references."
+    ]
+  },
+  {
+    "family": "identity-claims",
+    "split": "calibration",
+    "cases": [
+      "Replace one prose caption in the identity guide with the supplied sentence.",
+      "Reject a missing issuer field in an existing claims validator using a supplied rule and tests.",
+      "Preserve cross-tenant authorization isolation during key rotation when claim caches and session refresh observe different policy generations."
+    ]
+  },
+  {
+    "family": "batch-import",
+    "split": "calibration",
+    "cases": [
+      "Remove the duplicated word in the import command help text.",
+      "Add a documented maximum-row option to a synchronous importer and test limit handling.",
+      "Guarantee partial batch imports resume safely after network failures when some external side effects committed but their acknowledgements were lost."
+    ]
+  },
+  {
+    "family": "priority-work",
+    "split": "calibration",
+    "cases": [
+      "Correct one spelling error in a priority-queue comment.",
+      "Implement a documented deterministic tie break in an existing single-threaded priority queue and test equal priorities.",
+      "Prevent starvation and lost work when priorities change concurrently with worker leasing, cancellation and process recovery."
+    ]
+  },
+  {
+    "family": "load-balancer",
+    "split": "train",
+    "cases": [
+      "Update one documentation link in the load-balancer guide to the exact supplied address.",
+      "Add a positive weight validator to the existing backend configuration parser with boundary tests.",
+      "Preserve request ownership when a load-balancer generation changes during retries and draining backends still execute non-idempotent operations."
+    ]
+  },
+  {
+    "family": "sqlite-checkpoint",
+    "split": "train",
+    "cases": [
+      "Correct the supplied typo in a SQLite checkpoint comment; do not modify database operations.",
+      "Add a documented checkpoint interval option with range validation and fake-clock tests.",
+      "Diagnose recovery failures involving concurrent readers, checkpoint truncation and process crashes at different durability boundaries."
+    ]
+  },
+  {
+    "family": "temporary-files",
+    "split": "train",
+    "cases": [
+      "Change one prose heading in the temporary-file guide to the provided text.",
+      "Add a filename-prefix option to an existing synchronous temporary-file helper and test its output.",
+      "Remove a permission bypass when attackers replace directory links between temporary-file authorization, creation and cleanup."
+    ]
+  },
+  {
+    "family": "video-frame",
+    "split": "train",
+    "cases": [
+      "Rename a private frame-decoder test to the exact supplied name without changing assertions.",
+      "Reject a frame dimension above a specified limit in an isolated validator and test boundaries.",
+      "Debug intermittent decoded-frame corruption when a GPU transfer continues reading a native buffer after request cancellation returns it to a pool."
+    ]
+  },
+  {
+    "family": "quota-service",
+    "split": "train",
+    "cases": [
+      "Fix punctuation in the quota-service documentation without changing any quota logic.",
+      "Add a documented quota-name validator and tests for allowed and invalid names.",
+      "Guarantee global quota conservation when partitioned replicas admit concurrent requests and later reconcile reservations whose commit status is uncertain."
+    ]
+  },
+  {
+    "family": "protocol-negotiation",
+    "split": "train",
+    "cases": [
+      "Replace a protocol example caption with the exact supplied wording.",
+      "Add a supported-version membership check to an existing negotiation parser with unit tests.",
+      "Roll out a protocol change across old and new peers without message loss when framing, acknowledgements and rollback behavior differ."
+    ]
+  },
+  {
+    "family": "distributed-timer",
+    "split": "train",
+    "cases": [
+      "Apply gofmt to the provided timer example while preserving all operations.",
+      "Add a configurable positive retry interval to an existing synchronous timer helper and test range checks.",
+      "Ensure a scheduled external action occurs only once when timer ownership moves after a network partition and a paused node resumes late."
+    ]
+  },
+  {
+    "family": "image-permissions",
+    "split": "train",
+    "cases": [
+      "Remove a repeated word from the image permission tutorial.",
+      "Add a required resource-ID check to an existing image request validator and test missing values.",
+      "Prevent revoked users from receiving image data when authorization caches, concurrent transformations and content publication use different permission snapshots."
+    ]
+  },
+  {
+    "family": "terminal-history",
+    "split": "test",
+    "cases": [
+      "Fix the supplied typo in a terminal-history comment; leave executable code alone.",
+      "Add a configurable maximum history length with bounds checks and tests for eviction in the existing synchronous helper.",
+      "Prevent lost or cross-session history when concurrent shells flush snapshots while compaction, cancellation and key rotation overlap."
+    ]
+  },
+  {
+    "family": "checksum-reader",
+    "split": "test",
+    "cases": [
+      "Replace one checksum example heading with the exact supplied text.",
+      "Implement validation of a specified checksum field in an isolated record reader and test corrupt and truncated records.",
+      "Diagnose incompatible signatures across architectures when alignment, integer overflow and canonical byte ordering differ in a rolling protocol deployment."
+    ]
+  },
+  {
+    "family": "notification-preferences",
+    "split": "test",
+    "cases": [
+      "Correct punctuation in the notification-preference guide without changing settings.",
+      "Add a documented boolean setting to disable one notification category and test its default and enabled values.",
+      "Guarantee revoked notification consent applies when cached preferences, queued deliveries and external-provider acknowledgements race during a retry."
+    ]
+  },
+  {
+    "family": "connection-limits",
+    "split": "test",
+    "cases": [
+      "Rename the private connection-limit test to the provided identifier without changing assertions.",
+      "Reject negative connection limits in the existing configuration parser and add boundary tests.",
+      "Maintain a global connection cap when concurrent nodes lease capacity, become partitioned and reconnect with uncertain lease ownership."
+    ]
+  },
+  {
+    "family": "progress-display",
+    "split": "test",
+    "cases": [
+      "Remove a repeated word from the progress-display help caption.",
+      "Add a no-progress flag through the existing output helper and cover both modes with tests.",
+      "Fix a rare native buffer use-after-free when concurrent progress redraws continue after cancellation closes the terminal and returns pooled memory."
+    ]
+  },
+  {
+    "family": "artifact-mirror",
+    "split": "test",
+    "cases": [
+      "Update one mirror documentation URL to the supplied replacement.",
+      "Add a file-size limit check before synchronous artifact download with mock tests.",
+      "Preserve signed artifact consistency when mirror failover, partial download recovery and signing-key rollback occur across replicas with different metadata generations."
+    ]
+  },
+  {
+    "family": "ordered-index",
+    "split": "test",
+    "cases": [
+      "Run gofmt on the supplied ordered-index example without altering behavior.",
+      "Add a specified stable tie-break rule to a pure index-entry sorter and test equal keys.",
+      "Prevent stale index references and deadlocks when compaction moves shared nodes while readers retain generation pointers and cancellation acquires locks in reverse order."
+    ]
+  },
+  {
+    "family": "batch-transactions",
+    "split": "test",
+    "cases": [
+      "Fix the spelling error identified in the batch-transaction documentation comment.",
+      "Add a documented maximum batch size to a request validator and test empty and oversized batches.",
+      "Ensure a partially committed cross-shard batch recovers without duplicate side effects when leaders change and delayed commit acknowledgements arrive."
+    ]
+  }
+]

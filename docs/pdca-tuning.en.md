@@ -84,3 +84,19 @@ training schedule have been started.
 Cycle 4 adds cross-order Jensen–Shannon divergence to training loss and the validation selection objective. Inference remains one pass in one option order.
 
 [Measurements for every attempt](pdca-results.en.md). Cycle 4 stopped on validation without final inference. Cycle 5 starts from the exact cycle-3 heads with fresh optimizers and compares all six orders together. Selection uses validation error rate + order flip rate + 0.1×JS; final acceptance gates stay unchanged.
+
+## Weight lineage
+
+```mermaid
+graph LR
+    B["Original Laya (pinned)"] --> P["Difficulty pilot v0.1"]
+    B --> D["Decomposition pilot v0.1"]
+    B --> C3["Difficulty PDCA-03, two seeds"]
+    C3 --> C5["Difficulty PDCA-05, matching seeds"]
+```
+
+Cycles 1/2/4 are separate attempts starting from the original. This diagram describes parentage, not a capability ranking. Check both seeds and select one release candidate by the validation objective.
+
+## Fixed-tier architecture change
+
+[PDCA-06](../benchmarks/training/pdca-06) reuses state-only pooled original encoder embeddings and trains a new 5,123-parameter LayerNorm/Linear classifier. It is incompatible with the old head-replacement format and specific to three difficulty tiers. Its parent is the original Laya encoder, not the PDCA-05 head. See [measurements](pdca-results.en.md) for results and limits.

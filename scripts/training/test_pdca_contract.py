@@ -113,5 +113,28 @@ class PDCAContractTest(unittest.TestCase):
             prior = json.loads((ROOT/f'benchmarks/results/pdca-03/seed{seed}-selection.json').read_text())
             self.assertEqual(plan['initial_heads'][str(seed)], prior['head_sha256'])
 
+    def test_sixth_cycle_pins_distinct_fixed_tier_architecture(self):
+        root = ROOT / 'benchmarks/training/pdca-06'
+        for name, sha in {
+            'plan.json': 'a461c7073fcab9db3167b89830f465b69cee548b64d90b146ef2b7975c915535',
+            'families.json': '8b6472cec22a298ee74e69a5f176136bc7be82d708fa426d00613808076ee82f',
+        }.items():
+            self.assertEqual(hashlib.sha256((root/name).read_bytes()).hexdigest(), sha)
+        plan = json.loads((root/'plan.json').read_text())
+        first = json.loads((ROOT/'benchmarks/training/pdca-01/plan.json').read_text())
+        self.assertEqual(plan['criteria'], first['criteria'])
+        self.assertEqual(plan['gate'], first['gate'])
+        self.assertEqual(plan['format'], 'laya-encoder-fixed-tier-linear-v1')
+        self.assertEqual(plan['head_parameter_count'], 5123)
+        families = json.loads((root/'families.json').read_text())
+        previous = json.loads((ROOT/'benchmarks/training/pdca-05/families.json').read_text())
+        self.assertFalse({f['family'] for f in previous} & {f['family'] for f in families if f['split']=='test'})
+        self.assertEqual(len(families), len({f['family'] for f in families}))
+        texts=[t for f in families for t in f['cases']]
+        self.assertEqual(len(texts),len(set(texts)))
+        self.assertEqual({s:sum(len(f['cases']) for f in families if f['split']==s)
+                          for s in ('train','validation','calibration','test')},
+                         {'train':156,'validation':36,'calibration':24,'test':24})
+
 
 if __name__=='__main__': unittest.main()

@@ -221,6 +221,22 @@ def keyword_reference(text):
     return 1
 
 
+def assess(plan, baseline, tuned, base_legacy, tuned_legacy, flip_rate):
+    c = plan['criteria']
+    return {
+        'accuracy': tuned['accuracy'] >= c['minimum_accuracy'],
+        'no_accuracy_regression': tuned['accuracy'] >= baseline['accuracy'],
+        'strong_recall': tuned['strong_recall'] >= c['minimum_strong_recall'],
+        'no_strong_to_fast': tuned['strong_to_fast'] == 0,
+        'coverage': tuned['coverage'] >= c['minimum_coverage'],
+        'accepted_precision': tuned['accepted_precision'] is not None and tuned['accepted_precision'] >= c['minimum_accepted_precision'],
+        'gain': tuned['accuracy'] - baseline['accuracy'] >= c['improvement_any']['accuracy_absolute_gain'] or
+                tuned['brier'] <= baseline['brier'] * (1-c['improvement_any']['brier_relative_reduction']),
+        'permutation': flip_rate <= c['max_permutation_winner_flip_rate'],
+        'legacy': tuned_legacy['accuracy'] >= base_legacy['accuracy']-c['max_legacy_accuracy_regression'],
+    }
+
+
 def check(args, plan, rows):
     selection = json.loads((args.out / 'selection.json').read_text())
     if selection['seed'] != args.seed: raise ValueError('Seed does not match frozen selection')
@@ -255,19 +271,7 @@ def check(args, plan, rows):
         permuted = evaluate(model,tok,test,start,args.out,order)
         flips += int(permuted.argmax(-1).ne(z.argmax(-1)).sum())
     flip_rate = flips/(5*len(test))
-    c = plan['criteria']
-    passed = {
-        'accuracy': tuned['accuracy'] >= c['minimum_accuracy'],
-        'no_accuracy_regression': tuned['accuracy'] >= baseline['accuracy'],
-        'strong_recall': tuned['strong_recall'] >= c['minimum_strong_recall'],
-        'no_strong_to_fast': tuned['strong_to_fast'] == 0,
-        'coverage': tuned['coverage'] >= c['minimum_coverage'],
-        'accepted_precision': tuned['accepted_precision'] is not None and tuned['accepted_precision'] >= c['minimum_accepted_precision'],
-        'gain': tuned['accuracy'] - baseline['accuracy'] >= c['improvement_any']['accuracy_absolute_gain'] or
-                tuned['brier'] <= baseline['brier'] * (1-c['improvement_any']['brier_relative_reduction']),
-        'permutation': flip_rate <= c['max_permutation_winner_flip_rate'],
-        'legacy': tuned_legacy['accuracy'] >= base_legacy['accuracy']-c['max_legacy_accuracy_regression'],
-    }
+    passed = assess(plan, baseline, tuned, base_legacy, tuned_legacy, flip_rate)
     report = {'seed': args.seed, 'selected_head_sha256': selection['head_sha256'], 'plan_sha256': selection['plan_sha256'],
               'data_sha256': selection['data_sha256'], 'base_temperature': base_t, 'temperature': temperature,
               'baseline': baseline, 'tuned': tuned, 'base_legacy': base_legacy, 'tuned_legacy': tuned_legacy,

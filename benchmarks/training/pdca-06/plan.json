@@ -1,0 +1,55 @@
+{
+  "cycle": "pdca-06",
+  "primary_task": "difficulty",
+  "status": "pre_registered_before_training",
+  "scope": "initial measured improvement on authored family-disjoint English evaluation, not production or coding savings",
+  "train_sources": [
+    "pilot-v1 difficulty train only",
+    "families.json train; prior viewed final data now development"
+  ],
+  "selection": "Validation NLL only on fixed-class outputs; both seeds frozen before final",
+  "learning_rates": [
+    0.001,
+    0.003
+  ],
+  "max_epochs": 100,
+  "seeds": [
+    1729,
+    2718
+  ],
+  "temperature_range": [
+    0.5,
+    5.0
+  ],
+  "gate": 0.9,
+  "criteria": {
+    "minimum_accuracy": 0.8,
+    "no_accuracy_regression_against_base": true,
+    "minimum_strong_recall": 0.875,
+    "strong_to_fast_errors": 0,
+    "minimum_coverage": 0.25,
+    "minimum_accepted_precision": 0.9,
+    "improvement_any": {
+      "accuracy_absolute_gain": 0.1,
+      "brier_relative_reduction": 0.1
+    },
+    "max_permutation_winner_flip_rate": 0.1,
+    "max_legacy_accuracy_regression": 0.05,
+    "both_seeds_must_pass": true
+  },
+  "limits": {
+    "process_rss_gib": 5,
+    "minimum_system_free_percent": 20,
+    "minimum_disk_free_gib": 30,
+    "minutes_per_seed": 20
+  },
+  "failure_policy": "Do not lower criteria; a viewed test becomes development data, require a new family holdout for a new cycle. Preserve all failures.",
+  "architecture": "frozen_laya_encoder_state_mean_layernorm_linear_3",
+  "format": "laya-encoder-fixed-tier-linear-v1",
+  "batch_size": 32,
+  "weight_decay": 0.1,
+  "feature_pool": "Mean of non-special state-only token embeddings from frozen Laya encoder, FP32, max 512 tokens",
+  "permutation_policy": "No choice-list input. Fixed class outputs preserve labels under serialization permutations by construction. This is NOT repaired robustness of the original Laya choice head.",
+  "calibration_policy": "24 development calibration cases, same .5..5 temperature grid for base and tuned",
+  "head_parameter_count": 5123
+}
