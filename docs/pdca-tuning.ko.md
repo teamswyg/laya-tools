@@ -15,7 +15,7 @@
 ## 작은 실험을 반복하는 방법
 
 1. Plan: 가족별 train/validation/calibration/test를 고정하고 계획·데이터 해시를 이슈에 먼저 기록합니다.
-2. Do: 동일 원본에서 두 seed를 각각 학습합니다. validation 손실로만 체크포인트를 선택합니다.
+2. Do: 원본 또는 계획에 고정한 초기 head에서 두 seed를 각각 학습합니다. 사전에 고정한 validation 목적함수로만 체크포인트를 선택합니다.
 3. Check: 두 후보를 고정한 뒤 새 final, 기존 영문 사례, 선택지 순서 변경을 검사합니다.
 4. Act: 실패는 보존합니다. 이미 본 final은 개발용으로 이동하며 새 사이클은 새 final을 씁니다.
 
@@ -41,7 +41,7 @@
 ## 재현과 자원
 
 [PDCA-01](../benchmarks/training/pdca-01), [PDCA-02](../benchmarks/training/pdca-02),
-[PDCA-03](../benchmarks/training/pdca-03), [PDCA-04](../benchmarks/training/pdca-04)에 고정 계획과 데이터가 있습니다.
+[PDCA-03](../benchmarks/training/pdca-03), [PDCA-04](../benchmarks/training/pdca-04), [PDCA-05](../benchmarks/training/pdca-05)에 고정 계획과 데이터가 있습니다.
 유지보수자만 Python 학습 환경을 사용하고 사용자 런타임은 Go를 유지합니다.
 
 MPS에서 encoder/action head를 동결하고 head/type_emb/scorer를 학습합니다.
@@ -77,3 +77,5 @@ CI에는 torch나 모델 다운로드 없이 실행되는 고정 계획/가족 �
 수집/게시하지 않습니다. 새 유료 모델 실행이나 자동 반복 일정은 시작하지 않았습니다.
 
 사이클 4는 선택지 순서 간 확률 차이(JS divergence)를 학습 손실과 validation 선택 기준에 더합니다. 추론은 여전히 한 가지 순서로 한 번 수행합니다.
+
+[모든 시도의 실측 표](pdca-results.ko.md). 사이클 4는 validation만 보고 중단했고 final은 실행하지 않았습니다. 사이클 5는 사이클 3의 정확한 head에서 새 optimizer로 시작하며, 여섯 순서를 동시에 비교합니다. 선택 기준은 validation 분류 오류율 + 순서 뒤집힘 비율 + 0.1×JS입니다. final 통과 기준은 그대로입니다.

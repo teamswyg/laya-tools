@@ -276,3 +276,10 @@ These are recommendations only. No active Codex conversation is switched and no 
 [GitHub Actions performance replay](docs/performance-replay.en.md): manually compare CPU time, peak RSS, and results across fixed scenarios.
 
 [Array layout, lock/SIMD review, and difficulty golden results](docs/layout-and-goldens.en.md)
+
+## Local training and evaluation
+
+The [PDCA tuning guide](docs/pdca-tuning.en.md) explains fixed evaluation gates,
+real MPS training, preserved failures and next-round data preparation. [Issue #11](https://github.com/teamswyg/laya-tools/issues/11)
+tracks execution. Training remains a maintainer experiment on authored English difficulty cases;
+it does not replace the default Go model or establish real coding-cost savings.

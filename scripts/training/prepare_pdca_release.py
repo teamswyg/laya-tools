@@ -1,6 +1,6 @@
 """Adapt an accepted two-seed PDCA experiment to the existing release contract.
 
-Select by validation NLL only. Refuse a failed seed or mismatched frozen inputs.
+Select by the pre-registered validation objective only. Refuse a failed seed or mismatched frozen inputs.
 """
 import argparse
 import csv
@@ -56,6 +56,9 @@ def main():
                  f"{plan['max_epochs']} epochs on two seeds; {plan.get('train_orders_per_update',1)} "
                  f"option orders per update. Selection: {plan['selection']}. "
                  "Both seeds passed pre-registered checks; release selection uses the pre-registered validation objective only.")
+    if plan.get('initial_head_source_cycle'):
+        description += (f" Warm-started from the matching {plan['initial_head_source_cycle']} seed head; "
+                        "fresh optimizer, not an optimizer-resume equivalence claim.")
     dataset=(f"{len(rows)} authored English cases: {counts['train']} train, "
              f"{counts['validation']} validation, {counts['calibration']} calibration, "
              f"{counts['test']} held-out test. Training includes 24 prior training examples. "

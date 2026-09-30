@@ -99,6 +99,14 @@ def train(args, plan, rows):
     guard(start, 20, args.out)
     model, tok = setup(args.base, args.seed)
     frozen = frozen_hash(model)
+    if plan.get('initial_heads'):
+        if args.initial_head is None or file_hash(args.initial_head) != plan['initial_heads'][str(args.seed)]:
+            raise ValueError('Exact pre-registered initial head required')
+        initial = load_file(args.initial_head)
+        if set(initial) != set(head_state(model)): raise ValueError('Initial head parameter mismatch')
+        restore_head(model, initial)
+    elif args.initial_head is not None:
+        raise ValueError('Warm start must be pre-registered')
     original = head_state(model)
     training = [r for r in rows if r['split'] == 'train']
     validation = [r for r in rows if r['split'] == 'validation']
@@ -120,7 +128,9 @@ def train(args, plan, rows):
             for row in order:
                 guard(start, 20, args.out)
                 optimizer.zero_grad(set_to_none=True)
-                if plan.get('train_orders_per_update', 1) == 3:
+                if plan.get('train_orders_per_update', 1) == 6:
+                    orders = permutations
+                elif plan.get('train_orders_per_update', 1) == 3:
                     orders = [(0,1,2),(1,2,0),(2,0,1)] if epoch % 2 == 0 else [(0,2,1),(2,1,0),(1,0,2)]
                 else:
                     orders = [rng.choice(permutations)]
@@ -159,6 +169,10 @@ def train(args, plan, rows):
             if plan.get('consistency_weight', 0):
                 record['validation_order_js'] = float(order_js(val_by_order))
                 score += plan['consistency_weight'] * record['validation_order_js']
+            if plan.get('selection_objective') == 'error_plus_flip_plus_js':
+                winners = val_by_order.argmax(-1)
+                record['validation_order_flip_rate'] = float(winners[1:].ne(winners[0]).sum()) / ((len(val_orders)-1)*len(validation))
+                score = 1-val['accuracy'] + record['validation_order_flip_rate'] + .1*record['validation_order_js']
             record['selection_score'] = score
             records.append(record)
             print(json.dumps(record), flush=True)
@@ -169,6 +183,7 @@ def train(args, plan, rows):
         torch.mps.empty_cache()
     if frozen_hash(model) != frozen: raise RuntimeError('Frozen parameter mutation')
     report = {'cycle': plan['cycle'], 'seed': args.seed, 'selection': selected, 'history': records,
+              'initial_head_sha256': plan.get('initial_heads', {}).get(str(args.seed)),
               'updates': updates, 'train_rows': len(training), 'validation_rows': len(validation),
               'head_sha256': file_hash(args.out / 'head.safetensors'), 'plan_sha256': file_hash(args.data / 'plan.json'),
               'data_sha256': file_hash(args.data / 'families.json'), 'legacy_train_sha256': file_hash(args.data.parent / 'pilot-v1.tsv'),
@@ -273,6 +288,7 @@ def main():
     ap.add_argument('--base',type=Path,required=True)
     ap.add_argument('--data',type=Path,default=Path('benchmarks/training/pdca-01'))
     ap.add_argument('--out',type=Path,required=True)
+    ap.add_argument('--initial-head',type=Path)
     ap.add_argument('--seed',type=int,choices=[1729,2718],required=True)
     args=ap.parse_args()
     plan=json.loads((args.data/'plan.json').read_text());rows=load_data(args.data)

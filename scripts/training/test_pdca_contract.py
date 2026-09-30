@@ -94,5 +94,24 @@ class PDCAContractTest(unittest.TestCase):
                           for s in ('train','validation','calibration','test')},
                          {'train':132,'validation':36,'calibration':24,'test':24})
 
+    def test_fifth_cycle_reuses_only_unexecuted_final_and_pins_warm_heads(self):
+        root = ROOT / 'benchmarks/training/pdca-05'
+        for name, sha in {
+            'plan.json': '6aac6f8e8ddb6b26438a3abefc057bbea04a343a7cdb4da12e2cc73c7d16fff4',
+            'families.json': '2f31908d03210c94248cf74e29cd905045d1e168af69653332ae34263768ccfd',
+        }.items():
+            self.assertEqual(hashlib.sha256((root/name).read_bytes()).hexdigest(), sha)
+        plan = json.loads((root/'plan.json').read_text())
+        first = json.loads((ROOT/'benchmarks/training/pdca-01/plan.json').read_text())
+        self.assertEqual(plan['criteria'], first['criteria'])
+        self.assertEqual(plan['gate'], first['gate'])
+        self.assertEqual(plan['train_orders_per_update'], 6)
+        stopped = json.loads((ROOT/'benchmarks/results/pdca-04/stopped.json').read_text())
+        self.assertFalse(stopped['final_evaluated'])
+        self.assertFalse(list((ROOT/'benchmarks/results/pdca-04').glob('*evaluation.json')))
+        for seed in plan['seeds']:
+            prior = json.loads((ROOT/f'benchmarks/results/pdca-03/seed{seed}-selection.json').read_text())
+            self.assertEqual(plan['initial_heads'][str(seed)], prior['head_sha256'])
+
 
 if __name__=='__main__': unittest.main()

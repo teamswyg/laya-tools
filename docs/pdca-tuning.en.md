@@ -15,7 +15,7 @@ Passing the existing confidence gate of 0.9 never grants execution authority.
 ## The repeatable loop
 
 1. Plan: freeze family-separated train/validation/calibration/test data and record plan/data hashes in the issue before training.
-2. Do: train two seeds independently from the same original checkpoint; select only by validation loss.
+2. Do: train two seeds from the original or pre-registered initial heads; select only by the pre-registered validation objective.
 3. Check: freeze both candidates, then evaluate the new final, legacy English cases and choice-order permutations.
 4. Act: preserve failures. Viewed final data becomes development data; each new cycle needs a new final.
 
@@ -43,7 +43,7 @@ are not six independent examples.
 
 Frozen plans and fixtures live in [PDCA-01](../benchmarks/training/pdca-01),
 [PDCA-02](../benchmarks/training/pdca-02) and
-[PDCA-03](../benchmarks/training/pdca-03) and [PDCA-04](../benchmarks/training/pdca-04).
+[PDCA-03](../benchmarks/training/pdca-03) and [PDCA-04](../benchmarks/training/pdca-04) and [PDCA-05](../benchmarks/training/pdca-05).
 Python is maintainer-only; the user runtime stays Go.
 
 Freeze encoder/action-head weights and train head/type_emb/scorer on MPS with
@@ -82,3 +82,5 @@ prompts or credentials. No new paid model executions or unattended recurring
 training schedule have been started.
 
 Cycle 4 adds cross-order Jensen–Shannon divergence to training loss and the validation selection objective. Inference remains one pass in one option order.
+
+[Measurements for every attempt](pdca-results.en.md). Cycle 4 stopped on validation without final inference. Cycle 5 starts from the exact cycle-3 heads with fresh optimizers and compares all six orders together. Selection uses validation error rate + order flip rate + 0.1×JS; final acceptance gates stay unchanged.
