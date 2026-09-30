@@ -1,6 +1,7 @@
 package hintlearn
 
 import (
+	"hash/fnv"
 	"math"
 	"reflect"
 	"testing"
@@ -63,5 +64,15 @@ func TestFamilyLeakAndTrainingImprovement(t *testing.T) {
 	val.Split = "final"
 	if _, e = Fit(train, val, Config{1729, .2, "fp32", 1}); e == nil {
 		t.Fatal("final used for selection")
+	}
+}
+
+func TestFeatureHashIncludesUTF8Bytes(t *testing.T) {
+	for _, text := range []string{"ascii", "한글", "query\x00document"} {
+		h := fnv.New64a()
+		h.Write([]byte(text))
+		if hash(text) != h.Sum64() {
+			t.Fatal("UTF-8 bytes omitted")
+		}
 	}
 }

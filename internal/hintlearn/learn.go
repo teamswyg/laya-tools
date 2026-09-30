@@ -101,7 +101,7 @@ func terms(ws []string) []string {
 }
 func hash(s string) uint64 {
 	h := uint64(14695981039346656037)
-	for i := range s {
+	for i := 0; i < len(s); i++ {
 		h ^= uint64(s[i])
 		h *= 1099511628211
 	}
