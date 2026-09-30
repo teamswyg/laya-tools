@@ -1,0 +1,28 @@
+{
+  "hardware": "Apple M4 Pro, 24 GiB unified memory",
+  "date": "2026-09-30",
+  "timing_boundary": "cached encoder feature to three head probabilities; no tokenizer/encoder/network",
+  "report": "results.json",
+  "report_sha256": "08eb08d55368f3d09033549f629c078903ae2243e1872a50302068f70a3490d1",
+  "plan_sha256": "76d41f273cd10c0133a008023397c0f00474dec1aa85069f7c3ccc80e2f44fb8",
+  "iterations_per_variant": 100000,
+  "timing_profiler_enabled": false,
+  "timing_statistics": "single-run arithmetic means, not confidence intervals",
+  "profile_separate_run": {
+    "iterations_per_variant": 200000,
+    "sampled_cpu_seconds": 5.54,
+    "predict_flat_percent": 84.66,
+    "process_peak_rss_bytes": 25296896,
+    "peak_memory_footprint_bytes": 22692368,
+    "includes": "Go runtime, all fixture features, six models, JSON input/report, CPU profiler; excludes encoder",
+    "raw_profile_published": false
+  },
+  "head_prediction_allocations_per_op": 0,
+  "reference_arithmetic": "FP32 PyTorch reference; Go FP64 accumulation over FP32-stored folded weights",
+  "fuzz_decode": {
+    "seconds": 5,
+    "executions": 5438684,
+    "scope": "loader and finite predictions; executed before kind-dispatch hoisting, loader unchanged"
+  },
+  "limits": "Development compression only; no full-model RAM reduction, SIMD, GPU execution or production accuracy claim."
+}
