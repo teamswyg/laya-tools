@@ -1,0 +1,233 @@
+{
+  "Schema": "riido-retrieval-proxy-v1",
+  "Stage": "evaluate",
+  "MembershipSHA256": "3a6d161ac50e16f18b841645968f47af32055350e460c99a96d733ff217ff37d",
+  "Rows": 3009,
+  "Sources": [
+    {
+      "Source": {
+        "Repository": "kubernetes/test-infra",
+        "Revision": "8125fbda10178887be5dff9e901d6a0a519b67bc",
+        "Archive": "test-infra.zip",
+        "ArchiveSHA256": "a7eb03b988784e9bea3bb6fcb5d43e3d7559bd70564db0c5b0aac46d56bda714",
+        "LicensePath": "LICENSE",
+        "LicenseSHA256": "9c5490f258dba85c52aa747e9d4936f84d56415f67c935a854b12d6571632161"
+      },
+      "Rows": 1226,
+      "Files": 255,
+      "MissingFiles": 0,
+      "MismatchedCode": 0,
+      "GeneratedRows": 43,
+      "NestedNoticeRows": 0,
+      "OtherLicenseHeaderRows": 0,
+      "QueryInsideCode": 1,
+      "Retained": 1182,
+      "NestedNotices": null
+    },
+    {
+      "Source": {
+        "Repository": "lxc/lxd",
+        "Revision": "7a41d14e4c1a6bc25918aca91004d594774dcdd3",
+        "Archive": "lxd.zip",
+        "ArchiveSHA256": "2b0487e81e97b6f06663ab4c9bb9d783126b0147ad5029a02c7f33595509d6b9",
+        "LicensePath": "COPYING",
+        "LicenseSHA256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+      },
+      "Rows": 1033,
+      "Files": 211,
+      "MissingFiles": 0,
+      "MismatchedCode": 0,
+      "GeneratedRows": 0,
+      "NestedNoticeRows": 14,
+      "OtherLicenseHeaderRows": 7,
+      "QueryInsideCode": 0,
+      "Retained": 1012,
+      "NestedNotices": [
+        "shared/log15/LICENSE"
+      ]
+    },
+    {
+      "Source": {
+        "Repository": "etcd-io/etcd",
+        "Revision": "616592d9ba993e3fe9798eef581316016df98906",
+        "Archive": "etcd.zip",
+        "ArchiveSHA256": "fa857b268cadde9a7ce136bb449c22f5e8f60b64cd7c22bfea67612cfeb34d78",
+        "LicensePath": "LICENSE",
+        "LicenseSHA256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+      },
+      "Rows": 836,
+      "Files": 251,
+      "MissingFiles": 0,
+      "MismatchedCode": 0,
+      "GeneratedRows": 20,
+      "NestedNoticeRows": 0,
+      "OtherLicenseHeaderRows": 1,
+      "QueryInsideCode": 0,
+      "Retained": 815,
+      "NestedNotices": null
+    }
+  ],
+  "Results": [
+    {
+      "Mode": "raw",
+      "Documents": 3009,
+      "CatalogBytes": 1935208,
+      "BuildNanos": 46365500,
+      "All": {
+        "Queries": 2948,
+        "Recall1": 0.417910447761194,
+        "Recall5": 0.6648575305291723,
+        "Recall10": 0.748303934871099,
+        "MRR": 0.5336131485420151,
+        "MeanRank": 48.98880597014925,
+        "P50Rank": 2,
+        "P95Rank": 161,
+        "QueryP50Nanos": 155958,
+        "QueryP95Nanos": 205500
+      },
+      "NamePresent": {
+        "Queries": 2604,
+        "Recall1": 0.4450844854070661,
+        "Recall5": 0.7004608294930875,
+        "Recall10": 0.7849462365591398,
+        "MRR": 0.5639777000991438,
+        "MeanRank": 19.115591397849464,
+        "P50Rank": 2,
+        "P95Rank": 89,
+        "QueryP50Nanos": 156625,
+        "QueryP95Nanos": 205708
+      },
+      "NameAbsent": {
+        "Queries": 344,
+        "Recall1": 0.21220930232558138,
+        "Recall5": 0.3953488372093023,
+        "Recall10": 0.47093023255813954,
+        "MRR": 0.30376055477817326,
+        "MeanRank": 275.1220930232558,
+        "P50Rank": 12,
+        "P95Rank": 1919,
+        "QueryP50Nanos": 153542,
+        "QueryP95Nanos": 203459
+      },
+      "ByRepository": {
+        "etcd-io/etcd": {
+          "Queries": 806,
+          "Recall1": 0.41935483870967744,
+          "Recall5": 0.6650124069478908,
+          "Recall10": 0.7568238213399504,
+          "MRR": 0.5350101771629395,
+          "MeanRank": 37.91439205955335,
+          "P50Rank": 2,
+          "P95Rank": 135,
+          "QueryP50Nanos": 157583,
+          "QueryP95Nanos": 201250
+        },
+        "kubernetes/test-infra": {
+          "Queries": 1152,
+          "Recall1": 0.4670138888888889,
+          "Recall5": 0.7074652777777778,
+          "Recall10": 0.7907986111111112,
+          "MRR": 0.5801452422597566,
+          "MeanRank": 39.53559027777778,
+          "P50Rank": 2,
+          "P95Rank": 92,
+          "QueryP50Nanos": 158209,
+          "QueryP95Nanos": 206125
+        },
+        "lxc/lxd": {
+          "Queries": 990,
+          "Recall1": 0.3595959595959596,
+          "Recall5": 0.6151515151515151,
+          "Recall10": 0.6919191919191919,
+          "MRR": 0.4783293333588848,
+          "MeanRank": 69.0050505050505,
+          "P50Rank": 3,
+          "P95Rank": 252,
+          "QueryP50Nanos": 153875,
+          "QueryP95Nanos": 207625
+        }
+      }
+    },
+    {
+      "Mode": "identifiers",
+      "Documents": 3009,
+      "CatalogBytes": 1586563,
+      "BuildNanos": 64822917,
+      "All": {
+        "Queries": 2948,
+        "Recall1": 0.3921302578018996,
+        "Recall5": 0.6869063772048847,
+        "Recall10": 0.7727272727272727,
+        "MRR": 0.5261661213912469,
+        "MeanRank": 30.002035278154683,
+        "P50Rank": 2,
+        "P95Rank": 95,
+        "QueryP50Nanos": 169125,
+        "QueryP95Nanos": 208958
+      },
+      "NamePresent": {
+        "Queries": 2604,
+        "Recall1": 0.40476190476190477,
+        "Recall5": 0.7043010752688172,
+        "Recall10": 0.7922427035330261,
+        "MRR": 0.541236884580371,
+        "MeanRank": 16.08026113671275,
+        "P50Rank": 2,
+        "P95Rank": 65,
+        "QueryP50Nanos": 169875,
+        "QueryP95Nanos": 209500
+      },
+      "NameAbsent": {
+        "Queries": 344,
+        "Recall1": 0.29651162790697677,
+        "Recall5": 0.5552325581395349,
+        "Recall10": 0.625,
+        "MRR": 0.41208394887823463,
+        "MeanRank": 135.38662790697674,
+        "P50Rank": 4,
+        "P95Rank": 838,
+        "QueryP50Nanos": 163042,
+        "QueryP95Nanos": 201625
+      },
+      "ByRepository": {
+        "etcd-io/etcd": {
+          "Queries": 806,
+          "Recall1": 0.4280397022332506,
+          "Recall5": 0.7133995037220844,
+          "Recall10": 0.7915632754342432,
+          "MRR": 0.560277712349672,
+          "MeanRank": 25.50744416873449,
+          "P50Rank": 2,
+          "P95Rank": 71,
+          "QueryP50Nanos": 173416,
+          "QueryP95Nanos": 210583
+        },
+        "kubernetes/test-infra": {
+          "Queries": 1152,
+          "Recall1": 0.4487847222222222,
+          "Recall5": 0.7552083333333334,
+          "Recall10": 0.8350694444444444,
+          "MRR": 0.5845947331120918,
+          "MeanRank": 25.99826388888889,
+          "P50Rank": 2,
+          "P95Rank": 62,
+          "QueryP50Nanos": 168958,
+          "QueryP95Nanos": 208084
+        },
+        "lxc/lxd": {
+          "Queries": 990,
+          "Recall1": 0.296969696969697,
+          "Recall5": 0.5858585858585859,
+          "Recall10": 0.6848484848484848,
+          "MRR": 0.4304048052145798,
+          "MeanRank": 38.32020202020202,
+          "P50Rank": 4,
+          "P95Rank": 146,
+          "QueryP50Nanos": 166916,
+          "QueryP95Nanos": 209083
+        }
+      }
+    }
+  ],
+  "ProductionReady": false
+}

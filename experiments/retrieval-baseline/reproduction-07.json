@@ -1,0 +1,57 @@
+{
+  "schema": "riido-retrieval-reproduction-v1",
+  "frozen_plan_commit": "33bd500",
+  "corrected_evaluator_commit": "2b44d9e",
+  "plan_sha256": "1621f0bcf83d161afb63f9478c6a9063931565ec803746564bef4fe4ea330c32",
+  "quality_metrics_identical_on_replay": true,
+  "corrected_output_sha256": "e135552cc4291a442e218652afcf7b0e9452c4679ae24af9ba223e26ad824e3b",
+  "replay_output_sha256": "ecc6659eae8fe435cfaa29641f28f20bd521b89f117f00063bff09db3df68f38",
+  "invalid_first_run": {
+    "output_sha256": "793484c933b428ec19c3a3909ff51959e4288e76707cbe52395a9bd588aa22b1",
+    "reason": "Query deduplication lowercased camel-case names before identifier normalization; source documents retained case. Asymmetric preprocessing invalidated identifier-mode results. Fixed before publication with a regression test; first raw-mode metrics were unchanged.",
+    "used_for_promotion": false
+  },
+  "measurement": {
+    "hardware": "Apple M4 Pro",
+    "go": "1.27.1",
+    "wall_seconds": 1.74,
+    "user_cpu_seconds": 1.41,
+    "peak_rss_bytes": 94519296,
+    "includes": "projection/source archives load, validation, two indexes, all query ranking and metrics",
+    "excludes": "download, Parquet projection, compilation",
+    "replay_os_measurement": [
+      "        1.39 real         1.43 user         0.03 sys",
+      "            94781440  maximum resident set size"
+    ]
+  },
+  "scope": "Documentation proxy, three repositories; not an independent final user-task evaluation. Both CoSQA reserves remain unscored.",
+  "cpu_profile": {
+    "samples_ms": 1330,
+    "duration_seconds": 1.63,
+    "profiled_quality_metrics_identical": true,
+    "selected_functions": [
+      {
+        "name": "runtime.madvise",
+        "flat_ms": 390,
+        "flat_percent": 29.32
+      },
+      {
+        "name": "sort.partition_func",
+        "flat_ms": 290,
+        "flat_percent": 21.8
+      },
+      {
+        "name": "hintsearch.Index.Rank comparison",
+        "flat_ms": 130,
+        "flat_percent": 9.77
+      },
+      {
+        "name": "hintsearch.Index.Rank",
+        "cumulative_ms": 570,
+        "cumulative_percent": 42.86
+      }
+    ],
+    "limitations": "Single short CPU sample; no GPU measurement. Raw pprof remains local. Percentages are not speedup estimates.",
+    "next_hypothesis": "Investigate caller-owned reusable rank buffers and sorting cost before SIMD; retain exact rank/tie/fallback behavior."
+  }
+}
