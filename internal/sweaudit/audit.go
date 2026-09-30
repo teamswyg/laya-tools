@@ -126,21 +126,25 @@ func count(rows []Row) Counts {
 	return c
 }
 func Read(path, expected string) ([]Row, error) {
+	return readBounded(path, expected, 32<<20, 4096)
+}
+func readBounded(path, expected string, maxBytes, maxRows int) ([]Row, error) {
 	f, e := os.Open(path)
 	if e != nil {
 		return nil, e
 	}
 	defer f.Close()
-	b, e := io.ReadAll(io.LimitReader(f, (32<<20)+1))
+	b, e := io.ReadAll(io.LimitReader(f, int64(maxBytes)+1))
 	if e != nil {
 		return nil, e
 	}
-	if len(b) > 32<<20 || digest(b) != expected {
+	if len(b) > maxBytes || digest(b) != expected {
 		return nil, fmt.Errorf("projection size or hash mismatch")
 	}
-	return parse(b)
+	return parseBounded(b, maxRows)
 }
-func parse(b []byte) ([]Row, error) {
+func parse(b []byte) ([]Row, error) { return parseBounded(b, 4096) }
+func parseBounded(b []byte, maxRows int) ([]Row, error) {
 	s := bufio.NewScanner(bytes.NewReader(b))
 	s.Buffer(make([]byte, 4096), 1<<20)
 	var out []Row
@@ -155,7 +159,7 @@ func parse(b []byte) ([]Row, error) {
 			return nil, fmt.Errorf("extra row content")
 		}
 		out = append(out, r)
-		if len(out) > 4096 {
+		if len(out) > maxRows {
 			return nil, fmt.Errorf("too many rows")
 		}
 	}

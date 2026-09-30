@@ -1,0 +1,15 @@
+{
+ "schema":"riido-training-source-audit-plan-v1",
+ "source":"princeton-nlp/SWE-bench",
+ "revision":"e48e2bd1e9fecd5bbd641e9414ac59da9f2e69f6",
+ "file":"data/train-00000-of-00001.parquet",
+ "source_sha256":"0ba403a7060af657e1f0476937a703726c07da15b759836694b16e553705a10f",
+ "source_bytes":106606519,
+ "expected_rows":19008,
+ "projection":"maintainer-only batched Parquet extraction of instance_id,repo,base_commit,problem_statement; no patches/hints/test fields in Go input, no dataset scripts executed; private output0600, bounded96MiB and32768 rows in explicit training reader; existing evaluation reader unchanged",
+ "exclusions":"Use all2594 previous full+multilingual evaluation source rows, including unselected siblings. Group training+evaluation transitively on exact ID, lowercase-whitespace-normalized request or repo/basecommit. Remove every training component touching an evaluation row or repository, or prior docstring repositories etcd-io/etcd,kubernetes/kubernetes,lxc/lxd. Report direct overlaps and all excluded row/component counts. No outcome or quality-based filtering.",
+ "candidates":"one lexicographically first training ID representative per surviving component; stable framed membership hash, sorted component hashes; report counts and repositories. This is an eligible identity pool, not licensed training approval, a train/validation/final split or performance evidence.",
+ "checks":"input hash/schema/row counts, invalid identities, transitive exclusion, duplicate queries/snapshots, order-invariant membership, exact real aggregate and private membership replay; previous2400 grouping digest unchanged; full race/vet/format/redacted CI gate",
+ "limits":"No repository collection, model training, benchmark scoring or final-reserve access in this audit. Download at most source106.7MB+card; no Docker/source trees. No new paid calls. Publish code and aggregates only. Missing dataset-card license is not blanket clearance; upstream historical license and provenance review precedes training/release.",
+ "production_ready":false
+}
