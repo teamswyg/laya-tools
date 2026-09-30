@@ -272,3 +272,5 @@ This example recommends `example-fast` → `example-strong` with `direction: upg
 `direction` is `upgrade`, `downgrade`, `lateral` (same rank), `initial` (first selection), or `unchanged` (hold); blocked plans omit it. Upgrades prioritize quality over cache payback and cooldown, but still respect budgets, capabilities, context limits, and manual pins. Uncertain Laya output is not upgrade evidence; if the current model also fails the constraints, the result is `blocked`. With default configuration, catalog confidence must also reach 0.9: the switch upgrade threshold of 0.5 alone is insufficient.
 
 These are recommendations only. No active Codex conversation is switched and no failure is automatically detected or retried. An integrating agent must update the current model and assessment at each task stage.
+
+[GitHub Actions performance replay](docs/performance-replay.en.md): manually compare CPU time, peak RSS, and results across fixed scenarios.

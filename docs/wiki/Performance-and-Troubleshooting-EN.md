@@ -46,3 +46,5 @@ go tool pprof -top heap.pprof
 The last command is macOS-specific. Go pprof excludes native/GPU memory; do not report Go heap as total RAM. Native calls may lack useful symbols. ORT profiling itself adds overhead. Keep profiles and private catalogs out of public issues; describe version, platform, command, and a redacted reproducible example instead.
 
 [Full measurements](https://github.com/teamswyg/laya-tools/blob/main/docs/measurements.md) · [Repository evaluation](https://github.com/teamswyg/laya-tools/blob/main/docs/repository-routing-preview.en.md) · [Issues](https://github.com/teamswyg/laya-tools/issues)
+
+[Actions performance replay guide](https://github.com/teamswyg/laya-tools/blob/main/docs/performance-replay.en.md): inspect wall time, CPU time, peak RSS, and decisions for fixed scenarios.
