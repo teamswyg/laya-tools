@@ -37,6 +37,7 @@ type reference struct {
 	PeakRSSBytes int64
 }
 type report struct {
+	SourceINT8ForwardMaxProbabilityDelta, SourceINT8ReverseMaxProbabilityDelta                 float64
 	Schema, ReferenceSHA256                                                                    string
 	Cases, ExactInputMatches, GoPythonWinnerDisagreements, SourceINT8WinnerDisagreements       int
 	GoPythonMaxProbabilityDelta, SourceINT8MaxProbabilityDelta, SourceINT8MeanProbabilityDelta float64
@@ -157,6 +158,13 @@ func run() error {
 			return err
 		}
 		out.SourceINT8MaxProbabilityDelta = math.Max(out.SourceINT8MaxProbabilityDelta, delta)
+		if c.Options[0] == "false: no, the statement does not hold" {
+			out.SourceINT8ForwardMaxProbabilityDelta = math.Max(out.SourceINT8ForwardMaxProbabilityDelta, delta)
+		} else if c.Options[0] == "true: yes, the statement holds" {
+			out.SourceINT8ReverseMaxProbabilityDelta = math.Max(out.SourceINT8ReverseMaxProbabilityDelta, delta)
+		} else {
+			return fmt.Errorf("unexpected option labels")
+		}
 		out.SourceINT8MeanProbabilityDelta += delta
 		if flip {
 			out.SourceINT8WinnerDisagreements++

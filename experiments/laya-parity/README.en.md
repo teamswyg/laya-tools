@@ -1,6 +1,6 @@
 # Laya implementation and conversion diagnostic 18
 
-**Go and Python INT8 outputs agree on these 12 inputs. Original-weight FP32 versus INT8 probability drift reaches 20.76 percentage points.** This is an implementation diagnostic without quality labels. It does not replace an independent ≥2,400-question evaluation or establish usefulness, probability calibration, or superior original-model quality.
+**Go and Python INT8 outputs agree on these 12 inputs. Original-weight FP32 versus INT8 maximum drift is 0.45 percentage points in normal order and 20.76 pp in reverse order.** This is an implementation diagnostic without quality labels. It does not replace an independent ≥2,400-question evaluation or establish usefulness, probability calibration, or superior original-model quality.
 
 ## Comparisons
 
@@ -15,11 +15,15 @@ Six original synthetic states cover code, Korean, whitespace, Unicode, special t
 | Exact token/marker matches | 12/12 |
 | Maximum Go/Python INT8 probability difference | 1.73 × 10⁻¹⁸ |
 | Go/Python winner disagreements | 0/12 |
-| Maximum original FP32/INT8 probability difference | 0.207607, or 20.76 pp |
+| Normal-order maximum original FP32/INT8 difference | 0.004498, or 0.45 pp |
+| Reverse-order maximum original FP32/INT8 difference | 0.207607, or 20.76 pp |
+| Overall maximum original FP32/INT8 probability difference | 0.207607, or 20.76 pp |
 | Mean per-case maximum original FP32/INT8 difference | 0.019952, or 2.00 pp |
 | Original FP32/INT8 winner disagreements | 0/12 |
 
 All Go replay comparison metrics match after excluding elapsed time. The entire Python reference was not repeated. Its file hash includes timing and can change on regeneration.
+
+There are six cases per order. The overall maximum occurs in reverse order; do not cite it as normal-use maximum drift. Order stratification was added after observing aggregate results as descriptive analysis, not a new quality gate.
 
 These cases do not support a Go-port explanation for the relevance failure. However, FP32/INT8 drift combines **PyTorch execution, ONNX export, quantization and kernel differences**. Without an FP32 ONNX control it is not an isolated quantization measurement. Preserving 12 winners does not prove preservation of real-query ranking, AUC, or threshold decisions.
 
