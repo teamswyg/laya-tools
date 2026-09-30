@@ -44,6 +44,7 @@ type response struct {
 	Policy     string      `json:"policy"`
 	ModelHash  string      `json:"model_sha256,omitempty"`
 	Candidates []candidate `json:"candidates"`
+	Page       *pageInfo   `json:"page,omitempty"`
 }
 
 func run(in io.Reader, out io.Writer) error { return runModel(in, out, nil, "") }
@@ -52,6 +53,13 @@ func runModel(in io.Reader, out io.Writer, weights []float64, modelHash string) 
 }
 
 func runPolicy(in io.Reader, out io.Writer, weights []float64, modelHash string, identifierHints bool) error {
+	return runPage(in, out, weights, modelHash, identifierHints, pageOptions{})
+}
+
+func runPage(in io.Reader, out io.Writer, weights []float64, modelHash string, identifierHints bool, paging pageOptions) error {
+	if err := paging.validate(); err != nil {
+		return err
+	}
 	if identifierHints && weights != nil {
 		return fmt.Errorf("choose model or identifier hints, not both")
 	}
@@ -165,9 +173,14 @@ func runPolicy(in io.Reader, out io.Writer, weights []float64, modelHash string,
 		}
 		policy = "hint_bm25_interleave"
 	}
-	res := response{ModelHash: modelHash, Schema: "riido-hints-v1", Snapshot: req.Snapshot, Status: "unverified", Policy: policy, Candidates: make([]candidate, len(order))}
-	for i, d := range order {
-		res.Candidates[i] = candidate{ids[d], i + 1, ranking.Scores[d]}
+	start, end, page, err := selectPage(req, modelHash, identifierHints, policy, order, ranking.Scores, paging)
+	if err != nil {
+		return err
+	}
+	res := response{ModelHash: modelHash, Schema: "riido-hints-v1", Snapshot: req.Snapshot, Status: "unverified", Policy: policy, Candidates: make([]candidate, end-start), Page: page}
+	for i := start; i < end; i++ {
+		d := order[i]
+		res.Candidates[i-start] = candidate{ids[d], i + 1, ranking.Scores[d]}
 	}
 	enc := json.NewEncoder(out)
 	enc.SetIndent("", "  ")
@@ -177,6 +190,8 @@ func main() {
 	modelPath := flag.String("model", "", "optional research .hbin model")
 	expected := flag.String("sha256", "", "required pinned model SHA-256")
 	identifierHints := flag.Bool("identifier-hints", false, "experimental identifier-split hints; preserve baseline first candidate")
+	pageLimit := flag.Int("limit", 0, "optional candidates per page (1..4096); 0 returns all")
+	cursor := flag.String("cursor", "", "next_cursor from the same request and policy; requires --limit")
 	flag.Parse()
 	var weights []float64
 	var err error
@@ -184,7 +199,7 @@ func main() {
 		weights, err = loadModel(*modelPath, *expected)
 	}
 	if err == nil {
-		err = runPolicy(os.Stdin, os.Stdout, weights, *expected, *identifierHints)
+		err = runPage(os.Stdin, os.Stdout, weights, *expected, *identifierHints, pageOptions{*pageLimit, *cursor})
 	}
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
