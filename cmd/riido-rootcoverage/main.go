@@ -19,6 +19,7 @@ func run() error {
 	cache := flag.String("cache", ".cache/source-preflight-29", "private root cache (reuse experiment29)")
 	plan := flag.String("plan", "experiments/historical-roots/plan-30.json", "fixed plan")
 	out := flag.String("out", "", "new local output directory; candidates.json is private")
+	offline := flag.Bool("offline", false, "use existing validated cache only; never call GitHub")
 	flag.Parse()
 	if *out == "" {
 		return fmt.Errorf("require new output directory")
@@ -60,6 +61,9 @@ func run() error {
 		go func() {
 			var last time.Time
 			fetch := func(ctx context.Context, endpoint string) ([]byte, error) {
+				if *offline {
+					return nil, fmt.Errorf("root not in offline cache")
+				}
 				delay := 250*time.Millisecond - time.Since(last)
 				if delay > 0 {
 					timer := time.NewTimer(delay)
