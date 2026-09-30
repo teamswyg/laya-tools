@@ -1,5 +1,7 @@
 # laya-tools
 
+별도 연구: **아주 작은 힌트로 비싼 탐색의 순서를 개선**하는 [의미 탐색 힌트 실험](experiments/semantic-hints/PLAN.ko.md)을 시작했습니다. 기존 난이도 라우터와 독립적이며 [비학습 기준선 결과](experiments/semantic-hints/README.md)를 공개합니다.
+
 **한국어** · [English](README.en.md) · [사용자 Wiki](https://github.com/teamswyg/laya-tools/wiki) · [문서 목록](docs/README.md)
 
 [![CI](https://github.com/teamswyg/laya-tools/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/teamswyg/laya-tools/actions/workflows/ci.yml)
