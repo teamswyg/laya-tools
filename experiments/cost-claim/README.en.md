@@ -8,6 +8,8 @@ Experiment 14 labels the sign of baseline-minus-helper pages and weights by its 
 
 Freeze λ in {0, 0.25, 1, 4, 16}. These are **experimental page-equivalent penalties**, not measured CPU, token or billing conversions. Calibrate a threshold under the validation-only 90% call cap, then select the penalty with fewest validation pages, breaking ties by fewer calls and then smaller λ. Held-out outcomes never select the penalty.
 
+Model scores are surrogates for the cost objective, not calibrated probabilities or authority to execute actions.
+
 Keep all 12 features, trainer/hyperparameters, three repository folds and two seeds unchanged. No new features or ternary compression in this ablation. Train 3 folds × 2 seeds × 5 penalties = **30 FP32 numerical heads** in Go on CPU. These are experimental conditions of one 12-coefficient architecture, not 30 distinct architectures.
 
 | Policy | Seed | Helper calls | Pages | Recall@10 | Gate |
