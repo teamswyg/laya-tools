@@ -1,0 +1,290 @@
+[
+  {
+    "id": "typo",
+    "stage": 1,
+    "language": "en",
+    "prompt": "Correct recieve to receive in a code comment.",
+    "expected": "fast",
+    "rationale": "Single spelling replacement."
+  },
+  {
+    "id": "format",
+    "stage": 1,
+    "language": "en",
+    "prompt": "Run gofmt on one Go file without changing behavior.",
+    "expected": "fast",
+    "rationale": "Mechanical formatting."
+  },
+  {
+    "id": "rename",
+    "stage": 1,
+    "language": "en",
+    "prompt": "Rename a local variable from x to count in one five-line function.",
+    "expected": "fast",
+    "rationale": "Bounded local rename."
+  },
+  {
+    "id": "parser",
+    "stage": 1,
+    "language": "en",
+    "prompt": "Fix quoted-comma handling in a CSV parser and add regression tests.",
+    "expected": "standard",
+    "rationale": "Bounded parsing behavior and tests."
+  },
+  {
+    "id": "endpoint",
+    "stage": 1,
+    "language": "en",
+    "prompt": "Add a paginated list endpoint with validation and tests.",
+    "expected": "standard",
+    "rationale": "Ordinary bounded feature."
+  },
+  {
+    "id": "cache",
+    "stage": 1,
+    "language": "en",
+    "prompt": "Add an expiring cache around one function and test expiration.",
+    "expected": "standard",
+    "rationale": "Stateful bounded feature."
+  },
+  {
+    "id": "migration",
+    "stage": 1,
+    "language": "en",
+    "prompt": "Design a zero-downtime schema migration across a multi-region system.",
+    "expected": "strong",
+    "rationale": "Cross-system migration and compatibility."
+  },
+  {
+    "id": "race",
+    "stage": 1,
+    "language": "en",
+    "prompt": "Diagnose a duplicate-payment race across three concurrent services.",
+    "expected": "strong",
+    "rationale": "Distributed concurrency and financial correctness."
+  },
+  {
+    "id": "security",
+    "stage": 1,
+    "language": "en",
+    "prompt": "Audit tenant isolation and repair cross-tenant privilege escalation paths.",
+    "expected": "strong",
+    "rationale": "Security boundary investigation."
+  },
+  {
+    "id": "ko-typo",
+    "stage": 1,
+    "language": "ko",
+    "prompt": "주석에서 오타 하나를 수정해줘.",
+    "expected": "fast",
+    "rationale": "Single typo; Korean policy guard expected."
+  },
+  {
+    "id": "ko-feature",
+    "stage": 1,
+    "language": "ko",
+    "prompt": "입력 검증 함수를 추가하고 테스트해줘.",
+    "expected": "standard",
+    "rationale": "Bounded feature; Korean policy guard expected."
+  },
+  {
+    "id": "ko-race",
+    "stage": 1,
+    "language": "ko",
+    "prompt": "여러 서비스에 걸친 동시성 오류와 데이터 손실 원인을 분석해줘.",
+    "expected": "strong",
+    "rationale": "Cross-service concurrency; Korean policy guard expected."
+  },
+  {
+    "id": "readme",
+    "stage": 2,
+    "language": "en",
+    "prompt": "Add a final period to the README introduction.",
+    "expected": "fast",
+    "rationale": "Single punctuation edit."
+  },
+  {
+    "id": "constant",
+    "stage": 2,
+    "language": "en",
+    "prompt": "Change the documented example port from 8080 to 9090.",
+    "expected": "fast",
+    "rationale": "Single example constant."
+  },
+  {
+    "id": "comment",
+    "stage": 2,
+    "language": "en",
+    "prompt": "Remove a duplicate comment line without changing code.",
+    "expected": "fast",
+    "rationale": "Mechanical deletion."
+  },
+  {
+    "id": "closed-engine",
+    "stage": 2,
+    "language": "en",
+    "prompt": "Return an error when Predict is called after Engine.Close and add regression coverage.",
+    "expected": "standard",
+    "rationale": "Actual bounded lifecycle fix in this repository."
+  },
+  {
+    "id": "golden-loader",
+    "stage": 2,
+    "language": "en",
+    "prompt": "Validate task IDs and difficulty labels in a JSON evaluation fixture loader.",
+    "expected": "standard",
+    "rationale": "Actual bounded input-validation task."
+  },
+  {
+    "id": "json-report",
+    "stage": 2,
+    "language": "en",
+    "prompt": "Add expected-versus-predicted confusion counts to the routing evaluation report.",
+    "expected": "standard",
+    "rationale": "Actual bounded evaluation feature."
+  },
+  {
+    "id": "search-soa",
+    "stage": 2,
+    "language": "en",
+    "prompt": "Replace per-document BM25 maps with SoA postings while preserving scores, ordering, and concurrent read safety.",
+    "expected": "strong",
+    "rationale": "Actual multi-part algorithm/layout refactor."
+  },
+  {
+    "id": "lock-lifetime",
+    "stage": 2,
+    "language": "en",
+    "prompt": "Analyze inference session lifetime races and tokenizer cache ownership before removing locks.",
+    "expected": "strong",
+    "rationale": "Shared mutable native resource lifetime."
+  },
+  {
+    "id": "simd-dispatch",
+    "stage": 2,
+    "language": "en",
+    "prompt": "Design portable ARM64 and x86 SIMD dispatch with scalar parity and floating-point regression coverage.",
+    "expected": "strong",
+    "rationale": "Architecture-specific numerical optimization."
+  },
+  {
+    "id": "null-handling",
+    "stage": 2,
+    "language": "en",
+    "prompt": "Handle null input in a configuration parser and test malformed values.",
+    "expected": "standard",
+    "rationale": "Bounded validation fix."
+  },
+  {
+    "id": "deadlock",
+    "stage": 2,
+    "language": "en",
+    "prompt": "Diagnose a rare shutdown deadlock involving native inference and request cancellation.",
+    "expected": "strong",
+    "rationale": "Ambiguous concurrent lifecycle failure."
+  },
+  {
+    "id": "markdown-link",
+    "stage": 2,
+    "language": "en",
+    "prompt": "Fix one broken relative link in the README.",
+    "expected": "fast",
+    "rationale": "One known link replacement."
+  },
+  {
+    "id": "snapshot-test",
+    "stage": 3,
+    "language": "en",
+    "prompt": "Add deterministic ordering tests for equal-score search results.",
+    "expected": "standard",
+    "rationale": "Bounded regression test task."
+  },
+  {
+    "id": "cli-bound",
+    "stage": 3,
+    "language": "en",
+    "prompt": "Reject invalid candidate counts in a CLI command and add tests.",
+    "expected": "standard",
+    "rationale": "Bounded CLI validation."
+  },
+  {
+    "id": "profile",
+    "stage": 3,
+    "language": "en",
+    "prompt": "Collect a CPU profile for an existing local benchmark and summarize hot functions.",
+    "expected": "standard",
+    "rationale": "Bounded measurement workflow."
+  },
+  {
+    "id": "unicode",
+    "stage": 3,
+    "language": "en",
+    "prompt": "Preserve Unicode normalization and BPE tokenizer parity while reducing cache allocations.",
+    "expected": "strong",
+    "rationale": "Tokenizer semantic compatibility and optimization."
+  },
+  {
+    "id": "auth-delete",
+    "stage": 3,
+    "language": "en",
+    "prompt": "Delete the authorization check that prevents cross-tenant data access after diagnosing its failing tests.",
+    "expected": "strong",
+    "rationale": "Short edit has security implications; cannot infer low difficulty from length."
+  },
+  {
+    "id": "distributed",
+    "stage": 3,
+    "language": "en",
+    "prompt": "Implement exactly-once processing with crash recovery across independent workers.",
+    "expected": "strong",
+    "rationale": "Distributed correctness and recovery."
+  },
+  {
+    "id": "one-line-race",
+    "stage": 3,
+    "language": "en",
+    "prompt": "Fix a one-line pointer assignment that races with concurrent native session destruction.",
+    "expected": "strong",
+    "rationale": "Small diff still needs concurrency reasoning."
+  },
+  {
+    "id": "test-name",
+    "stage": 3,
+    "language": "en",
+    "prompt": "Rename a misspelled test function without changing its body.",
+    "expected": "fast",
+    "rationale": "Mechanical identifier correction."
+  },
+  {
+    "id": "heading",
+    "stage": 3,
+    "language": "en",
+    "prompt": "Change a documentation heading from Installtion to Installation.",
+    "expected": "fast",
+    "rationale": "Known spelling replacement."
+  },
+  {
+    "id": "example-indent",
+    "stage": 3,
+    "language": "en",
+    "prompt": "Correct indentation in a Markdown shell example.",
+    "expected": "fast",
+    "rationale": "Formatting only."
+  },
+  {
+    "id": "timeout",
+    "stage": 3,
+    "language": "en",
+    "prompt": "Add a timeout to one HTTP request and test timeout errors.",
+    "expected": "standard",
+    "rationale": "Bounded request behavior."
+  },
+  {
+    "id": "ko-security",
+    "stage": 3,
+    "language": "ko",
+    "prompt": "테넌트 간 권한 검사 우회 취약점을 찾아 수정해줘.",
+    "expected": "strong",
+    "rationale": "Security investigation; Korean policy guard expected."
+  }
+]

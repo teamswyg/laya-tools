@@ -9,6 +9,8 @@ import (
 	"time"
 )
 
+// App is owned by one sequential CLI/JSONL/MCP handler. It is not safe for
+// concurrent Process/Engine/Close calls; share Engine directly or serialize callers.
 type App struct {
 	Root        string
 	Options     inference.Options

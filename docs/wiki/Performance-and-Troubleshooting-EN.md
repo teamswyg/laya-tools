@@ -48,3 +48,5 @@ The last command is macOS-specific. Go pprof excludes native/GPU memory; do not 
 [Full measurements](https://github.com/teamswyg/laya-tools/blob/main/docs/measurements.md) · [Repository evaluation](https://github.com/teamswyg/laya-tools/blob/main/docs/repository-routing-preview.en.md) · [Issues](https://github.com/teamswyg/laya-tools/issues)
 
 [Actions performance replay guide](https://github.com/teamswyg/laya-tools/blob/main/docs/performance-replay.en.md): inspect wall time, CPU time, peak RSS, and decisions for fixed scenarios.
+
+[Search SoA optimization and difficulty goldens](https://github.com/teamswyg/laya-tools/blob/main/docs/layout-and-goldens.en.md)

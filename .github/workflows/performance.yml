@@ -30,10 +30,19 @@ jobs:
           go build -trimpath -o bin/riidolaya ./cmd/riidolaya
           go build -trimpath -o bin/repoeval ./cmd/repoeval
           go build -trimpath -o bin/perfsuite ./cmd/perfsuite
+          go build -trimpath -o bin/routeeval ./cmd/routeeval
       - name: Download checksum-verified base checkpoint and CPU runtime
         run: ./bin/riidolaya setup
       - name: Run fixed public scenarios
         run: ./bin/perfsuite --repeats 1 --output .cache/performance/report.json --summary .cache/performance/summary.md
+      - name: Replay cumulative difficulty goldens
+        shell: bash
+        run: |
+          for stage in 1 2 3; do
+            ./bin/routeeval --stage "$stage" > ".cache/performance/routing-stage-$stage.json"
+          done
+      - name: Measure Go search layout
+        run: go test ./internal/search -run '^$' -bench 'Benchmark(Search|Index)Layout' -benchmem -count 3 > .cache/performance/search-layout.txt
       - name: Publish job summary
         if: always()
         shell: bash

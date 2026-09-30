@@ -16,6 +16,9 @@ type Options struct {
 	ModelDir, Runtime, Provider, Profile string
 	Threads, MaxTokens                   int
 }
+
+// Engine serializes tokenization, native execution, and Close. The encoder cache
+// is mutable; removing this lock would race with Predict and session destruction.
 type Engine struct {
 	mu      sync.Mutex
 	session *ort.DynamicAdvancedSession
@@ -115,6 +118,9 @@ func (e *Engine) Close() error {
 func (e *Engine) Predict(state, kind, instruction string, options []string) (Prediction, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
+	if e.session == nil {
+		return Prediction{}, fmt.Errorf("inference engine is closed")
+	}
 	start := time.Now()
 	seq, err := e.enc.Build(state, kind, instruction, options, e.opts.MaxTokens)
 	if err != nil {

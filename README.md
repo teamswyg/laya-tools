@@ -345,3 +345,5 @@ riidolaya plan --config examples/planner/config.json --request examples/planner/
 추천만 반환합니다. 진행 중인 Codex 대화를 자동 전환하거나 실패를 감지해 재실행하지 않습니다. 연동하는 에이전트가 작업 단계마다 현재 모델과 평가를 갱신해 호출해야 합니다.
 
 [GitHub Actions 기능별 성능 검사](docs/performance-replay.ko.md): 고정 시나리오의 CPU 시간·최대 RSS·실행 결과를 수동 실행으로 비교합니다.
+
+[배열·lock·SIMD 검토와 난이도 골든셋 결과](docs/layout-and-goldens.ko.md)

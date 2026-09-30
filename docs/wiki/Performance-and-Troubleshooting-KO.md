@@ -48,3 +48,5 @@ go tool pprof -top heap.pprof
 [전체 측정](https://github.com/teamswyg/laya-tools/blob/main/docs/measurements.ko.md) · [저장소 평가](https://github.com/teamswyg/laya-tools/blob/main/docs/repository-routing-preview.ko.md) · [문제 제보](https://github.com/teamswyg/laya-tools/issues)
 
 [Actions 성능 검사 안내](https://github.com/teamswyg/laya-tools/blob/main/docs/performance-replay.ko.md): 고정 시나리오별 실행 시간·CPU·최대 RSS와 판단 결과를 확인할 수 있습니다.
+
+[검색 SoA 최적화와 난이도 골든셋](https://github.com/teamswyg/laya-tools/blob/main/docs/layout-and-goldens.ko.md)
