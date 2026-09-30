@@ -4,6 +4,8 @@
 
 에이전트가 일부 후보부터 읽게 하려면 [`--limit 20` 페이지 출력](experiments/hint-pagination/README.ko.md)을 함께 사용하세요. 다음 cursor로 나머지를 복원할 수 있으며, 실제 토큰 절감은 별도 검증 중입니다.
 
+여러 페이지를 읽을 때는 [`--session --limit 20`](experiments/hint-session/README.ko.md)으로 검색 결과를 재사용할 수 있습니다. 첫 요청 이후에는 원문 대신 cursor만 보내며, 입력을 닫으면 종료됩니다.
+
 정적 임베딩 비교군: [Go 실행·압축·원본 일치 검증](experiments/static-embedding/README.ko.md). 코드 관련성 성능은 아직 부족하며 기본 모델로 적용하지 않습니다.
 
 **한국어** · [English](README.en.md) · [사용자 Wiki](https://github.com/teamswyg/laya-tools/wiki) · [문서 목록](docs/README.md)

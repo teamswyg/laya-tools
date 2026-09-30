@@ -192,6 +192,7 @@ func main() {
 	identifierHints := flag.Bool("identifier-hints", false, "experimental identifier-split hints; preserve baseline first candidate")
 	pageLimit := flag.Int("limit", 0, "optional candidates per page (1..4096); 0 returns all")
 	cursor := flag.String("cursor", "", "next_cursor from the same request and policy; requires --limit")
+	session := flag.Bool("session", false, "JSONL session: rank once, then read cursor/limit continuations")
 	flag.Parse()
 	var weights []float64
 	var err error
@@ -199,7 +200,15 @@ func main() {
 		weights, err = loadModel(*modelPath, *expected)
 	}
 	if err == nil {
-		err = runPage(os.Stdin, os.Stdout, weights, *expected, *identifierHints, pageOptions{*pageLimit, *cursor})
+		if *session {
+			if *cursor != "" {
+				err = fmt.Errorf("session starts with a new query; omit --cursor")
+			} else {
+				err = runSession(os.Stdin, os.Stdout, weights, *expected, *identifierHints, *pageLimit)
+			}
+		} else {
+			err = runPage(os.Stdin, os.Stdout, weights, *expected, *identifierHints, pageOptions{*pageLimit, *cursor})
+		}
 	}
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
