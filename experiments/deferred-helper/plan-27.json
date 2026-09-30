@@ -1,0 +1,17 @@
+{
+  "schema": "riido-deferred-helper-plan-v1",
+  "questions": 2948,
+  "candidates": 3009,
+  "page_size": 20,
+  "primary": "frozen16-feature experiment21 cost_selected seed1729 with deferred rescue; seed2718 replication",
+  "secondary": "frozen20-feature experiment25 both seeds; frozen gap thresholds from experiment21; pure deferred helper without a classifier",
+  "protocol": "if the frozen policy initially calls the helper, use existing baseline-first interleave; otherwise emit the first20 baseline candidates unchanged, and on the first explicit client continuation run the helper once; append existing baseline-first interleave with every already emitted id removed, retaining all remaining candidates",
+  "stopping_assumption": "offline evaluation emulates a perfect verifier stopping after the page containing any known answer; gold controls evaluation stopping and logical call counting only, never input features, initial choice or ordering; actual users may continue or stop differently",
+  "controls": "baseline, always helper, and exact published static16/static20/gap metrics; verify pinned manifests and all archive files; no new fitting, calibration or seed selection",
+  "metrics": "per repository and pooled: rank1/rank10/MRR, pages, initial calls, continuation calls, total logical calls, improved/worsened/tied query counts and page sums versus corresponding static policy, largest single page increase; pure deferred compared with baseline",
+  "gate": "unchanged exploratory condition: pages <= always helper; calls <= floor(questions*0.9); Recall1 and Recall10 >= baseline; learned variants must also weakly dominate the frozen static gap control in pages and calls with at least one strict improvement, preserving the cost-claim gate; both primary seeds must pass; development result cannot establish production readiness",
+  "invariants": "prefix retained exactly; full candidate permutation, no duplicate or omission; inputs not mutated; helper called at most once per simulated request; unchanged static reports replay exactly; full report byte-identical on repeat",
+  "resources": "whole CPU-process wall/user time and peak RSS; a fixed synthetic permutation microbenchmark with Go allocations, separate from query feature extraction and helper/index creation; no GPU or LLM savings claim",
+  "scope": "development-only counterfactual experiment, not runtime session activation; preserve existing immutable cursor contracts; no new model or HF weights; retain every large-loss case; do not inspect reserved final sets",
+  "production_ready": false
+}

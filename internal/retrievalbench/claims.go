@@ -52,6 +52,19 @@ func prepareClaimsWithSpread(rows []Row, baselineFirst bool, extra *[][searchcla
 	return prepareClaimsWithExtras(rows, baselineFirst, extra, nil)
 }
 func prepareClaimsWithExtras(rows []Row, baselineFirst bool, extra *[][searchclaim.SpreadDimension]float64, coverage *[][searchclaim.CoverageDimension]float64) ([]ClaimExample, error) {
+	return prepareClaimsWithDeferred(rows, baselineFirst, extra, coverage, nil)
+}
+
+// PrepareDeferredClaims also records counterfactual ranks after an unchanged
+// first page. These ranks are outcomes, never classifier inputs.
+func PrepareDeferredClaims(rows []Row) ([]ClaimExample, [][4]float64, [][4]float64, []int, error) {
+	var spread, coverage [][4]float64
+	var deferred []int
+	xs, err := prepareClaimsWithDeferred(rows, true, &spread, &coverage, &deferred)
+	return xs, spread, coverage, deferred, err
+}
+
+func prepareClaimsWithDeferred(rows []Row, baselineFirst bool, extra *[][searchclaim.SpreadDimension]float64, coverage *[][searchclaim.CoverageDimension]float64, deferred *[]int) ([]ClaimExample, error) {
 	docs := make([]string, len(rows))
 	normalized := make([]string, len(rows))
 	for i, r := range rows {
@@ -120,6 +133,13 @@ func prepareClaimsWithExtras(rows []Row, baselineFirst bool, extra *[][searchcla
 			return len(order) + 1
 		}
 		br, ar, ir := rank(baseline.Order), rank(additional.Order), rank(order)
+		if deferred != nil {
+			later, err := hintsearch.InterleaveAfterPrefix(baseline.Order, additional.Order, min(20, len(rows)))
+			if err != nil {
+				return nil, err
+			}
+			*deferred = append(*deferred, rank(later))
+		}
 		bound := 2 * br
 		if baselineFirst {
 			bound--
