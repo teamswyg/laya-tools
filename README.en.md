@@ -20,6 +20,8 @@ The [golden-set scale guide](docs/golden-set-scale.en.md) explains the differenc
 
 [Typed behavioral truth56b](experiments/short-claim/RESULTS-56b.en.md) adds the Go maintainer tool `riido-typedaudit` for error, state, ownership, lifetime and graph observations. Follow [usage](experiments/short-claim/USAGE-56b.en.md) to replay public inputs. New24 plus legacy48 cases form17 total groups and16 labeled groups, passing both minima of15. The524 source-control assertions are not distinct requests. Incomplete captions remain unknown; the same synthetic authoring process and missing role plan still prevent fitting. New models, weights, final scoring and performance measurements remain0.
 
+[Scoped proposal preparation56c](experiments/short-claim/RESULTS-56c.en.md) uses Go `riido-scopeprep` to prepare3 properties and12 proposal rows from4 existing parents. Follow [usage](experiments/short-claim/USAGE-56c.en.md) to generate captions and source bindings. All36 captions remain pending; they add no independent samples, approved truth, fitting or performance gains. [Resident resource plan56d](experiments/short-claim/PLAN-RESIDENT-56d.en.md) is a separate unexecuted design.
+
 [Usage recording and independent task verification](docs/task-outcomes.en.md) summarize existing Codex telemetry and separately check requirements for public tasks. Authored examples test the tools; they are not actual model outcomes or evidence of cost savings.
 
 The opt-in [public task executor](docs/task-execution.en.md) connects an explicitly requested Codex process, usage, candidate files and independent acceptance in Go. Failed and timed-out attempts remain recorded; a small development pilot is separate from final golden-set evaluation.
