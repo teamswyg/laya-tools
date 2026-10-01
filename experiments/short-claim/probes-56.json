@@ -1,0 +1,1254 @@
+{
+  "schema": "riido-behavior-probes-v1",
+  "origin": "original_authored_go_microcontracts_56_apache2_development_only",
+  "parents": [
+    {
+      "id": "probe-01-main",
+      "prototype": "retain-active",
+      "contract_id": "retain-active-v1",
+      "request": "Retain only active records that are not expired.",
+      "candidates": [
+        {
+          "id": "option-1",
+          "text": "Retain inactive or expired records.",
+          "source_id": "retain-reversed",
+          "code_sha256": "34fbb83567f3a6b08c58a50ce264684059ade8b0d75df02e364869141a7c3e46"
+        },
+        {
+          "id": "option-2",
+          "text": "Retain active records unless they are expired.",
+          "source_id": "retain-correct",
+          "code_sha256": "006ab3becfc618c3dbdb2209fe01215ed389d34dcb318bd32124e4db14a35ac1"
+        },
+        {
+          "id": "option-3",
+          "text": "Retain active records even when they are expired.",
+          "source_id": "retain-ignore-expiry",
+          "code_sha256": "334ef8406224633ee6a8113f704009299ee50688ab001609964e9c87a86e483f"
+        }
+      ]
+    },
+    {
+      "id": "probe-01-paraphrase",
+      "prototype": "retain-active",
+      "contract_id": "retain-active-v1",
+      "request": "Remove inactive or expired records; retain only active unexpired records.",
+      "candidates": [
+        {
+          "id": "option-1",
+          "text": "Retain active records even when they are expired.",
+          "source_id": "retain-ignore-expiry",
+          "code_sha256": "334ef8406224633ee6a8113f704009299ee50688ab001609964e9c87a86e483f"
+        },
+        {
+          "id": "option-2",
+          "text": "Remove every inactive or expired record; retain the other records.",
+          "source_id": "retain-correct",
+          "code_sha256": "006ab3becfc618c3dbdb2209fe01215ed389d34dcb318bd32124e4db14a35ac1"
+        },
+        {
+          "id": "option-3",
+          "text": "Retain inactive or expired records.",
+          "source_id": "retain-reversed",
+          "code_sha256": "34fbb83567f3a6b08c58a50ce264684059ade8b0d75df02e364869141a7c3e46"
+        },
+        {
+          "id": "option-4",
+          "text": "Retain active records unless they are expired.",
+          "source_id": "retain-correct",
+          "code_sha256": "006ab3becfc618c3dbdb2209fe01215ed389d34dcb318bd32124e4db14a35ac1"
+        }
+      ]
+    },
+    {
+      "id": "probe-01-no-answer",
+      "prototype": "retain-active",
+      "contract_id": "retain-active-v1",
+      "request": "Retain only active records that are not expired.",
+      "candidates": [
+        {
+          "id": "option-1",
+          "text": "Retain inactive or expired records.",
+          "source_id": "retain-reversed",
+          "code_sha256": "34fbb83567f3a6b08c58a50ce264684059ade8b0d75df02e364869141a7c3e46"
+        },
+        {
+          "id": "option-2",
+          "text": "Retain active records even when they are expired.",
+          "source_id": "retain-ignore-expiry",
+          "code_sha256": "334ef8406224633ee6a8113f704009299ee50688ab001609964e9c87a86e483f"
+        }
+      ]
+    },
+    {
+      "id": "probe-01-ambiguous",
+      "prototype": "retain-active",
+      "contract_id": "unknown-ambiguous",
+      "request": "Retain records according to the application's preferred activity policy.",
+      "candidates": [
+        {
+          "id": "option-1",
+          "text": "Retain inactive or expired records.",
+          "source_id": "retain-reversed",
+          "code_sha256": "34fbb83567f3a6b08c58a50ce264684059ade8b0d75df02e364869141a7c3e46"
+        },
+        {
+          "id": "option-2",
+          "text": "Retain active records unless they are expired.",
+          "source_id": "retain-correct",
+          "code_sha256": "006ab3becfc618c3dbdb2209fe01215ed389d34dcb318bd32124e4db14a35ac1"
+        },
+        {
+          "id": "option-3",
+          "text": "Retain active records even when they are expired.",
+          "source_id": "retain-ignore-expiry",
+          "code_sha256": "334ef8406224633ee6a8113f704009299ee50688ab001609964e9c87a86e483f"
+        }
+      ]
+    },
+    {
+      "id": "probe-02-main",
+      "prototype": "allow-owner",
+      "contract_id": "allow-owner-v1",
+      "request": "Accept administrators or verified owners; reject other users.",
+      "candidates": [
+        {
+          "id": "option-1",
+          "text": "Accept any administrator, or an owner who is verified.",
+          "source_id": "owner-correct",
+          "code_sha256": "12fe77b53639ee0d231441b06120bbeb488e58c6cc2247a8b7ec39c38ebd7421"
+        },
+        {
+          "id": "option-2",
+          "text": "Accept administrators or owners only if they are verified.",
+          "source_id": "owner-admin-verified",
+          "code_sha256": "66e4a713fbf16d06e47b7635e8e05ae2cebf6b3405df1d45c12c508c5d86cc9e"
+        },
+        {
+          "id": "option-3",
+          "text": "Accept any administrator or any owner without requiring verification.",
+          "source_id": "owner-unverified",
+          "code_sha256": "0dcecd6cfb0d05ac15c4165cceb0662691807023866dce1770a2606b7286489b"
+        }
+      ]
+    },
+    {
+      "id": "probe-02-paraphrase",
+      "prototype": "allow-owner",
+      "contract_id": "allow-owner-v1",
+      "request": "Accept administrators regardless of verification, and verified owners; reject all others.",
+      "candidates": [
+        {
+          "id": "option-1",
+          "text": "Accept administrators or owners only if they are verified.",
+          "source_id": "owner-admin-verified",
+          "code_sha256": "66e4a713fbf16d06e47b7635e8e05ae2cebf6b3405df1d45c12c508c5d86cc9e"
+        },
+        {
+          "id": "option-2",
+          "text": "Reject users unless they are administrators or verified owners.",
+          "source_id": "owner-correct",
+          "code_sha256": "12fe77b53639ee0d231441b06120bbeb488e58c6cc2247a8b7ec39c38ebd7421"
+        },
+        {
+          "id": "option-3",
+          "text": "Accept any administrator or any owner without requiring verification.",
+          "source_id": "owner-unverified",
+          "code_sha256": "0dcecd6cfb0d05ac15c4165cceb0662691807023866dce1770a2606b7286489b"
+        },
+        {
+          "id": "option-4",
+          "text": "Accept any administrator, or an owner who is verified.",
+          "source_id": "owner-correct",
+          "code_sha256": "12fe77b53639ee0d231441b06120bbeb488e58c6cc2247a8b7ec39c38ebd7421"
+        }
+      ]
+    },
+    {
+      "id": "probe-02-no-answer",
+      "prototype": "allow-owner",
+      "contract_id": "allow-owner-v1",
+      "request": "Accept administrators or verified owners; reject other users.",
+      "candidates": [
+        {
+          "id": "option-1",
+          "text": "Accept any administrator or any owner without requiring verification.",
+          "source_id": "owner-unverified",
+          "code_sha256": "0dcecd6cfb0d05ac15c4165cceb0662691807023866dce1770a2606b7286489b"
+        },
+        {
+          "id": "option-2",
+          "text": "Accept administrators or owners only if they are verified.",
+          "source_id": "owner-admin-verified",
+          "code_sha256": "66e4a713fbf16d06e47b7635e8e05ae2cebf6b3405df1d45c12c508c5d86cc9e"
+        }
+      ]
+    },
+    {
+      "id": "probe-02-ambiguous",
+      "prototype": "allow-owner",
+      "contract_id": "unknown-ambiguous",
+      "request": "Accept users who have suitable privileges.",
+      "candidates": [
+        {
+          "id": "option-1",
+          "text": "Accept any administrator, or an owner who is verified.",
+          "source_id": "owner-correct",
+          "code_sha256": "12fe77b53639ee0d231441b06120bbeb488e58c6cc2247a8b7ec39c38ebd7421"
+        },
+        {
+          "id": "option-2",
+          "text": "Accept administrators or owners only if they are verified.",
+          "source_id": "owner-admin-verified",
+          "code_sha256": "66e4a713fbf16d06e47b7635e8e05ae2cebf6b3405df1d45c12c508c5d86cc9e"
+        },
+        {
+          "id": "option-3",
+          "text": "Accept any administrator or any owner without requiring verification.",
+          "source_id": "owner-unverified",
+          "code_sha256": "0dcecd6cfb0d05ac15c4165cceb0662691807023866dce1770a2606b7286489b"
+        }
+      ]
+    },
+    {
+      "id": "probe-03-main",
+      "prototype": "closed-window",
+      "contract_id": "closed-window-v1",
+      "request": "Accept values from three through seven, including both endpoints.",
+      "candidates": [
+        {
+          "id": "option-1",
+          "text": "Reject values from three through seven; accept values outside.",
+          "source_id": "window-inverted",
+          "code_sha256": "e3f5e99e15c959a304fc1e22ff5b5ecd9a855747b0ebb82450d9f26642c3f82c"
+        },
+        {
+          "id": "option-2",
+          "text": "Accept values above three and below seven.",
+          "source_id": "window-exclusive",
+          "code_sha256": "729dab5404801aa95cf5a7129c34324913955c92fcd97fc34527660a59709997"
+        },
+        {
+          "id": "option-3",
+          "text": "Accept exactly values at least three and at most seven.",
+          "source_id": "window-correct",
+          "code_sha256": "87c178024ff0b903b810380b4e2526ee1c1f179bac9847e66505a49ef3980ac3"
+        }
+      ]
+    },
+    {
+      "id": "probe-03-paraphrase",
+      "prototype": "closed-window",
+      "contract_id": "closed-window-v1",
+      "request": "Accept exactly values not below three and not above seven.",
+      "candidates": [
+        {
+          "id": "option-1",
+          "text": "Reject values from three through seven; accept values outside.",
+          "source_id": "window-inverted",
+          "code_sha256": "e3f5e99e15c959a304fc1e22ff5b5ecd9a855747b0ebb82450d9f26642c3f82c"
+        },
+        {
+          "id": "option-2",
+          "text": "Reject only values less than three or greater than seven.",
+          "source_id": "window-correct",
+          "code_sha256": "87c178024ff0b903b810380b4e2526ee1c1f179bac9847e66505a49ef3980ac3"
+        },
+        {
+          "id": "option-3",
+          "text": "Accept values above three and below seven.",
+          "source_id": "window-exclusive",
+          "code_sha256": "729dab5404801aa95cf5a7129c34324913955c92fcd97fc34527660a59709997"
+        },
+        {
+          "id": "option-4",
+          "text": "Accept exactly values at least three and at most seven.",
+          "source_id": "window-correct",
+          "code_sha256": "87c178024ff0b903b810380b4e2526ee1c1f179bac9847e66505a49ef3980ac3"
+        }
+      ]
+    },
+    {
+      "id": "probe-03-no-answer",
+      "prototype": "closed-window",
+      "contract_id": "closed-window-v1",
+      "request": "Accept values from three through seven, including both endpoints.",
+      "candidates": [
+        {
+          "id": "option-1",
+          "text": "Accept values above three and below seven.",
+          "source_id": "window-exclusive",
+          "code_sha256": "729dab5404801aa95cf5a7129c34324913955c92fcd97fc34527660a59709997"
+        },
+        {
+          "id": "option-2",
+          "text": "Reject values from three through seven; accept values outside.",
+          "source_id": "window-inverted",
+          "code_sha256": "e3f5e99e15c959a304fc1e22ff5b5ecd9a855747b0ebb82450d9f26642c3f82c"
+        }
+      ]
+    },
+    {
+      "id": "probe-03-ambiguous",
+      "prototype": "closed-window",
+      "contract_id": "unknown-ambiguous",
+      "request": "Accept values within the preferred range.",
+      "candidates": [
+        {
+          "id": "option-1",
+          "text": "Reject values from three through seven; accept values outside.",
+          "source_id": "window-inverted",
+          "code_sha256": "e3f5e99e15c959a304fc1e22ff5b5ecd9a855747b0ebb82450d9f26642c3f82c"
+        },
+        {
+          "id": "option-2",
+          "text": "Accept values above three and below seven.",
+          "source_id": "window-exclusive",
+          "code_sha256": "729dab5404801aa95cf5a7129c34324913955c92fcd97fc34527660a59709997"
+        },
+        {
+          "id": "option-3",
+          "text": "Accept exactly values at least three and at most seven.",
+          "source_id": "window-correct",
+          "code_sha256": "87c178024ff0b903b810380b4e2526ee1c1f179bac9847e66505a49ef3980ac3"
+        }
+      ]
+    },
+    {
+      "id": "probe-04-main",
+      "prototype": "quota-total",
+      "contract_id": "quota-total-v1",
+      "request": "For nonnegative values, accept when used plus requested is at most the limit.",
+      "candidates": [
+        {
+          "id": "option-1",
+          "text": "Accept only when used plus requested is less than the limit.",
+          "source_id": "quota-exclusive",
+          "code_sha256": "dc6aef77819f40abc636400410be41597f2f20e54b679defc7d6cc2630f73d20"
+        },
+        {
+          "id": "option-2",
+          "text": "Accept when used plus requested does not exceed the limit.",
+          "source_id": "quota-correct",
+          "code_sha256": "00af8ef98abf1ff78bfaaf8254df977e439fa2fe8f32819d4ae363e3782a7c1d"
+        },
+        {
+          "id": "option-3",
+          "text": "Accept when used and requested each separately do not exceed the limit.",
+          "source_id": "quota-separate",
+          "code_sha256": "944d71146289fc16cd5da07d2d36d3d9cf0cc21b169bf7f17d39b7517964d448"
+        }
+      ]
+    },
+    {
+      "id": "probe-04-paraphrase",
+      "prototype": "quota-total",
+      "contract_id": "quota-total-v1",
+      "request": "Accept nonnegative quota totals below or equal to the limit; reject larger totals.",
+      "candidates": [
+        {
+          "id": "option-1",
+          "text": "Accept when used and requested each separately do not exceed the limit.",
+          "source_id": "quota-separate",
+          "code_sha256": "944d71146289fc16cd5da07d2d36d3d9cf0cc21b169bf7f17d39b7517964d448"
+        },
+        {
+          "id": "option-2",
+          "text": "Sum used and requested, then accept totals less than or equal to the limit.",
+          "source_id": "quota-correct",
+          "code_sha256": "00af8ef98abf1ff78bfaaf8254df977e439fa2fe8f32819d4ae363e3782a7c1d"
+        },
+        {
+          "id": "option-3",
+          "text": "Accept only when used plus requested is less than the limit.",
+          "source_id": "quota-exclusive",
+          "code_sha256": "dc6aef77819f40abc636400410be41597f2f20e54b679defc7d6cc2630f73d20"
+        },
+        {
+          "id": "option-4",
+          "text": "Accept when used plus requested does not exceed the limit.",
+          "source_id": "quota-correct",
+          "code_sha256": "00af8ef98abf1ff78bfaaf8254df977e439fa2fe8f32819d4ae363e3782a7c1d"
+        }
+      ]
+    },
+    {
+      "id": "probe-04-no-answer",
+      "prototype": "quota-total",
+      "contract_id": "quota-total-v1",
+      "request": "For nonnegative values, accept when used plus requested is at most the limit.",
+      "candidates": [
+        {
+          "id": "option-1",
+          "text": "Accept only when used plus requested is less than the limit.",
+          "source_id": "quota-exclusive",
+          "code_sha256": "dc6aef77819f40abc636400410be41597f2f20e54b679defc7d6cc2630f73d20"
+        },
+        {
+          "id": "option-2",
+          "text": "Accept when used and requested each separately do not exceed the limit.",
+          "source_id": "quota-separate",
+          "code_sha256": "944d71146289fc16cd5da07d2d36d3d9cf0cc21b169bf7f17d39b7517964d448"
+        }
+      ]
+    },
+    {
+      "id": "probe-04-ambiguous",
+      "prototype": "quota-total",
+      "contract_id": "unknown-ambiguous",
+      "request": "Check whether a request fits the available quota.",
+      "candidates": [
+        {
+          "id": "option-1",
+          "text": "Accept only when used plus requested is less than the limit.",
+          "source_id": "quota-exclusive",
+          "code_sha256": "dc6aef77819f40abc636400410be41597f2f20e54b679defc7d6cc2630f73d20"
+        },
+        {
+          "id": "option-2",
+          "text": "Accept when used plus requested does not exceed the limit.",
+          "source_id": "quota-correct",
+          "code_sha256": "00af8ef98abf1ff78bfaaf8254df977e439fa2fe8f32819d4ae363e3782a7c1d"
+        },
+        {
+          "id": "option-3",
+          "text": "Accept when used and requested each separately do not exceed the limit.",
+          "source_id": "quota-separate",
+          "code_sha256": "944d71146289fc16cd5da07d2d36d3d9cf0cc21b169bf7f17d39b7517964d448"
+        }
+      ]
+    },
+    {
+      "id": "probe-05-main",
+      "prototype": "stable-odd",
+      "contract_id": "stable-odd-v1",
+      "request": "Keep odd integers, including negatives, in their original order.",
+      "candidates": [
+        {
+          "id": "option-1",
+          "text": "Keep every odd integer in input order, including negative odd integers.",
+          "source_id": "odd-correct",
+          "code_sha256": "ce2a42cd591012e6a66cb512b2f3204f4e857d054366a5aae2571b2c32eb956d"
+        },
+        {
+          "id": "option-2",
+          "text": "Keep positive odd integers in their original order.",
+          "source_id": "odd-positive",
+          "code_sha256": "8600d00a3b890be7f7c12dd10077bc76ac7914733fe0340b4de58bf157892885"
+        },
+        {
+          "id": "option-3",
+          "text": "Keep every odd integer in reverse input order.",
+          "source_id": "odd-reversed",
+          "code_sha256": "d811808cef9bf365adb3319d9a2e2d3ca8fd509b2db908edf158c31e14e8553e"
+        }
+      ]
+    },
+    {
+      "id": "probe-05-paraphrase",
+      "prototype": "stable-odd",
+      "contract_id": "stable-odd-v1",
+      "request": "Remove even integers and retain all odd integers, including negatives, without changing order.",
+      "candidates": [
+        {
+          "id": "option-1",
+          "text": "Keep positive odd integers in their original order.",
+          "source_id": "odd-positive",
+          "code_sha256": "8600d00a3b890be7f7c12dd10077bc76ac7914733fe0340b4de58bf157892885"
+        },
+        {
+          "id": "option-2",
+          "text": "Remove even integers and preserve the order of all remaining integers.",
+          "source_id": "odd-correct",
+          "code_sha256": "ce2a42cd591012e6a66cb512b2f3204f4e857d054366a5aae2571b2c32eb956d"
+        },
+        {
+          "id": "option-3",
+          "text": "Keep every odd integer in reverse input order.",
+          "source_id": "odd-reversed",
+          "code_sha256": "d811808cef9bf365adb3319d9a2e2d3ca8fd509b2db908edf158c31e14e8553e"
+        },
+        {
+          "id": "option-4",
+          "text": "Keep every odd integer in input order, including negative odd integers.",
+          "source_id": "odd-correct",
+          "code_sha256": "ce2a42cd591012e6a66cb512b2f3204f4e857d054366a5aae2571b2c32eb956d"
+        }
+      ]
+    },
+    {
+      "id": "probe-05-no-answer",
+      "prototype": "stable-odd",
+      "contract_id": "stable-odd-v1",
+      "request": "Keep odd integers, including negatives, in their original order.",
+      "candidates": [
+        {
+          "id": "option-1",
+          "text": "Keep every odd integer in reverse input order.",
+          "source_id": "odd-reversed",
+          "code_sha256": "d811808cef9bf365adb3319d9a2e2d3ca8fd509b2db908edf158c31e14e8553e"
+        },
+        {
+          "id": "option-2",
+          "text": "Keep positive odd integers in their original order.",
+          "source_id": "odd-positive",
+          "code_sha256": "8600d00a3b890be7f7c12dd10077bc76ac7914733fe0340b4de58bf157892885"
+        }
+      ]
+    },
+    {
+      "id": "probe-05-ambiguous",
+      "prototype": "stable-odd",
+      "contract_id": "unknown-ambiguous",
+      "request": "Keep the useful integers in a reasonable order.",
+      "candidates": [
+        {
+          "id": "option-1",
+          "text": "Keep every odd integer in input order, including negative odd integers.",
+          "source_id": "odd-correct",
+          "code_sha256": "ce2a42cd591012e6a66cb512b2f3204f4e857d054366a5aae2571b2c32eb956d"
+        },
+        {
+          "id": "option-2",
+          "text": "Keep positive odd integers in their original order.",
+          "source_id": "odd-positive",
+          "code_sha256": "8600d00a3b890be7f7c12dd10077bc76ac7914733fe0340b4de58bf157892885"
+        },
+        {
+          "id": "option-3",
+          "text": "Keep every odd integer in reverse input order.",
+          "source_id": "odd-reversed",
+          "code_sha256": "d811808cef9bf365adb3319d9a2e2d3ca8fd509b2db908edf158c31e14e8553e"
+        }
+      ]
+    },
+    {
+      "id": "probe-06-main",
+      "prototype": "remove-first",
+      "contract_id": "remove-first-v1",
+      "request": "Remove only the first occurrence of the integer two; preserve all other order.",
+      "candidates": [
+        {
+          "id": "option-1",
+          "text": "Remove the last occurrence of two and preserve all other order.",
+          "source_id": "first-last",
+          "code_sha256": "b2e31f4689055212ba56c70496cf51f74838dbdde0c283fbcb26fffd20115279"
+        },
+        {
+          "id": "option-2",
+          "text": "Remove every occurrence of two and preserve the remaining order.",
+          "source_id": "first-all",
+          "code_sha256": "efa0c7f3d9d87eb57beea6774a2a2075a4c7509470839efb671b34f81884babb"
+        },
+        {
+          "id": "option-3",
+          "text": "Remove the first occurrence of integer two, retaining later twos in order.",
+          "source_id": "first-correct",
+          "code_sha256": "3dd5abaa337e4eddc05567adbd9c9a83637993651f21654c3a37dce9e5d555fc"
+        }
+      ]
+    },
+    {
+      "id": "probe-06-paraphrase",
+      "prototype": "remove-first",
+      "contract_id": "remove-first-v1",
+      "request": "Remove the first occurrence of two; do not remove later occurrences or change other order.",
+      "candidates": [
+        {
+          "id": "option-1",
+          "text": "Remove the last occurrence of two and preserve all other order.",
+          "source_id": "first-last",
+          "code_sha256": "b2e31f4689055212ba56c70496cf51f74838dbdde0c283fbcb26fffd20115279"
+        },
+        {
+          "id": "option-2",
+          "text": "Skip the earliest occurrence of two; copy every other integer in order.",
+          "source_id": "first-correct",
+          "code_sha256": "3dd5abaa337e4eddc05567adbd9c9a83637993651f21654c3a37dce9e5d555fc"
+        },
+        {
+          "id": "option-3",
+          "text": "Remove every occurrence of two and preserve the remaining order.",
+          "source_id": "first-all",
+          "code_sha256": "efa0c7f3d9d87eb57beea6774a2a2075a4c7509470839efb671b34f81884babb"
+        },
+        {
+          "id": "option-4",
+          "text": "Remove the first occurrence of integer two, retaining later twos in order.",
+          "source_id": "first-correct",
+          "code_sha256": "3dd5abaa337e4eddc05567adbd9c9a83637993651f21654c3a37dce9e5d555fc"
+        }
+      ]
+    },
+    {
+      "id": "probe-06-no-answer",
+      "prototype": "remove-first",
+      "contract_id": "remove-first-v1",
+      "request": "Remove only the first occurrence of the integer two; preserve all other order.",
+      "candidates": [
+        {
+          "id": "option-1",
+          "text": "Remove every occurrence of two and preserve the remaining order.",
+          "source_id": "first-all",
+          "code_sha256": "efa0c7f3d9d87eb57beea6774a2a2075a4c7509470839efb671b34f81884babb"
+        },
+        {
+          "id": "option-2",
+          "text": "Remove the last occurrence of two and preserve all other order.",
+          "source_id": "first-last",
+          "code_sha256": "b2e31f4689055212ba56c70496cf51f74838dbdde0c283fbcb26fffd20115279"
+        }
+      ]
+    },
+    {
+      "id": "probe-06-ambiguous",
+      "prototype": "remove-first",
+      "contract_id": "unknown-ambiguous",
+      "request": "Remove a matching occurrence of two.",
+      "candidates": [
+        {
+          "id": "option-1",
+          "text": "Remove the last occurrence of two and preserve all other order.",
+          "source_id": "first-last",
+          "code_sha256": "b2e31f4689055212ba56c70496cf51f74838dbdde0c283fbcb26fffd20115279"
+        },
+        {
+          "id": "option-2",
+          "text": "Remove every occurrence of two and preserve the remaining order.",
+          "source_id": "first-all",
+          "code_sha256": "efa0c7f3d9d87eb57beea6774a2a2075a4c7509470839efb671b34f81884babb"
+        },
+        {
+          "id": "option-3",
+          "text": "Remove the first occurrence of integer two, retaining later twos in order.",
+          "source_id": "first-correct",
+          "code_sha256": "3dd5abaa337e4eddc05567adbd9c9a83637993651f21654c3a37dce9e5d555fc"
+        }
+      ]
+    },
+    {
+      "id": "probe-07-main",
+      "prototype": "compact-runs",
+      "contract_id": "compact-runs-v1",
+      "request": "Collapse adjacent equal integers; retain equal values separated by other values.",
+      "candidates": [
+        {
+          "id": "option-1",
+          "text": "Keep only the first occurrence of each distinct integer across the sequence.",
+          "source_id": "compact-global",
+          "code_sha256": "26752dfda8ae20fafac35f795ee5456193ff18f8d619f98e53ca5944499f0dcc"
+        },
+        {
+          "id": "option-2",
+          "text": "Collapse every adjacent equal run to one integer, preserving run order.",
+          "source_id": "compact-correct",
+          "code_sha256": "a04069f16924e663e2308f7ca91980e20b7bbafd76f5ae9d30dbb6d4e1544c3d"
+        },
+        {
+          "id": "option-3",
+          "text": "Copy every integer without removing adjacent repetitions.",
+          "source_id": "compact-copy",
+          "code_sha256": "4ad8d4135e3ab4036b8d9fbdb27cd40acecc962d114187980d71138f0fbdacaf"
+        }
+      ]
+    },
+    {
+      "id": "probe-07-paraphrase",
+      "prototype": "compact-runs",
+      "contract_id": "compact-runs-v1",
+      "request": "Collapse adjacent equal integers; do not collapse equal integers separated by another value.",
+      "candidates": [
+        {
+          "id": "option-1",
+          "text": "Copy every integer without removing adjacent repetitions.",
+          "source_id": "compact-copy",
+          "code_sha256": "4ad8d4135e3ab4036b8d9fbdb27cd40acecc962d114187980d71138f0fbdacaf"
+        },
+        {
+          "id": "option-2",
+          "text": "Remove every integer equal to the immediately preceding retained integer; retain every other integer.",
+          "source_id": "compact-correct",
+          "code_sha256": "a04069f16924e663e2308f7ca91980e20b7bbafd76f5ae9d30dbb6d4e1544c3d"
+        },
+        {
+          "id": "option-3",
+          "text": "Keep only the first occurrence of each distinct integer across the sequence.",
+          "source_id": "compact-global",
+          "code_sha256": "26752dfda8ae20fafac35f795ee5456193ff18f8d619f98e53ca5944499f0dcc"
+        },
+        {
+          "id": "option-4",
+          "text": "Collapse every adjacent equal run to one integer, preserving run order.",
+          "source_id": "compact-correct",
+          "code_sha256": "a04069f16924e663e2308f7ca91980e20b7bbafd76f5ae9d30dbb6d4e1544c3d"
+        }
+      ]
+    },
+    {
+      "id": "probe-07-no-answer",
+      "prototype": "compact-runs",
+      "contract_id": "compact-runs-v1",
+      "request": "Collapse adjacent equal integers; retain equal values separated by other values.",
+      "candidates": [
+        {
+          "id": "option-1",
+          "text": "Keep only the first occurrence of each distinct integer across the sequence.",
+          "source_id": "compact-global",
+          "code_sha256": "26752dfda8ae20fafac35f795ee5456193ff18f8d619f98e53ca5944499f0dcc"
+        },
+        {
+          "id": "option-2",
+          "text": "Copy every integer without removing adjacent repetitions.",
+          "source_id": "compact-copy",
+          "code_sha256": "4ad8d4135e3ab4036b8d9fbdb27cd40acecc962d114187980d71138f0fbdacaf"
+        }
+      ]
+    },
+    {
+      "id": "probe-07-ambiguous",
+      "prototype": "compact-runs",
+      "contract_id": "unknown-ambiguous",
+      "request": "Remove duplicate integers appropriately.",
+      "candidates": [
+        {
+          "id": "option-1",
+          "text": "Keep only the first occurrence of each distinct integer across the sequence.",
+          "source_id": "compact-global",
+          "code_sha256": "26752dfda8ae20fafac35f795ee5456193ff18f8d619f98e53ca5944499f0dcc"
+        },
+        {
+          "id": "option-2",
+          "text": "Collapse every adjacent equal run to one integer, preserving run order.",
+          "source_id": "compact-correct",
+          "code_sha256": "a04069f16924e663e2308f7ca91980e20b7bbafd76f5ae9d30dbb6d4e1544c3d"
+        },
+        {
+          "id": "option-3",
+          "text": "Copy every integer without removing adjacent repetitions.",
+          "source_id": "compact-copy",
+          "code_sha256": "4ad8d4135e3ab4036b8d9fbdb27cd40acecc962d114187980d71138f0fbdacaf"
+        }
+      ]
+    },
+    {
+      "id": "probe-08-main",
+      "prototype": "rotate-left",
+      "contract_id": "rotate-left-v1",
+      "request": "Rotate the sequence one position left; empty sequences remain empty.",
+      "candidates": [
+        {
+          "id": "option-1",
+          "text": "Move the first integer to the end, retaining the order of other integers.",
+          "source_id": "rotate-correct",
+          "code_sha256": "cf23f9aad281e0cfe99e1e0f5574884d1a90c8bc1289a7a7e5bfd25638d7817d"
+        },
+        {
+          "id": "option-2",
+          "text": "Reverse the entire sequence.",
+          "source_id": "rotate-reverse",
+          "code_sha256": "88bf857f9a8bab09b2e2c6d5369760a8bed72b2a68fc22e7c2054e94b99dd3d6"
+        },
+        {
+          "id": "option-3",
+          "text": "Move the last integer to the front, retaining the order of other integers.",
+          "source_id": "rotate-right",
+          "code_sha256": "d1ce6c524f12a48b22c60f96f585d0b5eead58aea753fbca288ec07468da9aee"
+        }
+      ]
+    },
+    {
+      "id": "probe-08-paraphrase",
+      "prototype": "rotate-left",
+      "contract_id": "rotate-left-v1",
+      "request": "Leave empty sequences unchanged; otherwise move the first integer to the end without reversing others.",
+      "candidates": [
+        {
+          "id": "option-1",
+          "text": "Reverse the entire sequence.",
+          "source_id": "rotate-reverse",
+          "code_sha256": "88bf857f9a8bab09b2e2c6d5369760a8bed72b2a68fc22e7c2054e94b99dd3d6"
+        },
+        {
+          "id": "option-2",
+          "text": "Shift every integer one place left and wrap the first integer to the end.",
+          "source_id": "rotate-correct",
+          "code_sha256": "cf23f9aad281e0cfe99e1e0f5574884d1a90c8bc1289a7a7e5bfd25638d7817d"
+        },
+        {
+          "id": "option-3",
+          "text": "Move the last integer to the front, retaining the order of other integers.",
+          "source_id": "rotate-right",
+          "code_sha256": "d1ce6c524f12a48b22c60f96f585d0b5eead58aea753fbca288ec07468da9aee"
+        },
+        {
+          "id": "option-4",
+          "text": "Move the first integer to the end, retaining the order of other integers.",
+          "source_id": "rotate-correct",
+          "code_sha256": "cf23f9aad281e0cfe99e1e0f5574884d1a90c8bc1289a7a7e5bfd25638d7817d"
+        }
+      ]
+    },
+    {
+      "id": "probe-08-no-answer",
+      "prototype": "rotate-left",
+      "contract_id": "rotate-left-v1",
+      "request": "Rotate the sequence one position left; empty sequences remain empty.",
+      "candidates": [
+        {
+          "id": "option-1",
+          "text": "Move the last integer to the front, retaining the order of other integers.",
+          "source_id": "rotate-right",
+          "code_sha256": "d1ce6c524f12a48b22c60f96f585d0b5eead58aea753fbca288ec07468da9aee"
+        },
+        {
+          "id": "option-2",
+          "text": "Reverse the entire sequence.",
+          "source_id": "rotate-reverse",
+          "code_sha256": "88bf857f9a8bab09b2e2c6d5369760a8bed72b2a68fc22e7c2054e94b99dd3d6"
+        }
+      ]
+    },
+    {
+      "id": "probe-08-ambiguous",
+      "prototype": "rotate-left",
+      "contract_id": "unknown-ambiguous",
+      "request": "Rotate the sequence in the preferred direction.",
+      "candidates": [
+        {
+          "id": "option-1",
+          "text": "Move the first integer to the end, retaining the order of other integers.",
+          "source_id": "rotate-correct",
+          "code_sha256": "cf23f9aad281e0cfe99e1e0f5574884d1a90c8bc1289a7a7e5bfd25638d7817d"
+        },
+        {
+          "id": "option-2",
+          "text": "Reverse the entire sequence.",
+          "source_id": "rotate-reverse",
+          "code_sha256": "88bf857f9a8bab09b2e2c6d5369760a8bed72b2a68fc22e7c2054e94b99dd3d6"
+        },
+        {
+          "id": "option-3",
+          "text": "Move the last integer to the front, retaining the order of other integers.",
+          "source_id": "rotate-right",
+          "code_sha256": "d1ce6c524f12a48b22c60f96f585d0b5eead58aea753fbca288ec07468da9aee"
+        }
+      ]
+    },
+    {
+      "id": "probe-09-main",
+      "prototype": "nondecreasing",
+      "contract_id": "nondecreasing-v1",
+      "request": "Accept nondecreasing sequences, including repeated values and empty sequences.",
+      "candidates": [
+        {
+          "id": "option-1",
+          "text": "Accept empty sequences or sequences whose first integer does not exceed the last.",
+          "source_id": "sorted-endpoints",
+          "code_sha256": "2770de03da03012a896518e76400e53c0c5579dfbb3679a75ad563c4d8a7dda9"
+        },
+        {
+          "id": "option-2",
+          "text": "Accept only strictly increasing neighbors; reject equal neighbors.",
+          "source_id": "sorted-strict",
+          "code_sha256": "98cfea4f883bf4920a2768cb9a9f53062c98b18dc6c2f2b3844b49f162171884"
+        },
+        {
+          "id": "option-3",
+          "text": "Reject any adjacent decrease; otherwise accept, including empty sequences.",
+          "source_id": "sorted-correct",
+          "code_sha256": "0f1e44ad520c1197e3f47c021c8af5ded38ccf326f1fce38bb025e962e3a601c"
+        }
+      ]
+    },
+    {
+      "id": "probe-09-paraphrase",
+      "prototype": "nondecreasing",
+      "contract_id": "nondecreasing-v1",
+      "request": "Reject any adjacent decrease; do not reject equal neighbors or empty sequences.",
+      "candidates": [
+        {
+          "id": "option-1",
+          "text": "Accept empty sequences or sequences whose first integer does not exceed the last.",
+          "source_id": "sorted-endpoints",
+          "code_sha256": "2770de03da03012a896518e76400e53c0c5579dfbb3679a75ad563c4d8a7dda9"
+        },
+        {
+          "id": "option-2",
+          "text": "Reject only an adjacent decrease, preserving acceptance of repeated integers.",
+          "source_id": "sorted-correct",
+          "code_sha256": "0f1e44ad520c1197e3f47c021c8af5ded38ccf326f1fce38bb025e962e3a601c"
+        },
+        {
+          "id": "option-3",
+          "text": "Accept only strictly increasing neighbors; reject equal neighbors.",
+          "source_id": "sorted-strict",
+          "code_sha256": "98cfea4f883bf4920a2768cb9a9f53062c98b18dc6c2f2b3844b49f162171884"
+        },
+        {
+          "id": "option-4",
+          "text": "Reject any adjacent decrease; otherwise accept, including empty sequences.",
+          "source_id": "sorted-correct",
+          "code_sha256": "0f1e44ad520c1197e3f47c021c8af5ded38ccf326f1fce38bb025e962e3a601c"
+        }
+      ]
+    },
+    {
+      "id": "probe-09-no-answer",
+      "prototype": "nondecreasing",
+      "contract_id": "nondecreasing-v1",
+      "request": "Accept nondecreasing sequences, including repeated values and empty sequences.",
+      "candidates": [
+        {
+          "id": "option-1",
+          "text": "Accept only strictly increasing neighbors; reject equal neighbors.",
+          "source_id": "sorted-strict",
+          "code_sha256": "98cfea4f883bf4920a2768cb9a9f53062c98b18dc6c2f2b3844b49f162171884"
+        },
+        {
+          "id": "option-2",
+          "text": "Accept empty sequences or sequences whose first integer does not exceed the last.",
+          "source_id": "sorted-endpoints",
+          "code_sha256": "2770de03da03012a896518e76400e53c0c5579dfbb3679a75ad563c4d8a7dda9"
+        }
+      ]
+    },
+    {
+      "id": "probe-09-ambiguous",
+      "prototype": "nondecreasing",
+      "contract_id": "unknown-ambiguous",
+      "request": "Check whether the sequence is suitably ordered.",
+      "candidates": [
+        {
+          "id": "option-1",
+          "text": "Accept empty sequences or sequences whose first integer does not exceed the last.",
+          "source_id": "sorted-endpoints",
+          "code_sha256": "2770de03da03012a896518e76400e53c0c5579dfbb3679a75ad563c4d8a7dda9"
+        },
+        {
+          "id": "option-2",
+          "text": "Accept only strictly increasing neighbors; reject equal neighbors.",
+          "source_id": "sorted-strict",
+          "code_sha256": "98cfea4f883bf4920a2768cb9a9f53062c98b18dc6c2f2b3844b49f162171884"
+        },
+        {
+          "id": "option-3",
+          "text": "Reject any adjacent decrease; otherwise accept, including empty sequences.",
+          "source_id": "sorted-correct",
+          "code_sha256": "0f1e44ad520c1197e3f47c021c8af5ded38ccf326f1fce38bb025e962e3a601c"
+        }
+      ]
+    },
+    {
+      "id": "probe-10-main",
+      "prototype": "clamp-window",
+      "contract_id": "clamp-window-v1",
+      "request": "Clamp a value to the inclusive lower and upper bounds.",
+      "candidates": [
+        {
+          "id": "option-1",
+          "text": "Return zero for values outside the bounds; keep other values.",
+          "source_id": "clamp-zero",
+          "code_sha256": "8a6f26359945c49fbe22f59cf59199fc17bdb0bb0ca02573fc89ab020604dccf"
+        },
+        {
+          "id": "option-2",
+          "text": "Replace values below the lower bound or above the upper bound with the nearest endpoint.",
+          "source_id": "clamp-correct",
+          "code_sha256": "75c62cbf121bb5edd3745c2ecb127a3889cb73be72cc179d4ed1f217c05b50d5"
+        },
+        {
+          "id": "option-3",
+          "text": "Wrap values below the lower bound to the upper bound, and conversely.",
+          "source_id": "clamp-wrap",
+          "code_sha256": "3c86bd4219740fc535c54684e6737476cfb9e5489d1bdb910861bdb2dca13ab6"
+        }
+      ]
+    },
+    {
+      "id": "probe-10-paraphrase",
+      "prototype": "clamp-window",
+      "contract_id": "clamp-window-v1",
+      "request": "Keep values at either endpoint; replace values outside with the nearest endpoint.",
+      "candidates": [
+        {
+          "id": "option-1",
+          "text": "Wrap values below the lower bound to the upper bound, and conversely.",
+          "source_id": "clamp-wrap",
+          "code_sha256": "3c86bd4219740fc535c54684e6737476cfb9e5489d1bdb910861bdb2dca13ab6"
+        },
+        {
+          "id": "option-2",
+          "text": "Return the lower endpoint below range, the upper endpoint above range, or the unchanged value.",
+          "source_id": "clamp-correct",
+          "code_sha256": "75c62cbf121bb5edd3745c2ecb127a3889cb73be72cc179d4ed1f217c05b50d5"
+        },
+        {
+          "id": "option-3",
+          "text": "Return zero for values outside the bounds; keep other values.",
+          "source_id": "clamp-zero",
+          "code_sha256": "8a6f26359945c49fbe22f59cf59199fc17bdb0bb0ca02573fc89ab020604dccf"
+        },
+        {
+          "id": "option-4",
+          "text": "Replace values below the lower bound or above the upper bound with the nearest endpoint.",
+          "source_id": "clamp-correct",
+          "code_sha256": "75c62cbf121bb5edd3745c2ecb127a3889cb73be72cc179d4ed1f217c05b50d5"
+        }
+      ]
+    },
+    {
+      "id": "probe-10-no-answer",
+      "prototype": "clamp-window",
+      "contract_id": "clamp-window-v1",
+      "request": "Clamp a value to the inclusive lower and upper bounds.",
+      "candidates": [
+        {
+          "id": "option-1",
+          "text": "Return zero for values outside the bounds; keep other values.",
+          "source_id": "clamp-zero",
+          "code_sha256": "8a6f26359945c49fbe22f59cf59199fc17bdb0bb0ca02573fc89ab020604dccf"
+        },
+        {
+          "id": "option-2",
+          "text": "Wrap values below the lower bound to the upper bound, and conversely.",
+          "source_id": "clamp-wrap",
+          "code_sha256": "3c86bd4219740fc535c54684e6737476cfb9e5489d1bdb910861bdb2dca13ab6"
+        }
+      ]
+    },
+    {
+      "id": "probe-10-ambiguous",
+      "prototype": "clamp-window",
+      "contract_id": "unknown-ambiguous",
+      "request": "Normalize a value using the configured bounds.",
+      "candidates": [
+        {
+          "id": "option-1",
+          "text": "Return zero for values outside the bounds; keep other values.",
+          "source_id": "clamp-zero",
+          "code_sha256": "8a6f26359945c49fbe22f59cf59199fc17bdb0bb0ca02573fc89ab020604dccf"
+        },
+        {
+          "id": "option-2",
+          "text": "Replace values below the lower bound or above the upper bound with the nearest endpoint.",
+          "source_id": "clamp-correct",
+          "code_sha256": "75c62cbf121bb5edd3745c2ecb127a3889cb73be72cc179d4ed1f217c05b50d5"
+        },
+        {
+          "id": "option-3",
+          "text": "Wrap values below the lower bound to the upper bound, and conversely.",
+          "source_id": "clamp-wrap",
+          "code_sha256": "3c86bd4219740fc535c54684e6737476cfb9e5489d1bdb910861bdb2dca13ab6"
+        }
+      ]
+    },
+    {
+      "id": "probe-11-main",
+      "prototype": "prefix-balance",
+      "contract_id": "prefix-balance-v1",
+      "request": "Accept parenthesis steps when every prefix balance is nonnegative and final balance is zero.",
+      "candidates": [
+        {
+          "id": "option-1",
+          "text": "Reject negative prefix balances or nonzero final balance; otherwise accept.",
+          "source_id": "balance-correct",
+          "code_sha256": "59cca0d0ac0235dd919a0addf043b318ac107f0cf92b52485beea8389d6030b4"
+        },
+        {
+          "id": "option-2",
+          "text": "Reject an initially negative step, then check only that final balance is zero.",
+          "source_id": "balance-first-only",
+          "code_sha256": "7688a90f3e27226df7598dc4d57203c0f1852d80c8b7db62db2d83664bc2d8ed"
+        },
+        {
+          "id": "option-3",
+          "text": "Check only that the final balance is zero, ignoring prefix balances.",
+          "source_id": "balance-final-only",
+          "code_sha256": "8cfdd0fe9f923c1b1207be4c8a2533f3bb55aa2a70d348397271602693da2d6c"
+        }
+      ]
+    },
+    {
+      "id": "probe-11-paraphrase",
+      "prototype": "prefix-balance",
+      "contract_id": "prefix-balance-v1",
+      "request": "Reject negative prefix balances or nonzero final balance; accept only when neither occurs.",
+      "candidates": [
+        {
+          "id": "option-1",
+          "text": "Reject an initially negative step, then check only that final balance is zero.",
+          "source_id": "balance-first-only",
+          "code_sha256": "7688a90f3e27226df7598dc4d57203c0f1852d80c8b7db62db2d83664bc2d8ed"
+        },
+        {
+          "id": "option-2",
+          "text": "Accept only a zero final balance with no negative balance at any preceding step.",
+          "source_id": "balance-correct",
+          "code_sha256": "59cca0d0ac0235dd919a0addf043b318ac107f0cf92b52485beea8389d6030b4"
+        },
+        {
+          "id": "option-3",
+          "text": "Check only that the final balance is zero, ignoring prefix balances.",
+          "source_id": "balance-final-only",
+          "code_sha256": "8cfdd0fe9f923c1b1207be4c8a2533f3bb55aa2a70d348397271602693da2d6c"
+        },
+        {
+          "id": "option-4",
+          "text": "Reject negative prefix balances or nonzero final balance; otherwise accept.",
+          "source_id": "balance-correct",
+          "code_sha256": "59cca0d0ac0235dd919a0addf043b318ac107f0cf92b52485beea8389d6030b4"
+        }
+      ]
+    },
+    {
+      "id": "probe-11-no-answer",
+      "prototype": "prefix-balance",
+      "contract_id": "prefix-balance-v1",
+      "request": "Accept parenthesis steps when every prefix balance is nonnegative and final balance is zero.",
+      "candidates": [
+        {
+          "id": "option-1",
+          "text": "Check only that the final balance is zero, ignoring prefix balances.",
+          "source_id": "balance-final-only",
+          "code_sha256": "8cfdd0fe9f923c1b1207be4c8a2533f3bb55aa2a70d348397271602693da2d6c"
+        },
+        {
+          "id": "option-2",
+          "text": "Reject an initially negative step, then check only that final balance is zero.",
+          "source_id": "balance-first-only",
+          "code_sha256": "7688a90f3e27226df7598dc4d57203c0f1852d80c8b7db62db2d83664bc2d8ed"
+        }
+      ]
+    },
+    {
+      "id": "probe-11-ambiguous",
+      "prototype": "prefix-balance",
+      "contract_id": "unknown-ambiguous",
+      "request": "Assess sequence balance using the application's preferred policy.",
+      "candidates": [
+        {
+          "id": "option-1",
+          "text": "Reject negative prefix balances or nonzero final balance; otherwise accept.",
+          "source_id": "balance-correct",
+          "code_sha256": "59cca0d0ac0235dd919a0addf043b318ac107f0cf92b52485beea8389d6030b4"
+        },
+        {
+          "id": "option-2",
+          "text": "Reject an initially negative step, then check only that final balance is zero.",
+          "source_id": "balance-first-only",
+          "code_sha256": "7688a90f3e27226df7598dc4d57203c0f1852d80c8b7db62db2d83664bc2d8ed"
+        },
+        {
+          "id": "option-3",
+          "text": "Check only that the final balance is zero, ignoring prefix balances.",
+          "source_id": "balance-final-only",
+          "code_sha256": "8cfdd0fe9f923c1b1207be4c8a2533f3bb55aa2a70d348397271602693da2d6c"
+        }
+      ]
+    },
+    {
+      "id": "probe-12-main",
+      "prototype": "transform-order",
+      "contract_id": "transform-order-v1",
+      "request": "Subtract three from the integer, then multiply the result by two.",
+      "candidates": [
+        {
+          "id": "option-1",
+          "text": "Add three, then multiply the result by two.",
+          "source_id": "transform-add",
+          "code_sha256": "d967ee43aae5e04c991dd9feb889ec2e9114221779f0f0d493bc80f0f1f763dd"
+        },
+        {
+          "id": "option-2",
+          "text": "Multiply the integer by two, then subtract three.",
+          "source_id": "transform-reversed",
+          "code_sha256": "2080d0468f3720acaa1ae885abf167cd554d5d2158d7ba39979954221bd481be"
+        },
+        {
+          "id": "option-3",
+          "text": "Subtract three, then multiply the result by two.",
+          "source_id": "transform-correct",
+          "code_sha256": "132be51ae5130e1c761f87b351a692e2385133f73b096e099f34f52a867c241c"
+        }
+      ]
+    },
+    {
+      "id": "probe-12-paraphrase",
+      "prototype": "transform-order",
+      "contract_id": "transform-order-v1",
+      "request": "Do not subtract three after doubling; subtract first and then double.",
+      "candidates": [
+        {
+          "id": "option-1",
+          "text": "Add three, then multiply the result by two.",
+          "source_id": "transform-add",
+          "code_sha256": "d967ee43aae5e04c991dd9feb889ec2e9114221779f0f0d493bc80f0f1f763dd"
+        },
+        {
+          "id": "option-2",
+          "text": "Double the difference between the integer and three.",
+          "source_id": "transform-correct",
+          "code_sha256": "132be51ae5130e1c761f87b351a692e2385133f73b096e099f34f52a867c241c"
+        },
+        {
+          "id": "option-3",
+          "text": "Multiply the integer by two, then subtract three.",
+          "source_id": "transform-reversed",
+          "code_sha256": "2080d0468f3720acaa1ae885abf167cd554d5d2158d7ba39979954221bd481be"
+        },
+        {
+          "id": "option-4",
+          "text": "Subtract three, then multiply the result by two.",
+          "source_id": "transform-correct",
+          "code_sha256": "132be51ae5130e1c761f87b351a692e2385133f73b096e099f34f52a867c241c"
+        }
+      ]
+    },
+    {
+      "id": "probe-12-no-answer",
+      "prototype": "transform-order",
+      "contract_id": "transform-order-v1",
+      "request": "Subtract three from the integer, then multiply the result by two.",
+      "candidates": [
+        {
+          "id": "option-1",
+          "text": "Multiply the integer by two, then subtract three.",
+          "source_id": "transform-reversed",
+          "code_sha256": "2080d0468f3720acaa1ae885abf167cd554d5d2158d7ba39979954221bd481be"
+        },
+        {
+          "id": "option-2",
+          "text": "Add three, then multiply the result by two.",
+          "source_id": "transform-add",
+          "code_sha256": "d967ee43aae5e04c991dd9feb889ec2e9114221779f0f0d493bc80f0f1f763dd"
+        }
+      ]
+    },
+    {
+      "id": "probe-12-ambiguous",
+      "prototype": "transform-order",
+      "contract_id": "unknown-ambiguous",
+      "request": "Adjust and scale the integer as appropriate.",
+      "candidates": [
+        {
+          "id": "option-1",
+          "text": "Add three, then multiply the result by two.",
+          "source_id": "transform-add",
+          "code_sha256": "d967ee43aae5e04c991dd9feb889ec2e9114221779f0f0d493bc80f0f1f763dd"
+        },
+        {
+          "id": "option-2",
+          "text": "Multiply the integer by two, then subtract three.",
+          "source_id": "transform-reversed",
+          "code_sha256": "2080d0468f3720acaa1ae885abf167cd554d5d2158d7ba39979954221bd481be"
+        },
+        {
+          "id": "option-3",
+          "text": "Subtract three, then multiply the result by two.",
+          "source_id": "transform-correct",
+          "code_sha256": "132be51ae5130e1c761f87b351a692e2385133f73b096e099f34f52a867c241c"
+        }
+      ]
+    }
+  ]
+}
