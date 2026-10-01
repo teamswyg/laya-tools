@@ -1,0 +1,2514 @@
+{
+  "schema": "riido-finite-property-record-56e-v2",
+  "state": "complete",
+  "plan_sha256": "6a21ff6da7772476e070509b45bf9506b95f50473841bf3183d17a2fca7ded69",
+  "source_commit": "1f9631c2819abf24ca57e6317ed48b8397be0881",
+  "input_freeze_commit": "ca5ff83b847e984dab628be536cc2462ddff8221",
+  "go_version": "go1.27.1",
+  "goos": "darwin",
+  "goarch": "arm64",
+  "binary_sha256": "b5b5f97acb48dd3c1d6f472effee6e56d6d094e7e2b25db4ab0c68d06c792612",
+  "git_blobs_verified_before_observation": 36,
+  "observation": {
+    "schema": "riido-finite-property-observation-56e-v2",
+    "state": "complete",
+    "dataset_sha256": "86556bd96599ae013441f199f90c8cd619a011d52212d1ccbfdbe98b6f6a1ec5",
+    "source_results": [
+      {
+        "state": "complete",
+        "property_id": "finite-input-56e-v2-1",
+        "source_id": "quoted-correct",
+        "literal_count": 2,
+        "observed_literals": 2,
+        "literals": [
+          {
+            "input": "\"a,b\",c",
+            "want": {
+              "error": 0,
+              "count": 2,
+              "tokens": [
+                "a,b",
+                "c",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "got": {
+              "error": 0,
+              "count": 2,
+              "tokens": [
+                "a,b",
+                "c",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "matches": true
+          },
+          {
+            "input": "ab\"c,d\"ef",
+            "want": {
+              "error": 0,
+              "count": 1,
+              "tokens": [
+                "abc,def",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "got": {
+              "error": 0,
+              "count": 1,
+              "tokens": [
+                "abc,def",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "matches": true
+          },
+          {
+            "input": "",
+            "want": {
+              "error": 0,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "got": {
+              "error": 0,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "matches": false
+          },
+          {
+            "input": "",
+            "want": {
+              "error": 0,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "got": {
+              "error": 0,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "matches": false
+          },
+          {
+            "input": "",
+            "want": {
+              "error": 0,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "got": {
+              "error": 0,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "matches": false
+          }
+        ],
+        "matches_all_finite_literals": true
+      },
+      {
+        "state": "complete",
+        "property_id": "finite-input-56e-v2-1",
+        "source_id": "quoted-literal-comma",
+        "literal_count": 2,
+        "observed_literals": 2,
+        "literals": [
+          {
+            "input": "\"a,b\",c",
+            "want": {
+              "error": 0,
+              "count": 2,
+              "tokens": [
+                "a,b",
+                "c",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "got": {
+              "error": 0,
+              "count": 3,
+              "tokens": [
+                "\"a",
+                "b\"",
+                "c",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "matches": false
+          },
+          {
+            "input": "ab\"c,d\"ef",
+            "want": {
+              "error": 0,
+              "count": 1,
+              "tokens": [
+                "abc,def",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "got": {
+              "error": 0,
+              "count": 2,
+              "tokens": [
+                "ab\"c",
+                "d\"ef",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "matches": false
+          },
+          {
+            "input": "",
+            "want": {
+              "error": 0,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "got": {
+              "error": 0,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "matches": false
+          },
+          {
+            "input": "",
+            "want": {
+              "error": 0,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "got": {
+              "error": 0,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "matches": false
+          },
+          {
+            "input": "",
+            "want": {
+              "error": 0,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "got": {
+              "error": 0,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "matches": false
+          }
+        ],
+        "matches_all_finite_literals": false
+      },
+      {
+        "state": "complete",
+        "property_id": "finite-input-56e-v2-1",
+        "source_id": "quoted-inside-escape",
+        "literal_count": 2,
+        "observed_literals": 2,
+        "literals": [
+          {
+            "input": "\"a,b\",c",
+            "want": {
+              "error": 0,
+              "count": 2,
+              "tokens": [
+                "a,b",
+                "c",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "got": {
+              "error": 0,
+              "count": 2,
+              "tokens": [
+                "a,b",
+                "c",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "matches": true
+          },
+          {
+            "input": "ab\"c,d\"ef",
+            "want": {
+              "error": 0,
+              "count": 1,
+              "tokens": [
+                "abc,def",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "got": {
+              "error": 0,
+              "count": 1,
+              "tokens": [
+                "abc,def",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "matches": true
+          },
+          {
+            "input": "",
+            "want": {
+              "error": 0,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "got": {
+              "error": 0,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "matches": false
+          },
+          {
+            "input": "",
+            "want": {
+              "error": 0,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "got": {
+              "error": 0,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "matches": false
+          },
+          {
+            "input": "",
+            "want": {
+              "error": 0,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "got": {
+              "error": 0,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "matches": false
+          }
+        ],
+        "matches_all_finite_literals": true
+      },
+      {
+        "state": "complete",
+        "property_id": "finite-input-56e-v2-1",
+        "source_id": "quoted-partial-error",
+        "literal_count": 2,
+        "observed_literals": 2,
+        "literals": [
+          {
+            "input": "\"a,b\",c",
+            "want": {
+              "error": 0,
+              "count": 2,
+              "tokens": [
+                "a,b",
+                "c",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "got": {
+              "error": 0,
+              "count": 2,
+              "tokens": [
+                "a,b",
+                "c",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "matches": true
+          },
+          {
+            "input": "ab\"c,d\"ef",
+            "want": {
+              "error": 0,
+              "count": 1,
+              "tokens": [
+                "abc,def",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "got": {
+              "error": 0,
+              "count": 1,
+              "tokens": [
+                "abc,def",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "matches": true
+          },
+          {
+            "input": "",
+            "want": {
+              "error": 0,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "got": {
+              "error": 0,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "matches": false
+          },
+          {
+            "input": "",
+            "want": {
+              "error": 0,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "got": {
+              "error": 0,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "matches": false
+          },
+          {
+            "input": "",
+            "want": {
+              "error": 0,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "got": {
+              "error": 0,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "matches": false
+          }
+        ],
+        "matches_all_finite_literals": true
+      },
+      {
+        "state": "complete",
+        "property_id": "finite-input-56e-v2-2",
+        "source_id": "quoted-correct",
+        "literal_count": 2,
+        "observed_literals": 2,
+        "literals": [
+          {
+            "input": "a\\,b,c",
+            "want": {
+              "error": 0,
+              "count": 2,
+              "tokens": [
+                "a,b",
+                "c",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "got": {
+              "error": 0,
+              "count": 2,
+              "tokens": [
+                "a,b",
+                "c",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "matches": true
+          },
+          {
+            "input": "a\\\\,b",
+            "want": {
+              "error": 0,
+              "count": 2,
+              "tokens": [
+                "a\\",
+                "b",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "got": {
+              "error": 0,
+              "count": 2,
+              "tokens": [
+                "a\\",
+                "b",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "matches": true
+          },
+          {
+            "input": "",
+            "want": {
+              "error": 0,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "got": {
+              "error": 0,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "matches": false
+          },
+          {
+            "input": "",
+            "want": {
+              "error": 0,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "got": {
+              "error": 0,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "matches": false
+          },
+          {
+            "input": "",
+            "want": {
+              "error": 0,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "got": {
+              "error": 0,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "matches": false
+          }
+        ],
+        "matches_all_finite_literals": true
+      },
+      {
+        "state": "complete",
+        "property_id": "finite-input-56e-v2-2",
+        "source_id": "quoted-literal-comma",
+        "literal_count": 2,
+        "observed_literals": 2,
+        "literals": [
+          {
+            "input": "a\\,b,c",
+            "want": {
+              "error": 0,
+              "count": 2,
+              "tokens": [
+                "a,b",
+                "c",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "got": {
+              "error": 0,
+              "count": 3,
+              "tokens": [
+                "a\\",
+                "b",
+                "c",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "matches": false
+          },
+          {
+            "input": "a\\\\,b",
+            "want": {
+              "error": 0,
+              "count": 2,
+              "tokens": [
+                "a\\",
+                "b",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "got": {
+              "error": 0,
+              "count": 2,
+              "tokens": [
+                "a\\\\",
+                "b",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "matches": false
+          },
+          {
+            "input": "",
+            "want": {
+              "error": 0,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "got": {
+              "error": 0,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "matches": false
+          },
+          {
+            "input": "",
+            "want": {
+              "error": 0,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "got": {
+              "error": 0,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "matches": false
+          },
+          {
+            "input": "",
+            "want": {
+              "error": 0,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "got": {
+              "error": 0,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "matches": false
+          }
+        ],
+        "matches_all_finite_literals": false
+      },
+      {
+        "state": "complete",
+        "property_id": "finite-input-56e-v2-2",
+        "source_id": "quoted-inside-escape",
+        "literal_count": 2,
+        "observed_literals": 2,
+        "literals": [
+          {
+            "input": "a\\,b,c",
+            "want": {
+              "error": 0,
+              "count": 2,
+              "tokens": [
+                "a,b",
+                "c",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "got": {
+              "error": 0,
+              "count": 3,
+              "tokens": [
+                "a\\",
+                "b",
+                "c",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "matches": false
+          },
+          {
+            "input": "a\\\\,b",
+            "want": {
+              "error": 0,
+              "count": 2,
+              "tokens": [
+                "a\\",
+                "b",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "got": {
+              "error": 0,
+              "count": 2,
+              "tokens": [
+                "a\\\\",
+                "b",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "matches": false
+          },
+          {
+            "input": "",
+            "want": {
+              "error": 0,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "got": {
+              "error": 0,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "matches": false
+          },
+          {
+            "input": "",
+            "want": {
+              "error": 0,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "got": {
+              "error": 0,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "matches": false
+          },
+          {
+            "input": "",
+            "want": {
+              "error": 0,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "got": {
+              "error": 0,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "matches": false
+          }
+        ],
+        "matches_all_finite_literals": false
+      },
+      {
+        "state": "complete",
+        "property_id": "finite-input-56e-v2-2",
+        "source_id": "quoted-partial-error",
+        "literal_count": 2,
+        "observed_literals": 2,
+        "literals": [
+          {
+            "input": "a\\,b,c",
+            "want": {
+              "error": 0,
+              "count": 2,
+              "tokens": [
+                "a,b",
+                "c",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "got": {
+              "error": 0,
+              "count": 2,
+              "tokens": [
+                "a,b",
+                "c",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "matches": true
+          },
+          {
+            "input": "a\\\\,b",
+            "want": {
+              "error": 0,
+              "count": 2,
+              "tokens": [
+                "a\\",
+                "b",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "got": {
+              "error": 0,
+              "count": 2,
+              "tokens": [
+                "a\\",
+                "b",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "matches": true
+          },
+          {
+            "input": "",
+            "want": {
+              "error": 0,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "got": {
+              "error": 0,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "matches": false
+          },
+          {
+            "input": "",
+            "want": {
+              "error": 0,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "got": {
+              "error": 0,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "matches": false
+          },
+          {
+            "input": "",
+            "want": {
+              "error": 0,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "got": {
+              "error": 0,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "matches": false
+          }
+        ],
+        "matches_all_finite_literals": true
+      },
+      {
+        "state": "complete",
+        "property_id": "finite-input-56e-v2-3",
+        "source_id": "quoted-correct",
+        "literal_count": 5,
+        "observed_literals": 5,
+        "literals": [
+          {
+            "input": "\"a,b",
+            "want": {
+              "error": 1,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "got": {
+              "error": 1,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "matches": true
+          },
+          {
+            "input": "a\\",
+            "want": {
+              "error": 1,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "got": {
+              "error": 1,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "matches": true
+          },
+          {
+            "input": "a,b\\",
+            "want": {
+              "error": 1,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "got": {
+              "error": 1,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "matches": true
+          },
+          {
+            "input": "\"a\\",
+            "want": {
+              "error": 1,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "got": {
+              "error": 1,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "matches": true
+          },
+          {
+            "input": "a,\"b",
+            "want": {
+              "error": 1,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "got": {
+              "error": 1,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "matches": true
+          }
+        ],
+        "matches_all_finite_literals": true
+      },
+      {
+        "state": "complete",
+        "property_id": "finite-input-56e-v2-3",
+        "source_id": "quoted-literal-comma",
+        "literal_count": 5,
+        "observed_literals": 5,
+        "literals": [
+          {
+            "input": "\"a,b",
+            "want": {
+              "error": 1,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "got": {
+              "error": 0,
+              "count": 2,
+              "tokens": [
+                "\"a",
+                "b",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "matches": false
+          },
+          {
+            "input": "a\\",
+            "want": {
+              "error": 1,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "got": {
+              "error": 0,
+              "count": 1,
+              "tokens": [
+                "a\\",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "matches": false
+          },
+          {
+            "input": "a,b\\",
+            "want": {
+              "error": 1,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "got": {
+              "error": 0,
+              "count": 2,
+              "tokens": [
+                "a",
+                "b\\",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "matches": false
+          },
+          {
+            "input": "\"a\\",
+            "want": {
+              "error": 1,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "got": {
+              "error": 0,
+              "count": 1,
+              "tokens": [
+                "\"a\\",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "matches": false
+          },
+          {
+            "input": "a,\"b",
+            "want": {
+              "error": 1,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "got": {
+              "error": 0,
+              "count": 2,
+              "tokens": [
+                "a",
+                "\"b",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "matches": false
+          }
+        ],
+        "matches_all_finite_literals": false
+      },
+      {
+        "state": "complete",
+        "property_id": "finite-input-56e-v2-3",
+        "source_id": "quoted-inside-escape",
+        "literal_count": 5,
+        "observed_literals": 5,
+        "literals": [
+          {
+            "input": "\"a,b",
+            "want": {
+              "error": 1,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "got": {
+              "error": 1,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "matches": true
+          },
+          {
+            "input": "a\\",
+            "want": {
+              "error": 1,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "got": {
+              "error": 0,
+              "count": 1,
+              "tokens": [
+                "a\\",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "matches": false
+          },
+          {
+            "input": "a,b\\",
+            "want": {
+              "error": 1,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "got": {
+              "error": 0,
+              "count": 2,
+              "tokens": [
+                "a",
+                "b\\",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "matches": false
+          },
+          {
+            "input": "\"a\\",
+            "want": {
+              "error": 1,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "got": {
+              "error": 1,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "matches": true
+          },
+          {
+            "input": "a,\"b",
+            "want": {
+              "error": 1,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "got": {
+              "error": 1,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "matches": true
+          }
+        ],
+        "matches_all_finite_literals": false
+      },
+      {
+        "state": "complete",
+        "property_id": "finite-input-56e-v2-3",
+        "source_id": "quoted-partial-error",
+        "literal_count": 5,
+        "observed_literals": 5,
+        "literals": [
+          {
+            "input": "\"a,b",
+            "want": {
+              "error": 1,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "got": {
+              "error": 1,
+              "count": 1,
+              "tokens": [
+                "a,b",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "matches": false
+          },
+          {
+            "input": "a\\",
+            "want": {
+              "error": 1,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "got": {
+              "error": 1,
+              "count": 1,
+              "tokens": [
+                "a",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "matches": false
+          },
+          {
+            "input": "a,b\\",
+            "want": {
+              "error": 1,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "got": {
+              "error": 1,
+              "count": 2,
+              "tokens": [
+                "a",
+                "b",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "matches": false
+          },
+          {
+            "input": "\"a\\",
+            "want": {
+              "error": 1,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "got": {
+              "error": 1,
+              "count": 1,
+              "tokens": [
+                "a",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "matches": false
+          },
+          {
+            "input": "a,\"b",
+            "want": {
+              "error": 1,
+              "count": 0,
+              "tokens": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "got": {
+              "error": 1,
+              "count": 2,
+              "tokens": [
+                "a",
+                "b",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              "panicked": false
+            },
+            "matches": false
+          }
+        ],
+        "matches_all_finite_literals": false
+      }
+    ],
+    "rows": [
+      {
+        "id": "finite56e-p1-typed56b-p05-1",
+        "original_parent_id": "typed56b-p05-1",
+        "candidates": [
+          {
+            "id": "candidate-0",
+            "source_id": "quoted-correct",
+            "evidence_index": 0,
+            "finite_behavior_label": "matches_finite_literals"
+          },
+          {
+            "id": "candidate-1",
+            "source_id": "quoted-inside-escape",
+            "evidence_index": 2,
+            "finite_behavior_label": "matches_finite_literals"
+          },
+          {
+            "id": "candidate-2",
+            "source_id": "quoted-literal-comma",
+            "evidence_index": 1,
+            "finite_behavior_label": "mismatches_finite_literals"
+          }
+        ],
+        "matching_candidate_count": 2,
+        "finite_status": "finite_answerable"
+      },
+      {
+        "id": "finite56e-p1-typed56b-p05-2",
+        "original_parent_id": "typed56b-p05-2",
+        "candidates": [
+          {
+            "id": "candidate-0",
+            "source_id": "quoted-correct",
+            "evidence_index": 0,
+            "finite_behavior_label": "matches_finite_literals"
+          },
+          {
+            "id": "candidate-1",
+            "source_id": "quoted-inside-escape",
+            "evidence_index": 2,
+            "finite_behavior_label": "matches_finite_literals"
+          },
+          {
+            "id": "candidate-2",
+            "source_id": "quoted-partial-error",
+            "evidence_index": 3,
+            "finite_behavior_label": "matches_finite_literals"
+          }
+        ],
+        "matching_candidate_count": 3,
+        "finite_status": "finite_answerable"
+      },
+      {
+        "id": "finite56e-p1-typed56b-p05-3",
+        "original_parent_id": "typed56b-p05-3",
+        "candidates": [
+          {
+            "id": "candidate-0",
+            "source_id": "quoted-literal-comma",
+            "evidence_index": 1,
+            "finite_behavior_label": "mismatches_finite_literals"
+          },
+          {
+            "id": "candidate-1",
+            "source_id": "quoted-inside-escape",
+            "evidence_index": 2,
+            "finite_behavior_label": "matches_finite_literals"
+          },
+          {
+            "id": "candidate-2",
+            "source_id": "quoted-partial-error",
+            "evidence_index": 3,
+            "finite_behavior_label": "matches_finite_literals"
+          }
+        ],
+        "matching_candidate_count": 2,
+        "finite_status": "finite_answerable"
+      },
+      {
+        "id": "finite56e-p1-typed56b-p05-4",
+        "original_parent_id": "typed56b-p05-4",
+        "candidates": [
+          {
+            "id": "candidate-0",
+            "source_id": "quoted-correct",
+            "evidence_index": 0,
+            "finite_behavior_label": "matches_finite_literals"
+          },
+          {
+            "id": "candidate-1",
+            "source_id": "quoted-literal-comma",
+            "evidence_index": 1,
+            "finite_behavior_label": "mismatches_finite_literals"
+          },
+          {
+            "id": "candidate-2",
+            "source_id": "quoted-partial-error",
+            "evidence_index": 3,
+            "finite_behavior_label": "matches_finite_literals"
+          }
+        ],
+        "matching_candidate_count": 2,
+        "finite_status": "finite_answerable"
+      },
+      {
+        "id": "finite56e-p2-typed56b-p05-1",
+        "original_parent_id": "typed56b-p05-1",
+        "candidates": [
+          {
+            "id": "candidate-0",
+            "source_id": "quoted-correct",
+            "evidence_index": 4,
+            "finite_behavior_label": "matches_finite_literals"
+          },
+          {
+            "id": "candidate-1",
+            "source_id": "quoted-inside-escape",
+            "evidence_index": 6,
+            "finite_behavior_label": "mismatches_finite_literals"
+          },
+          {
+            "id": "candidate-2",
+            "source_id": "quoted-literal-comma",
+            "evidence_index": 5,
+            "finite_behavior_label": "mismatches_finite_literals"
+          }
+        ],
+        "matching_candidate_count": 1,
+        "finite_status": "finite_answerable"
+      },
+      {
+        "id": "finite56e-p2-typed56b-p05-2",
+        "original_parent_id": "typed56b-p05-2",
+        "candidates": [
+          {
+            "id": "candidate-0",
+            "source_id": "quoted-correct",
+            "evidence_index": 4,
+            "finite_behavior_label": "matches_finite_literals"
+          },
+          {
+            "id": "candidate-1",
+            "source_id": "quoted-inside-escape",
+            "evidence_index": 6,
+            "finite_behavior_label": "mismatches_finite_literals"
+          },
+          {
+            "id": "candidate-2",
+            "source_id": "quoted-partial-error",
+            "evidence_index": 7,
+            "finite_behavior_label": "matches_finite_literals"
+          }
+        ],
+        "matching_candidate_count": 2,
+        "finite_status": "finite_answerable"
+      },
+      {
+        "id": "finite56e-p2-typed56b-p05-3",
+        "original_parent_id": "typed56b-p05-3",
+        "candidates": [
+          {
+            "id": "candidate-0",
+            "source_id": "quoted-literal-comma",
+            "evidence_index": 5,
+            "finite_behavior_label": "mismatches_finite_literals"
+          },
+          {
+            "id": "candidate-1",
+            "source_id": "quoted-inside-escape",
+            "evidence_index": 6,
+            "finite_behavior_label": "mismatches_finite_literals"
+          },
+          {
+            "id": "candidate-2",
+            "source_id": "quoted-partial-error",
+            "evidence_index": 7,
+            "finite_behavior_label": "matches_finite_literals"
+          }
+        ],
+        "matching_candidate_count": 1,
+        "finite_status": "finite_answerable"
+      },
+      {
+        "id": "finite56e-p2-typed56b-p05-4",
+        "original_parent_id": "typed56b-p05-4",
+        "candidates": [
+          {
+            "id": "candidate-0",
+            "source_id": "quoted-correct",
+            "evidence_index": 4,
+            "finite_behavior_label": "matches_finite_literals"
+          },
+          {
+            "id": "candidate-1",
+            "source_id": "quoted-literal-comma",
+            "evidence_index": 5,
+            "finite_behavior_label": "mismatches_finite_literals"
+          },
+          {
+            "id": "candidate-2",
+            "source_id": "quoted-partial-error",
+            "evidence_index": 7,
+            "finite_behavior_label": "matches_finite_literals"
+          }
+        ],
+        "matching_candidate_count": 2,
+        "finite_status": "finite_answerable"
+      },
+      {
+        "id": "finite56e-p3-typed56b-p05-1",
+        "original_parent_id": "typed56b-p05-1",
+        "candidates": [
+          {
+            "id": "candidate-0",
+            "source_id": "quoted-correct",
+            "evidence_index": 8,
+            "finite_behavior_label": "matches_finite_literals"
+          },
+          {
+            "id": "candidate-1",
+            "source_id": "quoted-inside-escape",
+            "evidence_index": 10,
+            "finite_behavior_label": "mismatches_finite_literals"
+          },
+          {
+            "id": "candidate-2",
+            "source_id": "quoted-literal-comma",
+            "evidence_index": 9,
+            "finite_behavior_label": "mismatches_finite_literals"
+          }
+        ],
+        "matching_candidate_count": 1,
+        "finite_status": "finite_answerable"
+      },
+      {
+        "id": "finite56e-p3-typed56b-p05-2",
+        "original_parent_id": "typed56b-p05-2",
+        "candidates": [
+          {
+            "id": "candidate-0",
+            "source_id": "quoted-correct",
+            "evidence_index": 8,
+            "finite_behavior_label": "matches_finite_literals"
+          },
+          {
+            "id": "candidate-1",
+            "source_id": "quoted-inside-escape",
+            "evidence_index": 10,
+            "finite_behavior_label": "mismatches_finite_literals"
+          },
+          {
+            "id": "candidate-2",
+            "source_id": "quoted-partial-error",
+            "evidence_index": 11,
+            "finite_behavior_label": "mismatches_finite_literals"
+          }
+        ],
+        "matching_candidate_count": 1,
+        "finite_status": "finite_answerable"
+      },
+      {
+        "id": "finite56e-p3-typed56b-p05-3",
+        "original_parent_id": "typed56b-p05-3",
+        "candidates": [
+          {
+            "id": "candidate-0",
+            "source_id": "quoted-literal-comma",
+            "evidence_index": 9,
+            "finite_behavior_label": "mismatches_finite_literals"
+          },
+          {
+            "id": "candidate-1",
+            "source_id": "quoted-inside-escape",
+            "evidence_index": 10,
+            "finite_behavior_label": "mismatches_finite_literals"
+          },
+          {
+            "id": "candidate-2",
+            "source_id": "quoted-partial-error",
+            "evidence_index": 11,
+            "finite_behavior_label": "mismatches_finite_literals"
+          }
+        ],
+        "matching_candidate_count": 0,
+        "finite_status": "finite_no_answer"
+      },
+      {
+        "id": "finite56e-p3-typed56b-p05-4",
+        "original_parent_id": "typed56b-p05-4",
+        "candidates": [
+          {
+            "id": "candidate-0",
+            "source_id": "quoted-correct",
+            "evidence_index": 8,
+            "finite_behavior_label": "matches_finite_literals"
+          },
+          {
+            "id": "candidate-1",
+            "source_id": "quoted-literal-comma",
+            "evidence_index": 9,
+            "finite_behavior_label": "mismatches_finite_literals"
+          },
+          {
+            "id": "candidate-2",
+            "source_id": "quoted-partial-error",
+            "evidence_index": 11,
+            "finite_behavior_label": "mismatches_finite_literals"
+          }
+        ],
+        "matching_candidate_count": 1,
+        "finite_status": "finite_answerable"
+      }
+    ],
+    "actual_candidate_calls": 36,
+    "observer_dispatch_attempts": 36,
+    "completed_observations": 36,
+    "observer_failures": 0,
+    "unique_source_input_bindings": 36,
+    "projected_row_candidate_labels": 36,
+    "new_independent_parents": 0,
+    "preflight_text_bounds_normalizations": 192,
+    "ranking_feature_extractions": 0,
+    "ranking_runs": 0,
+    "fits": 0,
+    "model_calls": 0,
+    "protected_final_read": false,
+    "training_ready": false
+  },
+  "limitations": [
+    "Finite literal agreement is not a general function proof or caption-generation score.",
+    "Twelve derived rows, thirty-six candidate labels and thirty-six observed source-input pairs add zero independent parents; all four sources share a helper family.",
+    "Preflight reconstructs typed24, pending12 and finite12 rows:192 text normalizations enforce bounds only; no scoring features or ranking are computed.",
+    "Original56c pending captions and56b unknowns remain unchanged. Truth is inherited authored literals, never candidate tests or whole-function control roles.",
+    "No utility, latency, CPU/RSS/GPU, model, fit, protected-final, production activation or LLM-savings result in this audit."
+  ]
+}
