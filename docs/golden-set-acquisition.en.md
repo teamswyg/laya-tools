@@ -10,7 +10,22 @@ This is an acquisition and execution plan, not a report that 2,400 actual routin
 
 Each coding request needs public provenance and revision, usage and redistribution scope, a task family, mutable files, precise completion conditions, independent checks, and their digests. An unchanged baseline must fail, an independently authored correct implementation must pass, and seeded wrong implementations must fail. Candidate-authored tests or the existing suite alone cannot establish requested completion.
 
-The current development comparison covers four distinct requests and12 actual CLI records from one repository; two requests are comment changes. Repeating one request does not create2,400 distinct requests. [Experiment53](../experiments/task-outcomes/RESULTS-53.en.md) adds one keyword-guard behavioral request with four repetitions; the new parser contract has no model attempts. The [120 public-source candidates](public-go-acquisition-53.en.md) await contract preparation, with zero execution-eligible requests. Add behavioral tasks through separate versioned definitions that bind source closure,revision,independent checks,and LICENSE/NOTICE. Preserve previously frozen plans and acceptance contracts.
+The current development comparison covers **five distinct requests, three actually attempted
+families and 16 CLI records from one repository**; two requests are comment edits.
+Repetitions and tests within one contract do not create 2,400 distinct requests.
+[Experiment 53](../experiments/task-outcomes/RESULTS-53.en.md) adds one keyword-guard request
+with four repetitions. [Experiment 54](../experiments/task-outcomes/RESULTS-54.en.md)
+also adds one parser request with four repetitions. All four in 54 passed 75 independent
+terminal tests, exited zero and had complete whole core usage; this is not general
+performance or monetary-savings evidence.
+
+The zero execution-eligible count in the [120-source inventory](public-go-acquisition-53.en.md)
+is preserved as the historical snapshot at 53. At 54, [independent contracts](public-go-contracts-54.en.md)
+for two external requests were prepared and checked locally, with zero external model
+attempts, training labels or final eligibility. Seven compiled verifier tasks across
+three repositories and the eight-candidate local registry are separate scopes; do not
+sum them. Versioned contracts bind files, revisions, independent checks and LICENSE/
+NOTICE when actually present. Preserve previously frozen plans and acceptance contracts.
 
 The initial coding scope is **public Go tasks**. Generalization to other languages, private repositories, or arbitrary Codex work needs separate evidence. The following counts are acquisition targets, not acquired records.
 

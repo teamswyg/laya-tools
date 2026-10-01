@@ -66,21 +66,30 @@ func TestOwnedVersionedBehavioralClosure(t *testing.T) {
 
 // These checks exercise version and provenance boundaries without inference.
 func TestVersionedTaskBaseAndAttribution(t *testing.T) {
-	for _, id := range []string{"repo-keyword-language-guard", "taskoutcome-event-key-bounds"} {
+	for _, tc := range []struct {
+		id, fixture, attribution string
+		sourceCount, stagedCount int
+	}{
+		{"repo-keyword-language-guard", "repo-keyword-language-guard-v1", "NOTICE", 3, 5},
+		{"taskoutcome-event-key-bounds", "taskoutcome-event-key-bounds-v1", "NOTICE", 3, 5},
+		{"go53-humanize-ordinal64", "go53-humanize-ordinal64-v1", "LICENSE", 4, 5},
+		{"go53-uuid-canonical-parse", "uuid-canonical-v1", "LICENSE", 24, 25},
+	} {
+		id := tc.id
 		t.Run(id, func(t *testing.T) {
 			spec, err := taskverify.TaskSpec(id)
 			if err != nil || spec.BaseRevision == taskverify.BaseRevision {
 				t.Fatal("new task did not retain its separate public snapshot")
 			}
-			base, all, err := LoadBase(filepath.Join("../taskverify/testdata", id+"-v1"), id)
-			if err != nil || len(base) != 3 || len(all) != 5 {
+			base, all, err := LoadBase(filepath.Join("../taskverify/testdata", tc.fixture), id)
+			if err != nil || len(base) != tc.sourceCount || len(all) != tc.stagedCount {
 				t.Fatalf("versioned public closure unavailable: %v", err)
 			}
 			copyDir := t.TempDir()
 			if err := writeFiles(copyDir, all); err != nil {
 				t.Fatal(err)
 			}
-			if err := os.WriteFile(filepath.Join(copyDir, "NOTICE"), []byte("authored incorrect attribution"), 0600); err != nil {
+			if err := os.WriteFile(filepath.Join(copyDir, tc.attribution), []byte("authored incorrect attribution"), 0600); err != nil {
 				t.Fatal(err)
 			}
 			if _, _, err := LoadBase(copyDir, id); err != Error("attribution_pin_mismatch") {
@@ -94,7 +103,7 @@ func TestVersionedTaskBaseAndAttribution(t *testing.T) {
 }
 
 func TestVersionedPlanRejectsWrongSnapshotBeforeInference(t *testing.T) {
-	for _, id := range []string{"repo-keyword-language-guard", "taskoutcome-event-key-bounds"} {
+	for _, id := range []string{"repo-keyword-language-guard", "taskoutcome-event-key-bounds", "go53-humanize-ordinal64", "go53-uuid-canonical-parse"} {
 		t.Run(id, func(t *testing.T) {
 			req := fixtureRequest(t, completeTrace)
 			req.TaskID = id

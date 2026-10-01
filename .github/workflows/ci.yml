@@ -22,7 +22,12 @@ jobs:
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
         with:
           go-version-file: go.mod
-      - run: test -z "$(gofmt -l cmd internal pkg)"
+      - name: Format owned Go sources; preserve immutable upstream fixture bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          format_report=$(git ls-files -z '*.go' ':!:**/testdata/**' | xargs -0 gofmt -l)
+          test -z "$format_report"
       - run: go test -race ./...
       - run: go vet ./...
       - name: Maintainer publication guards (offline, no training dependencies)

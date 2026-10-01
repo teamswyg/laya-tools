@@ -74,7 +74,15 @@ func isolatedTests(parent context.Context, files []BaseFile, task string, timeou
 	}
 	// The pinned closure has standard-library-only imports. A minimal offline
 	// module prevents unrelated repository dependencies and build hooks entering.
-	module := "module github.com/teamswyg/laya-tools\n\ngo 1.27.1\n"
+	modulePath := "github.com/teamswyg/laya-tools"
+	if versioned {
+		modulePath, err = definitionModulePath(definition)
+		if err != nil {
+			r.unknown, r.code = true, "invalid_module_identity"
+			return r
+		}
+	}
+	module := "module " + modulePath + "\n\ngo 1.27.1\n"
 	if err = os.WriteFile(filepath.Join(dir, "go.mod"), []byte(module), 0600); err != nil {
 		r.unknown, r.code = true, "check_setup_failed"
 		return r

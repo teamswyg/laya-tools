@@ -51,11 +51,11 @@ not be combined into six successful runs. Read
 [results 52](../experiments/task-outcomes/RESULTS-52.en.md) for per-attempt evidence.
 
 Plan 52 ran one attempt at a time, with a 120-second main-attempt deadline and a
-separate 45-second verification deadline. Completed plans 52/53 and stopped plans
+separate 45-second verification deadline. Completed plans 52/53/54 and stopped plans
 50/51 are not rerun. A new actual run needs a separate plan with verified current
 profiles and tools.
 
-The six attempts in 52 or four in 53 do not count internal LLM calls. One CLI invocation may contain
+The six attempts in 52 or the four in each of 53 and 54 do not count internal LLM calls. One CLI invocation may contain
 multiple model requests and provider retries; those counts are currently
 `unknown`. The executor performs no retries, resume, or fallback. A started
 failure or timeout counts toward the pilot's limit. The executor owns only
@@ -93,22 +93,35 @@ was integrated into runtime and checked with the pinned independent contract.
 Candidate-authored tests were not adopted as acceptance evidence. Authored
 reference/mutant verification remains separate from model outcomes.
 
-The historical 51/52 subtotal is eight records over three requests. Including 53,
-the current total is **12 owned records, four distinct requests, two actually
-attempted code families and one repository**. Preserve 52's six accepted
-candidates, 53's four and 51's rejection/support error as originally recorded.
-The registry has eight candidates in three families; the new parser family has
-no actual attempts. A separate `taskoutcome-event-key-bounds` candidate has a prepared
-versioned verifier for duplicate top-level JSONL event keys, a 64-key limit
-and a 128-byte key-length limit. **It has zero actual model attempts**; its
-specification/checks are versioned and separate from actual model outcomes. It does not change the
-contract used by these four attempts or existing sealed records.
+The historical 51/52 subtotal is eight records over three requests; through 53,
+there were 12 records, four requests and two actually attempted families.
+Preserve 52's six accepted candidates, 53's four and 51's rejection/support error.
 
-The [public Go inventory](public-go-acquisition-53.en.md) has 120 development
-candidates from eight repositories and **zero execution-eligible tasks**.
-Do not add them to attempt or training-label counts. They do not replace the
-[2,400-case final design](golden-set-scale.en.md) or
-[acquisition, split and execution-budget plan](golden-set-acquisition.en.md).
+[Experiment 54](../experiments/task-outcomes/RESULTS-54.en.md), under
+[pre-outcome plan 54](../experiments/task-outcomes/plan-54.json), ran
+**one `taskoutcome-event-key-bounds` request twice per Sol6/Luna low profile**.
+All four attempts passed 75 independent terminal tests, exited zero and had complete
+whole core usage. The tests and repetitions do not add distinct requests. The current
+cumulative scope is **16 owned records, five distinct requests, three actually attempted
+code families and one repository**.
+
+The local registry remains **eight candidates, three families and one repository**.
+The parser's separate revision `ee72334166e2962b0821d5198a50fdd13f92ab29` binds its
+specification, three public source files, LICENSE/NOTICE and independent checks.
+The contract covers duplicate event-envelope keys, the inclusive 64-key count and
+128 decoded UTF-8 byte boundary. Candidate-written tests were not acceptance evidence.
+The first accepted zero-exit candidate's fixed-array implementation was integrated
+into runtime. Frozen specifications and the 51–53 records remain unchanged.
+
+The [public Go inventory](public-go-acquisition-53.en.md) is the preserved **historical
+snapshot at 53**: 120 candidates, eight repositories and zero execution-eligible tasks.
+At 54, [independent contracts](public-go-contracts-54.en.md) for two of those external
+requests were prepared and checked locally, with **zero external model attempts,
+training labels or final-eligible requests**. There are **seven compiled verifier tasks
+across three repositories**: five actually attempted local tasks and two external
+contracts. This is a separate scope from the eight-candidate local registry. Contract
+preparation and authored controls do not add attempts, answers or
+[2,400 final requests](golden-set-scale.en.md).
 
 ## What Laya predicted before coding outcomes
 
@@ -145,6 +158,14 @@ applies only to this prediction. One cold maximum-RSS observation was about
 **1.50 GB/1.40 GiB**; this is not warm latency, Go heap, GPU memory or a calibrated
 coding-success probability.
 
+54's [pre-coding prediction](../experiments/task-outcomes/routing-predictions-54.json)
+used the same INT8 base, one CPU thread and threshold 0.9. It suggested standard
+at **0.610351** and abstained. Strong/Astra fallback is configuration; Astra was not run.
+One cold whole-process observation took **1,183ms**, with maximum RSS
+**1,508,032,512 bytes** (about 1.508 GB/1.40 GiB). Native loading is included; this
+is not warm latency, Go heap, GPU resources or calibrated success probability.
+It does not establish the ultra-small-resource target.
+
 ## Usage
 
 Build the Go binary from the repository root. The executor has no Python runtime
@@ -156,6 +177,7 @@ go build -trimpath -o .cache/bin/riido-taskrun ./cmd/riido-taskrun
 .cache/bin/riido-taskrun --help
 .cache/bin/riido-taskrun --task comment-preview-authority --spec
 .cache/bin/riido-taskrun --task repo-keyword-language-guard --spec
+.cache/bin/riido-taskrun --task taskoutcome-event-key-bounds --spec
 ```
 
 `--help` and `--spec` launch no model. A default invocation refuses execution.
@@ -296,13 +318,16 @@ and the [golden-set design](golden-set-scale.en.md) for required scale and split
 separation. The [acquisition plan](golden-set-acquisition.en.md) describes staged
 collection and execution budgets.
 
-Current [results 53](../experiments/task-outcomes/RESULTS-53.en.md) provide four
-repetitions on one behavioral request. Reported sums are 339,805 input including
-280,576 cached input, and 4,890 output including 76 reasoning; do not double-count
-subsets. Luna had less total input, but uncached input was Luna 31,425 versus
-Sol 27,804. Token totals alone do not establish lower actual cost. Four cumulative
-requests do not validate general capability or production routing. The keyword
-guard was integrated into runtime with no new fitting, weight release, Codex
-policy activation or final scoring. The [120 source candidates](public-go-acquisition-53.en.md)
-need independently verified contracts and license/dependency closures before
-execution; they are not measured model labels.
+[Historical results 53](../experiments/task-outcomes/RESULTS-53.en.md) cover four
+repetitions of one behavior request. Input 339,805 includes cached 280,576; output
+4,890 includes reasoning 76. Luna had less total input, but uncached input was
+Luna 31,425 versus Sol 27,804. Do not mix those observations with 54 or infer money saved.
+
+Current [results 54](../experiments/task-outcomes/RESULTS-54.en.md) cover four repetitions
+of one parser request: input 485,609 includes cached 423,552, and output 5,282 includes
+reasoning 157. Luna had smaller input/output and observed main time in both
+repetitions of this request, while actual served identity, subscription consumption,
+money and provider internal-call counts remain unknown. Five cumulative requests
+do not validate general capability or production routing. Keyword and parser
+protections were integrated into runtime, with no new fitting, calibration, weight
+release, Codex policy activation or protected-final scoring.

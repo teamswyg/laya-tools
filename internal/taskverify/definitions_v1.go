@@ -32,6 +32,7 @@ type Definition struct {
 	BaseRevision       string         `json:"base_revision"`
 	SourceURL          string         `json:"source_url"`
 	License            string         `json:"license"`
+	ModulePath         string         `json:"module_path,omitempty"`
 	SourcePath         string         `json:"source_path"`
 	MutablePaths       []string       `json:"mutable_paths"`
 	Files              []FileHash     `json:"files"`
@@ -50,6 +51,12 @@ const keywordGuardPrompt = "Extend repository preview's existing metadata-langua
 // TaskDefinition exposes only the new versioned registry. The frozen original
 // three TaskSpecs, BaseRevision, BasePaths and source pins remain independent.
 func TaskDefinition(id string) (Definition, bool) {
+	if id == humanizeOrdinalTask {
+		return humanizeOrdinalDefinition(), true
+	}
+	if id == uuidCanonicalTask {
+		return uuidCanonicalDefinition(), true
+	}
 	if id == eventKeyBoundsTask {
 		return eventKeyBoundsDefinition(), true
 	}
@@ -87,6 +94,12 @@ func TaskDefinition(id string) (Definition, bool) {
 }
 
 func definitionSpec(d Definition) Spec {
+	if d.ID == humanizeOrdinalTask {
+		return humanizeOrdinalSpec(d)
+	}
+	if d.ID == uuidCanonicalTask {
+		return uuidCanonicalSpec(d)
+	}
 	if d.ID == eventKeyBoundsTask {
 		return eventKeyBoundsSpec(d)
 	}
@@ -107,6 +120,10 @@ func definitionSpec(d Definition) Spec {
 
 func definitionContractSource(id string) (string, bool) {
 	switch id {
+	case humanizeOrdinalTask:
+		return humanizeOrdinalContractTests, true
+	case uuidCanonicalTask:
+		return uuidCanonicalContractTests, true
 	case keywordGuardTask:
 		return keywordGuardContractTests, true
 	case eventKeyBoundsTask:
@@ -114,6 +131,45 @@ func definitionContractSource(id string) (string, bool) {
 	default:
 		return "", false
 	}
+}
+
+// The module identity belongs to the trusted, pinned definition. It is never
+// inferred from a candidate go.mod or an inherited repository configuration.
+func definitionModulePath(d Definition) (string, error) {
+	module := d.ModulePath
+	if module == "" {
+		module = "github.com/teamswyg/laya-tools"
+	}
+	if !strings.Contains(module, "/") {
+		return "", fmt.Errorf("invalid_module_identity")
+	}
+	if !validDefinitionImportPath(module) {
+		return "", fmt.Errorf("invalid_module_identity")
+	}
+	if len(d.Packages) == 0 {
+		return "", fmt.Errorf("invalid_module_identity")
+	}
+	for _, pkg := range d.Packages {
+		if !validDefinitionImportPath(pkg) || pkg != module && !strings.HasPrefix(pkg, module+"/") {
+			return "", fmt.Errorf("invalid_module_identity")
+		}
+	}
+	return module, nil
+}
+
+func validDefinitionImportPath(p string) bool {
+	for _, part := range strings.Split(p, "/") {
+		if part == "" || part == "." || part == ".." {
+			return false
+		}
+		for _, ch := range part {
+			if ch >= 'a' && ch <= 'z' || ch >= 'A' && ch <= 'Z' || ch >= '0' && ch <= '9' || ch == '-' || ch == '_' || ch == '.' {
+				continue
+			}
+			return false
+		}
+	}
+	return true
 }
 
 func definitionPaths(d Definition) []string {
@@ -130,7 +186,15 @@ func definitionPaths(d Definition) []string {
 // staging. Attribution does not extend the candidate source-acceptance scope.
 func AttributionPins(id string) ([]FileHash, error) {
 	if d, ok := TaskDefinition(id); ok {
-		return []FileHash{{"LICENSE", definitionPin(d, "LICENSE")}, {"NOTICE", definitionPin(d, "NOTICE")}}, nil
+		license := definitionPin(d, "LICENSE")
+		if license == "" {
+			return nil, fmt.Errorf("invalid_attribution_manifest")
+		}
+		pins := []FileHash{{"LICENSE", license}}
+		if notice := definitionPin(d, "NOTICE"); notice != "" {
+			pins = append(pins, FileHash{"NOTICE", notice})
+		}
+		return pins, nil
 	}
 	if _, err := TaskSpec(id); err != nil {
 		return nil, fmt.Errorf("unknown_task")
@@ -205,6 +269,9 @@ func supportedDefinitionSource(d Definition, source []byte) bool {
 		if fn, ok := decl.(*ast.FuncDecl); ok && fn.Name.Name == "init" {
 			return false
 		}
+	}
+	if d.ID == uuidCanonicalTask {
+		return uuidCanonicalSupportedSource(source)
 	}
 	return true
 }

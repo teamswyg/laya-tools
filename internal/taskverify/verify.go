@@ -296,8 +296,9 @@ func Verify(ctx context.Context, req Request) (Report, error) {
 	r.BaseFiles, r.BaseSHA256 = hashList(base), listDigest(hashList(base))
 	r.Checks = append(r.Checks, Check{"base_pin", true, "pinned_public_bytes_verified"})
 	definition, versioned := TaskDefinition(req.TaskID)
+	var attribution []BaseFile
 	if versioned {
-		attribution, err := validateAttribution(req.TaskID, req.AttributionFiles)
+		attribution, err = validateAttribution(req.TaskID, req.AttributionFiles)
 		if err != nil {
 			return r, err
 		}
@@ -364,7 +365,7 @@ func Verify(ctx context.Context, req Request) (Report, error) {
 		r.Status, r.Accepted = "accepted", true
 		return r, nil
 	}
-	// Only candidate catalog.go enters the test module. All existing tests and
+	// Only the declared mutable source enters the test module. Existing tests and
 	// dependency source are immutable pinned base bytes, not candidate assertions.
 	execution := slices.Clone(base)
 	for i := range execution {
@@ -372,6 +373,9 @@ func Verify(ctx context.Context, req Request) (Report, error) {
 			execution[i].Data = bytes.Clone(source)
 		}
 	}
+	// Keep the verified upstream license/notice in temporary source copies too;
+	// these files do not enlarge the candidate source-acceptance scope.
+	execution = append(execution, attribution...)
 	outcome := isolatedTests(ctx, execution, req.TaskID, req.Timeout, req.GoRoot)
 	r.ExecutionIsolated, r.IndependentTests = outcome.isolated, outcome.tests
 	r.Checks = append(r.Checks, Check{"independent_tests", outcome.passed, outcome.code})
