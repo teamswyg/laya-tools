@@ -2,7 +2,7 @@
 
 [한국어](golden-set-acquisition.ko.md) · [Current counts and split principles](golden-set-scale.en.md)
 
-Twenty-four requests are a development pilot for finding executor and verifier errors. The next performance assessment targets **at least 2,400 distinct final requests per claimed domain**. Selecting only 24 easy examples from a pool of 2,400 does not constitute that final evaluation. The old, already inspected 24 remain development data.
+A small pilot of about 24 requests is development data for checking behavior. The next performance assessment targets **at least 2,400 distinct final requests per claimed domain**. Selecting only 24 easy examples from a pool of 2,400 does not constitute that final evaluation. The old, already inspected 24 remain development data.
 
 This is an acquisition and execution plan, not a report that 2,400 actual routing labels exist. Relevance pairs, file-search requests, actual model-selection requests, repository-selection requests, and decomposition parent requests are counted separately.
 
@@ -14,7 +14,7 @@ The current development comparison covers three contracts from one repository; t
 
 The initial coding scope is **public Go tasks**. Generalization to other languages, private repositories, or arbitrary Codex work needs separate evidence. The following counts are acquisition targets, not acquired records.
 
-| Stage | New development requests | Advancement condition |
+| Stage | Request target | Advancement condition |
 |---|---:|---|
 | Measurement preparation | 12–24 | Connect start, termination, failure, independent acceptance, and whole-attempt usage. |
 | Scope expansion | 120 | Acquire distinct behavioral and bug families across public repositories. |
