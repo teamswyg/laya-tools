@@ -20,7 +20,9 @@
 
 [동작 정답 감사56b](experiments/short-claim/RESULTS-56b.ko.md)는 오류·상태·소유권·수명·그래프를 검사하는 Go 유지보수 도구 `riido-typedaudit`을 추가했습니다. [사용법](experiments/short-claim/USAGE-56b.ko.md)에서 공개 입력을 재생할 수 있습니다. 새24개와 기존48개는 전체17그룹·라벨16그룹으로 두 최소15 기준을 통과했습니다. 524개는 원천 대조군 검사이지 독립 요청 수가 아닙니다. 불완전한 설명은 unknown으로 남겼고, 같은 합성 작성 흐름·역할 계획 미완성 때문에 학습·새 모델·가중치·최종 평가·성능 측정은0입니다.
 
-[작은 속성 제안 준비56c](experiments/short-claim/RESULTS-56c.ko.md)는 Go `riido-scopeprep`으로 기존 부모4개에서 속성3개·제안12행을 준비했습니다. [사용법](experiments/short-claim/USAGE-56c.ko.md)을 따라 문구와 원천 연결을 생성할 수 있습니다. 설명36개는 모두 pending이며 독립 표본 증가·정답 승인·학습·성능 개선으로 세지 않습니다. [상주 자원56d 계획](experiments/short-claim/PLAN-RESIDENT-56d.ko.md)은 별도 미실행 설계입니다.
+[작은 속성 제안 준비56c](experiments/short-claim/RESULTS-56c.ko.md)는 Go `riido-scopeprep`으로 기존 부모4개에서 속성3개·제안12행을 준비했습니다. [사용법](experiments/short-claim/USAGE-56c.ko.md)을 따라 문구와 원천 연결을 생성할 수 있습니다. 설명36개는 모두 pending이며 독립 표본 증가·정답 승인·학습·성능 개선으로 세지 않습니다. [상주 자원56d 사전 계획](experiments/short-claim/PLAN-RESIDENT-56d.ko.md) 원문은 보존하고 실제 실행을 별도로 기록했습니다.
+
+[상주 처리 비용56d](experiments/short-claim/RESULTS-56d.ko.md)는 고정한 실제 Go 바이너리로24행·25,080회 JSONL 요청을 완료했습니다. [사용법](experiments/short-claim/USAGE-56d.ko.md)에서 준비와 실행 경계를 확인할 수 있습니다. 이 Mac의 비학습 힌트 child peak RSS는9.22~10.52MiB, 행별 timed 왕복 p95는0.022~0.050ms이며 첫 응답577.13ms를 보존했습니다. 측정기33.11MiB peak는 별도입니다. 원본72개 중3후보48개를 반복한 것으로2400개 독립 최종 평가가 아니며, `narrow_rule`은 모두 BM25 fallback이었습니다. 모델 추론·학습·캐시·LLM 절감 증거와 구분합니다.
 
 [사용량 기록과 독립 작업 검증](docs/task-outcomes.ko.md)을 준비했습니다. 기존 Codex 기록의 사용량과 공개 작업의 요구사항 충족 여부를 따로 확인합니다. 직접 작성한 예제로 도구를 검사했으며, 실제 모델 작업 결과나 비용 절감으로 세지 않습니다.
 
