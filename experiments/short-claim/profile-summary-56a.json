@@ -1,0 +1,46 @@
+{
+  "schema": "riido-shortclaim-profile-summary-v1",
+  "plan_sha256": "9c8461b9fe0a80a0f0976c8f07a68f3a47f0c534800a0a303e1cbd8a613caaeb",
+  "source_commit": "45b2ad354ce2e56a11dff8f8407b09ba85ac2a70",
+  "instrumented_replays": 1,
+  "kind": "narrow_rule",
+  "iterations_per_stage": 10000,
+  "stages": 5,
+  "cpu_profile_enabled": true,
+  "os": "darwin",
+  "arch": "arm64",
+  "go": "go1.27.1",
+  "raw_profile_published": false,
+  "profile_duration_seconds": 1.34,
+  "total_samples_seconds": 1.06,
+  "measured_work_wall_seconds": 1.162444875,
+  "top_functions": [
+    {
+      "name": "runtime.kevent",
+      "flat_seconds": 0.88,
+      "flat_percent": 83.02
+    },
+    {
+      "name": "runtime.madvise",
+      "flat_seconds": 0.07,
+      "flat_percent": 6.6
+    },
+    {
+      "name": "github.com/teamswyg/laya-tools/pkg/shortclaim.baselineBM25",
+      "flat_seconds": 0.02,
+      "flat_percent": 1.89
+    },
+    {
+      "name": "github.com/teamswyg/laya-tools/internal/lexicalhint.tokens",
+      "flat_seconds": 0.01,
+      "cumulative_seconds": 0.05
+    }
+  ],
+  "application_bottleneck_established": false,
+  "simd_gain_established": false,
+  "lock_contention_established": false,
+  "attribution_requires_further_investigation": true,
+  "scope": "One instrumented development run, excluded from headline latency/RSS. Most samples terminate in Darwin runtime.kevent; do not identify this as application CPU work or a shared-lock problem. Allocation probes set scheduling to one Go P, not OS-thread affinity. Timer/GC/profile effects and stack attribution need independent examination. Raw profiles, personal paths and user inputs remain local.",
+  "primary_reference": "https://github.com/golang/go/issues/80921",
+  "reference_scope": "Reported Darwin syscall/systemstack caller omission on go1.28-devel; reviewed as context, not reproduced here and not asserted to cause this go1.27.1 sample."
+}

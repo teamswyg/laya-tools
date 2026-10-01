@@ -16,7 +16,7 @@
 
 [실제 외부 작업 비교55](experiments/task-outcomes/RESULTS-55.ko.md)는 humanize·UUID 두 요청을 Sol6/Luna low에 각각 한 번 맡겼습니다. 서수는 둘 다 통과했고 UUID는 Sol6 요청만 통과했습니다. 네 실행의 사용량·종료·독립 검사·예산 영수증을 모두 보존했습니다. 실제 관측 누적은 **고유 요청7개·기록20개·다섯 코드 가족·세 저장소**이며, 새 학습·최종 평가·절감 증명은 없습니다. Laya는 두 전체 입력 모두 잘려 보류했고 cold CPU 최대 RSS는 약1.54/1.58GB였습니다. 초저자원 목표와의 차이도 공개합니다. [54의 파서 개선](experiments/task-outcomes/RESULTS-54.ko.md)과 [외부 계약 준비](docs/public-go-contracts-54.ko.md)는 역사적 단계로 보존합니다.
 
-다음 [짧은 주장 실험56](experiments/short-claim/PLAN-56.ko.md)은 큰 인코더 없이 후보의 동작에 대한 힌트를 시험하는 **준비 계획**입니다. 규칙이 이미 최적이면 학습을 중단하고, 관련 사례의 그룹 분리·검사 가능한 정답·실제 자원 측정을 먼저 준비합니다. 새 구현·학습·모델 배포 결과는 아직 없습니다.
+[짧은 주장56a](experiments/short-claim/RESULTS-56a.ko.md)는 모델 없이 실행되는 Go `riido-shortclaim`과 반복용 `--stream`을 구현했습니다. [사용법](experiments/short-claim/USAGE-56.ko.md)을 따라 후보 확인 순서만 제안받을 수 있습니다. 8후보 예제의 전체 호출 warm p95는0.063~0.079ms, 반복 측정 child peak RSS는10.25~10.56MiB였습니다. 48개 자체 작성 사례는11개 연결 그룹으로 하한15에 못 미쳐 학습0입니다. BM25→oracle의 가능한 검사 감소18.64%는 달성한 모델 성능·LLM 절감이 아닙니다. [준비56](experiments/short-claim/PLAN-56.ko.md)은 역사적 snapshot으로 보존하고, [다음 확보56b](experiments/short-claim/NEXT-56b.ko.md)는 오류·상태·소유권처럼 다른 동작을 먼저 검증합니다.
 
 [사용량 기록과 독립 작업 검증](docs/task-outcomes.ko.md)을 준비했습니다. 기존 Codex 기록의 사용량과 공개 작업의 요구사항 충족 여부를 따로 확인합니다. 직접 작성한 예제로 도구를 검사했으며, 실제 모델 작업 결과나 비용 절감으로 세지 않습니다.
 

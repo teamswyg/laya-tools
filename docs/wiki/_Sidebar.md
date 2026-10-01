@@ -2,6 +2,9 @@
 
 - [실제 외부 작업 비교55](Task-Results-55-KO) · [Actual external comparison55](Task-Results-55-EN)
 - [짧은 주장 준비56](Short-Claim-Plan-56-KO) · [Short claims preparation56](Short-Claim-Plan-56-EN)
+- [작은 Go 주장 결과56a](Short-Claim-Results-56a-KO) · [Small Go claim results56a](Short-Claim-Results-56a-EN)
+- [작은 주장 도구 사용](Short-Claim-Usage-56-KO) · [Short-claim usage](Short-Claim-Usage-56-EN)
+- [다른 동작 확보56b](Short-Claim-Next-56b-KO) · [Different behavior acquisition56b](Short-Claim-Next-56b-EN)
 - [외부 작업 공정 비교55](https://github.com/teamswyg/laya-tools/blob/main/docs/fair-upstream-comparison.ko.md) · [Fair comparison55](https://github.com/teamswyg/laya-tools/blob/main/docs/fair-upstream-comparison.en.md)
 - [실제 파서 작업 비교54](Task-Results-54-KO) · [Actual parser comparison54](Task-Results-54-EN)
 - [외부 Go 계약 준비54](Public-Go-Contracts-54-KO) · [External Go contracts54](Public-Go-Contracts-54-EN)
