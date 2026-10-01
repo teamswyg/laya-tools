@@ -66,3 +66,11 @@ riidolaya bench --iterations 10
 캐시는 macOS `~/Library/Caches/laya-tools`, Linux `~/.cache/laya-tools`이며 `LAYA_CACHE`로 바꿀 수 있습니다. 현재 setup은 고지를 보완한 models-v2를 설치하고 체크섬을 검사합니다. 기존 `LAYA_*` 변수도 유지됩니다.
 
 다음: [기능 선택하기](https://github.com/teamswyg/laya-tools/wiki/Workflows-KO). 단순 사용을 위해 MCP 등록, daemon 실행, Codex 연결을 먼저 할 필요는 없습니다.
+
+## 개발 실험의 근거 읽기
+
+[외부 Go 작업의 공정 비교 준비 55](https://github.com/teamswyg/laya-tools/blob/main/docs/fair-upstream-comparison.ko.md)는 모델에 어떤 요구를 전달하고 독립 검사와 어떤 조건을 맞추는지 설명합니다. 새 v2 ID 두 개는 기존 humanize·UUID 요청 두 개의 버전이며 고유 요청 수가 늘어난 것이 아닙니다. 이 외부 두 요청의 실제 모델 시도는 아직 0개입니다.
+
+두 작업 계획은 한 durable ledger의 순서가 정해진 예약 네 개를 공유합니다. 한 번에 하나만 실행하고 실패한 예약도 환불하지 않습니다. 이 제한은 그 ledger에만 적용하며 호스트 전체나 공급자 내부 호출의 한도가 아닙니다. 실제 실행 전에 CI, 전체 입력과 원본 Go 언어 조건, 두 계획과 예산을 확인합니다.
+
+24개 초기 probe와 개발 기록은 최종 성능 평가를 대신하지 않습니다. [골든셋 규모 안내](https://github.com/teamswyg/laya-tools/blob/main/docs/golden-set-scale.ko.md)의 목표는 도메인마다 서로 다른 보호된 최종 요청 최소 2,400개입니다. 비교 준비, 실제 모델 실행, 학습 라벨과 최종 적격 수를 따로 읽으세요.

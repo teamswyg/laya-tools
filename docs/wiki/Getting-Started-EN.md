@@ -66,3 +66,11 @@ Setup downloads about 446 MiB for the current model archive, plus the runtime. T
 Caches: `~/Library/Caches/laya-tools` on macOS; `~/.cache/laya-tools` on Linux. `LAYA_CACHE` changes the location. Current setup also installs corrected models-v2 notices and verifies checksums. Existing `LAYA_*` variables remain supported.
 
 Next: [Choose a workflow](https://github.com/teamswyg/laya-tools/wiki/Workflows-EN). You do not need to register MCP, start a daemon, or connect Codex just to use this tool.
+
+## Read the development evidence
+
+[Fair external Go comparison preparation 55](https://github.com/teamswyg/laya-tools/blob/main/docs/fair-upstream-comparison.en.md) explains the requirements sent to models and the conditions aligned with independent checks. The two new v2 IDs are versions of the existing humanize and UUID requests, not additional distinct requests. Actual model attempts on these two external requests remain 0.
+
+Two child plans share four ordered reservations in one durable ledger. Only one runs at a time, and failed reservations are not refunded. The cap applies to that ledger, not the entire host or provider-internal calls. CI, full input, original Go language conditions, both plans and the budget must be checked before actual execution.
+
+The initial 24 probes and development records do not replace final performance evaluation. The [golden-set scale guide](https://github.com/teamswyg/laya-tools/blob/main/docs/golden-set-scale.en.md) targets at least 2,400 distinct protected final requests per domain. Read preparation, actual model attempts, training labels and final eligibility as separate counts.

@@ -42,6 +42,11 @@ func (w *boundedOutput) Write(p []byte) (int, error) {
 func isolatedTests(parent context.Context, files []BaseFile, task string, timeout time.Duration, goRoot string) testOutcome {
 	r := testOutcome{code: "independent_tests_failed"}
 	definition, versioned := TaskDefinition(task)
+	module, err := trustedEvaluationModule(task, files)
+	if err != nil {
+		r.unknown, r.code = true, err.Error()
+		return r
+	}
 	if !sandboxSupported() {
 		r.unknown, r.code = true, "isolation_unavailable"
 		return r
@@ -72,18 +77,9 @@ func isolatedTests(parent context.Context, files []BaseFile, task string, timeou
 			return r
 		}
 	}
-	// The pinned closure has standard-library-only imports. A minimal offline
-	// module prevents unrelated repository dependencies and build hooks entering.
-	modulePath := "github.com/teamswyg/laya-tools"
-	if versioned {
-		modulePath, err = definitionModulePath(definition)
-		if err != nil {
-			r.unknown, r.code = true, "invalid_module_identity"
-			return r
-		}
-	}
-	module := "module " + modulePath + "\n\ngo 1.27.1\n"
-	if err = os.WriteFile(filepath.Join(dir, "go.mod"), []byte(module), 0600); err != nil {
+	// Legacy recipes retain the same minimal offline module. The two opt-in v2
+	// recipes use only internally pinned upstream bytes, never candidate config.
+	if err = os.WriteFile(filepath.Join(dir, "go.mod"), module, 0600); err != nil {
 		r.unknown, r.code = true, "check_setup_failed"
 		return r
 	}
@@ -169,6 +165,13 @@ func isolatedTests(parent context.Context, files []BaseFile, task string, timeou
 	cmd.WaitDelay = time.Second
 	err = cmd.Run()
 	r.isolated = true
+	if task == humanizeOrdinalTaskV2 || task == uuidCanonicalTaskV2 {
+		actual, readErr := os.ReadFile(filepath.Join(dir, "go.mod"))
+		if readErr != nil || !bytes.Equal(actual, module) {
+			r.unknown, r.code = true, "evaluation_module_changed"
+			return r
+		}
+	}
 	if out.overflow {
 		// Resource exhaustion interrupts verification; it is not an independent
 		// assertion that the requested behavior is incorrect.

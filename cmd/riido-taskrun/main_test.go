@@ -38,3 +38,37 @@ func TestParseRequiresOnlyTaskForSpec(t *testing.T) {
 		t.Fatal("spec required execution")
 	}
 }
+
+func TestVersionTwoSpecExposesRecipeWithoutLaunching(t *testing.T) {
+	for _, id := range []string{"go55-humanize-ordinal64-v2", "go55-uuid-canonical-parse-v2"} {
+		var out, diagnostics bytes.Buffer
+		if code := execute([]string{"--task", id, "--spec"}, &out, &diagnostics); code != 0 || diagnostics.Len() != 0 {
+			t.Fatal("static v2 spec unavailable")
+		}
+		var spec struct {
+			LogicalTaskID string `json:"logical_task_id"`
+			RecipeSHA256  string `json:"evaluation_recipe_sha256"`
+			Prompt        string `json:"prompt"`
+		}
+		if json.Unmarshal(out.Bytes(), &spec) != nil || spec.LogicalTaskID == "" || len(spec.RecipeSHA256) != 64 || !strings.Contains(spec.Prompt, "Only ") {
+			t.Fatal("public v2 evaluation conditions hidden")
+		}
+	}
+}
+
+func TestBudgetInspectionNeverRequiresExecution(t *testing.T) {
+	c, err := parse([]string{"--budget-status", "--parent-file", "/public/parent.json", "--parent-sha256", strings.Repeat("a", 64), "--budget-dir", "/private/missing-ledger"})
+	if err != nil || !c.budgetStatus || c.request.Execute || c.request.TaskID != "" {
+		t.Fatal("inspection required a task or model execution")
+	}
+	for _, args := range [][]string{
+		{"--budget-status"},
+		{"--budget-status", "--execute"},
+		{"--budget-status", "--spec"},
+	} {
+		var out, diagnostics bytes.Buffer
+		if code := execute(args, &out, &diagnostics); code != 2 || out.Len() != 0 || diagnostics.Len() == 0 {
+			t.Fatal("invalid read-only inspection was accepted")
+		}
+	}
+}

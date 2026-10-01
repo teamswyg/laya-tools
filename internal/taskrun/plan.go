@@ -13,12 +13,21 @@ import (
 
 const MaxPlanBytes = 64 << 10
 
+type planEvaluationRecipe struct {
+	TaskID          string `json:"task"`
+	PromptSHA256    string `json:"prompt_sha256"`
+	RecipeSHA256    string `json:"recipe_sha256"`
+	ModuleSHA256    string `json:"module_sha256"`
+	LanguageVersion string `json:"language_version"`
+}
+
 type plan struct {
-	GoToolchain json.RawMessage `json:"go_toolchain,omitempty"`
-	Schema      string          `json:"schema"`
-	Status      string          `json:"status"`
-	PublicBase  string          `json:"public_task_base_revision"`
-	CLI         struct {
+	EvaluationRecipes []planEvaluationRecipe `json:"evaluation_recipes,omitempty"`
+	GoToolchain       json.RawMessage        `json:"go_toolchain,omitempty"`
+	Schema            string                 `json:"schema"`
+	Status            string                 `json:"status"`
+	PublicBase        string                 `json:"public_task_base_revision"`
+	CLI               struct {
 		Version string `json:"version"`
 		Hash    string `json:"binary_sha256"`
 	} `json:"cli"`
@@ -85,9 +94,26 @@ func validatePlan(req Request, toolchain trustedToolchain) (string, error) {
 		if e != nil || p.PublicBase != spec.BaseRevision || digestJSON(spec) != task.Spec {
 			return "", Error("plan_task_spec_mismatch")
 		}
+		if e := validatePlannedRecipe(task.ID, spec, p, toolchain); e != nil {
+			return "", e
+		}
 		for _, prior := range p.Tasks[:i] {
 			if prior.ID == task.ID {
 				return "", Error("duplicate_plan_task")
+			}
+		}
+	}
+	for i, pin := range p.EvaluationRecipes {
+		found := false
+		for _, task := range p.Tasks {
+			found = found || task.ID == pin.TaskID
+		}
+		if !found {
+			return "", Error("unknown_planned_recipe")
+		}
+		for _, prior := range p.EvaluationRecipes[:i] {
+			if prior.TaskID == pin.TaskID {
+				return "", Error("duplicate_planned_recipe")
 			}
 		}
 	}
@@ -137,4 +163,24 @@ func validatePlan(req Request, toolchain trustedToolchain) (string, error) {
 		}
 	}
 	return selectedProfile, nil
+}
+
+func validatePlannedRecipe(id string, spec taskverify.Spec, p plan, toolchain trustedToolchain) error {
+	var selected *planEvaluationRecipe
+	for i := range p.EvaluationRecipes {
+		if p.EvaluationRecipes[i].TaskID == id {
+			selected = &p.EvaluationRecipes[i]
+		}
+	}
+	if spec.EvaluationRecipeSHA256 == "" && selected == nil {
+		return nil
+	}
+	if selected == nil || len(p.GoToolchain) == 0 || toolchain.version == "" || toolchain.hash == "" {
+		return Error("planned_evaluation_recipe_required")
+	}
+	recipe, err := taskverify.TaskEvaluationRecipe(id)
+	if err != nil || selected.PromptSHA256 != digest([]byte(spec.Prompt)) || selected.RecipeSHA256 != recipe.RecipeSHA256 || selected.ModuleSHA256 != recipe.ModuleSHA256 || selected.LanguageVersion != recipe.LanguageVersion || spec.EvaluationRecipeSHA256 != "" && spec.EvaluationRecipeSHA256 != recipe.RecipeSHA256 {
+		return Error("planned_evaluation_recipe_mismatch")
+	}
+	return nil
 }

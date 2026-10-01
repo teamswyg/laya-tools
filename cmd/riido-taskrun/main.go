@@ -16,8 +16,9 @@ import (
 )
 
 type config struct {
-	request taskrun.Request
-	spec    bool
+	request      taskrun.Request
+	spec         bool
+	budgetStatus bool
 }
 
 func parse(args []string) (config, error) {
@@ -39,10 +40,21 @@ func parse(args []string) (config, error) {
 	f.StringVar(&c.request.ExpectedCLIHash, "codex-sha256", "", "expected trusted executable SHA-256")
 	f.StringVar(&c.request.ExpectedCLIVersion, "codex-version", "", "exact expected version string; currently codex-cli0.158.0")
 	f.StringVar(&c.request.GoRoot, "go-root", "", "optional absolute trusted Go1.27.1 installation; required when packaged trimpath binary has no defaultGOROOT")
+	f.StringVar(&c.request.ParentFile, "parent-file", "", "optional pinned parent manifest; required for version2 upstream tasks")
+	f.StringVar(&c.request.ParentSHA256, "parent-sha256", "", "SHA-256 of the precommitted parent manifest")
+	f.StringVar(&c.request.LedgerDir, "budget-dir", "", "private durable four-slot parent ledger; never reuse for another manifest")
+	f.IntVar(&c.request.GlobalOrdinal, "global-ordinal", 0, "one-based ordinal across both child plans")
 	f.DurationVar(&c.request.Timeout, "timeout", taskrun.DefaultTimeout, "one main-attempt wall deadline, at most180s; independent verification has its own45s")
 	f.BoolVar(&c.spec, "spec", false, "print the public specification; never launch Codex")
+	f.BoolVar(&c.budgetStatus, "budget-status", false, "read one existing parent ledger without launching or repairing anything")
 	if f.Parse(args) != nil || f.NArg() != 0 {
 		return c, fmt.Errorf("invalid_arguments")
+	}
+	if c.budgetStatus {
+		if c.spec || c.request.Execute {
+			return c, fmt.Errorf("static_mode_conflict")
+		}
+		return c, nil
 	}
 	if _, e := taskverify.TaskSpec(c.request.TaskID); e != nil {
 		return c, fmt.Errorf("invalid_task")
@@ -59,13 +71,25 @@ func execute(args []string, out, diagnostics io.Writer) int {
 
 func executeContext(ctx context.Context, args []string, out, diagnostics io.Writer) int {
 	if len(args) == 1 && (args[0] == "--help" || args[0] == "-h") {
-		fmt.Fprintln(out, "riido-taskrun --task catalog-min-context --spec\nriido-taskrun --execute --task TASK --model MODEL --reasoning low --base-dir BASE --private-dir NEW --codex-bin BIN --codex-sha256 SHA --codex-version 'codex-cli 0.158.0' --plan-file PLAN --plan-sha256 PLAN_SHA --attempt-ordinal N --task-spec-sha256 SPEC_SHA [--go-root GOROOT] [--auth-source-dir AUTH] [--timeout 120s]\nOwns one explicit bounded public attempt on supported macOS. Packaged trimpath builds need explicit --go-root when no compiled-in Go installation is available. Raw traces stay private; no retries, resume, fallback or provider-identity claims. Exit0=accepted and process exited0,1=recorded unsuccessful attempt,2=prelaunch refusal,3=acceptance unavailable. Help/spec launch nothing.")
+		fmt.Fprintln(out, "riido-taskrun --task catalog-min-context --spec\nriido-taskrun --budget-status --parent-file PARENT --parent-sha256 PARENT_SHA --budget-dir LEDGER\nriido-taskrun --execute --task TASK --model MODEL --reasoning low --base-dir BASE --private-dir NEW --codex-bin BIN --codex-sha256 SHA --codex-version 'codex-cli 0.158.0' --plan-file PLAN --plan-sha256 PLAN_SHA --attempt-ordinal N --task-spec-sha256 SPEC_SHA [--go-root GOROOT] [--auth-source-dir AUTH] [--timeout 120s] [--parent-file PARENT --parent-sha256 PARENT_SHA --budget-dir LEDGER --global-ordinal N]\nOwns one explicit bounded public attempt on supported macOS. Version2 upstream tasks require pinned evaluation recipes and one shared four-slot parent ledger. Reservations are consumed before launch and never refunded; unresolved launches stop the ledger. This bounds owned main starts in that ledger, not host-wide or backend calls. Keep the ledger outside all attempt directories. Packaged trimpath builds need explicit --go-root when no compiled-in Go installation is available. Raw traces stay private; no retries, resume, fallback or provider-identity claims. Exit0=accepted and process exited0,1=recorded unsuccessful attempt,2=prelaunch refusal,3=acceptance or parent finalization unavailable. Help/spec/budget-status launch nothing.")
 		return 0
 	}
 	c, e := parse(args)
 	if e != nil {
 		fmt.Fprintln(diagnostics, e)
 		return 2
+	}
+	if c.budgetStatus {
+		s, err := taskrun.InspectParentBudget(taskrun.ParentBudgetRequest{ParentFile: c.request.ParentFile, ParentSHA256: c.request.ParentSHA256, LedgerDir: c.request.LedgerDir})
+		if err != nil {
+			fmt.Fprintln(diagnostics, err)
+			return 2
+		}
+		if json.NewEncoder(out).Encode(s) != nil {
+			fmt.Fprintln(diagnostics, "output_failed")
+			return 2
+		}
+		return 0
 	}
 	if c.spec {
 		s, _ := taskverify.TaskSpec(c.request.TaskID)
@@ -83,6 +107,10 @@ func executeContext(ctx context.Context, args []string, out, diagnostics io.Writ
 	if json.NewEncoder(out).Encode(r) != nil {
 		fmt.Fprintln(diagnostics, "output_failed")
 		return 2
+	}
+	if r.ParentBudgetCompletion() == "finalization_failed" {
+		fmt.Fprintln(diagnostics, "parent_budget_finalization_failed")
+		return 3
 	}
 	if r.VerificationStatus == "accepted" && r.ProcessStatus == "exited_zero" && r.AuthCleanup == "removed_or_not_present" {
 		return 0
