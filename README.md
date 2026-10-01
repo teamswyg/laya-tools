@@ -18,6 +18,8 @@
 
 [짧은 주장56a](experiments/short-claim/RESULTS-56a.ko.md)는 모델 없이 실행되는 Go `riido-shortclaim`과 반복용 `--stream`을 구현했습니다. [사용법](experiments/short-claim/USAGE-56.ko.md)을 따라 후보 확인 순서만 제안받을 수 있습니다. 8후보 예제의 전체 호출 warm p95는0.063~0.079ms, 반복 측정 child peak RSS는10.25~10.56MiB였습니다. 48개 자체 작성 사례는11개 연결 그룹으로 하한15에 못 미쳐 학습0입니다. BM25→oracle의 가능한 검사 감소18.64%는 달성한 모델 성능·LLM 절감이 아닙니다. [준비56](experiments/short-claim/PLAN-56.ko.md)은 역사적 snapshot으로 보존하고, [다음 확보56b](experiments/short-claim/NEXT-56b.ko.md)는 오류·상태·소유권처럼 다른 동작을 먼저 검증합니다.
 
+[동작 정답 감사56b](experiments/short-claim/RESULTS-56b.ko.md)는 오류·상태·소유권·수명·그래프를 검사하는 Go 유지보수 도구 `riido-typedaudit`을 추가했습니다. [사용법](experiments/short-claim/USAGE-56b.ko.md)에서 공개 입력을 재생할 수 있습니다. 새24개와 기존48개는 전체17그룹·라벨16그룹으로 두 최소15 기준을 통과했습니다. 524개는 원천 대조군 검사이지 독립 요청 수가 아닙니다. 불완전한 설명은 unknown으로 남겼고, 같은 합성 작성 흐름·역할 계획 미완성 때문에 학습·새 모델·가중치·최종 평가·성능 측정은0입니다.
+
 [사용량 기록과 독립 작업 검증](docs/task-outcomes.ko.md)을 준비했습니다. 기존 Codex 기록의 사용량과 공개 작업의 요구사항 충족 여부를 따로 확인합니다. 직접 작성한 예제로 도구를 검사했으며, 실제 모델 작업 결과나 비용 절감으로 세지 않습니다.
 
 [공개 작업 실행기](docs/task-execution.ko.md)는 명시적으로 요청한 Codex 실행, 사용량, 결과 파일과 독립 검사를 연결하는 선택적 Go 개발 도구입니다. 실패·시간 초과도 기록하며, 현재 작은 개발 파일럿과 최종 골든셋 평가를 구분합니다.
