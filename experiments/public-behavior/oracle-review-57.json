@@ -1,0 +1,744 @@
+{
+  "schema": "riido-public-oracle-authoring-review-57-v1",
+  "private_authoring_draft_sha256": "1691d1d67c381f5cf004fd8ad5d789c4a2d26286a966fedb0d1851cf600254b1",
+  "authorship": "AI-assisted independent manually authored oracle; source-read hypotheses are explicitly separated from normative expectations. No claim of human-only authorship.",
+  "rows": [
+    {
+      "id": "s01-empty",
+      "primary_expectation_original_kind": "source_specific_descriptive_api_contract",
+      "normative_expected": {
+        "semver_2_valid": false
+      },
+      "source_defined_error_identity": {
+        "kind": "sentinel",
+        "package": "github.com/Masterminds/semver/v3",
+        "identity": "ErrEmptyString",
+        "exact_message": "version string empty"
+      }
+    },
+    {
+      "id": "s02-missing-patch",
+      "primary_expectation_original_kind": "source_specific_descriptive_api_contract",
+      "normative_expected": {
+        "semver_2_valid": false
+      },
+      "source_defined_error_identity": {
+        "kind": "sentinel",
+        "package": "github.com/Masterminds/semver/v3",
+        "identity": "ErrInvalidSemVer",
+        "exact_message": "invalid semantic version"
+      }
+    },
+    {
+      "id": "s03-v-prefix",
+      "primary_expectation_original_kind": "source_specific_descriptive_api_contract",
+      "normative_expected": {
+        "semver_2_valid": false
+      },
+      "source_defined_error_identity": {
+        "kind": "sentinel",
+        "package": "github.com/Masterminds/semver/v3",
+        "identity": "ErrInvalidCharacters",
+        "exact_message": "invalid characters in version"
+      }
+    },
+    {
+      "id": "s04-core-leading-zero",
+      "primary_expectation_original_kind": "source_specific_descriptive_api_contract",
+      "normative_expected": {
+        "semver_2_valid": false
+      },
+      "source_defined_error_identity": {
+        "kind": "sentinel",
+        "package": "github.com/Masterminds/semver/v3",
+        "identity": "ErrSegmentStartsZero",
+        "exact_message": "version segment starts with 0"
+      }
+    },
+    {
+      "id": "s05-empty-minor",
+      "primary_expectation_original_kind": "source_specific_descriptive_api_contract",
+      "normative_expected": {
+        "semver_2_valid": false
+      },
+      "source_defined_error_identity": {
+        "kind": "strconv.NumError",
+        "concrete_type": "*strconv.NumError",
+        "func": "ParseUint",
+        "num": "",
+        "underlying_identity": "strconv.ErrSyntax",
+        "direct_sentinel": false
+      }
+    },
+    {
+      "id": "s06-core-overflow",
+      "primary_expectation_original_kind": "source_specific_descriptive_api_contract",
+      "normative_expected": {
+        "semver_2_valid": true
+      },
+      "source_defined_error_identity": {
+        "kind": "strconv.NumError",
+        "concrete_type": "*strconv.NumError",
+        "func": "ParseUint",
+        "num": "18446744073709551616",
+        "underlying_identity": "strconv.ErrRange",
+        "direct_sentinel": false
+      }
+    },
+    {
+      "id": "s07-invalid-metadata",
+      "primary_expectation_original_kind": "source_specific_descriptive_api_contract",
+      "normative_expected": {
+        "semver_2_valid": false
+      },
+      "source_defined_error_identity": {
+        "kind": "sentinel",
+        "package": "github.com/Masterminds/semver/v3",
+        "identity": "ErrInvalidMetadata",
+        "exact_message": "invalid metadata string"
+      }
+    },
+    {
+      "id": "s08-empty-metadata",
+      "primary_expectation_original_kind": "source_specific_descriptive_api_contract",
+      "normative_expected": {
+        "semver_2_valid": false
+      },
+      "source_defined_error_identity": {
+        "kind": "sentinel",
+        "package": "github.com/Masterminds/semver/v3",
+        "identity": "ErrInvalidMetadata",
+        "exact_message": "invalid metadata string"
+      }
+    },
+    {
+      "id": "s09-empty-prerelease",
+      "primary_expectation_original_kind": "source_specific_descriptive_api_contract",
+      "normative_expected": {
+        "semver_2_valid": false
+      },
+      "source_defined_error_identity": {
+        "kind": "sentinel",
+        "package": "github.com/Masterminds/semver/v3",
+        "identity": "ErrInvalidPrerelease",
+        "exact_message": "invalid prerelease string"
+      }
+    },
+    {
+      "id": "s10-numeric-prerelease-leading-zero",
+      "primary_expectation_original_kind": "source_specific_descriptive_api_contract",
+      "normative_expected": {
+        "semver_2_valid": false
+      },
+      "source_defined_error_identity": {
+        "kind": "sentinel",
+        "package": "github.com/Masterminds/semver/v3",
+        "identity": "ErrSegmentStartsZero",
+        "exact_message": "version segment starts with 0"
+      }
+    },
+    {
+      "id": "s11-empty-prerelease-segment",
+      "primary_expectation_original_kind": "source_specific_descriptive_api_contract",
+      "normative_expected": {
+        "semver_2_valid": false
+      },
+      "source_defined_error_identity": {
+        "kind": "sentinel",
+        "package": "github.com/Masterminds/semver/v3",
+        "identity": "ErrInvalidPrerelease",
+        "exact_message": "invalid prerelease string"
+      }
+    },
+    {
+      "id": "s12-error-priority",
+      "primary_expectation_original_kind": "source_specific_descriptive_api_contract",
+      "normative_expected": {
+        "semver_2_valid": false
+      },
+      "source_defined_error_identity": {
+        "kind": "sentinel",
+        "package": "github.com/Masterminds/semver/v3",
+        "identity": "ErrInvalidMetadata",
+        "exact_message": "invalid metadata string"
+      }
+    },
+    {
+      "id": "s13-zero-version",
+      "primary_expectation_original_kind": "source_specific_descriptive_api_contract",
+      "normative_expected": {
+        "semver_2_valid": true
+      },
+      "source_defined_error_identity": {
+        "kind": "nil",
+        "identity": "nil"
+      }
+    },
+    {
+      "id": "s14-maximum-core",
+      "primary_expectation_original_kind": "source_specific_descriptive_api_contract",
+      "normative_expected": {
+        "semver_2_valid": true
+      },
+      "source_defined_error_identity": {
+        "kind": "nil",
+        "identity": "nil"
+      }
+    },
+    {
+      "id": "s15-fields-preserved",
+      "primary_expectation_original_kind": "source_specific_descriptive_api_contract",
+      "normative_expected": {
+        "semver_2_valid": true
+      },
+      "source_defined_error_identity": {
+        "kind": "nil",
+        "identity": "nil"
+      }
+    },
+    {
+      "id": "s16-overflow-prerelease-accepted",
+      "primary_expectation_original_kind": "source_specific_descriptive_api_contract",
+      "normative_expected": {
+        "semver_2_valid": true
+      },
+      "source_defined_error_identity": {
+        "kind": "nil",
+        "identity": "nil"
+      }
+    },
+    {
+      "id": "m01-metadata-change",
+      "primary_expectation_original_kind": "semver_normative_precedence",
+      "normative_expected": {
+        "both_semver_2_valid": true,
+        "compare_sign": 0
+      },
+      "source_defined_error_identity": null
+    },
+    {
+      "id": "m02-prerelease-metadata-change",
+      "primary_expectation_original_kind": "semver_normative_precedence",
+      "normative_expected": {
+        "both_semver_2_valid": true,
+        "compare_sign": 0
+      },
+      "source_defined_error_identity": null
+    },
+    {
+      "id": "m03-core-before-metadata",
+      "primary_expectation_original_kind": "semver_normative_precedence",
+      "normative_expected": {
+        "both_semver_2_valid": true,
+        "compare_sign": -1
+      },
+      "source_defined_error_identity": null
+    },
+    {
+      "id": "m04-prerelease-before-metadata",
+      "primary_expectation_original_kind": "semver_normative_precedence",
+      "normative_expected": {
+        "both_semver_2_valid": true,
+        "compare_sign": -1
+      },
+      "source_defined_error_identity": null
+    },
+    {
+      "id": "m05-metadata-present-vs-absent",
+      "primary_expectation_original_kind": "semver_normative_precedence",
+      "normative_expected": {
+        "both_semver_2_valid": true,
+        "compare_sign": 0
+      },
+      "source_defined_error_identity": null
+    },
+    {
+      "id": "p01-prerelease-before-release",
+      "primary_expectation_original_kind": "semver_normative_precedence",
+      "normative_expected": {
+        "both_semver_2_valid": true,
+        "compare_sign": -1
+      },
+      "source_defined_error_identity": null
+    },
+    {
+      "id": "p02-numeric-not-lexical",
+      "primary_expectation_original_kind": "semver_normative_precedence",
+      "normative_expected": {
+        "both_semver_2_valid": true,
+        "compare_sign": -1
+      },
+      "source_defined_error_identity": null
+    },
+    {
+      "id": "p03-numeric-before-alpha",
+      "primary_expectation_original_kind": "semver_normative_precedence",
+      "normative_expected": {
+        "both_semver_2_valid": true,
+        "compare_sign": -1
+      },
+      "source_defined_error_identity": null
+    },
+    {
+      "id": "p04-ascii-case-sensitive",
+      "primary_expectation_original_kind": "semver_normative_precedence",
+      "normative_expected": {
+        "both_semver_2_valid": true,
+        "compare_sign": -1
+      },
+      "source_defined_error_identity": null
+    },
+    {
+      "id": "p05-shorter-equal-prefix",
+      "primary_expectation_original_kind": "semver_normative_precedence",
+      "normative_expected": {
+        "both_semver_2_valid": true,
+        "compare_sign": -1
+      },
+      "source_defined_error_identity": null
+    },
+    {
+      "id": "p06-dotted-numeric-before-alpha",
+      "primary_expectation_original_kind": "semver_normative_precedence",
+      "normative_expected": {
+        "both_semver_2_valid": true,
+        "compare_sign": -1
+      },
+      "source_defined_error_identity": null
+    },
+    {
+      "id": "p07-first-different-identifier",
+      "primary_expectation_original_kind": "semver_normative_precedence",
+      "normative_expected": {
+        "both_semver_2_valid": true,
+        "compare_sign": -1
+      },
+      "source_defined_error_identity": null
+    },
+    {
+      "id": "p08-both-overflow-normative-discrepancy",
+      "primary_expectation_original_kind": "semver_normative_precedence",
+      "normative_expected": {
+        "both_semver_2_valid": true,
+        "compare_sign": -1
+      },
+      "source_defined_error_identity": null
+    },
+    {
+      "id": "p09-reverse-overflow-discrepancy",
+      "primary_expectation_original_kind": "semver_normative_precedence",
+      "normative_expected": {
+        "both_semver_2_valid": true,
+        "compare_sign": 1
+      },
+      "source_defined_error_identity": null
+    },
+    {
+      "id": "g01-star-one-segment",
+      "primary_expectation_original_kind": "documented_finite_api_expectation",
+      "normative_expected": {
+        "pattern_well_formed_in_documented_grammar": true,
+        "documented_match_expectation": {
+          "matched": true,
+          "error": {
+            "kind": "nil",
+            "identity": "nil"
+          }
+        }
+      },
+      "source_defined_error_identity": null
+    },
+    {
+      "id": "g02-star-does-not-cross-slash",
+      "primary_expectation_original_kind": "documented_finite_api_expectation",
+      "normative_expected": {
+        "pattern_well_formed_in_documented_grammar": true,
+        "documented_match_expectation": {
+          "matched": false,
+          "error": {
+            "kind": "nil",
+            "identity": "nil"
+          }
+        }
+      },
+      "source_defined_error_identity": null
+    },
+    {
+      "id": "g03-globstar-zero-directory",
+      "primary_expectation_original_kind": "documented_finite_api_expectation",
+      "normative_expected": {
+        "pattern_well_formed_in_documented_grammar": true,
+        "documented_match_expectation": {
+          "matched": true,
+          "error": {
+            "kind": "nil",
+            "identity": "nil"
+          }
+        }
+      },
+      "source_defined_error_identity": null
+    },
+    {
+      "id": "g04-globstar-nested-directory",
+      "primary_expectation_original_kind": "documented_finite_api_expectation",
+      "normative_expected": {
+        "pattern_well_formed_in_documented_grammar": true,
+        "documented_match_expectation": {
+          "matched": true,
+          "error": {
+            "kind": "nil",
+            "identity": "nil"
+          }
+        }
+      },
+      "source_defined_error_identity": null
+    },
+    {
+      "id": "g05-mid-component-double-star",
+      "primary_expectation_original_kind": "documented_finite_api_expectation",
+      "normative_expected": {
+        "pattern_well_formed_in_documented_grammar": true,
+        "documented_match_expectation": {
+          "matched": false,
+          "error": {
+            "kind": "nil",
+            "identity": "nil"
+          }
+        }
+      },
+      "source_defined_error_identity": null
+    },
+    {
+      "id": "g06-trailing-globstar-zero",
+      "primary_expectation_original_kind": "documented_finite_api_expectation",
+      "normative_expected": {
+        "pattern_well_formed_in_documented_grammar": true,
+        "documented_match_expectation": {
+          "matched": true,
+          "error": {
+            "kind": "nil",
+            "identity": "nil"
+          }
+        }
+      },
+      "source_defined_error_identity": null
+    },
+    {
+      "id": "g07-whole-name-anchor",
+      "primary_expectation_original_kind": "documented_finite_api_expectation",
+      "normative_expected": {
+        "pattern_well_formed_in_documented_grammar": true,
+        "documented_match_expectation": {
+          "matched": false,
+          "error": {
+            "kind": "nil",
+            "identity": "nil"
+          }
+        }
+      },
+      "source_defined_error_identity": null
+    },
+    {
+      "id": "g08-star-empty-name",
+      "primary_expectation_original_kind": "documented_finite_api_expectation",
+      "normative_expected": {
+        "pattern_well_formed_in_documented_grammar": true,
+        "documented_match_expectation": {
+          "matched": true,
+          "error": {
+            "kind": "nil",
+            "identity": "nil"
+          }
+        }
+      },
+      "source_defined_error_identity": null
+    },
+    {
+      "id": "g09-globstar-crosses-slash",
+      "primary_expectation_original_kind": "documented_finite_api_expectation",
+      "normative_expected": {
+        "pattern_well_formed_in_documented_grammar": true,
+        "documented_match_expectation": {
+          "matched": true,
+          "error": {
+            "kind": "nil",
+            "identity": "nil"
+          }
+        }
+      },
+      "source_defined_error_identity": null
+    },
+    {
+      "id": "e01-escaped-star-literal",
+      "primary_expectation_original_kind": "documented_finite_api_expectation",
+      "normative_expected": {
+        "pattern_well_formed_in_documented_grammar": true,
+        "documented_match_expectation": {
+          "matched": true,
+          "error": {
+            "kind": "nil",
+            "identity": "nil"
+          }
+        }
+      },
+      "source_defined_error_identity": null
+    },
+    {
+      "id": "e02-escaped-star-not-wildcard",
+      "primary_expectation_original_kind": "documented_finite_api_expectation",
+      "normative_expected": {
+        "pattern_well_formed_in_documented_grammar": true,
+        "documented_match_expectation": {
+          "matched": false,
+          "error": {
+            "kind": "nil",
+            "identity": "nil"
+          }
+        }
+      },
+      "source_defined_error_identity": null
+    },
+    {
+      "id": "e03-question-one-ascii",
+      "primary_expectation_original_kind": "documented_finite_api_expectation",
+      "normative_expected": {
+        "pattern_well_formed_in_documented_grammar": true,
+        "documented_match_expectation": {
+          "matched": true,
+          "error": {
+            "kind": "nil",
+            "identity": "nil"
+          }
+        }
+      },
+      "source_defined_error_identity": null
+    },
+    {
+      "id": "e04-question-excludes-slash",
+      "primary_expectation_original_kind": "documented_finite_api_expectation",
+      "normative_expected": {
+        "pattern_well_formed_in_documented_grammar": true,
+        "documented_match_expectation": {
+          "matched": false,
+          "error": {
+            "kind": "nil",
+            "identity": "nil"
+          }
+        }
+      },
+      "source_defined_error_identity": null
+    },
+    {
+      "id": "e05-question-one-multibyte-rune",
+      "primary_expectation_original_kind": "documented_finite_api_expectation",
+      "normative_expected": {
+        "pattern_well_formed_in_documented_grammar": true,
+        "documented_match_expectation": {
+          "matched": true,
+          "error": {
+            "kind": "nil",
+            "identity": "nil"
+          }
+        }
+      },
+      "source_defined_error_identity": null
+    },
+    {
+      "id": "e06-question-one-nonbmp-rune",
+      "primary_expectation_original_kind": "documented_finite_api_expectation",
+      "normative_expected": {
+        "pattern_well_formed_in_documented_grammar": true,
+        "documented_match_expectation": {
+          "matched": true,
+          "error": {
+            "kind": "nil",
+            "identity": "nil"
+          }
+        }
+      },
+      "source_defined_error_identity": null
+    },
+    {
+      "id": "e07-two-questions-one-rune",
+      "primary_expectation_original_kind": "documented_finite_api_expectation",
+      "normative_expected": {
+        "pattern_well_formed_in_documented_grammar": true,
+        "documented_match_expectation": {
+          "matched": false,
+          "error": {
+            "kind": "nil",
+            "identity": "nil"
+          }
+        }
+      },
+      "source_defined_error_identity": null
+    },
+    {
+      "id": "e08-case-sensitive-literal",
+      "primary_expectation_original_kind": "documented_finite_api_expectation",
+      "normative_expected": {
+        "pattern_well_formed_in_documented_grammar": true,
+        "documented_match_expectation": {
+          "matched": false,
+          "error": {
+            "kind": "nil",
+            "identity": "nil"
+          }
+        }
+      },
+      "source_defined_error_identity": null
+    },
+    {
+      "id": "b01-unclosed-class",
+      "primary_expectation_original_kind": "source_specific_descriptive_api_contract",
+      "normative_expected": {
+        "pattern_well_formed_in_documented_grammar": false,
+        "match_result_for_malformed_input": {
+          "status": "outside_well_formed_matching_grammar",
+          "universal_error_equivalence_claimed": false
+        }
+      },
+      "source_defined_error_identity": null
+    },
+    {
+      "id": "b02-empty-class",
+      "primary_expectation_original_kind": "source_specific_descriptive_api_contract",
+      "normative_expected": {
+        "pattern_well_formed_in_documented_grammar": false,
+        "match_result_for_malformed_input": {
+          "status": "outside_well_formed_matching_grammar",
+          "universal_error_equivalence_claimed": false
+        }
+      },
+      "source_defined_error_identity": null
+    },
+    {
+      "id": "b03-trailing-escape",
+      "primary_expectation_original_kind": "source_specific_descriptive_api_contract",
+      "normative_expected": {
+        "pattern_well_formed_in_documented_grammar": false,
+        "match_result_for_malformed_input": {
+          "status": "outside_well_formed_matching_grammar",
+          "universal_error_equivalence_claimed": false
+        }
+      },
+      "source_defined_error_identity": null
+    },
+    {
+      "id": "b04-unclosed-alternatives",
+      "primary_expectation_original_kind": "source_specific_descriptive_api_contract",
+      "normative_expected": {
+        "pattern_well_formed_in_documented_grammar": false,
+        "match_result_for_malformed_input": {
+          "status": "outside_well_formed_matching_grammar",
+          "universal_error_equivalence_claimed": false
+        }
+      },
+      "source_defined_error_identity": null
+    },
+    {
+      "id": "b05-success-shortcircuit-malformed-later-alt",
+      "primary_expectation_original_kind": "stronger_review_policy_not_upstream_normative_guarantee",
+      "normative_expected": {
+        "pattern_well_formed_in_documented_grammar": false,
+        "match_result_for_malformed_input": {
+          "status": "outside_well_formed_matching_grammar",
+          "universal_error_equivalence_claimed": false
+        }
+      },
+      "source_defined_error_identity": null
+    },
+    {
+      "id": "b06-malformed-alt-reached",
+      "primary_expectation_original_kind": "stronger_review_policy_not_upstream_normative_guarantee",
+      "normative_expected": {
+        "pattern_well_formed_in_documented_grammar": false,
+        "match_result_for_malformed_input": {
+          "status": "outside_well_formed_matching_grammar",
+          "universal_error_equivalence_claimed": false
+        }
+      },
+      "source_defined_error_identity": null
+    },
+    {
+      "id": "v01-valid-escaped-star",
+      "primary_expectation_original_kind": "documented_finite_api_expectation",
+      "normative_expected": {
+        "pattern_well_formed_in_documented_grammar": true
+      },
+      "source_defined_error_identity": null
+    },
+    {
+      "id": "v02-valid-component-globstar",
+      "primary_expectation_original_kind": "documented_finite_api_expectation",
+      "normative_expected": {
+        "pattern_well_formed_in_documented_grammar": true
+      },
+      "source_defined_error_identity": null
+    },
+    {
+      "id": "v03-valid-question",
+      "primary_expectation_original_kind": "documented_finite_api_expectation",
+      "normative_expected": {
+        "pattern_well_formed_in_documented_grammar": true
+      },
+      "source_defined_error_identity": null
+    },
+    {
+      "id": "v04-unclosed-class",
+      "primary_expectation_original_kind": "documented_finite_api_expectation",
+      "normative_expected": {
+        "pattern_well_formed_in_documented_grammar": false
+      },
+      "source_defined_error_identity": null
+    },
+    {
+      "id": "v05-empty-class",
+      "primary_expectation_original_kind": "documented_finite_api_expectation",
+      "normative_expected": {
+        "pattern_well_formed_in_documented_grammar": false
+      },
+      "source_defined_error_identity": null
+    },
+    {
+      "id": "v06-trailing-escape",
+      "primary_expectation_original_kind": "documented_finite_api_expectation",
+      "normative_expected": {
+        "pattern_well_formed_in_documented_grammar": false
+      },
+      "source_defined_error_identity": null
+    },
+    {
+      "id": "v07-unclosed-alternatives",
+      "primary_expectation_original_kind": "documented_finite_api_expectation",
+      "normative_expected": {
+        "pattern_well_formed_in_documented_grammar": false
+      },
+      "source_defined_error_identity": null
+    },
+    {
+      "id": "v08-malformed-later-alternative",
+      "primary_expectation_original_kind": "documented_finite_api_expectation",
+      "normative_expected": {
+        "pattern_well_formed_in_documented_grammar": false
+      },
+      "source_defined_error_identity": null
+    },
+    {
+      "id": "v09-empty-pattern",
+      "primary_expectation_original_kind": "documented_finite_api_expectation",
+      "normative_expected": {
+        "pattern_well_formed_in_documented_grammar": true
+      },
+      "source_defined_error_identity": null
+    }
+  ],
+  "candidate_observations_before_freeze": 0,
+  "limitations": [
+    "AI-assisted source-read review, not human approval or blind unseen evaluation.",
+    "Transform only syntax/field names; exact expected scalars and raw input bytes retained.",
+    "All fourteen compare pairs are independently valid strict versions; comparison_called=true added before observations.",
+    "Only the canonical probes checks determine finite acceptance. Source-read hypotheses are separate and never acceptance.",
+    "Six property contracts, two source families; no automatic protected-final or independence credit."
+  ]
+}
