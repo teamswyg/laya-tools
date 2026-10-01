@@ -24,6 +24,8 @@
 
 [상주 처리 비용56d](experiments/short-claim/RESULTS-56d.ko.md)는 고정한 실제 Go 바이너리로24행·25,080회 JSONL 요청을 완료했습니다. [사용법](experiments/short-claim/USAGE-56d.ko.md)에서 준비와 실행 경계를 확인할 수 있습니다. 이 Mac의 비학습 힌트 child peak RSS는9.22~10.52MiB, 행별 timed 왕복 p95는0.022~0.050ms이며 첫 응답577.13ms를 보존했습니다. 측정기33.11MiB peak는 별도입니다. 원본72개 중3후보48개를 반복한 것으로2400개 독립 최종 평가가 아니며, `narrow_rule`은 모두 BM25 fallback이었습니다. 모델 추론·학습·캐시·LLM 절감 증거와 구분합니다.
 
+[유한 입력 주장 감사56e](experiments/short-claim/RESULTS-56e.ko.md)는 독립 소스 읽기로 문구 범위를 검토한 뒤36개 실제 함수 관측을12파생 행에 연결했습니다.11행은 지정 입력에서 일치 후보가 있고1행은 없습니다. [사용법](experiments/short-claim/USAGE-56e.ko.md)대로 Go에서 공개 관측을 검증할 수 있습니다. 기존 일반 문구의 pending/unknown은 보존하며 독립 요청 증가·모델 학습·유용성 증명은0입니다. [다른 공개 원천의 다음 계약](experiments/short-claim/SOURCE-NEXT-56e.ko.md)은 고정 버전의 semver/glob 구현·MIT 원문을 읽은 조사이며, 아직 새 데이터 확보 수로 세지 않습니다.
+
 [사용량 기록과 독립 작업 검증](docs/task-outcomes.ko.md)을 준비했습니다. 기존 Codex 기록의 사용량과 공개 작업의 요구사항 충족 여부를 따로 확인합니다. 직접 작성한 예제로 도구를 검사했으며, 실제 모델 작업 결과나 비용 절감으로 세지 않습니다.
 
 [공개 작업 실행기](docs/task-execution.ko.md)는 명시적으로 요청한 Codex 실행, 사용량, 결과 파일과 독립 검사를 연결하는 선택적 Go 개발 도구입니다. 실패·시간 초과도 기록하며, 현재 작은 개발 파일럿과 최종 골든셋 평가를 구분합니다.
