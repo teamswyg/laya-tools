@@ -12,6 +12,8 @@ The [tiny claim-head experiment](experiments/path-cost-claim/RESULTS-46.en.md) r
 
 The [golden-set scale guide](docs/golden-set-scale.en.md) explains the difference between a 24-case pilot and a minimum 2,400-request evaluation, separated training/validation/final sets, and the evidence required for search, model routing, repository selection, and task decomposition.
 
+[Fair external comparison preparation](docs/fair-upstream-comparison.en.md) exposes all requirements in actual stdin and aligns original Go language settings. New evaluation versions of the same two requests do not add distinct tasks. The Go executor enforces four reservations within one shared ledger; actual external model comparisons and protected 2,400-request acquisition remain separate steps.
+
 [Actual comparison54](experiments/task-outcomes/RESULTS-54.en.md) ran one new parser request twice per profile. All four passed independent checks, exited zero and reported complete usage; bounded array-based key validation is integrated into the real tool. Cumulative observations cover5 unique requests and16 records, without counting repetitions as requests. [External Go contracts](docs/public-go-contracts-54.en.md) bind rights, original sources and independent checks for2 of120 candidates. No external model attempts or new fitting have been performed.
 
 [Usage recording and independent task verification](docs/task-outcomes.en.md) summarize existing Codex telemetry and separately check requirements for public tasks. Authored examples test the tools; they are not actual model outcomes or evidence of cost savings.

@@ -48,6 +48,10 @@ type Request struct {
 	ExpectedCLIVersion string
 	GoRoot             string
 	Timeout            time.Duration
+	ParentFile         string
+	ParentSHA256       string
+	LedgerDir          string
+	GlobalOrdinal      int
 }
 
 type Capture struct {
@@ -69,50 +73,60 @@ type AppliedRequest struct {
 }
 
 type Record struct {
-	Schema                    string                `json:"schema"`
-	PlanSHA256                string                `json:"plan_sha256"`
-	PlanEvidence              string                `json:"plan_evidence"`
-	AttemptOrdinal            int                   `json:"attempt_ordinal"`
-	ProfileID                 string                `json:"profile_id"`
-	Provenance                string                `json:"provenance"`
-	TaskID                    string                `json:"task_id"`
-	TaskSpecSHA256            string                `json:"task_spec_sha256"`
-	PromptSHA256              string                `json:"prompt_sha256"`
-	BaseRevision              string                `json:"base_revision"`
-	BaseSHA256                string                `json:"base_sha256"`
-	WorkspaceSHA256           string                `json:"initial_workspace_sha256"`
-	CandidateSHA256           string                `json:"candidate_sha256,omitempty"`
-	CandidateStatus           string                `json:"candidate_status"`
-	CandidateFiles            []taskverify.FileHash `json:"candidate_files,omitempty"`
-	CandidateFileCount        int                   `json:"candidate_file_count"`
-	OutsideClosure            string                `json:"outside_closure"`
-	CodexVersion              string                `json:"codex_version"`
-	ExecutableSHA256          string                `json:"executable_sha256"`
-	ExecutableEvidence        string                `json:"executable_evidence"`
-	GoVersion                 string                `json:"go_version"`
-	GoBinarySHA256            string                `json:"go_binary_sha256"`
-	InvocationSHA256          string                `json:"canonical_invocation_sha256"`
-	PermissionsSHA256         string                `json:"canonical_permissions_sha256"`
-	PermissionsProbe          string                `json:"permissions_probe"`
-	Applied                   AppliedRequest        `json:"applied_request"`
-	ObservedModel             string                `json:"observed_model"`
-	AttemptScope              string                `json:"attempt_scope"`
-	Started                   bool                  `json:"started"`
-	ExitCode                  *int                  `json:"exit_code"`
-	ProcessStatus             string                `json:"process_status"`
-	WallMillis                int64                 `json:"wall_millis"`
-	GroupCleanup              string                `json:"process_group_cleanup"`
-	AuthCleanup               string                `json:"auth_cleanup"`
-	DurableStart              bool                  `json:"durable_start_record"`
-	Stdout                    Capture               `json:"stdout"`
-	Stderr                    Capture               `json:"stderr"`
-	SummaryStatus             string                `json:"summary_status"`
-	WholeAttemptUsageComplete bool                  `json:"whole_attempt_usage_complete"`
-	Summary                   *taskoutcome.Summary  `json:"usage_summary,omitempty"`
-	Verification              taskverify.Report     `json:"verification"`
-	VerificationStatus        string                `json:"verification_status"`
-	VerificationWallMillis    *int64                `json:"verification_wall_millis"`
+	Schema                    string                       `json:"schema"`
+	PlanSHA256                string                       `json:"plan_sha256"`
+	PlanEvidence              string                       `json:"plan_evidence"`
+	AttemptOrdinal            int                          `json:"attempt_ordinal"`
+	ProfileID                 string                       `json:"profile_id"`
+	Provenance                string                       `json:"provenance"`
+	TaskID                    string                       `json:"task_id"`
+	TaskSpecSHA256            string                       `json:"task_spec_sha256"`
+	PromptSHA256              string                       `json:"prompt_sha256"`
+	BaseRevision              string                       `json:"base_revision"`
+	BaseSHA256                string                       `json:"base_sha256"`
+	WorkspaceSHA256           string                       `json:"initial_workspace_sha256"`
+	CandidateSHA256           string                       `json:"candidate_sha256,omitempty"`
+	CandidateStatus           string                       `json:"candidate_status"`
+	CandidateFiles            []taskverify.FileHash        `json:"candidate_files,omitempty"`
+	CandidateFileCount        int                          `json:"candidate_file_count"`
+	OutsideClosure            string                       `json:"outside_closure"`
+	CodexVersion              string                       `json:"codex_version"`
+	ExecutableSHA256          string                       `json:"executable_sha256"`
+	ExecutableEvidence        string                       `json:"executable_evidence"`
+	GoVersion                 string                       `json:"go_version"`
+	GoBinarySHA256            string                       `json:"go_binary_sha256"`
+	InvocationSHA256          string                       `json:"canonical_invocation_sha256"`
+	PermissionsSHA256         string                       `json:"canonical_permissions_sha256"`
+	PermissionsProbe          string                       `json:"permissions_probe"`
+	Applied                   AppliedRequest               `json:"applied_request"`
+	ObservedModel             string                       `json:"observed_model"`
+	AttemptScope              string                       `json:"attempt_scope"`
+	Started                   bool                         `json:"started"`
+	ExitCode                  *int                         `json:"exit_code"`
+	ProcessStatus             string                       `json:"process_status"`
+	WallMillis                int64                        `json:"wall_millis"`
+	GroupCleanup              string                       `json:"process_group_cleanup"`
+	AuthCleanup               string                       `json:"auth_cleanup"`
+	DurableStart              bool                         `json:"durable_start_record"`
+	Stdout                    Capture                      `json:"stdout"`
+	Stderr                    Capture                      `json:"stderr"`
+	SummaryStatus             string                       `json:"summary_status"`
+	WholeAttemptUsageComplete bool                         `json:"whole_attempt_usage_complete"`
+	Summary                   *taskoutcome.Summary         `json:"usage_summary,omitempty"`
+	Verification              taskverify.Report            `json:"verification"`
+	VerificationStatus        string                       `json:"verification_status"`
+	VerificationWallMillis    *int64                       `json:"verification_wall_millis"`
+	ParentSHA256              string                       `json:"parent_sha256,omitempty"`
+	GlobalOrdinal             int                          `json:"global_ordinal,omitempty"`
+	RecipeSHA256              string                       `json:"recipe_sha256,omitempty"`
+	EvaluationRecipe          *taskverify.EvaluationRecipe `json:"evaluation_recipe,omitempty"`
+	parentBudgetCompletion    string
 }
+
+// ParentBudgetCompletion describes the separate terminal-ledger check. It is
+// not part of the immutable model-attempt JSON, which is written before that
+// check and is bound by the ledger's terminal receipt.
+func (r Record) ParentBudgetCompletion() string { return r.parentBudgetCompletion }
 
 // Error is a fixed enum; filesystem and subprocess errors never escape.
 type Error string
@@ -126,8 +140,21 @@ func validateRequest(req Request) error {
 	if !req.Execute {
 		return Error("execute_opt_in_required")
 	}
-	if _, err := taskverify.TaskSpec(req.TaskID); err != nil {
+	spec, err := taskverify.TaskSpec(req.TaskID)
+	if err != nil {
 		return Error("invalid_task")
+	}
+	parentRequested := req.ParentFile != "" || req.ParentSHA256 != "" || req.LedgerDir != "" || req.GlobalOrdinal != 0
+	if spec.EvaluationRecipeSHA256 != "" && !parentRequested {
+		return Error("parent_budget_required")
+	}
+	if parentRequested {
+		if !filepath.IsAbs(req.ParentFile) || !filepath.IsAbs(req.LedgerDir) || strings.ContainsAny(req.ParentFile+req.LedgerDir, "\x00\r\n") || req.GlobalOrdinal < 1 || req.GlobalOrdinal > 4 {
+			return Error("invalid_parent_budget_request")
+		}
+		if decoded, err := hex.DecodeString(req.ParentSHA256); err != nil || len(decoded) != sha256.Size || strings.ToLower(req.ParentSHA256) != req.ParentSHA256 {
+			return Error("parent_budget_pin_required")
+		}
 	}
 	if req.Model == "" || req.Reasoning == "" {
 		return Error("explicit_model_and_reasoning_required")
@@ -362,6 +389,9 @@ type canonicalInvocation struct {
 	Plan          string   `json:"plan_sha256"`
 	GoVersion     string   `json:"go_version"`
 	GoBinary      string   `json:"go_binary_sha256"`
+	Parent        string   `json:"parent_sha256,omitempty"`
+	GlobalOrdinal int      `json:"global_ordinal,omitempty"`
+	Recipe        string   `json:"recipe_sha256,omitempty"`
 }
 
 // Run never retries, resumes or falls back. An error means no main attempt was
@@ -394,9 +424,41 @@ func Run(ctx context.Context, req Request) (Record, error) {
 		return Record{}, e
 	}
 	req.PrivateDir = private
+	if req.ParentFile != "" {
+		ledger, err := parentLedgerPath(parentRequest(req))
+		if err != nil {
+			return Record{}, err
+		}
+		if pathsOverlap(ledger, private) {
+			return Record{}, Error("parent_ledger_must_be_outside_attempt")
+		}
+		req.LedgerDir = ledger
+	}
 	profileID, e := validatePlan(req, toolchain)
 	if e != nil {
 		return Record{}, e
+	}
+	spec, _ := taskverify.TaskSpec(req.TaskID)
+	var recipe *taskverify.EvaluationRecipe
+	if req.ParentFile != "" {
+		selected, err := taskverify.TaskEvaluationRecipe(req.TaskID)
+		if err != nil || spec.EvaluationRecipeSHA256 != "" && selected.RecipeSHA256 != spec.EvaluationRecipeSHA256 {
+			return Record{}, Error("evaluation_recipe_mismatch")
+		}
+		recipe = &selected
+		manifest, _, err := loadParent(parentRequest(req))
+		if err != nil {
+			return Record{}, err
+		}
+		found := false
+		for _, child := range manifest.ChildPlans {
+			if child.PlanSHA256 == req.PlanSHA256 {
+				found = child.BaseRevision == spec.BaseRevision
+			}
+		}
+		if !found {
+			return Record{}, Error("parent_child_base_mismatch")
+		}
 	}
 	base, all, e := LoadBase(req.BaseDir, req.TaskID)
 	if e != nil {
@@ -430,7 +492,6 @@ func Run(ctx context.Context, req Request) (Record, error) {
 	if executableSHA != req.ExpectedCLIHash || version != req.ExpectedCLIVersion {
 		return Record{}, Error("trusted_executable_pin_mismatch")
 	}
-	spec, _ := taskverify.TaskSpec(req.TaskID)
 	profile, canonicalPermissions, e := permissionsConfig(req.GoRoot)
 	if e != nil {
 		return Record{}, e
@@ -451,7 +512,13 @@ func Run(ctx context.Context, req Request) (Record, error) {
 	r.ExecutableEvidence = "resolved_path_and_prelaunch_byte_pins_not_host_attestation"
 	r.GoVersion = toolchain.version
 	r.GoBinarySHA256 = toolchain.hash
-	r.InvocationSHA256 = digestJSON(canonicalInvocation{Args: invocationArgs(req.Model, req.Reasoning, "$WORKSPACE", canonicalPermissions, "$GOROOT"), Task: req.TaskID, Model: req.Model, Reasoning: req.Reasoning, Version: version, Executable: executableSHA, Prompt: r.PromptSHA256, Workspace: r.WorkspaceSHA256, TimeoutMillis: req.Timeout.Milliseconds(), Permissions: r.PermissionsSHA256, Plan: req.PlanSHA256, GoVersion: toolchain.version, GoBinary: toolchain.hash})
+	if recipe != nil {
+		r.EvaluationRecipe = recipe
+		r.RecipeSHA256 = recipe.RecipeSHA256
+		r.ParentSHA256 = req.ParentSHA256
+		r.GlobalOrdinal = req.GlobalOrdinal
+	}
+	r.InvocationSHA256 = digestJSON(canonicalInvocation{Args: invocationArgs(req.Model, req.Reasoning, "$WORKSPACE", canonicalPermissions, "$GOROOT"), Task: req.TaskID, Model: req.Model, Reasoning: req.Reasoning, Version: version, Executable: executableSHA, Prompt: r.PromptSHA256, Workspace: r.WorkspaceSHA256, TimeoutMillis: req.Timeout.Milliseconds(), Permissions: r.PermissionsSHA256, Plan: req.PlanSHA256, GoVersion: toolchain.version, GoBinary: toolchain.hash, Parent: r.ParentSHA256, GlobalOrdinal: r.GlobalOrdinal, Recipe: r.RecipeSHA256})
 	childCtx, cancel := context.WithTimeout(ctx, req.Timeout)
 	defer cancel()
 	cmd := exec.CommandContext(childCtx, req.CodexBinary, args...)
@@ -478,6 +545,15 @@ func Run(ctx context.Context, req Request) (Record, error) {
 	if current, e := executableDigest(req.CodexBinary); e != nil || current != req.ExpectedCLIHash {
 		return Record{}, Error("trusted_executable_changed_during_preflight")
 	}
+	var lease *ParentBudgetLease
+	if recipe != nil {
+		pins := ChildAttemptPins{PlanSHA256: req.PlanSHA256, AttemptOrdinal: req.AttemptOrdinal, TaskID: req.TaskID, SpecSHA256: r.TaskSpecSHA256, PromptSHA256: r.PromptSHA256, RecipeSHA256: r.RecipeSHA256, ProfileID: profileID, Model: req.Model, Reasoning: req.Reasoning, CLIHash: executableSHA, GoHash: toolchain.hash}
+		lease, e = ReserveParentBudget(parentRequest(req), pins)
+		if e != nil {
+			return Record{}, e
+		}
+		defer lease.Stop()
+	}
 	start := time.Now()
 	if e = cmd.Start(); e != nil {
 		return Record{}, Error("attempt_start_failed")
@@ -490,6 +566,13 @@ func Run(ctx context.Context, req Request) (Record, error) {
 	if startRecordErr != nil {
 		r.DurableStart = false
 		cancel()
+	}
+	var startProofErr error
+	if lease != nil && startRecordErr == nil {
+		startProofErr = lease.MarkStarted(r)
+		if startProofErr != nil {
+			cancel()
+		}
 	}
 	e = cmd.Wait()
 	r.GroupCleanup = cleanupProcess(cmd)
@@ -578,10 +661,29 @@ func Run(ctx context.Context, req Request) (Record, error) {
 	} else {
 		r.AuthCleanup = "cleanup_failed"
 	}
-	if writeRecord(req.PrivateDir, "record.json", r) != nil {
+	finalRecordErr := writeRecord(req.PrivateDir, "record.json", r)
+	if finalRecordErr != nil {
 		r.VerificationStatus = "record_write_failed"
 	}
+	if lease != nil {
+		r.parentBudgetCompletion = "finalization_failed"
+		if finalRecordErr == nil && startRecordErr == nil && startProofErr == nil && lease.Complete(req.PrivateDir, r) == nil {
+			r.parentBudgetCompletion = "terminal_record_and_budget_verified"
+		}
+	}
 	return r, nil
+}
+
+func parentRequest(req Request) ParentBudgetRequest {
+	return ParentBudgetRequest{ParentFile: req.ParentFile, ParentSHA256: req.ParentSHA256, LedgerDir: req.LedgerDir, GlobalOrdinal: req.GlobalOrdinal}
+}
+
+func pathsOverlap(a, b string) bool {
+	contains := func(parent, child string) bool {
+		rel, err := filepath.Rel(parent, child)
+		return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
+	}
+	return contains(a, b) || contains(b, a)
 }
 
 func writeRecord(dir, name string, r Record) error {
@@ -593,11 +695,24 @@ func writeRecord(dir, name string, r Record) error {
 	if e != nil {
 		return Error("record_write_failed")
 	}
-	_, e = f.Write(append(b, '\n'))
+	data := append(b, '\n')
+	n, e := f.Write(data)
+	if e == nil && n != len(data) {
+		e = io.ErrShortWrite
+	}
 	if e == nil {
 		e = f.Sync()
 	}
 	closeErr := f.Close()
+	if e != nil || closeErr != nil {
+		return Error("record_write_failed")
+	}
+	d, e := os.Open(dir)
+	if e != nil {
+		return Error("record_write_failed")
+	}
+	e = d.Sync()
+	closeErr = d.Close()
 	if e != nil || closeErr != nil {
 		return Error("record_write_failed")
 	}

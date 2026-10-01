@@ -26,24 +26,27 @@ type TerminalTest struct {
 // acceptance runner. It never supplies candidate assertions or model outcomes.
 // TaskDefinition returns owned slices, so callers cannot mutate registry state.
 type Definition struct {
-	Schema             string         `json:"schema"`
-	ID                 string         `json:"id"`
-	Version            int            `json:"version"`
-	BaseRevision       string         `json:"base_revision"`
-	SourceURL          string         `json:"source_url"`
-	License            string         `json:"license"`
-	ModulePath         string         `json:"module_path,omitempty"`
-	SourcePath         string         `json:"source_path"`
-	MutablePaths       []string       `json:"mutable_paths"`
-	Files              []FileHash     `json:"files"`
-	Imports            []string       `json:"imports"`
-	PackageName        string         `json:"package_name"`
-	Packages           []string       `json:"packages"`
-	RequiredTests      []TerminalTest `json:"required_tests"`
-	ContractPath       string         `json:"contract_path"`
-	ContractSHA256     string         `json:"contract_sha256"`
-	PromptSHA256       string         `json:"prompt_sha256"`
-	CandidateTestsUsed bool           `json:"candidate_tests_used"`
+	Schema                 string         `json:"schema"`
+	ID                     string         `json:"id"`
+	Version                int            `json:"version"`
+	BaseRevision           string         `json:"base_revision"`
+	SourceURL              string         `json:"source_url"`
+	License                string         `json:"license"`
+	ModulePath             string         `json:"module_path,omitempty"`
+	SourcePath             string         `json:"source_path"`
+	MutablePaths           []string       `json:"mutable_paths"`
+	Files                  []FileHash     `json:"files"`
+	Imports                []string       `json:"imports"`
+	PackageName            string         `json:"package_name"`
+	Packages               []string       `json:"packages"`
+	RequiredTests          []TerminalTest `json:"required_tests"`
+	ContractPath           string         `json:"contract_path"`
+	ContractSHA256         string         `json:"contract_sha256"`
+	PromptSHA256           string         `json:"prompt_sha256"`
+	CandidateTestsUsed     bool           `json:"candidate_tests_used"`
+	LogicalTaskID          string         `json:"logical_task_id,omitempty"`
+	PreviousTaskID         string         `json:"previous_task_id,omitempty"`
+	EvaluationRecipeSHA256 string         `json:"evaluation_recipe_sha256,omitempty"`
 }
 
 const keywordGuardPrompt = "Extend repository preview's existing metadata-language guard to inspect every keyword of each selected lexical candidate before Judge. If any selected candidate summary or keyword contains a non-Latin letter, preserve the lexical candidate result and return reason metadata_language_unvalidated without calling Judge. Inspect only the selected candidates. Preserve nil-Judge lexical behavior, query-language guards, and all existing English judgment/threshold/margin/truncation behavior."
@@ -51,6 +54,9 @@ const keywordGuardPrompt = "Extend repository preview's existing metadata-langua
 // TaskDefinition exposes only the new versioned registry. The frozen original
 // three TaskSpecs, BaseRevision, BasePaths and source pins remain independent.
 func TaskDefinition(id string) (Definition, bool) {
+	if id == humanizeOrdinalTaskV2 || id == uuidCanonicalTaskV2 {
+		return upstreamDefinitionV2(id), true
+	}
 	if id == humanizeOrdinalTask {
 		return humanizeOrdinalDefinition(), true
 	}
@@ -94,6 +100,9 @@ func TaskDefinition(id string) (Definition, bool) {
 }
 
 func definitionSpec(d Definition) Spec {
+	if d.ID == humanizeOrdinalTaskV2 || d.ID == uuidCanonicalTaskV2 {
+		return upstreamSpecV2(d)
+	}
 	if d.ID == humanizeOrdinalTask {
 		return humanizeOrdinalSpec(d)
 	}
@@ -120,9 +129,9 @@ func definitionSpec(d Definition) Spec {
 
 func definitionContractSource(id string) (string, bool) {
 	switch id {
-	case humanizeOrdinalTask:
+	case humanizeOrdinalTask, humanizeOrdinalTaskV2:
 		return humanizeOrdinalContractTests, true
-	case uuidCanonicalTask:
+	case uuidCanonicalTask, uuidCanonicalTaskV2:
 		return uuidCanonicalContractTests, true
 	case keywordGuardTask:
 		return keywordGuardContractTests, true
@@ -270,7 +279,7 @@ func supportedDefinitionSource(d Definition, source []byte) bool {
 			return false
 		}
 	}
-	if d.ID == uuidCanonicalTask {
+	if d.ID == uuidCanonicalTask || d.ID == uuidCanonicalTaskV2 {
 		return uuidCanonicalSupportedSource(source)
 	}
 	return true

@@ -58,9 +58,11 @@ profiles and tools.
 The six attempts in 52 or the four in each of 53 and 54 do not count internal LLM calls. One CLI invocation may contain
 multiple model requests and provider retries; those counts are currently
 `unknown`. The executor performs no retries, resume, or fallback. A started
-failure or timeout counts toward the pilot's limit. The executor owns only
-one attempt, so the maintainer must also enforce the complete plan's count and
-order and retain entries that were not executed.
+failure or timeout counts toward the pilot's limit. Maintainers still manage the
+complete count, order and unexecuted slots for preserved v1 plans. New external
+v2 tasks use a [shared parent ledger](fair-upstream-comparison.en.md) to enforce
+four ordered reservations across two child plans. This applies to one fixed
+ledger, not every process on the host, the account or internal provider calls.
 
 | Task ID | Requirement checked independently | Declared file scope |
 | --- | --- | --- |
@@ -122,6 +124,36 @@ across three repositories**: five actually attempted local tasks and two externa
 contracts. This is a separate scope from the eight-candidate local registry. Contract
 preparation and authored controls do not add attempts, answers or
 [2,400 final requests](golden-set-scale.en.md).
+
+55 adds v2 evaluation versions linked to the same two external logical requests.
+All conditions are exposed in actual stdin, and actor and independent verifier
+use matching original module language settings. Registry IDs increase by two;
+distinct verifier tasks remain seven. External model attempts, training labels
+and final eligibility remain zero. [Fair comparison preparation](fair-upstream-comparison.en.md)
+explains original language versus the Go 1.27.1 executable, unsupported source
+shapes and the scope of license checks.
+
+v2 execution requires `--parent-file`, `--parent-sha256`, `--budget-dir` and
+`--global-ordinal` alongside existing arguments. A slot is permanently consumed
+before model launch, including failures. The next slot opens only after checking
+start/final files and cleanup; unknown launch or completion states stop the
+ledger. Keep it outside every attempt directory. Plans and hashes must be frozen
+first; this preparation document is not a precommitted execution plan.
+
+```sh
+riido-taskrun --budget-status \
+  --parent-file /absolute/public/parent.json \
+  --parent-sha256 PARENT_SHA256 \
+  --budget-dir /absolute/private/shared-ledger
+```
+
+Inspection only reads an existing ledger; it launches no model and performs no
+reservation or repair. `reservations`, `durable_start_markers`,
+`terminal_receipts` and `launch_state_unknown` are separate counts. After a main
+start, unavailable ledger finalization produces diagnostic
+`parent_budget_finalization_failed` and exit 3. Model-attempt JSON is immutable
+and written first; a separate terminal receipt binds its bytes. An accepted JSON
+record alone therefore does not prove completion of the parent budget.
 
 ## What Laya predicted before coding outcomes
 

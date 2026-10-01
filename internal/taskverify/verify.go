@@ -63,24 +63,25 @@ type Check struct {
 }
 
 type Report struct {
-	Schema             string     `json:"schema"`
-	TaskID             string     `json:"task_id"`
-	SpecVersion        int        `json:"spec_version"`
-	SpecSHA256         string     `json:"spec_sha256"`
-	BaseRevision       string     `json:"base_revision"`
-	BaseSHA256         string     `json:"base_sha256"`
-	CandidateSHA256    string     `json:"candidate_sha256,omitempty"`
-	CandidateScope     string     `json:"candidate_scope"`
-	Status             string     `json:"status"`
-	Accepted           bool       `json:"accepted"`
-	Checks             []Check    `json:"checks"`
-	BaseFiles          []FileHash `json:"base_files"`
-	CandidateFiles     []FileHash `json:"candidate_files,omitempty"`
-	IndependentTests   int        `json:"independent_tests"`
-	ExecutionIsolated  bool       `json:"execution_isolated"`
-	CandidateTestsUsed bool       `json:"candidate_tests_used"`
-	AttributionFiles   []FileHash `json:"attribution_files,omitempty"`
-	AttributionSHA256  string     `json:"attribution_sha256,omitempty"`
+	Schema             string            `json:"schema"`
+	TaskID             string            `json:"task_id"`
+	SpecVersion        int               `json:"spec_version"`
+	SpecSHA256         string            `json:"spec_sha256"`
+	BaseRevision       string            `json:"base_revision"`
+	BaseSHA256         string            `json:"base_sha256"`
+	CandidateSHA256    string            `json:"candidate_sha256,omitempty"`
+	CandidateScope     string            `json:"candidate_scope"`
+	Status             string            `json:"status"`
+	Accepted           bool              `json:"accepted"`
+	Checks             []Check           `json:"checks"`
+	BaseFiles          []FileHash        `json:"base_files"`
+	CandidateFiles     []FileHash        `json:"candidate_files,omitempty"`
+	IndependentTests   int               `json:"independent_tests"`
+	ExecutionIsolated  bool              `json:"execution_isolated"`
+	CandidateTestsUsed bool              `json:"candidate_tests_used"`
+	AttributionFiles   []FileHash        `json:"attribution_files,omitempty"`
+	AttributionSHA256  string            `json:"attribution_sha256,omitempty"`
+	EvaluationRecipe   *EvaluationRecipe `json:"evaluation_recipe,omitempty"`
 }
 
 // Spec fixes the task contract before future model runs. It is not an outcome label.
@@ -93,6 +94,9 @@ type Spec struct {
 	Acceptance             []string `json:"acceptance"`
 	AcceptanceSourceSHA256 string   `json:"acceptance_source_sha256,omitempty"`
 	DefinitionSHA256       string   `json:"definition_sha256,omitempty"`
+	LogicalTaskID          string   `json:"logical_task_id,omitempty"`
+	PreviousTaskID         string   `json:"previous_task_id,omitempty"`
+	EvaluationRecipeSHA256 string   `json:"evaluation_recipe_sha256,omitempty"`
 }
 
 func TaskSpec(id string) (Spec, error) {
@@ -283,6 +287,13 @@ func Verify(ctx context.Context, req Request) (Report, error) {
 	r.SpecVersion = spec.Version
 	b, _ := json.Marshal(spec)
 	r.SpecSHA256 = digest(b)
+	if spec.EvaluationRecipeSHA256 != "" {
+		recipe, recipeErr := TaskEvaluationRecipe(req.TaskID)
+		if recipeErr != nil || recipe.RecipeSHA256 != spec.EvaluationRecipeSHA256 {
+			return r, fmt.Errorf("invalid_evaluation_recipe")
+		}
+		r.EvaluationRecipe = &recipe
+	}
 	if req.Timeout == 0 {
 		req.Timeout = DefaultTimeout
 	}

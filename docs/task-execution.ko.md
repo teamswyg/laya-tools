@@ -50,8 +50,10 @@
 52의 여섯 시도, 53·54 각각의 네 시도가 내부 LLM 호출 수라는 뜻은 아닙니다. 한 CLI 실행 안에 여러 모델
 요청이나 공급자 재시도가 있을 수 있으며, 현재 그 수는 `unknown`입니다.
 실행기는 자체 재시도·resume·fallback을 하지 않습니다. 시작한 실패·시간 초과도
-파일럿의 실행 수에 포함합니다. 실행기는 한 시도만 실행하므로, 관리자가
-계획 전체의 횟수·순서와 미실행 항목까지 관리해야 합니다.
+파일럿의 실행 수에 포함합니다. 기존 v1 계획은 관리자가 전체 횟수·순서와
+미실행 항목을 관리합니다. 새 외부 v2 작업은 [공유 parent ledger](fair-upstream-comparison.ko.md)가
+두 child plan의 네 예약과 순서를 함께 제한합니다. 하나의 고정 ledger에 대한
+한도이며 호스트·계정 전체 또는 provider 내부 호출의 전역 한도는 아닙니다.
 
 | 작업 ID | 독립 검사할 요구사항 | 검사하는 파일 범위 |
 | --- | --- | --- |
@@ -105,6 +107,33 @@ low로 각각 두 번, 총 네 CLI 시도**했습니다. 네 후보 모두 독�
 컴파일된 검사 작업은 기존 실제 시도 작업 다섯 개와 외부 두 개, 합계 **7개 작업·3개 저장소**이며,
 로컬 후보 registry 8개와 별도로 셉니다. 계약 준비와 대조군 검사는 실행 수·정답 수나
 [2,400개 최종 평가](golden-set-scale.ko.md)를 대신하지 않습니다.
+
+55에서는 외부 두 논리요청을 그대로 연결한 v2 평가 버전을 추가했습니다.
+전체 조건을 실제 stdin에 공개하고 actor와 독립 검사의 원본 `go.mod` 언어를
+일치시켰습니다. registry ID는 두 개 늘지만 고유 검사 작업은 여전히 7개입니다.
+외부 모델 실행·학습 라벨·최종 적격은 아직 0개입니다. [공정한 비교 준비](fair-upstream-comparison.ko.md)에
+원본 언어와 Go 1.27.1 실행 파일, 범위 밖 형태, 라이선스 검사 범위가 있습니다.
+
+v2 실행에는 기존 인자와 함께 `--parent-file`, `--parent-sha256`,
+`--budget-dir`, `--global-ordinal`이 필요합니다. 모델 시작 전에 슬롯을
+영구 소비하고 실패에도 돌려주지 않습니다. 시작·종료 파일과 정리 결과를
+확인한 뒤에만 다음 슬롯을 열며, 불명확한 시작·종료는 ledger를 중단합니다.
+ledger는 모든 실행 디렉터리 밖에 둡니다. 이 안내는 실제 실행 계획이 아니므로,
+실행할 계획과 해시를 별도로 먼저 봉인합니다.
+
+```sh
+riido-taskrun --budget-status \
+  --parent-file /absolute/public/parent.json \
+  --parent-sha256 PARENT_SHA256 \
+  --budget-dir /absolute/private/shared-ledger
+```
+
+이 조회는 기존 ledger만 읽으며 모델 실행·복구·예약을 하지 않습니다.
+`reservations`, `durable_start_markers`, `terminal_receipts`,
+`launch_state_unknown`을 따로 표시합니다. CLI는 시작 뒤 ledger 종료 증거를
+확인하지 못하면 진단 `parent_budget_finalization_failed`와 exit 3을 반환합니다.
+모델 실행 JSON은 먼저 쓴 불변 자료이고 별도 terminal receipt가 그 바이트를
+연결하므로 JSON의 accepted만으로 parent 완료를 판단하지 않습니다.
 
 ## 실제 작업 결과를 보기 전 Laya가 예측한 것
 
