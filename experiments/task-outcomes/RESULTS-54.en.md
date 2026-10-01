@@ -72,6 +72,14 @@ The test now checks that unknown outcome and actual isolated rejection on macOS
 separately. Product decisions, frozen specs, parser observations and original
 source files remain unchanged.
 
+The next macOS CI reached the default ten-minute timeout for the test package
+that aggregates multiple cold isolated compiler checks. Its current control had
+run for four seconds. Only the outer CI race-suite budget is explicitly twenty
+minutes, with a thirty-minute test-job cap. Each candidate still has the same
+45-second default / 60-second maximum verification timeout, ten-second inner
+test timeout, output limits, isolation and acceptance criteria. This change is
+not a model execution-time or performance observation.
+
 ## Scale and next steps
 
 Actual cumulative development observations now cover **5 distinct requests,

@@ -10,6 +10,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   test:
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -28,7 +29,9 @@ jobs:
           set -euo pipefail
           format_report=$(git ls-files -z '*.go' ':!:**/testdata/**' | xargs -0 gofmt -l)
           test -z "$format_report"
-      - run: go test -race ./...
+      # The suite runs multiple cold isolated compilers. This outer budget does
+      # not change any candidate's verifier timeout, sandbox or acceptance gate.
+      - run: go test -race -timeout=20m ./...
       - run: go vet ./...
       - name: Maintainer publication guards (offline, no training dependencies)
         run: python3 -m unittest discover -s scripts/training -p test_publication.py
