@@ -1,0 +1,57 @@
+{
+  "schema": "riido-shortclaim-nonlearned-execution-plan-v1",
+  "state": "nonlearned_diagnostics_only",
+  "input_sha256": "0fe97dd65606f4239ef9187f1fc4d9c8dc2fcaebf342612b2071220896b92df0",
+  "source_artifact_sha256": "b377343a64c019c205f69865286a21ce5d91dda3051c31aa5c69b75a40300559",
+  "preparation_plan_sha256": "c22feb5cd2da85e5b8420fec07b3023250a4915cae583cb2f71cf15941bf20f5",
+  "parents": 48,
+  "min_connected_groups": 15,
+  "min_possible_relative_gain": 0.05,
+  "cpu_threads": 1,
+  "benchmark_input_sha256": "bc41dc423139be4adebc0687ffd30237f22458ea58fccf58771e2003276b5155",
+  "benchmark_iterations": 2000,
+  "benchmark_cold_repeats": 3,
+  "benchmark_binary_sha256": "5f5463005f9dd482247a5f028af9c5c6e6d7cec2c04aa18e4605e8a45a278fb2",
+  "benchmark_build_go": "go1.27.1",
+  "benchmark_canonical_input_sha256": "1f1360b413e34986bcc2bfc69a601c1fb0f03c21921e091a2586a769b2b9161c",
+  "instrumented_profile_iterations": 10000,
+  "instrumented_profile_replays_max": 1,
+  "inference_rss_target_bytes": 33554432,
+  "inference_p95_target_ns": 1000000,
+  "fits_authorized_in_this_plan": 0,
+  "policy": "Freeze before official nonlearned score/performance collection. Original English finite developer diagnostics only: 48 parents, 12 prototypes, one author; connected groups are audited, not presumed. Known answerable checks stop at the first acceptable member; known no-answer checks exhaust every candidate including oracle; unknowns remain in original denominator but are excluded from utility/Top1/Top3. Top1/Top3 denominator is answerable requests; all candidates retained. Choose the strongest baseline on known-including-no-answer total checks with fixed declared kind order for ties; publish answerable-only oracle gap separately. Group failure does not permit fitting, splitting or reducing minimum15; unpartitioned nonlearned diagnostics may still be reported. No training roles, fitting, GPU, encoder, teacher, paid/model calls, protected-final reads, default activation or weight publication. Exact malformed/unknown-schema inputs return fixed errors; only valid out-of-rule-scope inputs use declared BM25 fallback (refinement of preparation-only fallback proposal). Runtime source manifest must match; source-only natural-language review is limited evidence. Performance: CPU scheduling GOMAXPROCS=1, 15-second child deadline, 60-second replay budget, each baseline three cold processes plus one warm process; five-stage warm timings have 20 warmups, 101 allocation probes and 2000 real-work samples per stage. One separate narrow-rule profiled replay with10000 repetitions is excluded from headline latency/RSS; only profile function aggregates may be public. No result cache. OS process RSS and GoHeapAlloc are separate. New data/numeric records budget64MiB, no new model artifacts. Performance targets are targets, not measured claims.",
+  "implementation_files": [
+    {
+      "path": "cmd/riido-shortclaim/main.go",
+      "sha256": "1c67c764c0faa10ab1e745593366323ffeb0302da262db85fb6aaf90075d0bd3"
+    },
+    {
+      "path": "cmd/riido-shortclaim/bench.go",
+      "sha256": "97c6d1df360d48a76cd742a3e747c1210231cf3da3f1063e0a06d9827fa77dc2"
+    },
+    {
+      "path": "cmd/riido-behavioraudit/main.go",
+      "sha256": "62941cc5ced3a98a0d42a9d8c0a8fa896bbb872baaf7756815beeba0f1cf4ce1"
+    },
+    {
+      "path": "cmd/riido-shortperf/main.go",
+      "sha256": "1cfb13b524f43fddabfec767671721d740b133dbfa21533ec3023a9ed071a980"
+    },
+    {
+      "path": "pkg/shortclaim/input.go",
+      "sha256": "3b296ca0835c4397af7444a2f956aeae59638dd350cbc861bf36dd81bc210ecb"
+    },
+    {
+      "path": "pkg/shortclaim/baseline.go",
+      "sha256": "ffb9f29ddc911d16b03a07cfe5c91bb99d8ae7f1d8aa1ea51edd651aee4bb00e"
+    },
+    {
+      "path": "internal/behaviorprobe/data.go",
+      "sha256": "b377343a64c019c205f69865286a21ce5d91dda3051c31aa5c69b75a40300559"
+    },
+    {
+      "path": "internal/lexicalhint/features.go",
+      "sha256": "20224bcab1ea2d6e5203a2efb7772adef0786eea67f43a003a5b2db896804557"
+    }
+  ]
+}

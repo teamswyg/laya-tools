@@ -39,6 +39,12 @@ jobs:
         run: python3 -m unittest discover -s scripts/training -p "test_pdca_*.py"
       - name: Policy packages have no native runtime dependency
         run: CGO_ENABLED=0 go test ./pkg/...
+      - name: Bounded short-claim preview (Go CPU, no encoder)
+        shell: bash
+        run: |
+          CGO_ENABLED=0 go build -trimpath -o bin/riido-shortclaim ./cmd/riido-shortclaim
+          ./bin/riido-shortclaim --baseline lexical_ordered < examples/shortclaim/order.json
+          ./bin/riido-shortclaim --baseline narrow_rule < examples/shortclaim/rule.json
       - run: go build -trimpath -o bin/riidolaya ./cmd/riidolaya
       - name: Static embedding source and Go parity (CPU, no Python runtime)
         shell: bash
