@@ -1,0 +1,427 @@
+{
+  "schema": "riido-scoped-property-probes-v1",
+  "origin": "original_authored_quoted_property_drafts_56c_apache2_preparation_only",
+  "caption_review": "pending",
+  "parents": [
+    {
+      "id": "scope56c-p1-typed56b-p05-1",
+      "original_parent_id": "typed56b-p05-1",
+      "property_id": "quoted-comma-content-v1",
+      "property_version": 1,
+      "truth_table_sha256": "90a2c451617bce67bd5c3aad68a2236f6ff67c8520f9f173e83e4603563504bd",
+      "caption_review": "pending",
+      "request": "ASCII without backslashes; raw\u003c=128 bytes, tokens\u003c=8, decoded bytes/token\u003c=8. Preserve commas inside balanced double quotes, strip quotes, split outside commas, preserve empties. Return successful Count/Tokens; never panic.",
+      "candidates": [
+        {
+          "id": "candidate-0",
+          "text": "Strip double quotes, split commas outside balanced quotes, preserve decoded content and empty fields. Within bounded ASCII without backslashes return Count/Tokens and success; never panic.",
+          "source_id": "quoted-correct",
+          "code_sha256": "0d247adec3e07c51c6a56981b31b0fb2657c9b7ce0e373ea23d2c35f69a784dd",
+          "source_bundle_sha256": "a7236f6ac88a90b004d39ae567a61fb9a7f72b8867fbcf55da3cafe41d0da8f6",
+          "caption_review": "pending"
+        },
+        {
+          "id": "candidate-1",
+          "text": "Strip double quotes, split commas outside balanced quotes, preserve decoded content and empty fields. Within bounded ASCII without backslashes return Count/Tokens and success; never panic.",
+          "source_id": "quoted-inside-escape",
+          "code_sha256": "867cc9065a1ddb3fbb674199afb4124e3d3422f702a36502b346ca9773f960ff",
+          "source_bundle_sha256": "7dd087c145e6461eb99a32cf70017e28093be4521054669d23ef96de616b65f2",
+          "caption_review": "pending"
+        },
+        {
+          "id": "candidate-2",
+          "text": "Split every comma, retaining quote bytes and empty fields. Retained quotes count toward field limits; overflow errors. Otherwise return literal fields/Count without interpreting quotes; never panic.",
+          "source_id": "quoted-literal-comma",
+          "code_sha256": "1c791c4b8ed6473003aeea90b467b236f8a1d065fefe9a3ce1601a73427d706c",
+          "source_bundle_sha256": "3cbaeca5a7237646756f11357b5c813401259366d22975c9cd3e4e600b9192a6",
+          "caption_review": "pending"
+        }
+      ]
+    },
+    {
+      "id": "scope56c-p1-typed56b-p05-2",
+      "original_parent_id": "typed56b-p05-2",
+      "property_id": "quoted-comma-content-v1",
+      "property_version": 1,
+      "truth_table_sha256": "90a2c451617bce67bd5c3aad68a2236f6ff67c8520f9f173e83e4603563504bd",
+      "caption_review": "pending",
+      "request": "ASCII without backslashes; raw\u003c=128 bytes, tokens\u003c=8, decoded bytes/token\u003c=8. Preserve commas inside balanced double quotes, strip quotes, split outside commas, preserve empties. Return successful Count/Tokens; never panic.",
+      "candidates": [
+        {
+          "id": "candidate-0",
+          "text": "Strip double quotes, split commas outside balanced quotes, preserve decoded content and empty fields. Within bounded ASCII without backslashes return Count/Tokens and success; never panic.",
+          "source_id": "quoted-correct",
+          "code_sha256": "0d247adec3e07c51c6a56981b31b0fb2657c9b7ce0e373ea23d2c35f69a784dd",
+          "source_bundle_sha256": "a7236f6ac88a90b004d39ae567a61fb9a7f72b8867fbcf55da3cafe41d0da8f6",
+          "caption_review": "pending"
+        },
+        {
+          "id": "candidate-1",
+          "text": "Strip double quotes, split commas outside balanced quotes, preserve decoded content and empty fields. Within bounded ASCII without backslashes return Count/Tokens and success; never panic.",
+          "source_id": "quoted-inside-escape",
+          "code_sha256": "867cc9065a1ddb3fbb674199afb4124e3d3422f702a36502b346ca9773f960ff",
+          "source_bundle_sha256": "7dd087c145e6461eb99a32cf70017e28093be4521054669d23ef96de616b65f2",
+          "caption_review": "pending"
+        },
+        {
+          "id": "candidate-2",
+          "text": "Strip double quotes, split commas outside balanced quotes, preserve decoded content and empty fields. Within bounded ASCII without backslashes return Count/Tokens and success; never panic.",
+          "source_id": "quoted-partial-error",
+          "code_sha256": "539b51fe04d8955f7dc0ccf1bb3539c84c09212e589cb08468acf4f9686baa6e",
+          "source_bundle_sha256": "4ce3add35c34a10dfd87f979968b5fbf20bce17cbb12ff3cae3793b297454bea",
+          "caption_review": "pending"
+        }
+      ]
+    },
+    {
+      "id": "scope56c-p1-typed56b-p05-3",
+      "original_parent_id": "typed56b-p05-3",
+      "property_id": "quoted-comma-content-v1",
+      "property_version": 1,
+      "truth_table_sha256": "90a2c451617bce67bd5c3aad68a2236f6ff67c8520f9f173e83e4603563504bd",
+      "caption_review": "pending",
+      "request": "ASCII without backslashes; raw\u003c=128 bytes, tokens\u003c=8, decoded bytes/token\u003c=8. Preserve commas inside balanced double quotes, strip quotes, split outside commas, preserve empties. Return successful Count/Tokens; never panic.",
+      "candidates": [
+        {
+          "id": "candidate-0",
+          "text": "Split every comma, retaining quote bytes and empty fields. Retained quotes count toward field limits; overflow errors. Otherwise return literal fields/Count without interpreting quotes; never panic.",
+          "source_id": "quoted-literal-comma",
+          "code_sha256": "1c791c4b8ed6473003aeea90b467b236f8a1d065fefe9a3ce1601a73427d706c",
+          "source_bundle_sha256": "3cbaeca5a7237646756f11357b5c813401259366d22975c9cd3e4e600b9192a6",
+          "caption_review": "pending"
+        },
+        {
+          "id": "candidate-1",
+          "text": "Strip double quotes, split commas outside balanced quotes, preserve decoded content and empty fields. Within bounded ASCII without backslashes return Count/Tokens and success; never panic.",
+          "source_id": "quoted-inside-escape",
+          "code_sha256": "867cc9065a1ddb3fbb674199afb4124e3d3422f702a36502b346ca9773f960ff",
+          "source_bundle_sha256": "7dd087c145e6461eb99a32cf70017e28093be4521054669d23ef96de616b65f2",
+          "caption_review": "pending"
+        },
+        {
+          "id": "candidate-2",
+          "text": "Strip double quotes, split commas outside balanced quotes, preserve decoded content and empty fields. Within bounded ASCII without backslashes return Count/Tokens and success; never panic.",
+          "source_id": "quoted-partial-error",
+          "code_sha256": "539b51fe04d8955f7dc0ccf1bb3539c84c09212e589cb08468acf4f9686baa6e",
+          "source_bundle_sha256": "4ce3add35c34a10dfd87f979968b5fbf20bce17cbb12ff3cae3793b297454bea",
+          "caption_review": "pending"
+        }
+      ]
+    },
+    {
+      "id": "scope56c-p1-typed56b-p05-4",
+      "original_parent_id": "typed56b-p05-4",
+      "property_id": "quoted-comma-content-v1",
+      "property_version": 1,
+      "truth_table_sha256": "90a2c451617bce67bd5c3aad68a2236f6ff67c8520f9f173e83e4603563504bd",
+      "caption_review": "pending",
+      "request": "ASCII without backslashes; raw\u003c=128 bytes, tokens\u003c=8, decoded bytes/token\u003c=8. Preserve commas inside balanced double quotes, strip quotes, split outside commas, preserve empties. Return successful Count/Tokens; never panic.",
+      "candidates": [
+        {
+          "id": "candidate-0",
+          "text": "Strip double quotes, split commas outside balanced quotes, preserve decoded content and empty fields. Within bounded ASCII without backslashes return Count/Tokens and success; never panic.",
+          "source_id": "quoted-correct",
+          "code_sha256": "0d247adec3e07c51c6a56981b31b0fb2657c9b7ce0e373ea23d2c35f69a784dd",
+          "source_bundle_sha256": "a7236f6ac88a90b004d39ae567a61fb9a7f72b8867fbcf55da3cafe41d0da8f6",
+          "caption_review": "pending"
+        },
+        {
+          "id": "candidate-1",
+          "text": "Split every comma, retaining quote bytes and empty fields. Retained quotes count toward field limits; overflow errors. Otherwise return literal fields/Count without interpreting quotes; never panic.",
+          "source_id": "quoted-literal-comma",
+          "code_sha256": "1c791c4b8ed6473003aeea90b467b236f8a1d065fefe9a3ce1601a73427d706c",
+          "source_bundle_sha256": "3cbaeca5a7237646756f11357b5c813401259366d22975c9cd3e4e600b9192a6",
+          "caption_review": "pending"
+        },
+        {
+          "id": "candidate-2",
+          "text": "Strip double quotes, split commas outside balanced quotes, preserve decoded content and empty fields. Within bounded ASCII without backslashes return Count/Tokens and success; never panic.",
+          "source_id": "quoted-partial-error",
+          "code_sha256": "539b51fe04d8955f7dc0ccf1bb3539c84c09212e589cb08468acf4f9686baa6e",
+          "source_bundle_sha256": "4ce3add35c34a10dfd87f979968b5fbf20bce17cbb12ff3cae3793b297454bea",
+          "caption_review": "pending"
+        }
+      ]
+    },
+    {
+      "id": "scope56c-p2-typed56b-p05-1",
+      "original_parent_id": "typed56b-p05-1",
+      "property_id": "outside-escaped-comma-v1",
+      "property_version": 1,
+      "truth_table_sha256": "5cbe3b116a4f92f7896b241433a65836c5f7f7b608f587e31603b98f3d14caa0",
+      "caption_review": "pending",
+      "request": "ASCII without quotes/trailing escapes; raw\u003c=128 bytes, tokens\u003c=8, decoded bytes/token\u003c=8. Backslash consumes next byte as content; split unescaped commas, preserve empty fields. Return successful Count/Tokens; never panic.",
+      "candidates": [
+        {
+          "id": "candidate-0",
+          "text": "Remove an escape backslash and keep the next byte as content; split unescaped commas, preserve empties. Bounded ASCII without quotes/trailing escapes returns Count/Tokens, success; never panic.",
+          "source_id": "quoted-correct",
+          "code_sha256": "0d247adec3e07c51c6a56981b31b0fb2657c9b7ce0e373ea23d2c35f69a784dd",
+          "source_bundle_sha256": "a7236f6ac88a90b004d39ae567a61fb9a7f72b8867fbcf55da3cafe41d0da8f6",
+          "caption_review": "pending"
+        },
+        {
+          "id": "candidate-1",
+          "text": "Keep outside-quote backslashes literally, split every comma and preserve empties. Retained backslashes count toward field limits; return Count/Tokens or bounds error on overflow. Never panic.",
+          "source_id": "quoted-inside-escape",
+          "code_sha256": "867cc9065a1ddb3fbb674199afb4124e3d3422f702a36502b346ca9773f960ff",
+          "source_bundle_sha256": "7dd087c145e6461eb99a32cf70017e28093be4521054669d23ef96de616b65f2",
+          "caption_review": "pending"
+        },
+        {
+          "id": "candidate-2",
+          "text": "Keep backslashes literally, split every comma and preserve empties. Retained backslashes count toward field limits; return Count/Tokens or bounds error on overflow. Never panic.",
+          "source_id": "quoted-literal-comma",
+          "code_sha256": "1c791c4b8ed6473003aeea90b467b236f8a1d065fefe9a3ce1601a73427d706c",
+          "source_bundle_sha256": "3cbaeca5a7237646756f11357b5c813401259366d22975c9cd3e4e600b9192a6",
+          "caption_review": "pending"
+        }
+      ]
+    },
+    {
+      "id": "scope56c-p2-typed56b-p05-2",
+      "original_parent_id": "typed56b-p05-2",
+      "property_id": "outside-escaped-comma-v1",
+      "property_version": 1,
+      "truth_table_sha256": "5cbe3b116a4f92f7896b241433a65836c5f7f7b608f587e31603b98f3d14caa0",
+      "caption_review": "pending",
+      "request": "ASCII without quotes/trailing escapes; raw\u003c=128 bytes, tokens\u003c=8, decoded bytes/token\u003c=8. Backslash consumes next byte as content; split unescaped commas, preserve empty fields. Return successful Count/Tokens; never panic.",
+      "candidates": [
+        {
+          "id": "candidate-0",
+          "text": "Remove an escape backslash and keep the next byte as content; split unescaped commas, preserve empties. Bounded ASCII without quotes/trailing escapes returns Count/Tokens, success; never panic.",
+          "source_id": "quoted-correct",
+          "code_sha256": "0d247adec3e07c51c6a56981b31b0fb2657c9b7ce0e373ea23d2c35f69a784dd",
+          "source_bundle_sha256": "a7236f6ac88a90b004d39ae567a61fb9a7f72b8867fbcf55da3cafe41d0da8f6",
+          "caption_review": "pending"
+        },
+        {
+          "id": "candidate-1",
+          "text": "Keep outside-quote backslashes literally, split every comma and preserve empties. Retained backslashes count toward field limits; return Count/Tokens or bounds error on overflow. Never panic.",
+          "source_id": "quoted-inside-escape",
+          "code_sha256": "867cc9065a1ddb3fbb674199afb4124e3d3422f702a36502b346ca9773f960ff",
+          "source_bundle_sha256": "7dd087c145e6461eb99a32cf70017e28093be4521054669d23ef96de616b65f2",
+          "caption_review": "pending"
+        },
+        {
+          "id": "candidate-2",
+          "text": "Remove an escape backslash and keep the next byte as content; split unescaped commas, preserve empties. Bounded ASCII without quotes/trailing escapes returns Count/Tokens, success; never panic.",
+          "source_id": "quoted-partial-error",
+          "code_sha256": "539b51fe04d8955f7dc0ccf1bb3539c84c09212e589cb08468acf4f9686baa6e",
+          "source_bundle_sha256": "4ce3add35c34a10dfd87f979968b5fbf20bce17cbb12ff3cae3793b297454bea",
+          "caption_review": "pending"
+        }
+      ]
+    },
+    {
+      "id": "scope56c-p2-typed56b-p05-3",
+      "original_parent_id": "typed56b-p05-3",
+      "property_id": "outside-escaped-comma-v1",
+      "property_version": 1,
+      "truth_table_sha256": "5cbe3b116a4f92f7896b241433a65836c5f7f7b608f587e31603b98f3d14caa0",
+      "caption_review": "pending",
+      "request": "ASCII without quotes/trailing escapes; raw\u003c=128 bytes, tokens\u003c=8, decoded bytes/token\u003c=8. Backslash consumes next byte as content; split unescaped commas, preserve empty fields. Return successful Count/Tokens; never panic.",
+      "candidates": [
+        {
+          "id": "candidate-0",
+          "text": "Keep backslashes literally, split every comma and preserve empties. Retained backslashes count toward field limits; return Count/Tokens or bounds error on overflow. Never panic.",
+          "source_id": "quoted-literal-comma",
+          "code_sha256": "1c791c4b8ed6473003aeea90b467b236f8a1d065fefe9a3ce1601a73427d706c",
+          "source_bundle_sha256": "3cbaeca5a7237646756f11357b5c813401259366d22975c9cd3e4e600b9192a6",
+          "caption_review": "pending"
+        },
+        {
+          "id": "candidate-1",
+          "text": "Keep outside-quote backslashes literally, split every comma and preserve empties. Retained backslashes count toward field limits; return Count/Tokens or bounds error on overflow. Never panic.",
+          "source_id": "quoted-inside-escape",
+          "code_sha256": "867cc9065a1ddb3fbb674199afb4124e3d3422f702a36502b346ca9773f960ff",
+          "source_bundle_sha256": "7dd087c145e6461eb99a32cf70017e28093be4521054669d23ef96de616b65f2",
+          "caption_review": "pending"
+        },
+        {
+          "id": "candidate-2",
+          "text": "Remove an escape backslash and keep the next byte as content; split unescaped commas, preserve empties. Bounded ASCII without quotes/trailing escapes returns Count/Tokens, success; never panic.",
+          "source_id": "quoted-partial-error",
+          "code_sha256": "539b51fe04d8955f7dc0ccf1bb3539c84c09212e589cb08468acf4f9686baa6e",
+          "source_bundle_sha256": "4ce3add35c34a10dfd87f979968b5fbf20bce17cbb12ff3cae3793b297454bea",
+          "caption_review": "pending"
+        }
+      ]
+    },
+    {
+      "id": "scope56c-p2-typed56b-p05-4",
+      "original_parent_id": "typed56b-p05-4",
+      "property_id": "outside-escaped-comma-v1",
+      "property_version": 1,
+      "truth_table_sha256": "5cbe3b116a4f92f7896b241433a65836c5f7f7b608f587e31603b98f3d14caa0",
+      "caption_review": "pending",
+      "request": "ASCII without quotes/trailing escapes; raw\u003c=128 bytes, tokens\u003c=8, decoded bytes/token\u003c=8. Backslash consumes next byte as content; split unescaped commas, preserve empty fields. Return successful Count/Tokens; never panic.",
+      "candidates": [
+        {
+          "id": "candidate-0",
+          "text": "Remove an escape backslash and keep the next byte as content; split unescaped commas, preserve empties. Bounded ASCII without quotes/trailing escapes returns Count/Tokens, success; never panic.",
+          "source_id": "quoted-correct",
+          "code_sha256": "0d247adec3e07c51c6a56981b31b0fb2657c9b7ce0e373ea23d2c35f69a784dd",
+          "source_bundle_sha256": "a7236f6ac88a90b004d39ae567a61fb9a7f72b8867fbcf55da3cafe41d0da8f6",
+          "caption_review": "pending"
+        },
+        {
+          "id": "candidate-1",
+          "text": "Keep backslashes literally, split every comma and preserve empties. Retained backslashes count toward field limits; return Count/Tokens or bounds error on overflow. Never panic.",
+          "source_id": "quoted-literal-comma",
+          "code_sha256": "1c791c4b8ed6473003aeea90b467b236f8a1d065fefe9a3ce1601a73427d706c",
+          "source_bundle_sha256": "3cbaeca5a7237646756f11357b5c813401259366d22975c9cd3e4e600b9192a6",
+          "caption_review": "pending"
+        },
+        {
+          "id": "candidate-2",
+          "text": "Remove an escape backslash and keep the next byte as content; split unescaped commas, preserve empties. Bounded ASCII without quotes/trailing escapes returns Count/Tokens, success; never panic.",
+          "source_id": "quoted-partial-error",
+          "code_sha256": "539b51fe04d8955f7dc0ccf1bb3539c84c09212e589cb08468acf4f9686baa6e",
+          "source_bundle_sha256": "4ce3add35c34a10dfd87f979968b5fbf20bce17cbb12ff3cae3793b297454bea",
+          "caption_review": "pending"
+        }
+      ]
+    },
+    {
+      "id": "scope56c-p3-typed56b-p05-1",
+      "original_parent_id": "typed56b-p05-1",
+      "property_id": "syntax-zero-output-v1",
+      "property_version": 1,
+      "truth_table_sha256": "3a118f1a2db452cfec79628405d863ef8a4c5a37687b21fe285a3379eeb147f0",
+      "caption_review": "pending",
+      "request": "ASCII raw\u003c=128 bytes, tokens\u003c=8, decoded bytes/token\u003c=8: unclosed quotes or trailing escapes must return exact syntax error, Count=0 and all eight Tokens empty; never panic.",
+      "candidates": [
+        {
+          "id": "candidate-0",
+          "text": "For bounded ASCII syntax errors return exact syntax error, Count=0 and all eight Tokens empty, without panic.",
+          "source_id": "quoted-correct",
+          "code_sha256": "0d247adec3e07c51c6a56981b31b0fb2657c9b7ce0e373ea23d2c35f69a784dd",
+          "source_bundle_sha256": "a7236f6ac88a90b004d39ae567a61fb9a7f72b8867fbcf55da3cafe41d0da8f6",
+          "caption_review": "pending"
+        },
+        {
+          "id": "candidate-1",
+          "text": "Unclosed quotes/trailing escapes inside quotes return syntax error with zero output. Outside quotes retain backslashes literally; trailing outside escapes may return success. Never panic.",
+          "source_id": "quoted-inside-escape",
+          "code_sha256": "867cc9065a1ddb3fbb674199afb4124e3d3422f702a36502b346ca9773f960ff",
+          "source_bundle_sha256": "7dd087c145e6461eb99a32cf70017e28093be4521054669d23ef96de616b65f2",
+          "caption_review": "pending"
+        },
+        {
+          "id": "candidate-2",
+          "text": "Treat quotes/backslashes literally, split every comma and retain field bytes. Within retained-field limits return success, Count/Tokens, including unclosed quotes/trailing escapes; never panic.",
+          "source_id": "quoted-literal-comma",
+          "code_sha256": "1c791c4b8ed6473003aeea90b467b236f8a1d065fefe9a3ce1601a73427d706c",
+          "source_bundle_sha256": "3cbaeca5a7237646756f11357b5c813401259366d22975c9cd3e4e600b9192a6",
+          "caption_review": "pending"
+        }
+      ]
+    },
+    {
+      "id": "scope56c-p3-typed56b-p05-2",
+      "original_parent_id": "typed56b-p05-2",
+      "property_id": "syntax-zero-output-v1",
+      "property_version": 1,
+      "truth_table_sha256": "3a118f1a2db452cfec79628405d863ef8a4c5a37687b21fe285a3379eeb147f0",
+      "caption_review": "pending",
+      "request": "ASCII raw\u003c=128 bytes, tokens\u003c=8, decoded bytes/token\u003c=8: unclosed quotes or trailing escapes must return exact syntax error, Count=0 and all eight Tokens empty; never panic.",
+      "candidates": [
+        {
+          "id": "candidate-0",
+          "text": "For bounded ASCII syntax errors return exact syntax error, Count=0 and all eight Tokens empty, without panic.",
+          "source_id": "quoted-correct",
+          "code_sha256": "0d247adec3e07c51c6a56981b31b0fb2657c9b7ce0e373ea23d2c35f69a784dd",
+          "source_bundle_sha256": "a7236f6ac88a90b004d39ae567a61fb9a7f72b8867fbcf55da3cafe41d0da8f6",
+          "caption_review": "pending"
+        },
+        {
+          "id": "candidate-1",
+          "text": "Unclosed quotes/trailing escapes inside quotes return syntax error with zero output. Outside quotes retain backslashes literally; trailing outside escapes may return success. Never panic.",
+          "source_id": "quoted-inside-escape",
+          "code_sha256": "867cc9065a1ddb3fbb674199afb4124e3d3422f702a36502b346ca9773f960ff",
+          "source_bundle_sha256": "7dd087c145e6461eb99a32cf70017e28093be4521054669d23ef96de616b65f2",
+          "caption_review": "pending"
+        },
+        {
+          "id": "candidate-2",
+          "text": "Report syntax errors while retaining parsed and unfinished field content and partial Count. Unused Tokens remain empty; never panic.",
+          "source_id": "quoted-partial-error",
+          "code_sha256": "539b51fe04d8955f7dc0ccf1bb3539c84c09212e589cb08468acf4f9686baa6e",
+          "source_bundle_sha256": "4ce3add35c34a10dfd87f979968b5fbf20bce17cbb12ff3cae3793b297454bea",
+          "caption_review": "pending"
+        }
+      ]
+    },
+    {
+      "id": "scope56c-p3-typed56b-p05-3",
+      "original_parent_id": "typed56b-p05-3",
+      "property_id": "syntax-zero-output-v1",
+      "property_version": 1,
+      "truth_table_sha256": "3a118f1a2db452cfec79628405d863ef8a4c5a37687b21fe285a3379eeb147f0",
+      "caption_review": "pending",
+      "request": "ASCII raw\u003c=128 bytes, tokens\u003c=8, decoded bytes/token\u003c=8: unclosed quotes or trailing escapes must return exact syntax error, Count=0 and all eight Tokens empty; never panic.",
+      "candidates": [
+        {
+          "id": "candidate-0",
+          "text": "Treat quotes/backslashes literally, split every comma and retain field bytes. Within retained-field limits return success, Count/Tokens, including unclosed quotes/trailing escapes; never panic.",
+          "source_id": "quoted-literal-comma",
+          "code_sha256": "1c791c4b8ed6473003aeea90b467b236f8a1d065fefe9a3ce1601a73427d706c",
+          "source_bundle_sha256": "3cbaeca5a7237646756f11357b5c813401259366d22975c9cd3e4e600b9192a6",
+          "caption_review": "pending"
+        },
+        {
+          "id": "candidate-1",
+          "text": "Unclosed quotes/trailing escapes inside quotes return syntax error with zero output. Outside quotes retain backslashes literally; trailing outside escapes may return success. Never panic.",
+          "source_id": "quoted-inside-escape",
+          "code_sha256": "867cc9065a1ddb3fbb674199afb4124e3d3422f702a36502b346ca9773f960ff",
+          "source_bundle_sha256": "7dd087c145e6461eb99a32cf70017e28093be4521054669d23ef96de616b65f2",
+          "caption_review": "pending"
+        },
+        {
+          "id": "candidate-2",
+          "text": "Report syntax errors while retaining parsed and unfinished field content and partial Count. Unused Tokens remain empty; never panic.",
+          "source_id": "quoted-partial-error",
+          "code_sha256": "539b51fe04d8955f7dc0ccf1bb3539c84c09212e589cb08468acf4f9686baa6e",
+          "source_bundle_sha256": "4ce3add35c34a10dfd87f979968b5fbf20bce17cbb12ff3cae3793b297454bea",
+          "caption_review": "pending"
+        }
+      ]
+    },
+    {
+      "id": "scope56c-p3-typed56b-p05-4",
+      "original_parent_id": "typed56b-p05-4",
+      "property_id": "syntax-zero-output-v1",
+      "property_version": 1,
+      "truth_table_sha256": "3a118f1a2db452cfec79628405d863ef8a4c5a37687b21fe285a3379eeb147f0",
+      "caption_review": "pending",
+      "request": "ASCII raw\u003c=128 bytes, tokens\u003c=8, decoded bytes/token\u003c=8: unclosed quotes or trailing escapes must return exact syntax error, Count=0 and all eight Tokens empty; never panic.",
+      "candidates": [
+        {
+          "id": "candidate-0",
+          "text": "For bounded ASCII syntax errors return exact syntax error, Count=0 and all eight Tokens empty, without panic.",
+          "source_id": "quoted-correct",
+          "code_sha256": "0d247adec3e07c51c6a56981b31b0fb2657c9b7ce0e373ea23d2c35f69a784dd",
+          "source_bundle_sha256": "a7236f6ac88a90b004d39ae567a61fb9a7f72b8867fbcf55da3cafe41d0da8f6",
+          "caption_review": "pending"
+        },
+        {
+          "id": "candidate-1",
+          "text": "Treat quotes/backslashes literally, split every comma and retain field bytes. Within retained-field limits return success, Count/Tokens, including unclosed quotes/trailing escapes; never panic.",
+          "source_id": "quoted-literal-comma",
+          "code_sha256": "1c791c4b8ed6473003aeea90b467b236f8a1d065fefe9a3ce1601a73427d706c",
+          "source_bundle_sha256": "3cbaeca5a7237646756f11357b5c813401259366d22975c9cd3e4e600b9192a6",
+          "caption_review": "pending"
+        },
+        {
+          "id": "candidate-2",
+          "text": "Report syntax errors while retaining parsed and unfinished field content and partial Count. Unused Tokens remain empty; never panic.",
+          "source_id": "quoted-partial-error",
+          "code_sha256": "539b51fe04d8955f7dc0ccf1bb3539c84c09212e589cb08468acf4f9686baa6e",
+          "source_bundle_sha256": "4ce3add35c34a10dfd87f979968b5fbf20bce17cbb12ff3cae3793b297454bea",
+          "caption_review": "pending"
+        }
+      ]
+    }
+  ]
+}

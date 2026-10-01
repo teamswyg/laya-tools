@@ -1,0 +1,117 @@
+{
+  "schema": "riido-scoped-property-preparation-v1",
+  "state": "proposals_only_captions_pending",
+  "go_version": "go1.27.1",
+  "go_max_procs": 1,
+  "go_heap_soft_limit_bytes": 268435456,
+  "source_input_sha256": "0d2bf6980353cefc4327af165c0f60a6455c1feea920f354dc621019ce3ed21e",
+  "proposal_bytes_sha256": "8832ed777ecb18c9d250e1fca112030a75260b9b3a901d460732bb8b5520978b",
+  "proposal_bytes": 26242,
+  "proposal_rows": 12,
+  "candidate_descriptions": 36,
+  "properties": 3,
+  "literal_definitions": 9,
+  "caption_review": "pending",
+  "candidate_evaluations": 0,
+  "truth_labels_assigned": 0,
+  "groups_assigned": 0,
+  "roles_assigned": 0,
+  "fits": 0,
+  "model_calls": 0,
+  "ranking_runs": 0,
+  "performance_runs": 0,
+  "protected_final_read": false,
+  "training_ready": false,
+  "official_execution_frozen": false,
+  "compiled_sources": [
+    {
+      "path": "cmd/riido-scopeprep/main.go",
+      "sha256": "3be9dbecea7c9ebfd2d747a642a400dac4fa6fa3c578f3863e735bc9ab02dca4"
+    },
+    {
+      "path": "internal/behaviorprobe/audit_provenance.go",
+      "sha256": "912b01fea8c0e2f34a7c6c29bf39f6895a2163e937682a44a1323464171efd0f"
+    },
+    {
+      "path": "internal/behaviorprobe/data.go",
+      "sha256": "b377343a64c019c205f69865286a21ce5d91dda3051c31aa5c69b75a40300559"
+    },
+    {
+      "path": "internal/lexicalhint/audit_provenance.go",
+      "sha256": "06ee313c49a308a17ae45113eee867492ce81f0401f9b1a690665f4032ec4785"
+    },
+    {
+      "path": "internal/lexicalhint/features.go",
+      "sha256": "20224bcab1ea2d6e5203a2efb7772adef0786eea67f43a003a5b2db896804557"
+    },
+    {
+      "path": "internal/scopedproperty/dataset.go",
+      "sha256": "c30110ce59596bb0d0d1714349ecc434042986f31a41a52195373ad23862417f"
+    },
+    {
+      "path": "internal/scopedproperty/spec.go",
+      "sha256": "28cd0f21c3318e4b9df5cb74bfacb6f89b4b2e70dc24cbdf86c3440de0a04f9a"
+    },
+    {
+      "path": "internal/typedbehavior/audit.go",
+      "sha256": "a5db68399561a28e91710eae9936c9976b8457eba6f91979cc2fe54cc574cc00"
+    },
+    {
+      "path": "internal/typedbehavior/dataset.go",
+      "sha256": "28c63979603e9e231827ca3e80f7a8367da5dc4ea5c7afea72c0a91176227b73"
+    },
+    {
+      "path": "internal/typedbehavior/fixtures.go",
+      "sha256": "6ad2707048502b82d27d839bb053154b6c284eef703e89b5386ac6672ac036e0"
+    },
+    {
+      "path": "internal/typedbehavior/flow.go",
+      "sha256": "ea7f09d31e15e561173932ac0bb61db17746cdce929e0f976d97994d282d898b"
+    },
+    {
+      "path": "internal/typedbehavior/groups.go",
+      "sha256": "76745eb94700b6e7545b9ba35e5b4ae5c8b714c31fd2626ccfabd9da63b1e363"
+    },
+    {
+      "path": "internal/typedbehavior/property_observation.go",
+      "sha256": "aad96a8883026b3ca1b1191a083cd43efe31aec211e8284fe2445805d14c5270"
+    },
+    {
+      "path": "internal/typedbehavior/source.go",
+      "sha256": "5bdb4dd6509c1913bb1b728575b0a92e4c79ac8db0e2851b44d2ab6f3c1ca914"
+    },
+    {
+      "path": "internal/typedbehavior/spec.go",
+      "sha256": "013a486ecc1d28913c2dda8cf74b3068dcb193d8b77e534dc62e2f87b9ee6b80"
+    },
+    {
+      "path": "internal/typedbehavior/state.go",
+      "sha256": "35324ed595bcf384c484f33d98c6866164bebb2b636986ee8ea51bb979bdad7c"
+    },
+    {
+      "path": "pkg/shortclaim/audit_provenance.go",
+      "sha256": "67a4db28dcacfde4e7f4efac08153010e5a576eef50aad9179ac16671f7f251a"
+    },
+    {
+      "path": "pkg/shortclaim/baseline.go",
+      "sha256": "ffb9f29ddc911d16b03a07cfe5c91bb99d8ae7f1d8aa1ea51edd651aee4bb00e"
+    },
+    {
+      "path": "pkg/shortclaim/input.go",
+      "sha256": "3b296ca0835c4397af7444a2f956aeae59638dd350cbc861bf36dd81bc210ecb"
+    }
+  ],
+  "stop_reasons": [
+    "captions_pending",
+    "synthetic_single_pipeline",
+    "no_roles_plan",
+    "no_official_execution_manifest"
+  ],
+  "limitations": [
+    "Twelve proposal rows reuse four authored parents and their unchanged candidates; they are not twelve independent tasks or groups.",
+    "Literal definitions are authored expected observations, not candidate evaluations or actual truth labels.",
+    "Source verification and text budgets do not complete independent caption fidelity review.",
+    "This prepares no groups, roles, ranking, fits, model calls, resource measurements or protected-final access.",
+    "Go heap is a soft limit, not an OS/native/GPU RSS hard cap; Go P count is not OS thread count or CPU affinity."
+  ]
+}
