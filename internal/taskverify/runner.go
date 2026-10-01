@@ -41,6 +41,7 @@ func (w *boundedOutput) Write(p []byte) (int, error) {
 
 func isolatedTests(parent context.Context, files []BaseFile, task string, timeout time.Duration, goRoot string) testOutcome {
 	r := testOutcome{code: "independent_tests_failed"}
+	definition, versioned := TaskDefinition(task)
 	if !sandboxSupported() {
 		r.unknown, r.code = true, "isolation_unavailable"
 		return r
@@ -80,6 +81,12 @@ func isolatedTests(parent context.Context, files []BaseFile, task string, timeou
 	}
 	if task == "catalog-min-context" {
 		if err = os.WriteFile(filepath.Join(dir, "pkg/catalog/taskverify_contract_test.go"), []byte(contractTests), 0600); err != nil {
+			r.unknown, r.code = true, "check_setup_failed"
+			return r
+		}
+	}
+	if versioned {
+		if err = os.WriteFile(filepath.Join(dir, filepath.FromSlash(definition.ContractPath)), []byte(keywordGuardContractTests), 0600); err != nil {
 			r.unknown, r.code = true, "check_setup_failed"
 			return r
 		}
@@ -131,6 +138,10 @@ func isolatedTests(parent context.Context, files []BaseFile, task string, timeou
 	if task == "catalog-min-context" {
 		args = append(args, "./pkg/planner")
 	}
+	if versioned {
+		args = []string{"test", "-json", "-count=1", "-timeout=10s"}
+		args = append(args, definition.Packages...)
+	}
 	cmd, err := sandboxCommand(ctx, goBinary, args, toolchain, dir)
 	if err != nil {
 		r.unknown, r.code = true, "isolation_unavailable"
@@ -161,6 +172,9 @@ func isolatedTests(parent context.Context, files []BaseFile, task string, timeou
 			r.unknown, r.code = true, "isolation_execution_unavailable"
 		}
 		return r
+	}
+	if versioned {
+		return versionedTerminalPasses(definition, out.b.Bytes())
 	}
 	contractPassed, catalogPassed, plannerPassed := false, false, false
 	for _, line := range bytes.Split(out.b.Bytes(), []byte{'\n'}) {

@@ -48,6 +48,10 @@ func readBase(dir, task string) ([]taskverify.BaseFile, error) {
 	if e != nil {
 		return nil, e
 	}
+	return readFiles(dir, paths)
+}
+
+func readFiles(dir string, paths []string) ([]taskverify.BaseFile, error) {
 	r, e := os.OpenRoot(dir)
 	if e != nil {
 		return nil, fmt.Errorf("base_root_unavailable")
@@ -109,7 +113,21 @@ func execute(args []string, out, diagnostics io.Writer) int {
 		fmt.Fprintln(diagnostics, e)
 		return 2
 	}
-	r, e := taskverify.Verify(context.Background(), taskverify.Request{TaskID: c.task, BaseRevision: taskverify.BaseRevision, BaseFiles: base, CandidateDir: c.candidate, Timeout: c.timeout, GoRoot: c.goRoot})
+	spec, _ := taskverify.TaskSpec(c.task)
+	var attribution []taskverify.BaseFile
+	if _, versioned := taskverify.TaskDefinition(c.task); versioned {
+		pins, _ := taskverify.AttributionPins(c.task)
+		paths := make([]string, len(pins))
+		for i, pin := range pins {
+			paths[i] = pin.Path
+		}
+		attribution, e = readFiles(c.base, paths)
+		if e != nil {
+			fmt.Fprintln(diagnostics, e)
+			return 2
+		}
+	}
+	r, e := taskverify.Verify(context.Background(), taskverify.Request{TaskID: c.task, BaseRevision: spec.BaseRevision, BaseFiles: base, AttributionFiles: attribution, CandidateDir: c.candidate, Timeout: c.timeout, GoRoot: c.goRoot})
 	if e != nil {
 		fmt.Fprintln(diagnostics, e)
 		return 2

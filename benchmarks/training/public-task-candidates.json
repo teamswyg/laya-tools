@@ -4,11 +4,12 @@
   "origin": "original_task_prompts_for_public_repository",
   "purpose": "Owned development attempt references; excluded from current training and final evaluation",
   "limitations": [
-    "Single repository, six tasks, two shared code families: not independent six families.",
-    "Expected tiers are hypotheses, not measured model capability.",
-    "A passing existing test suite alone does not prove the requested change.",
-    "Two owned CLI attempts used the existing ChatGPT login; subscription quota/money and backend request counts remain unknown. No API-key/cloud job/endpoint billing was added.",
-    "Two records cover one development task: one exact-contract candidate rejection and one requested-profile support error. They are not two coding capability labels or a representative model comparison."
+    "One repository, seven candidates, two shared code families; three distinct requests actually attempted. Request counts are not execution counts.",
+    "Expected tiers are hypotheses, not measured model capability or final labels.",
+    "An existing suite alone does not prove the requested change; new behavioral contracts use independent acceptance.",
+    "Eight owned CLI records: plan51 has two records on one request; separate plan52 has six on three requests. Six declared closures accepted in plan52, five with zero exit and complete core usage. The accepted Sol6 behavioral candidate timed out with unknown whole usage.",
+    "Existing ChatGPT login only; subscription money/quota and backend internal request counts are unknown. No API-key/cloud job/endpoint billing was added.",
+    "One service profile-support error is not coding inability. One timeout with accepted closure is not relabeled as a candidate rejection. All records remain development, excluded from current training and final evaluation."
   ],
   "tasks": [
     {
@@ -23,8 +24,33 @@
       "acceptance": [
         "Diff changes exactly the requested comment; gofmt and Go tests remain clean."
       ],
-      "model_outcomes": [],
-      "status": "candidate_not_executed_not_training_label"
+      "model_outcomes": [
+        {
+          "kind": "owned_requested_profile_attempt",
+          "record": "experiments/task-outcomes/attempt-52-03.json",
+          "requested_model": "gpt-6-luna",
+          "requested_reasoning": "low",
+          "observed_model": "unknown",
+          "task_acceptance": "accepted",
+          "process_status": "exited_zero",
+          "whole_attempt_usage_complete": true,
+          "scope": "Accepted declared closure, zero exit and complete reported core usage; this development attempt only.",
+          "training_label_eligible": false
+        },
+        {
+          "kind": "owned_requested_profile_attempt",
+          "record": "experiments/task-outcomes/attempt-52-04.json",
+          "requested_model": "gpt-6-sol",
+          "requested_reasoning": "low",
+          "observed_model": "unknown",
+          "task_acceptance": "accepted",
+          "process_status": "exited_zero",
+          "whole_attempt_usage_complete": true,
+          "scope": "Accepted declared closure, zero exit and complete reported core usage; this development attempt only.",
+          "training_label_eligible": false
+        }
+      ],
+      "status": "development_requested_profile_attempts_observed_not_training_labels"
     },
     {
       "id": "comment-preview-authority",
@@ -59,6 +85,30 @@
           "coding_capability": "not_assessed",
           "usage": "unknown",
           "training_label_eligible": false
+        },
+        {
+          "kind": "owned_requested_profile_attempt",
+          "record": "experiments/task-outcomes/attempt-52-01.json",
+          "requested_model": "gpt-6-sol",
+          "requested_reasoning": "low",
+          "observed_model": "unknown",
+          "task_acceptance": "accepted",
+          "process_status": "exited_zero",
+          "whole_attempt_usage_complete": true,
+          "scope": "Accepted declared closure, zero exit and complete reported core usage; this development attempt only.",
+          "training_label_eligible": false
+        },
+        {
+          "kind": "owned_requested_profile_attempt",
+          "record": "experiments/task-outcomes/attempt-52-02.json",
+          "requested_model": "gpt-6-luna",
+          "requested_reasoning": "low",
+          "observed_model": "unknown",
+          "task_acceptance": "accepted",
+          "process_status": "exited_zero",
+          "whole_attempt_usage_complete": true,
+          "scope": "Accepted declared closure, zero exit and complete reported core usage; this development attempt only.",
+          "training_label_eligible": false
         }
       ],
       "status": "development_requested_profile_attempts_observed_not_training_labels"
@@ -77,8 +127,33 @@
         "New tests cover zero, negative, exact boundary and insufficient context.",
         "Existing catalog and planner tests pass."
       ],
-      "model_outcomes": [],
-      "status": "candidate_not_executed_not_training_label"
+      "model_outcomes": [
+        {
+          "kind": "owned_requested_profile_attempt",
+          "record": "experiments/task-outcomes/attempt-52-05.json",
+          "requested_model": "gpt-6-sol",
+          "requested_reasoning": "low",
+          "observed_model": "unknown",
+          "task_acceptance": "accepted",
+          "process_status": "timeout_or_canceled",
+          "whole_attempt_usage_complete": false,
+          "scope": "Accepted declared closure; main timed out with unknown whole cost. Not an end-to-end complete run.",
+          "training_label_eligible": false
+        },
+        {
+          "kind": "owned_requested_profile_attempt",
+          "record": "experiments/task-outcomes/attempt-52-06.json",
+          "requested_model": "gpt-6-luna",
+          "requested_reasoning": "low",
+          "observed_model": "unknown",
+          "task_acceptance": "accepted",
+          "process_status": "exited_zero",
+          "whole_attempt_usage_complete": true,
+          "scope": "Accepted declared closure, zero exit and complete reported core usage; this development attempt only.",
+          "training_label_eligible": false
+        }
+      ],
+      "status": "development_requested_profile_attempts_observed_not_training_labels"
     },
     {
       "id": "repo-prefix-filter",
@@ -127,6 +202,25 @@
       ],
       "model_outcomes": [],
       "status": "candidate_not_executed_not_training_label"
+    },
+    {
+      "id": "repo-keyword-language-guard",
+      "family": "repo-preview",
+      "source_url": "https://github.com/teamswyg/laya-tools/blob/146b02b9c37e6d90a11386050ccfdffc036c113e/pkg/reporouter/router.go",
+      "source_revision": "146b02b9c37e6d90a11386050ccfdffc036c113e",
+      "source_path": "pkg/reporouter/router.go",
+      "acceptance_spec_version": "repo-keyword-language-guard-v1",
+      "spec_sha256": "fb71960dd44348b9f7531ba3c7b44e8bb88c89196bd43dc362328120efd2a644",
+      "prompt": "Extend repository preview's existing metadata-language guard to inspect every keyword of each selected lexical candidate before Judge. If any selected candidate summary or keyword contains a non-Latin letter, preserve the lexical candidate result and return reason metadata_language_unvalidated without calling Judge. Inspect only the selected candidates. Preserve nil-Judge lexical behavior, query-language guards, and all existing English judgment/threshold/margin/truncation behavior.",
+      "expected_tier_hypothesis": "fast",
+      "rationale": "Bounded behavioral protection with independent observable Judge inputs/calls, not another comment variant.",
+      "acceptance": [
+        "All named independent external-package contract tests and immutable base tests pass under offline isolation.",
+        "Every selected keyword is checked, unrelated unselected/disabled metadata is ignored, English and nil-Judge behavior is preserved.",
+        "Versioned public source closure and LICENSE/NOTICE are pinned; candidate-authored tests do not determine acceptance."
+      ],
+      "model_outcomes": [],
+      "status": "versioned_verifier_ready_not_model_executed_not_training_label"
     }
   ]
 }

@@ -40,8 +40,11 @@ type Request struct {
 	TaskID       string
 	BaseRevision string
 	BaseFiles    []BaseFile
-	CandidateDir string
-	Timeout      time.Duration
+	// AttributionFiles pins the original public LICENSE/NOTICE staged with a
+	// versioned definition. Frozen original tasks retain their existing contract.
+	AttributionFiles []BaseFile
+	CandidateDir     string
+	Timeout          time.Duration
 	// GoRoot optionally supplies the trusted offline installation for packaged
 	// trimpath callers whose runtime has no compiled-in GOROOT. It never changes
 	// process-global environment and is used only for isolated behavioral checks.
@@ -76,6 +79,8 @@ type Report struct {
 	IndependentTests   int        `json:"independent_tests"`
 	ExecutionIsolated  bool       `json:"execution_isolated"`
 	CandidateTestsUsed bool       `json:"candidate_tests_used"`
+	AttributionFiles   []FileHash `json:"attribution_files,omitempty"`
+	AttributionSHA256  string     `json:"attribution_sha256,omitempty"`
 }
 
 // Spec fixes the task contract before future model runs. It is not an outcome label.
@@ -87,9 +92,13 @@ type Spec struct {
 	Prompt                 string   `json:"prompt"`
 	Acceptance             []string `json:"acceptance"`
 	AcceptanceSourceSHA256 string   `json:"acceptance_source_sha256,omitempty"`
+	DefinitionSHA256       string   `json:"definition_sha256,omitempty"`
 }
 
 func TaskSpec(id string) (Spec, error) {
+	if d, ok := TaskDefinition(id); ok {
+		return definitionSpec(d), nil
+	}
 	s := Spec{ID: id, Version: 2, BaseRevision: BaseRevision}
 	switch id {
 	case "comment-budget-period":
@@ -127,6 +136,9 @@ var pinned = []FileHash{
 // BasePaths returns the closed file manifest the caller must read from BaseRevision.
 // The verifier does not invoke Git or trust a supplied revision string by itself.
 func BasePaths(id string) ([]string, error) {
+	if d, ok := TaskDefinition(id); ok {
+		return definitionPaths(d), nil
+	}
 	if _, err := TaskSpec(id); err != nil {
 		return nil, err
 	}
@@ -174,7 +186,9 @@ func validPath(p string) bool {
 
 func validateBase(id, revision string, supplied []BaseFile) ([]BaseFile, error) {
 	paths, err := BasePaths(id)
-	if err != nil || revision != BaseRevision || len(supplied) != len(paths) || len(supplied) > MaxFiles {
+	spec, specErr := TaskSpec(id)
+	definition, versioned := TaskDefinition(id)
+	if err != nil || specErr != nil || revision != spec.BaseRevision || len(supplied) != len(paths) || len(supplied) > MaxFiles {
 		return nil, fmt.Errorf("invalid_base_manifest")
 	}
 	owned := make([]BaseFile, 0, len(paths))
@@ -190,9 +204,13 @@ func validateBase(id, revision string, supplied []BaseFile) ([]BaseFile, error) 
 			}
 			found++
 			want := ""
-			for _, pin := range pinned {
-				if pin.Path == p {
-					want = pin.SHA256
+			if versioned {
+				want = definitionPin(definition, p)
+			} else {
+				for _, pin := range pinned {
+					if pin.Path == p {
+						want = pin.SHA256
+					}
 				}
 			}
 			if want == "" || f.SHA256 != want || digest(f.Data) != want {
@@ -277,6 +295,16 @@ func Verify(ctx context.Context, req Request) (Report, error) {
 	}
 	r.BaseFiles, r.BaseSHA256 = hashList(base), listDigest(hashList(base))
 	r.Checks = append(r.Checks, Check{"base_pin", true, "pinned_public_bytes_verified"})
+	definition, versioned := TaskDefinition(req.TaskID)
+	if versioned {
+		attribution, err := validateAttribution(req.TaskID, req.AttributionFiles)
+		if err != nil {
+			return r, err
+		}
+		r.AttributionFiles = hashList(attribution)
+		r.AttributionSHA256 = listDigest(r.AttributionFiles)
+		r.Checks = append(r.Checks, Check{"attribution_pin", true, "pinned_public_attribution_verified"})
+	}
 	candidate, err := readCandidate(req.CandidateDir, base)
 	if err != nil {
 		r.Checks = append(r.Checks, Check{"candidate_read", false, err.Error()})
@@ -288,7 +316,20 @@ func Verify(ctx context.Context, req Request) (Report, error) {
 		r.Checks = append(r.Checks, Check{"requested_change", false, "unchanged_base"})
 		return r, nil
 	}
-	if req.TaskID != "catalog-min-context" {
+	if versioned {
+		for _, bf := range base {
+			if !definitionMutable(definition, bf.Path) && !strings.HasSuffix(bf.Path, "_test.go") && !bytes.Equal(bf.Data, fileAt(candidate, bf.Path)) {
+				r.Checks = append(r.Checks, Check{"task_scope", false, "unrelated_closure_source_changed"})
+				return r, nil
+			}
+		}
+		if !supportedDefinitionSource(definition, fileAt(candidate, spec.SourcePath)) {
+			r.Status = "verifier_unknown"
+			r.Checks = append(r.Checks, Check{"execution_scope", false, "unsupported_candidate_shape"})
+			return r, nil
+		}
+		r.Checks = append(r.Checks, Check{"execution_scope", true, "versioned_source_shape_verified"})
+	} else if req.TaskID != "catalog-min-context" {
 		if !exactComment(req.TaskID, base, candidate) {
 			r.Checks = append(r.Checks, Check{"requested_change", false, "not_exact_comment_change"})
 			return r, nil
