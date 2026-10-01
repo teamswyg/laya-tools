@@ -10,8 +10,9 @@ This is an acquisition and execution plan, not a report that 2,400 actual routin
 
 Each coding request needs public provenance and revision, usage and redistribution scope, a task family, mutable files, precise completion conditions, independent checks, and their digests. An unchanged baseline must fail, an independently authored correct implementation must pass, and seeded wrong implementations must fail. Candidate-authored tests or the existing suite alone cannot establish requested completion.
 
-The current development comparison covers **five distinct requests, three actually attempted
-families and 16 CLI records from one repository**; two requests are comment edits.
+Current cumulative development observations cover **7 distinct requests, 5 actually attempted
+families, 20 CLI records and 3 repositories**. The historical subtotal before 55 was five
+requests, three families and 16 records from one repository; two requests are comment edits.
 Repetitions and tests within one contract do not create 2,400 distinct requests.
 [Experiment 53](../experiments/task-outcomes/RESULTS-53.en.md) adds one keyword-guard request
 with four repetitions. [Experiment 54](../experiments/task-outcomes/RESULTS-54.en.md)
@@ -22,10 +23,27 @@ performance or monetary-savings evidence.
 The zero execution-eligible count in the [120-source inventory](public-go-acquisition-53.en.md)
 is preserved as the historical snapshot at 53. At 54, [independent contracts](public-go-contracts-54.en.md)
 for two external requests were prepared and checked locally, with zero external model
-attempts, training labels or final eligibility. Seven compiled verifier tasks across
+attempts, training labels or final eligibility at that preparation stage. Seven compiled verifier tasks across
 three repositories and the eight-candidate local registry are separate scopes; do not
 sum them. Versioned contracts bind files, revisions, independent checks and LICENSE/
 NOTICE when actually present. Preserve previously frozen plans and acceptance contracts.
+
+[Experiment 55](../experiments/task-outcomes/RESULTS-55.en.md) ran these two existing external
+logical requests once per requested profile, using clarified v2 full Prompts and original
+module language conditions. Three of four CLI candidates passed independent verification.
+Humanize passed under both requested profiles; UUID failed under Luna low and passed under
+Sol low. Static review of the failed UUID source identifies returning a partial UUID on
+error; no rerun was performed. Versioning adds **0 logical requests** to the compiled
+registry, while actual observation coverage rises from 5 to 7. Counts follow the
+[machine-readable results](../experiments/task-outcomes/results-55.json).
+
+All four have complete whole usage and cleanup receipts, but served model identity is
+unknown. Disclose the user-requested pause between slots 2 and 3, differing cache usage,
+and one observation per requested profile per request. Both pre-coding Laya predictions
+used unchanged full Prompts, were truncated and abstained. They establish neither
+default-routing savings, general profile rankings nor the ultra-small-resource target.
+No training, final scoring or new weight release occurred. Seven observed development
+requests are not eligible training labels or 2,400 routing final requests.
 
 The initial coding scope is **public Go tasks**. Generalization to other languages, private repositories, or arbitrary Codex work needs separate evidence. The following counts are acquisition targets, not acquired records.
 

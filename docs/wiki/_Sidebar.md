@@ -1,6 +1,8 @@
 **[Home / 홈](https://github.com/teamswyg/laya-tools/wiki)**
 
-- [외부 작업 공정 비교 준비 55](https://github.com/teamswyg/laya-tools/blob/main/docs/fair-upstream-comparison.ko.md) · [Fair comparison preparation 55](https://github.com/teamswyg/laya-tools/blob/main/docs/fair-upstream-comparison.en.md)
+- [실제 외부 작업 비교55](Task-Results-55-KO) · [Actual external comparison55](Task-Results-55-EN)
+- [짧은 주장 준비56](Short-Claim-Plan-56-KO) · [Short claims preparation56](Short-Claim-Plan-56-EN)
+- [외부 작업 공정 비교55](https://github.com/teamswyg/laya-tools/blob/main/docs/fair-upstream-comparison.ko.md) · [Fair comparison55](https://github.com/teamswyg/laya-tools/blob/main/docs/fair-upstream-comparison.en.md)
 - [실제 파서 작업 비교54](Task-Results-54-KO) · [Actual parser comparison54](Task-Results-54-EN)
 - [외부 Go 계약 준비54](Public-Go-Contracts-54-KO) · [External Go contracts54](Public-Go-Contracts-54-EN)
 
