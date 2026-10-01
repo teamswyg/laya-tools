@@ -74,7 +74,7 @@ func validatePlan(req Request, toolchain trustedToolchain) (string, error) {
 			return "", Error("planned_go_toolchain_mismatch")
 		}
 	}
-	if p.Schema != "riido-task-outcome-pilot-plan-v1" || p.Status != "precommitted_development_pilot_not_final_routing_evaluation" || p.PublicBase != taskverify.BaseRevision || p.CLI.Hash != req.ExpectedCLIHash || p.CLI.Version != req.ExpectedCLIVersion {
+	if p.Schema != "riido-task-outcome-pilot-plan-v1" || p.Status != "precommitted_development_pilot_not_final_routing_evaluation" || p.CLI.Hash != req.ExpectedCLIHash || p.CLI.Version != req.ExpectedCLIVersion {
 		return "", Error("plan_pin_mismatch")
 	}
 	if len(p.Attempts) == 0 || len(p.Attempts) > 32 || p.Execution.Max != len(p.Attempts) || p.Execution.Concurrency != 1 || p.Execution.Retries || !p.Execution.Fresh || p.Execution.Timeout <= 0 || time.Duration(p.Execution.Timeout)*time.Second != req.Timeout || p.Execution.Verify != 45 || p.Execution.Stdout != 64<<20 || p.Execution.Stderr != MaxStderrBytes || len(p.Tasks) == 0 || len(p.Tasks) > 32 || len(p.Profiles) == 0 || len(p.Profiles) > 16 {
@@ -82,7 +82,7 @@ func validatePlan(req Request, toolchain trustedToolchain) (string, error) {
 	}
 	for i, task := range p.Tasks {
 		spec, e := taskverify.TaskSpec(task.ID)
-		if e != nil || digestJSON(spec) != task.Spec {
+		if e != nil || p.PublicBase != spec.BaseRevision || digestJSON(spec) != task.Spec {
 			return "", Error("plan_task_spec_mismatch")
 		}
 		for _, prior := range p.Tasks[:i] {

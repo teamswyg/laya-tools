@@ -30,19 +30,27 @@
 [그 결과](../experiments/task-outcomes/RESULTS-50.ko.md)를 보존하며, 수정한 실행기를
 이전 계획의 성공 결과로 덮어쓰지 않습니다.
 
-도구 경로 수정을 반영한 [별도 사전 계획 51](../experiments/task-outcomes/plan-51.json)은
-같은 공개 개발 작업·프로필·순서·임계값·한도를 유지합니다. 이 사용법은 계획 51을
-기준으로 합니다. 계획은 커밋 `14fdad230ad6cebbee194b09ed8b6df7916a19cc`에 고정했습니다.
-계획 51은 기존 공개 개발 작업
-3개를 두 요청 프로필로 비교합니다. `luna-low`는 `gpt-6-luna`와 `low`,
-`sol-low`는 `gpt-6.1-sol`과 `low`를 명시합니다. 순서는 계획에 고정되어 있고,
-최대 **Codex CLI 실행 6번**, 한 번에 하나, 각 작업 실행 120초와 별도 검사
-45초를 한도로 합니다.
+[계획 51](../experiments/task-outcomes/plan-51.json)은 한 주석 작업의 두 시도 후
+중단했습니다. 정확한 주석 계약 거절과 요청 프로필 지원 오류, 초기 오류 집계의
+호환성 공백을 [그 결과](../experiments/task-outcomes/RESULTS-51.ko.md)에 그대로 남깁니다.
+
+수정한 도구를 사용한 [별도 계획 52](../experiments/task-outcomes/plan-52.json)는
+커밋 `d202ff042106ad36209ef4cdee6ca1e1c9e64514`에 먼저 고정했습니다. 같은 공개
+개발 작업 3개에서 `gpt-6-sol`과 `gpt-6-luna`를 각각 `low`로 요청했고,
+계획한 **Codex CLI 시도 6번을 모두 기록**했습니다. 여섯 후보의 정해진 파일
+범위는 독립 검사에서 수용했습니다. 다섯 시도는 정상 종료와 완전한 기본
+사용량을 확인했지만, `catalog-min-context`의 Sol 시도는 120초 한도에 걸렸고
+사용량은 미확정입니다. 후보 수용과 실행 완료를 합쳐 성공 6건으로 세지 않습니다.
+[실험 52 결과](../experiments/task-outcomes/RESULTS-52.ko.md)에 항목별 근거가 있습니다.
+
+계획 52는 한 번에 하나, 작업 실행 120초와 별도 검사 45초를 한도로 했습니다.
+완료한 계획 52와 중단한 계획 50·51은 다시 실행하지 않습니다. 새 실제 실행에는
+현재 프로필과 도구를 확인한 별도 계획이 필요합니다.
 
 이는 내부 LLM 호출이 6번이라는 뜻이 아닙니다. 한 CLI 실행 안에 여러 모델
 요청이나 공급자 재시도가 있을 수 있으며, 현재 그 수는 `unknown`입니다.
 실행기는 자체 재시도·resume·fallback을 하지 않습니다. 시작한 실패·시간 초과도
-파일럿의 실행 수에 포함합니다. 아래 명령은 한 시도만 실행하므로, 관리자가
+파일럿의 실행 수에 포함합니다. 실행기는 한 시도만 실행하므로, 관리자가
 계획 전체의 횟수·순서와 미실행 항목까지 관리해야 합니다.
 
 | 작업 ID | 독립 검사할 요구사항 | 검사하는 파일 범위 |
@@ -51,21 +59,32 @@
 | `comment-budget-period` | 예산 기간을 설명하는 주석을 지정 문장으로 변경 | 기준 파일 3개, 정확한 변경·gofmt·고정 테스트 |
 | `catalog-min-context` | 선택적 `MinContext` 추가, 음수 거절, 최소 문맥 조건 적용, 기존 동작 유지 | 기준 파일 9개, 경계·JSON 계약과 고정 catalog/planner 테스트 |
 
-공통 기준은 공개 리비전 `6b2c1bdfd38bea5a9a2c11433ffcfcb94c4143a3`의
+위 세 작업의 공통 기준은 공개 리비전 `6b2c1bdfd38bea5a9a2c11433ffcfcb94c4143a3`의
 `internal/taskverify/testdata/base`입니다. 파일과 LICENSE·NOTICE, 작업 명세와
 독립 검사 코드의 해시를 확인합니다. 파일 범위 밖의 추가 파일이나 런타임
 캐시는 `unassessed`입니다. `accepted`는 **해당 요구사항과 범위**의 통과이며
 저장소 전체나 임의의 코드에 대한 승인으로 읽으면 안 됩니다.
 
-3개 작업은 두 코드 가족에서 나온 개발 사례입니다. 모델별로 두 번 실행해도
-서로 다른 작업은 3개이며, 성공률 일반화나 학습 정답을 만들기에는 부족합니다.
-[2,400개 골든셋 설계](golden-set-scale.ko.md)의 최종 평가를 대체하지 않습니다.
+새 행동 작업 `repo-keyword-language-guard`는 별도 버전의 기준 파일을 사용합니다.
+리비전 `146b02b9c37e6d90a11386050ccfdffc036c113e`의
+`internal/taskverify/testdata/repo-keyword-language-guard-v1`에서 선택된 저장소 후보의
+모든 키워드를 Judge 호출 전에 검사하도록 변경하는 계약입니다. 소스 범위는
+`go.mod`, `pkg/reporouter/router.go`, `pkg/reporouter/router_test.go`의 3개 파일이며 LICENSE·NOTICE는
+별도로 고정합니다. 명세·독립 검사·기준 파일은 묶어서 버전을 관리하고, 기존
+세 작업의 명세와 해시는 바꾸지 않습니다. **이 새 작업은 실제 모델 미실행**이며,
+직접 작성한 올바른 구현과 오류 변형으로 검증기를 검사한 것은 모델 결과가 아닙니다.
+
+실험 51·52를 합치면 기록은 8개지만 서로 다른 요청은 **3개, 두 코드 가족,
+한 저장소**입니다. 독립 수용 후보는 52의 6개이고, 기본 사용량이 완전한 기록은
+51의 거절된 첫 시도까지 포함해 6개입니다. 이 수치로 성공률 일반화나 학습
+정답을 만들지 않습니다. [2,400개 골든셋 설계](golden-set-scale.ko.md)와
+[확보·분할·실행 예산 계획](golden-set-acquisition.ko.md)의 최종 평가를 대체하지 않습니다.
 
 ## 실제 작업 결과를 보기 전 Laya가 예측한 것
 
 [미리 기록한 예측](../experiments/task-outcomes/routing-predictions-50.json)은
 기존 고정 Laya INT8 모델을 CPU, 한 스레드, 기본 임계값 `0.9`로 실행한 결과입니다.
-임계값을 바꾸거나 이 세 작업으로 학습하지 않았습니다. 계획 51은 이 예측을
+임계값을 바꾸거나 이 세 작업으로 학습하지 않았습니다. 계획 52는 이 예측을
 변경 없이 참조하며, 새 예측이나 새로운 독립 작업 세 개로 세지 않습니다.
 
 | 작업 | 작성자의 예상 난이도 | Laya의 제안 | 가장 큰 확률 | 적용 tier |
@@ -77,8 +96,9 @@
 세 요청 모두 잘리지 않았지만 신뢰도가 `0.9`보다 낮아 보류했습니다. 제안과
 작성자의 예상이 일치하는지보다 **실제 작업을 어떤 프로필이 성공시키는지**가
 중요합니다. 파일럿은 미리 정한 luna/sol 비교이며, 보류 뒤의 strong 모델을
-실행하는 라우터 실사용 시험은 아닙니다. `gpt-6-astra`는 이 계획에서 실행하지
-않습니다. 이 확률을 보정된 성공 확률로 해석하지 않습니다.
+실행하는 라우터 실사용 시험은 아닙니다. `gpt-6-astra`는 실행하지 않았습니다.
+과거 예측의 standard 설정은 `gpt-6.1-sol`이었으므로, 이를 이번 `gpt-6-sol`의
+예측으로 바꾸어 읽지도 않습니다. 이 확률은 보정된 성공 확률이 아닙니다.
 
 세 번의 차가운 프로세스에서 Laya 라우터의 최대 RSS는 약 **1.48 GB
 (1.38 GiB)**였습니다. 모델·native session을 새로 불러오는 비용이 포함된
@@ -94,6 +114,7 @@ mkdir -p .cache/bin
 go build -trimpath -o .cache/bin/riido-taskrun ./cmd/riido-taskrun
 .cache/bin/riido-taskrun --help
 .cache/bin/riido-taskrun --task comment-preview-authority --spec
+.cache/bin/riido-taskrun --task repo-keyword-language-guard --spec
 ```
 
 `--help`와 `--spec`은 모델을 실행하지 않습니다. 기본 호출도 실행을 거절합니다.
@@ -104,18 +125,16 @@ go build -trimpath -o .cache/bin/riido-taskrun ./cmd/riido-taskrun
 
 `-trimpath`로 만든 배포형 바이너리는 기본 Go 설치 경로가 없을 수 있으므로
 `--go-root`로 신뢰할 Go 1.27.1 설치 디렉터리를 명시합니다. 실행기는 `bin/go`의
-실제 경로·버전·bytes의 SHA-256을 검사하고 계획 51의 고정값과 비교합니다.
+실제 경로·버전·bytes의 SHA-256을 검사하고 새 계획의 고정값과 비교합니다.
 기본 경로가 없는데 이 옵션도 주지 않으면 `trusted_toolchain_unavailable`로
 실행 전에 거절합니다. 호스트의 PATH를 임의로 따라가거나 Go를 새로 내려받지 않습니다.
 
-다음은 **계획 51에서 사용한 실행 구문을 보존한** 예입니다. 이 계획은 현재
-[두 시도 후 중단](../experiments/task-outcomes/RESULTS-51.ko.md)했으므로 재개하지
-않습니다. 새 실제 실행은 별도 계획을 먼저 고정하세요. 계획의 실행 파일 해시는
-관측한 Mac 설치에 고정되어 있어 다른 설치라면 새 도구 해시도 확인해야 합니다.
-`/absolute/...`는
-설명을 위한 자리 표시자입니다. 자신의 절대 경로로 지정해야 하며, 비공개
-출력 디렉터리는 아직 존재하지 않아야 합니다. 이는 예제를 읽는 것과 달리
-계정 사용량을 소비할 수 있는 실행입니다.
+다음은 **새 사전 계획을 준비할 때 사용할 인자 형식**입니다. `NEW_*`, `VERIFIED_*`,
+`PLANNED_ORDINAL`, `/absolute/...`는 자리 표시자이며 실행 가능한 고정 계획이
+아닙니다. 명세와 기준 파일은 선택한 작업에 맞추고, 해시는 실제로 확인한 값으로
+채워 새 계획을 먼저 고정하세요. 아래 `gpt-6-luna` 요청도 새 계획의 항목과
+일치해야 합니다. 비공개 출력 디렉터리는 아직 존재하지 않아야 합니다. 실제
+실행은 계정 사용량을 소비할 수 있습니다.
 출력 디렉터리는 OS 임시 디렉터리 아래에 두어야 하며, 상위에 저장소나
 `AGENTS.md`·`.codex`·`.agents`가 있으면 실행 전에 거절합니다.
 
@@ -128,13 +147,13 @@ go build -trimpath -o .cache/bin/riido-taskrun ./cmd/riido-taskrun
   --base-dir /absolute/laya-tools/internal/taskverify/testdata/base \
   --private-dir /private/tmp/riido-NEW-ATTEMPT \
   --codex-bin /absolute/trusted/codex \
-  --codex-sha256 788a818fbb9596869c7a487554507cb8bdca17584b8671112b23f9e225ba35c8 \
+  --codex-sha256 VERIFIED_CODEX_SHA256 \
   --codex-version 'codex-cli 0.158.0' \
   --go-root /absolute/trusted/go-toolchain \
-  --plan-file /absolute/laya-tools/experiments/task-outcomes/plan-51.json \
-  --plan-sha256 acf4786f7330529e04af12d4f7dbf40b0bbc2b6a9c527ecb879aee9d8c1510b0 \
-  --attempt-ordinal 1 \
-  --task-spec-sha256 a01f1c95e818511d6bcac35a0eb20b0b6c943a73b4fe7652a550bb0036dbd747 \
+  --plan-file /absolute/private/NEW-FROZEN-PLAN.json \
+  --plan-sha256 NEW_PLAN_SHA256 \
+  --attempt-ordinal PLANNED_ORDINAL \
+  --task-spec-sha256 VERIFIED_TASK_SPEC_SHA256 \
   --auth-source-dir /absolute/private/codex-login \
   --timeout 120s
 ```
@@ -202,20 +221,21 @@ stdout은 64 MiB, stderr는 1 MiB로 제한합니다. 시간·회수 한도·파
 
 ## 지금 확인하는 것과 다음 단계
 
-이 문서의 예는 실행 방법을 설명하며, 실제 코딩 모델의 결과를 보고하는 것이
-아닙니다. [중단한 계획 50의 결과](../experiments/task-outcomes/RESULTS-50.ko.md),
-[새 계획 51](../experiments/task-outcomes/plan-51.json),
-[사전 예측](../experiments/task-outcomes/routing-predictions-50.json)은 실행 후
-기록과 구분해야 합니다. 이 단계에서는 새 학습, 모델 가중치 공개, 실사용
-라우팅 활성화나 최종 2,400건 채점을 하지 않습니다.
+위 명령 예제는 실행 방법을 설명하며 자체로 모델 결과를 만들지 않습니다.
+[실험 52](../experiments/task-outcomes/RESULTS-52.ko.md)는 별도로 고정한 실제 실행
+기록입니다. 두 주석 작업에서는 양쪽 프로필의 수용과 사용량을 비교할 수 있지만,
+행동 작업의 Sol 시도에는 전체 사용량이 없어 완전한 비용 비교를 할 수 없습니다.
+표본도 세 요청뿐이므로 프로필 절감이나 실사용 라우팅 성공을 입증하지 않습니다.
+새 학습, 모델 가중치 공개, 실사용 라우팅 활성화나 최종 2,400건 채점은 하지 않았습니다.
 
-[실험 51 결과](../experiments/task-outcomes/RESULTS-51.ko.md)는 두 시도 후
-측정 호환성 문제로 중단한 기록입니다. 위 계획 51의 명령은 방법을 설명하는
-보존된 예시이며 중단한 계획을 재개하는 지시가 아닙니다. 새 실제 실행은
-사용 가능한 프로필을 확인하고 별도 계획·새 출력 디렉터리로 고정해야 합니다.
+[실험 50](../experiments/task-outcomes/RESULTS-50.ko.md)과
+[실험 51](../experiments/task-outcomes/RESULTS-51.ko.md)의 중단 기록은 그대로 보존합니다.
+새 실제 실행은 사용 가능한 프로필을 확인하고 별도 계획·새 출력 디렉터리로
+고정해야 합니다.
 
 적은 개발 작업으로 먼저 성공·실패·미확정 근거를 정확하게 남길 수 있는지
 확인합니다. 이후 서로 다른 공개 작업을 늘리고 같은 조건에서 모델별 성공과
 모든 시도의 사용량을 비교해야 상향·하향·보류 라우팅의 효과를 판단할 수
 있습니다. 자세한 해석은 [작업 기록과 독립 검사](task-outcomes.ko.md), 필요한
-규모와 분리는 [골든셋 설계](golden-set-scale.ko.md)에 설명되어 있습니다.
+규모와 분리는 [골든셋 설계](golden-set-scale.ko.md), 확보 순서와 실행 예산은
+[골든셋 확보 계획](golden-set-acquisition.ko.md)에 설명되어 있습니다.

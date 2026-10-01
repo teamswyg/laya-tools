@@ -30,25 +30,36 @@ func cleanupProcess(cmd *exec.Cmd) string {
 	if cmd.Process == nil {
 		return "unavailable"
 	}
-	e := syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+	return cleanupGroup(cmd.Process.Pid, syscall.Kill, time.Now, time.Sleep)
+}
+
+// A Darwin group can briefly contain only unreaped zombies. Its group lookup
+// succeeds, but killpg can return EPERM when no signalable member is found.
+// EPERM proves neither absence nor successful killing. Keep the existing bounded
+// wait, accepting termination only after an explicit ESRCH observation.
+func cleanupGroup(pid int, kill func(int, syscall.Signal) error, now func() time.Time, sleep func(time.Duration)) string {
+	if pid <= 1 {
+		return "cleanup_failed"
+	}
+	e := kill(-pid, syscall.SIGKILL)
 	if e == syscall.ESRCH {
 		return "group_terminated"
 	}
-	if e != nil {
+	if e != nil && e != syscall.EPERM {
 		return "cleanup_failed"
 	}
 	// Kill delivery is not a proof of termination. Wait until the owned process
 	// group disappears before snapshotting any candidate bytes.
-	deadline := time.Now().Add(2 * time.Second)
-	for time.Now().Before(deadline) {
-		e = syscall.Kill(-cmd.Process.Pid, 0)
+	deadline := now().Add(2 * time.Second)
+	for now().Before(deadline) {
+		e = kill(-pid, 0)
 		if e == syscall.ESRCH {
 			return "group_terminated"
 		}
-		if e != nil {
+		if e != nil && e != syscall.EPERM {
 			return "cleanup_failed"
 		}
-		time.Sleep(10 * time.Millisecond)
+		sleep(10 * time.Millisecond)
 	}
 	return "cleanup_unknown"
 }

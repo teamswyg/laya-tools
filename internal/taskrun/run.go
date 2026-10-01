@@ -167,9 +167,17 @@ func validateRequest(req Request) error {
 // LoadBase reads only the immutable public closure and attribution files. The
 // verifier validates closure pins before the executor can launch anything.
 func LoadBase(dir, task string) ([]taskverify.BaseFile, []taskverify.BaseFile, error) {
+	spec, err := taskverify.TaskSpec(task)
+	if err != nil {
+		return nil, nil, Error("invalid_task")
+	}
 	paths, err := taskverify.BasePaths(task)
 	if err != nil {
 		return nil, nil, Error("invalid_task")
+	}
+	attribution, err := taskverify.AttributionPins(task)
+	if err != nil || len(attribution) != 2 || attribution[0].Path != "LICENSE" || attribution[1].Path != "NOTICE" {
+		return nil, nil, Error("invalid_attribution_manifest")
 	}
 	root, err := os.OpenRoot(dir)
 	if err != nil {
@@ -184,11 +192,13 @@ func LoadBase(dir, task string) ([]taskverify.BaseFile, []taskverify.BaseFile, e
 		}
 		all = append(all, taskverify.BaseFile{Path: path, SHA256: digest(b), Data: b})
 	}
-	if all[len(paths)].SHA256 != "a6cba85bc92e0cff7a450b1d873c0eaa2e9fc96bf472df0247a26bec77bf3ff9" || all[len(paths)+1].SHA256 != "00b0aa3ee756ede902b6c354550ba59e9f9ab54764ff78957dbbc3e0ab791bae" {
-		return nil, nil, Error("attribution_pin_mismatch")
+	for i, pin := range attribution {
+		if all[len(paths)+i].SHA256 != pin.SHA256 {
+			return nil, nil, Error("attribution_pin_mismatch")
+		}
 	}
 	base := all[:len(paths)]
-	if _, err = taskverify.Verify(context.Background(), taskverify.Request{TaskID: task, BaseRevision: taskverify.BaseRevision, BaseFiles: base, CandidateDir: dir}); err != nil {
+	if _, err = taskverify.Verify(context.Background(), taskverify.Request{TaskID: task, BaseRevision: spec.BaseRevision, BaseFiles: base, AttributionFiles: all[len(paths):], CandidateDir: dir}); err != nil {
 		return nil, nil, Error("base_pin_mismatch")
 	}
 	return base, all, nil
@@ -431,7 +441,7 @@ func Run(ctx context.Context, req Request) (Record, error) {
 		return Record{}, Error("private_stage_failed")
 	}
 	args := invocationArgs(req.Model, req.Reasoning, workspace, profile, req.GoRoot)
-	r := Record{Schema: Schema, PlanSHA256: req.PlanSHA256, PlanEvidence: "supplied_plan_bytes_and_ordered_attempt_validated_precommit_not_attested", AttemptOrdinal: req.AttemptOrdinal, ProfileID: profileID, Provenance: "executor_owned_single_attempt", TaskID: req.TaskID, TaskSpecSHA256: digestJSON(spec), PromptSHA256: digest([]byte(spec.Prompt)), BaseRevision: taskverify.BaseRevision, BaseSHA256: digestJSON(hashes(base)), WorkspaceSHA256: digestJSON(hashes(all)), CodexVersion: version, ExecutableSHA256: executableSHA, PermissionsSHA256: digest([]byte(canonicalPermissions)), PermissionsProbe: "workspace_allowed_sibling_read_write_and_network_denied", ObservedModel: "unknown", AttemptScope: "one_owned_process_no_retries_other_attempts_unassessed", SummaryStatus: "unknown", CandidateStatus: "unknown", VerificationStatus: "unknown", OutsideClosure: "unassessed_including_runtime_cache_and_added_files"}
+	r := Record{Schema: Schema, PlanSHA256: req.PlanSHA256, PlanEvidence: "supplied_plan_bytes_and_ordered_attempt_validated_precommit_not_attested", AttemptOrdinal: req.AttemptOrdinal, ProfileID: profileID, Provenance: "executor_owned_single_attempt", TaskID: req.TaskID, TaskSpecSHA256: digestJSON(spec), PromptSHA256: digest([]byte(spec.Prompt)), BaseRevision: spec.BaseRevision, BaseSHA256: digestJSON(hashes(base)), WorkspaceSHA256: digestJSON(hashes(all)), CodexVersion: version, ExecutableSHA256: executableSHA, PermissionsSHA256: digest([]byte(canonicalPermissions)), PermissionsProbe: "workspace_allowed_sibling_read_write_and_network_denied", ObservedModel: "unknown", AttemptScope: "one_owned_process_no_retries_other_attempts_unassessed", SummaryStatus: "unknown", CandidateStatus: "unknown", VerificationStatus: "unknown", OutsideClosure: "unassessed_including_runtime_cache_and_added_files"}
 	r.Applied = AppliedRequest{Model: req.Model, Reasoning: req.Reasoning, Evidence: "explicit_executor_request_not_provider_identity", Profile: profileName, Approvals: "never"}
 	r.AuthCleanup = "pending"
 	r.ExecutableEvidence = "resolved_path_and_prelaunch_byte_pins_not_host_attestation"
@@ -546,7 +556,7 @@ func Run(ctx context.Context, req Request) (Record, error) {
 			r.CandidateFileCount = len(files)
 			r.CandidateStatus = "captured_task_closure"
 			verifyStart := time.Now()
-			report, err := taskverify.Verify(ctx, taskverify.Request{TaskID: req.TaskID, BaseRevision: taskverify.BaseRevision, BaseFiles: base, CandidateDir: candidate, Timeout: taskverify.DefaultTimeout, GoRoot: req.GoRoot})
+			report, err := taskverify.Verify(ctx, taskverify.Request{TaskID: req.TaskID, BaseRevision: spec.BaseRevision, BaseFiles: base, AttributionFiles: all[len(base):], CandidateDir: candidate, Timeout: taskverify.DefaultTimeout, GoRoot: req.GoRoot})
 			verifyMillis := time.Since(verifyStart).Milliseconds()
 			r.VerificationWallMillis = &verifyMillis
 			if err == nil {

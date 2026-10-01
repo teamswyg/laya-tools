@@ -1,0 +1,55 @@
+Laya Tools — Copyright 2026 teamswyg contributors. Apache-2.0.
+
+Model and architecture sources (Apache-2.0):
+- convaiinnovations/laya: 55cf4c4ebb4ebe31b2550e8bdf3bd21b99753851
+  https://huggingface.co/convaiinnovations/laya
+- tindang/laya-code (r1): 25f97e5a2ec5f8cf7218a4f67504367d8832e1fe
+  https://huggingface.co/tindang/laya-code
+- NandhaKishorM/laya: 6d942c92081fbc139e736bbd9ac0023223c29b7f
+  https://github.com/NandhaKishorM/laya
+  scripts/export_onnx.py is reproduced from upstream; sequence formatting in
+  internal/inference/tokenizer.go follows laya.common.build_sequence.
+  Model archives include the model cards and Apache-2.0 license.
+
+ONNX Runtime 1.30.0 is separately downloaded from Microsoft's official releases
+(MIT); LICENSE and ThirdPartyNotices.txt are preserved in the runtime cache.
+Go dependencies and licenses remain available via go.mod/go.sum and their sources.
+
+The optional evaluation corpus is encode/httpx 0.28.1 (BSD-3-Clause), commit
+26d48e0634e6ee9cdc0533996db289ce4b430177. It is downloaded separately and is not
+redistributed here. Benchmark questions are original development fixtures.
+Inspired by Jevgrep and pilotspace/laya-codex; no claim of affiliation or matching
+quality/cost results. No implementation code copied from those projects.
+
+Community shout-out: https://laya.tools/ — an independent Laya project directory
+by Nielogiczny. Referenced for ecosystem discovery; not affiliated or endorsed.
+The executable is named riidolaya to distinguish it from the upstream model/SDK.
+
+Routing policy adaptations:
+- mmornati/system-one-router (Apache-2.0)
+  commit a437d00bca33a4c10038b37a5efe04dc0e3d40bb, internal/router/score.go
+  https://github.com/mmornati/system-one-router
+  Selection structure adapted in pkg/catalog; modified constraints, validation,
+  budget projection, unknown-price handling, and no below-floor fallback.
+  Original license: licenses/system-one-router.LICENSE.
+- siiick/pi-pignon (MIT), Copyright (c) 2026 Nicolas Chaintron
+  commit 4d97d1a35134b813bac6a8e345a1bf9b0bbf0bdb, src/policy.ts
+  https://github.com/siiick/pi-pignon
+  Cache-payback formula and switch guards ported to pkg/switchpolicy, with
+  explicit unknown-data holds and stricter lateral-switch validation.
+  Copyright and full permission notice: licenses/pi-pignon.LICENSE.
+  The adapted portions retain the upstream MIT terms.
+See docs/ecosystem.ko.md for scope, differences, and research-only references.
+
+Runtime-linked Go dependencies (distributed license texts in licenses/):
+- github.com/dlclark/regexp2 v1.11.5: MIT, Copyright (c) Doug Clark.
+- github.com/yalue/onnxruntime_go v1.36.0: MIT,
+  Copyright (c) 2023 Nathan Otterness.
+- ONNX Runtime C API headers: MIT, Copyright (c) Microsoft Corporation.
+- golang.org/x/text v0.25.0 and Go runtime: BSD-3-Clause, The Go Authors;
+  additional patent grants are included.
+Model code checkpoint attribution is preserved verbatim in licenses/laya-code.NOTICE
+and in the models-v2 code archive. Base/code models-v2 contain LICENSE, NOTICE,
+MODEL_CARD.md, MODIFICATIONS.md, and PROVENANCE.json. ONNX doc_string marks the
+conversion and attribution update; the graph is unchanged from models-v1.
+See docs/license-audit.ko.md for scope, obligations, and unresolved provenance.

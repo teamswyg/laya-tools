@@ -34,20 +34,31 @@ coding-model launch when the packaged executor could not resolve its Go toolchai
 [Those results](../experiments/task-outcomes/RESULTS-50.en.md) are retained; modified
 code does not overwrite that plan with successful outcomes.
 
-The separately [precommitted plan 51](../experiments/task-outcomes/plan-51.json)
-includes the toolchain repair and preserves the same task/profile selection,
-order, threshold, and limits. This guide uses plan 51, committed at
-`14fdad230ad6cebbee194b09ed8b6df7916a19cc`. It compares three
-existing public development tasks with two explicit requested profiles.
-`luna-low` requests `gpt-6-luna` with `low`; `sol-low` requests `gpt-6.1-sol` with
-`low`. The plan fixes the order and allows at most **six Codex CLI invocations**,
-one at a time, with a 120-second main-attempt deadline and a separate 45-second
-verification deadline.
+[Plan 51](../experiments/task-outcomes/plan-51.json) stopped after two attempts on
+one comment task. [Its results](../experiments/task-outcomes/RESULTS-51.en.md)
+preserve the exact-contract rejection, requested-profile support failure, and
+startup-parser compatibility gap.
+
+The repaired tools were used under a separate
+[plan 52](../experiments/task-outcomes/plan-52.json), frozen first at commit
+`d202ff042106ad36209ef4cdee6ca1e1c9e64514`. Three existing public development tasks
+requested `gpt-6-sol` and `gpt-6-luna`, both with `low`. **All six planned Codex
+CLI attempts were recorded**, and all six candidates passed independent checks
+within their declared closures. Five attempts exited zero with complete core
+usage. The Sol attempt on `catalog-min-context` reached the 120-second deadline
+and has unknown whole usage. Candidate acceptance and completed execution must
+not be combined into six successful runs. Read
+[results 52](../experiments/task-outcomes/RESULTS-52.en.md) for per-attempt evidence.
+
+Plan 52 ran one attempt at a time, with a 120-second main-attempt deadline and a
+separate 45-second verification deadline. Completed plan 52 and stopped plans
+50/51 are not rerun. A new actual run needs a separate plan with verified current
+profiles and tools.
 
 This does not mean six internal LLM calls. One CLI invocation may contain
 multiple model requests and provider retries; those counts are currently
 `unknown`. The executor performs no retries, resume, or fallback. A started
-failure or timeout counts toward the pilot's limit. The command below owns only
+failure or timeout counts toward the pilot's limit. The executor owns only
 one attempt, so the maintainer must also enforce the complete plan's count and
 order and retain entries that were not executed.
 
@@ -57,7 +68,7 @@ order and retain entries that were not executed.
 | `comment-budget-period` | Replace the budget-period comment with the specified sentence | Three pinned files; exact change, gofmt, and pinned tests |
 | `catalog-min-context` | Add optional `MinContext`, reject negative values, apply minimum-context eligibility, and preserve existing behavior | Nine pinned files; boundary/JSON contracts and pinned catalog/planner tests |
 
-The shared public base is revision
+The shared public base for those three tasks is revision
 `6b2c1bdfd38bea5a9a2c11433ffcfcb94c4143a3`, represented by
 `internal/taskverify/testdata/base`. The executor checks hashes of its files,
 LICENSE and NOTICE, task specifications, and independent contract tests. Added
@@ -65,17 +76,30 @@ files and runtime caches outside the declared scope are `unassessed`.
 `accepted` establishes compliance **within that task scope**, not approval of the
 entire repository or arbitrary code.
 
-These three tasks come from two code families. Running two profiles does not
-turn them into six distinct tasks. They do not establish population success
-rates or sufficient training labels and cannot replace the
-[2,400-case final evaluation design](golden-set-scale.en.md).
+The new behavioral task `repo-keyword-language-guard` uses a separately versioned
+base at revision `146b02b9c37e6d90a11386050ccfdffc036c113e`, stored in
+`internal/taskverify/testdata/repo-keyword-language-guard-v1`. Its contract extends
+the metadata-language guard to every keyword of selected repository candidates
+before Judge invocation. The three-file source closure is `go.mod`,
+`pkg/reporouter/router.go`, and `pkg/reporouter/router_test.go`; LICENSE and NOTICE are pinned
+separately. The specification, independent checks, and base are versioned together;
+the original three task specifications and hashes remain unchanged. **No model
+has attempted this new task.** Verifier checks with an authored correct
+implementation and fault variants are not model outcomes.
+
+Experiments 51/52 contain eight records but only **three distinct requests, two
+code families, and one repository**. Six accepted candidates come from 52; six
+records have complete core usage, including 51's rejected first attempt. These
+counts do not establish population success rates or training labels and cannot
+replace the [2,400-case final evaluation design](golden-set-scale.en.md) or the
+[acquisition, split, and execution-budget plan](golden-set-acquisition.en.md).
 
 ## What Laya predicted before coding outcomes
 
 The [recorded predictions](../experiments/task-outcomes/routing-predictions-50.json)
 used the unchanged pinned Laya INT8 checkpoint on CPU with one thread and the
 default threshold of `0.9`. No threshold adjustment or training on these three
-tasks took place. Plan 51 references these unchanged predictions; it does not
+tasks took place. Plan 52 references these unchanged predictions; it does not
 count them as new predictions or three new independent tasks.
 
 | Task | Author's difficulty hypothesis | Laya suggestion | Largest probability | Applied tier |
@@ -88,8 +112,9 @@ All three inputs were untruncated but abstained because their confidence was
 below `0.9`. The useful question is **which requested coding profile actually
 meets the requirements**, rather than agreement with an author's expected tier.
 This pilot runs the fixed luna/sol comparison, not the strong model retained by
-the router's abstention. `gpt-6-astra` is not executed in this plan. These values
-are not calibrated probabilities of task success.
+the router's abstention. `gpt-6-astra` was not executed. The historical standard
+mapping requested `gpt-6.1-sol`; it is not reinterpreted as a prediction for this
+pilot's `gpt-6-sol`. These values are not calibrated probabilities of task success.
 
 Maximum process RSS was about **1.48 GB (1.38 GiB)** in three cold Laya router
 processes. Each observation includes loading the model and native session for
@@ -106,6 +131,7 @@ mkdir -p .cache/bin
 go build -trimpath -o .cache/bin/riido-taskrun ./cmd/riido-taskrun
 .cache/bin/riido-taskrun --help
 .cache/bin/riido-taskrun --task comment-preview-authority --spec
+.cache/bin/riido-taskrun --task repo-keyword-language-guard --spec
 ```
 
 `--help` and `--spec` launch no model. A default invocation refuses execution.
@@ -118,19 +144,17 @@ plan first.
 
 A deployment-style `-trimpath` binary may have no default Go installation path.
 Pass an explicit trusted Go 1.27.1 installation with `--go-root`. The executor
-checks the resolved `bin/go`, version, and executable-byte SHA-256 against plan
-51's pins. Without a usable default or explicit root, it refuses before
+checks the resolved `bin/go`, version, and executable-byte SHA-256 against the
+new plan's pins. Without a usable default or explicit root, it refuses before
 inference with `trusted_toolchain_unavailable`. It does not follow an arbitrary
 host PATH or download another toolchain.
 
-The following example **preserves the invocation used for plan 51**. That plan
-[stopped after two attempts](../experiments/task-outcomes/RESULTS-51.en.md) and must
-not be resumed. Freeze a separate plan before a new actual run. Executable pins
-refer to the observed Mac installation; another installation requires newly
-verified tool hashes too.
-`/absolute/...` values are placeholders; supply your own absolute paths. The
-private output directory must not exist yet. Unlike reading an example, this
-invocation may consume account usage.
+The following example shows **the argument form for a new precommitted plan**.
+`NEW_*`, `VERIFIED_*`, `PLANNED_ORDINAL`, and `/absolute/...` are placeholders,
+not an executable frozen plan. Match the specification and base to the selected
+task, verify the actual hashes, and freeze the new plan first. The example's
+`gpt-6-luna` request must match an entry in that new plan too. The private output
+directory must not exist yet. An actual invocation may consume account usage.
 The output must be beneath an OS temporary directory. A repository or
 `AGENTS.md`, `.codex`, or `.agents` in its ancestors causes prelaunch refusal.
 
@@ -143,13 +167,13 @@ The output must be beneath an OS temporary directory. A repository or
   --base-dir /absolute/laya-tools/internal/taskverify/testdata/base \
   --private-dir /private/tmp/riido-NEW-ATTEMPT \
   --codex-bin /absolute/trusted/codex \
-  --codex-sha256 788a818fbb9596869c7a487554507cb8bdca17584b8671112b23f9e225ba35c8 \
+  --codex-sha256 VERIFIED_CODEX_SHA256 \
   --codex-version 'codex-cli 0.158.0' \
   --go-root /absolute/trusted/go-toolchain \
-  --plan-file /absolute/laya-tools/experiments/task-outcomes/plan-51.json \
-  --plan-sha256 acf4786f7330529e04af12d4f7dbf40b0bbc2b6a9c527ecb879aee9d8c1510b0 \
-  --attempt-ordinal 1 \
-  --task-spec-sha256 a01f1c95e818511d6bcac35a0eb20b0b6c943a73b4fe7652a550bb0036dbd747 \
+  --plan-file /absolute/private/NEW-FROZEN-PLAN.json \
+  --plan-sha256 NEW_PLAN_SHA256 \
+  --attempt-ordinal PLANNED_ORDINAL \
+  --task-spec-sha256 VERIFIED_TASK_SPEC_SHA256 \
   --auth-source-dir /absolute/private/codex-login \
   --timeout 120s
 ```
@@ -224,17 +248,19 @@ that the plan was published before outcomes.
 
 ## What this establishes and what comes next
 
-The examples in this guide explain execution; they do not report actual coding
-model outcomes. Keep the [stopped plan 50 results](../experiments/task-outcomes/RESULTS-50.en.md),
-[new plan 51](../experiments/task-outcomes/plan-51.json), and
-[prior predictions](../experiments/task-outcomes/routing-predictions-50.json)
-separate from post-execution records. This stage performs no new training,
-model-weight release, production routing activation, or final 2,400-case scoring.
+The command examples explain execution; they do not themselves create model
+outcomes. [Experiment 52](../experiments/task-outcomes/RESULTS-52.en.md) separately
+records actual executions under its frozen plan. Both profiles have acceptance
+and complete usage on the two comment requests, but the Sol behavioral attempt
+has unknown whole usage, preventing a complete cost comparison for that request.
+Only three requests were attempted, so this does not establish profile savings
+or useful production routing. No new training, model-weight release, production
+routing activation, or final 2,400-case scoring took place.
 
-[Results 51](../experiments/task-outcomes/RESULTS-51.en.md) preserve two attempts
-and the measurement-compatibility stop. The example above documents syntax;
-it does not authorize resuming that stopped plan. A new actual run needs verified
-available profiles, a separate frozen plan and fresh output directories.
+The stopped records for [experiment 50](../experiments/task-outcomes/RESULTS-50.en.md)
+and [experiment 51](../experiments/task-outcomes/RESULTS-51.en.md) remain preserved.
+A new actual run needs verified available profiles, a separate frozen plan and
+fresh output directories.
 
 The small development pilot first checks that success, failure, and unknown
 evidence can be recorded correctly. Later, distinct public tasks and paired
@@ -243,4 +269,5 @@ attempt under the same conditions. Only then can upward routing, downward
 routing, and abstention be judged. Read
 [task usage and independent verification](task-outcomes.en.md) for interpretation
 and the [golden-set design](golden-set-scale.en.md) for required scale and split
-separation.
+separation. The [acquisition plan](golden-set-acquisition.en.md) describes staged
+collection and execution budgets.

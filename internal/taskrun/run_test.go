@@ -43,7 +43,11 @@ if [ "$1" = "sandbox" ]; then printf public > .riido-permission-probe; exit 0; f
 
 func writePlan(t *testing.T, req *Request, root string) {
 	t.Helper()
-	p := plan{Schema: "riido-task-outcome-pilot-plan-v1", Status: "precommitted_development_pilot_not_final_routing_evaluation", PublicBase: taskverify.BaseRevision}
+	spec, err := taskverify.TaskSpec(req.TaskID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := plan{Schema: "riido-task-outcome-pilot-plan-v1", Status: "precommitted_development_pilot_not_final_routing_evaluation", PublicBase: spec.BaseRevision}
 	p.CLI.Hash = req.ExpectedCLIHash
 	p.CLI.Version = req.ExpectedCLIVersion
 	p.Profiles = append(p.Profiles, struct {

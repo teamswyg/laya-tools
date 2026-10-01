@@ -9,12 +9,20 @@ existing execution trace, and `riido-taskverify`, which checks candidate files
 independently. Neither tool launches a model. Codex integration remains optional.
 
 The [public task candidates](../benchmarks/training/public-task-candidates.json)
-now link **two requested-profile attempt records for one public task** through
-`model_outcomes`. One candidate failed the exact comment contract; the other
-profile returned a service support error. Zero candidates were independently
-accepted. These are not two capability labels or savings evidence. Read
-[experiment 51](../experiments/task-outcomes/RESULTS-51.en.md) for actual records.
-The examples below are separate authored parser inputs or ways to check public code.
+link **eight records across three distinct requests** from experiments 51/52
+through `model_outcomes`. All six candidates from 52 passed independent checks
+within their declared closures. Five attempts exited zero with complete core
+usage; the Sol behavioral attempt timed out with unknown whole usage. The exact
+comment rejection and profile-support failure from 51 remain preserved. Record
+count, candidate acceptance, and completed execution are different measures.
+Read [experiment 52](../experiments/task-outcomes/RESULTS-52.en.md) and
+[experiment 51](../experiments/task-outcomes/RESULTS-51.en.md) for the evidence.
+
+These development cases cover two code families and one repository and remain
+excluded from training labels. The new candidate `repo-keyword-language-guard`
+has not been attempted by a model. The examples below are separately authored
+parser inputs or public code verification methods, not savings evidence or a
+replacement for 2,400 final requests per evaluated domain.
 
 ## Summarize an existing trace
 
@@ -113,12 +121,13 @@ fixed error codes that do not echo the source text.
 
 ## Verify the resulting files separately
 
-`riido-taskverify` currently checks only the fixed file scope of **three tasks**.
+`riido-taskverify` currently checks only the fixed file scope of **four tasks**.
 Read the specification first. This command prints its JSON specification without
 running checks or launching a model.
 
 ```sh
 .cache/bin/riido-taskverify --task catalog-min-context --spec
+.cache/bin/riido-taskverify --task repo-keyword-language-guard --spec
 ```
 
 | Task ID | Requirement checked | File scope and method |
@@ -126,16 +135,22 @@ running checks or launching a model.
 | `comment-budget-period` | Replace the budget-period comment with the exact specified sentence | Three pinned files: `go.mod`, catalog source, and tests. Exact change, gofmt, and pinned test execution |
 | `comment-preview-authority` | Replace the comment to state that a repository suggestion never authorizes execution | One file, `pkg/reporouter/router.go`. Exact change and static gofmt check |
 | `catalog-min-context` | Add optional `MinContext`, reject negative values, apply minimum-context eligibility, and preserve existing behavior | Nine pinned files covering catalog, planner, switchpolicy, and examples. Independent boundary checks and pinned catalog/planner test execution |
+| `repo-keyword-language-guard` | Check every selected candidate keyword for non-Latin letters before Judge; preserve the lexical result and abstention reason without calling Judge when blocked | Three files in a separate base: pinned `go.mod`, reporouter source, and tests. Independent contracts and pinned tests; no actual model attempt |
 
 This file scope is the task closure. Files outside it are **unassessed**;
 `accepted` does not establish correctness or safety of the entire repository or
 every requirement. An unchanged base is not accepted as having performed the
 requested task. Candidate-authored test assertions are not acceptance evidence.
 
-The public base files are in `internal/taskverify/testdata/base`. Their pinned
+The original three tasks' public base files are in `internal/taskverify/testdata/base`. Their pinned
 revision is `6b2c1bdfd38bea5a9a2c11433ffcfcb94c4143a3`; the verifier checks the
-SHA-256 of every required file. Prepare a candidate directory containing the task
-changes against that same base. For example, this command checks an **already
+SHA-256 of every required file. The new keyword task uses a separate base at
+public revision `146b02b9c37e6d90a11386050ccfdffc036c113e`, stored in
+`internal/taskverify/testdata/repo-keyword-language-guard-v1`. Its versioned
+definition binds source, specification, independent contracts, and separately
+pinned LICENSE/NOTICE. The original three specifications and hashes are not
+changed to match the new task. Prepare a candidate directory containing the task
+changes against its matching base. For example, this command checks an **already
 prepared** candidate:
 
 ```sh
@@ -149,20 +164,23 @@ prepared** candidate:
 The command does not create that candidate or perform the task. Use the matching
 task ID and candidate directory for either comment task. `--help` prints concise
 usage instructions.
+For the new keyword task, use `--task repo-keyword-language-guard` with its separate
+`--base-dir` above and a candidate prepared against that base. `--spec` shows the
+current task's base revision and pins without launching a model.
 Set `--go-root` to the absolute path of a trusted Go 1.27.1 installation containing
 `bin/go`. A packaged `-trimpath` binary without a default Go installation needs
 this option for behavioral checks. Unavailable toolchain resolution or isolated
 Go execution remains `verifier_unknown`, not an incorrect candidate label. This
 is separate from the comment task's static checks without candidate execution.
 
-The two tasks requiring behavioral tests run only when macOS `sandbox-exec`
+The three tasks requiring behavioral tests run only when macOS `sandbox-exec`
 isolation is available. The verifier copies the declared public source and
 pinned tests into a temporary directory, configured to avoid network access and
 the host's authentication environment. If isolation is unavailable or execution
 is cancelled or the overall verification deadline or output limit prevents
 completion, the result is `verifier_unknown`. Actual requirement failures in
 independent tests reject the candidate.
-Behavioral verification of these two tasks is currently unknown on other OSes.
+Behavioral verification of these three tasks is currently unknown on other OSes.
 `comment-preview-authority` uses static checks without executing candidate code,
 so it is separate from that restriction. This is not a general security verifier
 that approves arbitrary repositories or arbitrary code execution.
@@ -176,6 +194,12 @@ Candidate code outside the supported structure is also reported as unknown with
 `unsupported_candidate_shape`. For example, an implementation outside the
 allowed base import set may be beyond this narrow verifier's scope; that alone
 does not establish that the implementation fails its requirements.
+
+For the new keyword task, changed imports, `init` functions, and compiler
+directives also exceed the supported shape. Acceptance requires the named
+independent contract tests to actually pass in their exact package, rather than
+candidate-authored assertions. Source acceptance and staged LICENSE/NOTICE hashes
+are separate; this does not assess candidate files outside the declared closure.
 
 | Command | Exit code | Meaning |
 | --- | ---: | --- |
@@ -202,12 +226,30 @@ remaining four entries unexecuted. First-attempt usage is complete; second-attem
 usage is unknown. No comparable two-profile capability results or savings were
 established.
 
+[Experiment 52](../experiments/task-outcomes/RESULTS-52.en.md) records all six
+attempts under a separate plan requesting available `gpt-6-sol` and `gpt-6-luna`
+profiles, both with `low`. Both candidates passed independent closure checks on
+all three requests, but only five attempts exited zero with complete core usage.
+The Sol attempt on `catalog-min-context` reached the 120-second deadline; its
+accepted candidate is not relabeled as an implementation failure, and whole usage
+stays `unknown`. Only the two comment requests have complete usage for both
+profiles. This does not assume that the larger profile is always better or
+establish a general savings rate.
+
+Experiments 51/52 total eight records over three distinct requests. Six accepted
+candidates come from 52; six records have complete core usage, including 51's
+rejected first attempt. One support failure and one timeout remain visible.
+Provider-attested model identity is still unknown, and the new keyword behavioral
+contract has not been attempted by a model.
+
 Actual routing evaluation still needs independently accepted outcomes from
 executable profiles on the same specification and base, usage across all
 attempts/retries, and requested/observed evidence. Compare completion rate with
 whole-task usage to evaluate upward and downward routing. These development
 records do not replace the [golden-set design](golden-set-scale.en.md)'s target
 of at least 2,400 final requests per evaluated domain.
+See the [acquisition plan](golden-set-acquisition.en.md) for source collection,
+grouped splits, and comparison-execution budgets.
 
 The authored JSONL fixtures and public code verification examples explain tool
 behavior. They do not constitute actual model outcomes. The original tool scope
@@ -218,4 +260,4 @@ and validation plan are in historical
 records two summaries, acceptance of the exact comment change, and rejection of
 an unchanged base. Tool exit codes are separate from model process exits; there
 are **zero actual model outcomes in that historical authored record**, separate
-from experiment 51's later owned attempts.
+from experiments 51/52's later owned attempts.

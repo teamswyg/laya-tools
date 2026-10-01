@@ -5,9 +5,9 @@ Choose a language; both versions cover the same features, measurements, and limi
 
 **Start with the [user Wiki](https://github.com/teamswyg/laya-tools/wiki) / 처음에는 [사용자 Wiki](https://github.com/teamswyg/laya-tools/wiki)를 보세요.**
 
-Latest owned task evidence: two CLI attempts on one public comment task, zero accepted candidates. One failed the exact contract; the other requested profile was unsupported. This does not establish two capability labels, profile savings, or final routing performance. The target remains at least 2,400 independent final requests per evaluation domain.
+Latest owned task evidence: experiment 52 recorded all six attempts on three development requests. Six candidates passed independent closure checks; five attempts exited zero with complete core usage, while one accepted candidate timed out with unknown usage. Including preserved experiment 51, there are eight records over three requests in two code families and one repository. These remain development evidence, not population capability labels or demonstrated savings. The target remains at least 2,400 distinct final requests per evaluation domain, with related cases grouped.
 
-최근 실제 작업 기록은 한 공개 주석 작업의 CLI 두 시도이며 수용된 후보는 0건입니다. 하나는 정확한 계약 실패, 다른 하나는 요청 프로필 지원 오류입니다. 두 능력 라벨·프로필 절감·최종 라우팅 성능을 입증하지 않습니다. 영역별 독립 최종 요청 최소 2,400건의 목표는 유지합니다.
+최근 실험 52는 개발 요청 3개에서 계획한 여섯 시도를 모두 기록했습니다. 후보 6개는 독립 범위 검사를 통과했고, 다섯 시도는 정상 종료와 완전한 기본 사용량을 확인했습니다. 나머지는 후보가 수용됐지만 시간 초과로 사용량이 미확정입니다. 보존한 실험 51까지 합치면 두 코드 가족·한 저장소의 요청 3개에 기록 8건입니다. 모집단의 능력 라벨이나 절감 근거로 쓰지 않습니다. 영역별 구분되는 최종 요청 최소 2,400건을 목표로 하며 관련 사례는 같은 그룹으로 관리합니다.
 
 | Topic / 주제 | English | 한국어 |
 |---|---|---|
@@ -21,8 +21,10 @@ Latest owned task evidence: two CLI attempts on one public comment task, zero ac
 | License audit / 라이선스 검토 | [Audit](license-audit.en.md) | [검토](license-audit.ko.md) |
 | Initial measurements / 초기 측정 | [Measurements](measurements.md) | [측정](measurements.ko.md) |
 | Golden-set scale and domain boundaries / 골든셋 규모와 도메인 구분 | [24 versus 2,400](golden-set-scale.en.md) | [24개와 2,400개의 의미](golden-set-scale.ko.md) |
+| Golden-set acquisition, grouped splits and budgets / 골든셋 확보·그룹 분할·실행 예산 | [Staged plan](golden-set-acquisition.en.md) | [단계별 확보 계획](golden-set-acquisition.ko.md) |
 | Usage recording and independent task verification / 사용량 기록·독립 작업 검증 | [Use and evidence limits](task-outcomes.en.md) | [사용법과 증거 범위](task-outcomes.ko.md) |
 | Explicit public task execution / 명시적 공개 작업 실행 | [Owned process and evidence](task-execution.en.md) | [직접 실행과 근거 연결](task-execution.ko.md) |
+| Owned coding attempts 52 / 실제 코딩 시도 52 | [Six accepted closures, five complete executions](../experiments/task-outcomes/RESULTS-52.en.md) | [여섯 후보 수용·다섯 실행 완료](../experiments/task-outcomes/RESULTS-52.ko.md) |
 | Owned coding attempts 51 / 실제 코딩 시도 51 | [Two attempts, no profile comparison](../experiments/task-outcomes/RESULTS-51.en.md) | [두 시도와 비교 중단](../experiments/task-outcomes/RESULTS-51.ko.md) |
 | Stopped packaging pilot 50 / 패키징 문제로 중단한 파일럿 50 | [Prelaunch refusal](../experiments/task-outcomes/RESULTS-50.en.md) | [모델 실행 전 거절](../experiments/task-outcomes/RESULTS-50.ko.md) |
 | Training-only search-helper headroom / 학습용 검색 방식의 개선 여지 | [4,456 requests, stop decision and resources](../experiments/path-helper-headroom/RESULTS-48.en.md) | [4,456개 결과·중단 판단·자원](../experiments/path-helper-headroom/RESULTS-48.ko.md) |

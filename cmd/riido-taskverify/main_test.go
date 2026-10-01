@@ -42,3 +42,58 @@ func TestBaseCannotEscapeThroughSymlink(t *testing.T) {
 		t.Fatal("symlinked base closure was read")
 	}
 }
+
+func TestVersionedSpecAndOriginalAttribution(t *testing.T) {
+	const task = "repo-keyword-language-guard"
+	spec, err := taskverify.TaskSpec(task)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out, diagnostics bytes.Buffer
+	if code := execute([]string{"--task", task, "--spec"}, &out, &diagnostics); code != 0 || diagnostics.Len() != 0 {
+		t.Fatal("versioned spec CLI failed")
+	}
+	var got taskverify.Spec
+	if json.Unmarshal(out.Bytes(), &got) != nil || got.BaseRevision != spec.BaseRevision || got.DefinitionSHA256 == "" || got.AcceptanceSourceSHA256 == "" {
+		t.Fatal("versioned CLI specification lost snapshot or independent contract")
+	}
+	base := filepath.Join("..", "..", "internal", "taskverify", "testdata", "repo-keyword-language-guard-v1")
+	out.Reset()
+	diagnostics.Reset()
+	if code := execute([]string{"--task", task, "--base-dir", base, "--candidate-dir", base}, &out, &diagnostics); code != 1 || diagnostics.Len() != 0 {
+		t.Fatalf("versioned baseline CLI must reject the unchanged candidate using its own revision, code=%d", code)
+	}
+	var report taskverify.Report
+	if json.Unmarshal(out.Bytes(), &report) != nil || report.BaseRevision != spec.BaseRevision || report.Status != "rejected" || report.Accepted || len(report.AttributionFiles) != 2 || report.AttributionSHA256 == "" {
+		t.Fatal("CLI did not bind original public attribution and versioned snapshot")
+	}
+	// A caller-controlled LICENSE with identical size is still rejected by its
+	// digest. Only the separately pinned original staging bytes are accepted.
+	dir := t.TempDir()
+	paths, _ := taskverify.BasePaths(task)
+	pins, _ := taskverify.AttributionPins(task)
+	for _, pin := range pins {
+		paths = append(paths, pin.Path)
+	}
+	for _, path := range paths {
+		b, err := os.ReadFile(filepath.Join(base, filepath.FromSlash(path)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		p := filepath.Join(dir, filepath.FromSlash(path))
+		if err := os.MkdirAll(filepath.Dir(p), 0700); err != nil {
+			t.Fatal(err)
+		}
+		if path == "LICENSE" {
+			b[0] ^= 1
+		}
+		if err := os.WriteFile(p, b, 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	out.Reset()
+	diagnostics.Reset()
+	if code := execute([]string{"--task", task, "--base-dir", dir, "--candidate-dir", base}, &out, &diagnostics); code != 2 || out.Len() != 0 || strings.TrimSpace(diagnostics.String()) != "attribution_pin_mismatch" {
+		t.Fatal("CLI accepted or exposed mismatched original attribution")
+	}
+}
