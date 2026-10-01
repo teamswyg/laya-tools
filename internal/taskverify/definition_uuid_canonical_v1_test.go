@@ -429,8 +429,17 @@ func TestUUIDCanonicalVerifierIntegration(t *testing.T) {
 					t.Fatal("UUID positive pipeline did not pass", r)
 				}
 			case "missing-api":
-				if r.Accepted || r.Status != "rejected" {
-					t.Fatal("unchanged UUID baseline accepted", r)
+				// Formatting the pinned prefix changes its bytes, so this control
+				// reaches the compiler to establish the missing API. Platforms
+				// without an enforced sandbox cannot establish that outcome.
+				if !sandboxSupported() {
+					if r.Accepted || r.Status != "verifier_unknown" || r.ExecutionIsolated || r.Checks[len(r.Checks)-1].Code != "isolation_unavailable" {
+						t.Fatal("unsupported platform claimed missing-API outcome")
+					}
+					return
+				}
+				if r.Accepted || r.Status != "rejected" || !r.ExecutionIsolated {
+					t.Fatal("normalized UUID without API accepted or untested", r)
 				}
 			case "wrong-permissive-Parse":
 				if !sandboxSupported() {

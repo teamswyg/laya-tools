@@ -65,6 +65,13 @@ equivalent under the original type validation. Error precedence when one input
 violates both a size and duplicate rule is outside the frozen assessment. This
 code change does not validate routing utility or cost savings.
 
+The first Linux CI exposed an incorrect test expectation: a formatter-normalized
+UUID baseline without the new API requires isolated compilation, so a platform
+without supported isolation must report `verifier_unknown` rather than rejection.
+The test now checks that unknown outcome and actual isolated rejection on macOS
+separately. Product decisions, frozen specs, parser observations and original
+source files remain unchanged.
+
 ## Scale and next steps
 
 Actual cumulative development observations now cover **5 distinct requests,
