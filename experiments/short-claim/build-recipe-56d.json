@@ -1,0 +1,40 @@
+{
+  "schema": "riido-resident-build-recipe-v1",
+  "go_version": "go1.27.1",
+  "goos": "darwin",
+  "goarch": "arm64",
+  "environment": [
+    "CGO_ENABLED=0",
+    "GOTOOLCHAIN=local",
+    "GOPROXY=off",
+    "GOSUMDB=off",
+    "GOWORK=off",
+    "GOENV=off",
+    "GOFLAGS=",
+    "GOEXPERIMENT=",
+    "GOMAXPROCS=1",
+    "GOOS=darwin",
+    "GOARCH=arm64"
+  ],
+  "driver_command": [
+    "go",
+    "build",
+    "-trimpath",
+    "-buildvcs=false",
+    "-p=1",
+    "-o",
+    "PRIVATE_DRIVER_PATH",
+    "./cmd/riido-residentperf"
+  ],
+  "child_command": [
+    "go",
+    "build",
+    "-trimpath",
+    "-buildvcs=false",
+    "-p=1",
+    "-o",
+    "PRIVATE_CHILD_PATH",
+    "./cmd/riido-shortclaim"
+  ],
+  "scope": "PRIVATE_*_PATH are private output placeholders. Sources/modules are independently frozen in the plan. Build and protocol preparation precede measured replay."
+}
