@@ -14,8 +14,9 @@ The number 2,400 is a project lower bound, not a universal statistical guarantee
 |---|---:|---|
 | Synthetic semantic-retrieval pilot | 24 final-probe requests | A one-author transfer probe with limited grammar and subjects. Already observed; development data for subsequent work. |
 | Difficulty development fixtures | 36 tasks | Compare classification with author-assigned expected tiers. These are not ground truth for downstream model success. |
-| Actual coding candidate registry | 8 candidates, three families, one repository | Actually attempted: four distinct requests in two families, 12 cumulative CLI records. All four repetitions of the keyword request in 53 accepted with zero exit/complete usage. The new parser family has a prepared versioned verifier with zero model attempts. Not population labels. |
-| New public Go source survey | 8 repositories, 120 original behavior candidates, zero execution-eligible tasks | Development inventory based on inspected files, revisions and LICENSE/origins. Independent contracts and support/dependency closures are pending; not attempts, training labels or acquired final requests. |
+| Actual coding candidate registry | 8 candidates, three families, one repository | Current attempted scope: five distinct requests in three families, 16 cumulative CLI records. All four repetitions of the new parser request in 54 passed 75 independent terminal tests, exited zero and had complete usage. Repetitions/tests are not distinct requests or population/training labels. |
+| Public Go source survey: historical snapshot at 53 | 8 repositories, 120 original behavior candidates, zero execution-eligible tasks then | The original inventory is preserved. Inspected files/revisions/LICENSE/origins are development evidence; independent contracts/closures for all 120 are not acquired. Not attempts, labels or final requests. |
+| External-contract preparation at 54 | 2 of the 120 source candidates; zero external model attempts | Selected source, independent checks and controls were verified locally. All compiled verifier tasks total seven across three repositories, a separate scope from the eight local candidates above. External training labels and final eligibility remain zero. |
 | CoSQA relevance evaluation | 2,400 query/code pairs in 724 connected groups | Actually scored, without establishing useful improvement over BM25. Evaluates pair relevance, not candidate retrieval or routing. |
 | Experiment 46 training | 4,456 eligible requests | Development requests used to fit coefficients on 16 numeric features. |
 | Experiment 46 validation | 2,599 eligible requests | Used to select epoch, penalty and threshold. Not final evaluation. |
@@ -33,9 +34,25 @@ Expected tiers in the [public task candidates](../benchmarks/training/public-tas
 
 
 
-[Experiment 53](../experiments/task-outcomes/RESULTS-53.en.md) repeated one new keyword-guard behavior request twice per Luna/Sol low profile. All four candidates were accepted with zero exit and complete whole core usage, and the same guard was integrated into runtime. Through 51/52/53 there are **four distinct requests, two actually attempted families, one repository and 12 records**. 53 reported 339,805 input including 280,576 cached input, and 4,890 output including 76 reasoning. Luna had less total input but uncached input was Luna 31,425 versus Sol 27,804, so actual cost savings cannot be inferred. Fixed Laya's new observation suggested standard at 0.669 and abstained, with cold RSS about 1.50GB; it does not establish the very-low-resource target.
+[Experiment 53](../experiments/task-outcomes/RESULTS-53.en.md) repeated one new keyword-guard behavior request twice per Luna/Sol low profile. All four candidates were accepted with zero exit and complete whole core usage, and the same guard was integrated into runtime. Through 51/52/53 the historical subtotal is **four distinct requests, two actually attempted families, one repository and 12 records**. 53 reported 339,805 input including 280,576 cached input, and 4,890 output including 76 reasoning. Luna had less total input but uncached input was Luna 31,425 versus Sol 27,804, so actual cost savings cannot be inferred. Fixed Laya's new observation suggested standard at 0.669 and abstained, with cold RSS about 1.50GB; it does not establish the very-low-resource target.
 
-The [120-candidate source survey](public-go-acquisition-53.en.md) was read for development only. It is not 120 executable contracts or training labels and does not replace separately acquired protected final 2,400 requests. Report candidates, attempts, completion, labels and final eligibility separately.
+[Experiment 54](../experiments/task-outcomes/RESULTS-54.en.md) ran one new parser request
+twice per Sol6/Luna low profile. All four candidates were accepted, exited zero and had complete
+whole core usage. Current cumulative development observations are **five distinct requests,
+three actually attempted families, one repository and 16 records**. The 75 independent tests
+check one request, not 75 tasks. [Laya's pre-coding prediction](../experiments/task-outcomes/routing-predictions-54.json)
+suggested standard at 0.610351 and abstained. One cold one-thread CPU observation took
+1,183ms with maximum RSS 1,508,032,512 bytes (about 1.508 GB), including native loading.
+This is not warm latency, Go heap, GPU resources or calibrated success probability,
+and does not establish the ultra-small-resource goal. Luna had smaller observed time/tokens
+on this request, while served identity, money and subscription consumption remain unknown.
+
+The [120-candidate source survey](public-go-acquisition-53.en.md) remains the development
+snapshot at 53. At 54, [independent contracts for two external requests](public-go-contracts-54.en.md)
+were prepared locally, with zero external model attempts, training labels or final eligibility.
+This does not acquire executable contracts or training answers for all 120, nor replace
+the separately acquired protected final 2,400 requests. Report candidates, verifier
+contracts, attempts, completion, labels and final eligibility separately.
 
 ## Final requests and ground truth needed in each domain
 
@@ -56,6 +73,6 @@ Running one request with two seeds or several epochs, models or settings still c
 
 For new collections, freeze grouped training, selection validation, calibration and final partitions **before looking at scores**. Claims about unseen repositories require holding out whole repositories. Freeze data hashes, model/design-selection procedures, cost/quality metrics, failure/out-of-scope/missing treatment and gates in advance. Final data used to change a design becomes development data. Renaming observed validation does not make it final evidence.
 
-A proposed future distribution should cover direct wording and paraphrases, short and long requests, ambiguous or no-answer cases, several repositories, languages and change scopes, and rare costly failures. Specify slice targets and scope first, then report actual support, missing cases and uncertainty. Do not present a proposed distribution as measured counts or turn expected tiers into verified success labels. Existing partitions and gates remain unchanged, with no new fitting or final scoring. The separate development pilots' 12 cumulative CLI attempts on four requests do not replace the target of 2,400 independent final requests or establish savings.
+A proposed future distribution should cover direct wording and paraphrases, short and long requests, ambiguous or no-answer cases, several repositories, languages and change scopes, and rare costly failures. Specify slice targets and scope first, then report actual support, missing cases and uncertainty. Do not present a proposed distribution as measured counts or turn expected tiers into verified success labels. Existing partitions and gates remain unchanged, with no new fitting or final scoring. The separate development pilots' 16 cumulative CLI attempts on five requests do not replace the target of 2,400 independent final requests or establish savings.
 
 The [official SWE-bench evaluation guide](https://www.swebench.com/SWE-bench/guides/evaluation/) is a methodological reference for checking resolution through repository tests after applying a patch. [SWE-bench Goes Live!](https://arxiv.org/abs/2505.23419) is a reference for evaluation design using recent tasks and diverse repositories. Citing them does not adopt their data, approve usage/redistribution rights, or establish that this project's data are free of pretraining contamination.

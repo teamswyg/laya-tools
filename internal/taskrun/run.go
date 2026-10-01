@@ -176,7 +176,7 @@ func LoadBase(dir, task string) ([]taskverify.BaseFile, []taskverify.BaseFile, e
 		return nil, nil, Error("invalid_task")
 	}
 	attribution, err := taskverify.AttributionPins(task)
-	if err != nil || len(attribution) != 2 || attribution[0].Path != "LICENSE" || attribution[1].Path != "NOTICE" {
+	if err != nil || len(attribution) == 0 {
 		return nil, nil, Error("invalid_attribution_manifest")
 	}
 	root, err := os.OpenRoot(dir)
@@ -184,8 +184,12 @@ func LoadBase(dir, task string) ([]taskverify.BaseFile, []taskverify.BaseFile, e
 		return nil, nil, Error("base_root_unavailable")
 	}
 	defer root.Close()
-	all := make([]taskverify.BaseFile, 0, len(paths)+2)
-	for _, path := range append(slices.Clone(paths), "LICENSE", "NOTICE") {
+	stagingPaths := slices.Clone(paths)
+	for _, pin := range attribution {
+		stagingPaths = append(stagingPaths, pin.Path)
+	}
+	all := make([]taskverify.BaseFile, 0, len(stagingPaths))
+	for _, path := range stagingPaths {
 		b, err := readRootFile(root, path, taskverify.MaxFileBytes)
 		if err != nil {
 			return nil, nil, Error("base_file_unavailable")

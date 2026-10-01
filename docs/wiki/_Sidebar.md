@@ -1,5 +1,8 @@
 **[Home / 홈](https://github.com/teamswyg/laya-tools/wiki)**
 
+- [실제 파서 작업 비교54](Task-Results-54-KO) · [Actual parser comparison54](Task-Results-54-EN)
+- [외부 Go 계약 준비54](Public-Go-Contracts-54-KO) · [External Go contracts54](Public-Go-Contracts-54-EN)
+
 **English**
 
 - [Ternary training and PDCA](https://github.com/teamswyg/laya-tools/wiki/Ternary-QAT-EN)

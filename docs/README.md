@@ -24,6 +24,8 @@ Latest owned task evidence: experiment 53 repeated one keyword-guard behavior re
 | Golden-set acquisition, grouped splits and budgets / 골든셋 확보·그룹 분할·실행 예산 | [Staged plan](golden-set-acquisition.en.md) | [단계별 확보 계획](golden-set-acquisition.ko.md) |
 | Usage recording and independent task verification / 사용량 기록·독립 작업 검증 | [Use and evidence limits](task-outcomes.en.md) | [사용법과 증거 범위](task-outcomes.ko.md) |
 | Explicit public task execution / 명시적 공개 작업 실행 | [Owned process and evidence](task-execution.en.md) | [직접 실행과 근거 연결](task-execution.ko.md) |
+| Actual parser comparison54 / 실제 파서 비교54 | [One request, four completed accepted repetitions](../experiments/task-outcomes/RESULTS-54.en.md) | [한 요청·네 수용/완료 반복](../experiments/task-outcomes/RESULTS-54.ko.md) |
+| External Go contracts54 / 외부 Go 계약54 | [Independent contracts for2 of120 source candidates](public-go-contracts-54.en.md) | [120원천 후보 중2개 독립 계약](public-go-contracts-54.ko.md) |
 | Repeated behavioral attempts 53 / 행동 요청 반복 시도 53 | [Four complete accepted attempts on one request](../experiments/task-outcomes/RESULTS-53.en.md) | [한 요청·네 수용/완료 시도](../experiments/task-outcomes/RESULTS-53.ko.md) |
 | Public Go source survey 53 / 공개 Go 원천 조사 53 | [120 candidates, zero execution-eligible](public-go-acquisition-53.en.md) | [120후보·실행 자격 0개](public-go-acquisition-53.ko.md) |
 | Historical owned attempts 52 / 역사적 실제 시도 52 | [Six accepted closures, five complete executions](../experiments/task-outcomes/RESULTS-52.en.md) | [여섯 후보 수용·다섯 실행 완료](../experiments/task-outcomes/RESULTS-52.ko.md) |

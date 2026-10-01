@@ -284,7 +284,8 @@ func parseEvent(body []byte) (event, error) {
 	if err != nil || t != json.Delim('{') {
 		return e, ErrJSON
 	}
-	var seen uint8
+	var keys [64]string
+	keyCount := 0
 	var rawUsage json.RawMessage
 	for d.More() {
 		key, err := d.Token()
@@ -295,23 +296,15 @@ func parseEvent(body []byte) (event, error) {
 		if !ok {
 			return e, ErrJSON
 		}
-		var bit uint8
-		switch name {
-		case "type":
-			bit = 1
-		case "usage":
-			bit = 2
-		case "thread_id":
-			bit = 4
-		case "item":
-			bit = 8
-		case "error":
-			bit = 16
+		if keyCount == len(keys) || len(name) > 128 {
+			return e, ErrJSON
 		}
-		if bit != 0 && seen&bit != 0 {
-			return e, ErrDuplicate
+		for _, prior := range keys[:keyCount] {
+			if prior == name {
+				return e, ErrDuplicate
+			}
 		}
-		seen |= bit
+		keys[keyCount], keyCount = name, keyCount+1
 		var value json.RawMessage
 		if d.Decode(&value) != nil {
 			return e, ErrJSON
@@ -327,7 +320,7 @@ func parseEvent(body []byte) (event, error) {
 			e.item = value
 		}
 	}
-	if _, err := d.Token(); err != nil || seen&1 == 0 {
+	if _, err := d.Token(); err != nil || e.kind == "" {
 		return e, ErrJSON
 	}
 	if _, err := d.Token(); err != io.EOF {
