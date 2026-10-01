@@ -29,6 +29,14 @@ absence of other attempts.
 
 ## Current development pilot and preserved history
 
+[Actual external comparison55](../experiments/task-outcomes/RESULTS-55.en.md)
+executed the existing humanize/UUID logical requests once per Sol6/Luna low request
+profile. Three candidates passed and one failed; all four executions bind zero
+process exit, whole usage, budget receipts and auth cleanup. Actual cumulative
+scope is **20 records,7 distinct requests,5 attempted families and3 repositories**.
+Versions, repeated executions and tests add no distinct requests, training/protected
+final eligibility or demonstrated savings.
+
 [Precommitted plan 50](../experiments/task-outcomes/plan-50.json) stopped before
 coding-model launch when the packaged executor could not resolve its Go toolchain.
 [Those results](../experiments/task-outcomes/RESULTS-50.en.md) are retained; modified
@@ -104,7 +112,7 @@ Preserve 52's six accepted candidates, 53's four and 51's rejection/support erro
 **one `taskoutcome-event-key-bounds` request twice per Sol6/Luna low profile**.
 All four attempts passed 75 independent terminal tests, exited zero and had complete
 whole core usage. The tests and repetitions do not add distinct requests. The current
-cumulative scope is **16 owned records, five distinct requests, three actually attempted
+cumulative scope through 54 is historically **16 owned records, five distinct requests, three actually attempted
 code families and one repository**.
 
 The local registry remains **eight candidates, three families and one repository**.
@@ -128,8 +136,9 @@ preparation and authored controls do not add attempts, answers or
 55 adds v2 evaluation versions linked to the same two external logical requests.
 All conditions are exposed in actual stdin, and actor and independent verifier
 use matching original module language settings. Registry IDs increase by two;
-distinct verifier tasks remain seven. External model attempts, training labels
-and final eligibility remain zero. [Fair comparison preparation](fair-upstream-comparison.en.md)
+distinct verifier tasks remain seven. The subsequent comparison recorded4 actual
+attempts on those2 existing external requests; training/final eligibility remains zero.
+[Actual results55](../experiments/task-outcomes/RESULTS-55.en.md) and [fair comparison conditions](fair-upstream-comparison.en.md)
 explains original language versus the Go 1.27.1 executable, unsupported source
 shapes and the scope of license checks.
 
@@ -355,11 +364,16 @@ repetitions of one behavior request. Input 339,805 includes cached 280,576; outp
 4,890 includes reasoning 76. Luna had less total input, but uncached input was
 Luna 31,425 versus Sol 27,804. Do not mix those observations with 54 or infer money saved.
 
-Current [results 54](../experiments/task-outcomes/RESULTS-54.en.md) cover four repetitions
+Historical [results 54](../experiments/task-outcomes/RESULTS-54.en.md) cover four repetitions
 of one parser request: input 485,609 includes cached 423,552, and output 5,282 includes
 reasoning 157. Luna had smaller input/output and observed main time in both
 repetitions of this request, while actual served identity, subscription consumption,
-money and provider internal-call counts remain unknown. Five cumulative requests
+money and provider internal-call counts remain unknown. The five cumulative requests through54
 do not validate general capability or production routing. Keyword and parser
 protections were integrated into runtime, with no new fitting, calibration, weight
 release, Codex policy activation or protected-final scoring.
+
+Subsequent [results55](../experiments/task-outcomes/RESULTS-55.en.md) first executed
+the two existing external requests, extending current observations to seven requests
+and20 records. These are not new final or training labels; retain the single observation
+per profile and the operator-pause limitations.

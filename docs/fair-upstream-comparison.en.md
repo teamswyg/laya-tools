@@ -1,24 +1,40 @@
-# Preparing a fair comparison on external Go tasks
+# Fair comparison preparation and development observations on external Go tasks
 
 [한국어](fair-upstream-comparison.ko.md) · [Two source contracts](public-go-contracts-54.en.md) · [Scale and partition rules](golden-set-scale.en.md)
 
-This document describes **evaluation framework preparation** for PDCA55. It makes the requested changes visible to the model and aligns the Go language conditions used by model self-checks and independent verification. There are no actual model-comparison results for these two external requests yet. Local verifier controls and fake-executor budget checks do not establish model performance or passing public CI.
+This document describes **evaluation framework preparation and subsequent development observations** for PDCA55. It makes the requested changes visible to the model and aligns the Go language conditions used by model self-checks and independent verification. External model attempts were zero at preparation; four actual CLI attempts subsequently covered two existing logical requests. Local verifier controls and fake-executor budget checks remain separate from actual model observations. Cumulative actual development coverage is now **7 distinct requests, 20 records, 5 attempted code families and 3 repositories**. [Results 55](../experiments/task-outcomes/RESULTS-55.en.md), [machine-readable results](../experiments/task-outcomes/results-55.json)
 
 ## Separate the counts first
 
 The 24 synthetic semantic-retrieval probes are development data for checking an early mechanism. The next performance-claim target is **at least 2,400 distinct protected final requests per evaluation domain**. Retrieval, actual model routing, repository selection and decomposition each need their own ground truth and outcomes. Renaming a request already read during development does not make it protected final data.
 
-| Scope | Count and meaning at preparation |
+| Scope | Count and meaning at preparation and now |
 | --- | --- |
-| Existing actual coding development observations | 5 distinct requests, 16 CLI records, three code families, one laya-tools repository |
-| Existing compiled verifier tasks | 7 distinct tasks across 3 source repositories; separate from the attempt records above |
+| Actual coding development observations through preparation | 5 distinct requests, 16 CLI records, three code families, one laya-tools repository |
+| Compiled logical verifier tasks | 7 distinct logical tasks across 3 source repositories; unchanged by v2 versioning and separate from attempt records |
 | Preserved external source inventory | 120 original candidates; not ground truth or 120 executable contracts |
 | This v2 | Clarified input/evaluation versions of 2 existing external requests, not 2 additional distinct requests |
-| Actual model attempts on the two external requests | 0 |
+| Actual model attempts on the two external requests | 0 at preparation → 4 CLI attempts on 2 distinct logical requests in 55 |
+| Current cumulative actual coding development observations | 7 distinct requests, 20 records, 5 attempted code families and 3 repositories |
 | Training runs, training labels and final-eligible requests for these two external requests | 0 each |
 | Newly trained or released weights in this preparation | 0 |
 
 Changing models, repeating a request, adding test inputs or translating it does not increase distinct-request counts. The v1 and v2 IDs share an original request through `logical_task_id` and `previous_task_id`. Two additional version IDs leave the existing seven logical verifier tasks unchanged. Do not add the [actual candidate records](../benchmarks/training/public-task-candidates.json) to the [120-source inventory](../benchmarks/training/public-go-acquisition-53.json).
+
+## Actual development observations in 55
+
+Execution followed the two precommitted child plans and fixed four-slot order. The user requested a pause between slots 2 and 3 for upstream review; explicit resumption ran only the unstarted slots 3 and 4. Slots 1 and 2 were not retried or replaced.
+
+| Slot | Requested profile and task | Independent verification | Main / independent verification time |
+| --- | --- | --- | --- |
+| 1 | Sol low · humanize | accepted, 6 terminal passes | 76.404s / 4.170s |
+| 2 | Luna low · UUID | rejected, pass count not collected | 98.471s / 5.852s |
+| 3 | Luna low · humanize | accepted, 6 terminal passes | 20.836s / 4.646s |
+| 4 | Sol low · UUID | accepted, 218 terminal passes | 43.474s / 5.421s |
+
+All four exited zero with complete whole usage, auth removal, process-group cleanup and terminal receipts. Requested profiles are explicit executor settings; provider-attested model identity is `unknown` in every record. The failed UUID candidate returns a partially populated UUID on malformed later input, violating the requirement that every error returns zero. This is static review of the bound candidate source, without rerunning it. Its raw zero pass count does not mean tests never ran or all 218 assertions failed.
+
+[Pre-coding native predictions](../experiments/task-outcomes/routing-predictions-55.json) used the unchanged full Prompts; both were truncated and abstained. They do not establish routing utility or calibrated difficulty labels. First actual observations of these two existing requests expand coverage from 5 to 7; they add **0 new logical requests** to the compiled registry. One observation per requested profile per request, the pause and differing cache usage do not establish profile rankings, money or subscription savings. No training, protected-final scoring, weight release or default-routing change occurred. [Raw results and limits](../experiments/task-outcomes/results-55.json), [public receipts](../experiments/task-outcomes/parent-receipts-55.json)
 
 ## Why introduce v2?
 
@@ -71,7 +87,7 @@ For one fixed manifest and **one private durable ledger**, at most 4 slots may b
 3. Freeze both child plans and the parent manifest before observing outcomes. Check duplicate, concurrency, order and no-refund enforcement without models, and verify the actual CLI integration separately.
 4. Record the fixed-input pre-coding router observation and requested profiles before starting bounded attempts. Distinguish requested settings from served identity, and whole usage/time/failure state from verification status.
 
-Comparative performance, money saved, subscription consumption and the ultra-small-resource target remain unknown for these two requests. Finite development controls and a four-attempt plan cannot replace 2,400 distinct final requests per domain. Labels for costs or the successful-model set require separate actual attempt evidence and eligibility review.
+Four actual observations followed these gates, but general comparative performance, money saved, subscription consumption and the ultra-small-resource target remain unestablished. Finite development controls and four observations cannot replace 2,400 distinct final requests per domain. Training labels for costs or the successful-model set still require separate eligibility review.
 
 ## Inspect the input without calling a model
 

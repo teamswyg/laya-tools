@@ -10,8 +10,13 @@ independently. Neither tool launches a model. Codex integration remains optional
 
 The [public registry](../benchmarks/training/public-task-candidates.json) remains
 **eight candidates, three code families and one repository**. Cumulative actually
-attempted scope is **five distinct requests, three code families, one repository
-and 16 owned records**. [Experiment 53](../experiments/task-outcomes/RESULTS-53.en.md)
+attempted scope is **seven distinct requests, five code families, three repositories
+and 20 owned records**. [Experiment 55](../experiments/task-outcomes/RESULTS-55.en.md)
+first executed the two existing external logical requests under clarified v2 conditions.
+Both requested profiles' ordinal candidates passed; only the Sol6-requested UUID
+candidate passed. All four records bind termination, whole usage, budget receipts
+and auth cleanup, without new training or final eligibility. Versioning adds no
+logical requests to the compiled registry. [Experiment 53](../experiments/task-outcomes/RESULTS-53.en.md)
 repeated one keyword-guard request four times. [Experiment 54](../experiments/task-outcomes/RESULTS-54.en.md)
 ran one new parser request twice per Sol6/Luna low profile. All four attempts in 54
 passed 75 independent terminal tests, exited zero and had complete whole core usage.
@@ -30,7 +35,9 @@ The [public Go survey](public-go-acquisition-53.en.md) retains its historical sn
 at 53: 120 candidates, eight repositories and zero execution-eligible tasks.
 At 54, [independent contracts](public-go-contracts-54.en.md) for two of those external
 requests were prepared locally, with **zero external model attempts, training labels
-or final-eligible requests**. The **seven compiled verifier tasks across three
+or final-eligible requests** at that time. 55's four external attempts are now included
+in the cumulative observations above; training and final eligibility remain zero.
+The **seven compiled verifier tasks across three
 repositories** are a different scope from the eight-candidate local registry.
 Authored inputs and correct/wrong controls do not replace model outcomes or
 2,400 final requests per claimed domain.
@@ -135,7 +142,8 @@ fixed error codes that do not echo the source text.
 The five contracts below have actual model attempts. `riido-taskverify` checks
 their **declared file scopes**. The versioned parser contract was used for four
 attempts in 54; prior specifications and records remain preserved.
-The two separately prepared external contracts have no model attempts.
+This table covers the five local contracts. The two separate external logical requests
+have four attempts under the [actual v2 comparison55](../experiments/task-outcomes/RESULTS-55.en.md).
 Read the specification first. This command prints its JSON specification without
 running checks or launching a model.
 
@@ -255,7 +263,7 @@ The historical 51/52 subtotal is eight records over three requests; through 53
 there were 12 records, four requests and two actually attempted families.
 At 53, there were ten accepted candidates and ten complete-core-usage records;
 the usage records included 51's rejected first attempt.
-Including 54, the current total is **16 records, five requests, three actually
+Through 54, the historical total is **16 records, five requests, three actually
 attempted families and one repository**. Accepted candidates total 14: six in 52
 plus four in each of 53 and 54. The 14 complete-core-usage records include 51's
 rejected first attempt. Thirteen records combine acceptance, zero exit and complete

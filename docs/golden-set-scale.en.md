@@ -14,9 +14,10 @@ The number 2,400 is a project lower bound, not a universal statistical guarantee
 |---|---:|---|
 | Synthetic semantic-retrieval pilot | 24 final-probe requests | A one-author transfer probe with limited grammar and subjects. Already observed; development data for subsequent work. |
 | Difficulty development fixtures | 36 tasks | Compare classification with author-assigned expected tiers. These are not ground truth for downstream model success. |
-| Actual coding candidate registry | 8 candidates, three families, one repository | Current attempted scope: five distinct requests in three families, 16 cumulative CLI records. All four repetitions of the new parser request in 54 passed 75 independent terminal tests, exited zero and had complete usage. Repetitions/tests are not distinct requests or population/training labels. |
+| Local actual coding candidate registry | 8 candidates, three families, one repository | Local attempted scope through 54: five distinct requests in three families, 16 CLI records. All four repetitions of the new parser request in 54 passed 75 independent terminal tests, exited zero and had complete usage. Repetitions/tests are not distinct requests or population/training labels. |
+| Cumulative actual coding development observations after 55 | 7 distinct requests, 20 records, 5 attempted code families, 3 repositories | First actual observations of two existing external requests under v2 conditions add 4 records and 0 new logical requests. Three of four candidates in 55 were accepted; no training or final eligibility is assigned. |
 | Public Go source survey: historical snapshot at 53 | 8 repositories, 120 original behavior candidates, zero execution-eligible tasks then | The original inventory is preserved. Inspected files/revisions/LICENSE/origins are development evidence; independent contracts/closures for all 120 are not acquired. Not attempts, labels or final requests. |
-| External-contract preparation at 54 | 2 of the 120 source candidates; zero external model attempts | Selected source, independent checks and controls were verified locally. All compiled verifier tasks total seven across three repositories, a separate scope from the eight local candidates above. External training labels and final eligibility remain zero. |
+| External-contract preparation at 54 | 2 of the 120 source candidates; zero external model attempts then | Selected source, independent checks and controls were verified locally. All compiled verifier tasks total seven across three repositories, a separate scope from the eight local candidates above. External training labels and final eligibility remain zero. |
 | CoSQA relevance evaluation | 2,400 query/code pairs in 724 connected groups | Actually scored, without establishing useful improvement over BM25. Evaluates pair relevance, not candidate retrieval or routing. |
 | Experiment 46 training | 4,456 eligible requests | Development requests used to fit coefficients on 16 numeric features. |
 | Experiment 46 validation | 2,599 eligible requests | Used to select epoch, penalty and threshold. Not final evaluation. |
@@ -38,7 +39,7 @@ Expected tiers in the [public task candidates](../benchmarks/training/public-tas
 
 [Experiment 54](../experiments/task-outcomes/RESULTS-54.en.md) ran one new parser request
 twice per Sol6/Luna low profile. All four candidates were accepted, exited zero and had complete
-whole core usage. Current cumulative development observations are **five distinct requests,
+whole core usage. Historical cumulative development observations through 54 are **five distinct requests,
 three actually attempted families, one repository and 16 records**. The 75 independent tests
 check one request, not 75 tasks. [Laya's pre-coding prediction](../experiments/task-outcomes/routing-predictions-54.json)
 suggested standard at 0.610351 and abstained. One cold one-thread CPU observation took
@@ -53,6 +54,23 @@ were prepared locally, with zero external model attempts, training labels or fin
 This does not acquire executable contracts or training answers for all 120, nor replace
 the separately acquired protected final 2,400 requests. Report candidates, verifier
 contracts, attempts, completion, labels and final eligibility separately.
+
+[Experiment 55](../experiments/task-outcomes/RESULTS-55.en.md) ran each of the two existing
+external logical requests once per requested profile, with v2 full Prompts and original
+module language conditions. Humanize was accepted under both; UUID was rejected under
+Luna low and accepted under Sol low. All four exited zero with complete whole usage and
+cleanup receipts. These first observations expand cumulative coverage to **7 distinct requests,
+20 records, 5 attempted code families and 3 repositories**; v2 adds 0 new logical requests
+to the compiled seven-task registry. [Results JSON](../experiments/task-outcomes/results-55.json)
+
+A user-requested review pause occurred between slots 2 and 3; only unstarted slots resumed.
+The UUID failure is explained by static review of partial UUID returns on error, without
+a rerun. Provider-attested identity remains unknown; differing cache usage and one observation
+per request/profile do not establish profile rankings, money or subscription savings. Both
+[pre-coding native predictions](../experiments/task-outcomes/routing-predictions-55.json) used
+full Prompts, were truncated and abstained. No default-routing change, training, final scoring
+or new weight release occurred. These development observations do not become 2,400 protected
+final requests or eligible training labels.
 
 ## Final requests and ground truth needed in each domain
 
@@ -73,6 +91,6 @@ Running one request with two seeds or several epochs, models or settings still c
 
 For new collections, freeze grouped training, selection validation, calibration and final partitions **before looking at scores**. Claims about unseen repositories require holding out whole repositories. Freeze data hashes, model/design-selection procedures, cost/quality metrics, failure/out-of-scope/missing treatment and gates in advance. Final data used to change a design becomes development data. Renaming observed validation does not make it final evidence.
 
-A proposed future distribution should cover direct wording and paraphrases, short and long requests, ambiguous or no-answer cases, several repositories, languages and change scopes, and rare costly failures. Specify slice targets and scope first, then report actual support, missing cases and uncertainty. Do not present a proposed distribution as measured counts or turn expected tiers into verified success labels. Existing partitions and gates remain unchanged, with no new fitting or final scoring. The separate development pilots' 16 cumulative CLI attempts on five requests do not replace the target of 2,400 independent final requests or establish savings.
+A proposed future distribution should cover direct wording and paraphrases, short and long requests, ambiguous or no-answer cases, several repositories, languages and change scopes, and rare costly failures. Specify slice targets and scope first, then report actual support, missing cases and uncertainty. Do not present a proposed distribution as measured counts or turn expected tiers into verified success labels. Existing partitions and gates remain unchanged, with no new fitting or final scoring. The separate development pilots' 20 cumulative CLI attempts on seven requests do not replace the target of 2,400 independent final requests or establish savings.
 
 The [official SWE-bench evaluation guide](https://www.swebench.com/SWE-bench/guides/evaluation/) is a methodological reference for checking resolution through repository tests after applying a patch. [SWE-bench Goes Live!](https://arxiv.org/abs/2505.23419) is a reference for evaluation design using recent tasks and diverse repositories. Citing them does not adopt their data, approve usage/redistribution rights, or establish that this project's data are free of pretraining contamination.

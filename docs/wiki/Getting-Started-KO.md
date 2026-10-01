@@ -69,8 +69,8 @@ riidolaya bench --iterations 10
 
 ## 개발 실험의 근거 읽기
 
-[외부 Go 작업의 공정 비교 준비 55](https://github.com/teamswyg/laya-tools/blob/main/docs/fair-upstream-comparison.ko.md)는 모델에 어떤 요구를 전달하고 독립 검사와 어떤 조건을 맞추는지 설명합니다. 새 v2 ID 두 개는 기존 humanize·UUID 요청 두 개의 버전이며 고유 요청 수가 늘어난 것이 아닙니다. 이 외부 두 요청의 실제 모델 시도는 아직 0개입니다.
+[외부 Go 작업의 공정 비교 55](https://github.com/teamswyg/laya-tools/blob/main/docs/fair-upstream-comparison.ko.md)는 실제 입력과 독립 검사의 조건을 설명합니다. v2 ID는 기존 humanize·UUID 논리 요청의 버전입니다. [실제 결과55](https://github.com/teamswyg/laya-tools/wiki/Task-Results-55-KO)는 두 요청을 두 프로필로 각각 한 번 실행한 네 기록입니다. 서수는 둘 다 통과했고 UUID는 Sol6 요청만 통과했습니다. 버전·반복·검사를 고유 요청으로 늘려 세지 않습니다.
 
-두 작업 계획은 한 durable ledger의 순서가 정해진 예약 네 개를 공유합니다. 한 번에 하나만 실행하고 실패한 예약도 환불하지 않습니다. 이 제한은 그 ledger에만 적용하며 호스트 전체나 공급자 내부 호출의 한도가 아닙니다. 실제 실행 전에 CI, 전체 입력과 원본 Go 언어 조건, 두 계획과 예산을 확인합니다.
+두 계획은 한 durable ledger의 순서가 정해진 예약 네 개를 공유했습니다. 예약·시작·종료 영수증 모두 네 개, 불명확한 시작은 0이며 실행·인증을 정리했습니다. 실패를 환불하거나 재시도하지 않았습니다. 이 제한은 그 ledger에만 적용하며 호스트 전체나 공급자 내부 호출의 한도가 아닙니다. 입력·원본 언어·계획·예산과 사전 라우터 관측을 결과 전에 고정했습니다. Laya는 두 전체 입력 모두 잘려 보류했으며 초저자원·절감 목표를 달성했다는 결과가 아닙니다.
 
 24개 초기 probe와 개발 기록은 최종 성능 평가를 대신하지 않습니다. [골든셋 규모 안내](https://github.com/teamswyg/laya-tools/blob/main/docs/golden-set-scale.ko.md)의 목표는 도메인마다 서로 다른 보호된 최종 요청 최소 2,400개입니다. 비교 준비, 실제 모델 실행, 학습 라벨과 최종 적격 수를 따로 읽으세요.

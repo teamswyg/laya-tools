@@ -1,0 +1,180 @@
+{
+  "schema": "riido-short-claim-preparation-plan-v1",
+  "experiment": 56,
+  "state": "prepare_contracts_only",
+  "actual": {
+    "new_data_items": 0,
+    "fits": 0,
+    "weight_artifacts": 0,
+    "runtime_measurements": 0,
+    "model_calls": 0,
+    "hf_publications": 0
+  },
+  "training_execution_ready": false,
+  "training_started": false,
+  "split_frozen": false,
+  "continuation_policy": "The user has already authorized continued local training, verification and public publication. Continue within that scope after data, plans, readiness gates and CI are ready; no additional human approval step.",
+  "production_activation": false,
+  "final_eligible": false,
+  "claim": {
+    "count": 1,
+    "text": "This candidate may contain evidence that satisfies the requested observable behavior.",
+    "scope": ["conditional retention or removal", "acceptance or rejection", "order preservation", "inclusive boundaries"],
+    "status": "unverified",
+    "effect": "Propose verification order while preserving every candidate.",
+    "not_claimed": ["full task completion", "model difficulty", "calibrated success probability", "action authorization", "LLM token or monetary savings", "general semantic understanding"]
+  },
+  "prior_experiment": {
+    "id": 55,
+    "record": "../task-outcomes/results-55.json",
+    "native_observations": "../task-outcomes/routing-predictions-55.json",
+    "completed_attempts": 4,
+    "distinct_requests": 2,
+    "requested_profiles": 2,
+    "repetitions_per_request_profile": 1,
+    "generalization_established": false,
+    "preserve": ["original prompts", "answers", "specs", "hashes", "token budgets", "sealed historical plans"],
+    "short_input_is_separate_new_contract": true
+  },
+  "proposed_input_contract": {
+    "implementation_status": "not_implemented",
+    "fields": ["request", "candidate", "schema", "provenance"],
+    "feature_input_fields": ["request", "candidate"],
+    "candidate_min": 1,
+    "candidate_max": 8,
+    "valid_utf8_required": true,
+    "max_bytes_per_text": 512,
+    "normalization": "lexicalhint.NormalizeText",
+    "max_normalized_bytes_per_text": 512,
+    "max_normalized_words_per_text": 32,
+    "preserve_input_and_option_order": true,
+    "truncate_input": false,
+    "fallback": "Explicit declared lexical baseline order on out-of-scope input, unknown schema or nonfinite score.",
+    "retain_raw_input_in_public_results": false,
+    "forbidden_features": ["target ID", "correct rank", "check outcome", "generator mode", "training role"]
+  },
+  "data_preparation": {
+    "primary_source": "Original authored Go microcontracts, truth tables and short request/candidate text.",
+    "candidate_parent_contract_target_range": [48, 120],
+    "independent_group_count_implied_by_target": false,
+    "ground_truth": "Independently checked acceptable candidate set; separately reviewed natural-language fidelity.",
+    "controls": ["unchanged wrong implementation", "correct implementation", "condition reversal", "negation", "inclusive versus exclusive boundary", "operation order"],
+    "unknown_handling": "Insufficient evidence, ambiguous requirement or check failure remains unknown; fix no-answer handling before scores.",
+    "record_exclusions_before_model_scores": true,
+    "future_external_probe_candidates": ["../../docs/public-go-acquisition-53.en.md", "../../docs/public-go-contracts-54.en.md"],
+    "external_adoption_requires_new_source_license_and_ground_truth_pins": true,
+    "private_code_user_prompts_auth_and_raw_traces_allowed": false
+  },
+  "group_audit": {
+    "required_before_partition_or_training": true,
+    "method": "Transitive connected components of source/prototype/core-template and request relationships, including shared negative candidates.",
+    "edges": ["shared request", "shared candidate source", "shared prototype or core template", "translation or paraphrase", "counterexample", "parent child sibling", "fork or copied source"],
+    "cross_role_negative_candidates_allowed": false,
+    "report_shared_author_and_generator_limits": true,
+    "target_role_proportions": {"train": 0.6, "validation": 0.2, "calibration": 0.2},
+    "proposed_operational_min_groups": {"total": 15, "train": 9, "validation": 3, "calibration": 3},
+    "minima_are_statistical_guarantees": false,
+    "insufficient_or_concentrated_groups": "Stop; do not split components or lower readiness minima.",
+    "seal_before_training_review": ["exact role membership", "actual counts", "group graph", "data hashes", "baselines", "budgets"]
+  },
+  "sequence": [
+    "Prepare input and independent ground-truth contracts with wrong controls.",
+    "Audit connected groups and seal eligible development data, roles, baselines and budgets.",
+    "Evaluate nonlearned baselines without training on identical candidates, labels and fallback scope.",
+    "Compute oracle upper bound; stop if rules are optimal or possible relative verification-count gain is below 0.05.",
+    "Only after readiness gates pass, seal a separate training-execution plan and complete CI preparation; then continue within existing user authorization. Training readiness is currently incomplete and fits are zero."
+  ],
+  "baselines": ["fixed candidate order", "BM25", "word and ordered-word matching", "disclosed narrow conditional and negation grammar rule"],
+  "utility_upper_bound": {
+    "metric": "Independent checks until the first acceptable candidate; preserve all candidates and fix no-answer/unknown handling.",
+    "relative_gain_formula": "(best_nonlearned_baseline_checks - oracle_checks) / baseline_checks",
+    "minimum_possible_relative_gain": 0.05,
+    "oracle_is_deployable_or_feature": false,
+    "report_valid_denominator": true,
+    "represents_actual_llm_cost_savings": false
+  },
+  "proposed_training_only": {
+    "feature_families": [
+      {"kind": "lexical_control", "coefficients": 16},
+      {"kind": "signed_hashed_request_candidate_cross_features", "coefficients": 8192}
+    ],
+    "seeds": [1729, 2718],
+    "fit_modes": ["fp32", "ternary_ste"],
+    "learning_rate": 0.1,
+    "l2": 0.0001,
+    "max_epochs": 50,
+    "batch_size": 128,
+    "max_fits": 8,
+    "derived_modes_from_fp32": ["int8", "ternary_ptq"],
+    "max_artifacts_including_derivatives": 16,
+    "ternary_scale": "Existing global mean absolute weight with float32-rounded scale.",
+    "ternary_threshold_multiple": 0.7,
+    "proposed_primary": "8192-coefficient fp32, seed1729",
+    "epoch_selection": "validation NLL",
+    "calibration_role": "Separately inspect a later sealed abstention policy; not automatic probability certification.",
+    "fp32_definition": "Scoring coefficients rounded to float32; shadow weights, gradients, loss accumulation and reference scoring use float64.",
+    "hbin_scope": "8192 dimensions only; not directly reusable for the 16-coefficient contract.",
+    "existing_hbin_runtime": "Expands to 8192 float64 coefficients (65536 bytes for coefficients alone); packing is not native ternary execution or total RAM.",
+    "generative_teacher_or_large_encoder_used": false
+  },
+  "proposed_gates_unmeasured": {
+    "validation_only": true,
+    "minimum_relative_mean_check_reduction": 0.05,
+    "compare_to": "strongest nonlearned control on the identical validation set",
+    "top1_and_top3_degradation_allowed": false,
+    "report_strata": ["condition reversal", "negation", "boundary", "language"],
+    "preserved_first_candidate_top1_is_structural_not_learned_gain": true,
+    "ternary_requires_useful_fp32_and_same_utility_quality_with_actual_latency_rss": true,
+    "file_size_alone_is_success": false,
+    "cpu_threads": 1,
+    "gpu_ort_and_laya_encoder_used": false,
+    "training_total_wall_seconds_max": 300,
+    "training_peak_process_rss_bytes_max": 268435456,
+    "prepared_sparse_payload_bytes_max": 67108864,
+    "inference_process_rss_bytes_target_max": 33554432,
+    "warm_request_p95_ms_target_max": 1,
+    "new_data_models_numeric_records_bytes_max": 67108864,
+    "stop_conditions": ["group source or label failure", "target feature leakage", "nonfinite value", "resource budget excess", "optimal nonlearned rules", "insufficient utility"],
+    "silently_raise_budgets_or_change_primary_or_gates": false
+  },
+  "observability": {
+    "separate_stages": ["feature extraction", "scoring", "ordering", "serialization", "cold process start", "warm request"],
+    "metrics": ["Go heap", "Go allocations", "Go pprof", "OS whole-process RSS", "user CPU", "wall", "cache hits versus actual scoring"],
+    "unknown_measurements_are_zero": false,
+    "runtime_arrays": "Immutable loaded model and caller-owned scratch proposed; implementation not yet present.",
+    "public_raw_prompts_traces_personal_paths": false
+  },
+  "final_scope": {
+    "new_final_request_target_min": 2400,
+    "new_final_requests_acquired": 0,
+    "new_final_requests_scored": 0,
+    "synthetic_rows_or_repetitions_count_as_independent_final": false,
+    "existing_protected_final_and_cosqa_reserves_read_or_reassigned": false,
+    "validation_gate_allows_promotion_or_production": false
+  },
+  "reuse": {
+    "new_loader_driver_required": true,
+    "packages": ["internal/lexicalhint", "internal/hintlearn", "internal/pairlearn"],
+    "numeric_training_trace": "internal/pairlearn.FitWithTrace",
+    "bypass_existing_cli_data_or_plan_pins": false,
+    "laya_feature_ternarytrain_is_main_path": false
+  },
+  "publication": {
+    "model_binaries_or_weights_in_git": false,
+    "hf_requires": ["development utility gate", "reproducibility", "format review", "license and public-content review", "separate immutable revision and exact file refs"],
+    "hf_refs": [],
+    "publication_or_ci_means_production_promotion": false
+  },
+  "references": {
+    "fasttext_primary": "https://arxiv.org/abs/1607.01759",
+    "feature_hashing_primary": "https://arxiv.org/abs/0902.2206",
+    "bitnet_primary": "https://arxiv.org/abs/2402.17764",
+    "upstream_revision": "6d942c92081fbc139e736bbd9ac0023223c29b7f",
+    "upstream_input_statistics": "https://github.com/NandhaKishorM/laya/blob/6d942c92081fbc139e736bbd9ac0023223c29b7f/laya/common.py#L135",
+    "upstream_bounded_batch": "https://github.com/NandhaKishorM/laya/blob/6d942c92081fbc139e736bbd9ac0023223c29b7f/laya/onnx_agent.py#L667",
+    "upstream_cache_example": "https://github.com/NandhaKishorM/laya/blob/6d942c92081fbc139e736bbd9ac0023223c29b7f/examples/hooks/cache.py#L19",
+    "upstream_executed_or_numbers_reproduced": false,
+    "compare_t4_mps_numbers_to_cold_mac_cpu": false,
+    "smallest_or_first_system_claim": false
+  }
+}
