@@ -61,3 +61,10 @@ condition = "AND"
 paths = ['''^internal/taskverify/definition_event_keys_v1_test\.go$''']
 regexTarget = "secret"
 regexes = ['''^key127-strict$''']
+
+[[rules.allowlists]]
+description = "Exact already-public event-envelope TaskSpec SHA in immutable regression vector"
+condition = "AND"
+paths = ['''^internal/taskverify/upstream_v2_test\.go$''']
+regexTarget = "secret"
+regexes = ['''^169cedefd41d3a5ba05d11bbb4685761a0dde6adf07401b846b77bf5a84c27db$''']
