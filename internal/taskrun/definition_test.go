@@ -66,60 +66,67 @@ func TestOwnedVersionedBehavioralClosure(t *testing.T) {
 
 // These checks exercise version and provenance boundaries without inference.
 func TestVersionedTaskBaseAndAttribution(t *testing.T) {
-	const id = "repo-keyword-language-guard"
-	spec, err := taskverify.TaskSpec(id)
-	if err != nil || spec.BaseRevision == taskverify.BaseRevision {
-		t.Fatal("new task did not retain its separate public snapshot")
-	}
-	base, all, err := LoadBase("../taskverify/testdata/repo-keyword-language-guard-v1", id)
-	if err != nil || len(base) != 3 || len(all) != 5 {
-		t.Fatalf("versioned public closure unavailable: %v", err)
-	}
-	copyDir := t.TempDir()
-	if err := writeFiles(copyDir, all); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(copyDir, "NOTICE"), []byte("authored incorrect attribution"), 0600); err != nil {
-		t.Fatal(err)
-	}
-	if _, _, err := LoadBase(copyDir, id); err != Error("attribution_pin_mismatch") {
-		t.Fatalf("changed attribution accepted: %v", err)
-	}
-	if _, _, err := LoadBase("../taskverify/testdata/base", id); err == nil {
-		t.Fatal("old incomplete closure accepted as a new snapshot")
+	for _, id := range []string{"repo-keyword-language-guard", "taskoutcome-event-key-bounds"} {
+		t.Run(id, func(t *testing.T) {
+			spec, err := taskverify.TaskSpec(id)
+			if err != nil || spec.BaseRevision == taskverify.BaseRevision {
+				t.Fatal("new task did not retain its separate public snapshot")
+			}
+			base, all, err := LoadBase(filepath.Join("../taskverify/testdata", id+"-v1"), id)
+			if err != nil || len(base) != 3 || len(all) != 5 {
+				t.Fatalf("versioned public closure unavailable: %v", err)
+			}
+			copyDir := t.TempDir()
+			if err := writeFiles(copyDir, all); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(copyDir, "NOTICE"), []byte("authored incorrect attribution"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			if _, _, err := LoadBase(copyDir, id); err != Error("attribution_pin_mismatch") {
+				t.Fatalf("changed attribution accepted: %v", err)
+			}
+			if _, _, err := LoadBase("../taskverify/testdata/base", id); err == nil {
+				t.Fatal("old incomplete closure accepted as a new snapshot")
+			}
+		})
 	}
 }
 
 func TestVersionedPlanRejectsWrongSnapshotBeforeInference(t *testing.T) {
-	req := fixtureRequest(t, completeTrace)
-	req.TaskID = "repo-keyword-language-guard"
-	spec, err := taskverify.TaskSpec(req.TaskID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	req.ExpectedSpecSHA256 = digestJSON(spec)
-	writePlan(t, &req, filepath.Dir(req.PrivateDir))
-	if profile, err := validatePlan(req, trustedToolchain{}); err != nil || profile != "fixture-low" {
-		t.Fatalf("valid new snapshot refused: %q %v", profile, err)
-	}
-	bytes, err := os.ReadFile(req.PlanFile)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var p plan
-	if err := json.Unmarshal(bytes, &p); err != nil {
-		t.Fatal(err)
-	}
-	p.PublicBase = taskverify.BaseRevision
-	bytes, err = json.Marshal(p)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(req.PlanFile, bytes, 0600); err != nil {
-		t.Fatal(err)
-	}
-	req.PlanSHA256 = digest(bytes)
-	if _, err := validatePlan(req, trustedToolchain{}); err != Error("plan_task_spec_mismatch") {
-		t.Fatalf("old revision accepted for separately versioned task: %v", err)
+	for _, id := range []string{"repo-keyword-language-guard", "taskoutcome-event-key-bounds"} {
+		t.Run(id, func(t *testing.T) {
+			req := fixtureRequest(t, completeTrace)
+			req.TaskID = id
+			spec, err := taskverify.TaskSpec(req.TaskID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			req.ExpectedSpecSHA256 = digestJSON(spec)
+			writePlan(t, &req, filepath.Dir(req.PrivateDir))
+			if profile, err := validatePlan(req, trustedToolchain{}); err != nil || profile != "fixture-low" {
+				t.Fatalf("valid new snapshot refused: %q %v", profile, err)
+			}
+			bytes, err := os.ReadFile(req.PlanFile)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var p plan
+			if err := json.Unmarshal(bytes, &p); err != nil {
+				t.Fatal(err)
+			}
+			p.PublicBase = taskverify.BaseRevision
+			bytes, err = json.Marshal(p)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(req.PlanFile, bytes, 0600); err != nil {
+				t.Fatal(err)
+			}
+			req.PlanSHA256 = digest(bytes)
+			if _, err := validatePlan(req, trustedToolchain{}); err != Error("plan_task_spec_mismatch") {
+				t.Fatalf("old revision accepted for separately versioned task: %v", err)
+			}
+		})
 	}
 }

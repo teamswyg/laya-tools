@@ -86,7 +86,12 @@ func isolatedTests(parent context.Context, files []BaseFile, task string, timeou
 		}
 	}
 	if versioned {
-		if err = os.WriteFile(filepath.Join(dir, filepath.FromSlash(definition.ContractPath)), []byte(keywordGuardContractTests), 0600); err != nil {
+		contract, available := definitionContractSource(task)
+		if !available || digest([]byte(contract)) != definition.ContractSHA256 {
+			r.unknown, r.code = true, "independent_contract_unavailable"
+			return r
+		}
+		if err = os.WriteFile(filepath.Join(dir, filepath.FromSlash(definition.ContractPath)), []byte(contract), 0600); err != nil {
 			r.unknown, r.code = true, "check_setup_failed"
 			return r
 		}

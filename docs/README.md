@@ -5,9 +5,9 @@ Choose a language; both versions cover the same features, measurements, and limi
 
 **Start with the [user Wiki](https://github.com/teamswyg/laya-tools/wiki) / 처음에는 [사용자 Wiki](https://github.com/teamswyg/laya-tools/wiki)를 보세요.**
 
-Latest owned task evidence: experiment 52 recorded all six attempts on three development requests. Six candidates passed independent closure checks; five attempts exited zero with complete core usage, while one accepted candidate timed out with unknown usage. Including preserved experiment 51, there are eight records over three requests in two code families and one repository. These remain development evidence, not population capability labels or demonstrated savings. The target remains at least 2,400 distinct final requests per evaluation domain, with related cases grouped.
+Latest owned task evidence: experiment 53 repeated one keyword-guard behavior request twice per Luna/Sol low profile. All four candidates passed independent closure checks with zero exit and complete whole core usage; the accepted guard was integrated into runtime. Including preserved 51/52 records, actual scope is 12 owned records over four distinct requests, two attempted families and one repository. The registry has eight candidates in three families; the new parser family has zero model attempts. The separate survey has 120 candidates from eight upstream repositories and zero execution-eligible tasks. These are development evidence, not population labels, measured savings or protected-final acquisition.
 
-최근 실험 52는 개발 요청 3개에서 계획한 여섯 시도를 모두 기록했습니다. 후보 6개는 독립 범위 검사를 통과했고, 다섯 시도는 정상 종료와 완전한 기본 사용량을 확인했습니다. 나머지는 후보가 수용됐지만 시간 초과로 사용량이 미확정입니다. 보존한 실험 51까지 합치면 두 코드 가족·한 저장소의 요청 3개에 기록 8건입니다. 모집단의 능력 라벨이나 절감 근거로 쓰지 않습니다. 영역별 구분되는 최종 요청 최소 2,400건을 목표로 하며 관련 사례는 같은 그룹으로 관리합니다.
+최근 실험 53은 키워드 보호 행동 요청 하나를 Luna/Sol low로 각각 두 번 반복했습니다. 네 후보 모두 독립 범위 수용·정상 종료·전체 기본 사용량을 확인했고 보호 변경을 runtime에 반영했습니다. 51·52 원문을 보존해 실제 범위는 두 시도 가족·한 저장소의 고유 요청 4개와 직접 소유한 12기록입니다. registry는 8후보·세 가족이며 새 parser 가족은 모델 0시도입니다. 별도 원천 조사 120개·8저장소는 실행 자격 0개이며, 개발 근거를 모집단 라벨·실측 절감·보호 final 확보 수로 바꾸지 않습니다.
 
 | Topic / 주제 | English | 한국어 |
 |---|---|---|
@@ -24,7 +24,9 @@ Latest owned task evidence: experiment 52 recorded all six attempts on three dev
 | Golden-set acquisition, grouped splits and budgets / 골든셋 확보·그룹 분할·실행 예산 | [Staged plan](golden-set-acquisition.en.md) | [단계별 확보 계획](golden-set-acquisition.ko.md) |
 | Usage recording and independent task verification / 사용량 기록·독립 작업 검증 | [Use and evidence limits](task-outcomes.en.md) | [사용법과 증거 범위](task-outcomes.ko.md) |
 | Explicit public task execution / 명시적 공개 작업 실행 | [Owned process and evidence](task-execution.en.md) | [직접 실행과 근거 연결](task-execution.ko.md) |
-| Owned coding attempts 52 / 실제 코딩 시도 52 | [Six accepted closures, five complete executions](../experiments/task-outcomes/RESULTS-52.en.md) | [여섯 후보 수용·다섯 실행 완료](../experiments/task-outcomes/RESULTS-52.ko.md) |
+| Repeated behavioral attempts 53 / 행동 요청 반복 시도 53 | [Four complete accepted attempts on one request](../experiments/task-outcomes/RESULTS-53.en.md) | [한 요청·네 수용/완료 시도](../experiments/task-outcomes/RESULTS-53.ko.md) |
+| Public Go source survey 53 / 공개 Go 원천 조사 53 | [120 candidates, zero execution-eligible](public-go-acquisition-53.en.md) | [120후보·실행 자격 0개](public-go-acquisition-53.ko.md) |
+| Historical owned attempts 52 / 역사적 실제 시도 52 | [Six accepted closures, five complete executions](../experiments/task-outcomes/RESULTS-52.en.md) | [여섯 후보 수용·다섯 실행 완료](../experiments/task-outcomes/RESULTS-52.ko.md) |
 | Owned coding attempts 51 / 실제 코딩 시도 51 | [Two attempts, no profile comparison](../experiments/task-outcomes/RESULTS-51.en.md) | [두 시도와 비교 중단](../experiments/task-outcomes/RESULTS-51.ko.md) |
 | Stopped packaging pilot 50 / 패키징 문제로 중단한 파일럿 50 | [Prelaunch refusal](../experiments/task-outcomes/RESULTS-50.en.md) | [모델 실행 전 거절](../experiments/task-outcomes/RESULTS-50.ko.md) |
 | Training-only search-helper headroom / 학습용 검색 방식의 개선 여지 | [4,456 requests, stop decision and resources](../experiments/path-helper-headroom/RESULTS-48.en.md) | [4,456개 결과·중단 판단·자원](../experiments/path-helper-headroom/RESULTS-48.ko.md) |

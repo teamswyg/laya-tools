@@ -27,7 +27,7 @@ This evidence covers **one owned CLI invocation**. It does not establish the
 provider's actual model identity, the number of internal model requests, or the
 absence of other attempts.
 
-## Scope of this development pilot
+## Current development pilot and preserved history
 
 [Precommitted plan 50](../experiments/task-outcomes/plan-50.json) stopped before
 coding-model launch when the packaged executor could not resolve its Go toolchain.
@@ -51,11 +51,11 @@ not be combined into six successful runs. Read
 [results 52](../experiments/task-outcomes/RESULTS-52.en.md) for per-attempt evidence.
 
 Plan 52 ran one attempt at a time, with a 120-second main-attempt deadline and a
-separate 45-second verification deadline. Completed plan 52 and stopped plans
+separate 45-second verification deadline. Completed plans 52/53 and stopped plans
 50/51 are not rerun. A new actual run needs a separate plan with verified current
 profiles and tools.
 
-This does not mean six internal LLM calls. One CLI invocation may contain
+The six attempts in 52 or four in 53 do not count internal LLM calls. One CLI invocation may contain
 multiple model requests and provider retries; those counts are currently
 `unknown`. The executor performs no retries, resume, or fallback. A started
 failure or timeout counts toward the pilot's limit. The executor owns only
@@ -76,23 +76,39 @@ files and runtime caches outside the declared scope are `unassessed`.
 `accepted` establishes compliance **within that task scope**, not approval of the
 entire repository or arbitrary code.
 
-The new behavioral task `repo-keyword-language-guard` uses a separately versioned
-base at revision `146b02b9c37e6d90a11386050ccfdffc036c113e`, stored in
-`internal/taskverify/testdata/repo-keyword-language-guard-v1`. Its contract extends
-the metadata-language guard to every keyword of selected repository candidates
-before Judge invocation. The three-file source closure is `go.mod`,
-`pkg/reporouter/router.go`, and `pkg/reporouter/router_test.go`; LICENSE and NOTICE are pinned
-separately. The specification, independent checks, and base are versioned together;
-the original three task specifications and hashes remain unchanged. **No model
-has attempted this new task.** Verifier checks with an authored correct
-implementation and fault variants are not model outcomes.
+The behavioral task `repo-keyword-language-guard` uses the separately versioned
+base at `146b02b9c37e6d90a11386050ccfdffc036c113e`, stored in
+`internal/taskverify/testdata/repo-keyword-language-guard-v1`. Its contract checks
+every keyword of selected repository candidates before Judge invocation. The
+three-file source scope is `go.mod`, `pkg/reporouter/router.go` and
+`pkg/reporouter/router_test.go`, with LICENSE/NOTICE pinned separately.
+The original three task specifications and hashes remain unchanged.
 
-Experiments 51/52 contain eight records but only **three distinct requests, two
-code families, and one repository**. Six accepted candidates come from 52; six
-records have complete core usage, including 51's rejected first attempt. These
-counts do not establish population success rates or training labels and cannot
-replace the [2,400-case final evaluation design](golden-set-scale.en.md) or the
-[acquisition, split, and execution-budget plan](golden-set-acquisition.en.md).
+[Experiment 53](../experiments/task-outcomes/RESULTS-53.en.md) ran **this one request
+twice per Luna/Sol low profile: four CLI attempts**. All four candidates passed
+independent closure checks with zero exit and complete whole core usage.
+Four repetitions are not four distinct requests. All four produced the same
+mutable-source change; the first completed accepted candidate's keyword guard
+was integrated into runtime and checked with the pinned independent contract.
+Candidate-authored tests were not adopted as acceptance evidence. Authored
+reference/mutant verification remains separate from model outcomes.
+
+The historical 51/52 subtotal is eight records over three requests. Including 53,
+the current total is **12 owned records, four distinct requests, two actually
+attempted code families and one repository**. Preserve 52's six accepted
+candidates, 53's four and 51's rejection/support error as originally recorded.
+The registry has eight candidates in three families; the new parser family has
+no actual attempts. A separate `taskoutcome-event-key-bounds` candidate has a prepared
+versioned verifier for duplicate top-level JSONL event keys, a 64-key limit
+and a 128-byte key-length limit. **It has zero actual model attempts**; its
+specification/checks are versioned and separate from actual model outcomes. It does not change the
+contract used by these four attempts or existing sealed records.
+
+The [public Go inventory](public-go-acquisition-53.en.md) has 120 development
+candidates from eight repositories and **zero execution-eligible tasks**.
+Do not add them to attempt or training-label counts. They do not replace the
+[2,400-case final design](golden-set-scale.en.md) or
+[acquisition, split and execution-budget plan](golden-set-acquisition.en.md).
 
 ## What Laya predicted before coding outcomes
 
@@ -116,10 +132,18 @@ the router's abstention. `gpt-6-astra` was not executed. The historical standard
 mapping requested `gpt-6.1-sol`; it is not reinterpreted as a prediction for this
 pilot's `gpt-6-sol`. These values are not calibrated probabilities of task success.
 
-Maximum process RSS was about **1.48 GB (1.38 GiB)** in three cold Laya router
+In the historical observations from 50 reused by 52, maximum process RSS was about **1.48 GB (1.38 GiB)** in three cold Laya router
 processes. Each observation includes loading the model and native session for
 one request. It is not warm request latency, Go heap usage, or GPU memory. These
 measurements do not establish that the very small memory target has been met.
+
+Before 53's coding outcomes, a [separate prediction](../experiments/task-outcomes/routing-predictions-53.json)
+was sealed. INT8 base, one CPU thread and a 0.9 threshold suggested standard,
+but a maximum score of about **0.669** caused abstention. The configured fallback
+is strong/Astra; no Astra coding attempt occurred. The new standard/Sol6 mapping
+applies only to this prediction. One cold maximum-RSS observation was about
+**1.50 GB/1.40 GiB**; this is not warm latency, Go heap, GPU memory or a calibrated
+coding-success probability.
 
 ## Usage
 
@@ -253,7 +277,7 @@ outcomes. [Experiment 52](../experiments/task-outcomes/RESULTS-52.en.md) separat
 records actual executions under its frozen plan. Both profiles have acceptance
 and complete usage on the two comment requests, but the Sol behavioral attempt
 has unknown whole usage, preventing a complete cost comparison for that request.
-Only three requests were attempted, so this does not establish profile savings
+Only three requests had been attempted by 52, so that comparison does not establish profile savings
 or useful production routing. No new training, model-weight release, production
 routing activation, or final 2,400-case scoring took place.
 
@@ -271,3 +295,14 @@ routing, and abstention be judged. Read
 and the [golden-set design](golden-set-scale.en.md) for required scale and split
 separation. The [acquisition plan](golden-set-acquisition.en.md) describes staged
 collection and execution budgets.
+
+Current [results 53](../experiments/task-outcomes/RESULTS-53.en.md) provide four
+repetitions on one behavioral request. Reported sums are 339,805 input including
+280,576 cached input, and 4,890 output including 76 reasoning; do not double-count
+subsets. Luna had less total input, but uncached input was Luna 31,425 versus
+Sol 27,804. Token totals alone do not establish lower actual cost. Four cumulative
+requests do not validate general capability or production routing. The keyword
+guard was integrated into runtime with no new fitting, weight release, Codex
+policy activation or final scoring. The [120 source candidates](public-go-acquisition-53.en.md)
+need independently verified contracts and license/dependency closures before
+execution; they are not measured model labels.

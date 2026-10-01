@@ -187,6 +187,12 @@ func (idx *Index) Preview(query string, c Config, j Judge) (Result, error) {
 			r.Reason = "metadata_language_unvalidated"
 			return r, nil
 		}
+		for _, keyword := range repo.Keywords {
+			if nonLatin(keyword) {
+				r.Reason = "metadata_language_unvalidated"
+				return r, nil
+			}
+		}
 	}
 	p, err := j.Choose(query, choices)
 	if err != nil {

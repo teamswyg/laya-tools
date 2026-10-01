@@ -50,6 +50,9 @@ const keywordGuardPrompt = "Extend repository preview's existing metadata-langua
 // TaskDefinition exposes only the new versioned registry. The frozen original
 // three TaskSpecs, BaseRevision, BasePaths and source pins remain independent.
 func TaskDefinition(id string) (Definition, bool) {
+	if id == eventKeyBoundsTask {
+		return eventKeyBoundsDefinition(), true
+	}
 	if id != keywordGuardTask {
 		return Definition{}, false
 	}
@@ -84,6 +87,9 @@ func TaskDefinition(id string) (Definition, bool) {
 }
 
 func definitionSpec(d Definition) Spec {
+	if d.ID == eventKeyBoundsTask {
+		return eventKeyBoundsSpec(d)
+	}
 	b, _ := json.Marshal(d)
 	return Spec{
 		ID: d.ID, Version: d.Version, BaseRevision: d.BaseRevision,
@@ -96,6 +102,17 @@ func definitionSpec(d Definition) Spec {
 			"Changed imports, init functions or compiler directives exceed the supported execution shape and produce verifier_unknown",
 		},
 		AcceptanceSourceSHA256: d.ContractSHA256, DefinitionSHA256: digest(b),
+	}
+}
+
+func definitionContractSource(id string) (string, bool) {
+	switch id {
+	case keywordGuardTask:
+		return keywordGuardContractTests, true
+	case eventKeyBoundsTask:
+		return eventKeyBoundsContractTests, true
+	default:
+		return "", false
 	}
 }
 

@@ -97,3 +97,25 @@ func TestVersionedSpecAndOriginalAttribution(t *testing.T) {
 		t.Fatal("CLI accepted or exposed mismatched original attribution")
 	}
 }
+
+func TestIndependentParserFamilySpecAndBaseline(t *testing.T) {
+	const task = "taskoutcome-event-key-bounds"
+	var out, diagnostics bytes.Buffer
+	if code := execute([]string{"--task", task, "--spec", "--candidate-dir", "/missing-private-marker"}, &out, &diagnostics); code != 0 || diagnostics.Len() != 0 {
+		t.Fatal("independent parser spec failed")
+	}
+	var spec taskverify.Spec
+	if json.Unmarshal(out.Bytes(), &spec) != nil || spec.ID != task || spec.BaseRevision != "ee72334166e2962b0821d5198a50fdd13f92ab29" || spec.DefinitionSHA256 != "408255ae28f7d6bfb8994d4a9cbcbcaa46edd95c1cf2f606fe847cd28e0599a9" || strings.Contains(out.String(), "private-marker") {
+		t.Fatal("parser CLI did not select its own pinned definition")
+	}
+	base := filepath.Join("..", "..", "internal", "taskverify", "testdata", "taskoutcome-event-key-bounds-v1")
+	out.Reset()
+	diagnostics.Reset()
+	if code := execute([]string{"--task", task, "--base-dir", base, "--candidate-dir", base}, &out, &diagnostics); code != 1 || diagnostics.Len() != 0 {
+		t.Fatal("independent parser baseline was not rejected at its own revision")
+	}
+	var report taskverify.Report
+	if json.Unmarshal(out.Bytes(), &report) != nil || report.TaskID != task || report.BaseRevision != spec.BaseRevision || report.Status != "rejected" || report.Accepted || report.SpecSHA256 != "169cedefd41d3a5ba05d11bbb4685761a0dde6adf07401b846b77bf5a84c27db" || len(report.AttributionFiles) != 2 || report.AttributionSHA256 == "" {
+		t.Fatal("parser CLI report lost task/source/contract/attribution identity")
+	}
+}
