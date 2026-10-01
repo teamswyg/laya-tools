@@ -1,0 +1,702 @@
+{
+  "schema": "riido-typed-behavior-probes-v2",
+  "origin": "original_authored_typed_go_microcontracts_56b_apache2_development_only",
+  "parents": [
+    {
+      "id": "typed56b-p01-1",
+      "prototype": "atomic-commit",
+      "contract_id": "atomic-commit-v2",
+      "request": "Nonnil destination: parse exact ASCII DD,F: Count=DD; Enabled=(F=1); DD two digits; F=0/1. Success commits/returns Config. Failure returns zero/exact ErrSyntax, preserving destination. Never panic.",
+      "candidates": [
+        {
+          "id": "candidate-0",
+          "text": "Update destination Count from a leading ASCII digit pair before validating DD,F. Then commit full valid Config or return zero and ErrSyntax.",
+          "source_id": "atomic-partial-commit",
+          "code_sha256": "615dfbc56f07e812193964b52046473105203c739dbe3fa8a271a8dbeefb03ac",
+          "source_bundle_sha256": "8bc62f0498338ca9dc0aa899142b381ca8e09ea0c792e69f38281c65bb78c00b"
+        },
+        {
+          "id": "candidate-1",
+          "text": "Validate exact DD,F syntax before writing. Success returns and commits parsed Config; failure returns zero and ErrSyntax without modifying destination.",
+          "source_id": "atomic-correct",
+          "code_sha256": "46ffcfcee3761e7a3ac53ba90c1f1c6b6fafe8ab3f1e3fd5aa94bce766a620cd",
+          "source_bundle_sha256": "958a97a3cdebb619ba526da3693d7b2c061008116d0b25528cecb052b136eb19"
+        },
+        {
+          "id": "candidate-2",
+          "text": "Validate DD,F. On failure, preserve destination; return Count from the first two ASCII digits, or zero if invalid, plus ErrSyntax. Success commits and returns Config.",
+          "source_id": "atomic-partial-result",
+          "code_sha256": "86b8fccecfcce7da2ed165d1369d827a9399df200448c0a0bcb66857e7dc78c2",
+          "source_bundle_sha256": "877e9980717ab65a7c8958d612694e5404b13734cd84b7f136aa2628d103ef48"
+        }
+      ]
+    },
+    {
+      "id": "typed56b-p01-2",
+      "prototype": "atomic-commit",
+      "contract_id": "atomic-commit-v2",
+      "request": "For nonnil destination, read exact ASCII DD,F (DD two digits, F=0/1). Count=DD, Enabled=(F=1). Commit/return success; otherwise zero/exact ErrSyntax, unchanged destination. Never panic.",
+      "candidates": [
+        {
+          "id": "candidate-0",
+          "text": "Validate DD,F; return parsed Config on success without writing destination. Invalid input returns zero and ErrSyntax, leaving destination unchanged.",
+          "source_id": "atomic-no-commit",
+          "code_sha256": "80eeb6d452732eb4283f5ee4b067101345f6b987339280767c78066004f2e730",
+          "source_bundle_sha256": "ee23f85c535f91c770747d6422235e7ee1bf8c09543d68ef543d225eb2f60e4a"
+        },
+        {
+          "id": "candidate-1",
+          "text": "Validate exact DD,F syntax before writing. Success returns and commits parsed Config; failure returns zero and ErrSyntax without modifying destination.",
+          "source_id": "atomic-correct",
+          "code_sha256": "46ffcfcee3761e7a3ac53ba90c1f1c6b6fafe8ab3f1e3fd5aa94bce766a620cd",
+          "source_bundle_sha256": "958a97a3cdebb619ba526da3693d7b2c061008116d0b25528cecb052b136eb19"
+        },
+        {
+          "id": "candidate-2",
+          "text": "Validate DD,F. On failure, preserve destination; return Count from the first two ASCII digits, or zero if invalid, plus ErrSyntax. Success commits and returns Config.",
+          "source_id": "atomic-partial-result",
+          "code_sha256": "86b8fccecfcce7da2ed165d1369d827a9399df200448c0a0bcb66857e7dc78c2",
+          "source_bundle_sha256": "877e9980717ab65a7c8958d612694e5404b13734cd84b7f136aa2628d103ef48"
+        }
+      ]
+    },
+    {
+      "id": "typed56b-p01-3",
+      "prototype": "atomic-commit",
+      "contract_id": "atomic-commit-v2",
+      "request": "Nonnil destination: parse exact ASCII DD,F: Count=DD; Enabled=(F=1); DD two digits; F=0/1. Success commits/returns Config. Failure returns zero/exact ErrSyntax, preserving destination. Never panic.",
+      "candidates": [
+        {
+          "id": "candidate-0",
+          "text": "Update destination Count from a leading ASCII digit pair before validating DD,F. Then commit full valid Config or return zero and ErrSyntax.",
+          "source_id": "atomic-partial-commit",
+          "code_sha256": "615dfbc56f07e812193964b52046473105203c739dbe3fa8a271a8dbeefb03ac",
+          "source_bundle_sha256": "8bc62f0498338ca9dc0aa899142b381ca8e09ea0c792e69f38281c65bb78c00b"
+        },
+        {
+          "id": "candidate-1",
+          "text": "Validate DD,F. On failure, preserve destination; return Count from the first two ASCII digits, or zero if invalid, plus ErrSyntax. Success commits and returns Config.",
+          "source_id": "atomic-partial-result",
+          "code_sha256": "86b8fccecfcce7da2ed165d1369d827a9399df200448c0a0bcb66857e7dc78c2",
+          "source_bundle_sha256": "877e9980717ab65a7c8958d612694e5404b13734cd84b7f136aa2628d103ef48"
+        },
+        {
+          "id": "candidate-2",
+          "text": "Validate DD,F; return parsed Config on success without writing destination. Invalid input returns zero and ErrSyntax, leaving destination unchanged.",
+          "source_id": "atomic-no-commit",
+          "code_sha256": "80eeb6d452732eb4283f5ee4b067101345f6b987339280767c78066004f2e730",
+          "source_bundle_sha256": "ee23f85c535f91c770747d6422235e7ee1bf8c09543d68ef543d225eb2f60e4a"
+        }
+      ]
+    },
+    {
+      "id": "typed56b-p01-4",
+      "prototype": "atomic-commit",
+      "contract_id": "unknown-ambiguous",
+      "request": "Update the configuration usefully while handling malformed input.",
+      "candidates": [
+        {
+          "id": "candidate-0",
+          "text": "Validate exact DD,F syntax before writing. Success returns and commits parsed Config; failure returns zero and ErrSyntax without modifying destination.",
+          "source_id": "atomic-correct",
+          "code_sha256": "46ffcfcee3761e7a3ac53ba90c1f1c6b6fafe8ab3f1e3fd5aa94bce766a620cd",
+          "source_bundle_sha256": "958a97a3cdebb619ba526da3693d7b2c061008116d0b25528cecb052b136eb19"
+        },
+        {
+          "id": "candidate-1",
+          "text": "Update destination Count from a leading ASCII digit pair before validating DD,F. Then commit full valid Config or return zero and ErrSyntax.",
+          "source_id": "atomic-partial-commit",
+          "code_sha256": "615dfbc56f07e812193964b52046473105203c739dbe3fa8a271a8dbeefb03ac",
+          "source_bundle_sha256": "8bc62f0498338ca9dc0aa899142b381ca8e09ea0c792e69f38281c65bb78c00b"
+        },
+        {
+          "id": "candidate-2",
+          "text": "Validate DD,F; return parsed Config on success without writing destination. Invalid input returns zero and ErrSyntax, leaving destination unchanged.",
+          "source_id": "atomic-no-commit",
+          "code_sha256": "80eeb6d452732eb4283f5ee4b067101345f6b987339280767c78066004f2e730",
+          "source_bundle_sha256": "ee23f85c535f91c770747d6422235e7ee1bf8c09543d68ef543d225eb2f60e4a"
+        }
+      ]
+    },
+    {
+      "id": "typed56b-p02-1",
+      "prototype": "error-identity",
+      "contract_id": "error-identity-v2",
+      "request": "Report errors.Is(A/B) and errors.As(Cause)/original code through wrapping/joining. Targets and Cause pointers are nonnil. Equal messages alone never match. Preserve input causes; never panic.",
+      "candidates": [
+        {
+          "id": "candidate-0",
+          "text": "Use errors.Is for both targets and errors.As for Cause. Return its original code without changing the error chain.",
+          "source_id": "identity-correct",
+          "code_sha256": "f02edc44fbf0405947f4a3e98c507df3667aad579b223723bfda5e8994e938de",
+          "source_bundle_sha256": "4190474fb010277a308b485b190940960390c83655e5565799d0b9ec4e8a0ba0"
+        },
+        {
+          "id": "candidate-1",
+          "text": "Compare input directly with each target and use a direct Cause type assertion. Return the direct cause code without modifying it.",
+          "source_id": "identity-direct-only",
+          "code_sha256": "a0386d06a659c232b79320e468a7df09779dde83d334bf30c3bb8c0c85bd75f5",
+          "source_bundle_sha256": "6ee3de180e028708cd554dd96ffbefad2d862c9566b2699d76fef9408f45917e"
+        },
+        {
+          "id": "candidate-2",
+          "text": "Match targets by finding their messages in the input error text. Use errors.As for Cause and return its code unchanged.",
+          "source_id": "identity-by-message",
+          "code_sha256": "0565502417948ff00c05a831127d7a79aa78cd2e0bcf3843cf3829517904175e",
+          "source_bundle_sha256": "41555b96cb06246d75342a17e07c56872b7348182adb853a5ee9da4ba0292960"
+        }
+      ]
+    },
+    {
+      "id": "typed56b-p02-2",
+      "prototype": "error-identity",
+      "contract_id": "error-identity-v2",
+      "request": "Use Is(A/B) and As(Cause) through joined/wrapped errors; report original Cause code. Nonnil targets/Cause pointers; equal messages do not establish identity. Preserve causes, never panic.",
+      "candidates": [
+        {
+          "id": "candidate-0",
+          "text": "Use errors.Is for both targets and errors.As for Cause. Return its original code without changing the error chain.",
+          "source_id": "identity-correct",
+          "code_sha256": "f02edc44fbf0405947f4a3e98c507df3667aad579b223723bfda5e8994e938de",
+          "source_bundle_sha256": "4190474fb010277a308b485b190940960390c83655e5565799d0b9ec4e8a0ba0"
+        },
+        {
+          "id": "candidate-1",
+          "text": "Compare input directly with each target and use a direct Cause type assertion. Return the direct cause code without modifying it.",
+          "source_id": "identity-direct-only",
+          "code_sha256": "a0386d06a659c232b79320e468a7df09779dde83d334bf30c3bb8c0c85bd75f5",
+          "source_bundle_sha256": "6ee3de180e028708cd554dd96ffbefad2d862c9566b2699d76fef9408f45917e"
+        },
+        {
+          "id": "candidate-2",
+          "text": "Use errors.Is and errors.As; capture the original Cause code, increment that Cause's stored code, and return the captured facts.",
+          "source_id": "identity-mutate-cause",
+          "code_sha256": "f2596e4ce22604409ef431f1129fc601eb735ea6d050c08961d1467ec7442108",
+          "source_bundle_sha256": "4c0066d016d43adc85116cf0680fddae30e03e3f5d826c9a9cd15d1b3d05e4bc"
+        }
+      ]
+    },
+    {
+      "id": "typed56b-p02-3",
+      "prototype": "error-identity",
+      "contract_id": "error-identity-v2",
+      "request": "Report errors.Is(A/B) and errors.As(Cause)/original code through wrapping/joining. Targets and Cause pointers are nonnil. Equal messages alone never match. Preserve input causes; never panic.",
+      "candidates": [
+        {
+          "id": "candidate-0",
+          "text": "Match targets by finding their messages in the input error text. Use errors.As for Cause and return its code unchanged.",
+          "source_id": "identity-by-message",
+          "code_sha256": "0565502417948ff00c05a831127d7a79aa78cd2e0bcf3843cf3829517904175e",
+          "source_bundle_sha256": "41555b96cb06246d75342a17e07c56872b7348182adb853a5ee9da4ba0292960"
+        },
+        {
+          "id": "candidate-1",
+          "text": "Compare input directly with each target and use a direct Cause type assertion. Return the direct cause code without modifying it.",
+          "source_id": "identity-direct-only",
+          "code_sha256": "a0386d06a659c232b79320e468a7df09779dde83d334bf30c3bb8c0c85bd75f5",
+          "source_bundle_sha256": "6ee3de180e028708cd554dd96ffbefad2d862c9566b2699d76fef9408f45917e"
+        },
+        {
+          "id": "candidate-2",
+          "text": "Use errors.Is and errors.As; capture the original Cause code, increment that Cause's stored code, and return the captured facts.",
+          "source_id": "identity-mutate-cause",
+          "code_sha256": "f2596e4ce22604409ef431f1129fc601eb735ea6d050c08961d1467ec7442108",
+          "source_bundle_sha256": "4c0066d016d43adc85116cf0680fddae30e03e3f5d826c9a9cd15d1b3d05e4bc"
+        }
+      ]
+    },
+    {
+      "id": "typed56b-p02-4",
+      "prototype": "error-identity",
+      "contract_id": "unknown-ambiguous",
+      "request": "Recognize useful errors and choose an appropriate result.",
+      "candidates": [
+        {
+          "id": "candidate-0",
+          "text": "Use errors.Is for both targets and errors.As for Cause. Return its original code without changing the error chain.",
+          "source_id": "identity-correct",
+          "code_sha256": "f02edc44fbf0405947f4a3e98c507df3667aad579b223723bfda5e8994e938de",
+          "source_bundle_sha256": "4190474fb010277a308b485b190940960390c83655e5565799d0b9ec4e8a0ba0"
+        },
+        {
+          "id": "candidate-1",
+          "text": "Match targets by finding their messages in the input error text. Use errors.As for Cause and return its code unchanged.",
+          "source_id": "identity-by-message",
+          "code_sha256": "0565502417948ff00c05a831127d7a79aa78cd2e0bcf3843cf3829517904175e",
+          "source_bundle_sha256": "41555b96cb06246d75342a17e07c56872b7348182adb853a5ee9da4ba0292960"
+        },
+        {
+          "id": "candidate-2",
+          "text": "Use errors.Is and errors.As; capture the original Cause code, increment that Cause's stored code, and return the captured facts.",
+          "source_id": "identity-mutate-cause",
+          "code_sha256": "f2596e4ce22604409ef431f1129fc601eb735ea6d050c08961d1467ec7442108",
+          "source_bundle_sha256": "4c0066d016d43adc85116cf0680fddae30e03e3f5d826c9a9cd15d1b3d05e4bc"
+        }
+      ]
+    },
+    {
+      "id": "typed56b-p03-1",
+      "prototype": "owned-snapshot",
+      "contract_id": "owned-snapshot-v2",
+      "request": "Return an independent slice with identical length, values, and nilness. Mutating either input or result must not alter the other. Leave input unchanged during copying; never panic.",
+      "candidates": [
+        {
+          "id": "candidate-0",
+          "text": "For nonempty input, increment its first value, then allocate and copy all values. Preserve nilness and non-nil empty slices.",
+          "source_id": "snapshot-mutates",
+          "code_sha256": "0920c9e48bd8ea55d2ec3427d1caf0bafebea8e51612b921933b3289d58b094c",
+          "source_bundle_sha256": "e499733283fc4f8913ca1f668a0a1a41e96ab0252f4bfb66fc2a0c47a3b8d158"
+        },
+        {
+          "id": "candidate-1",
+          "text": "Return the input slice directly with the same nilness, length, and values, so input and result share their backing array.",
+          "source_id": "snapshot-alias",
+          "code_sha256": "2588b60893f12c1afe74d97e12494926786902dcd7874e5f37daa94921a3f18d",
+          "source_bundle_sha256": "cb9862f2dace9c3e9f9456be29d5928539cf8ad5d14555185eca24b01e3b0a38"
+        },
+        {
+          "id": "candidate-2",
+          "text": "Return nil for nil input; otherwise allocate and copy every value, preserving non-nil empty slices and leaving input unchanged.",
+          "source_id": "snapshot-correct",
+          "code_sha256": "407dba0b0e23b244caa7dc6ccd0e676412415135308ca5a1de89363eaa1c7c31",
+          "source_bundle_sha256": "2ec84cc8d7855f3e3049924a806408ff469e7650fda0ab3d4fae6cc29efead2a"
+        }
+      ]
+    },
+    {
+      "id": "typed56b-p03-2",
+      "prototype": "owned-snapshot",
+      "contract_id": "owned-snapshot-v2",
+      "request": "Preserve slice values, length, nilness, and input during copying. Return independent storage: writes to either slice cannot change the other. Never panic.",
+      "candidates": [
+        {
+          "id": "candidate-0",
+          "text": "For nonempty input, increment its first value, then allocate and copy all values. Preserve nilness and non-nil empty slices.",
+          "source_id": "snapshot-mutates",
+          "code_sha256": "0920c9e48bd8ea55d2ec3427d1caf0bafebea8e51612b921933b3289d58b094c",
+          "source_bundle_sha256": "e499733283fc4f8913ca1f668a0a1a41e96ab0252f4bfb66fc2a0c47a3b8d158"
+        },
+        {
+          "id": "candidate-1",
+          "text": "Return nil whenever length is zero; otherwise allocate and copy every value without changing input.",
+          "source_id": "snapshot-empty-nil",
+          "code_sha256": "86c86a5c6ed1349e4e995ffaa62a586da61a73145332677cafde67a6b528eb19",
+          "source_bundle_sha256": "6659d1e61859b1bc6483af4d466c157a0a36bb28c93d676ba5672a443df26ee0"
+        },
+        {
+          "id": "candidate-2",
+          "text": "Return nil for nil input; otherwise allocate and copy every value, preserving non-nil empty slices and leaving input unchanged.",
+          "source_id": "snapshot-correct",
+          "code_sha256": "407dba0b0e23b244caa7dc6ccd0e676412415135308ca5a1de89363eaa1c7c31",
+          "source_bundle_sha256": "2ec84cc8d7855f3e3049924a806408ff469e7650fda0ab3d4fae6cc29efead2a"
+        }
+      ]
+    },
+    {
+      "id": "typed56b-p03-3",
+      "prototype": "owned-snapshot",
+      "contract_id": "owned-snapshot-v2",
+      "request": "Return an independent slice with identical length, values, and nilness. Mutating either input or result must not alter the other. Leave input unchanged during copying; never panic.",
+      "candidates": [
+        {
+          "id": "candidate-0",
+          "text": "Return the input slice directly with the same nilness, length, and values, so input and result share their backing array.",
+          "source_id": "snapshot-alias",
+          "code_sha256": "2588b60893f12c1afe74d97e12494926786902dcd7874e5f37daa94921a3f18d",
+          "source_bundle_sha256": "cb9862f2dace9c3e9f9456be29d5928539cf8ad5d14555185eca24b01e3b0a38"
+        },
+        {
+          "id": "candidate-1",
+          "text": "For nonempty input, increment its first value, then allocate and copy all values. Preserve nilness and non-nil empty slices.",
+          "source_id": "snapshot-mutates",
+          "code_sha256": "0920c9e48bd8ea55d2ec3427d1caf0bafebea8e51612b921933b3289d58b094c",
+          "source_bundle_sha256": "e499733283fc4f8913ca1f668a0a1a41e96ab0252f4bfb66fc2a0c47a3b8d158"
+        },
+        {
+          "id": "candidate-2",
+          "text": "Return nil whenever length is zero; otherwise allocate and copy every value without changing input.",
+          "source_id": "snapshot-empty-nil",
+          "code_sha256": "86c86a5c6ed1349e4e995ffaa62a586da61a73145332677cafde67a6b528eb19",
+          "source_bundle_sha256": "6659d1e61859b1bc6483af4d466c157a0a36bb28c93d676ba5672a443df26ee0"
+        }
+      ]
+    },
+    {
+      "id": "typed56b-p03-4",
+      "prototype": "owned-snapshot",
+      "contract_id": "unknown-ambiguous",
+      "request": "Return a suitable view of these values.",
+      "candidates": [
+        {
+          "id": "candidate-0",
+          "text": "Return nil for nil input; otherwise allocate and copy every value, preserving non-nil empty slices and leaving input unchanged.",
+          "source_id": "snapshot-correct",
+          "code_sha256": "407dba0b0e23b244caa7dc6ccd0e676412415135308ca5a1de89363eaa1c7c31",
+          "source_bundle_sha256": "2ec84cc8d7855f3e3049924a806408ff469e7650fda0ab3d4fae6cc29efead2a"
+        },
+        {
+          "id": "candidate-1",
+          "text": "Return the input slice directly with the same nilness, length, and values, so input and result share their backing array.",
+          "source_id": "snapshot-alias",
+          "code_sha256": "2588b60893f12c1afe74d97e12494926786902dcd7874e5f37daa94921a3f18d",
+          "source_bundle_sha256": "cb9862f2dace9c3e9f9456be29d5928539cf8ad5d14555185eca24b01e3b0a38"
+        },
+        {
+          "id": "candidate-2",
+          "text": "Return nil whenever length is zero; otherwise allocate and copy every value without changing input.",
+          "source_id": "snapshot-empty-nil",
+          "code_sha256": "86c86a5c6ed1349e4e995ffaa62a586da61a73145332677cafde67a6b528eb19",
+          "source_bundle_sha256": "6659d1e61859b1bc6483af4d466c157a0a36bb28c93d676ba5672a443df26ee0"
+        }
+      ]
+    },
+    {
+      "id": "typed56b-p04-1",
+      "prototype": "cancellation-lifecycle",
+      "contract_id": "cancellation-lifecycle-v2",
+      "request": "≤8 events: begin acquires once; finish/fail require begin. Pre-cancel acquires nothing. Terminal result→release once if acquired. Ignore duplicate begin/post-terminal events. Return pending/success/failure/cancellation, never panic.",
+      "candidates": [
+        {
+          "id": "candidate-0",
+          "text": "≤8 events: begin acquires once; finish/fail require begin. Pre-cancel also acquires. Terminal result→release once if acquired. Ignore duplicate begin/post-terminal events. Return pending/success/failure/cancellation, never panic.",
+          "source_id": "lifecycle-preacquire",
+          "code_sha256": "6babe854ff51640df83b87b30652a93f9a5a9257a3e4eeaadd6f48b3c3e10e24",
+          "source_bundle_sha256": "2568973fcd36024268040ce42f9dff9eccf159aa2a653674013f2d951300d6dd"
+        },
+        {
+          "id": "candidate-1",
+          "text": "≤8 events: begin acquires once; finish/fail require begin. Pre-cancel acquires nothing. Terminal result→release once if acquired. Ignore duplicate begin/post-terminal events. Return pending/success/failure/cancellation, never panic.",
+          "source_id": "lifecycle-correct",
+          "code_sha256": "fd8ffbda9ee7a652a3e0b001a9078fada1ec8a7253a5a57a2a51e52f2a744f37",
+          "source_bundle_sha256": "d5854563fe25d4787971cbef6f0d84ddf3cac8f342f659d10cf3029d776529e8"
+        },
+        {
+          "id": "candidate-2",
+          "text": "≤8 events: begin acquires once; finish/fail require begin. Pre-cancel acquires nothing. Result→release if acquired except fail. Ignore duplicate begin/post-terminal events. Return pending/success/failure/cancellation, never panic.",
+          "source_id": "lifecycle-failure-leak",
+          "code_sha256": "25b9b1e5ec412a2e3bb35d233b3db3dce9c9e868fd23ae95c8b5c2034cf2f5df",
+          "source_bundle_sha256": "2a110b8fd352e0c35f534bc0669dbd9071894e99943c4fd40cd5db45d1352fdb"
+        }
+      ]
+    },
+    {
+      "id": "typed56b-p04-2",
+      "prototype": "cancellation-lifecycle",
+      "contract_id": "cancellation-lifecycle-v2",
+      "request": "≤8 events: begin acquires once; finish/fail require begin. Ignore duplicate begin/post-terminal events. Pre-cancel acquires nothing. Terminal result→release once if acquired. Return pending/success/failure/cancellation, never panic.",
+      "candidates": [
+        {
+          "id": "candidate-0",
+          "text": "≤8 events: begin acquires once; finish/fail require begin. Pre-cancel records cancellation without acquisition. Acquired terminal release→result. Ignore duplicate begin/post-terminal events. Return pending/success/failure/cancellation, never panic.",
+          "source_id": "lifecycle-release-first",
+          "code_sha256": "d326a64422597ba10e6ebd2c4b70d5c82f47fba3348c405c1375e73afd1d8b97",
+          "source_bundle_sha256": "f1c0ec2bbde106daf18c3ed1f831889b6b7e8a73ca88adc33b85fead84e2eae8"
+        },
+        {
+          "id": "candidate-1",
+          "text": "≤8 events: begin acquires once; finish/fail require begin. Pre-cancel acquires nothing. Terminal result→release once if acquired. Ignore duplicate begin/post-terminal events. Return pending/success/failure/cancellation, never panic.",
+          "source_id": "lifecycle-correct",
+          "code_sha256": "fd8ffbda9ee7a652a3e0b001a9078fada1ec8a7253a5a57a2a51e52f2a744f37",
+          "source_bundle_sha256": "d5854563fe25d4787971cbef6f0d84ddf3cac8f342f659d10cf3029d776529e8"
+        },
+        {
+          "id": "candidate-2",
+          "text": "≤8 events: begin acquires once; finish/fail require begin. Pre-cancel acquires nothing. Result→release if acquired except fail. Ignore duplicate begin/post-terminal events. Return pending/success/failure/cancellation, never panic.",
+          "source_id": "lifecycle-failure-leak",
+          "code_sha256": "25b9b1e5ec412a2e3bb35d233b3db3dce9c9e868fd23ae95c8b5c2034cf2f5df",
+          "source_bundle_sha256": "2a110b8fd352e0c35f534bc0669dbd9071894e99943c4fd40cd5db45d1352fdb"
+        }
+      ]
+    },
+    {
+      "id": "typed56b-p04-3",
+      "prototype": "cancellation-lifecycle",
+      "contract_id": "cancellation-lifecycle-v2",
+      "request": "≤8 events: begin acquires once; finish/fail require begin. Pre-cancel acquires nothing. Terminal result→release once if acquired. Ignore duplicate begin/post-terminal events. Return pending/success/failure/cancellation, never panic.",
+      "candidates": [
+        {
+          "id": "candidate-0",
+          "text": "≤8 events: begin acquires once; finish/fail require begin. Pre-cancel also acquires. Terminal result→release once if acquired. Ignore duplicate begin/post-terminal events. Return pending/success/failure/cancellation, never panic.",
+          "source_id": "lifecycle-preacquire",
+          "code_sha256": "6babe854ff51640df83b87b30652a93f9a5a9257a3e4eeaadd6f48b3c3e10e24",
+          "source_bundle_sha256": "2568973fcd36024268040ce42f9dff9eccf159aa2a653674013f2d951300d6dd"
+        },
+        {
+          "id": "candidate-1",
+          "text": "≤8 events: begin acquires once; finish/fail require begin. Pre-cancel acquires nothing. Result→release if acquired except fail. Ignore duplicate begin/post-terminal events. Return pending/success/failure/cancellation, never panic.",
+          "source_id": "lifecycle-failure-leak",
+          "code_sha256": "25b9b1e5ec412a2e3bb35d233b3db3dce9c9e868fd23ae95c8b5c2034cf2f5df",
+          "source_bundle_sha256": "2a110b8fd352e0c35f534bc0669dbd9071894e99943c4fd40cd5db45d1352fdb"
+        },
+        {
+          "id": "candidate-2",
+          "text": "≤8 events: begin acquires once; finish/fail require begin. Pre-cancel records cancellation without acquisition. Acquired terminal release→result. Ignore duplicate begin/post-terminal events. Return pending/success/failure/cancellation, never panic.",
+          "source_id": "lifecycle-release-first",
+          "code_sha256": "d326a64422597ba10e6ebd2c4b70d5c82f47fba3348c405c1375e73afd1d8b97",
+          "source_bundle_sha256": "f1c0ec2bbde106daf18c3ed1f831889b6b7e8a73ca88adc33b85fead84e2eae8"
+        }
+      ]
+    },
+    {
+      "id": "typed56b-p04-4",
+      "prototype": "cancellation-lifecycle",
+      "contract_id": "unknown-ambiguous",
+      "request": "Manage cancellation and resources appropriately.",
+      "candidates": [
+        {
+          "id": "candidate-0",
+          "text": "≤8 events: begin acquires once; finish/fail require begin. Pre-cancel acquires nothing. Terminal result→release once if acquired. Ignore duplicate begin/post-terminal events. Return pending/success/failure/cancellation, never panic.",
+          "source_id": "lifecycle-correct",
+          "code_sha256": "fd8ffbda9ee7a652a3e0b001a9078fada1ec8a7253a5a57a2a51e52f2a744f37",
+          "source_bundle_sha256": "d5854563fe25d4787971cbef6f0d84ddf3cac8f342f659d10cf3029d776529e8"
+        },
+        {
+          "id": "candidate-1",
+          "text": "≤8 events: begin acquires once; finish/fail require begin. Pre-cancel also acquires. Terminal result→release once if acquired. Ignore duplicate begin/post-terminal events. Return pending/success/failure/cancellation, never panic.",
+          "source_id": "lifecycle-preacquire",
+          "code_sha256": "6babe854ff51640df83b87b30652a93f9a5a9257a3e4eeaadd6f48b3c3e10e24",
+          "source_bundle_sha256": "2568973fcd36024268040ce42f9dff9eccf159aa2a653674013f2d951300d6dd"
+        },
+        {
+          "id": "candidate-2",
+          "text": "≤8 events: begin acquires once; finish/fail require begin. Pre-cancel records cancellation without acquisition. Acquired terminal release→result. Ignore duplicate begin/post-terminal events. Return pending/success/failure/cancellation, never panic.",
+          "source_id": "lifecycle-release-first",
+          "code_sha256": "d326a64422597ba10e6ebd2c4b70d5c82f47fba3348c405c1375e73afd1d8b97",
+          "source_bundle_sha256": "f1c0ec2bbde106daf18c3ed1f831889b6b7e8a73ca88adc33b85fead84e2eae8"
+        }
+      ]
+    },
+    {
+      "id": "typed56b-p05-1",
+      "prototype": "quoted-delimiters",
+      "contract_id": "unknown-incomplete-caption",
+      "request": "Split ASCII commas outside double quotes/escapes; strip syntax, preserve empties. Backslash escapes any following byte. Unclosed quotes/trailing escapes/exceeding128 input bytes/8 tokens/8 token bytes error without partial output.",
+      "candidates": [
+        {
+          "id": "candidate-0",
+          "text": "Split ASCII commas outside double quotes/escapes; strip syntax, preserve empties. Backslash escapes any following byte. Unclosed quotes/trailing escapes/exceeding128 input bytes/8 tokens/8 token bytes error without partial output.",
+          "source_id": "quoted-correct",
+          "code_sha256": "0d247adec3e07c51c6a56981b31b0fb2657c9b7ce0e373ea23d2c35f69a784dd",
+          "source_bundle_sha256": "a7236f6ac88a90b004d39ae567a61fb9a7f72b8867fbcf55da3cafe41d0da8f6"
+        },
+        {
+          "id": "candidate-1",
+          "text": "Split unquoted ASCII commas, remove double quotes, preserve empties. Backslash escapes inside quotes; elsewhere literal. Unclosed quotes/trailing quoted escapes/exceeding128 input bytes/8 tokens/8 token bytes error without partial output.",
+          "source_id": "quoted-inside-escape",
+          "code_sha256": "867cc9065a1ddb3fbb674199afb4124e3d3422f702a36502b346ca9773f960ff",
+          "source_bundle_sha256": "7dd087c145e6461eb99a32cf70017e28093be4521054669d23ef96de616b65f2"
+        },
+        {
+          "id": "candidate-2",
+          "text": "Split ASCII commas even inside quotes/escapes; preserve syntax and empties. Reject input beyond128 bytes/8 tokens/8 token bytes. Unclosed quotes and trailing escapes stay literal, without syntax errors.",
+          "source_id": "quoted-literal-comma",
+          "code_sha256": "1c791c4b8ed6473003aeea90b467b236f8a1d065fefe9a3ce1601a73427d706c",
+          "source_bundle_sha256": "3cbaeca5a7237646756f11357b5c813401259366d22975c9cd3e4e600b9192a6"
+        }
+      ]
+    },
+    {
+      "id": "typed56b-p05-2",
+      "prototype": "quoted-delimiters",
+      "contract_id": "unknown-incomplete-caption",
+      "request": "Tokenize commas outside double quotes; remove quotes, backslash escapes next byte; retain empties. Reject nonASCII/unclosed quotes/trailing escapes/bounds, clearing output. Limits: 128 input bytes, 8 tokens, 8 bytes/token.",
+      "candidates": [
+        {
+          "id": "candidate-0",
+          "text": "Split ASCII commas outside double quotes/escapes; strip syntax, preserve empties. Backslash escapes any following byte. Unclosed quotes/trailing escapes/exceeding128 input bytes/8 tokens/8 token bytes error without partial output.",
+          "source_id": "quoted-correct",
+          "code_sha256": "0d247adec3e07c51c6a56981b31b0fb2657c9b7ce0e373ea23d2c35f69a784dd",
+          "source_bundle_sha256": "a7236f6ac88a90b004d39ae567a61fb9a7f72b8867fbcf55da3cafe41d0da8f6"
+        },
+        {
+          "id": "candidate-1",
+          "text": "Split unquoted ASCII commas, remove double quotes, preserve empties. Backslash escapes inside quotes; elsewhere literal. Unclosed quotes/trailing quoted escapes/exceeding128 input bytes/8 tokens/8 token bytes error without partial output.",
+          "source_id": "quoted-inside-escape",
+          "code_sha256": "867cc9065a1ddb3fbb674199afb4124e3d3422f702a36502b346ca9773f960ff",
+          "source_bundle_sha256": "7dd087c145e6461eb99a32cf70017e28093be4521054669d23ef96de616b65f2"
+        },
+        {
+          "id": "candidate-2",
+          "text": "Non-ASCII/raw\u003e128 bytes: empty tokens. Otherwise split unquoted/unescaped commas, strip double-quote syntax/escapes, preserve empties. Syntax errors or \u003e8 tokens/\u003e8 decoded bytes per token retain partial tokens.",
+          "source_id": "quoted-partial-error",
+          "code_sha256": "539b51fe04d8955f7dc0ccf1bb3539c84c09212e589cb08468acf4f9686baa6e",
+          "source_bundle_sha256": "4ce3add35c34a10dfd87f979968b5fbf20bce17cbb12ff3cae3793b297454bea"
+        }
+      ]
+    },
+    {
+      "id": "typed56b-p05-3",
+      "prototype": "quoted-delimiters",
+      "contract_id": "unknown-incomplete-caption",
+      "request": "Split ASCII commas outside double quotes/escapes; strip syntax, preserve empties. Backslash escapes any following byte. Unclosed quotes/trailing escapes/exceeding128 input bytes/8 tokens/8 token bytes error without partial output.",
+      "candidates": [
+        {
+          "id": "candidate-0",
+          "text": "Split ASCII commas even inside quotes/escapes; preserve syntax and empties. Reject input beyond128 bytes/8 tokens/8 token bytes. Unclosed quotes and trailing escapes stay literal, without syntax errors.",
+          "source_id": "quoted-literal-comma",
+          "code_sha256": "1c791c4b8ed6473003aeea90b467b236f8a1d065fefe9a3ce1601a73427d706c",
+          "source_bundle_sha256": "3cbaeca5a7237646756f11357b5c813401259366d22975c9cd3e4e600b9192a6"
+        },
+        {
+          "id": "candidate-1",
+          "text": "Split unquoted ASCII commas, remove double quotes, preserve empties. Backslash escapes inside quotes; elsewhere literal. Unclosed quotes/trailing quoted escapes/exceeding128 input bytes/8 tokens/8 token bytes error without partial output.",
+          "source_id": "quoted-inside-escape",
+          "code_sha256": "867cc9065a1ddb3fbb674199afb4124e3d3422f702a36502b346ca9773f960ff",
+          "source_bundle_sha256": "7dd087c145e6461eb99a32cf70017e28093be4521054669d23ef96de616b65f2"
+        },
+        {
+          "id": "candidate-2",
+          "text": "Non-ASCII/raw\u003e128 bytes: empty tokens. Otherwise split unquoted/unescaped commas, strip double-quote syntax/escapes, preserve empties. Syntax errors or \u003e8 tokens/\u003e8 decoded bytes per token retain partial tokens.",
+          "source_id": "quoted-partial-error",
+          "code_sha256": "539b51fe04d8955f7dc0ccf1bb3539c84c09212e589cb08468acf4f9686baa6e",
+          "source_bundle_sha256": "4ce3add35c34a10dfd87f979968b5fbf20bce17cbb12ff3cae3793b297454bea"
+        }
+      ]
+    },
+    {
+      "id": "typed56b-p05-4",
+      "prototype": "quoted-delimiters",
+      "contract_id": "unknown-ambiguous",
+      "request": "Split the fields sensibly while respecting quoting.",
+      "candidates": [
+        {
+          "id": "candidate-0",
+          "text": "Split ASCII commas outside double quotes/escapes; strip syntax, preserve empties. Backslash escapes any following byte. Unclosed quotes/trailing escapes/exceeding128 input bytes/8 tokens/8 token bytes error without partial output.",
+          "source_id": "quoted-correct",
+          "code_sha256": "0d247adec3e07c51c6a56981b31b0fb2657c9b7ce0e373ea23d2c35f69a784dd",
+          "source_bundle_sha256": "a7236f6ac88a90b004d39ae567a61fb9a7f72b8867fbcf55da3cafe41d0da8f6"
+        },
+        {
+          "id": "candidate-1",
+          "text": "Split ASCII commas even inside quotes/escapes; preserve syntax and empties. Reject input beyond128 bytes/8 tokens/8 token bytes. Unclosed quotes and trailing escapes stay literal, without syntax errors.",
+          "source_id": "quoted-literal-comma",
+          "code_sha256": "1c791c4b8ed6473003aeea90b467b236f8a1d065fefe9a3ce1601a73427d706c",
+          "source_bundle_sha256": "3cbaeca5a7237646756f11357b5c813401259366d22975c9cd3e4e600b9192a6"
+        },
+        {
+          "id": "candidate-2",
+          "text": "Non-ASCII/raw\u003e128 bytes: empty tokens. Otherwise split unquoted/unescaped commas, strip double-quote syntax/escapes, preserve empties. Syntax errors or \u003e8 tokens/\u003e8 decoded bytes per token retain partial tokens.",
+          "source_id": "quoted-partial-error",
+          "code_sha256": "539b51fe04d8955f7dc0ccf1bb3539c84c09212e589cb08468acf4f9686baa6e",
+          "source_bundle_sha256": "4ce3add35c34a10dfd87f979968b5fbf20bce17cbb12ff3cae3793b297454bea"
+        }
+      ]
+    },
+    {
+      "id": "typed56b-p06-1",
+      "prototype": "ancestor-cycle",
+      "contract_id": "ancestor-cycle-v2",
+      "request": "Given valid nonempty directed graphs with 1–4 nodes, traverse root0. Reject reachable ancestor cycles; allow shared DAGs, duplicate edges and unreachable cycles. Return ok/cycle, preserve input, never panic.",
+      "candidates": [
+        {
+          "id": "candidate-0",
+          "text": "Valid nonempty directed graphs with 1–4 nodes: return ok without traversal, even for reachable cycles. Preserve input, never panic; shared DAGs, duplicate edges and unreachable cycles also pass.",
+          "source_id": "graph-ignore-cycle",
+          "code_sha256": "fbeef975cc815fbf434b5ff9554722ad67399eb9c54b12717304c62635d8e02e",
+          "source_bundle_sha256": "1035d217aa66be0c6269d078698d6c3fc2b34448f3fc5023b6d9866e7cb3f4a2"
+        },
+        {
+          "id": "candidate-1",
+          "text": "From root0 in valid nonempty 1–4-node directed graphs, reject any previously visited node, including shared DAGs/duplicate edges. Ignore unreachable cycles; return ok/cycle, preserve input, never panic.",
+          "source_id": "graph-revisit-cycle",
+          "code_sha256": "a94c6dd6ca31c6ba635e484a55ed222bb0f548ea65d787fcbfea24300861d19e",
+          "source_bundle_sha256": "62a3bd9e748df3b701eb877b9e7cba76b428b1d16d58525f8c0c9777b25049a3"
+        },
+        {
+          "id": "candidate-2",
+          "text": "Given valid nonempty directed graphs with 1–4 nodes, traverse root0. Reject reachable ancestor cycles; allow shared DAGs, duplicate edges and unreachable cycles. Return ok/cycle, preserve input, never panic.",
+          "source_id": "graph-correct",
+          "code_sha256": "12734ae0d6ee505ea8748be1e40785e9b4ec1b75feee257fb33a6a8d2c2dacc5",
+          "source_bundle_sha256": "aa65a0e34c80f7f5ff510b8fa772419d4f03a3b91e8bb724dc324edc36d8eda7"
+        }
+      ]
+    },
+    {
+      "id": "typed56b-p06-2",
+      "prototype": "ancestor-cycle",
+      "contract_id": "ancestor-cycle-v2",
+      "request": "Valid nonempty 1–4 node directed graph, root0: reject reachable ancestor repeats; allow shared descendants, duplicate edges, and unreachable cycles. Return ok/cycle, preserve input; never panic.",
+      "candidates": [
+        {
+          "id": "candidate-0",
+          "text": "Valid nonempty directed graphs with 1–4 nodes: return ok without traversal, even for reachable cycles. Preserve input, never panic; shared DAGs, duplicate edges and unreachable cycles also pass.",
+          "source_id": "graph-ignore-cycle",
+          "code_sha256": "fbeef975cc815fbf434b5ff9554722ad67399eb9c54b12717304c62635d8e02e",
+          "source_bundle_sha256": "1035d217aa66be0c6269d078698d6c3fc2b34448f3fc5023b6d9866e7cb3f4a2"
+        },
+        {
+          "id": "candidate-1",
+          "text": "From root0 in valid nonempty 1–4-node graphs, reject reachable ancestor cycles; allow shared DAGs/duplicate edges/unreachable cycles. Compute ok/cycle; erase root edges, decrement count, return; never panic.",
+          "source_id": "graph-mutates-input",
+          "code_sha256": "65ca91e1c5b4038fd999bffd4f69fa4132db0811ac0b77c67c0b19425e02b2ed",
+          "source_bundle_sha256": "a026d9d95ff678bf4e9b38e7f016a48ee159a80a332c1a6c846070bdbf4ea07a"
+        },
+        {
+          "id": "candidate-2",
+          "text": "Given valid nonempty directed graphs with 1–4 nodes, traverse root0. Reject reachable ancestor cycles; allow shared DAGs, duplicate edges and unreachable cycles. Return ok/cycle, preserve input, never panic.",
+          "source_id": "graph-correct",
+          "code_sha256": "12734ae0d6ee505ea8748be1e40785e9b4ec1b75feee257fb33a6a8d2c2dacc5",
+          "source_bundle_sha256": "aa65a0e34c80f7f5ff510b8fa772419d4f03a3b91e8bb724dc324edc36d8eda7"
+        }
+      ]
+    },
+    {
+      "id": "typed56b-p06-3",
+      "prototype": "ancestor-cycle",
+      "contract_id": "ancestor-cycle-v2",
+      "request": "Given valid nonempty directed graphs with 1–4 nodes, traverse root0. Reject reachable ancestor cycles; allow shared DAGs, duplicate edges and unreachable cycles. Return ok/cycle, preserve input, never panic.",
+      "candidates": [
+        {
+          "id": "candidate-0",
+          "text": "From root0 in valid nonempty 1–4-node directed graphs, reject any previously visited node, including shared DAGs/duplicate edges. Ignore unreachable cycles; return ok/cycle, preserve input, never panic.",
+          "source_id": "graph-revisit-cycle",
+          "code_sha256": "a94c6dd6ca31c6ba635e484a55ed222bb0f548ea65d787fcbfea24300861d19e",
+          "source_bundle_sha256": "62a3bd9e748df3b701eb877b9e7cba76b428b1d16d58525f8c0c9777b25049a3"
+        },
+        {
+          "id": "candidate-1",
+          "text": "Valid nonempty directed graphs with 1–4 nodes: return ok without traversal, even for reachable cycles. Preserve input, never panic; shared DAGs, duplicate edges and unreachable cycles also pass.",
+          "source_id": "graph-ignore-cycle",
+          "code_sha256": "fbeef975cc815fbf434b5ff9554722ad67399eb9c54b12717304c62635d8e02e",
+          "source_bundle_sha256": "1035d217aa66be0c6269d078698d6c3fc2b34448f3fc5023b6d9866e7cb3f4a2"
+        },
+        {
+          "id": "candidate-2",
+          "text": "From root0 in valid nonempty 1–4-node graphs, reject reachable ancestor cycles; allow shared DAGs/duplicate edges/unreachable cycles. Compute ok/cycle; erase root edges, decrement count, return; never panic.",
+          "source_id": "graph-mutates-input",
+          "code_sha256": "65ca91e1c5b4038fd999bffd4f69fa4132db0811ac0b77c67c0b19425e02b2ed",
+          "source_bundle_sha256": "a026d9d95ff678bf4e9b38e7f016a48ee159a80a332c1a6c846070bdbf4ea07a"
+        }
+      ]
+    },
+    {
+      "id": "typed56b-p06-4",
+      "prototype": "ancestor-cycle",
+      "contract_id": "unknown-ambiguous",
+      "request": "Choose a reasonable way to inspect this graph.",
+      "candidates": [
+        {
+          "id": "candidate-0",
+          "text": "Given valid nonempty directed graphs with 1–4 nodes, traverse root0. Reject reachable ancestor cycles; allow shared DAGs, duplicate edges and unreachable cycles. Return ok/cycle, preserve input, never panic.",
+          "source_id": "graph-correct",
+          "code_sha256": "12734ae0d6ee505ea8748be1e40785e9b4ec1b75feee257fb33a6a8d2c2dacc5",
+          "source_bundle_sha256": "aa65a0e34c80f7f5ff510b8fa772419d4f03a3b91e8bb724dc324edc36d8eda7"
+        },
+        {
+          "id": "candidate-1",
+          "text": "From root0 in valid nonempty 1–4-node directed graphs, reject any previously visited node, including shared DAGs/duplicate edges. Ignore unreachable cycles; return ok/cycle, preserve input, never panic.",
+          "source_id": "graph-revisit-cycle",
+          "code_sha256": "a94c6dd6ca31c6ba635e484a55ed222bb0f548ea65d787fcbfea24300861d19e",
+          "source_bundle_sha256": "62a3bd9e748df3b701eb877b9e7cba76b428b1d16d58525f8c0c9777b25049a3"
+        },
+        {
+          "id": "candidate-2",
+          "text": "From root0 in valid nonempty 1–4-node graphs, reject reachable ancestor cycles; allow shared DAGs/duplicate edges/unreachable cycles. Compute ok/cycle; erase root edges, decrement count, return; never panic.",
+          "source_id": "graph-mutates-input",
+          "code_sha256": "65ca91e1c5b4038fd999bffd4f69fa4132db0811ac0b77c67c0b19425e02b2ed",
+          "source_bundle_sha256": "a026d9d95ff678bf4e9b38e7f016a48ee159a80a332c1a6c846070bdbf4ea07a"
+        }
+      ]
+    }
+  ]
+}
