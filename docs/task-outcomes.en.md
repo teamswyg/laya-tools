@@ -8,21 +8,26 @@ separate evidence. This guide explains `riido-taskoutcome`, which reads an
 existing execution trace, and `riido-taskverify`, which checks candidate files
 independently. Neither tool launches a model. Codex integration remains optional.
 
-The [public task candidates](../benchmarks/training/public-task-candidates.json)
-link **eight records across three distinct requests** from experiments 51/52
-through `model_outcomes`. All six candidates from 52 passed independent checks
-within their declared closures. Five attempts exited zero with complete core
-usage; the Sol behavioral attempt timed out with unknown whole usage. The exact
-comment rejection and profile-support failure from 51 remain preserved. Record
-count, candidate acceptance, and completed execution are different measures.
-Read [experiment 52](../experiments/task-outcomes/RESULTS-52.en.md) and
-[experiment 51](../experiments/task-outcomes/RESULTS-51.en.md) for the evidence.
+The [public registry](../benchmarks/training/public-task-candidates.json) has
+**eight candidates in three code families**. Actually attempted scope is
+**four distinct requests, two code families, one repository and 12 cumulative
+owned records**. [Experiment 53](../experiments/task-outcomes/RESULTS-53.en.md)
+repeated the keyword guard request twice per Luna/Sol low profile; all four
+candidates passed independent closure checks with zero exit and complete whole
+core usage. Four repetitions are not four requests. The first completed accepted
+candidate's guard was integrated into runtime and checked with the pinned contract.
 
-These development cases cover two code families and one repository and remain
-excluded from training labels. The new candidate `repo-keyword-language-guard`
-has not been attempted by a model. The examples below are separately authored
-parser inputs or public code verification methods, not savings evidence or a
-replacement for 2,400 final requests per evaluated domain.
+51's exact-comment rejection and support error, and 52's six accepted candidates,
+five complete executions and one timeout/unknown-usage result remain preserved
+historical records. Record count, candidate acceptance and completed execution
+are distinct. Provider-attested model identity, money and subscription quota
+remain unknown. These development cases are excluded from current training and final.
+
+The separate `taskoutcome-event-key-bounds` parser candidate has a prepared
+versioned verifier with **zero model attempts**. The [public Go source inventory](public-go-acquisition-53.en.md)
+has 120 candidates from eight repositories and **zero execution-eligible tasks**;
+do not add them to attempts or labels. The authored parser/verification examples
+below are not savings evidence or a substitute for 2,400 final requests per domain.
 
 ## Summarize an existing trace
 
@@ -121,7 +126,9 @@ fixed error codes that do not echo the source text.
 
 ## Verify the resulting files separately
 
-`riido-taskverify` currently checks only the fixed file scope of **four tasks**.
+The four contracts below have actual model attempts. `riido-taskverify` checks their
+**declared file scopes**. A separate versioned parser verifier has been prepared;
+its specification/checks are versioned and it has zero model attempts.
 Read the specification first. This command prints its JSON specification without
 running checks or launching a model.
 
@@ -135,7 +142,7 @@ running checks or launching a model.
 | `comment-budget-period` | Replace the budget-period comment with the exact specified sentence | Three pinned files: `go.mod`, catalog source, and tests. Exact change, gofmt, and pinned test execution |
 | `comment-preview-authority` | Replace the comment to state that a repository suggestion never authorizes execution | One file, `pkg/reporouter/router.go`. Exact change and static gofmt check |
 | `catalog-min-context` | Add optional `MinContext`, reject negative values, apply minimum-context eligibility, and preserve existing behavior | Nine pinned files covering catalog, planner, switchpolicy, and examples. Independent boundary checks and pinned catalog/planner test execution |
-| `repo-keyword-language-guard` | Check every selected candidate keyword for non-Latin letters before Judge; preserve the lexical result and abstention reason without calling Judge when blocked | Three files in a separate base: pinned `go.mod`, reporouter source, and tests. Independent contracts and pinned tests; no actual model attempt |
+| `repo-keyword-language-guard` | Check every selected candidate keyword for non-Latin letters before Judge; preserve the lexical result and abstention reason without calling Judge when blocked | Three files in a separate base: pinned `go.mod`, reporouter source, and tests. Independent contracts and pinned tests; all four repetitions of this request accepted in 53 |
 
 This file scope is the task closure. Files outside it are **unassessed**;
 `accepted` does not establish correctness or safety of the entire repository or
@@ -236,11 +243,17 @@ stays `unknown`. Only the two comment requests have complete usage for both
 profiles. This does not assume that the larger profile is always better or
 establish a general savings rate.
 
-Experiments 51/52 total eight records over three distinct requests. Six accepted
-candidates come from 52; six records have complete core usage, including 51's
-rejected first attempt. One support failure and one timeout remain visible.
-Provider-attested model identity is still unknown, and the new keyword behavioral
-contract has not been attempted by a model.
+The historical 51/52 subtotal is eight records over three requests. Through 53,
+the current count is **12 records across four requests**, in two actually attempted
+families and one repository. All four keyword-contract attempts in 53 were
+accepted with zero exit and complete whole core usage. Accepted candidates are
+52's six plus 53's four; the ten complete-core-usage records include 51's rejected
+first attempt. One support failure and one timeout remain visible. The actual
+provider-attested model stays unknown; the parser candidate has no model attempt.
+
+53's sums are 339,805 input including 280,576 cached input, and 4,890 output
+including 76 reasoning. Luna had less total input, but uncached input was
+Luna 31,425 versus Sol 27,804. Do not double-count subsets or infer actual savings.
 
 Actual routing evaluation still needs independently accepted outcomes from
 executable profiles on the same specification and base, usage across all
@@ -260,4 +273,6 @@ and validation plan are in historical
 records two summaries, acceptance of the exact comment change, and rejection of
 an unchanged base. Tool exit codes are separate from model process exits; there
 are **zero actual model outcomes in that historical authored record**, separate
-from experiments 51/52's later owned attempts.
+from experiments 51/52/53's later owned attempts.
+
+Source acquisition and executable contracts are separated in the [120-candidate public Go survey](public-go-acquisition-53.en.md).

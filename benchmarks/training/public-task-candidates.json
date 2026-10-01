@@ -4,10 +4,11 @@
   "origin": "original_task_prompts_for_public_repository",
   "purpose": "Owned development attempt references; excluded from current training and final evaluation",
   "limitations": [
-    "One repository, seven candidates, two shared code families; three distinct requests actually attempted. Request counts are not execution counts.",
+    "One repository, eight candidates across three shared code families; four distinct requests actually attempted across two families. Request counts are not execution counts.",
     "Expected tiers are hypotheses, not measured model capability or final labels.",
     "An existing suite alone does not prove the requested change; new behavioral contracts use independent acceptance.",
-    "Eight owned CLI records: plan51 has two records on one request; separate plan52 has six on three requests. Six declared closures accepted in plan52, five with zero exit and complete core usage. The accepted Sol6 behavioral candidate timed out with unknown whole usage.",
+    "Twelve owned CLI records: plan51 has two records on one request; plan52 has six on three requests; plan53 has four repetitions on one new behavioral request. Plan52 accepted six closures, five with zero exit and complete core usage; its accepted Sol6 behavioral candidate timed out with unknown whole usage. All four plan53 attempts accepted the declared closure with zero exit and complete core usage.",
+    "The separate 120-request public Go acquisition inventory is source-candidate preparation only, with zero execution/training/final-eligible tasks. It is not part of these eight versioned/local candidates or twelve owned CLI records.",
     "Existing ChatGPT login only; subscription money/quota and backend internal request counts are unknown. No API-key/cloud job/endpoint billing was added.",
     "One service profile-support error is not coding inability. One timeout with accepted closure is not relabeled as a candidate rejection. All records remain development, excluded from current training and final evaluation."
   ],
@@ -218,6 +219,75 @@
         "All named independent external-package contract tests and immutable base tests pass under offline isolation.",
         "Every selected keyword is checked, unrelated unselected/disabled metadata is ignored, English and nil-Judge behavior is preserved.",
         "Versioned public source closure and LICENSE/NOTICE are pinned; candidate-authored tests do not determine acceptance."
+      ],
+      "model_outcomes": [
+        {
+          "kind": "owned_requested_profile_attempt",
+          "record": "experiments/task-outcomes/attempt-53-01.json",
+          "requested_model": "gpt-6-luna",
+          "requested_reasoning": "low",
+          "observed_model": "unknown",
+          "task_acceptance": "accepted",
+          "process_status": "exited_zero",
+          "whole_attempt_usage_complete": true,
+          "scope": "Accepted declared closure, zero exit and complete core usage; first Luna repetition on one development request, not a separate request or population label.",
+          "training_label_eligible": false
+        },
+        {
+          "kind": "owned_requested_profile_attempt",
+          "record": "experiments/task-outcomes/attempt-53-02.json",
+          "requested_model": "gpt-6-sol",
+          "requested_reasoning": "low",
+          "observed_model": "unknown",
+          "task_acceptance": "accepted",
+          "process_status": "exited_zero",
+          "whole_attempt_usage_complete": true,
+          "scope": "Accepted declared closure, zero exit and complete core usage; first Sol6 repetition on one development request, not a separate request or population label.",
+          "training_label_eligible": false
+        },
+        {
+          "kind": "owned_requested_profile_attempt",
+          "record": "experiments/task-outcomes/attempt-53-03.json",
+          "requested_model": "gpt-6-sol",
+          "requested_reasoning": "low",
+          "observed_model": "unknown",
+          "task_acceptance": "accepted",
+          "process_status": "exited_zero",
+          "whole_attempt_usage_complete": true,
+          "scope": "Accepted declared closure, zero exit and complete core usage; second Sol6 repetition on the same development request, not a separate request or population label.",
+          "training_label_eligible": false
+        },
+        {
+          "kind": "owned_requested_profile_attempt",
+          "record": "experiments/task-outcomes/attempt-53-04.json",
+          "requested_model": "gpt-6-luna",
+          "requested_reasoning": "low",
+          "observed_model": "unknown",
+          "task_acceptance": "accepted",
+          "process_status": "exited_zero",
+          "whole_attempt_usage_complete": true,
+          "scope": "Accepted declared closure, zero exit and complete core usage; second Luna repetition on the same development request, not a separate request or population label.",
+          "training_label_eligible": false
+        }
+      ],
+      "status": "development_requested_profile_attempts_observed_not_training_labels"
+    },
+    {
+      "id": "taskoutcome-event-key-bounds",
+      "family": "taskoutcome-parser",
+      "source_url": "https://github.com/teamswyg/laya-tools/blob/ee72334166e2962b0821d5198a50fdd13f92ab29/pkg/taskoutcome/summary.go",
+      "source_revision": "ee72334166e2962b0821d5198a50fdd13f92ab29",
+      "source_path": "pkg/taskoutcome/summary.go",
+      "acceptance_spec_version": "taskoutcome-event-key-bounds-v1",
+      "spec_sha256": "169cedefd41d3a5ba05d11bbb4685761a0dde6adf07401b846b77bf5a84c27db",
+      "prompt": "In pkg/taskoutcome/summary.go, make every JSONL event's top-level keys unambiguous and bounded: reject any duplicate decoded key, including unknown keys and escape-equivalent names, with ErrDuplicate. Accept at most 64 top-level keys including control keys, and at most 128 UTF-8 bytes per decoded key; reject larger count or key size with ErrJSON. Limits and duplicate tracking reset for each event. Keep key comparison case-sensitive. Preserve existing lifecycle, usage validation/totals, startup diagnostic handling, fixed redacted errors, and opaque active-turn item contents. Apply these new limits only to the event envelope, not recursively to nested item payloads; existing nested usage/startup control rules stay unchanged. Do not retain unknown key names or values in Summary.",
+      "expected_tier_hypothesis": "standard",
+      "rationale": "Original parser boundary change in a third code family; independent decoded-key, byte/count, per-event state and opaque-payload contracts are acceptance evidence, not model capability labels.",
+      "acceptance": [
+        "All six named external-package contract tests and immutable source tests terminate with pass in pkg/taskoutcome under offline isolation.",
+        "Duplicate decoded unknown/control keys are rejected; all control/unknown keys count toward inclusive64 and decoded UTF-8 bytes toward inclusive128.",
+        "Event-local reset, numeric lifecycle/usage meaning, unknown identity, exact trace hashes and opaque nested payload/redaction behavior are preserved.",
+        "Source revision/closure and original Apache-2.0 LICENSE/NOTICE are pinned; candidate tests are ignored; unsupported source shape remains verifier_unknown."
       ],
       "model_outcomes": [],
       "status": "versioned_verifier_ready_not_model_executed_not_training_label"

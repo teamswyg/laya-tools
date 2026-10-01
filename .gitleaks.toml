@@ -47,3 +47,17 @@ condition = "AND"
 paths = ['''^experiments/task-outcomes/plan-51\.json$''']
 regexTarget = "line"
 regexes = ['''^\s*"tokenizer\.json":\s*"6c8aaa9a542084f2457eab775d4eeb51f92a70c0fd9de28d5edb0ddec3c08d30"\s*,?\s*$''']
+
+[[rules.allowlists]]
+description = "Exact public source Git revision for the versioned event-envelope task"
+condition = "AND"
+paths = ['''^internal/taskverify/definition_event_keys_v1\.go$''']
+regexTarget = "line"
+regexes = ['''^\s*const eventKeyBoundsRevision = "ee72334166e2962b0821d5198a50fdd13f92ab29"\s*$''']
+
+[[rules.allowlists]]
+description = "Authored invalid-key-boundary case labels, not credentials"
+condition = "AND"
+paths = ['''^internal/taskverify/definition_event_keys_v1_test\.go$''']
+regexTarget = "secret"
+regexes = ['''^key127-strict$''']

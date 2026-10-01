@@ -19,3 +19,13 @@ the prompt, independent contract digest, and exact package/test terminal-pass
 requirements are bound by `TaskDefinition` and its `TaskSpec.DefinitionSHA256`.
 The candidate never supplies the behavioral acceptance assertions. Existing
 50/51 task definitions, source closures, source pins and spec hashes are unchanged.
+
+`taskoutcome-event-key-bounds-v1/` adds another code family, the original
+public JSONL summarizer source/tests and module at revision
+`ee72334166e2962b0821d5198a50fdd13f92ab29`. Its Apache-2.0 LICENSE/NOTICE are pinned
+separately. The independently supplied contract validates duplicate decoded
+envelope keys, inclusive count/byte bounds, per-event reset, numeric lifecycle
+and usage meaning, and opaque nested payload preservation. Named terminal passes
+are required in `pkg/taskoutcome`; repo-preview test evidence cannot satisfy this
+contract. Authored baseline/correct/incorrect candidates are verifier controls,
+not model executions or additional independent golden requests.
