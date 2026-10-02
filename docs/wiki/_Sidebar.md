@@ -1,6 +1,7 @@
 # laya-tools
 
 - [사용자 안내 / User guide](Home)
+- [다음 개발 학습 준비](Next60-Development-KO) · [Next development round](Next60-Development-EN)
 - [개발용 학습 자료 2개](Native2-Training-KO) · [Two qualified training requests](Native2-Training-EN)
 - [첫 두 과제 실제 관측](Native2-Observation-KO) · [First two actual observations](Native2-Observation-EN)
 - [처음 시작하기](Getting-Started-KO) · [Getting started](Getting-Started-EN)

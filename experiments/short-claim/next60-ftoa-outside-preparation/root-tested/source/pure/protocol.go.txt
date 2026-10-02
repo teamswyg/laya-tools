@@ -1,0 +1,519 @@
+// Frozen ftoa metadata only; no upstream, candidate or oracle dispatch.
+package pure
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"io"
+	"math"
+	"path"
+	"strings"
+	"unicode/utf8"
+)
+
+const (
+	Schema          = "riido-next60-ftoa-slice-plan-v1"
+	VectorSchema    = "riido-ftoa-six-frozen-vectors-v1"
+	ResultSchema    = "riido-ftoa-slice-original-observation-result-v1"
+	ReadinessSchema = "riido-ftoa-slice-readiness-v1"
+	ClosureSchema   = "riido-ftoa-slice-closure-v1"
+	OutputLimit     = 12 << 20
+	OutsideLimit    = 1 << 20
+	HeapLimit       = 256 << 20
+	MetadataLimit   = 65536
+	Seconds         = 300
+	Scheduled       = 18
+)
+
+var ErrProtocol = errors.New("invalid ftoa metadata protocol")
+
+type Pin struct {
+	ID     string `json:"asset_id"`
+	Path   string `json:"path"`
+	Bytes  int64  `json:"bytes"`
+	SHA256 string `json:"sha256"`
+}
+type Plan struct {
+	Schema             string `json:"schema"`
+	SourceRoot         string `json:"source_root"`
+	AttemptDir         string `json:"attempt_dir"`
+	Closure            Pin    `json:"closure"`
+	Vectors            Pin    `json:"vectors"`
+	Readiness          Pin    `json:"readiness"`
+	GoVersion          string `json:"go_version"`
+	GOOS               string `json:"goos"`
+	GOARCH             string `json:"goarch"`
+	CPU                int    `json:"cpu"`
+	MaxRSS             int64  `json:"max_rss_bytes"`
+	SoftHeap           int64  `json:"soft_heap_bytes"`
+	WholeSeconds       int    `json:"whole_seconds"`
+	MaxOutput          int64  `json:"max_output_bytes"`
+	MaxOutside         int64  `json:"max_outside_bytes"`
+	Scheduled          int    `json:"scheduled_observations"`
+	Retry              int    `json:"retry"`
+	Mode               string `json:"mode"`
+	OutsideReservation string `json:"outside_reservation_sha256"`
+}
+type Readiness struct {
+	Schema                       string `json:"schema"`
+	ClosureSHA                   string `json:"closure_sha256"`
+	VectorsSHA                   string `json:"vectors_sha256"`
+	IndependentWantReview        bool   `json:"independent_want_review_passed"`
+	CandidateFidelityReview      bool   `json:"candidate_fidelity_review_passed"`
+	SourceSelectionReview        bool   `json:"source_selection_review_passed"`
+	LocalObservationRightsReview bool   `json:"local_observation_rights_review_passed"`
+	RootCIReview                 bool   `json:"root_source_review_and_ci_passed"`
+	RootOutsideReserved          bool   `json:"root_outside_attempt_reserved"`
+	AllowOriginalObservation     bool   `json:"allow_original_observation_once"`
+	AllowModelOperations         bool   `json:"allow_model_operations"`
+	AllowProtectedFinal          bool   `json:"allow_protected_final"`
+	AllowPublicWrites            bool   `json:"allow_public_writes"`
+	OutsideReservation           string `json:"outside_reservation_sha256"`
+}
+type Closure struct {
+	Schema                   string `json:"schema"`
+	Boundary                 string `json:"boundary"`
+	Files                    []Pin  `json:"files"`
+	CompilerSelectionPending bool   `json:"compiler_selection_pending"`
+}
+type Input struct {
+	Decimal string `json:"float_decimal"`
+	Bits    string `json:"float_bits"`
+	Digits  int    `json:"digits"`
+}
+type Want struct {
+	Text      *string `json:"text"`
+	ErrorKind string  `json:"error_kind"`
+}
+type Vector struct {
+	ID    string `json:"case_id"`
+	Input Input  `json:"input"`
+	Want  Want   `json:"want"`
+}
+type VectorFile struct {
+	Schema string   `json:"schema"`
+	Rows   []Vector `json:"rows"`
+}
+type Dispatch struct {
+	Goal      int `json:"goal"`
+	Vector    int `json:"vector"`
+	Candidate int `json:"candidate"`
+}
+type Got struct {
+	Text         string `json:"text"`
+	ErrorChannel bool   `json:"error_channel_available"`
+	ErrorPresent *bool  `json:"error_present"`
+	ErrorKind    string `json:"error_kind"`
+	ErrorMessage string `json:"error_message"`
+	Panic        bool   `json:"panic"`
+}
+type Row struct {
+	Ordinal   int             `json:"ordinal"`
+	Goal      string          `json:"goal_id"`
+	Candidate string          `json:"candidate_id"`
+	Case      string          `json:"case_id"`
+	Bits      string          `json:"input_float64_bits"`
+	Want      Want            `json:"frozen_Want_unverified"`
+	Got       Got             `json:"Got"`
+	Truth     json.RawMessage `json:"truth"`
+	Role      json.RawMessage `json:"role"`
+	Weight    json.RawMessage `json:"weight"`
+}
+type OracleCheck struct {
+	Case           string `json:"case_id"`
+	Bits           string `json:"input_float64_bits"`
+	WantConsistent bool   `json:"frozen_Want_consistent_with_independent_oracle"`
+}
+type Result struct {
+	Schema        string          `json:"schema"`
+	PlanSHA       string          `json:"plan_sha256"`
+	ClosureSHA    string          `json:"closure_sha256"`
+	VectorsSHA    string          `json:"vectors_sha256"`
+	ReadinessSHA  string          `json:"readiness_sha256"`
+	Rows          []Row           `json:"rows"`
+	OracleChecks  []OracleCheck   `json:"oracle_checks"`
+	Scheduled     int             `json:"scheduled_observations"`
+	Completed     int             `json:"completed_observations"`
+	OriginalCalls int             `json:"original_FtoaWithDigits_calls"`
+	PreciseCalls  int             `json:"authored_FtoaPrecise_calls"`
+	FlawedCalls   int             `json:"authored_FlawedDoubleRound_calls"`
+	OracleCalls   int             `json:"independent_oracle_calls"`
+	Heap          uint64          `json:"go_heap_alloc_bytes_snapshot"`
+	Seconds       float64         `json:"observation_seconds_excludes_startup_and_pins"`
+	Model         int             `json:"model_calls"`
+	Protected     int             `json:"protected_reads"`
+	Labels        json.RawMessage `json:"labels"`
+	Production    bool            `json:"production_ready"`
+	Failure       string          `json:"failure_code"`
+	Scope         string          `json:"counter_scope"`
+}
+type ResultCounts struct {
+	Known         bool   `json:"counts_known"`
+	Reason        string `json:"counts_reason"`
+	Scheduled     *int   `json:"scheduled_observations"`
+	Completed     *int   `json:"completed_observations"`
+	OriginalCalls *int   `json:"original_FtoaWithDigits_calls"`
+	PreciseCalls  *int   `json:"authored_FtoaPrecise_calls"`
+	FlawedCalls   *int   `json:"authored_FlawedDoubleRound_calls"`
+	OracleCalls   *int   `json:"independent_oracle_calls"`
+	Rows          *int   `json:"rows"`
+	OracleChecks  *int   `json:"oracle_checks"`
+	PanickedRows  *int   `json:"panicked_rows"`
+}
+
+func Digest(b []byte) string { x := sha256.Sum256(b); return hex.EncodeToString(x[:]) }
+func SHA(s string) bool {
+	if len(s) != 64 {
+		return false
+	}
+	for _, c := range s {
+		if !(c >= '0' && c <= '9') && !(c >= 'a' && c <= 'f') {
+			return false
+		}
+	}
+	return true
+}
+func Null(b json.RawMessage) bool { return bytes.Equal(bytes.TrimSpace(b), []byte("null")) }
+func SafePath(s string) bool {
+	return s != "" && utf8.ValidString(s) && !strings.ContainsAny(s, "\\\x00") &&
+		!path.IsAbs(s) && path.Clean(s) == s && s != ".." && !strings.HasPrefix(s, "../")
+}
+func ValidPin(p Pin) bool {
+	return p.ID != "" && len(p.ID) <= 512 && utf8.ValidString(p.ID) &&
+		!strings.ContainsRune(p.ID, 0) && SafePath(p.Path) && p.Bytes > 0 &&
+		p.Bytes <= OutputLimit && SHA(p.SHA256)
+}
+
+// UniqueJSON rejects duplicate keys (also case folds), invalid UTF-8 and trailing JSON.
+func UniqueJSON(b []byte) error {
+	if len(b) == 0 || len(b) > OutputLimit || !utf8.Valid(b) {
+		return ErrProtocol
+	}
+	d := json.NewDecoder(bytes.NewReader(b))
+	d.UseNumber()
+	nodes := 0
+	var walk func(int) error
+	walk = func(depth int) error {
+		nodes++
+		if depth > 32 || nodes > 65536 {
+			return ErrProtocol
+		}
+		t, e := d.Token()
+		if e != nil {
+			return ErrProtocol
+		}
+		x, ok := t.(json.Delim)
+		if !ok {
+			return nil
+		}
+		switch x {
+		case '{':
+			var names []string
+			for d.More() {
+				k, e := d.Token()
+				s, ok := k.(string)
+				if e != nil || !ok || len(names) >= 512 {
+					return ErrProtocol
+				}
+				for _, old := range names {
+					if strings.EqualFold(s, old) {
+						return ErrProtocol
+					}
+				}
+				names = append(names, s)
+				if e = walk(depth + 1); e != nil {
+					return e
+				}
+			}
+			end, e := d.Token()
+			if e != nil || end != json.Delim('}') {
+				return ErrProtocol
+			}
+		case '[':
+			n := 0
+			for d.More() {
+				n++
+				if n > 4096 {
+					return ErrProtocol
+				}
+				if e = walk(depth + 1); e != nil {
+					return e
+				}
+			}
+			end, e := d.Token()
+			if e != nil || end != json.Delim(']') {
+				return ErrProtocol
+			}
+		default:
+			return ErrProtocol
+		}
+		return nil
+	}
+	if e := walk(0); e != nil {
+		return e
+	}
+	if _, e := d.Token(); e != io.EOF {
+		return ErrProtocol
+	}
+	return nil
+}
+func Decode(b []byte, v any) error {
+	if UniqueJSON(b) != nil {
+		return ErrProtocol
+	}
+	d := json.NewDecoder(bytes.NewReader(b))
+	d.DisallowUnknownFields()
+	if d.Decode(v) != nil || d.Decode(new(any)) != io.EOF {
+		return ErrProtocol
+	}
+	return nil
+}
+
+// Caller-owned readiness claims require main's separate compiler/control proofs.
+func CheckPlan(p Plan, r Readiness) error {
+	if p.Schema != Schema || !path.IsAbs(p.SourceRoot) || !path.IsAbs(p.AttemptDir) ||
+		p.SourceRoot == p.AttemptDir || p.GoVersion != "go1.27.1" || p.GOOS != "darwin" ||
+		p.GOARCH != "arm64" || p.CPU != 1 || p.MaxRSS != HeapLimit || p.SoftHeap != HeapLimit ||
+		p.WholeSeconds != Seconds || p.MaxOutput != OutputLimit || p.MaxOutside != OutsideLimit ||
+		p.Scheduled != Scheduled || p.Retry != 0 || p.Mode != "reserved_native_observation_only" ||
+		!SHA(p.OutsideReservation) {
+		return ErrProtocol
+	}
+	for _, x := range []Pin{p.Closure, p.Vectors, p.Readiness} {
+		if !ValidPin(x) || x.Bytes > MetadataLimit {
+			return ErrProtocol
+		}
+	}
+	if p.Closure.ID != "ftoa/closure" || p.Closure.Path != "SOURCE-CLOSURE.v1.json" || p.Closure.Bytes != 1252 ||
+		p.Closure.SHA256 != "8f4a76533a0fd86bb37cf2f128ca363668ddb0fdc0eb7241f0cd84a428f9f0f9" ||
+		p.Vectors.ID != "ftoa/vectors" || p.Vectors.Path != "VECTORS.v1.json" || p.Vectors.Bytes != 1597 ||
+		p.Vectors.SHA256 != "8c7dc8c5a337dba79eac29335b97d4283195c2c8307614d8bd34a0f6003b2455" ||
+		p.Readiness.ID != "root/local-observation-readiness" {
+		return ErrProtocol
+	}
+	if r.Schema != ReadinessSchema || r.ClosureSHA != p.Closure.SHA256 ||
+		r.VectorsSHA != p.Vectors.SHA256 || r.OutsideReservation != p.OutsideReservation ||
+		!r.IndependentWantReview || !r.CandidateFidelityReview || !r.SourceSelectionReview ||
+		!r.LocalObservationRightsReview || !r.RootCIReview || !r.RootOutsideReserved ||
+		!r.AllowOriginalObservation || r.AllowModelOperations || r.AllowProtectedFinal ||
+		r.AllowPublicWrites {
+		return ErrProtocol
+	}
+	return nil
+}
+
+// Exact seven-file inventory; compiler_selection_pending remains true.
+func CheckClosure(c Closure) error {
+	if c.Schema != ClosureSchema || c.Boundary != "original-file-only-not-whole-humanize" ||
+		!c.CompilerSelectionPending || len(c.Files) != 7 {
+		return ErrProtocol
+	}
+	expected := [7]Pin{
+		{"ftoa/source/go.mod", "go.mod", 40, "5997993a917c3668eea1164a55db1134d165971cac1be447c3ea497902293a28"},
+		{"ftoa/source/observer", "cmd/observe/main.go", 12975, "71745da49e778e94cbc4dd012da05186556316bb17d88427d1895f175b59ce49"},
+		{"ftoa/source/authored-candidates", "internal/candidate/ftoa.go", 1495, "9e89227d9b897967bf77cd2832be5cf990de7aaf520a4376001a789b9fac1d09"},
+		{"ftoa/source/integer-oracle", "internal/oracle/oracle.go", 2036, "4611e6820da28ad24079bcb61dd91a5b7399b63cbff6018105fae87ba2e5ac31"},
+		{"ftoa/source/original-selected-file", "internal/original/ftoa.go", 986, "03007fb6a59871f5531d033739c1c68364943357f044931046667bfd26f02389"},
+		{"ftoa/source/original-MIT-notice", "internal/original/LICENSE", 1136, "a973b4498c13eb74baa2a8e5c351426a6826f2fcdd909916dbe53ee2e755fd71"},
+		{"ftoa/vectors", "VECTORS.v1.json", 1597, "8c7dc8c5a337dba79eac29335b97d4283195c2c8307614d8bd34a0f6003b2455"},
+	}
+	for i, f := range c.Files {
+		if !ValidPin(f) || f.Bytes > MetadataLimit || f != expected[i] {
+			return ErrProtocol
+		}
+	}
+	return nil
+}
+func fixedVectors() [6]Vector {
+	dec := [6]string{"1.125", "1.375", "1.999", "0.000000125", "", "+Inf"}
+	digits := [6]int{2, 2, 2, 9, 2, 2}
+	text := [5]string{"1.12", "1.38", "2", "0.000000125", "0"}
+	var out [6]Vector
+	for i := range out {
+		out[i] = Vector{ID: "next60-humanize-precise-ftoa-vector-0" + string(byte('1'+i)), Input: Input{Decimal: dec[i], Digits: digits[i]}}
+		if i < 5 {
+			s := text[i]
+			out[i].Want.Text = &s
+		} else {
+			out[i].Want.ErrorKind = "nonfinite"
+		}
+	}
+	out[4].Input.Bits = "8000000000000000"
+	return out
+}
+func sameWant(a, b Want) bool {
+	if a.ErrorKind != b.ErrorKind || (a.Text == nil) != (b.Text == nil) {
+		return false
+	}
+	return a.Text == nil || *a.Text == *b.Text
+}
+func Schedule(v VectorFile) ([]Dispatch, error) {
+	if v.Schema != VectorSchema || len(v.Rows) != 6 {
+		return nil, ErrProtocol
+	}
+	want := fixedVectors()
+	for i, r := range v.Rows {
+		if r.ID != want[i].ID || r.Input != want[i].Input || !sameWant(r.Want, want[i].Want) {
+			return nil, ErrProtocol
+		}
+	}
+	out := make([]Dispatch, 0, Scheduled)
+	for ci := 0; ci < 3; ci++ {
+		for vi := 0; vi < 6; vi++ {
+			out = append(out, Dispatch{0, vi, ci})
+		}
+	}
+	return out, nil
+}
+func UnknownCounts(reason string) ResultCounts {
+	switch reason {
+	case "absent", "empty", "timeout", "killed", "invalid", "worker_failure", "partial", "running", "not_started":
+	default:
+		reason = "unknown"
+	}
+	return ResultCounts{Reason: reason}
+}
+func object(b json.RawMessage, keys, nullable string) (map[string]json.RawMessage, error) {
+	var m map[string]json.RawMessage
+	if json.Unmarshal(b, &m) != nil || m == nil || len(m) != len(strings.Fields(keys)) {
+		return nil, ErrProtocol
+	}
+	for _, k := range strings.Fields(keys) {
+		x, ok := m[k]
+		if !ok {
+			return nil, ErrProtocol
+		}
+		if Null(x) {
+			allowed := false
+			for _, n := range strings.Fields(nullable) {
+				if k == n {
+					allowed = true
+				}
+			}
+			if !allowed {
+				return nil, ErrProtocol
+			}
+		}
+	}
+	return m, nil
+}
+func bitText(s string) bool {
+	if len(s) == 0 || len(s) > 16 || (len(s) > 1 && s[0] == '0') {
+		return false
+	}
+	for _, c := range s {
+		if !(c >= '0' && c <= '9') && !(c >= 'a' && c <= 'f') {
+			return false
+		}
+	}
+	return true
+}
+
+// Complete metadata gives entry counts, not semantic satisfaction. Failure prefixes remain unknown.
+func AssessResult(b []byte, p Plan, planSHA string) (ResultCounts, error) {
+	bad := func() (ResultCounts, error) { return UnknownCounts("invalid"), ErrProtocol }
+	if len(b) == 0 {
+		return UnknownCounts("empty"), nil
+	}
+	if !SHA(planSHA) || UniqueJSON(b) != nil {
+		return bad()
+	}
+	m, e := object(b, "schema plan_sha256 closure_sha256 vectors_sha256 readiness_sha256 rows oracle_checks scheduled_observations completed_observations original_FtoaWithDigits_calls authored_FtoaPrecise_calls authored_FlawedDoubleRound_calls independent_oracle_calls go_heap_alloc_bytes_snapshot observation_seconds_excludes_startup_and_pins model_calls protected_reads labels production_ready failure_code counter_scope", "labels")
+	if e != nil {
+		return bad()
+	}
+	var r Result
+	if Decode(b, &r) != nil || r.Schema != ResultSchema || r.PlanSHA != planSHA ||
+		r.ClosureSHA != p.Closure.SHA256 || r.VectorsSHA != p.Vectors.SHA256 ||
+		r.ReadinessSHA != p.Readiness.SHA256 || !SHA(r.ClosureSHA) || !SHA(r.VectorsSHA) ||
+		!SHA(r.ReadinessSHA) || r.Model != 0 || r.Protected != 0 || !Null(r.Labels) ||
+		r.Production || math.IsNaN(r.Seconds) || math.IsInf(r.Seconds, 0) ||
+		r.Seconds < 0 || r.Scope == "" {
+		return bad()
+	}
+	if r.Failure != "" {
+		return UnknownCounts("worker_failure"), nil
+	}
+	if p.Scheduled != Scheduled || r.Scheduled != Scheduled || r.Completed != Scheduled ||
+		r.OriginalCalls != 6 || r.PreciseCalls != 6 || r.FlawedCalls != 6 ||
+		r.OracleCalls != 6 || len(r.Rows) != Scheduled || len(r.OracleChecks) != 6 {
+		return UnknownCounts("partial"), ErrProtocol
+	}
+	var rows, checks []json.RawMessage
+	if json.Unmarshal(m["rows"], &rows) != nil || json.Unmarshal(m["oracle_checks"], &checks) != nil {
+		return bad()
+	}
+	want := fixedVectors()
+	names := [3]string{"original/FtoaWithDigits", "authored/FtoaPrecise", "authored/FlawedDoubleRound"}
+	var bits [6]string
+	panics := 0
+	for i, row := range r.Rows {
+		x, e := object(rows[i], "ordinal goal_id candidate_id case_id input_float64_bits frozen_Want_unverified Got truth role weight", "truth role weight")
+		if e != nil {
+			return bad()
+		}
+		if _, e = object(x["frozen_Want_unverified"], "text error_kind", "text"); e != nil {
+			return bad()
+		}
+		if _, e = object(x["Got"], "text error_channel_available error_present error_kind error_message panic", "error_present"); e != nil {
+			return bad()
+		}
+		ci, vi := i/6, i%6
+		if row.Ordinal != i || row.Goal != "next60-humanize-precise-ftoa" ||
+			row.Candidate != names[ci] || row.Case != want[vi].ID ||
+			!sameWant(row.Want, want[vi].Want) || !Null(row.Truth) ||
+			!Null(row.Role) || !Null(row.Weight) || !bitText(row.Bits) {
+			return bad()
+		}
+		if ci == 0 {
+			bits[vi] = row.Bits
+		} else if row.Bits != bits[vi] {
+			return bad()
+		}
+		if (vi == 4 && row.Bits != "8000000000000000") || (vi == 5 && row.Bits != "7ff0000000000000") {
+			return bad()
+		}
+		g := row.Got
+		if g.Panic {
+			panics++
+			if g.Text != "" || g.ErrorChannel || g.ErrorPresent != nil ||
+				g.ErrorKind != "panic" || g.ErrorMessage != "" {
+				return bad()
+			}
+		} else if ci == 0 {
+			if g.ErrorChannel || g.ErrorPresent != nil || g.ErrorKind != "unavailable" ||
+				g.ErrorMessage != "" {
+				return bad()
+			}
+		} else {
+			if !g.ErrorChannel || g.ErrorPresent == nil {
+				return bad()
+			}
+			if !*g.ErrorPresent {
+				if g.ErrorKind != "" || g.ErrorMessage != "" {
+					return bad()
+				}
+			} else if g.ErrorKind != "precision" && g.ErrorKind != "nonfinite" && g.ErrorKind != "other" {
+				return bad()
+			}
+		}
+	}
+	for i, x := range r.OracleChecks {
+		if _, e = object(checks[i], "case_id input_float64_bits frozen_Want_consistent_with_independent_oracle", ""); e != nil {
+			return bad()
+		}
+		if x.Case != want[i].ID || !bitText(x.Bits) || x.Bits != bits[i] {
+			return bad()
+		}
+		if !x.WantConsistent {
+			return UnknownCounts("worker_failure"), nil
+		}
+	}
+	n, six, nr, nc := Scheduled, 6, len(r.Rows), len(r.OracleChecks)
+	return ResultCounts{Known: true, Reason: "complete_metadata_only", Scheduled: &n, Completed: &n,
+		OriginalCalls: &six, PreciseCalls: &six, FlawedCalls: &six, OracleCalls: &six,
+		Rows: &nr, OracleChecks: &nc, PanickedRows: &panics}, nil
+}

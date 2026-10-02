@@ -1,0 +1,21 @@
+[
+  {
+    "schema": "riido-short-behavior-claim-v1",
+    "request": "For frozen IPv4 strings, trim CIDRs into masked networks. Preserve the previous network on errors and reject bare addresses.",
+    "candidates": [
+      {"id":"ipNetValue.Set","text":"On frozen inputs, trim CIDRs into masked networks; preserve the previous network on errors and reject bare addresses."},
+      {"id":"ipValue.Set","text":"On frozen inputs, parse trimmed plain IP text; preserve the previous IP on errors, reject CIDRs, and accept bare addresses as IP values."},
+      {"id":"ipMaskValue.Set","text":"On frozen inputs, parse dotted IPv4 text into mask bytes; preserve the previous mask on errors, reject CIDRs, and accept bare addresses as masks."}
+    ],
+    "provenance":"native2-finite-v3"
+  },
+  {
+    "schema":"riido-short-behavior-claim-v1",
+    "request":"For frozen integer hooks, retry unchanged input until nil error, including nil output. Concatenate each failed message followed by a line feed; zero hooks must return an error.",
+    "candidates":[
+      {"id":"OrComposeDecodeHookFunc","text":"Try frozen hooks on unchanged input; stop on nil error, including nil output. If none succeed, return an error concatenating each message followed by a line feed."},
+      {"id":"ComposeDecodeHookFunc","text":"Chain frozen hooks, passing each output onward; stop on the first error. With no hooks, return the original input without error."}
+    ],
+    "provenance":"native2-finite-v3"
+  }
+]

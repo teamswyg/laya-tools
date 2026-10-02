@@ -1,5 +1,7 @@
 # laya-tools
 
+[다음 개발 학습 준비 안내](docs/wiki/Next60-Development-KO.md): [반올림 제어기의 합성 검사](experiments/short-claim/next60-ftoa-outside-preparation/README.ko.md)와 [다음 네 요청의 배치 준비](experiments/short-claim/next60-source-batch-preparation/README.ko.md)를 구분해 설명합니다. 현재 적격은 요청 2개·라벨 5개이고 새 학습은 0회입니다. PR111 CI와 HF 개발 데이터 공개는 대기 중입니다.
+
 다음 학습 라운드의 [개발용 유한 요청 2개를 적격화](experiments/short-claim/next60-native2-qualification/README.ko.md)했습니다. 기존 초안 ID 두 개의 후보 5개에 긍정 2개·부정 3개를 부여했고, 문장 모두 기존 입력 제한을 통과했습니다. 기존 79개 자료는 그대로이며 새 학습은 아직 0회입니다. 적격 자료를 30개·60개로 늘린 뒤 별도 학습 비교를 진행합니다.
 
 [첫 두 과제의 실제 원본 관측](experiments/short-claim/next60-native2-actual-observations/README.ko.md)을 완료했습니다. 요청2개·입력9개·후보5개를 한 번 실행해 관측23개를 얻었으며 패닉·확인 불가는0입니다. 적합 후보는 각각5/5·4/4입력을 만족했고 다른 후보의14개 관측은 불일치했습니다. 자식 OS 최대 RSS는약9.11MiB, 시작·검증을 포함한 시간은약0.37초입니다. 이는 모델 추론이나 절감 증명이 아닙니다. 관측 당시 새 학습 자격·추가 Fit은0이었으며 이전 보류 기록과 [v5 소스 수정](experiments/short-claim/next60-native2-outside-v5-preparation/README.ko.md)을 보존합니다.

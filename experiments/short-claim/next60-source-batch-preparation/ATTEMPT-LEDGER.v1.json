@@ -1,0 +1,119 @@
+{
+  "schema": "riido-source-only-batch-preparation-ledger-v1",
+  "state": "source_reads_and_private_metadata_only",
+  "original_draft_reference": {
+    "path": "experiments/short-claim/next60-acquisition-drafts/DRAFT-CONTRACTS.v1.json",
+    "sha256": "c7bbf7bcc7912300fabdd6e671b0922df295299f00e5e7201df1ab5e824a2a9b",
+    "bytes": 209341
+  },
+  "selection_manifest": "BATCH-SELECTORS.v1.json",
+  "outcome": {
+    "selected_source_preparation_selectors": 4,
+    "held": 13,
+    "qualified_excluded": 2,
+    "ftoa_excluded": 1,
+    "target": 10,
+    "shortfall": 6
+  },
+  "existing_historical_failures_preserved_without_rewriting": [
+    {
+      "stage": "source_pin_and_license_read",
+      "status": "tool_output_truncated_then_narrowed",
+      "native_failure": false
+    },
+    {
+      "stage": "module_cache_filename_survey",
+      "status": "overbroad_filename_output_truncated_then_narrowed",
+      "protected_content_read": 0
+    },
+    {
+      "stage": "draft_json_read",
+      "status": "full_output_truncated_parse_refused_then_four_bounded_ranges_read",
+      "source_changed": false
+    },
+    {
+      "stage": "INI_cache_path",
+      "status": "absent_narrow_path_not_machinewide_absence"
+    },
+    {
+      "stage": "Source82_private_path",
+      "status": "guessed_path_absent_then_existing_public_archive_used"
+    },
+    {
+      "stage": "private_tmp_filename_scan",
+      "status": "unrelated_RustDesk_directory_permission_denied_no_body_read"
+    },
+    {
+      "stage": "Cobra_cache_function_search",
+      "status": "output_truncated_no_missing_tail_claim"
+    }
+  ],
+  "current_metadata_assembly": {
+    "attempted": 2,
+    "failed": 1,
+    "completed": 1,
+    "failed_step": {
+      "stage": "in_memory_metadata_size_check",
+      "error": "TextEncoder_unavailable_in_orchestration",
+      "effect": "manifest stored; no files written; no source or native callback executed",
+      "retry": "use ASCII assertion and string-byte-length; same stored manifest"
+    },
+    "standalone_helper_processes": 0,
+    "source_or_Want_changes": 0
+  },
+  "completed_read_checks": {
+    "source82_manifest_SHA_matches": 56,
+    "humanize_slice_or_license_SHA_matches": 6,
+    "draft_file_SHA_and_size_matched": true,
+    "module_cache_info_files": 5,
+    "all_five_cache_origins_differ_from_draft_revision": true
+  },
+  "actual_io_boundaries": {
+    "filesystem_source_metadata_reads": true,
+    "private_metadata_writes": true,
+    "raw_upstream_bodies_copied": false,
+    "shared_checkout_writes": false
+  },
+  "prohibited_execution_and_mutation": {
+    "Go": 0,
+    "build": 0,
+    "test": 0,
+    "standalone_helper": 0,
+    "native_init": 0,
+    "original_API": 0,
+    "observer": 0,
+    "model": 0,
+    "Features": 0,
+    "Project": 0,
+    "Fit": 0,
+    "protected_read": 0,
+    "HTTP": 0,
+    "download": 0,
+    "HF": 0,
+    "shared_write": 0,
+    "commit": 0,
+    "push": 0
+  },
+  "semantic_findings": [
+    {
+      "id": "next60-mapstructure-nil-config",
+      "state": "hold",
+      "source": "mapstructure.go:478-485",
+      "finding": "A typed-nil Result pointer passes Kind==Ptr, Elem is invalid and CanAddr is false; source returns an error before Metadata mutation. A guard-config-only adapter must not be called wrong solely on a claimed typed-nil panic.",
+      "actual_reproduction": false
+    }
+  ],
+  "independence": {
+    "reader_is_existing_source_or_mechanics_author": true,
+    "nonblind": true,
+    "independent_oracle_or_semantic_approval": false
+  },
+  "future_attempts": {
+    "actual_batch_observation": 0,
+    "compiled_adapters": 0,
+    "Wanted_revisions_after_outcome": 0,
+    "retries": 0
+  },
+  "file_limit_bytes": 196608,
+  "notes": "Basic filesystem reads, SHA/size utilities and in-memory tool orchestration are metadata preparation, not Go/helper/native execution. Read-call total is not reconstructed from an incomplete historical transcript."
+}
