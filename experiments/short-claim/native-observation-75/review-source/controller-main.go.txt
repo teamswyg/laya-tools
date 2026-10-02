@@ -1,0 +1,892 @@
+// Private, stdlib-only controller for one frozen wrap/marshal 24-probe observation.
+// Build and pure tests do not import or execute original packages.
+package main
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"debug/buildinfo"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"flag"
+	"fmt"
+	"io"
+	"math"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"reflect"
+	"runtime"
+	"runtime/debug"
+	"strconv"
+	"strings"
+	"syscall"
+	"time"
+	"unicode/utf8"
+)
+
+const jsonLimit = (1 << 20) - 1
+const assetLimit = 64 << 20
+
+type ref struct {
+	ID     string `json:"id"`
+	Bytes  int    `json:"bytes"`
+	SHA256 string `json:"sha256"`
+}
+type closureRef struct {
+	Base, Path string
+	ref
+}
+type plan struct {
+	Schema                                                                                                        string
+	Frozen                                                                                                        bool
+	ObserverRoot, OriginalSourceRoot                                                                              string
+	Want, Binary                                                                                                  ref
+	Closure                                                                                                       []closureRef
+	Toolchain, GOOS, GOARCH                                                                                       string
+	CPU, SoftGoHeapBytes, OutsideTimeoutSeconds, OutputLimitBytes, PlannedOriginalAPICalls, DistinctBehaviorGoals int
+	OutsideReservationRequired, NoAutomaticRetry                                                                  bool
+	TrainingReady, BroadTruthProven, CaptionsQualified, ParentLabelsQualified                                     bool
+}
+type handoff struct {
+	Schema, State                                                                                                                                                                        string
+	WantSeal, Binary, Draft                                                                                                                                                              ref
+	RuntimeClosure                                                                                                                                                                       []closureRef
+	Specification                                                                                                                                                                        json.RawMessage
+	OriginalObserverExecutions, OriginalInitializersExecuted, OriginalAPICalls, Models, Fits, Features, Project, Roles, Labels, ProtectedFinalReads, PaidCalls, HFMutations, SharedEdits int
+	TrainingReady, BroadTruthProven, CaptionsQualified, ParentLabelsQualified, SourceDiversityCleared                                                                                    bool
+}
+type wantSeal struct {
+	Schema                                                                                         string
+	Want, AuthorSpec                                                                               ref
+	OriginalClosure                                                                                []closureRef
+	SealedBeforeOriginalImportBuild                                                                bool
+	OriginalImportBuilds, OriginalBinaryExecutions, OriginalInitializersExecuted, OriginalAPICalls int
+}
+type pair struct{ Key, Value string }
+type mapState struct {
+	Nil     bool
+	Entries []pair
+}
+type observation struct {
+	Text                    string
+	Error                   *string
+	InputBefore, InputAfter *mapState
+	Panicked                bool
+}
+type probe struct {
+	ID, Goal, Text string
+	Width          uint
+	MapNil         bool
+	Entries        []pair
+	Want           observation
+}
+type record struct {
+	Probe   probe
+	Got     observation
+	Matches bool
+}
+type goal struct{ ID, API, Repository, Revision, SourceSHA256, Derivation, ExcludedScope string }
+type specification struct {
+	Schema                                                                    string
+	Goals                                                                     []goal
+	Probes                                                                    []probe
+	BroadTruthProven, CaptionsQualified, ParentLabelsQualified, TrainingReady bool
+	NewParents, NewLabels, Models, Fits, ProtectedFinalReads                  int
+}
+type counters struct{ DistinctBehaviorGoals, PlannedAPICalls, DispatchReserved, OriginalReturns, WrapperPanics, Matches, Differences int }
+type savedResult struct {
+	Schema, State, WantSHA256, PlanSHA256, Failure, ActiveProbeID string
+	counters
+	Records                                                                   []record
+	PackageInitializationScope                                                string
+	OriginalInitializationDynamicallyInstrumented                             bool
+	CaptionsQualified, ParentLabelsQualified, BroadTruthProven, TrainingReady bool
+	NewParents, NewLabels, ModelCalls, Fits, ProtectedFinalReads              int
+}
+type metric struct {
+	RealSeconds, UserSeconds, SystemSeconds *float64
+	MaximumRSSBytes, PeakFootprintBytes     *uint64
+	Source                                  string
+}
+type resultEvidence struct {
+	Final, Partial                             *ref
+	Selected                                   string
+	Counters                                   *counters
+	State, Failure, Validation                 string
+	RecordBindingsValidated, All24WantsMatched bool
+}
+type ledger struct {
+	Schema, State, DraftSHA256, FrozenPlanSHA256, HandoffSHA256, WantSHA256, BinarySHA256 string
+	ChildStartIntent, ChildStarts, Retries, ExitCode                                      int
+	StartFailed, TimedOut, KillFailed, WaitReturned, StdoutOverflow, StderrOverflow       bool
+	ControllerElapsedSeconds                                                              float64
+	WholeTimedProcess                                                                     metric
+	Result                                                                                resultEvidence
+	Stdout, TimeAndStderr                                                                 *ref
+	OwnOriginalAPICalls, OwnModelCalls, OwnFits                                           int
+	TrainingReady, ParentLabelsQualified, BroadTruthProven, CaptionsQualified             bool
+	Limits                                                                                []string
+}
+type config struct{ Draft, DraftSHA, Handoff, HandoffSHA, ControlDir string }
+
+func fixed(code string) error { return errors.New(code) }
+func digest(b []byte) string  { h := sha256.Sum256(b); return hex.EncodeToString(h[:]) }
+func validSHA(s string) bool {
+	if len(s) != 64 {
+		return false
+	}
+	_, e := hex.DecodeString(s)
+	return e == nil && strings.ToLower(s) == s
+}
+func boundedRead(path string, limit int) ([]byte, error) {
+	s, e := os.Lstat(path)
+	if e != nil || !s.Mode().IsRegular() || s.Size() < 0 || s.Size() > int64(limit) {
+		return nil, fixed("bounded_file")
+	}
+	f, e := os.Open(path)
+	if e != nil {
+		return nil, fixed("read_file")
+	}
+	defer f.Close()
+	b, e := io.ReadAll(io.LimitReader(f, int64(limit)+1))
+	if e != nil || len(b) > limit || int64(len(b)) != s.Size() {
+		return nil, fixed("read_bound")
+	}
+	return b, nil
+}
+func rel(base, p string) (string, error) {
+	if p == "" || filepath.IsAbs(p) || filepath.Clean(p) != p || p == "." || p == ".." || strings.HasPrefix(p, "../") || strings.ContainsAny(p, "\\\x00") {
+		return "", fixed("relative_path")
+	}
+	root, e := filepath.EvalSymlinks(base)
+	if e != nil || !filepath.IsAbs(root) {
+		return "", fixed("source_root")
+	}
+	target := filepath.Join(root, p)
+	actual, e := filepath.EvalSymlinks(target)
+	if e != nil || actual != target {
+		return "", fixed("source_symlink")
+	}
+	return target, nil
+}
+func verifyRef(base string, p ref) ([]byte, error) {
+	path, e := rel(base, p.ID)
+	if e != nil {
+		return nil, e
+	}
+	if p.Bytes < 1 || p.Bytes > assetLimit || !validSHA(p.SHA256) {
+		return nil, fixed("pin_bounds")
+	}
+	b, e := boundedRead(path, assetLimit)
+	if e != nil || len(b) != p.Bytes || digest(b) != p.SHA256 {
+		return nil, fixed("pin_bytes")
+	}
+	return b, nil
+}
+
+// Reject duplicate/casefolded keys before encoding/json's last-value behavior.
+func strictSyntax(b []byte) error {
+	if len(b) == 0 || len(b) > jsonLimit || !utf8.Valid(b) {
+		return fixed("json_bounds")
+	}
+	d := json.NewDecoder(bytes.NewReader(b))
+	d.UseNumber()
+	var value func(int) error
+	value = func(depth int) error {
+		if depth > 32 {
+			return fixed("json_depth")
+		}
+		t, e := d.Token()
+		if e != nil {
+			return fixed("json_syntax")
+		}
+		if t == nil {
+			return nil
+		}
+		delim, ok := t.(json.Delim)
+		if !ok {
+			return nil
+		}
+		switch delim {
+		case '{':
+			keys := []string{}
+			for d.More() {
+				t, e := d.Token()
+				k, ok := t.(string)
+				if e != nil || !ok || k == "" || len(k) > 128 {
+					return fixed("json_key")
+				}
+				fold := strings.ToLower(k)
+				for _, old := range keys {
+					if old == fold {
+						return fixed("json_duplicate")
+					}
+				}
+				keys = append(keys, fold)
+				if e = value(depth + 1); e != nil {
+					return e
+				}
+			}
+			end, e := d.Token()
+			if e != nil || end != json.Delim('}') {
+				return fixed("json_syntax")
+			}
+		case '[':
+			for d.More() {
+				if e = value(depth + 1); e != nil {
+					return e
+				}
+			}
+			end, e := d.Token()
+			if e != nil || end != json.Delim(']') {
+				return fixed("json_syntax")
+			}
+		default:
+			return fixed("json_syntax")
+		}
+		return nil
+	}
+	if e := value(0); e != nil {
+		return e
+	}
+	if _, e := d.Token(); e != io.EOF {
+		return fixed("json_multiple")
+	}
+	return nil
+}
+func decode(b []byte, v any, closed bool) error {
+	if e := strictSyntax(b); e != nil {
+		return e
+	}
+	d := json.NewDecoder(bytes.NewReader(b))
+	if closed {
+		d.DisallowUnknownFields()
+	}
+	if e := d.Decode(v); e != nil {
+		return fixed("json_decode")
+	}
+	return nil
+}
+func freeze(b []byte) ([]byte, error) {
+	token := []byte(`"Frozen": false`)
+	if bytes.Count(b, token) != 1 {
+		return nil, fixed("freeze_token")
+	}
+	return bytes.Replace(b, token, []byte(`"Frozen": true`), 1), nil
+}
+func checkPlan(p plan) error {
+	if p.Schema != "riido-wrap-marshal75-observer-execution-plan-v1" || p.Frozen || p.Toolchain != "go1.27.1" || p.GOOS != "darwin" || p.GOARCH != "arm64" || p.CPU != 1 || p.SoftGoHeapBytes != 268435456 || p.OutsideTimeoutSeconds != 60 || p.OutputLimitBytes != jsonLimit || p.PlannedOriginalAPICalls != 24 || p.DistinctBehaviorGoals != 2 || !p.OutsideReservationRequired || !p.NoAutomaticRetry || p.TrainingReady || p.BroadTruthProven || p.CaptionsQualified || p.ParentLabelsQualified || !filepath.IsAbs(p.ObserverRoot) || !filepath.IsAbs(p.OriginalSourceRoot) || filepath.Clean(p.ObserverRoot) != p.ObserverRoot || filepath.Clean(p.OriginalSourceRoot) != p.OriginalSourceRoot || p.ObserverRoot == p.OriginalSourceRoot || len(p.Closure) != 14 || p.Want.ID != "finite-want.v1.json" || p.Binary.ID != "bin/wrap-marshal75-observer" {
+		return fixed("plan_scope")
+	}
+	return nil
+}
+func checkHandoff(h handoff, p plan, draft []byte) error {
+	if h.Schema != "riido-wrap-marshal75-finite-preparation-handoff-v1" || h.State != "sealed_author_want_compiled_only_original_observation_pending" || h.Binary != p.Binary || h.Draft.ID != "execution-plan-75.v1.draft.json" || h.Draft.Bytes != len(draft) || h.Draft.SHA256 != digest(draft) || h.WantSeal.ID != "WANT-SEAL.v1.json" || h.OriginalObserverExecutions != 0 || h.OriginalInitializersExecuted != 0 || h.OriginalAPICalls != 0 || h.Models != 0 || h.Fits != 0 || h.Features != 0 || h.Project != 0 || h.Roles != 0 || h.Labels != 0 || h.ProtectedFinalReads != 0 || h.PaidCalls != 0 || h.HFMutations != 0 || h.SharedEdits != 0 || h.TrainingReady || h.BroadTruthProven || h.CaptionsQualified || h.ParentLabelsQualified || h.SourceDiversityCleared || len(h.RuntimeClosure) != len(p.Closure) {
+		return fixed("handoff_scope")
+	}
+	for i, c := range p.Closure {
+		if h.RuntimeClosure[i] != c {
+			return fixed("handoff_closure")
+		}
+	}
+	return nil
+}
+func allowedClosure() [14]string {
+	return [14]string{"observer/go.mod", "observer/pure/spec.go", "observer/pure/plan.go", "observer/pure/io.go", "observer/cmd/observe/main.go", "original/upstream/go-wordwrap/wordwrap.go", "original/upstream/go-wordwrap/go.mod", "original/upstream/go-wordwrap/LICENSE.md", "original/upstream/go-wordwrap/README.md", "original/upstream/godotenv/godotenv.go", "original/upstream/godotenv/parser.go", "original/upstream/godotenv/go.mod", "original/upstream/godotenv/LICENCE", "original/upstream/godotenv/README.md"}
+}
+func checkClosure(p plan) error {
+	allowed := allowedClosure()
+	total := 0
+	for i, c := range p.Closure {
+		if c.Base+"/"+c.Path != allowed[i] || c.ID != c.Path {
+			return fixed("closure_namespace")
+		}
+		if c.Bytes < 1 || c.Bytes > jsonLimit {
+			return fixed("closure_asset_bound")
+		}
+		base := p.ObserverRoot
+		if c.Base == "original" {
+			base = p.OriginalSourceRoot
+		}
+		b, e := verifyRef(base, c.ref)
+		if e != nil {
+			return e
+		}
+		if len(b) > jsonLimit-total {
+			return fixed("closure_total")
+		}
+		total += len(b)
+	}
+	for _, x := range []struct {
+		Root, Dir string
+		Names     []string
+	}{{p.OriginalSourceRoot, "upstream/go-wordwrap", []string{"wordwrap.go"}}, {p.OriginalSourceRoot, "upstream/godotenv", []string{"godotenv.go", "parser.go"}}, {p.ObserverRoot, "pure", []string{"spec.go", "plan.go", "io.go", "spec_test.go"}}, {p.ObserverRoot, "cmd/observe", []string{"main.go"}}} {
+		dir, e := rel(x.Root, x.Dir)
+		if e != nil {
+			return e
+		}
+		nodes, e := os.ReadDir(dir)
+		if e != nil {
+			return fixed("closure_directory")
+		}
+		for _, n := range nodes {
+			if !strings.HasSuffix(n.Name(), ".go") {
+				continue
+			}
+			found := false
+			for _, name := range x.Names {
+				if n.Name() == name {
+					found = true
+				}
+			}
+			if !found {
+				return fixed("extra_go_source")
+			}
+		}
+	}
+	return nil
+}
+func checkWant(b []byte, h handoff) (specification, error) {
+	var s, hs specification
+	if e := decode(b, &s, true); e != nil {
+		return s, e
+	}
+	if e := decode(h.Specification, &hs, true); e != nil || !reflect.DeepEqual(s, hs) {
+		return s, fixed("want_handoff_binding")
+	}
+	if s.Schema != "riido-wrap-marshal75-finite-want-v1" || len(s.Goals) != 2 || len(s.Probes) != 24 || s.BroadTruthProven || s.CaptionsQualified || s.ParentLabelsQualified || s.TrainingReady || s.NewParents != 0 || s.NewLabels != 0 || s.Models != 0 || s.Fits != 0 || s.ProtectedFinalReads != 0 {
+		return s, fixed("want_scope")
+	}
+	ids := [2]string{"wordwrap-whitespace-layout", "godotenv-canonical-marshal"}
+	counts := [2]int{}
+	apis := [2]string{"wordwrap.WrapString", "godotenv.Marshal"}
+	repositories := [2]string{"mitchellh/go-wordwrap", "joho/godotenv"}
+	revisions := [2]string{"ecf0936a077a4bd73a1cc2ac5c370f2b55618d62", "97a2850142438b3c357c1d3439e325181afdcc1d"}
+	paths := [2]string{"upstream/go-wordwrap/wordwrap.go", "upstream/godotenv/godotenv.go"}
+	for i, g := range s.Goals {
+		if g.ID != ids[i] || g.API != apis[i] || g.Repository != repositories[i] || g.Revision != revisions[i] || !validSHA(g.SourceSHA256) {
+			return s, fixed("want_goal")
+		}
+		found := false
+		for _, c := range h.RuntimeClosure {
+			if c.Base == "original" && c.Path == paths[i] && c.SHA256 == g.SourceSHA256 {
+				found = true
+			}
+		}
+		if !found {
+			return s, fixed("want_source_binding")
+		}
+	}
+	for i, x := range s.Probes {
+		if x.ID == "" || len(x.ID) > 128 || !utf8.ValidString(x.ID) || len(x.Text) > 512 || !utf8.ValidString(x.Text) || len(x.Entries) > 8 {
+			return s, fixed("probe_bounds")
+		}
+		for j := 0; j < i; j++ {
+			if s.Probes[j].ID == x.ID {
+				return s, fixed("probe_duplicate")
+			}
+		}
+		for j, entry := range x.Entries {
+			if len(entry.Key) > 512 || len(entry.Value) > 512 || !utf8.ValidString(entry.Key) || !utf8.ValidString(entry.Value) {
+				return s, fixed("probe_entries")
+			}
+			for _, old := range x.Entries[:j] {
+				if old.Key == entry.Key {
+					return s, fixed("probe_entries_duplicate")
+				}
+			}
+		}
+		if (i < 12 && x.Goal != ids[0]) || (i >= 12 && x.Goal != ids[1]) {
+			return s, fixed("probe_order")
+		}
+		found := false
+		for j, id := range ids {
+			if x.Goal == id {
+				counts[j]++
+				found = true
+			}
+		}
+		if !found {
+			return s, fixed("probe_goal")
+		}
+	}
+	if counts != [2]int{12, 12} {
+		return s, fixed("probe_counts")
+	}
+	return s, nil
+}
+func checkWantSeal(b []byte, h handoff, p plan) error {
+	var s wantSeal
+	if decode(b, &s, true) != nil || s.Schema != "riido-wrap-marshal75-want-seal-v1" || s.Want != p.Want || !s.SealedBeforeOriginalImportBuild || s.OriginalImportBuilds != 0 || s.OriginalBinaryExecutions != 0 || s.OriginalInitializersExecuted != 0 || s.OriginalAPICalls != 0 {
+		return fixed("want_seal")
+	}
+	original := []closureRef{}
+	for _, c := range p.Closure {
+		if c.Base == "original" {
+			original = append(original, c)
+		}
+		if c.Base == "observer" && c.Path == "pure/spec.go" && c.ref != s.AuthorSpec {
+			return fixed("want_author_spec")
+		}
+	}
+	if !reflect.DeepEqual(original, s.OriginalClosure) || h.WantSeal.ID != "WANT-SEAL.v1.json" {
+		return fixed("want_seal_closure")
+	}
+	return nil
+}
+func binaryIdentity(path string, p plan) error {
+	bi, e := buildinfo.ReadFile(path)
+	if e != nil || bi.GoVersion != "go1.27.1" || bi.Path != "riido.local/wrap-marshal75/cmd/observe" || bi.Main.Path != "riido.local/wrap-marshal75" || len(bi.Deps) != 2 {
+		return fixed("binary_identity")
+	}
+	for _, s := range bi.Settings {
+		if strings.HasPrefix(s.Key, "vcs.") {
+			return fixed("binary_vcs")
+		}
+	}
+	for _, x := range []struct{ Key, Value string }{{"-trimpath", "true"}, {"CGO_ENABLED", "0"}, {"GOOS", p.GOOS}, {"GOARCH", p.GOARCH}} {
+		found := false
+		for _, s := range bi.Settings {
+			if s.Key == x.Key && s.Value == x.Value {
+				found = true
+			}
+		}
+		if !found {
+			return fixed("binary_setting")
+		}
+	}
+	names := [2]string{"github.com/joho/godotenv", "github.com/mitchellh/go-wordwrap"}
+	dirs := [2]string{"godotenv", "go-wordwrap"}
+	for i, d := range bi.Deps {
+		if d.Path != names[i] || d.Version != "v0.0.0" || d.Replace == nil || d.Replace.Path != filepath.Join(p.OriginalSourceRoot, "upstream", dirs[i]) {
+			return fixed("binary_modules")
+		}
+	}
+	return nil
+}
+func encode(v any) ([]byte, error) {
+	b, e := json.MarshalIndent(v, "", "  ")
+	if e != nil {
+		return nil, fixed("encode")
+	}
+	b = append(b, '\n')
+	if len(b) > jsonLimit {
+		return nil, fixed("output_budget")
+	}
+	return b, nil
+}
+func save(path string, b []byte) error {
+	f, e := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	if e != nil {
+		return fixed("exclusive_file")
+	}
+	n, e := f.Write(b)
+	if e == nil && n != len(b) {
+		e = io.ErrShortWrite
+	}
+	if e == nil {
+		e = f.Sync()
+	}
+	closeErr := f.Close()
+	if e != nil || closeErr != nil {
+		return fixed("persist")
+	}
+	return nil
+}
+func persist(path string, v any) error {
+	b, e := encode(v)
+	if e != nil {
+		return e
+	}
+	return save(path, b)
+}
+func syncDir(path string) error {
+	d, e := os.Open(path)
+	if e != nil {
+		return fixed("directory_open")
+	}
+	defer d.Close()
+	if e = d.Sync(); e != nil {
+		return fixed("directory_sync")
+	}
+	return nil
+}
+func number(s string) (*float64, bool) {
+	v, e := strconv.ParseFloat(s, 64)
+	if e != nil || v < 0 || math.IsInf(v, 0) || math.IsNaN(v) {
+		return nil, false
+	}
+	return &v, true
+}
+func parseMetrics(b []byte) metric {
+	m := metric{Source: "Darwin /usr/bin/time -l whole-child measurement; RSS unit bytes; includes imported-package initialization, preflight, original API/wrapper work and checkpoint I/O; excludes parent controller. Missing or ambiguous fields are null."}
+	realSeen, rssSeen, footSeen := false, false, false
+	for _, l := range strings.Split(string(b), "\n") {
+		f := strings.Fields(l)
+		if len(f) == 6 && f[1] == "real" && f[3] == "user" && f[5] == "sys" {
+			if realSeen {
+				m.RealSeconds, m.UserSeconds, m.SystemSeconds = nil, nil, nil
+				continue
+			}
+			realSeen = true
+			a, ok1 := number(f[0])
+			u, ok2 := number(f[2])
+			s, ok3 := number(f[4])
+			if ok1 && ok2 && ok3 {
+				m.RealSeconds, m.UserSeconds, m.SystemSeconds = a, u, s
+			}
+		}
+		if len(f) == 5 && strings.Join(f[1:], " ") == "maximum resident set size" {
+			if rssSeen {
+				m.MaximumRSSBytes = nil
+				continue
+			}
+			rssSeen = true
+			if n, e := strconv.ParseUint(f[0], 10, 64); e == nil {
+				m.MaximumRSSBytes = &n
+			}
+		}
+		if len(f) == 4 && strings.Join(f[1:], " ") == "peak memory footprint" {
+			if footSeen {
+				m.PeakFootprintBytes = nil
+				continue
+			}
+			footSeen = true
+			if n, e := strconv.ParseUint(f[0], 10, 64); e == nil {
+				m.PeakFootprintBytes = &n
+			}
+		}
+	}
+	return m
+}
+
+type boundedLog struct {
+	File     *os.File
+	Bytes    int
+	Overflow bool
+}
+
+func (w *boundedLog) Write(b []byte) (int, error) {
+	if len(b) > jsonLimit-w.Bytes {
+		w.Overflow = true
+		return 0, fixed("private_log_budget")
+	}
+	n, e := w.File.Write(b)
+	w.Bytes += n
+	return n, e
+}
+func readEvidence(path, id string) ([]byte, *ref) {
+	b, e := boundedRead(path, jsonLimit)
+	if e != nil {
+		return nil, nil
+	}
+	return b, &ref{ID: id, Bytes: len(b), SHA256: digest(b)}
+}
+func resultSummary(b []byte, frozen, want string, spec specification) (*savedResult, error) {
+	var s savedResult
+	if e := decode(b, &s, true); e != nil {
+		return nil, e
+	}
+	c := s.counters
+	if len(spec.Probes) != 24 || s.Schema != "riido-wrap-marshal75-finite-observation-v1" || s.PlanSHA256 != frozen || s.WantSHA256 != want || c.DistinctBehaviorGoals != 2 || c.PlannedAPICalls != 24 || c.DispatchReserved < 0 || c.DispatchReserved > 24 || c.OriginalReturns < 0 || c.WrapperPanics < 0 || c.OriginalReturns+c.WrapperPanics > c.DispatchReserved || c.DispatchReserved-c.OriginalReturns-c.WrapperPanics > 1 || c.Matches < 0 || c.Differences < 0 || c.Matches+c.Differences != len(s.Records) || len(s.Records) != c.OriginalReturns+c.WrapperPanics || s.TrainingReady || s.BroadTruthProven || s.CaptionsQualified || s.ParentLabelsQualified || s.NewParents != 0 || s.NewLabels != 0 || s.ModelCalls != 0 || s.Fits != 0 || s.ProtectedFinalReads != 0 || s.OriginalInitializationDynamicallyInstrumented {
+		return nil, fixed("result_binding")
+	}
+	switch s.Failure {
+	case "", "checkpoint_failed_before_dispatch", "checkpoint_failed_after_dispatch", "checkpoint_failed_final":
+	default:
+		return nil, fixed("result_failure_kind")
+	}
+	if c.DispatchReserved == c.OriginalReturns+c.WrapperPanics && s.ActiveProbeID != "" || c.DispatchReserved == c.OriginalReturns+c.WrapperPanics+1 && s.ActiveProbeID == "" {
+		return nil, fixed("result_active_dispatch")
+	}
+	if s.ActiveProbeID != "" && (len(s.Records) >= len(spec.Probes) || s.ActiveProbeID != spec.Probes[len(s.Records)].ID) {
+		return nil, fixed("result_active_probe")
+	}
+	matches, panics := 0, 0
+	for i, r := range s.Records {
+		if !reflect.DeepEqual(r.Probe, spec.Probes[i]) || r.Matches != reflect.DeepEqual(r.Got, spec.Probes[i].Want) {
+			return nil, fixed("result_record_binding")
+		}
+		if r.Matches {
+			matches++
+		}
+		if r.Got.Panicked {
+			panics++
+		}
+	}
+	if matches != c.Matches || panics != c.WrapperPanics {
+		return nil, fixed("result_record_counters")
+	}
+	switch s.State {
+	case "running_finite_observations":
+	case "completed_finite_observations_all_match", "completed_finite_observations_with_differences":
+		if c.DispatchReserved != 24 || len(s.Records) != 24 || s.ActiveProbeID != "" || s.Failure != "" {
+			return nil, fixed("result_complete")
+		}
+		if s.State == "completed_finite_observations_all_match" && c.Differences != 0 || s.State == "completed_finite_observations_with_differences" && c.Differences == 0 {
+			return nil, fixed("result_state")
+		}
+	default:
+		return nil, fixed("result_state")
+	}
+	return &s, nil
+}
+func collectResult(childDir, frozen, want string, spec specification) resultEvidence {
+	var e resultEvidence
+	b, final := readEvidence(filepath.Join(childDir, "results.json"), "results.json")
+	pb, partial := readEvidence(filepath.Join(childDir, "results.partial.json"), "results.partial.json")
+	e.Final, e.Partial = final, partial
+	if final != nil && len(b) > 0 {
+		if s, err := resultSummary(b, frozen, want, spec); err == nil {
+			copy := s.counters
+			e.Counters = &copy
+			e.Selected = "results.json"
+			e.State = s.State
+			e.Failure = s.Failure
+			e.RecordBindingsValidated = true
+			e.All24WantsMatched = len(s.Records) == 24 && s.Matches == 24 && s.Differences == 0
+			return e
+		} else {
+			e.Validation = "final_result_invalid"
+		}
+	}
+	if partial != nil && len(pb) > 0 {
+		if s, err := resultSummary(pb, frozen, want, spec); err == nil {
+			copy := s.counters
+			e.Counters = &copy
+			e.Selected = "results.partial.json"
+			e.State = s.State
+			e.Failure = s.Failure
+			e.RecordBindingsValidated = true
+			e.All24WantsMatched = len(s.Records) == 24 && s.Matches == 24 && s.Differences == 0
+			return e
+		} else {
+			e.Validation = "partial_result_invalid"
+		}
+	}
+	if e.Validation == "" {
+		e.Validation = "no_valid_saved_result_prefix"
+	}
+	return e
+}
+
+func completedResult(e resultEvidence) bool {
+	return e.Validation == "" && e.Failure == "" && e.RecordBindingsValidated && e.Counters != nil && e.Counters.DispatchReserved == 24 && e.Counters.OriginalReturns+e.Counters.WrapperPanics == 24 && (e.State == "completed_finite_observations_all_match" || e.State == "completed_finite_observations_with_differences")
+}
+
+// The child must be absent before this reservation; the worker expects the
+// already-durable outside intent and reserves its own final result exclusively.
+func reserveChild(path string, frozen, want, binary string) error {
+	if _, e := os.Lstat(path); !os.IsNotExist(e) {
+		return fixed("child_already_exists")
+	}
+	if e := os.Mkdir(path, 0700); e != nil {
+		return fixed("child_reservation")
+	}
+	intent := struct{ Schema, PlanSHA256, WantSHA256, BinarySHA256 string }{"riido-wrap-marshal75-outside-reservation-v1", frozen, want, binary}
+	if e := persist(filepath.Join(path, "outside-reservation.json"), intent); e != nil {
+		return e
+	}
+	if e := syncDir(path); e != nil {
+		return e
+	}
+	return syncDir(filepath.Dir(path))
+}
+
+// The callbacks are the only lifecycle operations; pure tests use no process.
+// Once started, Wait is called exactly once and joined even after timeout.
+func waitOne(wait func() error, kill func() error, timeout time.Duration) (error, bool, bool) {
+	done := make(chan error, 1)
+	go func() { done <- wait() }()
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+	select {
+	case e := <-done:
+		return e, false, false
+	case <-timer.C:
+		k := kill()
+		killFailed := k != nil && !errors.Is(k, syscall.ESRCH)
+		return <-done, true, killFailed
+	}
+}
+
+func run(c config) error {
+	if runtime.Version() != "go1.27.1" || runtime.GOOS != "darwin" || runtime.GOARCH != "arm64" {
+		return fixed("controller_platform")
+	}
+	if !validSHA(c.DraftSHA) || !validSHA(c.HandoffSHA) || !filepath.IsAbs(c.ControlDir) {
+		return fixed("controller_arguments")
+	}
+	d, e := boundedRead(c.Draft, jsonLimit)
+	if e != nil || digest(d) != c.DraftSHA {
+		return fixed("draft_pin")
+	}
+	hb, e := boundedRead(c.Handoff, jsonLimit)
+	if e != nil || digest(hb) != c.HandoffSHA {
+		return fixed("handoff_pin")
+	}
+	var p plan
+	var h handoff
+	if e = decode(d, &p, true); e != nil {
+		return e
+	}
+	if e = decode(hb, &h, false); e != nil {
+		return e
+	}
+	if e = checkPlan(p); e != nil {
+		return e
+	}
+	if e = checkHandoff(h, p, d); e != nil {
+		return e
+	}
+	if e = checkClosure(p); e != nil {
+		return e
+	}
+	wb, e := verifyRef(p.ObserverRoot, p.Want)
+	if e != nil {
+		return e
+	}
+	spec, e := checkWant(wb, h)
+	if e != nil {
+		return e
+	}
+	seal, e := verifyRef(p.ObserverRoot, h.WantSeal)
+	if e != nil || checkWantSeal(seal, h, p) != nil {
+		return fixed("want_seal_binding")
+	}
+	if _, e = verifyRef(p.ObserverRoot, p.Binary); e != nil {
+		return e
+	}
+	binaryPath, e := rel(p.ObserverRoot, p.Binary.ID)
+	if e != nil {
+		return e
+	}
+	if e = binaryIdentity(binaryPath, p); e != nil {
+		return e
+	}
+	frozen, e := freeze(d)
+	if e != nil {
+		return e
+	}
+	if _, e = os.Lstat(c.ControlDir); !os.IsNotExist(e) {
+		return fixed("control_already_exists")
+	}
+	parent, e := filepath.EvalSymlinks(filepath.Dir(c.ControlDir))
+	if e != nil || filepath.Join(parent, filepath.Base(c.ControlDir)) != filepath.Clean(c.ControlDir) {
+		return fixed("control_parent")
+	}
+	if e = os.Mkdir(c.ControlDir, 0700); e != nil {
+		return fixed("exclusive_directory")
+	}
+	if e = syncDir(parent); e != nil {
+		return e
+	}
+	planPath := filepath.Join(c.ControlDir, "execution-plan-75.v1.frozen.json")
+	if e = save(planPath, frozen); e != nil {
+		return e
+	}
+	childDir := filepath.Join(c.ControlDir, "child-attempt")
+	l := ledger{Schema: "riido-wrap-marshal75-root-controller-ledger-v1", State: "reserved_before_first_child_start", DraftSHA256: c.DraftSHA, FrozenPlanSHA256: digest(frozen), HandoffSHA256: c.HandoffSHA, WantSHA256: p.Want.SHA256, BinarySHA256: p.Binary.SHA256, ChildStartIntent: 1, Limits: []string{"Exactly one child attempt, no automatic retry; 60s triggers process-group SIGKILL then Wait. Exact controller elapsed bound is not guaranteed after kill/Wait.", "GOMAXPROCS1 and 256MiB Go soft heap limit are settings, not total RSS hard limits. OS fields may be unobserved/null; raw stdout/stderr paths are private.", "Saved dispatch count is durable intent, not proof of a returned in-flight API. Partial prefix never fills missing outcomes or labels.", "Controller author-side pure checks are separate from independent observer source/Want review. Source/binary pins and compiler metadata are provenance, not formal trusted-compiler proof.", "24 finite probes cover two proposed behavior goals; completion with differences remains an observation, distinct from all24 Wants matched and training/parent-label/caption/generalization qualification."}}
+	if e = persist(filepath.Join(c.ControlDir, "ROOT-INVOCATION.v1.json"), l); e != nil {
+		return e
+	}
+	if e = persist(filepath.Join(c.ControlDir, "ROOT-LEDGER-before-start.v1.json"), l); e != nil {
+		return e
+	}
+	if e = syncDir(c.ControlDir); e != nil {
+		return e
+	}
+	if e = reserveChild(childDir, l.FrozenPlanSHA256, p.Want.SHA256, p.Binary.SHA256); e != nil {
+		return e
+	}
+	stdout, e := os.OpenFile(filepath.Join(c.ControlDir, "stdout.private.txt"), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	if e != nil {
+		return fixed("log_reservation")
+	}
+	defer stdout.Close()
+	stderr, e := os.OpenFile(filepath.Join(c.ControlDir, "time-and-stderr.private.txt"), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	if e != nil {
+		return fixed("log_reservation")
+	}
+	defer stderr.Close()
+	outWriter, errWriter := &boundedLog{File: stdout}, &boundedLog{File: stderr}
+	child := exec.Command("/usr/bin/time", "-l", binaryPath, "--plan", planPath, "--plan-sha256", l.FrozenPlanSHA256, "--attempt-dir", childDir)
+	child.Dir = p.ObserverRoot
+	// No user credentials, developer flags, or private environment values are
+	// forwarded. All original imports in this frozen scope are environment-free.
+	child.Env = []string{"GOMAXPROCS=1", "GOMEMLIMIT=268435456", "PATH=/usr/bin:/bin", "LC_ALL=C"}
+	child.Stdout, child.Stderr = outWriter, errWriter
+	child.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	child.WaitDelay = time.Second
+	start := time.Now()
+	startErr := child.Start()
+	var runErr error
+	if startErr == nil {
+		l.ChildStarts = 1
+		runErr, l.TimedOut, l.KillFailed = waitOne(child.Wait, func() error { return syscall.Kill(-child.Process.Pid, syscall.SIGKILL) }, 60*time.Second)
+		l.WaitReturned = true
+	} else {
+		l.StartFailed = true
+		runErr = startErr
+	}
+	l.ControllerElapsedSeconds = time.Since(start).Seconds()
+	l.StdoutOverflow, l.StderrOverflow = outWriter.Overflow, errWriter.Overflow
+	l.ExitCode = 0
+	if runErr != nil {
+		l.ExitCode = 1
+		if x, ok := runErr.(*exec.ExitError); ok {
+			l.ExitCode = x.ExitCode()
+		}
+	}
+	outSync, errSync := stdout.Sync(), stderr.Sync()
+	stdout.Close()
+	stderr.Close()
+	outBytes, outPin := readEvidence(filepath.Join(c.ControlDir, "stdout.private.txt"), "private-stdout")
+	timeBytes, timePin := readEvidence(filepath.Join(c.ControlDir, "time-and-stderr.private.txt"), "private-time-and-stderr")
+	_ = outBytes
+	l.Stdout, l.TimeAndStderr = outPin, timePin
+	l.WholeTimedProcess = parseMetrics(timeBytes)
+	l.Result = collectResult(childDir, l.FrozenPlanSHA256, p.Want.SHA256, spec)
+	l.State = "one_child_attempt_recorded"
+	failed := l.StartFailed || l.TimedOut || l.KillFailed || l.ExitCode != 0 || l.StdoutOverflow || l.StderrOverflow || outSync != nil || errSync != nil || !completedResult(l.Result)
+	if failed {
+		l.State = "failed_or_incomplete_attempt_recorded_no_retry"
+	}
+	if e = persist(filepath.Join(c.ControlDir, "ROOT-ACTUAL-LEDGER.v1.json"), l); e != nil {
+		return fixed("actual_ledger_persist")
+	}
+	if e = syncDir(c.ControlDir); e != nil {
+		return e
+	}
+	if failed {
+		return fixed("attempt_recorded_failed_no_retry")
+	}
+	return nil
+}
+func cli(args []string, stdout, stderr io.Writer) int {
+	fs := flag.NewFlagSet("wrap-marshal75-observer-controller", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	var c config
+	fs.StringVar(&c.Draft, "draft", "", "")
+	fs.StringVar(&c.DraftSHA, "draft-sha256", "", "")
+	fs.StringVar(&c.Handoff, "handoff", "", "")
+	fs.StringVar(&c.HandoffSHA, "handoff-sha256", "", "")
+	fs.StringVar(&c.ControlDir, "control-dir", "", "")
+	if fs.Parse(args) != nil || fs.NArg() != 0 || c.Draft == "" || c.Handoff == "" || !validSHA(c.DraftSHA) || !validSHA(c.HandoffSHA) || !filepath.IsAbs(c.ControlDir) {
+		fmt.Fprintln(stderr, "controller_arguments_refused")
+		return 2
+	}
+	if run(c) != nil {
+		fmt.Fprintln(stderr, "controller_refused_or_recorded_failure_no_retry")
+		return 1
+	}
+	fmt.Fprintln(stdout, "one_finite_observation_attempt_recorded_no_labels_or_training_qualification")
+	return 0
+}
+func main() {
+	runtime.GOMAXPROCS(1)
+	debug.SetMemoryLimit(268435456)
+	os.Exit(cli(os.Args[1:], os.Stdout, os.Stderr))
+}

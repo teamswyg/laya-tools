@@ -1,0 +1,184 @@
+// Package pure contains only bounded DTOs and callback orchestration.
+// It never imports upstream code, feature extraction, or a model implementation.
+package pure
+
+import "encoding/json"
+
+const (
+	PlanSHA      = "a25c94b6c21b37b18b4dbbec56a5eecd0cf31be65bab4e5bd0765819e494a86d"
+	TruthSHA     = "1cec5c108d09e78f3dd6a3465538bf9589df6d2f981edb4b12b736321aa648d6"
+	RequestSHA   = "e1290b64918c60a3a05bf7930c23f5b38fbce63433b6fa366dd2845a000e9916"
+	PeerSHA      = "e897a1ff30b9fc747337ac421d922f7d8caf9cbd3c16011d2b1a5aeafb95ed82"
+	SourceCommit = "7cea49090727555924bf22679ffeccc4f38c9865"
+	MaxBytes     = 1 << 20
+)
+
+var Kinds = [4]string{"fixed_order", "bm25", "lexical_ordered", "narrow_rule"}
+
+type Pin struct {
+	ID    string `json:"id"`
+	Bytes int64  `json:"bytes"`
+	SHA   string `json:"sha256"`
+}
+type Caption struct {
+	Arm, Text string
+	Bytes     int
+	SHA       string `json:"sha256"`
+}
+type Candidate struct {
+	ID       string    `json:"candidate_id"`
+	Position int       `json:"original_position"`
+	Captions []Caption `json:"captions"`
+}
+type Parent struct {
+	ID         string      `json:"parent_id"`
+	Position   int         `json:"original_parent_position"`
+	Request    string      `json:"request_en"`
+	Candidates []Candidate `json:"candidates"`
+}
+type Model struct {
+	ID       string
+	Artifact Pin
+}
+type Plan struct {
+	Schema       string          `json:"schema"`
+	State        string          `json:"state"`
+	Frozen       bool            `json:"frozen_for_execution"`
+	SourceCommit string          `json:"runtime_source_commit"`
+	Pins         []Pin           `json:"runtime_source_pins"`
+	Models       []Model         `json:"models"`
+	Parents      []Parent        `json:"parents"`
+	TypedTruth   json.RawMessage `json:"typed_truth_reference"`
+}
+type TruthCandidate struct {
+	ID        string `json:"candidate_id"`
+	Position  int    `json:"original_position"`
+	Satisfied *bool  `json:"satisfies_request"`
+}
+type TruthParent struct {
+	ID         string           `json:"parent_id"`
+	Request    string           `json:"request_en"`
+	Version    string           `json:"request_version"`
+	Acceptable []int            `json:"acceptable_candidate_indices"`
+	Kind       string           `json:"truth_kind"`
+	Candidates []TruthCandidate `json:"candidates"`
+}
+type Truth struct {
+	Schema        string        `json:"schema"`
+	Scope         string        `json:"scope"`
+	Frozen        *bool         `json:"frozen_for_diagnostic"`
+	Qualification *bool         `json:"qualification"`
+	Production    *bool         `json:"production_ready"`
+	Training      *bool         `json:"training_ready"`
+	Final         *bool         `json:"protected_final"`
+	Heldout       *bool         `json:"independent_heldout"`
+	Universal     *bool         `json:"source_truth_is_universal"`
+	FitCalls      *int          `json:"fit_calls"`
+	RequestSHA    string        `json:"request75_sha256"`
+	PlanSHA       string        `json:"plan_sha256"`
+	PeerSHA       string        `json:"v4_peer_receipt_sha256"`
+	Parents       []TruthParent `json:"parents"`
+}
+type Input struct {
+	Request      string
+	CandidateIDs [3]string
+	Captions     [3]string
+}
+type Ranking struct {
+	Kind     string     `json:"kind"`
+	Order    [3]int     `json:"order"`
+	Scores   [3]float64 `json:"scores"`
+	Fallback string     `json:"fallback_reason,omitempty"`
+}
+type RankedParent struct {
+	ID      string  `json:"parent_id"`
+	Ranking Ranking `json:"ranking"`
+	Checks  int     `json:"checks"`
+	Top1    bool    `json:"Top1"`
+	Top3    bool    `json:"Top3"`
+}
+type Metric struct {
+	Parents    int     `json:"evaluated_parents"`
+	Answerable int     `json:"answerable_parents"`
+	Unknown    int     `json:"unknown_audit_parents"`
+	Checks     int     `json:"total_checks"`
+	Mean       float64 `json:"mean_checks"`
+	Top1       int     `json:"Top1_correct"`
+	Top3       int     `json:"Top3_correct"`
+}
+type Evaluation struct {
+	Kind    string         `json:"kind"`
+	Arm     string         `json:"arm"`
+	Parents []RankedParent `json:"parents"`
+	Metric  Metric         `json:"metric"`
+}
+type Delta struct {
+	Model  string `json:"model"`
+	Checks int    `json:"B_minus_A_checks"`
+	Top1   int    `json:"B_minus_A_Top1"`
+	Top3   int    `json:"B_minus_A_Top3"`
+}
+type ScoreRow struct {
+	Model     string  `json:"model"`
+	Arm       string  `json:"arm"`
+	Parent    string  `json:"parent_id"`
+	Candidate string  `json:"candidate_id"`
+	Position  int     `json:"original_position"`
+	Score     float64 `json:"score"`
+}
+type Counts struct {
+	ModelReadAttempts int `json:"model_read_reserved"`
+	ModelReadReturned int `json:"model_read_returned"`
+	PrepareAttempts   int `json:"prepare_reserved"`
+	PrepareReturned   int `json:"prepare_returned"`
+	DecodeAttempts    int `json:"decode_reserved"`
+	DecodeReturned    int `json:"decode_returned"`
+	BaselineAttempts  int `json:"baseline_reserved"`
+	BaselineReturned  int `json:"baseline_returned"`
+	FeatureAttempts   int `json:"features_reserved"`
+	FeatureReturned   int `json:"features_returned"`
+	ScoreAttempts     int `json:"score_reserved"`
+	ScoreReturned     int `json:"score_returned"`
+	Fit               int `json:"fit_calls"`
+	Project           int `json:"project_calls"`
+	OriginalSource    int `json:"original_source_API_calls"`
+	Labels            int `json:"training_label_assignments"`
+	Paid              int `json:"paid_or_judge_API_calls"`
+}
+type Memory struct {
+	HeapAlloc  uint64 `json:"heap_alloc_bytes"`
+	HeapSys    uint64 `json:"heap_sys_bytes"`
+	TotalAlloc uint64 `json:"cumulative_total_alloc_bytes"`
+	WorkAlloc  uint64 `json:"alloc_since_worker_start_bytes"`
+	GC         uint32 `json:"GC_cycles_since_worker_start"`
+}
+type Result struct {
+	Schema         string           `json:"schema"`
+	State          string           `json:"state"`
+	Failure        string           `json:"failure_code"`
+	Phase          string           `json:"phase"`
+	PlanSHA        string           `json:"plan_sha256"`
+	TruthSHA       string           `json:"truth_sha256"`
+	SourceCommit   string           `json:"source_commit"`
+	Models         [2]Pin           `json:"model_refs"`
+	Counts         Counts           `json:"counts"`
+	Controls       [2][4]Evaluation `json:"controls"`
+	Scores         [2][2]Evaluation `json:"fixed_models"`
+	ScoreRows      []ScoreRow       `json:"all_score_rows"`
+	BestControl    [2]int           `json:"descriptive_best_control_indices"`
+	Delta          [2]Delta         `json:"paired_deltas"`
+	Memory         Memory           `json:"Go_memory"`
+	WallSeconds    float64          `json:"worker_wall_seconds"`
+	Qualification  bool             `json:"qualification"`
+	TrainingReady  bool             `json:"training_ready"`
+	Production     bool             `json:"production_ready"`
+	ProtectedFinal bool             `json:"protected_final"`
+	Limitations    []string         `json:"limitations"`
+}
+type Ops struct {
+	Prepare   func(Input) (any, error)
+	Decode    func([]byte) ([]float64, error)
+	Baselines func(any) ([4]Ranking, error)
+	Features  func(string, string) (any, error)
+	Score     func([]float64, any) float64
+}

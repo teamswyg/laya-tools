@@ -1,0 +1,200 @@
+package main
+
+import (
+	"flag"
+	"fmt"
+	"io"
+	"math"
+	"os"
+	"path/filepath"
+	"runtime"
+	"runtime/debug"
+	"time"
+
+	"github.com/teamswyg/laya-tools/internal/hintlearn"
+	"github.com/teamswyg/laya-tools/maintainer/captioninference76/pure"
+	"github.com/teamswyg/laya-tools/pkg/shortclaim"
+)
+
+type options struct {
+	plan, planSHA, truth, truthSHA, model71, model72, sourceRoot, attempt string
+	execute                                                               bool
+}
+
+func parse(args []string) (options, error) {
+	var o options
+	f := flag.NewFlagSet("caption76", flag.ContinueOnError)
+	f.SetOutput(io.Discard)
+	f.StringVar(&o.plan, "plan", "", "")
+	f.StringVar(&o.planSHA, "plan-sha", "", "")
+	f.StringVar(&o.truth, "truth", "", "")
+	f.StringVar(&o.truthSHA, "truth-sha", "", "")
+	f.StringVar(&o.model71, "model71", "", "")
+	f.StringVar(&o.model72, "model72", "", "")
+	f.StringVar(&o.sourceRoot, "source-root", "", "")
+	f.StringVar(&o.attempt, "attempt-dir", "", "")
+	f.BoolVar(&o.execute, "execute-frozen-diagnostic", false, "")
+	if f.Parse(args) != nil || f.NArg() != 0 {
+		return o, pure.Fail("flags")
+	}
+	if !o.execute || o.plan == "" || o.truth == "" || o.model71 == "" || o.model72 == "" || o.sourceRoot == "" || o.attempt == "" || o.planSHA != pure.PlanSHA || o.truthSHA != pure.TruthSHA {
+		return o, pure.Fail("required_frozen_inputs")
+	}
+	return o, nil
+}
+func productionOps() pure.Ops {
+	return pure.Ops{
+		Prepare: func(in pure.Input) (any, error) {
+			cs := make([]shortclaim.Candidate, 3)
+			for i := range cs {
+				cs[i] = shortclaim.Candidate{ID: in.CandidateIDs[i], Text: in.Captions[i]}
+			}
+			return shortclaim.Validate(shortclaim.Input{Schema: shortclaim.Schema, Request: in.Request, Candidates: cs, Provenance: "caption76-exploratory"})
+		},
+		Decode: hintlearn.Decode,
+		Baselines: func(in any) ([4]pure.Ranking, error) {
+			var out [4]pure.Ranking
+			src, e := shortclaim.Baselines(in.(shortclaim.Prepared))
+			if e != nil {
+				return out, e
+			}
+			for k, v := range src {
+				if v.Count != 3 {
+					return out, pure.Fail("baseline_count")
+				}
+				out[k] = pure.Ranking{Kind: v.Kind, Fallback: v.FallbackReason}
+				for j := 0; j < 3; j++ {
+					out[k].Scores[j] = v.Scores[j]
+					out[k].Order[j] = v.Order[j]
+				}
+			}
+			return out, nil
+		},
+		Features: func(q, d string) (any, error) {
+			fs := hintlearn.Features(q, d)
+			if len(fs) < 1 || len(fs) > 8192 {
+				return nil, pure.Fail("feature_shape")
+			}
+			for _, f := range fs {
+				if f.Index < 0 || f.Index >= 8192 || math.IsNaN(f.Value) || math.IsInf(f.Value, 0) {
+					return nil, pure.Fail("feature_value")
+				}
+			}
+			return fs, nil
+		},
+		Score: func(w []float64, f any) float64 { return hintlearn.Score(w, f.([]hintlearn.Feature)) },
+	}
+}
+func run(args []string) (r pure.Result, err error) {
+	r = pure.NewResult()
+	started := time.Now()
+	var initial runtime.MemStats
+	runtime.ReadMemStats(&initial)
+	attemptDir := ""
+	snapshot := func() {
+		var s runtime.MemStats
+		runtime.ReadMemStats(&s)
+		r.Memory = pure.Memory{HeapAlloc: s.HeapAlloc, HeapSys: s.HeapSys, TotalAlloc: s.TotalAlloc, WorkAlloc: s.TotalAlloc - initial.TotalAlloc, GC: s.NumGC - initial.NumGC}
+		r.WallSeconds = time.Since(started).Seconds()
+	}
+	defer func() {
+		if recover() != nil {
+			err = pure.Fail("worker_panic")
+		}
+		if err != nil {
+			r.State = "failed_partial_no_qualification"
+			r.Failure = err.Error()
+		}
+		snapshot()
+		if attemptDir != "" {
+			if pe := savePartial(attemptDir, r); pe != nil && err == nil {
+				err = pe
+				r.State = "failed_partial_no_qualification"
+				r.Failure = pe.Error()
+			}
+			if pe := saveExclusive(filepath.Join(attemptDir, "results.json"), r); pe != nil {
+				err = pe
+				r.State = "failed_partial_no_qualification"
+				r.Failure = pe.Error()
+			}
+		}
+	}()
+	o, e := parse(args)
+	if e != nil {
+		return r, e
+	}
+	b, e := pure.ReadPin(o.plan, pure.Pin{Bytes: 31738, SHA: pure.PlanSHA})
+	if e != nil {
+		return r, e
+	}
+	var p pure.Plan
+	if e = pure.JSON(b, &p); e != nil {
+		return r, e
+	}
+	b, e = pure.ReadPin(o.truth, pure.Pin{Bytes: 22615, SHA: pure.TruthSHA})
+	if e != nil {
+		return r, e
+	}
+	var t pure.Truth
+	if e = pure.JSON(b, &t); e != nil {
+		return r, e
+	}
+	if e = pure.Validate(p, t); e != nil {
+		return r, e
+	}
+	allowed := [5]string{"internal/hintlearn/learn.go", "internal/hintlearn/model.go", "pkg/shortclaim/input.go", "pkg/shortclaim/baseline.go", "internal/lexicalhint/features.go"}
+	for i, pin := range p.Pins {
+		if pin.ID != allowed[i] {
+			return r, pure.Fail("source_path")
+		}
+		if _, e = pure.ReadPin(filepath.Join(o.sourceRoot, pin.ID), pin); e != nil {
+			return r, e
+		}
+	}
+	if e = os.Mkdir(o.attempt, 0700); e != nil {
+		return r, pure.Fail("attempt_exists_or_mkdir")
+	}
+	attemptDir = o.attempt
+	if e = saveExclusive(filepath.Join(o.attempt, "reservation.json"), r); e != nil {
+		return r, e
+	}
+	progress := func(v *pure.Result) error { snapshot(); return savePartial(o.attempt, *v) }
+	var model [2][]byte
+	for i, path := range [2]string{o.model71, o.model72} {
+		r.Counts.ModelReadAttempts++
+		r.Phase = "model_read_reserved"
+		if e = progress(&r); e != nil {
+			return r, e
+		}
+		model[i], e = pure.ReadPin(path, p.Models[i].Artifact)
+		r.Counts.ModelReadReturned++
+		if e != nil {
+			r.Phase = "model_read_failed"
+			_ = progress(&r)
+			return r, e
+		}
+		r.Models[i] = p.Models[i].Artifact
+		r.Phase = "model_read_verified"
+		if e = progress(&r); e != nil {
+			return r, e
+		}
+	}
+	e = pure.Run(p, t, model, productionOps(), &r, progress)
+	return r, e
+}
+func main() {
+	runtime.GOMAXPROCS(1)
+	debug.SetMemoryLimit(256 << 20)
+	watch := time.AfterFunc(60*time.Second, func() { os.Exit(124) })
+	defer watch.Stop()
+	r, e := run(os.Args[1:])
+	b, je := marshal(r)
+	if je != nil {
+		fmt.Fprintln(os.Stdout, `{"schema":"riido-exploratory-fixed-model-caption-diagnostic-76-result-v1","state":"failed_output","qualification":false}`)
+		os.Exit(1)
+	}
+	n, we := os.Stdout.Write(b)
+	if e != nil || we != nil || n != len(b) {
+		os.Exit(1)
+	}
+}

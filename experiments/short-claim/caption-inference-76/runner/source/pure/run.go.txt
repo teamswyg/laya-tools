@@ -1,0 +1,219 @@
+package pure
+
+import "math"
+
+func finite(x float64) bool { return !math.IsNaN(x) && !math.IsInf(x, 0) }
+func NewResult() Result {
+	return Result{Schema: "riido-exploratory-fixed-model-caption-diagnostic-76-result-v1", State: "reserved_no_model_calls", PlanSHA: PlanSHA, TruthSHA: TruthSHA, SourceCommit: SourceCommit, BestControl: [2]int{-1, -1}, Limitations: []string{
+		"exploratory direct-selected-API source rubric, not universal truth or training-label qualification",
+		"all9 candidates preserved in both arms; training masks never filter this evaluation",
+		"3 candidates per answerable parent makes Top3 uninformative; no protected2400-final reads",
+		"captionB author and prior failed-result exposure are nonblind; group/role allocation unresolved",
+		"fixed models failed historical utility; no retraining, new weights, default activation, or measured LLM savings",
+		"reserved counters record durable dispatch intent; an interrupted reservation is not proof of API entry",
+		"whole-process OS CPU/RSS must be measured externally; Go soft heap is not an OS RSS cap",
+	}}
+}
+func rank(kind string, scores [3]float64) (Ranking, error) {
+	r := Ranking{Kind: kind, Scores: scores, Order: [3]int{0, 1, 2}}
+	for _, v := range scores {
+		if !finite(v) {
+			return Ranking{}, Fail("score_nonfinite")
+		}
+	}
+	for i := 1; i < 3; i++ {
+		x := r.Order[i]
+		j := i
+		for j > 0 && scores[x] > scores[r.Order[j-1]] {
+			r.Order[j] = r.Order[j-1]
+			j--
+		}
+		r.Order[j] = x
+	}
+	return r, nil
+}
+func add(e *Evaluation, p Parent, t TruthParent, r Ranking) error {
+	var seen [3]bool
+	for _, i := range r.Order {
+		if i < 0 || i >= 3 || seen[i] {
+			return Fail("ranking_permutation")
+		}
+		seen[i] = true
+	}
+	for _, v := range r.Scores {
+		if !finite(v) {
+			return Fail("ranking_nonfinite")
+		}
+	}
+	x := RankedParent{ID: p.ID, Ranking: r, Checks: 3}
+	for k, i := range r.Order {
+		if *t.Candidates[i].Satisfied {
+			x.Checks = k + 1
+			x.Top1 = k == 0
+			x.Top3 = k < 3
+			break
+		}
+	}
+	e.Parents = append(e.Parents, x)
+	e.Metric.Parents++
+	e.Metric.Answerable++
+	e.Metric.Checks += x.Checks
+	if x.Top1 {
+		e.Metric.Top1++
+	}
+	if x.Top3 {
+		e.Metric.Top3++
+	}
+	e.Metric.Mean = float64(e.Metric.Checks) / float64(e.Metric.Parents)
+	return nil
+}
+func Run(p Plan, t Truth, models [2][]byte, o Ops, r *Result, progress func(*Result) error) (err error) {
+	defer func() {
+		if recover() != nil {
+			err = Fail("callback_panic")
+		}
+		if err != nil {
+			r.State = "failed_partial_no_qualification"
+			r.Failure = err.Error()
+		}
+	}()
+	if e := Validate(p, t); e != nil {
+		return e
+	}
+	if o.Prepare == nil || o.Decode == nil || o.Baselines == nil || o.Features == nil || o.Score == nil || progress == nil {
+		return Fail("callbacks")
+	}
+	checkpoint := func(phase string) error { r.Phase = phase; return progress(r) }
+	var prepared [2][3]any
+	for a := 0; a < 2; a++ {
+		for i, p := range p.Parents {
+			in := Input{Request: p.Request}
+			for c, v := range p.Candidates {
+				in.CandidateIDs[c] = v.ID
+				in.Captions[c] = v.Captions[a].Text
+			}
+			r.Counts.PrepareAttempts++
+			if e := checkpoint("prepare_dispatch_reserved"); e != nil {
+				return e
+			}
+			x, e := o.Prepare(in)
+			r.Counts.PrepareReturned++
+			if e != nil {
+				return Fail("prepare")
+			}
+			prepared[a][i] = x
+			if e = checkpoint("prepare_returned"); e != nil {
+				return e
+			}
+		}
+	}
+	for a := 0; a < 2; a++ {
+		for k := range Kinds {
+			r.Controls[a][k] = Evaluation{Kind: Kinds[k], Arm: [2]string{"A", "B"}[a]}
+		}
+		for i, pp := range p.Parents {
+			r.Counts.BaselineAttempts++
+			if e := checkpoint("baselines_dispatch_reserved"); e != nil {
+				return e
+			}
+			rows, e := o.Baselines(prepared[a][i])
+			r.Counts.BaselineReturned++
+			if e != nil {
+				return Fail("baselines")
+			}
+			for k, row := range rows {
+				if row.Kind != Kinds[k] {
+					return Fail("control_kind")
+				}
+				if k == 3 && row.Fallback != "unsupported_rule_request" {
+					return Fail("control_fallback")
+				}
+				if e = add(&r.Controls[a][k], pp, t.Parents[i], row); e != nil {
+					return e
+				}
+			}
+			if e = checkpoint("baselines_returned"); e != nil {
+				return e
+			}
+		}
+		for k := range Kinds {
+			best := r.BestControl[a]
+			if best < 0 || r.Controls[a][k].Metric.Checks < r.Controls[a][best].Metric.Checks {
+				r.BestControl[a] = k
+			}
+		}
+	}
+	for m, model := range p.Models {
+		r.Models[m] = model.Artifact
+		r.Counts.DecodeAttempts++
+		if e := checkpoint("decode_dispatch_reserved"); e != nil {
+			return e
+		}
+		w, e := o.Decode(models[m])
+		r.Counts.DecodeReturned++
+		if e != nil || len(w) != 8192 {
+			return Fail("decode")
+		}
+		for _, v := range w {
+			if !finite(v) {
+				return Fail("decoded_nonfinite")
+			}
+		}
+		if e = checkpoint("decode_returned"); e != nil {
+			return e
+		}
+		for a := 0; a < 2; a++ {
+			eval := &r.Scores[m][a]
+			*eval = Evaluation{Kind: model.ID, Arm: [2]string{"A", "B"}[a]}
+			for i, pp := range p.Parents {
+				var scores [3]float64
+				for c, v := range pp.Candidates {
+					r.Counts.FeatureAttempts++
+					if e = checkpoint("features_dispatch_reserved"); e != nil {
+						return e
+					}
+					fs, fe := o.Features(pp.Request, v.Captions[a].Text)
+					r.Counts.FeatureReturned++
+					if fe != nil {
+						return Fail("features")
+					}
+					if e = checkpoint("features_returned"); e != nil {
+						return e
+					}
+					r.Counts.ScoreAttempts++
+					if e = checkpoint("score_dispatch_reserved"); e != nil {
+						return e
+					}
+					score := o.Score(w, fs)
+					r.Counts.ScoreReturned++
+					if !finite(score) {
+						return Fail("score_nonfinite")
+					}
+					scores[c] = score
+					r.ScoreRows = append(r.ScoreRows, ScoreRow{Model: model.ID, Arm: [2]string{"A", "B"}[a], Parent: pp.ID, Candidate: v.ID, Position: c, Score: score})
+					if e = checkpoint("score_returned"); e != nil {
+						return e
+					}
+				}
+				row, e := rank(model.ID, scores)
+				if e != nil {
+					return e
+				}
+				if e = add(eval, pp, t.Parents[i], row); e != nil {
+					return e
+				}
+				if e = checkpoint("parent_scores_recorded"); e != nil {
+					return e
+				}
+			}
+		}
+		am, bm := r.Scores[m][0].Metric, r.Scores[m][1].Metric
+		r.Delta[m] = Delta{Model: model.ID, Checks: bm.Checks - am.Checks, Top1: bm.Top1 - am.Top1, Top3: bm.Top3 - am.Top3}
+	}
+	if r.Counts.PrepareReturned != 6 || r.Counts.DecodeReturned != 2 || r.Counts.BaselineReturned != 6 || r.Counts.FeatureReturned != 36 || r.Counts.ScoreReturned != 36 || len(r.ScoreRows) != 36 {
+		return Fail("final_counts")
+	}
+	r.State = "completed_exploratory_diagnostic_no_qualification"
+	r.Phase = "completed"
+	return checkpoint("completed")
+}

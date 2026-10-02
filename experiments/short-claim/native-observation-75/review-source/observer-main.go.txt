@@ -1,0 +1,232 @@
+// SPDX-License-Identifier: Apache-2.0
+// Native imports: compile only during preparation. Even --help executes init.
+package main
+
+import (
+	"debug/buildinfo"
+	"errors"
+	"flag"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"runtime"
+	"runtime/debug"
+	"slices"
+
+	"github.com/joho/godotenv"
+	"github.com/mitchellh/go-wordwrap"
+	"riido.local/wrap-marshal75/pure"
+)
+
+func mapState(v map[string]string) *pure.MapState {
+	s := &pure.MapState{Nil: v == nil}
+	if v == nil {
+		return s
+	}
+	keys := make([]string, 0, len(v))
+	for k := range v {
+		keys = append(keys, k)
+	}
+	slices.Sort(keys)
+	s.Entries = make([]pure.Pair, 0, len(keys))
+	for _, k := range keys {
+		s.Entries = append(s.Entries, pure.Pair{Key: k, Value: v[k]})
+	}
+	return s
+}
+func original(p pure.Probe) pure.Observation {
+	switch p.Goal {
+	case "wordwrap-whitespace-layout":
+		return pure.Observation{Text: wordwrap.WrapString(p.Text, p.Width)}
+	case "godotenv-canonical-marshal":
+		var m map[string]string
+		if !p.MapNil {
+			m = make(map[string]string, len(p.Entries))
+			for _, entry := range p.Entries {
+				m[entry.Key] = entry.Value
+			}
+		}
+		before := mapState(m)
+		text, e := godotenv.Marshal(m)
+		out := pure.Observation{Text: text, InputBefore: before, InputAfter: mapState(m)}
+		if e != nil {
+			msg := "unexpected_marshal_error_redacted"
+			out.Error = &msg
+		}
+		return out
+	default:
+		panic("fixed_goal_invalid")
+	}
+}
+func verifyBinary(path string, ref pure.Ref, p pure.ExecutionPlan) error {
+	b, e := pure.Read(path, 64<<20)
+	if e != nil || len(b) != ref.Bytes || pure.Hash(b) != ref.SHA256 {
+		return errors.New("binary_pin")
+	}
+	bi, e := buildinfo.ReadFile(path)
+	if e != nil || bi.GoVersion != p.Toolchain || bi.Path != "riido.local/wrap-marshal75/cmd/observe" || bi.Main.Path != "riido.local/wrap-marshal75" || len(bi.Deps) != 2 {
+		return errors.New("build_identity")
+	}
+	var arch, osName, cgo, trim string
+	for _, s := range bi.Settings {
+		switch s.Key {
+		case "GOARCH":
+			arch = s.Value
+		case "GOOS":
+			osName = s.Value
+		case "CGO_ENABLED":
+			cgo = s.Value
+		case "-trimpath":
+			trim = s.Value
+		case "vcs.revision":
+			return errors.New("build_vcs")
+		}
+	}
+	if arch != p.GOARCH || osName != p.GOOS || cgo != "0" || trim != "true" {
+		return errors.New("build_identity")
+	}
+	for _, d := range bi.Deps {
+		want := ""
+		switch d.Path {
+		case "github.com/joho/godotenv":
+			want = filepath.Join(p.OriginalSourceRoot, "upstream/godotenv")
+		case "github.com/mitchellh/go-wordwrap":
+			want = filepath.Join(p.OriginalSourceRoot, "upstream/go-wordwrap")
+		default:
+			return errors.New("build_modules")
+		}
+		if d.Version != "v0.0.0" || d.Replace == nil || d.Replace.Path != want {
+			return errors.New("build_modules")
+		}
+	}
+	return nil
+}
+func verifyClosure(p pure.ExecutionPlan) error {
+	required := [14][2]string{{"observer", "go.mod"}, {"observer", "pure/spec.go"}, {"observer", "pure/plan.go"}, {"observer", "pure/io.go"}, {"observer", "cmd/observe/main.go"}, {"original", "upstream/go-wordwrap/wordwrap.go"}, {"original", "upstream/go-wordwrap/go.mod"}, {"original", "upstream/go-wordwrap/LICENSE.md"}, {"original", "upstream/go-wordwrap/README.md"}, {"original", "upstream/godotenv/godotenv.go"}, {"original", "upstream/godotenv/parser.go"}, {"original", "upstream/godotenv/go.mod"}, {"original", "upstream/godotenv/LICENCE"}, {"original", "upstream/godotenv/README.md"}}
+	if len(p.Closure) != len(required) {
+		return errors.New("closure_count")
+	}
+	total := 0
+	for _, wanted := range required {
+		found := 0
+		for _, ref := range p.Closure {
+			if ref.Base != wanted[0] || ref.Path != wanted[1] {
+				continue
+			}
+			found++
+			root := p.ObserverRoot
+			if ref.Base == "original" {
+				root = p.OriginalSourceRoot
+			}
+			path, e := pure.Confined(root, ref.Path)
+			if e != nil {
+				return e
+			}
+			b, e := pure.Read(path, 1<<20)
+			if e != nil || len(b) != ref.Bytes || pure.Hash(b) != ref.SHA256 {
+				return errors.New("source_pin")
+			}
+			total += len(b)
+			if total > 1<<20 {
+				return errors.New("closure_bound")
+			}
+		}
+		if found != 1 {
+			return errors.New("closure_membership")
+		}
+	}
+	return nil
+}
+func run(args []string) error {
+	fs := flag.NewFlagSet("wrap-marshal75-observer", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	planPath := fs.String("plan", "", "")
+	planSHA := fs.String("plan-sha256", "", "")
+	attempt := fs.String("attempt-dir", "", "")
+	if fs.Parse(args) != nil || len(fs.Args()) != 0 || *planPath == "" || len(*planSHA) != 64 || !filepath.IsAbs(*attempt) || filepath.Clean(*attempt) != *attempt {
+		return errors.New("fixed_arguments")
+	}
+	b, e := pure.Read(*planPath, 128<<10)
+	if e != nil || pure.Hash(b) != *planSHA {
+		return errors.New("plan_pin")
+	}
+	var p pure.ExecutionPlan
+	if pure.StrictDecode(b, &p) != nil || p.Schema != "riido-wrap-marshal75-observer-execution-plan-v1" || !p.Frozen || p.Toolchain != "go1.27.1" || p.GOOS != "darwin" || p.GOARCH != "arm64" || p.CPU != 1 || p.SoftGoHeapBytes != 268435456 || p.OutsideTimeoutSeconds != 60 || p.OutputLimitBytes != pure.OutputLimit || p.PlannedOriginalAPICalls != 24 || p.DistinctBehaviorGoals != 2 || !p.NoAutomaticRetry || !p.OutsideReservationRequired || p.TrainingReady || p.BroadTruthProven || p.CaptionsQualified || p.ParentLabelsQualified || p.Want.ID != "finite-want.v1.json" || p.Binary.ID != "bin/wrap-marshal75-observer" {
+		return errors.New("fixed_plan")
+	}
+	if runtime.Version() != p.Toolchain || runtime.GOMAXPROCS(0) != 1 || debug.SetMemoryLimit(-1) != int64(p.SoftGoHeapBytes) || verifyClosure(p) != nil {
+		return errors.New("runtime_source")
+	}
+	self, e := os.Executable()
+	if e != nil || verifyBinary(self, p.Binary, p) != nil {
+		return errors.New("binary")
+	}
+	wantPath, e := pure.Confined(p.ObserverRoot, p.Want.ID)
+	if e != nil {
+		return e
+	}
+	raw, e := pure.Read(wantPath, pure.OutputLimit)
+	if e != nil || len(raw) != p.Want.Bytes || pure.Hash(raw) != p.Want.SHA256 {
+		return errors.New("want_pin")
+	}
+	var spec pure.Specification
+	if pure.StrictDecode(raw, &spec) != nil {
+		return errors.New("want_schema")
+	}
+	intent, e := pure.Read(filepath.Join(*attempt, "outside-reservation.json"), 128<<10)
+	var binding struct{ Schema, PlanSHA256, WantSHA256, BinarySHA256 string }
+	if e != nil || pure.StrictDecode(intent, &binding) != nil || binding.Schema != "riido-wrap-marshal75-outside-reservation-v1" || binding.PlanSHA256 != *planSHA || binding.WantSHA256 != p.Want.SHA256 || binding.BinarySHA256 != p.Binary.SHA256 {
+		return errors.New("outside_reservation")
+	}
+	final, e := os.OpenFile(filepath.Join(*attempt, "results.json"), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	if e != nil {
+		return errors.New("exclusive_output")
+	}
+	defer final.Close()
+	dir, e := os.Open(*attempt)
+	if e != nil {
+		return errors.New("output_directory")
+	}
+	defer dir.Close()
+	checkpoint := func(r pure.Result) error {
+		raw, e := pure.Encode(r)
+		if e != nil {
+			return e
+		}
+		temp := filepath.Join(*attempt, "results.partial.next")
+		if e = pure.WriteExclusive(temp, raw); e != nil {
+			return e
+		}
+		if e = os.Rename(temp, filepath.Join(*attempt, "results.partial.json")); e != nil {
+			return errors.New("checkpoint_rename")
+		}
+		return dir.Sync()
+	}
+	r, e := pure.Observe(spec, p.Want.SHA256, *planSHA, original, checkpoint)
+	if e != nil {
+		return errors.New("finite_observation_stopped")
+	}
+	raw, e = pure.Encode(r)
+	if e != nil {
+		return e
+	}
+	n, e := final.Write(raw)
+	if e != nil || n != len(raw) {
+		return errors.New("output_write")
+	}
+	if e = final.Sync(); e != nil {
+		return errors.New("output_sync")
+	}
+	if e = dir.Sync(); e != nil {
+		return errors.New("directory_sync")
+	}
+	fmt.Println("finite_wrap_marshal75_complete_no_truth_or_training_approval")
+	return nil
+}
+func main() {
+	if run(os.Args[1:]) != nil {
+		fmt.Fprintln(os.Stderr, "wrap_marshal75_observer_refused_or_failed")
+		os.Exit(1)
+	}
+}

@@ -1,0 +1,36 @@
+{
+  "schema": "riido-caption-diagnostic76-resource-observation-v1",
+  "child_attempts": 1,
+  "automatic_retries": 0,
+  "OS_real_seconds": 2.23,
+  "OS_user_seconds": 0.05,
+  "OS_system_seconds": 0.17,
+  "maximum_RSS_bytes": 10551296,
+  "maximum_RSS_MiB": 10.0625,
+  "peak_footprint_bytes": 8258040,
+  "controller_wall_seconds": 2.24256375,
+  "worker_wall_snapshot_before_final_writes_seconds": 1.853498208,
+  "Go_memory": {
+    "heap_alloc_bytes": 2506064,
+    "heap_sys_bytes": 8126464,
+    "cumulative_total_alloc_bytes": 5806904,
+    "alloc_since_worker_start_bytes": 5763976,
+    "GC_cycles_since_worker_start": 1
+  },
+  "CPU": 1,
+  "soft_Go_heap_bytes": 268435456,
+  "raw_log_public": false,
+  "per_inference_latency_measured": false,
+  "cold_or_warm_controlled": false,
+  "background_load_measured": false,
+  "LLM_usage_or_savings_measured": false,
+  "GPU_execution": false,
+  "models_retrained": false,
+  "qualification": false,
+  "notes": [
+    "Whole child includes startup, metadata and file validation, SHA verification, model decode, four controls, features/scores and fsync checkpoints.",
+    "Go heap and allocations differ from whole-process maximum RSS and OS footprint.",
+    "Do not divide elapsed time by score count to claim inference latency.",
+    "One host and one attempt; no causal speed or RSS comparison with previous experiments."
+  ]
+}

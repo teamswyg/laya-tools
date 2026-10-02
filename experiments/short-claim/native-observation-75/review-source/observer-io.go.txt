@@ -1,0 +1,144 @@
+package pure
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"io"
+	"os"
+	"path/filepath"
+	"strings"
+)
+
+func Hash(b []byte) string { h := sha256.Sum256(b); return hex.EncodeToString(h[:]) }
+func Encode(v any) ([]byte, error) {
+	b, e := json.MarshalIndent(v, "", "  ")
+	if e != nil {
+		return nil, e
+	}
+	b = append(b, '\n')
+	if len(b) > OutputLimit {
+		return nil, errors.New("output_bound")
+	}
+	return b, nil
+}
+func Read(path string, limit int) ([]byte, error) {
+	s, e := os.Lstat(path)
+	if e != nil || !s.Mode().IsRegular() || s.Size() < 0 || s.Size() > int64(limit) {
+		return nil, errors.New("file_bound")
+	}
+	f, e := os.Open(path)
+	if e != nil {
+		return nil, errors.New("file_read")
+	}
+	defer f.Close()
+	b, e := io.ReadAll(io.LimitReader(f, int64(limit)+1))
+	if e != nil || len(b) > limit || int64(len(b)) != s.Size() {
+		return nil, errors.New("file_bound")
+	}
+	return b, nil
+}
+func Confined(root, rel string) (string, error) {
+	if !filepath.IsAbs(root) || filepath.Clean(root) != root || rel == "" || rel == "." || rel == ".." || filepath.IsAbs(rel) || filepath.Clean(rel) != rel || strings.HasPrefix(rel, "../") || strings.ContainsAny(rel, "\\\x00") {
+		return "", errors.New("path_bound")
+	}
+	r, e := filepath.EvalSymlinks(root)
+	if e != nil || r != root {
+		return "", errors.New("path_bound")
+	}
+	target := filepath.Join(root, rel)
+	actual, e := filepath.EvalSymlinks(target)
+	if e != nil || actual != target {
+		return "", errors.New("path_bound")
+	}
+	return target, nil
+}
+func StrictDecode(b []byte, out any) error {
+	if len(b) == 0 || len(b) > OutputLimit {
+		return errors.New("json_bound")
+	}
+	d := json.NewDecoder(bytes.NewReader(b))
+	d.UseNumber()
+	var walk func(int) error
+	walk = func(depth int) error {
+		if depth > 32 {
+			return errors.New("json_depth")
+		}
+		t, e := d.Token()
+		if e != nil {
+			return e
+		}
+		z, ok := t.(json.Delim)
+		if !ok {
+			return nil
+		}
+		switch z {
+		case '{':
+			keys := []string{}
+			for d.More() {
+				t, e = d.Token()
+				k, ok := t.(string)
+				if e != nil || !ok || len(k) > 512 || len(keys) >= 256 {
+					return errors.New("json_key")
+				}
+				fold := strings.ToLower(k)
+				for _, old := range keys {
+					if old == fold {
+						return errors.New("json_duplicate")
+					}
+				}
+				keys = append(keys, fold)
+				if e = walk(depth + 1); e != nil {
+					return e
+				}
+			}
+			t, e = d.Token()
+			if e != nil || t != json.Delim('}') {
+				return errors.New("json_object")
+			}
+		case '[':
+			for d.More() {
+				if e = walk(depth + 1); e != nil {
+					return e
+				}
+			}
+			t, e = d.Token()
+			if e != nil || t != json.Delim(']') {
+				return errors.New("json_array")
+			}
+		default:
+			return errors.New("json_delim")
+		}
+		return nil
+	}
+	if walk(0) != nil {
+		return errors.New("json_shape")
+	}
+	if _, e := d.Token(); e != io.EOF {
+		return errors.New("json_trailing")
+	}
+	d = json.NewDecoder(bytes.NewReader(b))
+	d.DisallowUnknownFields()
+	if d.Decode(out) != nil {
+		return errors.New("json_fields")
+	}
+	return nil
+}
+func WriteExclusive(path string, b []byte) error {
+	f, e := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	if e != nil {
+		return errors.New("exclusive_output")
+	}
+	n, e := f.Write(b)
+	if e != nil || n != len(b) {
+		f.Close()
+		return errors.New("output_write")
+	}
+	if e = f.Sync(); e != nil {
+		f.Close()
+		return errors.New("output_sync")
+	}
+	return f.Close()
+}

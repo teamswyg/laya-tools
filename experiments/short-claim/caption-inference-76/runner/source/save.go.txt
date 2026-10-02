@@ -1,0 +1,75 @@
+package main
+
+import (
+	"encoding/json"
+	"os"
+	"path/filepath"
+
+	"github.com/teamswyg/laya-tools/maintainer/captioninference76/pure"
+)
+
+func marshal(r pure.Result) ([]byte, error) {
+	b, e := json.Marshal(r)
+	if e != nil {
+		return nil, pure.Fail("result_JSON")
+	}
+	b = append(b, '\n')
+	if len(b) > pure.MaxBytes {
+		return nil, pure.Fail("result_bound")
+	}
+	return b, nil
+}
+func writeFile(path string, b []byte) error {
+	f, e := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	if e != nil {
+		return pure.Fail("output_exclusive")
+	}
+	n, e := f.Write(b)
+	if e != nil || n != len(b) {
+		_ = f.Close()
+		return pure.Fail("output_write")
+	}
+	if e = f.Sync(); e != nil {
+		_ = f.Close()
+		return pure.Fail("output_sync")
+	}
+	if e = f.Close(); e != nil {
+		return pure.Fail("output_close")
+	}
+	return nil
+}
+func syncDir(path string) error {
+	d, e := os.Open(path)
+	if e != nil {
+		return pure.Fail("directory")
+	}
+	defer d.Close()
+	if d.Sync() != nil {
+		return pure.Fail("directory_sync")
+	}
+	return nil
+}
+func saveExclusive(path string, r pure.Result) error {
+	b, e := marshal(r)
+	if e != nil {
+		return e
+	}
+	if e = writeFile(path, b); e != nil {
+		return e
+	}
+	return syncDir(filepath.Dir(path))
+}
+func savePartial(dir string, r pure.Result) error {
+	b, e := marshal(r)
+	if e != nil {
+		return e
+	}
+	tmp := filepath.Join(dir, "partial.tmp")
+	if e = writeFile(tmp, b); e != nil {
+		return e
+	}
+	if os.Rename(tmp, filepath.Join(dir, "partial.json")) != nil {
+		return pure.Fail("partial_rename")
+	}
+	return syncDir(dir)
+}

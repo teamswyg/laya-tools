@@ -1,0 +1,127 @@
+// Maintainer-only, single-attempt bounded execution. All artifacts stay private
+// until a separate content/security review produces a public research archive.
+package main
+
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"io"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"syscall"
+	"time"
+)
+
+type limitedLog struct {
+	f         *os.File
+	remaining int
+	overflow  bool
+}
+
+func (w *limitedLog) Write(p []byte) (int, error) {
+	n := len(p)
+	if len(p) > w.remaining {
+		p = p[:w.remaining]
+		w.overflow = true
+	}
+	k, err := w.f.Write(p)
+	w.remaining -= k
+	if err != nil {
+		return k, err
+	}
+	if k != len(p) {
+		return k, io.ErrShortWrite
+	}
+	return n, nil
+}
+func must(err error) {
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "root_controller_failed")
+		os.Exit(1)
+	}
+}
+func require(b bool) {
+	if !b {
+		must(fmt.Errorf("invalid"))
+	}
+}
+func create(name string) *os.File {
+	f, e := os.OpenFile(name, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	must(e)
+	return f
+}
+func save(name string, v any) {
+	b, e := json.MarshalIndent(v, "", "  ")
+	must(e)
+	f := create(name)
+	_, e = f.Write(append(b, '\n'))
+	must(e)
+	must(f.Sync())
+	must(f.Close())
+}
+func main() {
+	require(len(os.Args) >= 6 && os.Args[4] == "--")
+	dir, binary, wantSHA := os.Args[1], os.Args[2], os.Args[3]
+	s, e := os.Lstat(binary)
+	must(e)
+	require(s.Mode().IsRegular() && s.Size() > 0 && s.Size() <= 16<<20)
+	b, e := os.ReadFile(binary)
+	must(e)
+	h := sha256.Sum256(b)
+	require(hex.EncodeToString(h[:]) == wantSHA)
+	must(os.Mkdir(dir, 0700))
+	save(filepath.Join(dir, "ROOT-BEFORE-START.private.json"), map[string]any{
+		"schema":        "riido-caption-diagnostic76-single-attempt-reservation-v1",
+		"binary_sha256": wantSHA, "binary_bytes": len(b), "arguments": os.Args[5:],
+		"environment":     []string{"PATH=/usr/bin:/bin:/usr/sbin:/sbin", "LC_ALL=C", "GOMAXPROCS=1", "GOMEMLIMIT=268435456"},
+		"timeout_seconds": 60, "automatic_retries": 0, "production_ready": false,
+	})
+	out := &limitedLog{f: create(filepath.Join(dir, "RESULT.private.json")), remaining: 1 << 20}
+	errlog := &limitedLog{f: create(filepath.Join(dir, "TIME.private.txt")), remaining: 64 << 10}
+	cmd := exec.Command("/usr/bin/time", append([]string{"-l", binary}, os.Args[5:]...)...)
+	cmd.Env = []string{"PATH=/usr/bin:/bin:/usr/sbin:/sbin", "LC_ALL=C", "GOMAXPROCS=1", "GOMEMLIMIT=268435456"}
+	cmd.Stdout, cmd.Stderr = out, errlog
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	start := time.Now()
+	startErr := cmd.Start()
+	timedOut, killFailed, waited, exitCode := false, false, false, -1
+	var waitErr error
+	if startErr == nil {
+		done := make(chan error, 1)
+		go func() { done <- cmd.Wait() }()
+		timer := time.NewTimer(60 * time.Second)
+		select {
+		case waitErr = <-done:
+			timer.Stop()
+			waited = true
+		case <-timer.C:
+			timedOut = true
+			k := syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+			killFailed = k != nil && k != syscall.ESRCH
+			waitErr = <-done
+			waited = true
+		}
+		if cmd.ProcessState != nil {
+			exitCode = cmd.ProcessState.ExitCode()
+		}
+	}
+	wall := time.Since(start).Seconds()
+	must(out.f.Sync())
+	must(out.f.Close())
+	must(errlog.f.Sync())
+	must(errlog.f.Close())
+	save(filepath.Join(dir, "ROOT-ACTUAL-LEDGER.v1.json"), map[string]any{
+		"schema":        "riido-caption-diagnostic76-single-attempt-actual-v1",
+		"binary_sha256": wantSHA, "child_start_attempts": 1, "start_failed": startErr != nil,
+		"automatic_retries": 0, "timed_out": timedOut, "kill_failed": killFailed,
+		"wait_joined": waited, "wait_failed": waitErr != nil, "exit_code": exitCode, "controller_wall_seconds": wall,
+		"stdout_overflow": out.overflow, "stderr_overflow": errlog.overflow,
+		"timeout_after_seconds": 60, "hard_total_return_time_guaranteed": false,
+		"production_ready": false, "training_ready": false, "protected_final": false,
+	})
+	require(startErr == nil && waited && waitErr == nil && exitCode == 0 && !timedOut && !killFailed && !out.overflow && !errlog.overflow)
+	fmt.Println("PASS one bounded diagnostic child; inspect saved results separately")
+}
