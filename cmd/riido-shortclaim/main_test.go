@@ -101,3 +101,35 @@ func TestStreamWireLimitAndCRLFFraming(t *testing.T) {
 		t.Fatal("oversized unterminated CR record accepted")
 	}
 }
+
+func TestCLIValidatedPathMatchesPublicRankAndDigest(t *testing.T) {
+	for _, raw := range []string{example(), `{"schema":"riido-short-behavior-claim-v1","request":"behavior-v1: if active then keep else remove","provenance":"authored-fastpath-test","candidates":[{"id":"a","text":"unsupported syntax"},{"id":"b","text":"behavior-v1: if active then keep else remove"}]}`} {
+		p, err := shortclaim.Load(strings.NewReader(raw))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, kind := range []string{"fixed_order", "bm25", "lexical_ordered", "narrow_rule"} {
+			old, err := shortclaim.Rank(p, kind)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var out, diagnostic bytes.Buffer
+			if err = run([]string{"--baseline", kind}, strings.NewReader(raw), &out, &diagnostic); err != nil {
+				t.Fatal(err)
+			}
+			var got output
+			if err = json.Unmarshal(out.Bytes(), &got); err != nil {
+				t.Fatal(err)
+			}
+			if got.Schema != "riido-shortclaim-order-v1" || got.Status != "unverified_heuristic" || got.Baseline != kind || got.InputSHA256 != digest(p) || got.FallbackReason != old.FallbackReason || len(got.Candidates) != p.Count || diagnostic.Len() != 0 {
+				t.Fatal("wire schema/digest/fallback changed")
+			}
+			for i, c := range got.Candidates {
+				index := old.Order[i]
+				if c.ID != p.Candidates[index].ID || c.Score != old.Scores[index] {
+					t.Fatal("wire order/score changed")
+				}
+			}
+		}
+	}
+}

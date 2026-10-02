@@ -24,6 +24,18 @@ func TestPublishedPreparation56cMatchesOriginalAndFrozenSources(t *testing.T) {
 		return raw
 	}
 	const base = "experiments/short-claim/"
+	historicalPath := func(path string) string {
+		switch path {
+		case "pkg/shortclaim/input.go":
+			return "testdata/shortclaim-source-9d204/input.go.txt"
+		case "pkg/shortclaim/baseline.go":
+			return "testdata/shortclaim-source-9d204/baseline.go.txt"
+		case "cmd/riido-typedaudit/replay_test.go":
+			return "testdata/shortclaim-source-9d204/typed-replay-test.go.txt"
+		default:
+			return path
+		}
+	}
 	planRaw := read(base + "preparation-plan-56c.json")
 	if digest(planRaw) != "8a47e276b0693f6a68fe1894dd6b180846478b8ddb0ccfdef71905b87ce23e37" {
 		t.Fatal("frozen preparation plan changed")
@@ -46,7 +58,7 @@ func TestPublishedPreparation56cMatchesOriginalAndFrozenSources(t *testing.T) {
 			if strings.HasPrefix(p.Path, "/") || strings.Contains(p.Path, "..") {
 				t.Fatal("unexpected public pin path")
 			}
-			raw := read(p.Path)
+			raw := read(historicalPath(p.Path))
 			if digest(raw) != p.SHA256 || len(raw) != p.Bytes {
 				t.Fatal("frozen preparation or historical artifact changed")
 			}
@@ -74,14 +86,24 @@ func TestPublishedPreparation56cMatchesOriginalAndFrozenSources(t *testing.T) {
 		t.Fatal("published preparation summary invalid")
 	}
 	assertPreparationOnly(t, report)
-	compiled, err := compiledArtifacts()
-	if err != nil || len(compiled) != len(report.CompiledSources) {
+	current, err := compiledArtifacts()
+	if err != nil || len(current) != len(report.CompiledSources) {
 		t.Fatal("compiled preparation manifest changed")
 	}
-	for i, p := range compiled {
-		if p != report.CompiledSources[i] {
-			t.Fatal("published summary is not bound to compiled sources")
+	for i, p := range report.CompiledSources {
+		// The saved preparation describes its original compiled sources.
+		// Today's compiled sources are checked separately below.
+		if p.Path != current[i].Path || digest(read(historicalPath(p.Path))) != p.SHA256 {
+			t.Fatal("published summary is not bound to historical compiled sources")
 		}
+	}
+	root, err := os.OpenRoot(repo)
+	if err != nil {
+		t.Fatal("current preparation source root unavailable")
+	}
+	defer root.Close()
+	if err := verifySources(root, current); err != nil {
+		t.Fatal("current compiled preparation sources changed")
 	}
 	if report.ProposalsSHA256 != digest(probes) || report.ProposalsBytes != len(probes) {
 		t.Fatal("published proposal bytes not bound to summary")

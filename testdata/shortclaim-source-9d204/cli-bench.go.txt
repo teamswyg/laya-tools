@@ -60,11 +60,10 @@ func benchmark(in io.Reader, out io.Writer, kind string, repetitions int, profil
 	if err != nil {
 		return errors.New("benchmark_read_failed")
 	}
-	validated, err := shortclaim.LoadValidated(bytes.NewReader(raw))
+	p, err := shortclaim.Load(bytes.NewReader(raw))
 	if err != nil {
 		return err
 	}
-	p := validated.Prepared()
 	if p.Count != shortclaim.MaxCandidates {
 		return errors.New("benchmark_requires_eight_candidates")
 	}
@@ -84,17 +83,17 @@ func benchmark(in io.Reader, out io.Writer, kind string, repetitions int, profil
 	start := time.Now()
 	var before, after runtime.MemStats
 	runtime.ReadMemStats(&before)
-	ranking, err := validated.Rank(kind)
+	ranking, err := shortclaim.Rank(p, kind)
 	if err != nil {
 		return err
 	}
-	var sink shortclaim.ValidatedInput
+	var sink shortclaim.Prepared
 	stages := []struct {
 		name string
 		f    func() error
 	}{
-		{"parse_validate_normalize", func() error { var e error; sink, e = shortclaim.LoadValidated(bytes.NewReader(raw)); return e }},
-		{"rank_validate_features_score_order", func() error { var e error; ranking, e = validated.Rank(kind); return e }},
+		{"parse_validate_normalize", func() error { var e error; sink, e = shortclaim.Load(bytes.NewReader(raw)); return e }},
+		{"rank_validate_features_score_order", func() error { var e error; ranking, e = shortclaim.Rank(p, kind); return e }},
 		{"input_digest", func() error { _ = digest(p); return nil }},
 		{"ranking_serialization", func() error { return json.NewEncoder(io.Discard).Encode(ranking) }},
 		{"full_go_request", func() error { return emit(bytes.NewReader(raw), io.Discard, kind) }},
@@ -130,6 +129,6 @@ func benchmark(in io.Reader, out io.Writer, kind string, repetitions int, profil
 		WallSeconds         float64            `json:"measurement_wall_seconds"`
 		Measurements        []stageMeasurement `json:"stages"`
 		Scope               string             `json:"scope"`
-	}{"riido-shortclaim-benchmark-v1", kind, digest(p), runtime.GOOS, runtime.GOARCH, runtime.Version(), p.Count, 1, false, false, 0, profile != "", 20, 101, after.HeapAlloc, after.TotalAlloc - before.TotalAlloc, time.Since(start).Seconds(), measurements, "Original repeated fixture; parse validates and normalizes once; rank checks opaque validated input and combines features, scoring and ordering without re-normalizing. Exported Prepared Rank retains full revalidation. HeapAlloc includes uncollected garbage, without forced GC, and is not OS peak RSS; timer/GC/serialization overhead is included. Optional profile covers warmups, allocation probes and timed stages; profile flush/close is outside measurement_wall_seconds. No learned model or quality/savings claim."}
+	}{"riido-shortclaim-benchmark-v1", kind, digest(p), runtime.GOOS, runtime.GOARCH, runtime.Version(), p.Count, 1, false, false, 0, profile != "", 20, 101, after.HeapAlloc, after.TotalAlloc - before.TotalAlloc, time.Since(start).Seconds(), measurements, "Original repeated fixture; rank combines validation, features, scoring and ordering. HeapAlloc includes uncollected garbage, without forced GC, and is not OS peak RSS; timer/GC/serialization overhead is included. Optional profile covers warmups, allocation probes and timed stages; profile flush/close is outside measurement_wall_seconds. No learned model or quality/savings claim."}
 	return json.NewEncoder(out).Encode(r)
 }

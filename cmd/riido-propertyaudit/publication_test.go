@@ -45,11 +45,35 @@ func TestPublished56ePreservesFrozenInputsAndFiniteObservation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(compiled, p.Sources) || len(p.Support) != 13 {
-		t.Fatal("frozen manifest changed")
+	if len(compiled) != len(p.Sources) || len(p.Support) != 13 {
+		t.Fatal("source closure changed")
 	}
-	if err := verifyFiles(root, p.Sources); err != nil {
+	// Preserve the source-bound historical plan, verifying archived bytes for
+	// the two deliberately optimized files and unchanged bytes for the rest.
+	for i, original := range p.Sources {
+		if compiled[i].Path != original.Path {
+			t.Fatal("compiled source path changed")
+		}
+		path := original.Path
+		switch path {
+		case "pkg/shortclaim/input.go":
+			path = "testdata/shortclaim-source-9d204/input.go.txt"
+		case "pkg/shortclaim/baseline.go":
+			path = "testdata/shortclaim-source-9d204/baseline.go.txt"
+		default:
+			if compiled[i].SHA256 != original.SHA256 {
+				t.Fatal("unchanged historical source differs from compiled source")
+			}
+		}
+		read(path, original.SHA256)
+	}
+	// A current compiled manifest is checked separately and never replaces the
+	// frozen public plan. The production verifier must still refuse old pins.
+	if err := verifyFiles(root, compiled); err != nil {
 		t.Fatal(err)
+	}
+	if err := verifyFiles(root, p.Sources); err == nil {
+		t.Fatal("current source verifier accepted historical runtime pins")
 	}
 	if err := verifyFiles(root, p.Support); err != nil {
 		t.Fatal(err)

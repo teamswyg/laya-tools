@@ -1,0 +1,39 @@
+{
+  "schema": "riido-validated-input-historical-regression-fix-v1",
+  "scope": "Test-only preservation and current semantic regression after validated-input optimization; author-side checks, not independent approval or another official experiment.",
+  "original_source_commit": "9d204c2c700505658c108297d5fa769a835a60c3",
+  "parent_reported_prior_full_suite_failing_regressions": 3,
+  "preparation_failures": [
+    {"operation": "read-only text search", "count": 1, "reason": "unmatched shell glob before search; no source or test execution"},
+    {"operation": "initial gofmt", "count": 1, "reason": "missing closing brace in author draft; corrected before first compile/test"}
+  ],
+  "pretest_static_corrections": ["Moved report digest assertion below declaration after author text review; no failed compile/test invocation."],
+  "historical_git_blob_exports": 5,
+  "historical_export_failures": 0,
+  "gofmt_invocations": 2,
+  "targeted_race_invocations": 1,
+  "targeted_race_failures": 0,
+  "targeted_race_packages": [
+    {"package": "cmd/riido-behavioraudit", "state": "PASS", "seconds": 1.504},
+    {"package": "cmd/riido-propertyaudit", "state": "PASS", "seconds": 2.079},
+    {"package": "cmd/riido-typedaudit", "state": "PASS", "seconds": 4.844}
+  ],
+  "targeted_vet_invocations": 1,
+  "targeted_vet_failures": 0,
+  "diff_check": "PASS",
+  "runtime_source_or_verifier_edits": 0,
+  "original_plan_report_or_hash_edits": 0,
+  "new_skips_or_tolerance_relaxations": 0,
+  "new_benchmarks": 0,
+  "new_profiles": 0,
+  "new_fits": 0,
+  "new_model_or_paid_calls": 0,
+  "official_experiment_retries": 0,
+  "regression_replay_count_boundary": "The existing package tests execute pure-Go behavior/finite controls and temporary typed replay. Their internal API calls were not dynamically instrumented; they are separate CI regressions, never replacement official observations or changes to original71 counters.",
+  "changed_tests": [
+    {"path": "cmd/riido-behavioraudit/frozen_test.go", "sha256": "acb0c6f87fc1ca41179f4e3072d1ea37bce6bcdd7dcd8738e84962f2f2b9da4b"},
+    {"path": "cmd/riido-propertyaudit/publication_test.go", "sha256": "57374250d3d6fa442d42f673c712b21fb5a13cc42bdb2361dea91ac2be5b3f5d"},
+    {"path": "cmd/riido-typedaudit/replay_test.go", "sha256": "8634b17dce7433596e3438c7867126baa82169cc51f777ab39f50f4d7454af58"}
+  ],
+  "publication_and_push": 0
+}

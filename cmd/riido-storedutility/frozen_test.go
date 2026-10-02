@@ -38,6 +38,20 @@ func TestFrozenStoredUtilityRegression(t *testing.T) {
 		}
 		return raw
 	}
+	historicalPath := func(path string) string {
+		switch path {
+		case "pkg/shortclaim/input.go":
+			return "testdata/shortclaim-source-9d204/input.go.txt"
+		case "pkg/shortclaim/baseline.go":
+			return "testdata/shortclaim-source-9d204/baseline.go.txt"
+		case "pkg/shortclaim/input_test.go":
+			return "testdata/shortclaim-source-9d204/input-test.go.txt"
+		case "pkg/shortclaim/baseline_test.go":
+			return "testdata/shortclaim-source-9d204/baseline-test.go.txt"
+		default:
+			return path
+		}
+	}
 	rawPlan := readPinned(planPath, frozen58PlanSHA, 5402)
 	rawResult := readPinned("experiments/short-claim/results-58.json", frozen58ResultSHA, 184532)
 	var p plan
@@ -50,20 +64,32 @@ func TestFrozenStoredUtilityRegression(t *testing.T) {
 		t.Fatal("frozen raw input digest, size or ordering changed")
 	}
 	sources, err := sourceArtifacts(root)
-	if err != nil || len(sources) != 9 || !reflect.DeepEqual(sources, p.Sources) {
-		t.Fatal("frozen compiled source bytes, digests or closure changed")
+	if err != nil || len(sources) != 9 || len(p.Sources) != len(sources) {
+		t.Fatal("current compiled source bytes, digests or closure changed")
 	}
 	if err := verifyGoClosure(root, sources); err != nil {
-		t.Fatal("frozen compiled Go source list changed")
+		t.Fatal("current compiled Go source list changed")
+	}
+	for i, pin := range p.Sources {
+		if sources[i].Path != pin.Path {
+			t.Fatal("historical compiled source path order changed")
+		}
+		readPinned(historicalPath(pin.Path), pin.SHA256, pin.Bytes)
 	}
 	sup, err := support(root)
-	if err != nil || len(sup) != 13 || !reflect.DeepEqual(sup, p.Support) {
-		t.Fatal("frozen support bytes, digests or ordering changed")
+	if err != nil || len(sup) != 13 || len(p.Support) != len(sup) {
+		t.Fatal("current support bytes or ordering changed")
+	}
+	for i, pin := range p.Support {
+		if sup[i].Path != pin.Path {
+			t.Fatal("historical support path order changed")
+		}
+		readPinned(historicalPath(pin.Path), pin.SHA256, pin.Bytes)
 	}
 	// These are historical provenance pins. The current CI test executable on
 	// Linux or macOS is not required to have the original Darwin/arm64 binary's
 	// digest, architecture or build recipe; this test does not run that binary.
-	expected := newPlan(frozen58Source, artifact{SHA256: frozen58Binary, Bytes: 4872258}, inputs, sources, sup)
+	expected := newPlan(frozen58Source, artifact{SHA256: frozen58Binary, Bytes: 4872258}, inputs, p.Sources, p.Support)
 	expected.GOOS, expected.GOARCH = "darwin", "arm64"
 	if err := validatePlan(p, expected); err != nil {
 		t.Fatal("historical frozen plan policy or provenance changed")

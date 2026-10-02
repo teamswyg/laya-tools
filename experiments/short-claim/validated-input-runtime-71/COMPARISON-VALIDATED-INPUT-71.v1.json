@@ -1,0 +1,267 @@
+{
+  "Schema": "riido-validated-input-allocation-comparison-71-v1",
+  "Scope": "One observation per implementation of the original public eight-candidate repeated lexical_ordered fixture; no learned model, original validation76, fit, new labels, or LLM savings measurement.",
+  "Authorship": "Implementation and comparison-helper author; prior first71 controller and preparation exposure. These checks are author-side mechanics, not independent source or model-quality approval.",
+  "SourceFreeze": {
+    "id": "SOURCE-FREEZE-71.v1.json",
+    "bytes": 1180,
+    "sha256": "1d77fe7dda6d0bfa2793410e77e9332e8cc00dab0de522ff872fafb1b270fd59"
+  },
+  "TargetBinary": {
+    "id": "validated-shortclaim-private-binary",
+    "bytes": 4581234,
+    "sha256": "88fba66942b354cb2275ac49e87f6a11d30ea681477b54dfaefcd60b5bdc5d14"
+  },
+  "SourcePins": [
+    {
+      "id": "pkg/shortclaim/input.go",
+      "bytes": 10755,
+      "sha256": "834d66e6a0c63095d25b02659a1ddd5c5b8a9eef185b7a2bab5e938974370a80"
+    },
+    {
+      "id": "pkg/shortclaim/baseline.go",
+      "bytes": 14048,
+      "sha256": "c6003b785763fce004d89556f998811eb6098474908d9341906ca825aebc362a"
+    },
+    {
+      "id": "pkg/shortclaim/validated_test.go",
+      "bytes": 7988,
+      "sha256": "01c11d66046c338de0f619426c351d7ed428f02f04ccf7b16ea6245f74fcc8aa"
+    },
+    {
+      "id": "cmd/riido-shortclaim/main.go",
+      "bytes": 4552,
+      "sha256": "0ab4086e545f6a1e261e6009c2853c93fbdd45f83af2475d98cf336fd2621fa0"
+    },
+    {
+      "id": "cmd/riido-shortclaim/bench.go",
+      "bytes": 5405,
+      "sha256": "82f28a43778881887438e034c8aeec359316b018f1281dd89277ea8ee5a5e236"
+    },
+    {
+      "id": "cmd/riido-shortclaim/main_test.go",
+      "bytes": 5061,
+      "sha256": "034cdd71ea7f4682e620628407b69741b681988c0159adb64c1982dde3a8f4f9"
+    }
+  ],
+  "Previous": {
+    "RawStats": {
+      "id": "previous-raw-stats",
+      "bytes": 1468,
+      "sha256": "469d03a98e57736dc86f445495990f3a03dcee269696bd333f1604dc47a16837"
+    },
+    "RawTime": {
+      "id": "previous-raw-time",
+      "bytes": 777,
+      "sha256": "07be03a295eb74c8fde0d1ce03c34ca3d4f82948c1ee88ed831d2b8c5b1a8ed1"
+    },
+    "Execution": {
+      "id": "previous-execution-ledger",
+      "bytes": 290,
+      "sha256": "31d2fa525ae5c9bcc37d8a0012cedbd5d04026f8ccbbcb1ac5776181abb45432"
+    },
+    "Stats": {
+      "schema": "riido-shortclaim-benchmark-v1",
+      "baseline": "lexical_ordered",
+      "canonical_input_sha256": "1f1360b413e34986bcc2bfc69a601c1fb0f03c21921e091a2586a769b2b9161c",
+      "os": "darwin",
+      "arch": "arm64",
+      "go": "go1.27.1",
+      "candidate_count": 8,
+      "gomaxprocs": 1,
+      "gpu_used": false,
+      "encoder_used": false,
+      "cache_hits": 0,
+      "cpu_profile_enabled": true,
+      "warmups_per_stage": 20,
+      "allocation_probes_per_stage_including_warmup": 101,
+      "go_heap_alloc_bytes_at_end": 3221544,
+      "go_total_alloc_bytes_delta": 1009991512,
+      "measurement_wall_seconds": 1.009231333,
+      "stages": [
+        {
+          "stage": "parse_validate_normalize",
+          "repetitions": 10000,
+          "p50_ns": 19708,
+          "p95_ns": 45542,
+          "go_allocations_per_op": 184
+        },
+        {
+          "stage": "rank_validate_features_score_order",
+          "repetitions": 10000,
+          "p50_ns": 21334,
+          "p95_ns": 31666,
+          "go_allocations_per_op": 81
+        },
+        {
+          "stage": "input_digest",
+          "repetitions": 10000,
+          "p50_ns": 875,
+          "p95_ns": 1167,
+          "go_allocations_per_op": 23
+        },
+        {
+          "stage": "ranking_serialization",
+          "repetitions": 10000,
+          "p50_ns": 458,
+          "p95_ns": 1250,
+          "go_allocations_per_op": 2
+        },
+        {
+          "stage": "full_go_request",
+          "repetitions": 10000,
+          "p50_ns": 42500,
+          "p95_ns": 83042,
+          "go_allocations_per_op": 291
+        }
+      ]
+    },
+    "OS": {
+      "Real": 1.47,
+      "User": 0.99,
+      "Sys": 0.01,
+      "PeakRSS": 13189120,
+      "PeakFootprint": 10568184
+    },
+    "Control": {
+      "Starts": 1,
+      "Retries": 0,
+      "Exit": 0,
+      "StartFailed": false,
+      "TimedOut": false,
+      "ControllerWallSeconds": 1.4762223749999999
+    }
+  },
+  "Validated": {
+    "RawStats": {
+      "id": "validated-raw-stats",
+      "bytes": 1596,
+      "sha256": "d7dc4969669bc47894d45f5082cfda037f366d07430782e34824477f36b6bb22"
+    },
+    "RawTime": {
+      "id": "validated-raw-time",
+      "bytes": 777,
+      "sha256": "938dfde9720e6ab9b154a31dd1ab0d9fef3cb7370852e90d0afdcad5084cc553"
+    },
+    "Execution": {
+      "id": "validated-execution-ledger",
+      "bytes": 283,
+      "sha256": "e7cdf00b6834cbb5c1f956d83e1a6724f68a6ca4fdd071a684a147f4b3d16fec"
+    },
+    "Stats": {
+      "schema": "riido-shortclaim-benchmark-v1",
+      "baseline": "lexical_ordered",
+      "canonical_input_sha256": "1f1360b413e34986bcc2bfc69a601c1fb0f03c21921e091a2586a769b2b9161c",
+      "os": "darwin",
+      "arch": "arm64",
+      "go": "go1.27.1",
+      "candidate_count": 8,
+      "gomaxprocs": 1,
+      "gpu_used": false,
+      "encoder_used": false,
+      "cache_hits": 0,
+      "cpu_profile_enabled": false,
+      "warmups_per_stage": 20,
+      "allocation_probes_per_stage_including_warmup": 101,
+      "go_heap_alloc_bytes_at_end": 3911912,
+      "go_total_alloc_bytes_delta": 656806680,
+      "measurement_wall_seconds": 0.685479833,
+      "stages": [
+        {
+          "stage": "parse_validate_normalize",
+          "repetitions": 10000,
+          "p50_ns": 20333,
+          "p95_ns": 39084,
+          "go_allocations_per_op": 184
+        },
+        {
+          "stage": "rank_validate_features_score_order",
+          "repetitions": 10000,
+          "p50_ns": 8708,
+          "p95_ns": 9666,
+          "go_allocations_per_op": 0
+        },
+        {
+          "stage": "input_digest",
+          "repetitions": 10000,
+          "p50_ns": 875,
+          "p95_ns": 1250,
+          "go_allocations_per_op": 23
+        },
+        {
+          "stage": "ranking_serialization",
+          "repetitions": 10000,
+          "p50_ns": 458,
+          "p95_ns": 750,
+          "go_allocations_per_op": 2
+        },
+        {
+          "stage": "full_go_request",
+          "repetitions": 10000,
+          "p50_ns": 29250,
+          "p95_ns": 42917,
+          "go_allocations_per_op": 210
+        }
+      ]
+    },
+    "OS": {
+      "Real": 1.05,
+      "User": 0.67,
+      "Sys": 0.01,
+      "PeakRSS": 10928128,
+      "PeakFootprint": 8421880
+    },
+    "Control": {
+      "Starts": 1,
+      "Retries": 0,
+      "Exit": 0,
+      "StartFailed": false,
+      "TimedOut": false,
+      "ControllerWallSeconds": 1.058583959
+    }
+  },
+  "PreviousStaticCalls": {
+    "Basis": "Source-derived successful-path arithmetic, not dynamic counters; 10000 timed +20 warmup +101 allocation callbacks per stage.",
+    "StageCallbacks": 50605,
+    "Load": 20243,
+    "Rank": 20243,
+    "Validate": 40486,
+    "ValidatePrepared": 20243,
+    "NormalizeText": 364374,
+    "BaselineTokenize": 20243,
+    "LearnedFeatures": 0,
+    "AllFourBaselines": 0,
+    "Fits": 0,
+    "Models": 0
+  },
+  "ValidatedStaticCalls": {
+    "Basis": "Source-derived successful-path arithmetic, not dynamic counters; same fixture and callbacks. Separate from unchanged first71 fit counters.",
+    "StageCallbacks": 50605,
+    "Load": 20243,
+    "Rank": 20243,
+    "Validate": 20243,
+    "ValidatePrepared": 0,
+    "NormalizeText": 182187,
+    "BaselineTokenize": 20243,
+    "LearnedFeatures": 0,
+    "AllFourBaselines": 0,
+    "Fits": 0,
+    "Models": 0
+  },
+  "ParityTests": [
+    "Exact order/score/fallback for all four baseline selectors on nine authored bounded inputs",
+    "Exact CLI schema/status/input digest/candidate order/score/fallback for all four selectors",
+    "Invalid constructors and zero/JSON-forged opaque values rejected; public forged Prepared rejected",
+    "Caller slice/snapshot mutation cannot mutate sealed array; concurrent read ranking race pass",
+    "Existing stream, JSON bounds, fixed diagnostics and privacy checks pass"
+  ],
+  "Limitations": [
+    "Previous CPU profile enabled; new CPU profile disabled. No causal latency speedup or all-memory reduction claim.",
+    "Single measured observation per version; ambient host load and scheduling were not recorded. Parent began full checks only after notification of completed measurement; other concurrent load is unmeasured.",
+    "End HeapAlloc is higher in the new observation and includes uncollected garbage without forced GC. Cumulative allocation is not simultaneous live memory; OS peak RSS and footprint include the whole child/wrapper process measurement.",
+    "The 256 MiB GOMEMLIMIT is a Go soft heap target, not an OS or GPU hard cap. No GPU/native encoder/model calls; no GPU memory measurement.",
+    "Thirty-second deadline dispatches process-group SIGKILL then Wait; not a strict total controller runtime guarantee.",
+    "Raw input/profile/logs/private paths and target binary remain private; these artifact pins disclose no raw content. Original execution ledger schema label is historical and reused despite new profile=false; flags/stats define actual scope.",
+    "The opaque validated type proves constructor validation and normalization only, not semantic truth or action authority. Exported Prepared Rank and Baselines contracts remain unchanged."
+  ]
+}
