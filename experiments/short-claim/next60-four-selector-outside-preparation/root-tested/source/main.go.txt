@@ -1,0 +1,262 @@
+// INERT standalone stdlib controller. Source preparation grants no execution
+// authority. Root pins the complete source/compiler/rights/CI/resource proof.
+package main
+
+import (
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"riido.local/fourselectoroutside/pure"
+	"runtime"
+	"runtime/debug"
+)
+
+type verified struct {
+	binding pure.Binding
+	pins    []pure.PublicPin
+}
+
+func preflight(raw []byte) (verified, error) {
+	var v verified
+	var b pure.Binding
+	if pure.DecodeNonNull(raw, &b, pure.MetadataCap) != nil || pure.CheckBinding(b) != nil || !absolute(b.SourceRoot) || !absolute(b.ControllerRoot) || !absolute(b.OutsideDir) {
+		return v, bad("binding")
+	}
+	for _, source := range []string{b.SourceRoot, b.ControllerRoot} {
+		if separation(source, b.OutsideDir) != nil {
+			return v, bad("source_output_separation")
+		}
+	}
+	if _, e := os.Lstat(b.OutsideDir); !os.IsNotExist(e) {
+		return v, bad("outside_not_fresh")
+	}
+	paths := [6]string{"main.go", "files.go", "process.go", "macho.go", "pure/protocol.go", "go.mod"}
+	for i, p := range b.ControllerSources {
+		if p.ID != "controller/source/"+paths[i] || p.Path != paths[i] {
+			return v, bad("controller_sources")
+		}
+		if _, e := pinned(b.ControllerRoot, p, pure.MetadataCap, false); e != nil {
+			return v, e
+		}
+		v.pins = append(v.pins, p.Public())
+	}
+	// The controller compile closure is deliberately six exact non-test files.
+	seen := 0
+	e := filepath.WalkDir(b.ControllerRoot, func(p string, d os.DirEntry, e error) error {
+		if e != nil || d.Type()&os.ModeSymlink != 0 {
+			return bad("controller_walk")
+		}
+		if d.IsDir() {
+			return nil
+		}
+		name := d.Name()
+		if filepath.Ext(name) != ".go" || len(name) >= 8 && name[len(name)-8:] == "_test.go" {
+			return nil
+		}
+		rel, e := filepath.Rel(b.ControllerRoot, p)
+		if e != nil {
+			return bad("controller_walk")
+		}
+		found := false
+		for _, pin := range b.ControllerSources {
+			if pin.Path == filepath.ToSlash(rel) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return bad("undeclared_controller_go")
+		}
+		seen++
+		return nil
+	})
+	if e != nil || seen != 5 {
+		return v, bad("controller_closure")
+	}
+	self, e := os.Executable()
+	if e != nil || self != filepath.Join(b.ControllerRoot, b.Self.Path) {
+		return v, bad("controller_self")
+	}
+	worker, e := pinned(b.SourceRoot, b.Worker, pure.BinaryCap, true)
+	if e != nil || checkBinary(worker, "riido.local/fourselectors") != nil {
+		return v, bad("worker_binary")
+	}
+	sb, e := pinned(b.ControllerRoot, b.Self, pure.BinaryCap, true)
+	if e != nil || checkBinary(sb, "riido.local/fourselectoroutside") != nil {
+		return v, bad("controller_binary")
+	}
+	if b.TimeTool.ID != "platform/time_l" || b.TimeTool.Path != "usr/bin/time" {
+		return v, bad("time_tool")
+	}
+	if _, e = pinned("/", b.TimeTool, pure.BinaryCap, true); e != nil {
+		return v, e
+	}
+	var m pure.Manifest
+	mb, e := pinned(b.SourceRoot, b.Manifest, pure.MetadataCap, false)
+	if e != nil || pure.DecodeNonNull(mb, &m, pure.MetadataCap) != nil || sources(b.SourceRoot, m) != nil {
+		return v, bad("source_manifest")
+	}
+	var plan pure.Plan
+	pb, e := pinned(b.SourceRoot, b.Plan, 65536, false)
+	if e != nil || pure.CheckPlan(pb, &plan) != nil {
+		return v, bad("worker_plan")
+	}
+	if _, e = pinned(b.SourceRoot, b.Fixture, pure.FixtureBytes, false); e != nil {
+		return v, bad("fixture")
+	}
+	var review pure.Review
+	rb, e := pinned(b.SourceRoot, b.Review, pure.MetadataCap, false)
+	if e != nil || pure.DecodeNonNull(rb, &review, pure.MetadataCap) != nil || pure.CheckReview(review, b) != nil {
+		return v, bad("root_prereview")
+	}
+	for _, p := range review.Evidence {
+		if _, e = pinned(b.SourceRoot, p, pure.MetadataCap, false); e != nil {
+			return v, bad("root_review_evidence")
+		}
+		v.pins = append(v.pins, p.Public())
+	}
+	for _, p := range []pure.Pin{b.Manifest, b.Plan, b.Fixture, b.Worker, b.Self, b.TimeTool, b.Review} {
+		v.pins = append(v.pins, p.Public())
+	}
+	v.binding = b
+	return v, nil
+}
+func encode(v any) ([]byte, error) {
+	b, e := json.MarshalIndent(v, "", "  ")
+	if e != nil {
+		return nil, bad("metadata_encode")
+	}
+	return append(b, '\n'), nil
+}
+func arguments(args []string) (string, string, error) {
+	if len(args) != 4 {
+		return "", "", bad("arguments")
+	}
+	path, sha := "", ""
+	for i := 0; i < 4; i += 2 {
+		if args[i+1] == "" {
+			return "", "", bad("arguments")
+		}
+		switch args[i] {
+		case "--binding":
+			if path != "" {
+				return "", "", bad("arguments")
+			}
+			path = args[i+1]
+		case "--binding-sha256":
+			if sha != "" {
+				return "", "", bad("arguments")
+			}
+			sha = args[i+1]
+		default:
+			return "", "", bad("arguments")
+		}
+	}
+	if !absolute(path) || !pure.SHA(sha) {
+		return "", "", bad("arguments")
+	}
+	return path, sha, nil
+}
+func run(args []string) (ret error) {
+	name, sha, e := arguments(args)
+	if e != nil {
+		return e
+	}
+	if runtime.Version() != "go1.27.1" || runtime.GOOS != "darwin" || runtime.GOARCH != "arm64" {
+		return bad("runtime_platform")
+	}
+	runtime.GOMAXPROCS(1)
+	debug.SetMemoryLimit(268435456)
+	raw, e := read(name, pure.MetadataCap)
+	if e != nil || pure.Digest(raw) != sha {
+		return bad("binding_pin")
+	}
+	v, e := preflight(raw)
+	if e != nil {
+		return e
+	}
+	b := v.binding
+	if contains(b.OutsideDir, name) {
+		return bad("binding_output_overlap")
+	}
+	if os.Mkdir(b.OutsideDir, 0700) != nil {
+		return bad("outside_exclusive")
+	}
+	r := Receipt{Schema: "riido-four-selector-outside-result-v1", BindingSHA: sha, State: "pre_start_failure", Requests: 4, Inputs: 19, Dispatches: 57, Counts: pure.Unknown("before_Start_counts_not_observed")}
+	defer func() {
+		if ret != nil && r.Failure == "" {
+			r.Failure = "outside_failed"
+		}
+		rb, e := encode(r)
+		if e != nil || exclusive(b.OutsideDir, "ROOT-RESULT.json", rb, pure.MetadataCap) != nil {
+			ret = bad("result_receipt_save")
+		}
+	}()
+	if syncDir(filepath.Dir(b.OutsideDir)) != nil {
+		return bad("outside_parent_sync")
+	}
+	intent := struct {
+		Schema        string           `json:"schema"`
+		BindingSHA    string           `json:"binding_sha256"`
+		State         string           `json:"state"`
+		Pins          []pure.PublicPin `json:"verified_pins"`
+		StartReserved int              `json:"start_reserved"`
+		Retries       int              `json:"automatic_retries"`
+		Scope         string           `json:"scope"`
+	}{"riido-four-selector-outside-intent-v1", sha, "reserved_before_any_time_or_native_start", v.pins, 1, 0, "Root-authored proof meanings are trusted input; counters/qualification remain pending."}
+	ib, e := encode(intent)
+	if e != nil || exclusive(b.OutsideDir, "START.once.json", ib, pure.MetadataCap) != nil {
+		return bad("once_intent_sync")
+	}
+	if _, e = os.Lstat(filepath.Join(b.OutsideDir, "child")); !os.IsNotExist(e) {
+		return bad("child_not_fresh")
+	}
+	// Rehash the two executables immediately before execute. Inputs must remain
+	// stable through exec; pathname checks are not adversarial kernel attestation.
+	if _, e = pinned(b.SourceRoot, b.Worker, pure.BinaryCap, true); e != nil {
+		return bad("worker_prestart_changed")
+	}
+	if _, e = pinned(b.ControllerRoot, b.Self, pure.BinaryCap, true); e != nil {
+		return bad("self_prestart_changed")
+	}
+	result, executionErr := execute(b, sha)
+	r = result
+	if executionErr != nil {
+		r.Failure = "bounded_execution_failed"
+	}
+	var total int64
+	e = filepath.WalkDir(b.OutsideDir, func(p string, d os.DirEntry, e error) error {
+		if e != nil || d.Type()&os.ModeSymlink != 0 {
+			return bad("outside_file")
+		}
+		if d.IsDir() {
+			return nil
+		}
+		if contains(filepath.Join(b.OutsideDir, "child"), p) {
+			return nil
+		}
+		s, e := d.Info()
+		if e != nil || !s.Mode().IsRegular() {
+			return bad("outside_file")
+		}
+		total += s.Size()
+		if total > pure.OutsideCap-pure.MetadataCap {
+			return bad("outside_storage_cap")
+		}
+		return nil
+	})
+	if e != nil {
+		return e
+	}
+	if executionErr != nil {
+		return executionErr
+	}
+	return nil
+}
+func main() {
+	if run(os.Args[1:]) != nil {
+		os.Stderr.WriteString("four_selector_outside_failed\n")
+		os.Exit(1)
+	}
+	os.Stdout.WriteString("four_selector_outside_metadata_complete_not_qualification\n")
+}

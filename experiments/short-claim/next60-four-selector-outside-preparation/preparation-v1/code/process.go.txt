@@ -1,0 +1,91 @@
+// INERT one-process lifecycle; source only, not built/tested/started.
+package main
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"hash"
+	"io"
+	"math"
+	"os"
+	"os/exec"
+	"os/signal"
+	"path/filepath"
+	"regexp"
+	"strconv"
+	"syscall"
+	"time"
+	"riido.local/fourselectoroutside/pure"
+)
+type Artifact struct {Name string `json:"name"`;Bytes int64 `json:"bytes"`;SHA string `json:"sha256"`}
+// File-size observation never infers journal Sync acknowledgment or counters.
+// Absent directory/empty files are normal while running; final requires files.
+func workerFiles(dir string,final bool)([]Artifact,int64,error){
+	a,e:=os.Lstat(dir);if os.IsNotExist(e)&&!final{return nil,0,nil};if e!=nil||!a.IsDir()||a.Mode()&os.ModeSymlink!=0{return nil,0,bad("worker_directory")}
+	names,e:=os.ReadDir(dir);if e!=nil{return nil,0,bad("worker_directory_read")};var out []Artifact;var total int64
+	for _,d:=range names{n:=d.Name();if n!="reservation.json"&&n!="checkpoints.jsonl"&&n!="results.json"{return nil,total,bad("unexpected_worker_file")};a,e:=os.Lstat(filepath.Join(dir,n));if e!=nil||!a.Mode().IsRegular(){return nil,total,bad("worker_file_type")};total+=a.Size();if total>pure.WorkerCap{return nil,total,bad("worker_output_cap")};out=append(out,Artifact{Name:n,Bytes:a.Size()})}
+	if final&&len(out)!=3{return out,total,bad("worker_files_missing")};return out,total,nil
+}
+type stream struct {file *os.File;h hash.Hash;seen,retained,cap int64;over bool;failed bool;events chan<-string}
+func newStream(f *os.File,cap int64,c chan<-string)*stream{return &stream{file:f,h:sha256.New(),cap:cap,events:c}}
+func (s *stream)notify(code string){select{case s.events<-code:default:}}
+func (s *stream)Write(b []byte)(int,error){
+	if s.seen>math.MaxInt64-int64(len(b)){s.over=true;s.notify("stream_count_overflow");return len(b),nil};s.seen+=int64(len(b));s.h.Write(b)
+	if s.seen>s.cap&&!s.over{s.over=true;s.notify("stream_cap")};left:=s.cap-s.retained;if left>0&&!s.failed{n:=len(b);if int64(n)>left{n=int(left)};w,e:=s.file.Write(b[:n]);s.retained+=int64(w);if e!=nil||w!=n{s.failed=true;s.notify("stream_write")}}
+	return len(b),nil // continue draining bounded retained prefix after overflow
+}
+type StreamSummary struct {Known bool `json:"known"`;Observed int64 `json:"observed_bytes"`;Retained int64 `json:"retained_bytes"`;ObservedSHA string `json:"observed_sha256"`;Overflow bool `json:"overflow"`;WriteFailed bool `json:"write_failed"`}
+func (s *stream)summary()StreamSummary{return StreamSummary{true,s.seen,s.retained,hex.EncodeToString(s.h.Sum(nil)),s.over,s.failed}}
+type lifecycle interface {Start()error;Wait()error;KillGroup()error}
+type command struct {cmd *exec.Cmd}
+func(c command)Start()error{return c.cmd.Start()}
+func(c command)Wait()error{return c.cmd.Wait()}
+func(c command)KillGroup()error{if c.cmd.Process==nil{return nil};return syscall.Kill(-c.cmd.Process.Pid,syscall.SIGKILL)}
+type Process struct {StartAttempts int `json:"time_wrapper_start_attempts"`;StartSucceeded bool `json:"start_succeeded"`;WaitInvocations int `json:"wait_invocations"`;WaitJoined bool `json:"wait_joined"`;ExitZero bool `json:"exit_zero"`;Timeout bool `json:"timed_out"`;Interrupted bool `json:"interrupted"`;Failure string `json:"failure"`;WallSeconds float64 `json:"outside_child_wall_seconds"`;NativeStartupCalls *int `json:"native_startup_calls_measured"`}
+func once(p lifecycle,events <-chan string,interrupt <-chan os.Signal,monitor func()error,budget,grace time.Duration)Process{
+	r:=Process{StartAttempts:1};start:=time.Now();if p.Start()!=nil{r.Failure="start_failed_no_wait";return r};r.StartSucceeded=true;r.WaitInvocations=1
+	done:=make(chan error,1);go func(){done<-p.Wait()}();timer:=time.NewTimer(budget);defer timer.Stop();ticker:=time.NewTicker(20*time.Millisecond);defer ticker.Stop()
+	stop:="";running:=true
+	for running{select{case e:=<-done:r.WaitJoined=true;r.ExitZero=e==nil;if e!=nil{r.Failure="child_wait_failed"};running=false
+	case code:=<-events:stop=code;running=false
+	case <-timer.C:r.Timeout=true;stop="outside_timeout";running=false
+	case <-interrupt:r.Interrupted=true;stop="outside_interrupted";running=false
+	case <-ticker.C:if monitor!=nil&&monitor()!=nil{stop="worker_file_contract";running=false}}}
+	if stop!=""{r.Failure=stop;if p.KillGroup()!=nil{r.Failure="kill_group_failed"};cleanup:=time.NewTimer(grace);select{case <-done:r.WaitJoined=true;case <-cleanup.C:r.Failure="cleanup_wait_unjoined"};cleanup.Stop()}
+	r.WallSeconds=time.Since(start).Seconds();return r
+}
+type OSResource struct {RSSBytes *uint64 `json:"whole_worker_max_RSS_bytes"`;RealSeconds *float64 `json:"OS_real_seconds"`;UserSeconds *float64 `json:"OS_user_seconds"`;SystemSeconds *float64 `json:"OS_system_seconds"`;Source string `json:"source"`}
+func resource(b []byte)OSResource{
+	r:=OSResource{Source:"Darwin_time_l_worker_process_including_native_init_startup_and_pin_checks; not internal or router cost"}
+	re:=regexp.MustCompile(`(?m)^\s*([0-9]+)\s+maximum resident set size\s*$`);m:=re.FindAllSubmatch(b,-1);if len(m)==1{n,e:=strconv.ParseUint(string(m[0][1]),10,64);if e==nil{r.RSSBytes=&n}}
+	t:=regexp.MustCompile(`(?m)^\s*([0-9]+(?:\.[0-9]+)?)\s+real\s+([0-9]+(?:\.[0-9]+)?)\s+user\s+([0-9]+(?:\.[0-9]+)?)\s+sys\s*$`);m=t.FindAllSubmatch(b,-1);if len(m)==1{v:=[3]float64{};ok:=true;for i:=range v{n,e:=strconv.ParseFloat(string(m[0][i+1]),64);if e!=nil||math.IsInf(n,0)||math.IsNaN(n)||n<0{ok=false};v[i]=n};if ok{r.RealSeconds=&v[0];r.UserSeconds=&v[1];r.SystemSeconds=&v[2]}};return r
+}
+type Receipt struct {Schema string `json:"schema"`;BindingSHA string `json:"binding_sha256"`;State string `json:"state"`;Failure string `json:"failure"`;Requests int `json:"planned_existing_requests"`;Inputs int `json:"planned_finite_inputs"`;Dispatches int `json:"planned_wrapper_dispatches"`;Process Process `json:"process"`;Stdout StreamSummary `json:"stdout"`;Stderr StreamSummary `json:"stderr"`;Artifacts []Artifact `json:"physical_worker_artifacts"`;Counts pure.Counts `json:"metadata_counts"`;ReportedPartial *pure.Counters `json:"reported_final_counter_prefix"`;OS OSResource `json:"OS_resource"`;RSSWithin *bool `json:"observed_RSS_within_256MiB"`;Model int `json:"model_calls"`;Labels int `json:"labels_created"`;Qualified bool `json:"qualification_claim"`;Scope string `json:"scope"`}
+func execute(b pure.Binding,bindingSHA string)(Receipt,error){
+	r:=Receipt{Schema:"riido-four-selector-outside-result-v1",BindingSHA:bindingSHA,State:"not_started",Requests:4,Inputs:19,Dispatches:57,Counts:pure.Unknown("no_started_worker_report"),Scope:"One time-wrapper process/zero retries; no semantic comparison or qualification. Explicit wrapper and Error counters only; native/internal/init unknown. Byte-visible journal tail acknowledgment unknown without finalized receipt. Raw logs/paths are private."}
+	out:=b.OutsideDir;child:=filepath.Join(out,"child");events:=make(chan string,8)
+	stdout,e:=os.OpenFile(filepath.Join(out,"stdout.private.bin"),os.O_CREATE|os.O_EXCL|os.O_RDWR,0600);if e!=nil{return r,bad("stdout_reserve")}
+	stderr,e:=os.OpenFile(filepath.Join(out,"stderr.private.bin"),os.O_CREATE|os.O_EXCL|os.O_RDWR,0600);if e!=nil{stdout.Close();return r,bad("stderr_reserve")}
+	so,se:=newStream(stdout,pure.FinalCap,events),newStream(stderr,pure.StderrCap,events)
+	if stdout.Sync()!=nil||stderr.Sync()!=nil||syncDir(out)!=nil{stdout.Close();stderr.Close();return r,bad("stream_reservation_sync")}
+	worker:=filepath.Join(b.SourceRoot,b.Worker.Path);plan:=filepath.Join(b.SourceRoot,b.Plan.Path)
+	cmd:=exec.Command(filepath.Join("/",b.TimeTool.Path),"-l",worker,"--plan",plan,"--plan-sha256",b.Plan.SHA,"--attempt-dir",child)
+	cmd.Dir=b.SourceRoot;cmd.Env=[]string{"GOMAXPROCS=1","GOMEMLIMIT=268435456","GOTOOLCHAIN=local","GOPROXY=off","GOSUMDB=off","GOWORK=off","GOENV=off","LANG=C","LC_ALL=C"};cmd.SysProcAttr=&syscall.SysProcAttr{Setpgid:true};cmd.Stdout=so;cmd.Stderr=se;cmd.WaitDelay=time.Second
+	signals:=make(chan os.Signal,1);signal.Notify(signals,os.Interrupt,syscall.SIGTERM);defer signal.Stop(signals)
+	r.Process=once(command{cmd},events,signals,func()error{_,_,e:=workerFiles(child,false);return e},60*time.Second,time.Second)
+	if !r.Process.StartSucceeded{stdout.Sync();stderr.Sync();stdout.Close();stderr.Close();return r,bad("start_failed")}
+	if !r.Process.WaitJoined{r.State="failed_unjoined_counts_unknown";r.Counts=pure.Unknown("wait_not_joined_streams_and_calls_unknown");return r,bad("cleanup_unjoined")}
+	r.Stdout=so.summary();r.Stderr=se.summary();stdoutSync,stderrSync:=stdout.Sync(),stderr.Sync();stdoutClose,stderrClose:=stdout.Close(),stderr.Close();syncErr:=stdoutSync!=nil||stderrSync!=nil||stdoutClose!=nil||stderrClose!=nil
+	art,_,ae:=workerFiles(child,true);r.Artifacts=art
+	if ae==nil{for i:=range r.Artifacts{p:=filepath.Join(child,r.Artifacts[i].Name);a:=r.Artifacts[i];if a.Bytes==0{r.Artifacts[i].SHA=pure.Digest(nil);continue};z,e:=read(p,pure.WorkerCap);if e!=nil{ae=e;break};r.Artifacts[i].SHA=pure.Digest(z)}}
+	st,e:=read(filepath.Join(out,"stderr.private.bin"),pure.StderrCap);if e==nil{r.OS=resource(st)};if r.OS.RSSBytes!=nil{ok:=*r.OS.RSSBytes<=268435456;r.RSSWithin=&ok}
+	final,fe:=read(filepath.Join(child,"results.json"),pure.FinalCap);written,we:=read(filepath.Join(out,"stdout.private.bin"),pure.FinalCap)
+	if fe==nil{var f pure.Final;if pure.Decode(final,&f,pure.FinalCap)==nil&&pure.CheckHeader(f.Header,b.Plan.SHA)&&pure.CheckCounters(f.Counters){c:=f.Counters;r.ReportedPartial=&c}}
+	if ae!=nil||syncErr||fe!=nil||we!=nil||!bytes.Equal(final,written)||!r.Process.ExitZero||r.Process.Timeout||r.Process.Interrupted||r.Stdout.Overflow||r.Stderr.Overflow||r.Stdout.WriteFailed||r.Stderr.WriteFailed{r.State="failed_retained_prefix_counts_unknown";r.Counts=pure.Unknown("lifecycle_or_output_failed");return r,bad("lifecycle_output_failed")}
+	r.Counts,e=pure.AssessFinal(final,b.Plan.SHA);if e!=nil||!r.Counts.Known{r.State="failed_or_incomplete_metadata_retained";return r,bad("final_metadata")}
+	r.State="completed_finite_observation_metadata_not_satisfaction"
+	if r.RSSWithin==nil||!*r.RSSWithin{r.State="completed_metadata_resource_unavailable_or_over";return r,bad("observed_RSS_unavailable_or_over")};return r,nil
+}
+// Compile-time interface shape only; no process is started by this assertion.
+var _ io.Writer=(*stream)(nil)

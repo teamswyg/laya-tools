@@ -1,0 +1,138 @@
+// Inert synthetic controls only. No gofmt, compile, test, or execution performed.
+// If activated later, compile with the four pure files; exclude native_binding.
+package batchprep
+
+import (
+	"errors"
+	"testing"
+)
+
+type countedError struct{ Calls *int }
+
+func (e *countedError) Error() string { (*e.Calls)++; return "fake_error" }
+func fakeCommaDispatch(candidate int) Dispatch {
+	for _, d := range Schedule() {
+		if d.OriginalOrdinal == 1 && d.CandidateIndex == candidate && d.FixtureIndex == 0 {
+			return d
+		}
+	}
+	panic("synthetic_dispatch_missing")
+}
+func fakeCommaFixture() Fixture {
+	s := "1"
+	return Fixture{OriginalOrdinal: 1, FixtureIndex: 0, CaseID: "synthetic", StringInput: &s}
+}
+
+func TestSyntheticCheckpointErrorPhases(t *testing.T) {
+	errorCalls := 0
+	ops := OriginalOps{ParseComma: func(string) (int64, error) { return 7, &countedError{Calls: &errorCalls} }}
+	var counters Counters
+	var events []Event
+	out, err := Observe(fakeCommaDispatch(0), fakeCommaFixture(), ops, func(e Event) error { events = append(events, e); return nil }, &counters)
+	if err != nil || len(events) != 4 || errorCalls != 1 {
+		t.Fatal("synthetic_phase_completion")
+	}
+	before, after := events[1], events[2]
+	if events[0].Stage != "before_candidate" || before.Stage != "before_error_method" || after.Stage != "after_error_method" || events[3].Stage != "after_candidate" {
+		t.Fatal("synthetic_stage_order")
+	}
+	if before.Schema != CheckpointSchema || !before.Partial.CandidateCompletionObserved || !before.Partial.ReturnedNormally || !before.Partial.Int64Decimal.Known || before.Partial.Int64Decimal.Value != "7" {
+		t.Fatal("synthetic_return_before_error")
+	}
+	if !before.Partial.ErrorPresent.Known || !before.Partial.ErrorPresent.Value || !before.Partial.ErrorType.Known || before.Partial.ErrorKind.Known || before.Partial.ErrorText.Known || before.Partial.ErrorMethodCompletionObserved {
+		t.Fatal("synthetic_error_pending")
+	}
+	if before.Counters.CandidateReturned != 1 || before.Counters.ErrorMethodReserved != 1 || before.Counters.ErrorMethodDispatched != 0 {
+		t.Fatal("synthetic_before_counts")
+	}
+	if !after.Partial.ErrorText.Known || after.Partial.ErrorText.Value != "fake_error" || !after.Partial.ErrorKind.Known || after.Partial.ErrorKind.Value != "unclassified_error" || !after.Partial.ErrorMethodCompletionObserved || after.Counters.ErrorMethodReturned != 1 {
+		t.Fatal("synthetic_after_error")
+	}
+	if out.ErrorText == nil || *out.ErrorText != "fake_error" || counters.CheckpointStopped {
+		t.Fatal("synthetic_final_state")
+	}
+	if before.Partial.OriginalAPICallsMeasured.Known || after.Partial.StartupInitCallsMeasured.Known {
+		t.Fatal("synthetic_no_inner_measurement")
+	}
+}
+
+func TestSyntheticCheckpointCopiesAndNilEmpty(t *testing.T) {
+	var d Dispatch
+	for _, v := range Schedule() {
+		if v.OriginalOrdinal == 5 && v.CandidateIndex == 0 && v.FixtureIndex == 0 {
+			d = v
+			break
+		}
+	}
+	fixture := Fixture{OriginalOrdinal: 5, FixtureIndex: 0, CaseID: "synthetic", Snapshot: &SnapshotInput{Map: map[string]string{"a": "1"}, MutateSnapshot: map[string]string{"a": "2"}, MutateLive: map[string]string{"b": "2"}}}
+	ops := OriginalOps{SetupMap: func(m map[string]string) MapBinding {
+		return MapBinding{Live: &m, Get: func(string) (map[string]string, error) { return m, nil }}
+	}}
+	var counters Counters
+	out, err := Observe(d, fixture, ops, func(e Event) error {
+		if e.Stage == "after_candidate" {
+			if !e.Partial.LiveAfter.Known || e.Partial.LiveAfter.Count != 2 || e.Partial.LiveAfter.Entries[0].Value != "2" {
+				t.Fatal("synthetic_map_values")
+			}
+			e.Partial.LiveAfter.Entries[0].Value = "corrupted"
+			e.Counters.CandidateReturned = 999
+		}
+		return nil
+	}, &counters)
+	if err != nil || out.LiveAfter == nil || out.LiveAfter.Entries[0].Value != "2" || counters.CandidateReturned != 1 {
+		t.Fatal("synthetic_copy_ownership")
+	}
+	p, err := snapshotObservation(Observation{LiveBefore: Image(nil), LiveAfter: Image(map[string]string{})})
+	if err != nil || !p.LiveBefore.Known || !p.LiveBefore.Nil || !p.LiveAfter.Known || p.LiveAfter.Nil || p.LiveAfter.Count != 0 || p.SnapshotBefore.Known {
+		t.Fatal("synthetic_null_empty_unknown")
+	}
+}
+
+func TestSyntheticReservationFailureStopsNextDispatch(t *testing.T) {
+	calls := 0
+	checkpoints := 0
+	ops := OriginalOps{ParseComma: func(string) (int64, error) { calls++; return 1, nil }}
+	var counters Counters
+	checkpoint := func(Event) error { checkpoints++; return errors.New("fake_checkpoint_failure") }
+	out, err := Observe(fakeCommaDispatch(0), fakeCommaFixture(), ops, checkpoint, &counters)
+	if err == nil || calls != 0 || counters.CandidateReserved != 1 || counters.CandidateDispatched != 0 || !counters.CheckpointStopped || out.UnknownReason != "reservation_checkpoint_failed" {
+		t.Fatal("synthetic_reservation_refusal")
+	}
+	_, err = Observe(fakeCommaDispatch(0), fakeCommaFixture(), ops, checkpoint, &counters)
+	if err == nil || calls != 0 || checkpoints != 1 || counters.CandidateReserved != 1 {
+		t.Fatal("synthetic_sticky_stop")
+	}
+}
+
+func TestSyntheticErrorCheckpointFailurePreservesReturn(t *testing.T) {
+	errorCalls := 0
+	ops := OriginalOps{ParseComma: func(string) (int64, error) { return 7, &countedError{Calls: &errorCalls} }}
+	var counters Counters
+	out, err := Observe(fakeCommaDispatch(0), fakeCommaFixture(), ops, func(e Event) error {
+		if e.Stage == "before_error_method" {
+			return errors.New("fake_checkpoint_failure")
+		}
+		return nil
+	}, &counters)
+	if err == nil || !out.ReturnedNormally || out.Int64Decimal == nil || *out.Int64Decimal != "7" || out.ErrorPresent == nil || !*out.ErrorPresent || out.ErrorText != nil || errorCalls != 0 {
+		t.Fatal("synthetic_pending_error_return")
+	}
+	if counters.CandidateReturned != 1 || counters.ErrorMethodReserved != 1 || counters.ErrorMethodDispatched != 0 || !counters.CheckpointStopped {
+		t.Fatal("synthetic_pending_error_counts")
+	}
+}
+
+func TestSyntheticSnapshotBoundsRefuseNoTruncation(t *testing.T) {
+	o := Observation{LiveAfter: &MapImage{Entries: make([]Entry, MaxCheckpointMapEntries+1)}}
+	if _, err := snapshotObservation(o); err == nil {
+		t.Fatal("synthetic_map_overflow_accepted")
+	}
+	o = Observation{ConflictingKeys: make([]string, MaxCheckpointKeys+1)}
+	if _, err := snapshotObservation(o); err == nil {
+		t.Fatal("synthetic_key_overflow_accepted")
+	}
+	o = Observation{LiveAfter: &MapImage{Nil: true, Entries: []Entry{{Key: "a", Value: "1"}}}}
+	if _, err := snapshotObservation(o); err == nil {
+		t.Fatal("synthetic_nil_with_entries_accepted")
+	}
+}

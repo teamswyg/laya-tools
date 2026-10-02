@@ -1,0 +1,1295 @@
+{
+  "schema": "riido-next60-four-selector-literal-fixture-preparation-v1",
+  "state": "source_authored_literal_preparation_not_runtime_approval",
+  "frozen_literal_values": true,
+  "execution_plan_frozen": false,
+  "independent_Want_review": false,
+  "source_selector_sha256": "7cd4fbc4a12212caa328ae7e6f59f567abb7c1852f2e4a9ee2e4dc8156b2bad5",
+  "original_draft_sha256": "c7bbf7bcc7912300fabdd6e671b0922df295299f00e5e7201df1ab5e824a2a9b",
+  "original_ordinals": [
+    1,
+    4,
+    5,
+    9
+  ],
+  "requests": [
+    {
+      "request_index": 0,
+      "original_ordinal": 1,
+      "parent_id": "next60-humanize-strict-comma",
+      "source_family": "upstream53-humanize",
+      "original_request_unchanged": "Add ParseCommaStrict accepting ungrouped integers or canonical three-digit comma groups and rejecting malformed grouping.",
+      "model_visible_request_proposal": "Parse ASCII integers with optional sign and no whitespace; allow ungrouped digits or comma groups of one to three initial digits followed by exactly three; zero on grammar or overflow errors.",
+      "model_visible_request_static_alphanumeric_words": 31,
+      "model_visible_request_ascii_bytes": 191,
+      "model_visible_text_is_new_scoped_version_proposal": true,
+      "candidates": [
+        {
+          "candidate_index": 0,
+          "candidate_id": "baseline-design",
+          "original_description": "ParseComma removes every comma, then calls strconv.ParseInt; malformed grouping has no separate validation.",
+          "caption_proposal": "Use the original comma parser, removing all commas before checked integer parsing.",
+          "static_alphanumeric_words": 12,
+          "bytes": 82,
+          "code_symbol": "CommaCandidate",
+          "selector_argument": 0
+        },
+        {
+          "candidate_index": 1,
+          "candidate_id": "reference-design",
+          "original_description": "Validate ASCII grouping/sign first, remove commas only after grammar succeeds, then checked int64 parsing.",
+          "caption_proposal": "Check signed ASCII comma groups first, parse an int64, and return zero for grammar or range errors.",
+          "static_alphanumeric_words": 17,
+          "bytes": 99,
+          "code_symbol": "CommaCandidate",
+          "selector_argument": 1
+        },
+        {
+          "candidate_index": 2,
+          "candidate_id": "wrong-seed-design",
+          "original_description": "Reuse ParseComma and accept malformed grouping.",
+          "caption_proposal": "Call the original comma parser directly and retain its permissive grouping behavior.",
+          "static_alphanumeric_words": 12,
+          "bytes": 84,
+          "code_symbol": "CommaCandidate",
+          "selector_argument": 2
+        }
+      ],
+      "fixture_count": 6,
+      "fixtures": [
+        {
+          "fixture_ordinal": 0,
+          "fixture": {
+            "original_ordinal": 1,
+            "fixture_index": 0,
+            "case_id": "next60-humanize-strict-comma-vector-01",
+            "string_input": "1,234",
+            "collision_input": null,
+            "snapshot_input": null
+          },
+          "original_case_reference": {
+            "artifact_sha256": "c7bbf7bcc7912300fabdd6e671b0922df295299f00e5e7201df1ab5e824a2a9b",
+            "json_pointer": "/drafts/1/finite_cases/0"
+          },
+          "original_full_case": {
+            "Got": null,
+            "Want_authorship": "project-authored finite specification inferred from pinned source or new API intent; not native observation",
+            "actual_original_call": false,
+            "case_id": "next60-humanize-strict-comma-vector-01",
+            "input": "1,234",
+            "want": {
+              "error": null,
+              "value": 1234
+            }
+          },
+          "wanted_contract": {
+            "error_present": false,
+            "required_error_kind": null,
+            "required_error_type": null,
+            "int64_decimal": "1234",
+            "uint64_decimal": null,
+            "name_after": null,
+            "conflicting_keys": null,
+            "live_after": null,
+            "snapshot_after": null,
+            "legacy_after": null
+          },
+          "Got": null,
+          "comparison": null,
+          "truth": null,
+          "acceptable_candidate_indices": null,
+          "label": null,
+          "role": null,
+          "weight": null,
+          "mask": null
+        },
+        {
+          "fixture_ordinal": 1,
+          "fixture": {
+            "original_ordinal": 1,
+            "fixture_index": 1,
+            "case_id": "next60-humanize-strict-comma-vector-02",
+            "string_input": "-12,345",
+            "collision_input": null,
+            "snapshot_input": null
+          },
+          "original_case_reference": {
+            "artifact_sha256": "c7bbf7bcc7912300fabdd6e671b0922df295299f00e5e7201df1ab5e824a2a9b",
+            "json_pointer": "/drafts/1/finite_cases/1"
+          },
+          "original_full_case": {
+            "Got": null,
+            "Want_authorship": "project-authored finite specification inferred from pinned source or new API intent; not native observation",
+            "actual_original_call": false,
+            "case_id": "next60-humanize-strict-comma-vector-02",
+            "input": "-12,345",
+            "want": {
+              "error": null,
+              "value": -12345
+            }
+          },
+          "wanted_contract": {
+            "error_present": false,
+            "required_error_kind": null,
+            "required_error_type": null,
+            "int64_decimal": "-12345",
+            "uint64_decimal": null,
+            "name_after": null,
+            "conflicting_keys": null,
+            "live_after": null,
+            "snapshot_after": null,
+            "legacy_after": null
+          },
+          "Got": null,
+          "comparison": null,
+          "truth": null,
+          "acceptable_candidate_indices": null,
+          "label": null,
+          "role": null,
+          "weight": null,
+          "mask": null
+        },
+        {
+          "fixture_ordinal": 2,
+          "fixture": {
+            "original_ordinal": 1,
+            "fixture_index": 2,
+            "case_id": "next60-humanize-strict-comma-vector-03",
+            "string_input": "12345",
+            "collision_input": null,
+            "snapshot_input": null
+          },
+          "original_case_reference": {
+            "artifact_sha256": "c7bbf7bcc7912300fabdd6e671b0922df295299f00e5e7201df1ab5e824a2a9b",
+            "json_pointer": "/drafts/1/finite_cases/2"
+          },
+          "original_full_case": {
+            "Got": null,
+            "Want_authorship": "project-authored finite specification inferred from pinned source or new API intent; not native observation",
+            "actual_original_call": false,
+            "case_id": "next60-humanize-strict-comma-vector-03",
+            "input": "12345",
+            "want": {
+              "error": null,
+              "value": 12345
+            }
+          },
+          "wanted_contract": {
+            "error_present": false,
+            "required_error_kind": null,
+            "required_error_type": null,
+            "int64_decimal": "12345",
+            "uint64_decimal": null,
+            "name_after": null,
+            "conflicting_keys": null,
+            "live_after": null,
+            "snapshot_after": null,
+            "legacy_after": null
+          },
+          "Got": null,
+          "comparison": null,
+          "truth": null,
+          "acceptable_candidate_indices": null,
+          "label": null,
+          "role": null,
+          "weight": null,
+          "mask": null
+        },
+        {
+          "fixture_ordinal": 3,
+          "fixture": {
+            "original_ordinal": 1,
+            "fixture_index": 3,
+            "case_id": "next60-humanize-strict-comma-vector-04",
+            "string_input": "12,34",
+            "collision_input": null,
+            "snapshot_input": null
+          },
+          "original_case_reference": {
+            "artifact_sha256": "c7bbf7bcc7912300fabdd6e671b0922df295299f00e5e7201df1ab5e824a2a9b",
+            "json_pointer": "/drafts/1/finite_cases/3"
+          },
+          "original_full_case": {
+            "Got": null,
+            "Want_authorship": "project-authored finite specification inferred from pinned source or new API intent; not native observation",
+            "actual_original_call": false,
+            "case_id": "next60-humanize-strict-comma-vector-04",
+            "input": "12,34",
+            "want": {
+              "error_kind": "grouping",
+              "value": 0
+            }
+          },
+          "wanted_contract": {
+            "error_present": true,
+            "required_error_kind": "grouping",
+            "required_error_type": null,
+            "int64_decimal": "0",
+            "uint64_decimal": null,
+            "name_after": null,
+            "conflicting_keys": null,
+            "live_after": null,
+            "snapshot_after": null,
+            "legacy_after": null
+          },
+          "Got": null,
+          "comparison": null,
+          "truth": null,
+          "acceptable_candidate_indices": null,
+          "label": null,
+          "role": null,
+          "weight": null,
+          "mask": null
+        },
+        {
+          "fixture_ordinal": 4,
+          "fixture": {
+            "original_ordinal": 1,
+            "fixture_index": 4,
+            "case_id": "next60-humanize-strict-comma-vector-05",
+            "string_input": "1,,234",
+            "collision_input": null,
+            "snapshot_input": null
+          },
+          "original_case_reference": {
+            "artifact_sha256": "c7bbf7bcc7912300fabdd6e671b0922df295299f00e5e7201df1ab5e824a2a9b",
+            "json_pointer": "/drafts/1/finite_cases/4"
+          },
+          "original_full_case": {
+            "Got": null,
+            "Want_authorship": "project-authored finite specification inferred from pinned source or new API intent; not native observation",
+            "actual_original_call": false,
+            "case_id": "next60-humanize-strict-comma-vector-05",
+            "input": "1,,234",
+            "want": {
+              "error_kind": "grouping",
+              "value": 0
+            }
+          },
+          "wanted_contract": {
+            "error_present": true,
+            "required_error_kind": "grouping",
+            "required_error_type": null,
+            "int64_decimal": "0",
+            "uint64_decimal": null,
+            "name_after": null,
+            "conflicting_keys": null,
+            "live_after": null,
+            "snapshot_after": null,
+            "legacy_after": null
+          },
+          "Got": null,
+          "comparison": null,
+          "truth": null,
+          "acceptable_candidate_indices": null,
+          "label": null,
+          "role": null,
+          "weight": null,
+          "mask": null
+        },
+        {
+          "fixture_ordinal": 5,
+          "fixture": {
+            "original_ordinal": 1,
+            "fixture_index": 5,
+            "case_id": "next60-humanize-strict-comma-vector-06",
+            "string_input": "9223372036854775808",
+            "collision_input": null,
+            "snapshot_input": null
+          },
+          "original_case_reference": {
+            "artifact_sha256": "c7bbf7bcc7912300fabdd6e671b0922df295299f00e5e7201df1ab5e824a2a9b",
+            "json_pointer": "/drafts/1/finite_cases/5"
+          },
+          "original_full_case": {
+            "Got": null,
+            "Want_authorship": "project-authored finite specification inferred from pinned source or new API intent; not native observation",
+            "actual_original_call": false,
+            "case_id": "next60-humanize-strict-comma-vector-06",
+            "input": "9223372036854775808",
+            "want": {
+              "error_kind": "range",
+              "value": 0
+            }
+          },
+          "wanted_contract": {
+            "error_present": true,
+            "required_error_kind": "range",
+            "required_error_type": null,
+            "int64_decimal": "0",
+            "uint64_decimal": null,
+            "name_after": null,
+            "conflicting_keys": null,
+            "live_after": null,
+            "snapshot_after": null,
+            "legacy_after": null
+          },
+          "Got": null,
+          "comparison": null,
+          "truth": null,
+          "acceptable_candidate_indices": null,
+          "label": null,
+          "role": null,
+          "weight": null,
+          "mask": null
+        }
+      ]
+    },
+    {
+      "request_index": 1,
+      "original_ordinal": 4,
+      "parent_id": "next60-mapstructure-key-collision",
+      "source_family": "upstream53-mapstructure",
+      "original_request_unchanged": "Add an opt-in ambiguity error when multiple input keys match one destination field through MatchName; do not resolve the conflict by random map order.",
+      "model_visible_request_proposal": "For the Name string field with case insensitive matching, reject every multiple matching key before assignment, including equal values or exact spelling; return sorted conflicting keys.",
+      "model_visible_request_static_alphanumeric_words": 26,
+      "model_visible_request_ascii_bytes": 185,
+      "model_visible_text_is_new_scoped_version_proposal": true,
+      "candidates": [
+        {
+          "candidate_index": 0,
+          "candidate_id": "baseline-design",
+          "original_description": "decodeStructFromMap builds map-key sets and searches MatchName; a deterministic ambiguity-rejection option is not declared.",
+          "caption_proposal": "Decode Name with original case insensitive matching; preserve exact key lookup and fallback selection.",
+          "static_alphanumeric_words": 14,
+          "bytes": 102,
+          "code_symbol": "CollisionCandidate",
+          "selector_argument": 0
+        },
+        {
+          "candidate_index": 1,
+          "candidate_id": "reference-design",
+          "original_description": "Collect every matching input key, sort names, reject >1 before assigning; do not silently exempt equal values or exact-case hits.",
+          "caption_proposal": "Sort every matching Name key; reject collisions before writing; otherwise use the original decoder.",
+          "static_alphanumeric_words": 14,
+          "bytes": 99,
+          "code_symbol": "CollisionCandidate",
+          "selector_argument": 1
+        },
+        {
+          "candidate_index": 2,
+          "candidate_id": "wrong-seed-design",
+          "original_description": "Return first matching key from map iteration, or skip ambiguity when values are equal.",
+          "caption_proposal": "Sort matching keys and assign the first value without reporting collisions.",
+          "static_alphanumeric_words": 11,
+          "bytes": 75,
+          "code_symbol": "CollisionCandidate",
+          "selector_argument": 2
+        }
+      ],
+      "fixture_count": 4,
+      "fixtures": [
+        {
+          "fixture_ordinal": 6,
+          "fixture": {
+            "original_ordinal": 4,
+            "fixture_index": 0,
+            "case_id": "next60-mapstructure-key-collision-vector-01",
+            "string_input": null,
+            "collision_input": {
+              "initial_name": "old",
+              "map": {
+                "NAME": "b",
+                "name": "a"
+              }
+            },
+            "snapshot_input": null
+          },
+          "original_case_reference": {
+            "artifact_sha256": "c7bbf7bcc7912300fabdd6e671b0922df295299f00e5e7201df1ab5e824a2a9b",
+            "json_pointer": "/drafts/4/finite_cases/0"
+          },
+          "original_full_case": {
+            "Got": null,
+            "Want_authorship": "project-authored finite specification inferred from pinned source or new API intent; not native observation",
+            "actual_original_call": false,
+            "case_id": "next60-mapstructure-key-collision-vector-01",
+            "input": {
+              "initial_name": "old",
+              "map": {
+                "NAME": "b",
+                "name": "a"
+              }
+            },
+            "want": {
+              "conflicting_keys": [
+                "NAME",
+                "name"
+              ],
+              "error_kind": "ambiguous_key",
+              "name": "old"
+            }
+          },
+          "wanted_contract": {
+            "error_present": true,
+            "required_error_kind": "ambiguous_key",
+            "required_error_type": null,
+            "int64_decimal": null,
+            "uint64_decimal": null,
+            "name_after": "old",
+            "conflicting_keys": [
+              "NAME",
+              "name"
+            ],
+            "live_after": null,
+            "snapshot_after": null,
+            "legacy_after": null
+          },
+          "Got": null,
+          "comparison": null,
+          "truth": null,
+          "acceptable_candidate_indices": null,
+          "label": null,
+          "role": null,
+          "weight": null,
+          "mask": null
+        },
+        {
+          "fixture_ordinal": 7,
+          "fixture": {
+            "original_ordinal": 4,
+            "fixture_index": 1,
+            "case_id": "next60-mapstructure-key-collision-vector-02",
+            "string_input": null,
+            "collision_input": {
+              "initial_name": "old",
+              "map": {
+                "name": "a"
+              }
+            },
+            "snapshot_input": null
+          },
+          "original_case_reference": {
+            "artifact_sha256": "c7bbf7bcc7912300fabdd6e671b0922df295299f00e5e7201df1ab5e824a2a9b",
+            "json_pointer": "/drafts/4/finite_cases/1"
+          },
+          "original_full_case": {
+            "Got": null,
+            "Want_authorship": "project-authored finite specification inferred from pinned source or new API intent; not native observation",
+            "actual_original_call": false,
+            "case_id": "next60-mapstructure-key-collision-vector-02",
+            "input": {
+              "initial_name": "old",
+              "map": {
+                "name": "a"
+              }
+            },
+            "want": {
+              "error": null,
+              "name": "a"
+            }
+          },
+          "wanted_contract": {
+            "error_present": false,
+            "required_error_kind": null,
+            "required_error_type": null,
+            "int64_decimal": null,
+            "uint64_decimal": null,
+            "name_after": "a",
+            "conflicting_keys": null,
+            "live_after": null,
+            "snapshot_after": null,
+            "legacy_after": null
+          },
+          "Got": null,
+          "comparison": null,
+          "truth": null,
+          "acceptable_candidate_indices": null,
+          "label": null,
+          "role": null,
+          "weight": null,
+          "mask": null
+        },
+        {
+          "fixture_ordinal": 8,
+          "fixture": {
+            "original_ordinal": 4,
+            "fixture_index": 2,
+            "case_id": "next60-mapstructure-key-collision-vector-03",
+            "string_input": null,
+            "collision_input": {
+              "initial_name": "old",
+              "map": {
+                "unrelated": "a"
+              }
+            },
+            "snapshot_input": null
+          },
+          "original_case_reference": {
+            "artifact_sha256": "c7bbf7bcc7912300fabdd6e671b0922df295299f00e5e7201df1ab5e824a2a9b",
+            "json_pointer": "/drafts/4/finite_cases/2"
+          },
+          "original_full_case": {
+            "Got": null,
+            "Want_authorship": "project-authored finite specification inferred from pinned source or new API intent; not native observation",
+            "actual_original_call": false,
+            "case_id": "next60-mapstructure-key-collision-vector-03",
+            "input": {
+              "initial_name": "old",
+              "map": {
+                "unrelated": "a"
+              }
+            },
+            "want": {
+              "error": null,
+              "name": "old"
+            }
+          },
+          "wanted_contract": {
+            "error_present": false,
+            "required_error_kind": null,
+            "required_error_type": null,
+            "int64_decimal": null,
+            "uint64_decimal": null,
+            "name_after": "old",
+            "conflicting_keys": null,
+            "live_after": null,
+            "snapshot_after": null,
+            "legacy_after": null
+          },
+          "Got": null,
+          "comparison": null,
+          "truth": null,
+          "acceptable_candidate_indices": null,
+          "label": null,
+          "role": null,
+          "weight": null,
+          "mask": null
+        },
+        {
+          "fixture_ordinal": 9,
+          "fixture": {
+            "original_ordinal": 4,
+            "fixture_index": 3,
+            "case_id": "next60-mapstructure-key-collision-vector-04",
+            "string_input": null,
+            "collision_input": {
+              "initial_name": "old",
+              "map": {
+                "NAME": "a",
+                "Name": "a"
+              }
+            },
+            "snapshot_input": null
+          },
+          "original_case_reference": {
+            "artifact_sha256": "c7bbf7bcc7912300fabdd6e671b0922df295299f00e5e7201df1ab5e824a2a9b",
+            "json_pointer": "/drafts/4/finite_cases/3"
+          },
+          "original_full_case": {
+            "Got": null,
+            "Want_authorship": "project-authored finite specification inferred from pinned source or new API intent; not native observation",
+            "actual_original_call": false,
+            "case_id": "next60-mapstructure-key-collision-vector-04",
+            "input": {
+              "initial_name": "old",
+              "map": {
+                "NAME": "a",
+                "Name": "a"
+              }
+            },
+            "want": {
+              "error_kind": "ambiguous_key",
+              "name": "old"
+            }
+          },
+          "wanted_contract": {
+            "error_present": true,
+            "required_error_kind": "ambiguous_key",
+            "required_error_type": null,
+            "int64_decimal": null,
+            "uint64_decimal": null,
+            "name_after": "old",
+            "conflicting_keys": [
+              "NAME",
+              "Name"
+            ],
+            "live_after": null,
+            "snapshot_after": null,
+            "legacy_after": null
+          },
+          "Got": null,
+          "comparison": null,
+          "truth": null,
+          "acceptable_candidate_indices": null,
+          "label": null,
+          "role": null,
+          "weight": null,
+          "mask": null
+        }
+      ]
+    },
+    {
+      "request_index": 2,
+      "original_ordinal": 5,
+      "parent_id": "next60-pflag-map-snapshot",
+      "source_family": "upstream53-cobra-pflag-connected",
+      "original_request_unchanged": "Add a snapshot getter for string-to-string flags that returns an independent map while preserving the existing documented shared-map getter.",
+      "model_visible_request_proposal": "Return an independent snapshot of string to string flag maps; preserve nil and missing flag errors and the legacy shared getter. Mutations must not cross snapshot and live maps.",
+      "model_visible_request_static_alphanumeric_words": 29,
+      "model_visible_request_ascii_bytes": 177,
+      "model_visible_text_is_new_scoped_version_proposal": true,
+      "candidates": [
+        {
+          "candidate_index": 0,
+          "candidate_id": "baseline-design",
+          "original_description": "GetStringToString explicitly returns the internal map with shared memory.",
+          "caption_proposal": "Return the legacy getter map and preserve its shared storage.",
+          "static_alphanumeric_words": 10,
+          "bytes": 61,
+          "code_symbol": "SnapshotCandidate",
+          "selector_argument": 0
+        },
+        {
+          "candidate_index": 1,
+          "candidate_id": "reference-design",
+          "original_description": "Resolve the existing getter, return a fresh map copying all entries, preserve nil/error conventions and retain the old getter.",
+          "caption_proposal": "Copy successful map entries into new storage, preserve nil and getter errors, and leave the legacy getter unchanged.",
+          "static_alphanumeric_words": 18,
+          "bytes": 116,
+          "code_symbol": "SnapshotCandidate",
+          "selector_argument": 1
+        },
+        {
+          "candidate_index": 2,
+          "candidate_id": "wrong-seed-design",
+          "original_description": "Return the existing getter result or a shallow struct containing that same map.",
+          "caption_proposal": "Copy a struct containing the original map without copying its storage.",
+          "static_alphanumeric_words": 11,
+          "bytes": 70,
+          "code_symbol": "SnapshotCandidate",
+          "selector_argument": 2
+        }
+      ],
+      "fixture_count": 4,
+      "fixtures": [
+        {
+          "fixture_ordinal": 10,
+          "fixture": {
+            "original_ordinal": 5,
+            "fixture_index": 0,
+            "case_id": "next60-pflag-map-snapshot-vector-01",
+            "string_input": null,
+            "collision_input": null,
+            "snapshot_input": {
+              "map": {
+                "a": "1"
+              },
+              "flag_name": "",
+              "mutate_snapshot": {
+                "a": "2"
+              },
+              "mutate_live": null
+            }
+          },
+          "original_case_reference": {
+            "artifact_sha256": "c7bbf7bcc7912300fabdd6e671b0922df295299f00e5e7201df1ab5e824a2a9b",
+            "json_pointer": "/drafts/5/finite_cases/0"
+          },
+          "original_full_case": {
+            "Got": null,
+            "Want_authorship": "project-authored finite specification inferred from pinned source or new API intent; not native observation",
+            "actual_original_call": false,
+            "case_id": "next60-pflag-map-snapshot-vector-01",
+            "input": {
+              "map": {
+                "a": "1"
+              },
+              "mutate_snapshot": {
+                "a": "2"
+              }
+            },
+            "want": {
+              "live_map": {
+                "a": "1"
+              },
+              "snapshot": {
+                "a": "2"
+              }
+            }
+          },
+          "wanted_contract": {
+            "error_present": false,
+            "required_error_kind": null,
+            "required_error_type": null,
+            "int64_decimal": null,
+            "uint64_decimal": null,
+            "name_after": null,
+            "conflicting_keys": null,
+            "live_after": {
+              "nil": false,
+              "entries": [
+                {
+                  "key": "a",
+                  "value": "1"
+                }
+              ]
+            },
+            "snapshot_after": {
+              "nil": false,
+              "entries": [
+                {
+                  "key": "a",
+                  "value": "2"
+                }
+              ]
+            },
+            "legacy_after": {
+              "nil": false,
+              "entries": [
+                {
+                  "key": "a",
+                  "value": "1"
+                }
+              ]
+            }
+          },
+          "Got": null,
+          "comparison": null,
+          "truth": null,
+          "acceptable_candidate_indices": null,
+          "label": null,
+          "role": null,
+          "weight": null,
+          "mask": null
+        },
+        {
+          "fixture_ordinal": 11,
+          "fixture": {
+            "original_ordinal": 5,
+            "fixture_index": 1,
+            "case_id": "next60-pflag-map-snapshot-vector-02",
+            "string_input": null,
+            "collision_input": null,
+            "snapshot_input": {
+              "map": {
+                "a": "1"
+              },
+              "flag_name": "",
+              "mutate_snapshot": null,
+              "mutate_live": {
+                "b": "2"
+              }
+            }
+          },
+          "original_case_reference": {
+            "artifact_sha256": "c7bbf7bcc7912300fabdd6e671b0922df295299f00e5e7201df1ab5e824a2a9b",
+            "json_pointer": "/drafts/5/finite_cases/1"
+          },
+          "original_full_case": {
+            "Got": null,
+            "Want_authorship": "project-authored finite specification inferred from pinned source or new API intent; not native observation",
+            "actual_original_call": false,
+            "case_id": "next60-pflag-map-snapshot-vector-02",
+            "input": {
+              "map": {
+                "a": "1"
+              },
+              "mutate_live": {
+                "b": "2"
+              }
+            },
+            "want": {
+              "live_map": {
+                "a": "1",
+                "b": "2"
+              },
+              "snapshot": {
+                "a": "1"
+              }
+            }
+          },
+          "wanted_contract": {
+            "error_present": false,
+            "required_error_kind": null,
+            "required_error_type": null,
+            "int64_decimal": null,
+            "uint64_decimal": null,
+            "name_after": null,
+            "conflicting_keys": null,
+            "live_after": {
+              "nil": false,
+              "entries": [
+                {
+                  "key": "a",
+                  "value": "1"
+                },
+                {
+                  "key": "b",
+                  "value": "2"
+                }
+              ]
+            },
+            "snapshot_after": {
+              "nil": false,
+              "entries": [
+                {
+                  "key": "a",
+                  "value": "1"
+                }
+              ]
+            },
+            "legacy_after": {
+              "nil": false,
+              "entries": [
+                {
+                  "key": "a",
+                  "value": "1"
+                },
+                {
+                  "key": "b",
+                  "value": "2"
+                }
+              ]
+            }
+          },
+          "Got": null,
+          "comparison": null,
+          "truth": null,
+          "acceptable_candidate_indices": null,
+          "label": null,
+          "role": null,
+          "weight": null,
+          "mask": null
+        },
+        {
+          "fixture_ordinal": 12,
+          "fixture": {
+            "original_ordinal": 5,
+            "fixture_index": 2,
+            "case_id": "next60-pflag-map-snapshot-vector-03",
+            "string_input": null,
+            "collision_input": null,
+            "snapshot_input": {
+              "map": null,
+              "flag_name": "",
+              "mutate_snapshot": null,
+              "mutate_live": null
+            }
+          },
+          "original_case_reference": {
+            "artifact_sha256": "c7bbf7bcc7912300fabdd6e671b0922df295299f00e5e7201df1ab5e824a2a9b",
+            "json_pointer": "/drafts/5/finite_cases/2"
+          },
+          "original_full_case": {
+            "Got": null,
+            "Want_authorship": "project-authored finite specification inferred from pinned source or new API intent; not native observation",
+            "actual_original_call": false,
+            "case_id": "next60-pflag-map-snapshot-vector-03",
+            "input": {
+              "map": null
+            },
+            "want": {
+              "error": null,
+              "snapshot": null
+            }
+          },
+          "wanted_contract": {
+            "error_present": false,
+            "required_error_kind": null,
+            "required_error_type": null,
+            "int64_decimal": null,
+            "uint64_decimal": null,
+            "name_after": null,
+            "conflicting_keys": null,
+            "live_after": {
+              "nil": true,
+              "entries": null
+            },
+            "snapshot_after": {
+              "nil": true,
+              "entries": null
+            },
+            "legacy_after": {
+              "nil": true,
+              "entries": null
+            }
+          },
+          "Got": null,
+          "comparison": null,
+          "truth": null,
+          "acceptable_candidate_indices": null,
+          "label": null,
+          "role": null,
+          "weight": null,
+          "mask": null
+        },
+        {
+          "fixture_ordinal": 13,
+          "fixture": {
+            "original_ordinal": 5,
+            "fixture_index": 3,
+            "case_id": "next60-pflag-map-snapshot-vector-04",
+            "string_input": null,
+            "collision_input": null,
+            "snapshot_input": {
+              "map": null,
+              "flag_name": "missing",
+              "mutate_snapshot": null,
+              "mutate_live": null
+            }
+          },
+          "original_case_reference": {
+            "artifact_sha256": "c7bbf7bcc7912300fabdd6e671b0922df295299f00e5e7201df1ab5e824a2a9b",
+            "json_pointer": "/drafts/5/finite_cases/3"
+          },
+          "original_full_case": {
+            "Got": null,
+            "Want_authorship": "project-authored finite specification inferred from pinned source or new API intent; not native observation",
+            "actual_original_call": false,
+            "case_id": "next60-pflag-map-snapshot-vector-04",
+            "input": {
+              "flag_name": "missing"
+            },
+            "want": {
+              "error_type": "*pflag.NotExistError"
+            }
+          },
+          "wanted_contract": {
+            "error_present": true,
+            "required_error_kind": "missing_flag",
+            "required_error_type": "*pflag.NotExistError",
+            "int64_decimal": null,
+            "uint64_decimal": null,
+            "name_after": null,
+            "conflicting_keys": null,
+            "live_after": {
+              "nil": true,
+              "entries": null
+            },
+            "snapshot_after": {
+              "nil": false,
+              "entries": []
+            },
+            "legacy_after": {
+              "nil": true,
+              "entries": null
+            }
+          },
+          "Got": null,
+          "comparison": null,
+          "truth": null,
+          "acceptable_candidate_indices": null,
+          "label": null,
+          "role": null,
+          "weight": null,
+          "mask": null
+        }
+      ]
+    },
+    {
+      "request_index": 3,
+      "original_ordinal": 9,
+      "parent_id": "next60-humanize-fractional-bytes",
+      "source_family": "upstream53-humanize",
+      "original_request_unchanged": "Make ParseBytes evaluate fractional decimal sizes with exact arithmetic, checking the uint64 range before truncating toward zero.",
+      "model_visible_request_proposal": "Parse nonnegative ASCII decimal sizes using existing byte units exactly; preserve whole numbers, reject uint64 overflow before truncating fractions, and return zero on error.",
+      "model_visible_request_static_alphanumeric_words": 24,
+      "model_visible_request_ascii_bytes": 174,
+      "model_visible_text_is_new_scoped_version_proposal": true,
+      "candidates": [
+        {
+          "candidate_index": 0,
+          "candidate_id": "baseline-design",
+          "original_description": "ParseBytes handles whole-number input with checked uint64 multiplication; fractional input still uses float64 multiplication and a >= MaxUint64 comparison.",
+          "caption_proposal": "Call original ParseBytes: checked integer arithmetic for whole numbers and float64 multiplication for decimals.",
+          "static_alphanumeric_words": 15,
+          "bytes": 111,
+          "code_symbol": "BytesCandidate",
+          "selector_argument": 0
+        },
+        {
+          "candidate_index": 1,
+          "candidate_id": "reference-design",
+          "original_description": "Parse finite decimal digits into numerator/denominator, multiply by exact unit integer, compare rational against MaxUint64, then integer division.",
+          "caption_proposal": "Evaluate decimal scaling exactly; check the rational uint64 range before truncating; delegate whole numbers to the original parser.",
+          "static_alphanumeric_words": 18,
+          "bytes": 131,
+          "code_symbol": "BytesCandidate",
+          "selector_argument": 1
+        },
+        {
+          "candidate_index": 2,
+          "candidate_id": "wrong-seed-design",
+          "original_description": "Continue through float64, or truncate first and accept MaxUint64+0.9.",
+          "caption_proposal": "Compute decimals exactly but truncate before testing the uint64 range.",
+          "static_alphanumeric_words": 10,
+          "bytes": 70,
+          "code_symbol": "BytesCandidate",
+          "selector_argument": 2
+        }
+      ],
+      "fixture_count": 5,
+      "fixtures": [
+        {
+          "fixture_ordinal": 14,
+          "fixture": {
+            "original_ordinal": 9,
+            "fixture_index": 0,
+            "case_id": "next60-humanize-fractional-bytes-vector-01",
+            "string_input": "0.9 B",
+            "collision_input": null,
+            "snapshot_input": null
+          },
+          "original_case_reference": {
+            "artifact_sha256": "c7bbf7bcc7912300fabdd6e671b0922df295299f00e5e7201df1ab5e824a2a9b",
+            "json_pointer": "/drafts/9/finite_cases/0"
+          },
+          "original_full_case": {
+            "Got": null,
+            "Want_authorship": "project-authored finite specification inferred from pinned source or new API intent; not native observation",
+            "actual_original_call": false,
+            "case_id": "next60-humanize-fractional-bytes-vector-01",
+            "input": "0.9 B",
+            "want": {
+              "error": null,
+              "value": "0"
+            }
+          },
+          "wanted_contract": {
+            "error_present": false,
+            "required_error_kind": null,
+            "required_error_type": null,
+            "int64_decimal": null,
+            "uint64_decimal": "0",
+            "name_after": null,
+            "conflicting_keys": null,
+            "live_after": null,
+            "snapshot_after": null,
+            "legacy_after": null
+          },
+          "Got": null,
+          "comparison": null,
+          "truth": null,
+          "acceptable_candidate_indices": null,
+          "label": null,
+          "role": null,
+          "weight": null,
+          "mask": null
+        },
+        {
+          "fixture_ordinal": 15,
+          "fixture": {
+            "original_ordinal": 9,
+            "fixture_index": 1,
+            "case_id": "next60-humanize-fractional-bytes-vector-02",
+            "string_input": "1.5 KiB",
+            "collision_input": null,
+            "snapshot_input": null
+          },
+          "original_case_reference": {
+            "artifact_sha256": "c7bbf7bcc7912300fabdd6e671b0922df295299f00e5e7201df1ab5e824a2a9b",
+            "json_pointer": "/drafts/9/finite_cases/1"
+          },
+          "original_full_case": {
+            "Got": null,
+            "Want_authorship": "project-authored finite specification inferred from pinned source or new API intent; not native observation",
+            "actual_original_call": false,
+            "case_id": "next60-humanize-fractional-bytes-vector-02",
+            "input": "1.5 KiB",
+            "want": {
+              "error": null,
+              "value": "1536"
+            }
+          },
+          "wanted_contract": {
+            "error_present": false,
+            "required_error_kind": null,
+            "required_error_type": null,
+            "int64_decimal": null,
+            "uint64_decimal": "1536",
+            "name_after": null,
+            "conflicting_keys": null,
+            "live_after": null,
+            "snapshot_after": null,
+            "legacy_after": null
+          },
+          "Got": null,
+          "comparison": null,
+          "truth": null,
+          "acceptable_candidate_indices": null,
+          "label": null,
+          "role": null,
+          "weight": null,
+          "mask": null
+        },
+        {
+          "fixture_ordinal": 16,
+          "fixture": {
+            "original_ordinal": 9,
+            "fixture_index": 2,
+            "case_id": "next60-humanize-fractional-bytes-vector-03",
+            "string_input": "18446744073709551615.0 B",
+            "collision_input": null,
+            "snapshot_input": null
+          },
+          "original_case_reference": {
+            "artifact_sha256": "c7bbf7bcc7912300fabdd6e671b0922df295299f00e5e7201df1ab5e824a2a9b",
+            "json_pointer": "/drafts/9/finite_cases/2"
+          },
+          "original_full_case": {
+            "Got": null,
+            "Want_authorship": "project-authored finite specification inferred from pinned source or new API intent; not native observation",
+            "actual_original_call": false,
+            "case_id": "next60-humanize-fractional-bytes-vector-03",
+            "input": "18446744073709551615.0 B",
+            "want": {
+              "error": null,
+              "value": "18446744073709551615"
+            }
+          },
+          "wanted_contract": {
+            "error_present": false,
+            "required_error_kind": null,
+            "required_error_type": null,
+            "int64_decimal": null,
+            "uint64_decimal": "18446744073709551615",
+            "name_after": null,
+            "conflicting_keys": null,
+            "live_after": null,
+            "snapshot_after": null,
+            "legacy_after": null
+          },
+          "Got": null,
+          "comparison": null,
+          "truth": null,
+          "acceptable_candidate_indices": null,
+          "label": null,
+          "role": null,
+          "weight": null,
+          "mask": null
+        },
+        {
+          "fixture_ordinal": 17,
+          "fixture": {
+            "original_ordinal": 9,
+            "fixture_index": 3,
+            "case_id": "next60-humanize-fractional-bytes-vector-04",
+            "string_input": "18446744073709551615.9 B",
+            "collision_input": null,
+            "snapshot_input": null
+          },
+          "original_case_reference": {
+            "artifact_sha256": "c7bbf7bcc7912300fabdd6e671b0922df295299f00e5e7201df1ab5e824a2a9b",
+            "json_pointer": "/drafts/9/finite_cases/3"
+          },
+          "original_full_case": {
+            "Got": null,
+            "Want_authorship": "project-authored finite specification inferred from pinned source or new API intent; not native observation",
+            "actual_original_call": false,
+            "case_id": "next60-humanize-fractional-bytes-vector-04",
+            "input": "18446744073709551615.9 B",
+            "want": {
+              "error_kind": "range",
+              "value": "0"
+            }
+          },
+          "wanted_contract": {
+            "error_present": true,
+            "required_error_kind": "range",
+            "required_error_type": null,
+            "int64_decimal": null,
+            "uint64_decimal": "0",
+            "name_after": null,
+            "conflicting_keys": null,
+            "live_after": null,
+            "snapshot_after": null,
+            "legacy_after": null
+          },
+          "Got": null,
+          "comparison": null,
+          "truth": null,
+          "acceptable_candidate_indices": null,
+          "label": null,
+          "role": null,
+          "weight": null,
+          "mask": null
+        },
+        {
+          "fixture_ordinal": 18,
+          "fixture": {
+            "original_ordinal": 9,
+            "fixture_index": 4,
+            "case_id": "next60-humanize-fractional-bytes-vector-05",
+            "string_input": "18446744073709551614.9 B",
+            "collision_input": null,
+            "snapshot_input": null
+          },
+          "original_case_reference": {
+            "artifact_sha256": "c7bbf7bcc7912300fabdd6e671b0922df295299f00e5e7201df1ab5e824a2a9b",
+            "json_pointer": "/drafts/9/finite_cases/4"
+          },
+          "original_full_case": {
+            "Got": null,
+            "Want_authorship": "project-authored finite specification inferred from pinned source or new API intent; not native observation",
+            "actual_original_call": false,
+            "case_id": "next60-humanize-fractional-bytes-vector-05",
+            "input": "18446744073709551614.9 B",
+            "want": {
+              "error": null,
+              "value": "18446744073709551614"
+            }
+          },
+          "wanted_contract": {
+            "error_present": false,
+            "required_error_kind": null,
+            "required_error_type": null,
+            "int64_decimal": null,
+            "uint64_decimal": "18446744073709551614",
+            "name_after": null,
+            "conflicting_keys": null,
+            "live_after": null,
+            "snapshot_after": null,
+            "legacy_after": null
+          },
+          "Got": null,
+          "comparison": null,
+          "truth": null,
+          "acceptable_candidate_indices": null,
+          "label": null,
+          "role": null,
+          "weight": null,
+          "mask": null
+        }
+      ]
+    }
+  ],
+  "fixture_count": 19,
+  "candidate_count": 12,
+  "planned_candidate_wrapper_dispatches": 57,
+  "planned_explicit_Error_methods_expected": 14,
+  "planned_explicit_Error_methods_maximum": 57,
+  "planned_tracked_dispatches_expected": 71,
+  "planned_tracked_dispatches_maximum": 114,
+  "expected_Error_method_breakdown": {
+    "project_ContractError": 6,
+    "pflag_NotExistError": 3,
+    "stdlib_NumError_or_errorString": 5
+  },
+  "actual": {
+    "compile": 0,
+    "import": 0,
+    "init": 0,
+    "candidate": 0,
+    "original_API": 0,
+    "Error_method": 0,
+    "worker": 0,
+    "model": 0,
+    "Features": 0,
+    "Project": 0,
+    "Fit": 0,
+    "qualified": 0
+  },
+  "oracle_boundary": "All Wanted fields are authored literal observations for the desired finite contract. They are not generated from candidates, native Got, or Compare. Source-supported auxiliary field completions are explicit proposals needing peer review.",
+  "new_completions": [
+    "Map collision case 4 sorted conflicting keys NAME,Name are an explicit pre-observation extension of the historical Wanted which did not list keys.",
+    "Snapshot missing case uses fresh items flag with nil initial map and requests missing; missing result is nonnil empty map plus *pflag.NotExistError, legacy items map remains nil.",
+    "MapImage nil=true has entries:null; nonnil empty maps have entries:[]. Error method is observed once on each returned nonnil error, never on panic values.",
+    "Scope-version text is source preparation, not an assertion that the original whole API/coding task has been implemented. Original requests and candidate ordering are retained."
+  ],
+  "stop_policy": "Unknown/harness failure stops the future frozen schedule and preserves unstarted rows. Known mismatches remain recorded. No post-observation Want edits or retry.",
+  "model_feature_policy": "Only separately reviewed request and candidate caption text. No IDs, source references, Wanted/Got, counters, family, role or weight may enter model features.",
+  "no_new_parent_from_fixture_or_caption_versions": true,
+  "source_roles_assigned": 0,
+  "training_ready": false
+}

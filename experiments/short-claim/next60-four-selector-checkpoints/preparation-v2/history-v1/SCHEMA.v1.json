@@ -1,0 +1,122 @@
+{
+  "schema": "riido-four-selector-checkpoint-wire-specification-v1",
+  "state": "source_only_typed_wire_specification_not_executed_validator",
+  "journal_schema": "riido-four-selector-durable-checkpoint-v1",
+  "event_schema": "riido-four-selector-checkpoint-v2",
+  "result_schema": "riido-four-selector-native-observation-v1",
+  "result_fields": {
+    "schema": "fixed result schema string",
+    "header": "Header",
+    "state": "not_started | incomplete_checkpoint_failure | incomplete_mechanics_failure | completed_finite_observations_not_compared",
+    "failure": "owned fixed diagnostic string or empty string",
+    "counters": "Counters",
+    "rows": "fixed 57 Row objects in batchprep.Schedule order",
+    "Observe_calls_returned": "integer 0..57; includes an Observe return that refused candidate dispatch",
+    "durable_checkpoint_prefix": "DurableState",
+    "Wanted_comparison_state": "pending_separate_saved_observation_comparison",
+    "created_parents": 0,
+    "created_labels": 0,
+    "scope": "fixed scope description; no source bodies or argument values"
+  },
+  "Header": {
+    "schema": "fixed result schema",
+    "plan_sha256": "64 lowercase hexadecimal characters of exact future sealed plan bytes",
+    "fixture_sha256": "1ee48c079f85f9e4c3051b53c7f51a3e2d9c0eadc8dd7599f34afbcf46ef42ba",
+    "existing_requests": 4,
+    "finite_inputs": 19,
+    "candidate_positions": 12,
+    "planned_candidate_dispatches": 57,
+    "expected_error_methods": 14,
+    "maximum_error_methods": 57,
+    "original_native_calls_measured": null,
+    "startup_init_calls_measured": null
+  },
+  "Counters": {
+    "candidate_reserved": "integer 0..57; intent before a successful checkpoint",
+    "candidate_dispatched": "integer 0..57; owned wrapper entered after checkpoint success",
+    "candidate_returned": "integer 0..57",
+    "candidate_panicked": "integer 0..57",
+    "error_method_reserved": "integer 0..57; explicit Error() intent",
+    "error_method_dispatched": "integer 0..57; explicit direct Error() dispatch",
+    "error_method_returned": "integer 0..57",
+    "error_method_panicked": "integer 0..57",
+    "checkpoint_stopped": "boolean; sticky failure stops later dispatch"
+  },
+  "counter_conservation": [
+    "candidate_returned + candidate_panicked = candidate_dispatched",
+    "candidate_reserved - candidate_dispatched is 0 or 1",
+    "error_method_returned + error_method_panicked = error_method_dispatched",
+    "error_method_reserved - error_method_dispatched is 0 or 1",
+    "owned counters do not instrument upstream internal, getter, setup or init calls"
+  ],
+  "Row": {
+    "dispatch": "Dispatch",
+    "attempted": "boolean; Observe callback invocation attempted, not a claim that a candidate executed",
+    "observation": "original batchprep.Observation object or null when not started",
+    "state": "not_started | mechanics_failure_with_known_partial | observed_not_compared",
+    "truth": null,
+    "label": null,
+    "role": null,
+    "weight": null
+  },
+  "Dispatch": {
+    "RequestIndex": "integer 0..3",
+    "OriginalOrdinal": "one of 1,4,5,9",
+    "CandidateIndex": "integer 0..2",
+    "FixtureIndex": "request-local original fixture index",
+    "FixtureOrdinal": "original fixture index 0..18"
+  },
+  "Frame": {
+    "schema": "fixed journal schema",
+    "sequence": "1-based successful file.Sync event count",
+    "previous_record_sha256": "empty for first frame; SHA256 of entire previous exact frame including LF thereafter",
+    "event": "Event, with original field casing preserved"
+  },
+  "Event": {
+    "Schema": "fixed event schema",
+    "Stage": "before_candidate | before_error_method | after_error_method | after_candidate",
+    "Dispatch": "Dispatch",
+    "Partial": "PartialObservation: immutable scalar, string and fixed-array value snapshot",
+    "Counters": "Counters"
+  },
+  "snapshot_representations": {
+    "TextField": "{Known:bool, Nil:bool, Value:string}; unobserved differs from observed null",
+    "BoolField": "{Known:bool, Value:bool}",
+    "IntField": "{Known:bool, Value:int}; native/init measurements remain Known=false",
+    "MapSnapshot": "{Known:bool, Nil:bool, Count:int, Entries:[24]{key,value}}; ordered logical prefix and unused zero entries",
+    "KeySnapshot": "{Known:bool, Nil:bool, Count:int, Values:[8]string}",
+    "before_error_method": "CandidateCompletionObserved/ReturnedNormally true; known return values/state, ErrorPresent and ErrorType; ErrorText/ErrorKind unknown; no upstream error interface escapes",
+    "after_error_method": "ErrorMethodCompletionObserved true; either observed error text/kind or ErrorMethodPanicked with text still unknown",
+    "after_candidate": "candidate completion recorded, with measured null error channels distinguished from unobserved panic/error text channels",
+    "ownership": "the Event copied by value and serialized synchronously contains no map, slice, pointer, upstream error interface or callback"
+  },
+  "DurableState": {
+    "events_synced": "number of frames whose complete write and file.Sync returned success",
+    "completed_dispatches": "number of after_candidate frames successfully synced",
+    "last_record_sha256": "last successful full-frame digest, or empty",
+    "has_last_event": "boolean",
+    "last_event": "last successfully synced Event; zero value before first checkpoint",
+    "physical_bytes_written_before_final": "actual successful or partial reservation/journal Write bytes before final serialization; not final-file bytes and not allocator/RSS",
+    "stopped": "boolean",
+    "failure": "first owned fixed diagnostic, or empty"
+  },
+  "output_protocol": {
+    "reservation.json": "O_EXCL; initial zero candidate counts; file.Sync then attempt-directory Sync before callbacks",
+    "checkpoints.jsonl": "O_EXCL; one compact JSON frame plus LF per event; failed or in-flight suffix is not claimed durable",
+    "results.json": "O_EXCL empty reservation, one final write attempt and file.Sync; no overwrite or automatic retry",
+    "stdout": "exact successful final bytes; stdout or close failure does not erase a retained final",
+    "per_event_bytes_max": 32768,
+    "final_bytes_max": 262144,
+    "reservation_journal_final_shared_bytes_max": 1048575,
+    "journal_preserves_final_reservation_bytes": 262144,
+    "external_kill": "cannot invoke finalization; no counter values beyond surviving successfully synced records are inferred"
+  },
+  "pending_external_prerequisites": [
+    "full upstream selected source/dependency/module/license and Go compiler closure",
+    "Root source and input review, exact executable build-info and SHA binding",
+    "outside fresh once reservation before native process startup/init",
+    "physical source/output separation, minimal child environment, process-group wall budget and joined Wait",
+    "outside controller adaptation to this journal/result schema; compatibility not claimed",
+    "separate saved Wanted/channel comparison and qualification; this worker assigns no labels or roles"
+  ]
+}

@@ -22,6 +22,6 @@
 
 기존 실제 79개 코퍼스와 모델은 그대로입니다. 합치면 82개 요청·23개 그룹이 될 수 있지만, 아직 합친 코퍼스를 투영·채점·학습하지 않았습니다. 이번 새 라운드에서 **30개, 60개**를 확보하는 체크포인트를 유지합니다. 현재 3개만으로 다시 학습하지 않습니다. 최종 보호 평가 목표도 주장하는 도메인마다 의미가 다른 요청 2,400개이며 아직 확보 완료가 아닙니다.
 
-허깅페이스의 기존 [2개 요청 고정 버전](https://huggingface.co/datasets/JooYoon/riidolaya-shortclaim-next60-development/tree/next60-2-finite-v1)은 게시·재다운로드·viewer 확인을 마쳤습니다. 이 세 줄 묶음의 다음 HF 버전은 별도 CI와 게시 기록이 생긴 뒤 연결합니다. 게시 작업이 다음 자료 확보를 막지 않도록 분리해 진행합니다.
+허깅페이스의 [3개 요청 고정 버전](https://huggingface.co/datasets/JooYoon/riidolaya-shortclaim-next60-development/tree/next60-3-finite-v1)은 게시 후 71개 파일을 다시 내려받았고, viewer 3행의 모든 필드도 원본과 일치했습니다. [게시 기록](../publication-proof-114/HF-PUBLICATION.v2.json)을 보세요. 기존 2개 요청 태그는 그대로 보존합니다. 게시 검증과 다음 자료 확보는 함께 진행하며 새 학습은 하지 않았습니다.
 
 우리 문장·주석은 저장소의 Apache 2.0 조건을 따릅니다. 선택 원본의 [MIT 고지](notices/humanize-MIT.txt)는 별도로 보존하며, 이전 자료의 BSD·MIT 고지는 기존 고정 버전에 있습니다. 원본 코드 본체·바이너리·모델 파일·개인 입력·경로·추적 자료는 포함하지 않습니다. 전체 상위 라이브러리나 법적 계보를 일괄 재허가했다는 뜻도 아닙니다.

@@ -1,0 +1,88 @@
+// Source-only callback worker. Native binding/compiler/rights gates are outside
+// this package and pending. No Wanted comparison or label promotion is here.
+package checkpoint
+
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"riido.local/fourselectors/batchprep"
+)
+
+const FixtureSHA256 = "1ee48c079f85f9e4c3051b53c7f51a3e2d9c0eadc8dd7599f34afbcf46ef42ba"
+const FixtureBytes = 47256
+
+// Opaque zero value is unsupported. This binds exact frozen bytes and the
+// schedule; it does not independently certify source-derived Wanted values.
+type Batch struct { fixtures [19]batchprep.Fixture; bound bool }
+func LoadFrozenFixtures(b []byte)(Batch,error) {
+	var result Batch
+	h:=sha256.Sum256(b);if len(b)!=FixtureBytes||hex.EncodeToString(h[:])!=FixtureSHA256{return result,failure("fixture_exact_pin")}
+	// Other original metadata, Wants and null supervision remain in the exact
+	// archived file. They are not projected into executable callback inputs.
+	var wire struct {
+		Schema string `json:"schema"`
+		OriginalOrdinals []int `json:"original_ordinals"`
+		Requests []struct {
+			RequestIndex int `json:"request_index"`
+			OriginalOrdinal int `json:"original_ordinal"`
+			FixtureCount int `json:"fixture_count"`
+			Candidates []struct {CandidateIndex int `json:"candidate_index"`} `json:"candidates"`
+			Fixtures []struct {FixtureOrdinal int `json:"fixture_ordinal"`; Fixture batchprep.Fixture `json:"fixture"`} `json:"fixtures"`
+		} `json:"requests"`
+	}
+	if json.Unmarshal(b,&wire)!=nil||wire.Schema!="riido-next60-four-selector-literal-fixture-preparation-v1"||len(wire.Requests)!=4||len(wire.OriginalOrdinals)!=4{return result,failure("fixture_shape")}
+	ord:=[4]int{1,4,5,9};counts:=[4]int{6,4,4,5};n:=0
+	for i,r:=range wire.Requests {
+		if wire.OriginalOrdinals[i]!=ord[i]||r.RequestIndex!=i||r.OriginalOrdinal!=ord[i]||r.FixtureCount!=counts[i]||len(r.Fixtures)!=counts[i]||len(r.Candidates)!=3{return Batch{},failure("fixture_order")}
+		for c,v:=range r.Candidates {if v.CandidateIndex!=c{return Batch{},failure("candidate_order")}}
+		for j,v:=range r.Fixtures {if v.FixtureOrdinal!=n||v.Fixture.FixtureIndex!=j||v.Fixture.OriginalOrdinal!=ord[i]{return Batch{},failure("fixture_order")};result.fixtures[n]=v.Fixture;n++}
+	}
+	for _,d:=range batchprep.Schedule(){if !batchprep.ValidFixture(result.fixtures[d.FixtureOrdinal],d){return Batch{},failure("fixture_contract")}}
+	result.bound=true;return result,nil
+}
+type Row struct {
+	Dispatch batchprep.Dispatch `json:"dispatch"`
+	Attempted bool `json:"attempted"`
+	Observation *batchprep.Observation `json:"observation"`
+	State string `json:"state"`
+	Truth *string `json:"truth"`
+	Label *int `json:"label"`
+	Role *string `json:"role"`
+	Weight *float64 `json:"weight"`
+}
+type Report struct {
+	Schema string `json:"schema"`
+	Header Header `json:"header"`
+	State string `json:"state"`
+	Failure string `json:"failure"`
+	Counters batchprep.Counters `json:"counters"`
+	Rows [57]Row `json:"rows"`
+	CompletedObserveCalls int `json:"Observe_calls_returned"`
+	Durable DurableState `json:"durable_checkpoint_prefix"`
+	WantedComparisonState string `json:"Wanted_comparison_state"`
+	CreatedParents int `json:"created_parents"`
+	CreatedLabels int `json:"created_labels"`
+	Scope string `json:"scope"`
+}
+// Execute is synchronous and bounded by the frozen57 dispatches. The official
+// main uses only its closed native binding; callbacks are injected solely for
+// pure tests or a separately reviewed maintainer integration. No model/text
+// features are accepted. Candidate panic/diagnostic unknowns remain observations;
+// only Observe mechanics/checkpoint errors stop this finite dispatch schedule.
+func Execute(b Batch,ops batchprep.OriginalOps,w *Writer)(Report,error) {
+	r:=Report{Schema:ResultSchema,State:"not_started",WantedComparisonState:"pending_separate_saved_observation_comparison",Scope:"Four existing requests;19 finite inputs/12 candidate positions/57 wrappers, not57 parents. Native/internal/init counts are uninstrumented null. Null truth/labels/roles/weights are unchanged. Last fsynced event and in-memory terminal observation are separate; external kill can preserve only a journal prefix."}
+	if w==nil{return r,failure("writer_missing")};r.Header=w.header
+	for i,d:=range batchprep.Schedule(){r.Rows[i]=Row{Dispatch:d,State:"not_started"}}
+	if !b.bound{return r,failure("batch_not_bound")}
+	for i,d:=range batchprep.Schedule() {
+		if r.Counters.CheckpointStopped||w.State().Stopped{r.State="incomplete_checkpoint_failure";r.Failure="checkpoint_stopped";return r,failure("checkpoint_stopped")}
+		r.Rows[i].Attempted=true
+		o,e:=batchprep.Observe(d,b.fixtures[d.FixtureOrdinal],ops,w.Checkpoint,&r.Counters)
+		r.CompletedObserveCalls++;r.Rows[i].Observation=&o
+		if e!=nil {r.Rows[i].State="mechanics_failure_with_known_partial";r.State="incomplete_mechanics_failure";r.Failure="Observe_mechanics_failed";return r,failure("Observe_mechanics_failed")}
+		r.Rows[i].State="observed_not_compared"
+	}
+	r.State="completed_finite_observations_not_compared"
+	return r,nil
+}

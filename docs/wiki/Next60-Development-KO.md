@@ -8,7 +8,7 @@
 
 [현재 세 줄 자료와 사용법](https://github.com/teamswyg/laya-tools/tree/main/experiments/short-claim/next60-development-three)을 보세요. Go reader는 문장·고정 배열 정답·출처를 나누어 읽습니다. 모델 특징에는 요청·후보 문장만 사용합니다. 실제 reader 3회와 기존 입력 검사 1회가 통과했고, CI에도 같은 대응 검사를 추가합니다. [PR112](https://github.com/teamswyg/laya-tools/pull/112)의 필수 CI 4개가 통과해 Go reader가 자동 병합됐습니다.
 
-[이전 HF 2개 고정 버전](https://huggingface.co/datasets/JooYoon/riidolaya-shortclaim-next60-development/tree/next60-2-finite-v1)은 38개 파일을 다시 내려받아 확인했습니다. 처음 viewer 응답은 HTTP500이었고 그 기록을 보존했습니다. 나중 조회에서 HTTP200·표시 행 2개를 확인했고 두 행은 고정 자료와 일치했습니다. 새 세 줄의 다음 HF 버전은 별도 CI·게시 기록 이후 연결합니다.
+[HF 3개 요청 고정 버전](https://huggingface.co/datasets/JooYoon/riidolaya-shortclaim-next60-development/tree/next60-3-finite-v1)을 게시했고 71개 파일을 다시 내려받아 확인했습니다. Viewer는 HTTP200으로 세 행을 반환하며 모든 필드가 고정 자료와 일치했습니다. [게시 기록](https://github.com/teamswyg/laya-tools/blob/main/experiments/short-claim/publication-proof-114/HF-PUBLICATION.v2.json)을 보세요. 이전 2개 요청 태그와 당시 viewer HTTP500·나중 성공 기록도 보존합니다. 모델 학습·성능 검증과는 별도의 자료 게시입니다.
 
 다음 [배치 준비](https://github.com/teamswyg/laya-tools/tree/main/experiments/short-claim/next60-source-batch-preparation)는 네 작업·입력 19개·후보 12개·호출 제안 57회입니다. 아직 실제 실행·적격 증가가 아닙니다. 초안 20개를 전부 적격화해도 새 라운드의 30개 체크포인트에는 별도의 의미 작업 10개가 더 필요합니다. 기존 공개 계약 카탈로그에서 다른 작업을 고르는 방향으로 확장하며 문장 변형을 새 작업으로 세지 않습니다.
 

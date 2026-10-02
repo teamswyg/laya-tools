@@ -1,0 +1,165 @@
+// Source-only preparation: not formatted, compiled, tested or executed.
+package checkpoint
+
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"os"
+	"path/filepath"
+	"unicode/utf8"
+
+	"riido.local/fourselectors/batchprep"
+)
+
+const JournalSchema = "riido-four-selector-durable-checkpoint-v1"
+const ResultSchema = "riido-four-selector-native-observation-v1"
+const MaxEventBytes = 32 << 10
+const MaxFinalBytes = 256 << 10
+const MaxOutputBytes = (1 << 20) - 1
+const maxHeaderBytes = 8 << 10
+
+func failure(s string) error { return errors.New(s) }
+func validSHA(s string) bool {
+	if len(s)!=64{return false};for _,c:=range s {if !(c>='0'&&c<='9')&&!(c>='a'&&c<='f'){return false}};return true
+}
+
+// All counters describe owned wrapper/direct Error() dispatches. Native
+// internal/getter/init calls are uninstrumented, and their channels stay null.
+type Header struct {
+	Schema string `json:"schema"`
+	PlanSHA256 string `json:"plan_sha256"`
+	FixtureSHA256 string `json:"fixture_sha256"`
+	ExistingRequests int `json:"existing_requests"`
+	FiniteInputs int `json:"finite_inputs"`
+	CandidatePositions int `json:"candidate_positions"`
+	PlannedCandidateDispatches int `json:"planned_candidate_dispatches"`
+	ExpectedErrorMethods int `json:"expected_error_methods"`
+	MaximumErrorMethods int `json:"maximum_error_methods"`
+	OriginalNativeCallsMeasured *int `json:"original_native_calls_measured"`
+	StartupInitCallsMeasured *int `json:"startup_init_calls_measured"`
+}
+func NewHeader(planSHA string) Header {
+	return Header{Schema:ResultSchema,PlanSHA256:planSHA,FixtureSHA256:FixtureSHA256,ExistingRequests:4,FiniteInputs:19,CandidatePositions:12,PlannedCandidateDispatches:57,ExpectedErrorMethods:14,MaximumErrorMethods:57}
+}
+type Frame struct {
+	Schema string `json:"schema"`
+	Sequence int `json:"sequence"`
+	PreviousRecordSHA256 string `json:"previous_record_sha256"`
+	Event batchprep.Event `json:"event"`
+}
+type DurableState struct {
+	EventsSynced int `json:"events_synced"`
+	CompletedDispatches int `json:"completed_dispatches"`
+	LastRecordSHA256 string `json:"last_record_sha256"`
+	HasLastEvent bool `json:"has_last_event"`
+	LastEvent batchprep.Event `json:"last_event"`
+	PhysicalBytesWritten int64 `json:"physical_bytes_written_before_final"`
+	Stopped bool `json:"stopped"`
+	Failure string `json:"failure"`
+}
+type target interface { Write([]byte)(int,error); Sync() error; Close() error }
+type Writer struct {
+	header Header
+	journal,result target
+	root string
+	state DurableState
+	phase int
+	finished bool
+}
+func parentDirectory(path string) bool {
+	if !filepath.IsAbs(path)||filepath.Clean(path)!=path||len(path)>2048||!utf8.ValidString(path){return false}
+	for _,c:=range path {if c==0{return false}}
+	for p:=path;;p=filepath.Dir(p) {s,e:=os.Lstat(p);if e!=nil||!s.IsDir()||s.Mode()&os.ModeSymlink!=0{return false};if p==filepath.Dir(p){return true}}
+}
+func syncDirectory(path string) error {
+	f,e:=os.Open(path);if e!=nil{return failure("output_directory_open")};e=f.Sync();ce:=f.Close();if e!=nil||ce!=nil{return failure("output_directory_sync")};return nil
+}
+func (w *Writer) stop(reason string) error {w.state.Stopped=true;if w.state.Failure==""{w.state.Failure=reason};return failure(reason)}
+func (w *Writer) write(t target,b []byte) error {
+	for len(b)>0 {n,e:=t.Write(b);if n<0||n>len(b){return w.stop("output_write_count")};w.state.PhysicalBytesWritten+=int64(n);b=b[n:];if e!=nil{return w.stop("output_write")};if n==0{return w.stop("output_write_no_progress")}}
+	if t.Sync()!=nil{return w.stop("output_sync")};return nil
+}
+
+// Open reserves an absent child directory and three O_EXCL files. It fsyncs
+// the initial reservation and directory before a candidate callback is usable.
+// Parent source/output physical separation and original-package init budgets
+// require the separately frozen outside controller; this is not that gate.
+func Open(root string,h Header)(*Writer,error) {
+	if !validSHA(h.PlanSHA256)||h!=NewHeader(h.PlanSHA256){return nil,failure("header_contract")}
+	if !filepath.IsAbs(root)||filepath.Clean(root)!=root||len(root)>2048||!utf8.ValidString(root)||!parentDirectory(filepath.Dir(root)){return nil,failure("output_path")}
+	for _,c:=range root {if c==0{return nil,failure("output_path")}}
+	if _,e:=os.Lstat(root);!errors.Is(e,os.ErrNotExist){return nil,failure("output_not_fresh")}
+	if os.Mkdir(root,0700)!=nil{return nil,failure("output_create")}
+	w:=&Writer{header:h,root:root}
+	var reservation *os.File
+	var e error
+	reservation,e=os.OpenFile(filepath.Join(root,"reservation.json"),os.O_WRONLY|os.O_CREATE|os.O_EXCL,0600);if e!=nil{return nil,failure("reservation_create")}
+	defer reservation.Close()
+	j,e:=os.OpenFile(filepath.Join(root,"checkpoints.jsonl"),os.O_WRONLY|os.O_CREATE|os.O_EXCL,0600);if e!=nil{return nil,failure("journal_create")};w.journal=j
+	r,e:=os.OpenFile(filepath.Join(root,"results.json"),os.O_WRONLY|os.O_CREATE|os.O_EXCL,0600);if e!=nil{j.Close();return nil,failure("result_create")};w.result=r
+	b,e:=json.Marshal(struct{State string `json:"state"`;Header Header `json:"header"`;CandidateReserved int `json:"candidate_reserved"`;CandidateDispatched int `json:"candidate_dispatched"`}{"reserved_before_candidate_dispatch",h,0,0});b=append(b,'\n')
+	if e!=nil||len(b)>maxHeaderBytes {w.Close();return nil,failure("reservation_encode")}
+	if e=w.write(reservation,b);e!=nil{w.Close();return nil,e}
+	if e=syncDirectory(root);e!=nil{w.Close();return nil,e}
+	return w,nil
+}
+func boundedCounters(c batchprep.Counters) bool {
+	v:=[8]int{c.CandidateReserved,c.CandidateDispatched,c.CandidateReturned,c.CandidatePanicked,c.ErrorMethodReserved,c.ErrorMethodDispatched,c.ErrorMethodReturned,c.ErrorMethodPanicked}
+	for _,n:=range v {if n<0||n>57{return false}}
+	return !c.CheckpointStopped&&c.CandidateReserved>=c.CandidateDispatched&&c.CandidateReserved-c.CandidateDispatched<=1&&c.CandidateReturned+c.CandidatePanicked==c.CandidateDispatched&&c.ErrorMethodReserved>=c.ErrorMethodDispatched&&c.ErrorMethodReserved-c.ErrorMethodDispatched<=1&&c.ErrorMethodReturned+c.ErrorMethodPanicked==c.ErrorMethodDispatched
+}
+func sameCandidate(c,p batchprep.Counters)bool{return c.CandidateReserved==p.CandidateReserved&&c.CandidateDispatched==p.CandidateDispatched&&c.CandidateReturned==p.CandidateReturned&&c.CandidatePanicked==p.CandidatePanicked}
+func sameErrors(c,p batchprep.Counters)bool{return c.ErrorMethodReserved==p.ErrorMethodReserved&&c.ErrorMethodDispatched==p.ErrorMethodDispatched&&c.ErrorMethodReturned==p.ErrorMethodReturned&&c.ErrorMethodPanicked==p.ErrorMethodPanicked}
+func candidateReturnStep(c,p batchprep.Counters)bool{return c.CandidateReserved==p.CandidateReserved&&c.CandidateDispatched==p.CandidateDispatched+1&&((c.CandidateReturned==p.CandidateReturned+1&&c.CandidatePanicked==p.CandidatePanicked)||(c.CandidateReturned==p.CandidateReturned&&c.CandidatePanicked==p.CandidatePanicked+1))}
+// This validates mechanics, not Wanted values or behavior satisfaction.
+func (w *Writer) next(e batchprep.Event)(int,int,error) {
+	schedule:=batchprep.Schedule();i:=w.state.CompletedDispatches
+	if e.Schema!=batchprep.CheckpointSchema||i>=len(schedule)||e.Dispatch!=schedule[i]||!boundedCounters(e.Counters)||e.Partial.OriginalAPICallsMeasured.Known||e.Partial.StartupInitCallsMeasured.Known{return 0,0,failure("checkpoint_event_contract")}
+	c:=e.Counters;p:=w.state.LastEvent.Counters;o:=e.Partial
+	switch e.Stage {
+	case "before_candidate":
+		if w.phase!=0||c.CandidateReserved!=i+1||c.CandidateDispatched!=i||c.CandidateReturned!=p.CandidateReturned||c.CandidatePanicked!=p.CandidatePanicked||!sameErrors(c,p)||o.CandidateCompletionObserved||o.ReturnedNormally||o.Panicked||o.ErrorPresent.Known{return 0,0,failure("checkpoint_before_candidate")};return 1,i,nil
+	case "before_error_method":
+		if w.phase!=1||!candidateReturnStep(c,p)||c.CandidateReturned!=p.CandidateReturned+1||c.ErrorMethodReserved!=p.ErrorMethodReserved+1||c.ErrorMethodDispatched!=p.ErrorMethodDispatched||c.ErrorMethodReturned!=p.ErrorMethodReturned||c.ErrorMethodPanicked!=p.ErrorMethodPanicked||!o.CandidateCompletionObserved||!o.ReturnedNormally||!o.ErrorPresent.Known||!o.ErrorPresent.Value||!o.ErrorType.Known||o.ErrorType.Nil||o.ErrorKind.Known||o.ErrorText.Known||o.ErrorMethodCompletionObserved{return 0,0,failure("checkpoint_before_error")};return 2,i,nil
+	case "after_error_method":
+		if w.phase!=2||!sameCandidate(c,p)||c.ErrorMethodReserved!=p.ErrorMethodReserved||c.ErrorMethodDispatched!=p.ErrorMethodDispatched+1||!((c.ErrorMethodReturned==p.ErrorMethodReturned+1&&c.ErrorMethodPanicked==p.ErrorMethodPanicked)||(c.ErrorMethodReturned==p.ErrorMethodReturned&&c.ErrorMethodPanicked==p.ErrorMethodPanicked+1))||!o.ErrorMethodCompletionObserved{return 0,0,failure("checkpoint_after_error")};return 3,i,nil
+	case "after_candidate":
+		if w.phase==1 {if !candidateReturnStep(c,p)||!sameErrors(c,p)||!o.CandidateCompletionObserved||(!o.Panicked&&(!o.ErrorPresent.Known||o.ErrorPresent.Value)){return 0,0,failure("checkpoint_after_candidate")}} else if w.phase==3 {if c!=p||!o.CandidateCompletionObserved{return 0,0,failure("checkpoint_after_candidate")}} else {return 0,0,failure("checkpoint_after_candidate")};return 0,i+1,nil
+	};return 0,0,failure("checkpoint_stage")
+}
+// Checkpoint returns nil only after complete frame bytes and file.Sync succeed.
+// Write/sync failure leaves physical prefix bytes, but does not advance the
+// durable sequence/state. No Error/String/Formatter is called on error values.
+func (w *Writer) Checkpoint(e batchprep.Event) error {
+	if w==nil{return failure("checkpoint_writer_missing")};if w.state.Stopped||w.finished{return failure("checkpoint_writer_stopped")}
+	phase,completed,err:=w.next(e);if err!=nil{return w.stop(err.Error())}
+	f:=Frame{JournalSchema,w.state.EventsSynced+1,w.state.LastRecordSHA256,e};b,err:=json.Marshal(f);if err!=nil{return w.stop("checkpoint_encode")};b=append(b,'\n')
+	if len(b)>MaxEventBytes{return w.stop("checkpoint_event_cap")}
+	if w.state.PhysicalBytesWritten+int64(len(b))>MaxOutputBytes-MaxFinalBytes{return w.stop("checkpoint_total_reservation_cap")}
+	if err=w.write(w.journal,b);err!=nil{return err}
+	digest:=sha256.Sum256(b);w.state.LastRecordSHA256=hex.EncodeToString(digest[:]);w.state.EventsSynced++;w.state.CompletedDispatches=completed;w.state.HasLastEvent=true;w.state.LastEvent=e;w.phase=phase
+	return nil
+}
+func (w *Writer) State() DurableState {if w==nil{return DurableState{Stopped:true,Failure:"checkpoint_writer_missing"}};return w.state}
+// Finalization is allowed once after a checkpoint failure so a live process can
+// preserve its known in-memory return/counters. Failed/in-flight final writes
+// remain unknown. A surviving incomplete final does not make its journal frame
+// synced. External kill cannot invoke this function; only its old prefix exists.
+func (w *Writer) Finish(report Report)([]byte,error) {
+	if w==nil||w.finished{return nil,failure("final_already_attempted")};w.finished=true
+	if report.Schema!=ResultSchema||report.Header!=w.header||report.CreatedParents!=0||report.CreatedLabels!=0||report.WantedComparisonState!="pending_separate_saved_observation_comparison"||report.CompletedObserveCalls<0||report.CompletedObserveCalls>57{return nil,w.stop("final_report_contract")}
+	c:=report.Counters;c.CheckpointStopped=false;if !boundedCounters(c){return nil,w.stop("final_counter_contract")}
+	seen:=0;for i,d:=range batchprep.Schedule(){row:=report.Rows[i];if row.Dispatch!=d||row.Truth!=nil||row.Label!=nil||row.Role!=nil||row.Weight!=nil{return nil,w.stop("final_row_contract")};if row.Attempted{seen++;if row.Observation==nil||row.Observation.OriginalAPICallsMeasured!=nil||row.Observation.StartupInitCallsMeasured!=nil{return nil,w.stop("final_row_contract")}}else if row.Observation!=nil{return nil,w.stop("final_row_contract")}}
+	if seen!=report.CompletedObserveCalls{return nil,w.stop("final_row_count")}
+	if report.State=="completed_finite_observations_not_compared"&&(seen!=57||report.Counters.CheckpointStopped||c.CandidateDispatched!=57||w.state.CompletedDispatches!=57||w.phase!=0){return nil,w.stop("final_completion_contract")}
+	report.Durable=w.State();b,e:=json.Marshal(report);if e!=nil{return nil,w.stop("final_encode")};b=append(b,'\n')
+	if len(b)>MaxFinalBytes||w.state.PhysicalBytesWritten+int64(len(b))>MaxOutputBytes{return nil,w.stop("final_output_cap")}
+	if e=w.write(w.result,b);e!=nil{return nil,e}
+	if w.root!="" {if e=syncDirectory(w.root);e!=nil{return nil,w.stop("final_directory_sync")}}
+	return b,nil
+}
+func (w *Writer) Close() error {
+	if w==nil{return nil};var failed bool;if w.journal!=nil{failed=w.journal.Close()!=nil};if w.result!=nil{failed=w.result.Close()!=nil||failed};if failed{return failure("output_close")};return nil
+}

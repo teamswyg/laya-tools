@@ -1,0 +1,137 @@
+// Independently authored candidates. Literal Wanted values live in fixtures,
+// never in these functions and are never derived by calling these functions.
+package batchprep
+
+import (
+	"math/big"
+	"strconv"
+	"strings"
+)
+
+// Candidate order: baseline-design, reference-design, wrong-seed-design.
+// Baseline and wrong deliberately share the same upstream ParseComma behavior;
+// this is a duplicate negative design, not an independent implementation.
+func CommaCandidate(which int, s string, original func(string) (int64, error)) (int64, error) {
+	if which == 0 || which == 2 {
+		return original(s)
+	}
+	if which != 1 {
+		return 0, ErrSyntax
+	}
+	body := s
+	if len(body) > 0 && (body[0] == '+' || body[0] == '-') {
+		body = body[1:]
+	}
+	if body == "" {
+		return 0, ErrGrouping
+	}
+	groups := strings.Split(body, ",")
+	for i, g := range groups {
+		if g == "" {
+			return 0, ErrGrouping
+		}
+		if len(groups) > 1 && ((i == 0 && len(g) > 3) || (i > 0 && len(g) != 3)) {
+			return 0, ErrGrouping
+		}
+		for j := 0; j < len(g); j++ {
+			if g[j] < '0' || g[j] > '9' {
+				return 0, ErrGrouping
+			}
+		}
+	}
+	v, err := strconv.ParseInt(strings.ReplaceAll(s, ",", ""), 10, 64)
+	if err != nil {
+		if e, ok := err.(*strconv.NumError); ok && e.Err == strconv.ErrRange {
+			return 0, ErrRange
+		}
+		return 0, ErrSyntax
+	}
+	return v, nil
+}
+
+// ASCII numeric prefix and the retained byte-unit aliases only. Whole numbers
+// delegate unchanged to the original API. Unicode numeric-prefix equivalence,
+// all grammar compatibility and a package-wide ParseBytes replacement are not
+// established by the five frozen decimal probes.
+func BytesCandidate(which int, s string, original func(string) (uint64, error)) (uint64, error) {
+	if which == 0 {
+		return original(s)
+	}
+	if which != 1 && which != 2 {
+		return 0, ErrSyntax
+	}
+	n := 0
+	for n < len(s) && ((s[n] >= '0' && s[n] <= '9') || s[n] == '.' || s[n] == ',') {
+		n++
+	}
+	num := strings.ReplaceAll(s[:n], ",", "")
+	if !strings.Contains(num, ".") {
+		return original(s)
+	}
+	parts := strings.Split(num, ".")
+	if len(parts) != 2 || (parts[0] == "" && parts[1] == "") {
+		return 0, ErrSyntax
+	}
+	for _, p := range parts {
+		for i := 0; i < len(p); i++ {
+			if p[i] < '0' || p[i] > '9' {
+				return 0, ErrSyntax
+			}
+		}
+	}
+	unit, ok := unitMultiplier(strings.ToLower(strings.TrimSpace(s[n:])))
+	if !ok {
+		return 0, ErrSyntax
+	}
+	numerator := new(big.Int)
+	if _, ok = numerator.SetString(parts[0]+parts[1], 10); !ok {
+		return 0, ErrSyntax
+	}
+	denominator := new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(len(parts[1]))), nil)
+	numerator.Mul(numerator, new(big.Int).SetUint64(unit))
+	limit := new(big.Int).SetUint64(^uint64(0))
+	if which == 1 {
+		// Check the exact rational before truncation.
+		if numerator.Cmp(new(big.Int).Mul(new(big.Int).Set(limit), denominator)) > 0 {
+			return 0, ErrRange
+		}
+		return new(big.Int).Quo(numerator, denominator).Uint64(), nil
+	}
+	// Authored negative: truncate first. MaxUint64+0.9 is admitted incorrectly.
+	truncated := new(big.Int).Quo(numerator, denominator)
+	if truncated.Cmp(limit) > 0 {
+		return 0, ErrRange
+	}
+	return truncated.Uint64(), nil
+}
+func unitMultiplier(s string) (uint64, bool) {
+	switch s {
+	case "", "b":
+		return 1, true
+	case "k", "kb":
+		return 1000, true
+	case "m", "mb":
+		return 1000000, true
+	case "g", "gb":
+		return 1000000000, true
+	case "t", "tb":
+		return 1000000000000, true
+	case "p", "pb":
+		return 1000000000000000, true
+	case "e", "eb":
+		return 1000000000000000000, true
+	case "ki", "kib":
+		return uint64(1) << 10, true
+	case "mi", "mib":
+		return uint64(1) << 20, true
+	case "gi", "gib":
+		return uint64(1) << 30, true
+	case "ti", "tib":
+		return uint64(1) << 40, true
+	case "pi", "pib":
+		return uint64(1) << 50, true
+	case "ei", "eib":
+		return uint64(1) << 60, true
+	}
+	return 0, false
+}

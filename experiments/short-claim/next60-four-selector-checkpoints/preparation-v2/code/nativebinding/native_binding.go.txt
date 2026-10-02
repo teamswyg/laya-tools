@@ -1,0 +1,30 @@
+// This separate INERT native layer has non-stdlib original imports by design.
+// Never include it in pure tests. No original source body is copied here.
+// Root must stage and pin the complete selected source, original modules,
+// notices, toolchain selection and this layer before compilation or execution.
+package nativebinding
+
+import (
+	"strings"
+	"github.com/dustin/go-humanize"
+	"github.com/go-viper/mapstructure/v2"
+	"github.com/spf13/pflag"
+	"riido.local/fourselectors/batchprep"
+)
+
+func ClosedOriginalOps() batchprep.OriginalOps {
+	return batchprep.OriginalOps{
+		ParseComma:humanize.ParseComma,
+		ParseBytes:humanize.ParseBytes,
+		DecodeName:func(input map[string]string,target *batchprep.NameTarget)error {
+			decoder,err:=mapstructure.NewDecoder(&mapstructure.DecoderConfig{Result:target,MatchName:strings.EqualFold})
+			if err!=nil{return err};return decoder.Decode(input)
+		},
+		SetupMap:func(initial map[string]string)batchprep.MapBinding {
+			flags:=pflag.NewFlagSet("scope60",pflag.ContinueOnError)
+			var live map[string]string
+			flags.StringToStringVar(&live,"items",initial,"")
+			return batchprep.MapBinding{Live:&live,Get:flags.GetStringToString}
+		},
+	}
+}
