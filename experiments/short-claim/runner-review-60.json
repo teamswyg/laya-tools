@@ -1,0 +1,61 @@
+{
+  "schema": "riido-source-inventory-runner-preparation-review-60-v1",
+  "state": "official_port_reviewed_before_original_inventory",
+  "compiled_source_artifacts": [
+    {"path": "cmd/riido-sourceinventory/main.go", "sha256": "a7f52dfdf31c17b33a710b21399eaefce7088b6a16b7e2c1370adf022a3ff097"},
+    {"path": "cmd/riido-sourceinventory/metadata.go", "sha256": "beda98eabd5953de0776cf7e362605412729f3a99e88b0f09cdd37a22346fd07"},
+    {"path": "internal/sourceinventory/inventory.go", "sha256": "919ca081e6826384f14c0575be23013e5c68014280059cf781f32a1422a8af33"},
+    {"path": "internal/sourceinventory/registry.go", "sha256": "4bf19487cb966bb9581001ae197026ee3df56ced3c8335d67a29cdb42398aff5"},
+    {"path": "internal/sourceinventory/provenance.go", "sha256": "b59e54f7926e8099d34047ca83006e277d9707bf422646b9a8b040fa446c1634"}
+  ],
+  "independent_code_reading": {
+    "private_draft_review_sha256": "ea1f1cfa4ffbe4515703f130cd66012c1befa1c04114c2a8e54cf85e181a9cc4",
+    "review_scope": "Private runner and actual public inventory package; followed by independent reading of the official port and returned-report fix; reader executed no tests or original inventory",
+    "finding": "The draft accepted empty nil-error success. The official port validates returned files, original root/component order and pins, bundles and fixed successful counters. Rejection preserves the actual returned report and counters without retry or forecast injection.",
+    "official_port_followup": "Blocker resolved; no additional concrete execution blocker found. Stale provenance comment corrected afterward without changing behavior.",
+    "semantic_content_approval": false
+  },
+  "local_checks_before_original_inventory": {
+    "toolchain": "go1.27.1",
+    "targeted_race_runs": 1,
+    "full_repository_race_runs": 2,
+    "final_full_repository_race": "passed",
+    "full_repository_vet_runs": 2,
+    "final_vet": "passed",
+    "formatting": "clean",
+    "wrapper_synthetic_real_rebind_calls": 3,
+    "wrapper_synthetic_real_rebind_scope": "Each run used four independently authored toy package declarations and stopped at registry mismatch; original inventory and formatter calls were zero",
+    "inventory_package_synthetic_tests": "Passed separately; these controls are not original input execution",
+    "historical_frozen_replays": "Existing repository checks remained separate from stage60 original inventory",
+    "native_model_ci_status": "Not inferred from local tests; retained existing CI integration remains separate"
+  },
+  "private_draft_development": {
+    "compile_failure": "Missing closing brace, corrected before successful toy runs",
+    "vet_failure": "Unkeyed artifact literals, corrected",
+    "successful_test_runs": 2,
+    "toy_real_rebind_calls": 2,
+    "toy_formatter_calls": 0,
+    "original_inventory_calls": 0,
+    "private_binary_build": "passed; no original invocation"
+  },
+  "content_scope_preparation_generation": {
+    "attempts": 3,
+    "succeeded": 3,
+    "failed": 0,
+    "first_combined_output_superseded_before_freeze": {"bytes": 120171, "sha256": "fd297a2c52866a09af8e07434aafeb7a8556d2ce8c37b5301d305d865c32d7e6"},
+    "second_split_output": "Final protocol and appendix; third invocation added input prechecks and regenerated identical bytes",
+    "protocol_sha256": "6f4504ba04e0b5813e4dc58ec0f6dbe5101a1127e09a379172dd57d7ed11ff19",
+    "appendix_sha256": "0f3f0b7742bd74a45e5c263f501bcce63964e2432a3cafb3217156d694f6ffdd",
+    "actual_content_assessment_records": 0,
+    "terminal_content_decisions": 0,
+    "all_review_states": "pending"
+  },
+  "closure": {"compiled_go_files": 5, "support_files": 16, "original_inputs": 5, "git_blobs_prepare": 26, "git_blobs_inventory": 27},
+  "first_official_execution_plan": {"original_inventory_attempts": 1, "automatic_retries": 0, "status_at_this_preparation_record": "not_executed"},
+  "stage60_preparation_original_activity": {"inventory": 0, "historical_source_pin_bind_generate": 0, "candidate_api": 0, "new_model_trials": 0, "paid_trials": 0, "fits": 0, "labels": 0, "roles": 0, "protected_final_reads": 0, "new_weights": 0},
+  "performance_measurement": "none; settings and operation expectations are not CPU/GPU/RSS/latency or savings observations",
+  "content_review": "pending",
+  "training_ready": false,
+  "human_approval_required": false,
+  "existing_ci_merge_gate_preserved": true
+}
