@@ -1,0 +1,124 @@
+{
+  "schema": "riido-roleplan-public-port-ledger-62-v2",
+  "previous_public_port_preserved": {
+    "directory": "frozen-v1",
+    "source_sha256": "47af6636a019bae10dc4886ca7aaee836a62827e60de992ca4e9fce978bb4bfd",
+    "test_sha256": "98f08ec8375f7afc17f084334ab137b5e0fcc504455ecb470ace5fe7076b153c",
+    "ledger_sha256": "eabd638783c3e641d1b6d4d5531de6b6819d1b63e35bca1ad021d3486a7f41a2",
+    "previous_source_test_ledger_mutations": 0,
+    "independent_review_gap": "Aggregate reference count did not bound bytes compared while sorting arbitrarily long common-prefix coverage IDs."
+  },
+  "state": "synthetic_checks_passed_original_roles_unassigned_uncommitted",
+  "original_private_prototype_preserved": {
+    "source_sha256": "7acc972d8416783ccb4598ddbc3a08cb14d679708a79c9c17f6bc3ae3132439d",
+    "test_sha256": "0deb66c5245af19d804110ffe99fcdf9a0560dd38bbe29c13d88d903404ba424",
+    "source_bytes": 13640,
+    "test_bytes": 17107,
+    "mutations": 0
+  },
+  "public_port_stages": [
+    {
+      "stage": "package_namespace_public_comment_and_prototype_provenance_only",
+      "source": "internal/roleplan/role.go",
+      "source_sha256": "24859f5125b0414968148466224a90bc86cd2eb155c5f2bbae07c2246bf46e44",
+      "test": "internal/roleplan/role_test.go",
+      "test_sha256": "e7d784d03bb1b58722de50500addffc4b634ffba6f77d466401515054d06d2bf",
+      "algorithm_or_encoding_changed": false
+    },
+    {
+      "stage": "bounded_compiled_coverage_and_adversarial_synthetic_controls",
+      "source": "internal/roleplan/role.go",
+      "source_sha256": "47af6636a019bae10dc4886ca7aaee836a62827e60de992ca4e9fce978bb4bfd",
+      "source_bytes": 15851,
+      "test": "internal/roleplan/role_test.go",
+      "test_sha256": "98f08ec8375f7afc17f084334ab137b5e0fcc504455ecb470ace5fe7076b153c",
+      "test_bytes": 22995,
+      "total_coverage_references_implementation_limit": 65536,
+      "new_scientific_or_readiness_gate": false,
+      "changes": [
+        "Preflight aggregate coverage reference count before allocation/ID lookup/order hashes",
+        "Sorted component ID to original input-index lookup",
+        "Sorted key-role and per-requirement ID adjacent duplicate scans",
+        "Contiguous owned requirement offsets and resolved component indices reused by Assign",
+        "Boundaries, cross-order identity, ownership and aggregate encoded-byte preflight synthetic tests"
+      ]
+    },
+    {
+      "stage": "coverage_identity_byte_UTF8_preflight_before_any_sort_or_owned_projection",
+      "source": "internal/roleplan/role.go",
+      "source_sha256": "df8d53d0600e80c331c4912d90ff199aef753704f34c87e085fa738fe920ba0b",
+      "source_bytes": 16123,
+      "test": "internal/roleplan/role_test.go",
+      "test_sha256": "c858a8138bde70629a51effaeb8259878419afffe7d2f5e0880f1b5bb79e9b92",
+      "test_bytes": 24825,
+      "coverage_ID_max_raw_bytes": 512,
+      "coverage_ID_nonempty_UTF8_required": true,
+      "failure_code": "coverage_component_id_invalid",
+      "new_scientific_or_readiness_gate": false,
+      "changes": [
+        "Validate every coverage ComponentID in preflight before sorting keys/IDs or allocating owned projection",
+        "Fail closed on empty, invalid UTF8, one-over512 and 1MiB common-prefix strings with no order hash or returned assignment",
+        "Accept exact512 ASCII and UTF8 identities and bind them to their original input index"
+      ]
+    }
+  ],
+  "preserved": {
+    "frozen_input_consumption_only": true,
+    "allocation_weights": [3, 1, 1],
+    "largest_fraction_tie_roles": ["train", "validation", "calibration"],
+    "old_known_group_floors": [9, 3, 3],
+    "unknown_only_not_counted_or_hashed_as_known": true,
+    "unknown_only_train_provenance": true,
+    "transfer_groups_required": 0,
+    "encoding_pending_caller_freeze": true,
+    "exact_encoded_membership_and_set_limit_bytes": 67108864,
+    "single_exact_grow": true,
+    "flat_sorted_member_overlap_check": true,
+    "component_prefix_duplicate_validation_and_counters": true,
+    "literal_synthetic_membership_and_order_digest_vectors": true,
+    "original_synthetic_role_vector": true,
+    "training_ready": false
+  },
+  "verification": {
+    "race_commands": 2,
+    "race_command": "go test -race -count=1 ./internal/roleplan",
+    "race_successes": 2,
+    "race_failures": 0,
+    "race_package_seconds": [1.782, 1.832],
+    "race_runs": [
+      {"stage": "compiled_coverage_v1", "source_sha256": "47af6636a019bae10dc4886ca7aaee836a62827e60de992ca4e9fce978bb4bfd", "exit_code": 0, "package_seconds": 1.782},
+      {"stage": "identity_byte_preflight_v2", "source_sha256": "df8d53d0600e80c331c4912d90ff199aef753704f34c87e085fa738fe920ba0b", "exit_code": 0, "package_seconds": 1.832}
+    ],
+    "cached_test_result": false,
+    "vet_commands": 2,
+    "vet_command": "go vet ./internal/roleplan",
+    "vet_successes": 2,
+    "vet_failures": 0,
+    "private_prototype_hash_checks": "matched_before_copy_and_after_port",
+    "gofmt_mutating_commands": 3,
+    "final_gofmt_listing": "empty_exit0",
+    "gofmt_failures": 0,
+    "targeted_no_map_lock_personal_path_secret_keyword_search": "no_matches_exit1_expected",
+    "no_benchmark_or_resource_gain_claim": true
+  },
+  "file_ownership": {
+    "shared_new_files_written": ["internal/roleplan/role.go", "internal/roleplan/role_test.go"],
+    "existing_frozen_source_runtime_files_modified": 0,
+    "existing61_artifacts_modified": 0,
+    "parent_experiments_docs_or_Git_modified_by_this_agent": 0
+  },
+  "actual_original_execution": {
+    "original_graph_generation": 0,
+    "original_membership_encoding": 0,
+    "original17_role_assignment": 0,
+    "seed_assignment": 0,
+    "new_labels": 0,
+    "fits": 0,
+    "models": 0,
+    "paid": 0,
+    "protected_final_reads": 0,
+    "commit": 0,
+    "push": 0,
+    "publication": 0
+  }
+}

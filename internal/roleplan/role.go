@@ -1,0 +1,540 @@
+// Package roleplan assigns development roles to externally frozen component
+// metadata. It never builds a graph, reads scorer inputs, or certifies training
+// readiness. Membership encoding must be frozen by the caller before use.
+package roleplan
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/binary"
+	"errors"
+	"sort"
+	"unicode/utf8"
+)
+
+const OrderDomain = "riido-whole-component-role-order-v1"
+const MembershipDomain = "riido-whole-component-membership-v1" // Proposed, not frozen.
+
+// PrototypeSourceSHA256 identifies the unchanged private preparation62 source
+// from which this public port was derived. It is provenance, not a feature.
+const PrototypeSourceSHA256 = "7acc972d8416783ccb4598ddbc3a08cb14d679708a79c9c17f6bc3ae3132439d"
+const MaxComponents = 4096
+const MaxSeedBytes = 256
+const MaxIDBytes = 512
+const MaxMembershipEntries = 65536
+
+// MaxCoverageReferences bounds the total IDs across a declared coverage plan.
+// It limits maintainer work and memory; it is not a data/readiness criterion.
+const MaxCoverageReferences = 65536
+
+// A maintainer payload limit, not a statistical readiness requirement.
+const MaxEncodedMembershipBytes = 64 << 20
+
+type Role uint8
+
+const (
+	DevelopmentTrain Role = iota
+	DevelopmentValidation
+	DevelopmentCalibration
+)
+
+func (r Role) String() string {
+	switch r {
+	case DevelopmentTrain:
+		return "development_train"
+	case DevelopmentValidation:
+		return "development_validation"
+	case DevelopmentCalibration:
+		return "development_calibration"
+	}
+	return "invalid_role"
+}
+
+type Component struct {
+	ID               string
+	OriginalGroupID  int64
+	MembershipSHA256 [32]byte
+	HasKnownMembers  bool
+}
+
+// Requirements come only from the future explicit coverage plan. This package
+// does not add a mandatory prototype, language, source-count or numeric gate.
+type CoverageRequirement struct {
+	Key                    string
+	Role                   Role
+	ComponentIDs           []string
+	MinimumKnownComponents int
+}
+type CoveragePlan struct {
+	Declared     bool
+	Requirements []CoverageRequirement
+}
+type Assignment struct {
+	ComponentID      string
+	OriginalGroupID  int64
+	MembershipSHA256 [32]byte
+	Role             Role
+	KnownContaining  bool
+	ProvenanceOnly   bool
+}
+type Counters struct{ InvocationAttempts, ComponentValidationAttempts, ComponentsValidated, OrderHashesAttempted, OrderHashesCompleted, KnownComponentsOrdered, CoverageRequirementsAttempted, CoverageRequirementsPassed, AssignmentsReturned int }
+type Result struct {
+	State, FailureCode                                                           string
+	KnownComponents, UnknownOnlyComponents                                       int
+	PlannedKnownCounts, ProvenanceCounts                                         [3]int
+	Assignments                                                                  []Assignment
+	Counters                                                                     Counters
+	TransferDevelopmentGroups                                                    int
+	UnknownMembersRemainUnknown, ScorerFeatureProjectionPermitted, TrainingReady bool
+}
+type ordered struct {
+	InputIndex            int
+	OrderHash, Membership [32]byte
+	GroupID               int64
+}
+
+func validID(s string) bool { return len(s) > 0 && len(s) <= MaxIDBytes && utf8.ValidString(s) }
+func writeU64(b *bytes.Buffer, n uint64) {
+	var raw [8]byte
+	binary.BigEndian.PutUint64(raw[:], n)
+	b.Write(raw[:])
+}
+func writeLP(b *bytes.Buffer, p []byte) { writeU64(b, uint64(len(p))); b.Write(p) }
+
+// OrderDigest uses raw 32-byte digest bytes, never hexadecimal text.
+func OrderDigest(seed []byte, membership [32]byte) ([32]byte, error) {
+	if len(seed) == 0 || len(seed) > MaxSeedBytes {
+		return [32]byte{}, errors.New("seed_bounds")
+	}
+	var b bytes.Buffer
+	writeLP(&b, []byte(OrderDomain))
+	writeLP(&b, seed)
+	writeLP(&b, membership[:])
+	return sha256.Sum256(b.Bytes()), nil
+}
+func orderedLess(a, b ordered) bool {
+	if c := bytes.Compare(a.OrderHash[:], b.OrderHash[:]); c != 0 {
+		return c < 0
+	}
+	if c := bytes.Compare(a.Membership[:], b.Membership[:]); c != 0 {
+		return c < 0
+	}
+	return a.GroupID < b.GroupID
+}
+
+// AllocateCounts implements the unchanged 3:1:1 largest-remainder recipe.
+func AllocateCounts(n int) ([3]int, error) {
+	if n < 0 || n > MaxComponents {
+		return [3]int{}, errors.New("component_bounds")
+	}
+	weights := [3]int{3, 1, 1}
+	var counts, remainders [3]int
+	sum := 0
+	for i, w := range weights {
+		counts[i] = n * w / 5
+		remainders[i] = n * w % 5
+		sum += counts[i]
+	}
+	order := [3]int{0, 1, 2}
+	for i := 1; i < len(order); i++ {
+		for j := i; j > 0 && remainders[order[j]] > remainders[order[j-1]]; j-- {
+			order[j], order[j-1] = order[j-1], order[j]
+		}
+	}
+	for i := 0; i < n-sum; i++ {
+		counts[order[i]]++
+	}
+	return counts, nil
+}
+
+type componentID struct {
+	ID         string
+	InputIndex int
+}
+
+func componentIDs(cs []Component) []componentID {
+	ids := make([]componentID, len(cs))
+	for i, c := range cs {
+		ids[i] = componentID{c.ID, i}
+	}
+	sort.Slice(ids, func(i, j int) bool { return ids[i].ID < ids[j].ID })
+	return ids
+}
+
+func componentIndex(ids []componentID, id string) int {
+	i := sort.Search(len(ids), func(i int) bool { return ids[i].ID >= id })
+	if i == len(ids) || ids[i].ID != id {
+		return -1
+	}
+	return ids[i].InputIndex
+}
+func validateComponents(cs []Component, k *Counters) error {
+	if len(cs) == 0 || len(cs) > MaxComponents {
+		return errors.New("component_bounds")
+	}
+	for i, c := range cs {
+		k.ComponentValidationAttempts++
+		if !validID(c.ID) || c.OriginalGroupID < 0 || c.MembershipSHA256 == ([32]byte{}) {
+			return errors.New("component_metadata_invalid")
+		}
+		for j := 0; j < i; j++ {
+			if cs[j].ID == c.ID {
+				return errors.New("component_id_duplicate")
+			}
+			if cs[j].MembershipSHA256 == c.MembershipSHA256 {
+				return errors.New("membership_digest_duplicate")
+			}
+			if cs[j].OriginalGroupID == c.OriginalGroupID {
+				return errors.New("original_group_split")
+			}
+		}
+		k.ComponentsValidated++
+	}
+	return nil
+}
+
+type coverageKey struct {
+	Key  string
+	Role Role
+}
+
+// Offsets bind each original requirement to a contiguous owned index slice.
+// IDs are resolved once; Assign does not search the component list again.
+type compiledCoverage struct {
+	Offsets      []int
+	InputIndices []int
+}
+
+func validateCoverage(cs []Component, p CoveragePlan) (compiledCoverage, error) {
+	var out compiledCoverage
+	if !p.Declared {
+		return out, errors.New("coverage_plan_undeclared")
+	}
+	if len(p.Requirements) > MaxComponents {
+		return out, errors.New("coverage_bounds")
+	}
+	// Preflight aggregate references before allocating or resolving any IDs.
+	total := 0
+	for _, q := range p.Requirements {
+		if !validID(q.Key) || q.Role > DevelopmentCalibration || q.MinimumKnownComponents < 0 || q.MinimumKnownComponents > len(q.ComponentIDs) || len(q.ComponentIDs) > MaxComponents {
+			return out, errors.New("coverage_requirement_invalid")
+		}
+		if len(q.ComponentIDs) > MaxCoverageReferences-total {
+			return out, errors.New("coverage_reference_bounds")
+		}
+		// Bound byte work too: sorting two very long equal-prefix IDs is not
+		// bounded by the reference count alone. Reject before any sort/copy.
+		for _, id := range q.ComponentIDs {
+			if !validID(id) {
+				return out, errors.New("coverage_component_id_invalid")
+			}
+		}
+		total += len(q.ComponentIDs)
+	}
+	keys := make([]coverageKey, len(p.Requirements))
+	for i, q := range p.Requirements {
+		keys[i] = coverageKey{q.Key, q.Role}
+	}
+	sort.Slice(keys, func(i, j int) bool {
+		if keys[i].Key != keys[j].Key {
+			return keys[i].Key < keys[j].Key
+		}
+		return keys[i].Role < keys[j].Role
+	})
+	for i := 1; i < len(keys); i++ {
+		if keys[i-1] == keys[i] {
+			return out, errors.New("coverage_requirement_duplicate")
+		}
+	}
+	lookup := componentIDs(cs)
+	ids := make([]string, total)
+	out.Offsets = make([]int, len(p.Requirements)+1)
+	out.InputIndices = make([]int, total)
+	for i, q := range p.Requirements {
+		start := out.Offsets[i]
+		end := start + len(q.ComponentIDs) // Aggregate preflight bounds this sum.
+		out.Offsets[i+1] = end
+		owned := ids[start:end]
+		copy(owned, q.ComponentIDs)
+		sort.Strings(owned)
+		for j, id := range owned {
+			if j > 0 && owned[j-1] == id {
+				return compiledCoverage{}, errors.New("coverage_component_duplicate")
+			}
+			index := componentIndex(lookup, id)
+			if index < 0 {
+				return compiledCoverage{}, errors.New("coverage_component_missing")
+			}
+			out.InputIndices[start+j] = index
+		}
+	}
+	return out, nil
+}
+
+// Assign receives externally frozen metadata. Opaque digests cannot prove whole
+// graph completeness or truthful known flags. It never emits member labels.
+func Assign(cs []Component, seed []byte, p CoveragePlan) (out Result, err error) {
+	out.State = "refused"
+	out.Counters.InvocationAttempts = 1
+	out.UnknownMembersRemainUnknown = true
+	refuse := func(code string) (Result, error) {
+		out.FailureCode = code
+		out.Assignments = nil
+		out.Counters.AssignmentsReturned = 0
+		return out, errors.New(code)
+	}
+	if e := validateComponents(cs, &out.Counters); e != nil {
+		return refuse(e.Error())
+	}
+	if len(seed) == 0 || len(seed) > MaxSeedBytes {
+		return refuse("seed_bounds")
+	}
+	coverage, e := validateCoverage(cs, p)
+	if e != nil {
+		return refuse(e.Error())
+	}
+	ranks := make([]ordered, 0, len(cs))
+	for i, c := range cs {
+		if !c.HasKnownMembers {
+			out.UnknownOnlyComponents++
+			continue
+		}
+		out.KnownComponents++
+		out.Counters.OrderHashesAttempted++
+		h, e := OrderDigest(seed, c.MembershipSHA256)
+		if e != nil {
+			return refuse(e.Error())
+		}
+		out.Counters.OrderHashesCompleted++
+		ranks = append(ranks, ordered{i, h, c.MembershipSHA256, c.OriginalGroupID})
+	}
+	sort.Slice(ranks, func(i, j int) bool { return orderedLess(ranks[i], ranks[j]) })
+	out.Counters.KnownComponentsOrdered = len(ranks)
+	allocation, e := AllocateCounts(len(ranks))
+	if e != nil {
+		return refuse(e.Error())
+	}
+	out.PlannedKnownCounts = allocation
+	floors := [3]int{9, 3, 3}
+	for i, n := range out.PlannedKnownCounts {
+		if n < floors[i] {
+			return refuse("existing_labeled_floor_unmet")
+		}
+	}
+	roles := make([]Role, len(cs))
+	start := 0
+	for role, n := range out.PlannedKnownCounts {
+		for i := start; i < start+n; i++ {
+			roles[ranks[i].InputIndex] = Role(role)
+		}
+		start += n
+	}
+	for qi, q := range p.Requirements {
+		out.Counters.CoverageRequirementsAttempted++
+		count := 0
+		for _, i := range coverage.InputIndices[coverage.Offsets[qi]:coverage.Offsets[qi+1]] {
+			if cs[i].HasKnownMembers && roles[i] == q.Role {
+				count++
+			}
+		}
+		if count < q.MinimumKnownComponents {
+			return refuse("predeclared_coverage_unmet")
+		}
+		out.Counters.CoverageRequirementsPassed++
+	}
+	out.Assignments = make([]Assignment, len(cs))
+	for i, c := range cs {
+		role := roles[i]
+		out.Assignments[i] = Assignment{c.ID, c.OriginalGroupID, c.MembershipSHA256, role, c.HasKnownMembers, !c.HasKnownMembers}
+		out.ProvenanceCounts[role]++
+	}
+	out.Counters.AssignmentsReturned = len(out.Assignments)
+	out.State = "allocation_returned"
+	return out, nil
+}
+
+// VerifyAgainstFreeze checks exact complete metadata/count/order against an
+// immutable list supplied by the caller; it does not discover that list.
+func VerifyAgainstFreeze(got, frozen []Component) error {
+	var k Counters
+	if e := validateComponents(frozen, &k); e != nil {
+		return e
+	}
+	if len(got) != len(frozen) {
+		return errors.New("frozen_components_mismatch")
+	}
+	for i := range frozen {
+		if got[i] != frozen[i] {
+			return errors.New("frozen_components_mismatch")
+		}
+	}
+	return nil
+}
+
+type Relationship struct{ From, Kind, To string }
+type Membership struct {
+	Members       []string
+	Relationships []Relationship
+}
+
+func checkedEncodedAdd(total *int, n int) error {
+	if *total < 0 || *total > MaxEncodedMembershipBytes || n < 0 || n > MaxEncodedMembershipBytes-*total {
+		return errors.New("membership_encoded_bounds")
+	}
+	*total += n
+	return nil
+}
+
+// This preflight accounts for every u64 and exact UTF-8 byte length before any
+// encoding buffer allocation. No unchecked length sum or multiplication occurs.
+func encodedMembershipBytes(m Membership) (int, error) {
+	total := 0
+	addLP := func(s string) error {
+		if e := checkedEncodedAdd(&total, 8); e != nil {
+			return e
+		}
+		return checkedEncodedAdd(&total, len(s))
+	}
+	if e := addLP(MembershipDomain); e != nil {
+		return 0, e
+	}
+	if e := checkedEncodedAdd(&total, 8); e != nil {
+		return 0, e
+	}
+	for _, id := range m.Members {
+		if e := addLP(id); e != nil {
+			return 0, e
+		}
+	}
+	if e := checkedEncodedAdd(&total, 8); e != nil {
+		return 0, e
+	}
+	for _, r := range m.Relationships {
+		for _, s := range [...]string{r.From, r.Kind, r.To} {
+			if e := addLP(s); e != nil {
+				return 0, e
+			}
+		}
+	}
+	return total, nil
+}
+
+// MembershipDigest is a pending encoding proposal. It is not a graph inventory.
+func MembershipDigest(m Membership) ([32]byte, []byte, error) {
+	if len(m.Members) == 0 || len(m.Members) > MaxMembershipEntries || len(m.Relationships) > MaxMembershipEntries {
+		return [32]byte{}, nil, errors.New("membership_bounds")
+	}
+	encodedSize, e := encodedMembershipBytes(m)
+	if e != nil {
+		return [32]byte{}, nil, e
+	}
+	members := append([]string(nil), m.Members...)
+	sort.Strings(members)
+	for i, id := range members {
+		if !validID(id) {
+			return [32]byte{}, nil, errors.New("membership_id_invalid")
+		}
+		if i > 0 && members[i-1] == id {
+			return [32]byte{}, nil, errors.New("membership_member_duplicate")
+		}
+	}
+	rs := append([]Relationship(nil), m.Relationships...)
+	less := func(a, b Relationship) bool {
+		if a.From != b.From {
+			return a.From < b.From
+		}
+		if a.Kind != b.Kind {
+			return a.Kind < b.Kind
+		}
+		return a.To < b.To
+	}
+	sort.Slice(rs, func(i, j int) bool { return less(rs[i], rs[j]) })
+	has := func(id string) bool {
+		i := sort.SearchStrings(members, id)
+		return i < len(members) && members[i] == id
+	}
+	for i, r := range rs {
+		if !validID(r.Kind) || !has(r.From) || !has(r.To) {
+			return [32]byte{}, nil, errors.New("membership_relationship_invalid")
+		}
+		if i > 0 && rs[i-1] == r {
+			return [32]byte{}, nil, errors.New("membership_relationship_duplicate")
+		}
+	}
+	var b bytes.Buffer
+	b.Grow(encodedSize)
+	writeLP(&b, []byte(MembershipDomain))
+	writeU64(&b, uint64(len(members)))
+	for _, id := range members {
+		writeLP(&b, []byte(id))
+	}
+	writeU64(&b, uint64(len(rs)))
+	for _, r := range rs {
+		writeLP(&b, []byte(r.From))
+		writeLP(&b, []byte(r.Kind))
+		writeLP(&b, []byte(r.To))
+	}
+	encoded := b.Bytes()
+	if len(encoded) != encodedSize {
+		return [32]byte{}, nil, errors.New("membership_encoding_size_mismatch")
+	}
+	return sha256.Sum256(encoded), encoded, nil
+}
+
+// VerifyMembershipSet checks declared member disjointness and proposed digests.
+// Omitted relationships or members cannot be discovered from these inputs.
+func VerifyMembershipSet(cs []Component, ms []Membership) error {
+	var k Counters
+	if e := validateComponents(cs, &k); e != nil {
+		return e
+	}
+	if len(cs) != len(ms) {
+		return errors.New("membership_set_mismatch")
+	}
+	total, totalEncoded := 0, 0
+	for _, m := range ms {
+		if len(m.Members) == 0 || len(m.Relationships) > MaxMembershipEntries {
+			return errors.New("membership_bounds")
+		}
+		if len(m.Members) > MaxMembershipEntries-total {
+			return errors.New("membership_bounds")
+		}
+		total += len(m.Members)
+		n, e := encodedMembershipBytes(m)
+		if e != nil {
+			return e
+		}
+		if e := checkedEncodedAdd(&totalEncoded, n); e != nil {
+			return e
+		}
+	}
+	type ownedMember struct {
+		ID         string
+		OwnerIndex int
+	}
+	flat := make([]ownedMember, 0, total)
+	for i, m := range ms {
+		h, _, e := MembershipDigest(m)
+		if e != nil {
+			return e
+		}
+		if h != cs[i].MembershipSHA256 {
+			return errors.New("membership_pin_mismatch")
+		}
+		for _, id := range m.Members {
+			flat = append(flat, ownedMember{id, i})
+		}
+	}
+	sort.Slice(flat, func(i, j int) bool {
+		if flat[i].ID != flat[j].ID {
+			return flat[i].ID < flat[j].ID
+		}
+		return flat[i].OwnerIndex < flat[j].OwnerIndex
+	})
+	for i := 1; i < len(flat); i++ {
+		if flat[i-1].ID == flat[i].ID && flat[i-1].OwnerIndex != flat[i].OwnerIndex {
+			return errors.New("membership_cross_component_overlap")
+		}
+	}
+	return nil
+}
