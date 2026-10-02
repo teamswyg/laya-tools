@@ -1,5 +1,7 @@
 # Documentation / 문서 안내
 
+First actual native2 observations / 첫 실제 원본 관측: [English](../experiments/short-claim/next60-native2-actual-observations/README.en.md) · [한국어](../experiments/short-claim/next60-native2-actual-observations/README.ko.md). [Source review / 원문 검토](../experiments/short-claim/next60-native2-actual-semantic-review/RECEIPT.v1.json). One Start/Wait, 23 observations for two requests, zero unknowns/panics; child OS RSS about9.11MiB, no new training. / 시작·대기각1회, 요청2개에관측23개, 확인불가·패닉0; 자식OS RSS약9.11MiB, 추가학습0입니다.
+
 Native2 v5 static binary binding / v5 실제 바이너리 문자열 검사: [English](../experiments/short-claim/next60-native2-outside-v5-preparation/README.en.md) · [한국어](../experiments/short-claim/next60-native2-outside-v5-preparation/README.ko.md). Independent final review / 최종 독립 검토: [English](../experiments/short-claim/next60-native2-outside-v5-review/README.en.md) · [한국어](../experiments/short-claim/next60-native2-outside-v5-review/README.ko.md). Twenty-five source tests pass; actual original execution and new training remain zero. / 수정본 테스트25개 통과; 실제 원본 실행·새 학습은0입니다.
 
 Actual native2 build hold / 실제 빌드에서의 시작 전 보류: [English](../experiments/short-claim/native2-actual-build-hold/README.en.md) · [한국어](../experiments/short-claim/native2-actual-build-hold/README.ko.md). Original observations and additional training remain zero; both actual executables and the pre-start compatibility finding are preserved.

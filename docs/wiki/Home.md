@@ -2,6 +2,8 @@
 
 **필요한 기능부터 선택해 사용하세요. / Start with the feature you need.**
 
+[첫 두 과제의 실제 동작 확인](Native2-Observation-KO) · [Actual checks for the first two requests](Native2-Observation-EN): 기존 초안의 요청 2개·입력 9개·관측 23개를 실제 Go 원본으로 확인했습니다. 자식 최대 RSS 약 9.11MiB·전체 시간 약 0.37초이며 새 학습 자격은 아직 0개입니다. / Two existing draft requests, nine inputs and 23 observations were checked against original Go behavior. Child maximum RSS was about 9.11MiB and whole-child time about 0.37s; new training-qualified requests remain zero.
+
 [코드 동작에서 학습 정답 만들기](Claim-Behavior-Validation-KO) · [Turning behavior into training labels](Claim-Behavior-Validation-EN): 요청3개 추가 후 같은 조건으로 실제 학습했지만 확인31회로 단순 정렬27회를 넘겨 실패했습니다. 새 모델은 비활성입니다. / Adding3 verified requests under the same recipe yielded31 checks versus the lexical control's27; utility failed and the model remains inactive.
 
 [공개 함수 동작 검증과 학습 자료 확장](Source-Behavior-80-KO) · [Public behavior verification and training data](Source-Behavior-80-EN): 사전 기대값24개 일치, 새 학습 정답0 /24 matching fixed expectations, zero new training labels.
