@@ -1,0 +1,97 @@
+{
+  "schema": "riido-next60-ftoa-qualified-finite-development-v1",
+  "state": "one_existing_draft_request_qualified_for_development_train",
+  "qualified_by": "Root, AI-assisted source and saved-observation review, nonblind",
+  "input_revision": "INPUTS.v2.json",
+  "input_sha256": "8111cfe5ada2b06d0f85ecdd91e9ccc17198eaf909d05d845ffaf273beb9deaa",
+  "input_bytes": 1108,
+  "worker_result_sha256": "33f9d97c10a5dbc515021c662c386931ac59e2a2cf8bcbd8d2754b792b7279a4",
+  "semantic_peer_handoff_sha256": "43c71b8213accd0107951db9e6630b6345b20e856ee3ae0b6738af0bcde0b1ff",
+  "request_id": "next60-humanize-precise-ftoa",
+  "catalog_id": "go53-humanize-precise-ftoa",
+  "new_qualified_requests": 1,
+  "new_candidate_labels": 3,
+  "positive_labels": 1,
+  "negative_labels": 2,
+  "new_semantic_requests_relative_to_draft20": 0,
+  "new_source_families_relative_to_catalog": 0,
+  "frozen_inputs": 6,
+  "candidate_observations": 18,
+  "oracle_checks": 6,
+  "role": "development_train",
+  "whole_group": 76,
+  "source_family": "upstream53-humanize-connected",
+  "source_revision": "a1b4e66b9a6d890e9e15e7091cf16c8032367d6e",
+  "connected_to": {
+    "existing_parent_index": 78,
+    "request_id": "conversion80-ordinal-teen-suffix",
+    "whole_group": 76,
+    "existing_role": "development_train"
+  },
+  "candidate_supervision": [
+    {
+      "metadata_id": "original-FtoaWithDigits",
+      "actual_id": "original/FtoaWithDigits",
+      "label": false,
+      "sample_weight": 1,
+      "known_full_contract_matches": 0,
+      "witnessed_mismatches": 4,
+      "full_contract_unknown": 2,
+      "unknown_error_channels": 6,
+      "reason": "Finite value counterexamples justify a negative; unavailable error channels remain unavailable."
+    },
+    {
+      "metadata_id": "authored-FtoaPrecise",
+      "actual_id": "authored/FtoaPrecise",
+      "label": true,
+      "sample_weight": 1,
+      "known_full_contract_matches": 6,
+      "witnessed_mismatches": 0,
+      "full_contract_unknown": 0
+    },
+    {
+      "metadata_id": "authored-FlawedDoubleRound",
+      "actual_id": "authored/FlawedDoubleRound",
+      "label": false,
+      "sample_weight": 1,
+      "known_full_contract_matches": 5,
+      "witnessed_mismatches": 1,
+      "full_contract_unknown": 0,
+      "reason": "Frozen tiny input is lost by six-place intermediate rounding."
+    }
+  ],
+  "label_policy": "Positive requires every frozen input satisfied without unknowns. Negative requires a witnessed finite contradiction with faithful scoped candidate text. Unknown channels are preserved; they do not erase an independently witnessed counterexample. One candidate receives one unit weight, independent of fixture count.",
+  "feature_policy": "Only request and candidate text; exclude IDs, role, source, group, hashes, observations, Wants, labels and weights.",
+  "limits": {
+    "full_original_draft_0_to_18_API_qualified": false,
+    "unseen_or_all_input_guarantee": false,
+    "independent_heldout": false,
+    "protected_final": false,
+    "production_ready": false,
+    "model_activation": false
+  },
+  "new_round_totals": {
+    "qualified_requests": 3,
+    "candidate_labels": 8,
+    "positive": 3,
+    "negative": 5,
+    "evidence_inputs": 15,
+    "evidence_observations": 41
+  },
+  "prospective_combined_corpus": {
+    "parents": 82,
+    "whole_groups": 23,
+    "projected": false,
+    "scored": false,
+    "fitted": false,
+    "old_actual79_unchanged": true,
+    "old_roles_unchanged": true
+  },
+  "new_corpus_Fits": 0,
+  "actual_corpus_Fit_total": 3,
+  "logical_model_total": 3,
+  "training_checkpoints": [
+    30,
+    60
+  ]
+}

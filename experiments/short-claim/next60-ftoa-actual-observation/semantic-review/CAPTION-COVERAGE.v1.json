@@ -1,0 +1,141 @@
+{
+  "schema": "riido-ftoa-finite-caption-binding-review-v1",
+  "state": "source_and_saved_result_QA_proposal_only",
+  "input": {
+    "reference": "experiments/short-claim/next60-ftoa-actual-observation/INPUTS.v2.json",
+    "bytes": 1108,
+    "sha256": "8111cfe5ada2b06d0f85ecdd91e9ccc17198eaf909d05d845ffaf273beb9deaa",
+    "schema": "riido-short-behavior-claim-v1",
+    "top_level_shape": "one-element input array",
+    "provenance": "ftoa-finite-v2",
+    "request": "For six frozen float inputs, round the represented value at the requested fractional precision using nearest, ties to even; trim trailing zeros, normalize negative zero, and reject nonfinite values.",
+    "capsule_author": "Root, observation-informed revision after the finite observations and before any claimed model scoring/fitting.",
+    "reviewer_new_Load_or_Validate_calls": 0
+  },
+  "candidate_bindings": [
+    {
+      "ordered_index": 0,
+      "actual_candidate_id": "original/FtoaWithDigits",
+      "input_metadata_id": "original-FtoaWithDigits",
+      "text": "Format frozen floats to six decimal places, truncate at the requested precision, then trim fractional zeros; retain negative zero and expose only a string result.",
+      "source_support": "original47-48 six-place FormatFloat then stripTrailingDigits then stripTrailingZeros; frozen output -0 and unavailable error channel agree.",
+      "finite_result": "Four confirmed output mismatches; error channel remains unknown for all six.",
+      "proposal": "negative"
+    },
+    {
+      "ordered_index": 1,
+      "actual_candidate_id": "authored/FtoaPrecise",
+      "input_metadata_id": "authored-FtoaPrecise",
+      "text": "Round the original frozen float directly at the requested precision, using nearest ties to even; trim fractional zeros, normalize negative zero, and return errors for nonfinite values.",
+      "source_support": "candidate28-30 directly uses requested precision, clean20-23 trims fractional zeros/-0, policy14-17 rejects nonfinite. Saved full-contract matches6/6.",
+      "finite_result": "Six confirmed matches, including classified positive-infinity error.",
+      "proposal": "positive"
+    },
+    {
+      "ordered_index": 2,
+      "actual_candidate_id": "authored/FlawedDoubleRound",
+      "input_metadata_id": "authored-FlawedDoubleRound",
+      "text": "Round frozen floats to six decimal places, parse that intermediate, then round at the requested precision; trim fractional zeros, normalize negative zero, and return errors for nonfinite values.",
+      "source_support": "candidate36-41 own six-place FormatFloat, ParseFloat, then requested-place FormatFloat; it does not call original. Shared clean/policy clauses are actually present.",
+      "finite_result": "Five matches; vector04 expected0.000000125 but observed0.",
+      "proposal": "negative"
+    }
+  ],
+  "coverage": [
+    {
+      "clause": "represented float / requested fractional precision",
+      "evidence": "All six exact binary64 bit patterns and digits2/9 are bound to the saved values. Neither intended decimal nor ideal real-number equality replaces the represented value."
+    },
+    {
+      "clause": "nearest ties to even",
+      "evidence": "vector01 exact112.5 cents rounds even112; vector02 exact137.5 cents rounds even138. vector03 carries to2 and vector04 preserves125 at nine places."
+    },
+    {
+      "clause": "trim trailing fractional zeros",
+      "evidence": "vector03 renders2; source clean trims only fractional zeros, not arbitrary integer zeros."
+    },
+    {
+      "clause": "normalize negative zero",
+      "evidence": "vector05 explicit sign-bit negativezero yields0 in Precise/Flawed and-0 in Original."
+    },
+    {
+      "clause": "reject nonfinite values",
+      "evidence": "Only frozen positive infinity observed; Precise/Flawed return classified nonfinite error. No NaN/negative-infinity supervision claimed."
+    },
+    {
+      "clause": "baseline string-only",
+      "evidence": "All six Original observations have error_channel_available=false, error_present=null, error_kind=unavailable. They cannot become fabricated nil or nonfinite errors."
+    }
+  ],
+  "schema_review": {
+    "static_concrete_blockers_remaining": 0,
+    "actual_loader_validation_by_this_reviewer": false,
+    "fixed_candidate_order_preserved": true,
+    "flat_ASCII_metadata_ids": true,
+    "input_roles_labels_weights_absent": true,
+    "text_scope": "The four sentences explicitly describe the frozen input slice. No API name is embedded in the four text features; candidate API names are inspection metadata only.",
+    "feature_exclusion": "Do not pass candidate IDs, source/family/group, role, supervision, Wanted/Got fields, counts or provenance to model features. Any eventual adapter must use only request/candidate text; structural loading is separate from fit authorization.",
+    "bounds": "ASCII short texts appear within512 bytes/32 normalized words by source reading; Root's actual Go validation remains separate. No normalized-text encoder was executed by reviewer."
+  },
+  "historical_correction": {
+    "invalid_input_v1": {
+      "bytes": 1023,
+      "sha256": "ca32e5d59fc3995e6754cc51ad33a1cdfdd83adb6deea12c9f5d6643638cfb46",
+      "cause": "Slash candidate IDs violate pkg/shortclaim/input.go identifier grammar."
+    },
+    "mapping_receipt": {
+      "reference": "experiments/short-claim/next60-ftoa-actual-observation/INPUT-ID-CORRECTION.v1.json",
+      "bytes": 936,
+      "sha256": "a7657cbc96b77ee79105790de7e3a46a259bea9fd4afdf786052431a4dbf0db3"
+    },
+    "source_writes_by_reviewer": 0,
+    "native_retry": 0,
+    "actual_worker_ids_unchanged": true,
+    "texts_unchanged": true,
+    "old_invalid_input_Load_Score_Project_Fit": "Root reports none; reviewer did not execute these operations."
+  },
+  "original_draft": {
+    "reference": "experiments/short-claim/next60-acquisition-drafts/DRAFT-CONTRACTS.v1.json#/drafts/11",
+    "bytes": 209341,
+    "sha256": "c7bbf7bcc7912300fabdd6e671b0922df295299f00e5e7201df1ab5e824a2a9b",
+    "request": "Add FtoaPrecise with zero to eighteen decimal places, rounding the original float64 value and removing trailing zeros.",
+    "wrong_seed": "Reuse six-place FtoaWithDigits followed by string truncation.",
+    "status": "Immutable broad draft remains unqualified. Actual FlawedDoubleRound is a different authored control, correctly described only by the new finite capsule. Do not silently relabel broad old draft or old wrong-seed captions using these observations."
+  },
+  "family_boundary": {
+    "existing_request": true,
+    "new_global_unique_claim": false,
+    "new_source_families": 0,
+    "source_revision": "a1b4e66b9a6d890e9e15e7091cf16c8032367d6e",
+    "draft_family": "upstream53-humanize",
+    "existing_metadata_link": {
+      "parent": "conversion80-ordinal-teen-suffix",
+      "parent_index": 78,
+      "whole_group": 76,
+      "source_family": "dustin/go-humanize Ordinal slice",
+      "reference": "experiments/short-claim/next60-native2-qualification/group-review/GROUP-PROJECTION-RECIPE.v1.json",
+      "bytes": 9614,
+      "sha256": "9949aeba9eff4b45634148044717c17ce0e28ae55e23878264c6cf3b17ef7155"
+    },
+    "proposal": "Connect by whole family to existing development_train group76. Do not allocate a new group79, split the same family into validation/calibration, or claim heldout/unseen/final eligibility.",
+    "actual_role_assignment_by_reviewer": 0,
+    "scope_limit": "Metadata recipe states an existing train append. It does not prove global uniqueness, external-edge completeness or broad source independence."
+  },
+  "excluded_supervision": [
+    "digits0/18 or invalid precision-1/19",
+    "negative finite numbers",
+    "NaN and negative infinity",
+    "subnormals",
+    "adjacent representable half-boundary neighbors",
+    "allfloat64 or general whole-humanize correctness",
+    "general error messages/wrapping/identity beyond available classified sentinel",
+    "historical number.go/gist ancestry or ignoredGo2022 rights"
+  ],
+  "rights": "References existing selected local-use and notices reviews only. Own finite facts/capsules here contain no raw original implementation bodies or binaries. Applicable notices and exact selected-source attribution must follow any eventual release; this review grants no blanket model-training/redistribution/OS-ancestry clearance.",
+  "actual_assignments": {
+    "roles": 0,
+    "labels": 0,
+    "weights": 0,
+    "qualified": 0
+  }
+}

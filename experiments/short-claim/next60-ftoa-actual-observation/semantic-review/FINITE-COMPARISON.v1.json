@@ -1,0 +1,529 @@
+{
+  "schema": "riido-ftoa-independent-saved-finite-comparison-v1",
+  "state": "review_proposal_no_assignment",
+  "candidate_order": [
+    "original/FtoaWithDigits",
+    "authored/FtoaPrecise",
+    "authored/FlawedDoubleRound"
+  ],
+  "method": "Nonblind source and saved-observation review. No new comparator, oracle or candidate execution. This table is an authored explanation of already saved values, not an official rerun.",
+  "comparison_contract": {
+    "text": "A nonnull Want.text is exact equality. Want.text=null imposes no text predicate, including when Got.text is empty.",
+    "error": "Want.error_kind='' requires an available return channel with error_present=false and empty classification. Want.error_kind=nonfinite requires an available return channel with error_present=true and nonfinite classification. Unavailable/null cannot establish either condition.",
+    "full_contract": "Any known text/error failure is mismatch even when another predicate is unknown. If no predicate fails but a required predicate is unknown, outcome is unknown. Otherwise match. Panic would fail; all18 saved rows have panic=false.",
+    "error_identity_limit": "Saved nonfinite classification was produced by errors.Is against the candidate sentinel. No general error identity equivalence, exact error-message contract, wrapped-error or unavailable-return inference.",
+    "post_observation_review": "Interpretation is stated here after saved observation. Null-text and unavailable-channel risks were explicitly recorded in the earlier frozen static reviews. No changed Want, input, candidate source, learned threshold or utility score."
+  },
+  "rows": [
+    {
+      "ordinal": 0,
+      "candidate": "original/FtoaWithDigits",
+      "case_suffix": "01",
+      "input_float64_bits": "3ff2000000000000",
+      "digits": 2,
+      "want": {
+        "text": "1.12",
+        "error_kind": ""
+      },
+      "observed": {
+        "text": "1.12",
+        "error_channel_available": false,
+        "error_present": null,
+        "error_kind": "unavailable",
+        "panic": false
+      },
+      "predicate_results": {
+        "text": "match",
+        "error": "unknown",
+        "full_contract": "unknown"
+      }
+    },
+    {
+      "ordinal": 1,
+      "candidate": "original/FtoaWithDigits",
+      "case_suffix": "02",
+      "input_float64_bits": "3ff6000000000000",
+      "digits": 2,
+      "want": {
+        "text": "1.38",
+        "error_kind": ""
+      },
+      "observed": {
+        "text": "1.37",
+        "error_channel_available": false,
+        "error_present": null,
+        "error_kind": "unavailable",
+        "panic": false
+      },
+      "predicate_results": {
+        "text": "mismatch",
+        "error": "unknown",
+        "full_contract": "mismatch"
+      }
+    },
+    {
+      "ordinal": 2,
+      "candidate": "original/FtoaWithDigits",
+      "case_suffix": "03",
+      "input_float64_bits": "3ffffbe76c8b4396",
+      "digits": 2,
+      "want": {
+        "text": "2",
+        "error_kind": ""
+      },
+      "observed": {
+        "text": "1.99",
+        "error_channel_available": false,
+        "error_present": null,
+        "error_kind": "unavailable",
+        "panic": false
+      },
+      "predicate_results": {
+        "text": "mismatch",
+        "error": "unknown",
+        "full_contract": "mismatch"
+      }
+    },
+    {
+      "ordinal": 3,
+      "candidate": "original/FtoaWithDigits",
+      "case_suffix": "04",
+      "input_float64_bits": "3e80c6f7a0b5ed8d",
+      "digits": 9,
+      "want": {
+        "text": "0.000000125",
+        "error_kind": ""
+      },
+      "observed": {
+        "text": "0",
+        "error_channel_available": false,
+        "error_present": null,
+        "error_kind": "unavailable",
+        "panic": false
+      },
+      "predicate_results": {
+        "text": "mismatch",
+        "error": "unknown",
+        "full_contract": "mismatch"
+      }
+    },
+    {
+      "ordinal": 4,
+      "candidate": "original/FtoaWithDigits",
+      "case_suffix": "05",
+      "input_float64_bits": "8000000000000000",
+      "digits": 2,
+      "want": {
+        "text": "0",
+        "error_kind": ""
+      },
+      "observed": {
+        "text": "-0",
+        "error_channel_available": false,
+        "error_present": null,
+        "error_kind": "unavailable",
+        "panic": false
+      },
+      "predicate_results": {
+        "text": "mismatch",
+        "error": "unknown",
+        "full_contract": "mismatch"
+      }
+    },
+    {
+      "ordinal": 5,
+      "candidate": "original/FtoaWithDigits",
+      "case_suffix": "06",
+      "input_float64_bits": "7ff0000000000000",
+      "digits": 2,
+      "want": {
+        "text": null,
+        "error_kind": "nonfinite"
+      },
+      "observed": {
+        "text": "+Inf",
+        "error_channel_available": false,
+        "error_present": null,
+        "error_kind": "unavailable",
+        "panic": false
+      },
+      "predicate_results": {
+        "text": "not_applicable",
+        "error": "unknown",
+        "full_contract": "unknown"
+      }
+    },
+    {
+      "ordinal": 6,
+      "candidate": "authored/FtoaPrecise",
+      "case_suffix": "01",
+      "input_float64_bits": "3ff2000000000000",
+      "digits": 2,
+      "want": {
+        "text": "1.12",
+        "error_kind": ""
+      },
+      "observed": {
+        "text": "1.12",
+        "error_channel_available": true,
+        "error_present": false,
+        "error_kind": "",
+        "panic": false
+      },
+      "predicate_results": {
+        "text": "match",
+        "error": "match",
+        "full_contract": "match"
+      }
+    },
+    {
+      "ordinal": 7,
+      "candidate": "authored/FtoaPrecise",
+      "case_suffix": "02",
+      "input_float64_bits": "3ff6000000000000",
+      "digits": 2,
+      "want": {
+        "text": "1.38",
+        "error_kind": ""
+      },
+      "observed": {
+        "text": "1.38",
+        "error_channel_available": true,
+        "error_present": false,
+        "error_kind": "",
+        "panic": false
+      },
+      "predicate_results": {
+        "text": "match",
+        "error": "match",
+        "full_contract": "match"
+      }
+    },
+    {
+      "ordinal": 8,
+      "candidate": "authored/FtoaPrecise",
+      "case_suffix": "03",
+      "input_float64_bits": "3ffffbe76c8b4396",
+      "digits": 2,
+      "want": {
+        "text": "2",
+        "error_kind": ""
+      },
+      "observed": {
+        "text": "2",
+        "error_channel_available": true,
+        "error_present": false,
+        "error_kind": "",
+        "panic": false
+      },
+      "predicate_results": {
+        "text": "match",
+        "error": "match",
+        "full_contract": "match"
+      }
+    },
+    {
+      "ordinal": 9,
+      "candidate": "authored/FtoaPrecise",
+      "case_suffix": "04",
+      "input_float64_bits": "3e80c6f7a0b5ed8d",
+      "digits": 9,
+      "want": {
+        "text": "0.000000125",
+        "error_kind": ""
+      },
+      "observed": {
+        "text": "0.000000125",
+        "error_channel_available": true,
+        "error_present": false,
+        "error_kind": "",
+        "panic": false
+      },
+      "predicate_results": {
+        "text": "match",
+        "error": "match",
+        "full_contract": "match"
+      }
+    },
+    {
+      "ordinal": 10,
+      "candidate": "authored/FtoaPrecise",
+      "case_suffix": "05",
+      "input_float64_bits": "8000000000000000",
+      "digits": 2,
+      "want": {
+        "text": "0",
+        "error_kind": ""
+      },
+      "observed": {
+        "text": "0",
+        "error_channel_available": true,
+        "error_present": false,
+        "error_kind": "",
+        "panic": false
+      },
+      "predicate_results": {
+        "text": "match",
+        "error": "match",
+        "full_contract": "match"
+      }
+    },
+    {
+      "ordinal": 11,
+      "candidate": "authored/FtoaPrecise",
+      "case_suffix": "06",
+      "input_float64_bits": "7ff0000000000000",
+      "digits": 2,
+      "want": {
+        "text": null,
+        "error_kind": "nonfinite"
+      },
+      "observed": {
+        "text": "",
+        "error_channel_available": true,
+        "error_present": true,
+        "error_kind": "nonfinite",
+        "panic": false
+      },
+      "predicate_results": {
+        "text": "not_applicable",
+        "error": "match",
+        "full_contract": "match"
+      }
+    },
+    {
+      "ordinal": 12,
+      "candidate": "authored/FlawedDoubleRound",
+      "case_suffix": "01",
+      "input_float64_bits": "3ff2000000000000",
+      "digits": 2,
+      "want": {
+        "text": "1.12",
+        "error_kind": ""
+      },
+      "observed": {
+        "text": "1.12",
+        "error_channel_available": true,
+        "error_present": false,
+        "error_kind": "",
+        "panic": false
+      },
+      "predicate_results": {
+        "text": "match",
+        "error": "match",
+        "full_contract": "match"
+      }
+    },
+    {
+      "ordinal": 13,
+      "candidate": "authored/FlawedDoubleRound",
+      "case_suffix": "02",
+      "input_float64_bits": "3ff6000000000000",
+      "digits": 2,
+      "want": {
+        "text": "1.38",
+        "error_kind": ""
+      },
+      "observed": {
+        "text": "1.38",
+        "error_channel_available": true,
+        "error_present": false,
+        "error_kind": "",
+        "panic": false
+      },
+      "predicate_results": {
+        "text": "match",
+        "error": "match",
+        "full_contract": "match"
+      }
+    },
+    {
+      "ordinal": 14,
+      "candidate": "authored/FlawedDoubleRound",
+      "case_suffix": "03",
+      "input_float64_bits": "3ffffbe76c8b4396",
+      "digits": 2,
+      "want": {
+        "text": "2",
+        "error_kind": ""
+      },
+      "observed": {
+        "text": "2",
+        "error_channel_available": true,
+        "error_present": false,
+        "error_kind": "",
+        "panic": false
+      },
+      "predicate_results": {
+        "text": "match",
+        "error": "match",
+        "full_contract": "match"
+      }
+    },
+    {
+      "ordinal": 15,
+      "candidate": "authored/FlawedDoubleRound",
+      "case_suffix": "04",
+      "input_float64_bits": "3e80c6f7a0b5ed8d",
+      "digits": 9,
+      "want": {
+        "text": "0.000000125",
+        "error_kind": ""
+      },
+      "observed": {
+        "text": "0",
+        "error_channel_available": true,
+        "error_present": false,
+        "error_kind": "",
+        "panic": false
+      },
+      "predicate_results": {
+        "text": "mismatch",
+        "error": "match",
+        "full_contract": "mismatch"
+      }
+    },
+    {
+      "ordinal": 16,
+      "candidate": "authored/FlawedDoubleRound",
+      "case_suffix": "05",
+      "input_float64_bits": "8000000000000000",
+      "digits": 2,
+      "want": {
+        "text": "0",
+        "error_kind": ""
+      },
+      "observed": {
+        "text": "0",
+        "error_channel_available": true,
+        "error_present": false,
+        "error_kind": "",
+        "panic": false
+      },
+      "predicate_results": {
+        "text": "match",
+        "error": "match",
+        "full_contract": "match"
+      }
+    },
+    {
+      "ordinal": 17,
+      "candidate": "authored/FlawedDoubleRound",
+      "case_suffix": "06",
+      "input_float64_bits": "7ff0000000000000",
+      "digits": 2,
+      "want": {
+        "text": null,
+        "error_kind": "nonfinite"
+      },
+      "observed": {
+        "text": "",
+        "error_channel_available": true,
+        "error_present": true,
+        "error_kind": "nonfinite",
+        "panic": false
+      },
+      "predicate_results": {
+        "text": "not_applicable",
+        "error": "match",
+        "full_contract": "match"
+      }
+    }
+  ],
+  "oracle_checks": [
+    {
+      "case_suffix": "01",
+      "input_float64_bits": "3ff2000000000000",
+      "saved_Want_consistent": true
+    },
+    {
+      "case_suffix": "02",
+      "input_float64_bits": "3ff6000000000000",
+      "saved_Want_consistent": true
+    },
+    {
+      "case_suffix": "03",
+      "input_float64_bits": "3ffffbe76c8b4396",
+      "saved_Want_consistent": true
+    },
+    {
+      "case_suffix": "04",
+      "input_float64_bits": "3e80c6f7a0b5ed8d",
+      "saved_Want_consistent": true
+    },
+    {
+      "case_suffix": "05",
+      "input_float64_bits": "8000000000000000",
+      "saved_Want_consistent": true
+    },
+    {
+      "case_suffix": "06",
+      "input_float64_bits": "7ff0000000000000",
+      "saved_Want_consistent": true
+    }
+  ],
+  "oracle_limit": "The saved worker contains six consistency Booleans, not six full oracle return records. Reviewer also read the distinct integer-oracle source and earlier independent static review; no oracle was rerun.",
+  "totals": {
+    "request_count": 1,
+    "frozen_inputs": 6,
+    "candidates": 3,
+    "candidate_observations": 18,
+    "oracle_entry_calls": 6,
+    "oracle_consistency_checks_true": 6,
+    "panics": 0,
+    "strict_candidate_results": [
+      {
+        "candidate": "original/FtoaWithDigits",
+        "matches": 0,
+        "mismatches": 4,
+        "unknowns": 2,
+        "text_matches": 1,
+        "text_mismatches": 4,
+        "text_not_applicable": 1,
+        "error_matches": 0,
+        "error_mismatches": 0,
+        "error_unknowns": 6,
+        "proposal": "negative_finite_counterexample"
+      },
+      {
+        "candidate": "authored/FtoaPrecise",
+        "matches": 6,
+        "mismatches": 0,
+        "unknowns": 0,
+        "text_matches": 5,
+        "text_mismatches": 0,
+        "text_not_applicable": 1,
+        "error_matches": 6,
+        "error_mismatches": 0,
+        "error_unknowns": 0,
+        "proposal": "positive_all_six"
+      },
+      {
+        "candidate": "authored/FlawedDoubleRound",
+        "matches": 5,
+        "mismatches": 1,
+        "unknowns": 0,
+        "text_matches": 4,
+        "text_mismatches": 1,
+        "text_not_applicable": 1,
+        "error_matches": 6,
+        "error_mismatches": 0,
+        "error_unknowns": 0,
+        "proposal": "negative_finite_counterexample"
+      }
+    ]
+  },
+  "proposal_rule": "Positive only when all six full contracts are known matches. Negative when at least one known finite mismatch exists. Remaining required predicates stay unknown. No candidate sample weight is multiplied by fixture count.",
+  "actual": {
+    "reviewer_new_Go_calls": 0,
+    "reviewer_new_oracle_calls": 0,
+    "reviewer_new_original_calls": 0,
+    "reviewer_new_candidate_calls": 0,
+    "reviewer_model_calls": 0,
+    "reviewer_protected_reads": 0,
+    "reviewer_roles_assigned": 0,
+    "reviewer_labels_assigned": 0,
+    "reviewer_weights_assigned": 0,
+    "reviewer_qualified_assignments": 0
+  }
+}

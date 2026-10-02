@@ -1,6 +1,6 @@
 # Documentation / 문서 안내
 
-[공개 개발 데이터 고정 버전](https://huggingface.co/datasets/JooYoon/riidolaya-shortclaim-next60-development/tree/next60-2-finite-v1) · [Go reader 한글 사용법](../pkg/shortclaimdata/README.ko.md) · [Go reader English guide](../pkg/shortclaimdata/README.md) · [Actual publication / 실제 게시 기록](../experiments/short-claim/publication-proof-111/HF-PUBLICATION.v1.json): 요청 2개·라벨 5개, 고정 다운로드 38개 파일 확인 / Two requests, five labels, all 38 pinned files verified.
+[개발 자료 3개·라벨 8개](../experiments/short-claim/next60-development-three/README.ko.md) · [Three finite requests / eight labels](../experiments/short-claim/next60-development-three/README.en.md) · [직접 반올림 실제 실행](../experiments/short-claim/next60-ftoa-actual-observation/README.ko.md) · [Actual direct-rounding observation](../experiments/short-claim/next60-ftoa-actual-observation/README.en.md) · [Go reader 한글 사용법](../pkg/shortclaimdata/README.ko.md) · [Go reader English guide](../pkg/shortclaimdata/README.md). 기존 HF 2개 고정 버전은 viewer까지 확인했고, 새 학습은 0회입니다 / The previous two-request HF release passed viewer checks; no new fit has run.
 
 Qualified development subset / 개발용 유한 요청 적격화: [English](../experiments/short-claim/next60-native2-qualification/README.en.md) · [한국어](../experiments/short-claim/next60-native2-qualification/README.ko.md). Two existing draft requests, five labels; no new fit or protected-final coverage.
 
