@@ -12,6 +12,7 @@ Latest owned task evidence: [experiment55](../experiments/task-outcomes/RESULTS-
 | Topic / 주제 | English | 한국어 |
 |---|---|---|
 | Project overview / 프로젝트 개요 | [README](../README.en.md) | [README](../README.md) |
+| Caption references59 / 설명 참조59 | [288 text/18 literal references; content pending](../experiments/short-claim/RESULTS-REFERENCES-59.en.md) · [Usage](../experiments/short-claim/USAGE-REFERENCES-59.en.md) · [Source transfer](../experiments/short-claim/SOURCE-TRANSFER-59.en.md) | [원문288·표현식18; 내용 미검토](../experiments/short-claim/RESULTS-REFERENCES-59.ko.md) · [사용법](../experiments/short-claim/USAGE-REFERENCES-59.ko.md) · [공개 원천 전이](../experiments/short-claim/SOURCE-TRANSFER-59.ko.md) |
 | Stored-truth ordering headroom58 / 저장 정답 확인 순서 개선 여지58 | [91 checks versus oracle73; training not ready](../experiments/short-claim/RESULTS-STORED-58.en.md) · [Usage](../experiments/short-claim/USAGE-STORED-58.en.md) · [Next preparation](../experiments/short-claim/NEXT-STORED-58.en.md) | [91회와 이상적73회; 학습 준비 미완성](../experiments/short-claim/RESULTS-STORED-58.ko.md) · [사용법](../experiments/short-claim/USAGE-STORED-58.ko.md) · [다음 준비](../experiments/short-claim/NEXT-STORED-58.ko.md) |
 | Router design / 라우터 설계 | [Design](design.en.md) | [설계](design.ko.md) |
 | Decomposition decision plan / 작업 분할 판단 계획 | [Preview](decomposition-preview.en.md) | [Preview](decomposition-preview.ko.md) |

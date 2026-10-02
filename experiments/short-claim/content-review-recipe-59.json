@@ -1,0 +1,79 @@
+{
+  "schema": "riido-caption-content-review-recipe-59-v1",
+  "state": "recipe_preparation_only_content_pending",
+  "runtime_execution_support": false,
+  "scope": "Independent content review of existing English request/candidate captions against scoped public source evidence; no new truth or training eligibility",
+  "parents": 72,
+  "candidate_positions": 216,
+  "contracts": 18,
+  "content_review": "pending",
+  "axes": [
+    {
+      "id": "source_fidelity",
+      "question": "Does the candidate caption faithfully describe its scoped implementation, including incorrect behavior?"
+    },
+    {
+      "id": "request_contract_coverage",
+      "question": "Does the request state its intended supported scope, and which parts does the candidate description cover, omit or contradict?"
+    },
+    {
+      "id": "observation_fields",
+      "question": "Are the required return, error, state, ownership, ordering and no-panic observations expressed with their finite scope?"
+    },
+    {
+      "id": "explicit_negative_boundaries",
+      "question": "Are relevant negation, inclusion/exclusion, malformed inputs, unsupported inputs and scope limitations explicit?"
+    }
+  ],
+  "initial_axis_state": "pending",
+  "permitted_review_states": [
+    "pending",
+    "consistent_with_scoped_evidence",
+    "omits_required_scope",
+    "contradicts_scoped_evidence",
+    "unsupported_or_uncertain"
+  ],
+  "review_record_fields": [
+    "parent_id",
+    "candidate_index_and_id_when_applicable",
+    "decoded_text_sha256_and_json_pointer",
+    "contract_and_source_pin_references",
+    "exact_text_evidence_byte_ranges",
+    "source_expression_or_declaration_references",
+    "input_scope_and_observation_field_references",
+    "missing_or_contradictory_boundaries",
+    "remaining_uncertainty",
+    "reviewer_and_review_record_sha256"
+  ],
+  "source_binding_requirements": [
+    "Distinguish raw expression SHA, formatted complete declaration SHA and serialized literal-table SHA",
+    "Bind source ID to the original root function and historical code digest recipe",
+    "Preserve typed helper/type/method/global/sentinel components, historical bundle recipe and standard-library infrastructure exceptions",
+    "Reference verification alone does not approve complete source closure or reify Input/Want/Got"
+  ],
+  "review_independence": "Use an independent reader of original text and source evidence; a different reviewer does not create an independent data origin",
+  "selection_policy": "Do not select or rewrite captions from observed 58 rankings, costs or group gains",
+  "preservation_policy": "Keep original captions, candidate order/count, frozen truth, 17 groups and all 21 unknowns unchanged; narrower revisions require separate versions and original-family links",
+  "text_budget": {
+    "raw_utf8_bytes_at_most": 512,
+    "normalized_words_at_most": 32,
+    "truncate_to_pass": false
+  },
+  "references_verified_means_content_approved": false,
+  "keyword_presence_means_semantic_coverage": false,
+  "faithful_incorrect_source_means_acceptable_answer": false,
+  "source_fidelity_controls_or_labels_are_features": false,
+  "human_approval_required": false,
+  "existing_automatic_checks_and_ci_policy_preserved": true,
+  "literal_payload_reified": false,
+  "new_labels": 0,
+  "roles_assigned": 0,
+  "fits": 0,
+  "source_api_calls": 0,
+  "ranking_calls": 0,
+  "model_calls": 0,
+  "paid_calls": 0,
+  "protected_final_reads": 0,
+  "new_weights": 0,
+  "training_ready": false
+}
