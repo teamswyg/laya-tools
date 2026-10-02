@@ -102,7 +102,10 @@ func terms(ws []string) []string {
 	return ts
 }
 func hash(s string) uint64 {
-	h := uint64(14695981039346656037)
+	return hashFrom(14695981039346656037, s)
+}
+
+func hashFrom(h uint64, s string) uint64 {
 	for i := 0; i < len(s); i++ {
 		h ^= uint64(s[i])
 		h *= 1099511628211
@@ -121,8 +124,11 @@ func Features(query, document string) []Feature {
 	fs := make([]Feature, 0, len(qt)*len(dt)+1)
 	scale := 1 / math.Sqrt(float64(len(qt)*len(dt)))
 	for _, q := range qt {
+		// Every document term shares this query prefix and separator. Reusing
+		// its state preserves the byte hash without rebuilding concatenations.
+		prefix := hashFrom(hash(q), "\x00")
 		for _, d := range dt {
-			h := hash(q + "\x00" + d)
+			h := hashFrom(prefix, d)
 			v := scale
 			if h>>63 != 0 {
 				v = -v

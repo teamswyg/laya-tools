@@ -1,0 +1,9 @@
+# Independent reading review of feature-hash prefix reuse
+
+I found no compatibility or control-fairness blocker. FNV-1a applies the same XOR and uint64 multiplication per byte: hashing query→NUL→document is equivalent to continuing from the query+NUL intermediate state. UTF-8 and embedded NUL bytes do not change that identity. Query/document term order, sign/index, scale, sorting, collision FP64 addition order, and the final lexical-recall column remain unchanged. The control originalByteHash retains the prior HEAD's direct loop and adds no per-pair callback overhead.
+
+I found **one reporting arithmetic error** in the saved benchmark. Sorting the five bounded32 prefix samples gives `281536,281685,282633,282987,288122`; the median is282633ns. The draft METRICS/KOEN values282987ns/19.53% should become282633ns/about19.63%. Root acknowledged the error and plans to preserve the prior draft privately before correcting it. This v1 precedes correction confirmation; any later confirmation will be a distinct receipt. No benchmark or Features rerun is needed.
+
+The short-example median4240→3214ns(24.20%),2216B/19 allocations, and unchanged bounded32 allocation70792B/72 agree with the saved five samples. Scope is two synthetic string fixtures on this host/toolchain run. This does not establish end-to-end latency, training/inference utility, RSS improvement, or a speed guarantee for all inputs. Array layout, semantic features and training objectives are unchanged.
+
+I did not author this change. I read static diffs/prior HEAD, synthetic test code and saved benchmark text; I did not rerun code/tests/benchmarks/Features/Fit/corpus/models/original APIs or modify shared files/publish externally. The existing byte-hash and sparse/score-bit checks are relevant synthetic designs, not new successful executions by this reviewer. AI-assisted collaboration cost was not measured.
