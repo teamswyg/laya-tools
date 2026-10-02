@@ -1,0 +1,92 @@
+package main
+
+import (
+	"github.com/teamswyg/laya-tools/internal/claimfit"
+	"github.com/teamswyg/laya-tools/pkg/shortclaim"
+)
+
+// The three appended requests are train-origin diagnostics, never a pooled
+// utility gate or a new heldout denominator. No features are recomputed here.
+func originDiagnostic(p claimfit.Projection, weights []float64, c *Counts, call func(shortclaim.Prepared) ([4]shortclaim.Ranking, error), progress func(*OriginDiagnostic) error) (OriginDiagnostic, error) {
+	out := OriginDiagnostic{Scope: "Appended source80 parents76..78, all9 candidates; training-origin diagnostic only, Top3=3 is trivial, not heldout or a utility gate", NotUtilityGate: true}
+	if len(p.Parents) != 79 || len(weights) != 8192 || call == nil || progress == nil {
+		return out, fail("origin_contract")
+	}
+	for k := range out.Controls {
+		out.Controls[k].Kind = controls[k]
+	}
+	for i := 76; i < 79; i++ {
+		x := p.Parents[i]
+		c.NewTrainControlAttempts++
+		if progress(&out) != nil {
+			return out, fail("origin_control_checkpoint")
+		}
+		rs, e := call(x.Text)
+		c.NewTrainControlReturned++
+		if e != nil {
+			return out, fail("origin_controls")
+		}
+		for k, r := range rs {
+			if r.Kind != controls[k] || r.Count != 3 {
+				return out, fail("origin_control_count")
+			}
+			row, e := rankedParent(i, x, r.Order, r.Scores)
+			if e != nil {
+				return out, e
+			}
+			for j := 0; j < r.Count; j++ {
+				if !finite(r.Scores[j]) {
+					return out, fail("origin_control_finite")
+				}
+			}
+			addEvaluation(&out.Controls[k], i, x, row, nil)
+		}
+		if progress(&out) != nil {
+			return out, fail("origin_control_return_checkpoint")
+		}
+	}
+	scores := [3][8]float64{}
+	seen := [3][8]bool{}
+	for row, ref := range p.DevelopmentRefs {
+		if ref.ParentIndex < 76 {
+			continue
+		}
+		i := ref.ParentIndex - 76
+		if i < 0 || i >= 3 || ref.CandidateIndex < 0 || ref.CandidateIndex >= 3 || seen[i][ref.CandidateIndex] {
+			return out, fail("origin_score_ref")
+		}
+		v := 0.
+		c.NewTrainCachedScoreRows++
+		for j := p.Development.Offsets[row]; j < p.Development.Offsets[row+1]; j++ {
+			v += weights[p.Development.Indices[j]] * p.Development.Values[j]
+		}
+		if !finite(v) {
+			return out, fail("origin_score_finite")
+		}
+		scores[i][ref.CandidateIndex] = v
+		seen[i][ref.CandidateIndex] = true
+	}
+	eval := Evaluation{Kind: "data_only8192_fp32_seed1729_train_origin"}
+	for i := 76; i < 79; i++ {
+		for j := 0; j < 3; j++ {
+			if !seen[i-76][j] {
+				return out, fail("origin_missing_score")
+			}
+		}
+		order, e := rankScores(scores[i-76], 3)
+		if e != nil {
+			return out, e
+		}
+		row, e := rankedParent(i, p.Parents[i], order, scores[i-76])
+		if e != nil {
+			return out, e
+		}
+		addEvaluation(&eval, i, p.Parents[i], row, nil)
+	}
+	for k := range out.Controls {
+		finishEvaluation(&out.Controls[k], 0)
+	}
+	finishEvaluation(&eval, 0)
+	out.Primary = &eval
+	return out, nil
+}

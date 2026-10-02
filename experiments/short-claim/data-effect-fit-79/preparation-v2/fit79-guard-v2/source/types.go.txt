@@ -1,0 +1,160 @@
+package main
+
+import (
+	"github.com/teamswyg/laya-tools/internal/claimfit"
+	"github.com/teamswyg/laya-tools/internal/pairlearn"
+	"github.com/teamswyg/laya-tools/pkg/shortclaim"
+)
+
+const maxPayload = 64 << 20
+const maxNumericAsset = 8 << 20
+const amendedRetainedMax = 512 << 20
+const expectedParents = 79
+const expectedCandidates = 235
+const modelBytes = 24 + 8192*4
+const planSchema = "riido-source80-data-effect-primary-fit-plan-79-v1"
+const resultSchema = "riido-source80-data-effect-primary-fit-result-79-v1"
+
+var primaryConfig = pairlearn.Config{Seed: 1729, Mode: "fp32", LearningRate: .1, L2: .0001, Epochs: 50, Batch: 128, Dimension: 8192}
+var controls = [4]string{shortclaim.FixedOrderKind, shortclaim.BM25Kind, shortclaim.LexicalOrderedKind, shortclaim.NarrowRuleKind}
+
+type Pin struct {
+	ID     string `json:"id"`
+	Path   string `json:"path,omitempty"`
+	Bytes  int64  `json:"bytes"`
+	SHA256 string `json:"sha256"`
+}
+type ParentStratum struct {
+	ParentIndex int      `json:"parent_index"`
+	Tags        []string `json:"tags"`
+}
+type Plan struct {
+	Schema               string           `json:"schema"`
+	Frozen               bool             `json:"frozen"`
+	Attempt              int              `json:"attempt"`
+	AttemptDirectory     string           `json:"attempt_directory"`
+	PrerequisitesFrozen  bool             `json:"caller_frozen_bounded_development_prerequisites"`
+	ReadinessScope       string           `json:"readiness_scope"`
+	RuntimeGo            string           `json:"runtime_go"`
+	CPU                  int              `json:"cpu"`
+	HeapSoft             int64            `json:"go_heap_soft_limit_bytes"`
+	WallSeconds          int              `json:"wall_seconds_max"`
+	RSSMax               int64            `json:"OS_peak_process_RSS_bytes_max"`
+	AssetsMax            int64            `json:"new_assets_bytes_max"`
+	RetainedMax          *int64           `json:"retained_per_path_logical_bytes_max"`
+	NumericFileMax       int64            `json:"result_and_ledger_file_bytes_max"`
+	ResourceAmendment    *Pin             `json:"versioned_resource_amendment"`
+	Config               pairlearn.Config `json:"config"`
+	RankLambda           float64          `json:"rank_lambda"`
+	SourceCommit         string           `json:"source_commit"`
+	SourceCIRun          uint64           `json:"source_CI_run"`
+	MaxFits              int              `json:"original_max_fits"`
+	MaxArtifacts         int              `json:"original_max_artifacts"`
+	PriorFitAttempts     int              `json:"prior_corpus_fit_attempts"`
+	PriorArtifacts       *int             `json:"prior_model_artifacts"`
+	ConsumptionRegistry  Pin              `json:"frozen_consumption_registry"`
+	OriginalProjection   Pin              `json:"original76_projection"`
+	QualifiedAppend      Pin              `json:"qualified_source80_append"`
+	FirstFitResult       Pin              `json:"first71_result"`
+	AdoptedProposal      Pin              `json:"adopted_data_effect_proposal"`
+	Projection           Pin              `json:"projection"`
+	ProjectionSchema     string           `json:"projection_schema"`
+	ProjectionState      string           `json:"projection_completed_state"`
+	Evidence             []Pin            `json:"caller_prerequisite_evidence"`
+	Sources              []Pin            `json:"source_pins"`
+	DriverSources        []Pin            `json:"driver_source_pins"`
+	Binary               Pin              `json:"binary"`
+	ParentCount          int              `json:"parent_count"`
+	CandidateCount       int              `json:"candidate_count"`
+	Known                int              `json:"answerable"`
+	NoAnswer             int              `json:"no_answer"`
+	Unknown              int              `json:"unknown"`
+	WholeGroups          int              `json:"whole_groups"`
+	KnownGroups          int              `json:"known_containing_groups"`
+	Strata               []ParentStratum  `json:"frozen_descriptive_strata"`
+	PublicationPermitted bool             `json:"publication_permitted"`
+	ProductionPermitted  bool             `json:"production_permitted"`
+}
+type Envelope struct {
+	Schema     string               `json:"schema"`
+	State      string               `json:"state"`
+	Failure    string               `json:"failure_code"`
+	Projection *claimfit.Projection `json:"projection"`
+}
+type Metric struct {
+	Parents, Answerable, NoAnswer, UnknownExcluded, TotalChecks, OracleChecks, Top1Correct, Top3Correct int
+	MeanChecks, OracleMean                                                                              *float64
+}
+type RankedParent struct {
+	ParentIndex     int
+	Role            uint8
+	Truth           claimfit.TruthState
+	CandidateCount  int
+	Order           [8]int
+	Scores          [8]float64
+	Checks          int
+	Top1, Top3      bool
+	FirstLossMasked bool
+}
+type Evaluation struct {
+	Kind                 string
+	Metric               Metric
+	Parents              []RankedParent
+	SubsetBFullyEligible Metric
+	Strata               []StratumMetric
+	MissingStrataParents int
+}
+type StratumMetric struct {
+	Tag    string
+	Metric Metric
+}
+type Utility struct {
+	Controls                               [4]Evaluation
+	StrongestControlIndex                  int
+	OracleHeadroom                         float64
+	HeadroomPass                           bool
+	Primary                                *Evaluation
+	RelativeGain                           *float64
+	CheckReductionPass, Top1Pass, Top3Pass bool
+	DevelopmentUtilityPassed               bool
+	ComparatorTiePolicy                    string
+}
+type Counts struct {
+	FitAttempts, FitReturned, FitSuccessful, EncodeAttempts, DecodeAttempts, NLLRechecks, ControlParentAttempts, CachedScoreRows int
+	EncodeReturned, DecodeReturned, NLLReturned, ControlParentReturned                                                           int
+	FeaturesCalls, PrepareCalls, ProjectCalls, NewRoles, NewLabels, ProtectedFinalReads, PaidOrJudgeAPICalls                     int
+	TrainerInternalScoring                                                                                                       string
+	NewTrainControlAttempts, NewTrainControlReturned, NewTrainCachedScoreRows                                                    int
+}
+type Result struct {
+	Schema, State, Failure, PlanSHA, RuntimeGo string
+	Counts                                     Counts
+	Trace                                      pairlearn.Trace
+	Fit                                        *FitSummary
+	Utility                                    *Utility
+	Artifact                                   *Pin
+	ProjectionInput                            Pin
+	Evidence                                   []Pin
+	TrainingReadinessScope                     string
+	ProductionReady, PublicationQualified      bool
+	LimitsExplanation                          string
+	NewTrainingOriginDiagnostic                *OriginDiagnostic
+	HistoricalControlsPreserved                bool
+	Assets                                     AssetSummary
+}
+
+type OriginDiagnostic struct {
+	Scope          string
+	Controls       [4]Evaluation
+	Primary        *Evaluation
+	NotUtilityGate bool
+}
+
+// Existing pairlearn.Result already excludes Weights with json:"-". This
+// explicit public DTO narrows the stable result contract to numeric metadata.
+type FitSummary struct {
+	Config        pairlearn.Config `json:"config"`
+	SelectedEpoch int              `json:"selected_epoch"`
+	TrainingNLL   float64          `json:"training_NLL"`
+	ValidationNLL float64          `json:"validation_NLL"`
+}

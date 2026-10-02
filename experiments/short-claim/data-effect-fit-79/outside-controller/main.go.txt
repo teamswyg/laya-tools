@@ -1,0 +1,592 @@
+// Private one-start outside controller. Preparation must never execute a worker.
+// Root freezes all pins and reviews this source before its sole actual invocation.
+package main
+
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"flag"
+	"hash"
+	"io"
+	"os"
+	"os/exec"
+	"os/signal"
+	"path/filepath"
+	"runtime"
+	"strings"
+	"syscall"
+	"time"
+)
+
+const (
+	wallLimit    = 300 * time.Second
+	stdoutCap    = int64(12 << 20)
+	stderrLogCap = int64(64 << 10)
+	metadataCap  = int64(128 << 10)
+	outsideCap   = int64(1 << 20)
+	rssBudget    = int64(256 << 20)
+)
+
+type pin struct {
+	ID    string `json:"id"`
+	Bytes int64  `json:"bytes"`
+	SHA   string `json:"sha256"`
+}
+type fileInput struct {
+	path string
+	pin  pin
+}
+type config struct {
+	worker, plan, source, self fileInput
+	outside                    string
+	sourceRoot, workerOutput   string
+}
+type planHeader struct {
+	Schema               string `json:"schema"`
+	Frozen               bool   `json:"frozen"`
+	Attempt              int    `json:"attempt"`
+	OutputDirectory      string `json:"output_directory"`
+	CPU                  int    `json:"cpu"`
+	HeapSoft             int64  `json:"go_heap_soft_limit_bytes"`
+	WallSeconds          int    `json:"outside_wall_seconds_max"`
+	RSSBudget            int64  `json:"observed_RSS_budget_bytes"`
+	FitPermitted         bool   `json:"fit_permitted"`
+	Production           bool   `json:"production_ready"`
+	ProtectedFinal       bool   `json:"protected_final"`
+	AttemptDirectory     string `json:"attempt_directory"`
+	FitWallSeconds       int    `json:"wall_seconds_max"`
+	FitRSSBudget         int64  `json:"OS_peak_process_RSS_bytes_max"`
+	PrerequisitesFrozen  bool   `json:"caller_frozen_bounded_development_prerequisites"`
+	RuntimeGo            string `json:"runtime_go"`
+	PublicationPermitted bool   `json:"publication_permitted"`
+	ProductionPermitted  bool   `json:"production_permitted"`
+}
+type intent struct {
+	Schema             string   `json:"schema"`
+	State              string   `json:"state"`
+	UTC                string   `json:"created_utc"`
+	Pins               []pin    `json:"verified_pins"`
+	RuntimeGo          string   `json:"runtime_go"`
+	Platform           string   `json:"platform"`
+	Environment        []string `json:"child_environment_exact"`
+	ArgumentsShape     []string `json:"child_arguments_shape"`
+	StartReserved      int      `json:"worker_start_reserved"`
+	TimeoutSeconds     int      `json:"wall_timeout_seconds"`
+	StdoutCap          int64    `json:"observed_stdout_max_bytes_before_group_kill"`
+	StdoutRawRetained  int64    `json:"raw_stdout_bytes_retained"`
+	StderrLogCap       int64    `json:"private_stderr_prefix_max_bytes"`
+	OutsideCap         int64    `json:"outside_metadata_and_logs_max_bytes"`
+	RSSBudget          int64    `json:"observed_whole_child_RSS_budget_bytes"`
+	FitPermitted       bool     `json:"fit_permitted"`
+	WorkerResultCopies int      `json:"worker_result_or_partial_copies"`
+}
+type streamSummary struct {
+	ObservedBytes    int64  `json:"observed_pipe_bytes"`
+	ObservedSHA      string `json:"observed_pipe_sha256"`
+	RawRetainedBytes int64  `json:"raw_bytes_retained"`
+	RawRetainedSHA   string `json:"raw_retained_sha256,omitempty"`
+	PrefixTruncated  bool   `json:"retained_prefix_truncated"`
+	CapExceeded      bool   `json:"stdout_cap_exceeded"`
+	LogWriteFailure  bool   `json:"private_log_write_failure"`
+}
+type result struct {
+	Schema                string        `json:"schema"`
+	State                 string        `json:"state"`
+	Failure               string        `json:"failure_code"`
+	UTC                   string        `json:"finished_utc"`
+	Pins                  []pin         `json:"verified_pins"`
+	RuntimeGo             string        `json:"runtime_go"`
+	Platform              string        `json:"platform"`
+	IntentSynced          bool          `json:"exclusive_intent_file_synced_before_start"`
+	IntentDirectorySynced bool          `json:"intent_directory_synced_before_start"`
+	StartAttempted        int           `json:"worker_start_attempted"`
+	StartReturned         int           `json:"worker_start_returned"`
+	Started               int           `json:"worker_process_started"`
+	WaitAttempted         int           `json:"worker_wait_attempted"`
+	WaitReturned          int           `json:"worker_wait_returned"`
+	PID                   int           `json:"child_pid,omitempty"`
+	GroupID               int           `json:"child_process_group_id,omitempty"`
+	WholeWallSeconds      float64       `json:"whole_child_wall_seconds"`
+	UserSeconds           float64       `json:"whole_child_user_cpu_seconds"`
+	SystemSeconds         float64       `json:"whole_child_system_cpu_seconds"`
+	ExitCode              int           `json:"child_exit_code"`
+	Signaled              bool          `json:"child_was_signaled"`
+	SignalNumber          int           `json:"child_signal_number"`
+	GroupKillRequested    bool          `json:"process_group_SIGKILL_requested"`
+	GroupKillErrno        int           `json:"process_group_SIGKILL_errno"`
+	TerminationReason     string        `json:"termination_reason"`
+	WaitFailureKind       string        `json:"wait_failure_kind"`
+	RSSAvailable          bool          `json:"whole_child_MaxRSS_available"`
+	RSSBytes              int64         `json:"whole_child_MaxRSS_Darwin_bytes"`
+	RSSWithinBudget       bool          `json:"whole_child_MaxRSS_within_observed_budget"`
+	Stdout                streamSummary `json:"stdout"`
+	Stderr                streamSummary `json:"stderr"`
+	StderrLogSynced       bool          `json:"private_stderr_log_synced"`
+	StderrLogReadback     bool          `json:"private_stderr_log_size_hash_readback_match"`
+	OutsideBytes          int64         `json:"outside_final_regular_file_bytes"`
+	OutsideWithinBudget   bool          `json:"outside_final_regular_file_bytes_within_cap"`
+	WorkerResultCopies    int           `json:"worker_result_or_partial_copies"`
+	FitPermitted          bool          `json:"fit_permitted"`
+	Limit                 string        `json:"measurement_limit"`
+}
+
+func parse(args []string) (config, error) {
+	var c config
+	f := flag.NewFlagSet("projection79-outside", flag.ContinueOnError)
+	f.SetOutput(io.Discard)
+	bind := func(prefix, id string, x *fileInput) {
+		x.pin.ID = id
+		f.StringVar(&x.path, prefix, "", "")
+		f.StringVar(&x.pin.SHA, prefix+"-sha256", "", "")
+		f.Int64Var(&x.pin.Bytes, prefix+"-bytes", 0, "")
+	}
+	bind("worker", "worker-executable", &c.worker)
+	bind("plan", "root-frozen-projection-plan", &c.plan)
+	bind("source", "outside-controller-runtime-source", &c.source)
+	bind("self", "outside-controller-executable", &c.self)
+	f.StringVar(&c.outside, "outside", "", "")
+	f.StringVar(&c.sourceRoot, "source-root", "", "")
+	f.StringVar(&c.workerOutput, "worker-output-dir", "", "")
+	if f.Parse(args) != nil || f.NArg() != 0 || !filepath.IsAbs(c.outside) || filepath.Clean(c.outside) != c.outside {
+		return c, errors.New("arguments")
+	}
+	for _, x := range []fileInput{c.worker, c.plan, c.source, c.self} {
+		b, err := hex.DecodeString(x.pin.SHA)
+		if !filepath.IsAbs(x.path) || filepath.Clean(x.path) != x.path || x.pin.Bytes < 1 || len(b) != 32 || err != nil || strings.ToLower(x.pin.SHA) != x.pin.SHA {
+			return c, errors.New("arguments")
+		}
+	}
+	if c.plan.pin.Bytes > 1<<20 || c.source.pin.Bytes > 1<<20 || c.worker.pin.Bytes > 64<<20 || c.self.pin.Bytes > 64<<20 {
+		return c, errors.New("arguments")
+	}
+	if (c.sourceRoot == "") != (c.workerOutput == "") {
+		return c, errors.New("arguments")
+	}
+	if c.sourceRoot != "" && (!filepath.IsAbs(c.sourceRoot) || filepath.Clean(c.sourceRoot) != c.sourceRoot || !filepath.IsAbs(c.workerOutput) || filepath.Clean(c.workerOutput) != c.workerOutput) {
+		return c, errors.New("arguments")
+	}
+	return c, nil
+}
+
+// Both pathname and opened inode are checked. This does not claim a kernel
+// attestation that the exec pathname cannot change after the final check.
+func verifyFile(x fileInput, executable bool) ([]byte, error) {
+	a, err := os.Lstat(x.path)
+	if err != nil || !a.Mode().IsRegular() || a.Size() != x.pin.Bytes || (executable && a.Mode().Perm()&0111 == 0) {
+		return nil, errors.New("file_metadata")
+	}
+	f, err := os.Open(x.path)
+	if err != nil {
+		return nil, errors.New("file_open")
+	}
+	defer f.Close()
+	b, err := f.Stat()
+	if err != nil || !b.Mode().IsRegular() || !os.SameFile(a, b) || b.Size() != x.pin.Bytes {
+		return nil, errors.New("file_identity")
+	}
+	h := sha256.New()
+	var data []byte
+	var n int64
+	if x.pin.ID == "root-frozen-projection-plan" {
+		data, err = io.ReadAll(io.LimitReader(f, x.pin.Bytes+1))
+		n = int64(len(data))
+		_, _ = h.Write(data)
+	} else {
+		n, err = io.Copy(h, io.LimitReader(f, x.pin.Bytes+1))
+	}
+	if err != nil || n != x.pin.Bytes || hex.EncodeToString(h.Sum(nil)) != x.pin.SHA {
+		return nil, errors.New("file_hash")
+	}
+	z, err := os.Lstat(x.path)
+	q, qerr := f.Stat()
+	if err != nil || qerr != nil || !z.Mode().IsRegular() || !os.SameFile(a, z) || !os.SameFile(a, q) || z.Size() != a.Size() || q.Size() != a.Size() || !a.ModTime().Equal(z.ModTime()) || !a.ModTime().Equal(q.ModTime()) {
+		return nil, errors.New("file_changed")
+	}
+	return data, nil
+}
+func disjointDirectories(a, b string) bool {
+	contains := func(x, y string) bool {
+		r, err := filepath.Rel(x, y)
+		return err == nil && r != ".." && !strings.HasPrefix(r, ".."+string(filepath.Separator))
+	}
+	return !contains(a, b) && !contains(b, a)
+}
+func validatePlan(data []byte, c config) error {
+	var p planHeader
+	if json.Unmarshal(data, &p) != nil || !p.Frozen || p.Attempt != 1 || p.CPU != 1 || p.HeapSoft != 256<<20 {
+		return errors.New("plan_header")
+	}
+	output := p.OutputDirectory
+	if c.sourceRoot == "" {
+		if p.Schema != "riido-source80-appended79-projection-plan-v1" || p.WallSeconds != 300 || p.RSSBudget != rssBudget || p.FitPermitted || p.Production || p.ProtectedFinal {
+			return errors.New("plan_header")
+		}
+	} else {
+		if p.Schema != "riido-source80-data-effect-primary-fit-plan-79-v1" || !p.PrerequisitesFrozen || p.RuntimeGo != "go1.27.1" || p.FitWallSeconds != 300 || p.FitRSSBudget != rssBudget || p.PublicationPermitted || p.ProductionPermitted || p.AttemptDirectory != c.workerOutput {
+			return errors.New("fit_plan_header")
+		}
+		root, err := os.Lstat(c.sourceRoot)
+		if err != nil || !root.IsDir() || root.Mode()&os.ModeSymlink != 0 {
+			return errors.New("source_root_directory")
+		}
+		output = c.workerOutput
+	}
+	if !filepath.IsAbs(output) || filepath.Clean(output) != output || !disjointDirectories(c.outside, output) {
+		return errors.New("plan_output_directory")
+	}
+	if _, err := os.Lstat(output); !errors.Is(err, os.ErrNotExist) {
+		return errors.New("worker_output_directory_not_exclusive")
+	}
+	return nil
+}
+
+// Return error categories only; neither a path nor a child error string is copied
+// into shareable metadata. Failed/partial files are preserved without a retry.
+func writeJSONExclusive(dir, name string, value any) (int64, error) {
+	b, err := json.MarshalIndent(value, "", "  ")
+	if err != nil {
+		return 0, errors.New("metadata_encode")
+	}
+	b = append(b, '\n')
+	if int64(len(b)) > metadataCap {
+		return 0, errors.New("metadata_cap")
+	}
+	f, err := os.OpenFile(filepath.Join(dir, name), os.O_CREATE|os.O_EXCL|os.O_RDWR, 0600)
+	if err != nil {
+		return 0, errors.New("metadata_create")
+	}
+	n, werr := f.Write(b)
+	serr := f.Sync()
+	if werr != nil || n != len(b) || serr != nil {
+		f.Close()
+		return int64(n), errors.New("metadata_sync")
+	}
+	if _, err := f.Seek(0, io.SeekStart); err != nil {
+		f.Close()
+		return int64(n), errors.New("metadata_readback")
+	}
+	h := sha256.New()
+	copied, rerr := io.Copy(h, io.LimitReader(f, int64(len(b))+1))
+	want := sha256.Sum256(b)
+	st, staterr := f.Stat()
+	clerr := f.Close()
+	if rerr != nil || staterr != nil || clerr != nil || copied != int64(len(b)) || st.Size() != int64(len(b)) || hex.EncodeToString(h.Sum(nil)) != hex.EncodeToString(want[:]) {
+		return int64(n), errors.New("metadata_readback")
+	}
+	return int64(n), nil
+}
+func syncDirectory(dir string) error {
+	f, err := os.Open(dir)
+	if err != nil {
+		return errors.New("intent_directory_open")
+	}
+	err = f.Sync()
+	clerr := f.Close()
+	if err != nil || clerr != nil {
+		return errors.New("intent_directory_sync")
+	}
+	return nil
+}
+
+// Each stream has one os/exec copier goroutine. Snapshot is called only after
+// Cmd.Wait has joined those goroutines, so a lock is unnecessary.
+type streamWriter struct {
+	h         hash.Hash
+	n         int64
+	log       *os.File
+	kept      int64
+	keptHash  hash.Hash
+	logFailed bool
+	stdout    bool
+	over      bool
+	events    chan<- string
+}
+
+func newStream(stdout bool, log *os.File, events chan<- string) *streamWriter {
+	return &streamWriter{h: sha256.New(), log: log, keptHash: sha256.New(), stdout: stdout, events: events}
+}
+func (s *streamWriter) event(reason string) {
+	select {
+	case s.events <- reason:
+	default:
+	}
+}
+func (s *streamWriter) Write(p []byte) (int, error) {
+	s.n += int64(len(p))
+	_, _ = s.h.Write(p)
+	if s.stdout && s.n > stdoutCap && !s.over {
+		s.over = true
+		s.event("stdout_cap_exceeded")
+	}
+	if s.log != nil && !s.logFailed && s.kept < stderrLogCap {
+		keep := int64(len(p))
+		if keep > stderrLogCap-s.kept {
+			keep = stderrLogCap - s.kept
+		}
+		n, err := s.log.Write(p[:int(keep)])
+		if n > 0 {
+			s.kept += int64(n)
+			_, _ = s.keptHash.Write(p[:n])
+		}
+		if err != nil || int64(n) != keep {
+			s.logFailed = true
+			s.event("stderr_log_io_failure")
+		}
+	}
+	// Continue counting/hash-draining after a cap or a log failure; group kill is
+	// requested by the one controller loop, and Cmd.Wait joins the drainers.
+	return len(p), nil
+}
+func (s *streamWriter) summary() streamSummary {
+	z := streamSummary{ObservedBytes: s.n, ObservedSHA: hex.EncodeToString(s.h.Sum(nil)), RawRetainedBytes: s.kept, PrefixTruncated: s.log != nil && s.n > s.kept, CapExceeded: s.over, LogWriteFailure: s.logFailed}
+	if s.log != nil {
+		z.RawRetainedSHA = hex.EncodeToString(s.keptHash.Sum(nil))
+	}
+	return z
+}
+func errno(err error) int {
+	var n syscall.Errno
+	if errors.As(err, &n) {
+		return int(n)
+	}
+	if err != nil {
+		return -1
+	}
+	return 0
+}
+func waitKind(err error) string {
+	if err == nil {
+		return "none"
+	}
+	var exit *exec.ExitError
+	if errors.As(err, &exit) {
+		return "child_exit_or_signal"
+	}
+	if errors.Is(err, exec.ErrWaitDelay) {
+		return "pipe_drain_wait_delay"
+	}
+	return "wait_or_pipe_io_failure"
+}
+func readbackLog(file *os.File, s streamSummary) bool {
+	st, err := file.Stat()
+	if err != nil || !st.Mode().IsRegular() || st.Size() != s.RawRetainedBytes || st.Size() > stderrLogCap {
+		return false
+	}
+	if _, err := file.Seek(0, io.SeekStart); err != nil {
+		return false
+	}
+	h := sha256.New()
+	n, err := io.Copy(h, io.LimitReader(file, stderrLogCap+1))
+	return err == nil && n == s.RawRetainedBytes && hex.EncodeToString(h.Sum(nil)) == s.RawRetainedSHA
+}
+
+func finish(c config, r *result, priorBytes int64) int {
+	r.UTC = time.Now().UTC().Format(time.RFC3339Nano)
+	// Solve the small self-size dependency before opening the one final path.
+	for i := 0; i < 8; i++ {
+		b, err := json.MarshalIndent(r, "", "  ")
+		if err != nil {
+			return 3
+		}
+		want := priorBytes + int64(len(b)+1)
+		if r.OutsideBytes == want {
+			break
+		}
+		r.OutsideBytes = want
+	}
+	r.OutsideWithinBudget = r.OutsideBytes <= outsideCap
+	if !r.OutsideWithinBudget {
+		r.State = "failed"
+		r.Failure = "outside_bytes_cap"
+	}
+	// The byte field length is stable after setting the boolean/state. Recompute
+	// once more to convergence, then require exact actual write length.
+	for i := 0; i < 8; i++ {
+		b, err := json.MarshalIndent(r, "", "  ")
+		if err != nil {
+			return 3
+		}
+		want := priorBytes + int64(len(b)+1)
+		if r.OutsideBytes == want {
+			break
+		}
+		r.OutsideBytes = want
+	}
+	n, err := writeJSONExclusive(c.outside, "result.json", r)
+	if err != nil || n+priorBytes != r.OutsideBytes {
+		return 3
+	}
+	if r.State != "completed" {
+		return 1
+	}
+	return 0
+}
+
+func run(args []string) int {
+	c, err := parse(args)
+	if err != nil || runtime.Version() != "go1.27.1" || runtime.GOOS != "darwin" || runtime.GOARCH != "arm64" {
+		return 2
+	}
+	if os.Mkdir(c.outside, 0700) != nil {
+		return 2
+	}
+	r := result{Schema: "riido-projection79-outside-result-v1", State: "failed_before_start", RuntimeGo: runtime.Version(), Platform: runtime.GOOS + "/" + runtime.GOARCH, ExitCode: -1, FitPermitted: c.sourceRoot != "", Limit: "Whole-child OS wait4 Rusage Maxrss is Darwin bytes, separate from Go heap/native/GPU attribution; observed RSS is a final gate, not a hard cap. Streams count/hash bytes delivered to controller pipes; forced closure or descendant drain timeout may omit bytes never delivered. A stderr prefix up to 64 KiB is private and may be truncated; raw stdout and worker result/partial copies are zero. Pins are rechecked before pathname execution, without a kernel execution attestation. No automatic retry. If the controller itself is SIGKILLed before final write, the immutable synced intent remains; current child completion and stream totals are unknown."}
+	fail := func(code string, n int64) int { r.Failure = code; return finish(c, &r, n) }
+	selfPath, err := os.Executable()
+	if err != nil || filepath.Clean(selfPath) != c.self.path {
+		return fail("self_executable_path", 0)
+	}
+	for _, x := range []fileInput{c.source, c.self, c.worker} {
+		if _, err := verifyFile(x, x.pin.ID != c.source.pin.ID); err != nil {
+			return fail("pin_"+x.pin.ID+"_"+err.Error(), 0)
+		}
+		r.Pins = append(r.Pins, x.pin)
+	}
+	data, err := verifyFile(c.plan, false)
+	if err != nil {
+		return fail("pin_plan_"+err.Error(), 0)
+	}
+	r.Pins = append(r.Pins, c.plan.pin)
+	if err := validatePlan(data, c); err != nil {
+		return fail(err.Error(), 0)
+	}
+	log, err := os.OpenFile(filepath.Join(c.outside, "stderr.private.log"), os.O_CREATE|os.O_EXCL|os.O_RDWR, 0600)
+	if err != nil {
+		return fail("stderr_log_create", 0)
+	}
+	defer log.Close()
+	i := intent{Schema: "riido-projection79-outside-intent-v1", State: "frozen_before_one_worker_start", UTC: time.Now().UTC().Format(time.RFC3339Nano), Pins: r.Pins, RuntimeGo: runtime.Version(), Platform: r.Platform, Environment: []string{"GOMAXPROCS=1", "GOMEMLIMIT=256MiB"}, ArgumentsShape: []string{"--plan", "<root-pinned-private-plan-path>", "--plan-sha256", "<verified-plan-SHA256>"}, StartReserved: 1, TimeoutSeconds: 300, StdoutCap: stdoutCap, StderrLogCap: stderrLogCap, OutsideCap: outsideCap, RSSBudget: rssBudget}
+	if c.sourceRoot != "" {
+		i.FitPermitted = true
+		i.ArgumentsShape = append(i.ArgumentsShape, "--source-root", "<root-verified-source-directory>", "--output-dir", "<same-plan-exclusive-worker-attempt-directory>")
+	}
+	intentBytes, err := writeJSONExclusive(c.outside, "intent.json", &i)
+	if err != nil {
+		return fail(err.Error(), intentBytes)
+	}
+	r.IntentSynced = true
+	if err := syncDirectory(c.outside); err != nil {
+		return fail(err.Error(), intentBytes)
+	}
+	r.IntentDirectorySynced = true
+	// Rehash mutable pathnames at the latest practical pre-start boundary. The
+	// frozen plan's worker output path must still be exclusive at this boundary.
+	if _, err := verifyFile(c.worker, true); err != nil {
+		return fail("worker_prestart_"+err.Error(), intentBytes)
+	}
+	data, err = verifyFile(c.plan, false)
+	if err != nil {
+		return fail("plan_prestart_"+err.Error(), intentBytes)
+	}
+	if err := validatePlan(data, c); err != nil {
+		return fail(err.Error(), intentBytes)
+	}
+	events := make(chan string, 2)
+	out := newStream(true, nil, events)
+	serr := newStream(false, log, events)
+	cmd := exec.Command(c.worker.path, "--plan", c.plan.path, "--plan-sha256", c.plan.pin.SHA)
+	if c.sourceRoot != "" {
+		cmd.Args = append(cmd.Args, "--source-root", c.sourceRoot, "--output-dir", c.workerOutput)
+	}
+	cmd.Env = []string{"GOMAXPROCS=1", "GOMEMLIMIT=256MiB"}
+	cmd.Stdout = out
+	cmd.Stderr = serr
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	cmd.WaitDelay = 2 * time.Second
+	interrupts := make(chan os.Signal, 1)
+	signal.Notify(interrupts, os.Interrupt, syscall.SIGTERM)
+	defer signal.Stop(interrupts)
+	r.StartAttempted = 1
+	startedAt := time.Now()
+	err = cmd.Start()
+	r.StartReturned = 1
+	if err != nil {
+		r.WholeWallSeconds = time.Since(startedAt).Seconds()
+		r.Stdout = out.summary()
+		r.Stderr = serr.summary()
+		r.StderrLogSynced = log.Sync() == nil
+		r.StderrLogReadback = readbackLog(log, r.Stderr)
+		return fail("worker_start_failed", intentBytes+r.Stderr.RawRetainedBytes)
+	}
+	r.Started = 1
+	r.PID = cmd.Process.Pid
+	r.GroupID = cmd.Process.Pid
+	r.WaitAttempted = 1
+	done := make(chan error, 1)
+	go func() { done <- cmd.Wait() }()
+	timer := time.NewTimer(time.Until(startedAt.Add(wallLimit)))
+	defer timer.Stop()
+	var waited error
+	select {
+	case waited = <-done:
+	case reason := <-events:
+		r.TerminationReason = reason
+		r.GroupKillRequested = true
+		r.GroupKillErrno = errno(syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL))
+		waited = <-done
+	case <-timer.C:
+		r.TerminationReason = "wall_timeout_300_seconds"
+		r.GroupKillRequested = true
+		r.GroupKillErrno = errno(syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL))
+		waited = <-done
+	case <-interrupts:
+		r.TerminationReason = "controller_received_interrupt_or_SIGTERM"
+		r.GroupKillRequested = true
+		r.GroupKillErrno = errno(syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL))
+		waited = <-done
+	}
+	r.WaitReturned = 1
+	r.WholeWallSeconds = time.Since(startedAt).Seconds()
+	r.WaitFailureKind = waitKind(waited)
+	if cmd.ProcessState != nil {
+		r.ExitCode = cmd.ProcessState.ExitCode()
+		r.UserSeconds = cmd.ProcessState.UserTime().Seconds()
+		r.SystemSeconds = cmd.ProcessState.SystemTime().Seconds()
+		if w, ok := cmd.ProcessState.Sys().(syscall.WaitStatus); ok {
+			r.Signaled = w.Signaled()
+			if r.Signaled {
+				r.SignalNumber = int(w.Signal())
+			}
+		}
+		if u, ok := cmd.ProcessState.SysUsage().(*syscall.Rusage); ok {
+			r.RSSAvailable = u.Maxrss > 0
+			r.RSSBytes = u.Maxrss
+			r.RSSWithinBudget = u.Maxrss > 0 && u.Maxrss <= rssBudget
+		}
+	}
+	if errors.Is(waited, exec.ErrWaitDelay) && !r.GroupKillRequested {
+		r.TerminationReason = "pipe_drain_wait_delay"
+		r.GroupKillRequested = true
+		r.GroupKillErrno = errno(syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL))
+	}
+	r.Stdout = out.summary()
+	r.Stderr = serr.summary()
+	r.StderrLogSynced = log.Sync() == nil
+	r.StderrLogReadback = readbackLog(log, r.Stderr)
+	r.State = "completed"
+	r.Failure = ""
+	switch {
+	case r.TerminationReason != "":
+		r.State = "failed"
+		r.Failure = r.TerminationReason
+	case r.WholeWallSeconds > wallLimit.Seconds():
+		r.State = "failed"
+		r.Failure = "observed_wall_exceeds_300_seconds"
+	case r.Stdout.CapExceeded:
+		r.State = "failed"
+		r.Failure = "stdout_cap_exceeded_after_exit"
+	case waited != nil || r.ExitCode != 0:
+		r.State = "failed"
+		r.Failure = "worker_exit_or_wait_failure"
+	case !r.StderrLogSynced || !r.StderrLogReadback || r.Stderr.LogWriteFailure:
+		r.State = "failed"
+		r.Failure = "private_stderr_log_failure"
+	case !r.RSSAvailable || !r.RSSWithinBudget:
+		r.State = "failed"
+		r.Failure = "observed_whole_child_RSS_budget"
+	}
+	return finish(c, &r, intentBytes+r.Stderr.RawRetainedBytes)
+}
+func main() { os.Exit(run(os.Args[1:])) }

@@ -1,0 +1,283 @@
+package loader79
+
+import (
+	"encoding/hex"
+	"math"
+	"slices"
+	"unicode/utf8"
+
+	"github.com/teamswyg/laya-tools/internal/claimfit"
+	"github.com/teamswyg/laya-tools/internal/pairlearn"
+	"github.com/teamswyg/laya-tools/internal/roleplan"
+	"github.com/teamswyg/laya-tools/pkg/shortclaim"
+)
+
+func validSHA(s string) bool {
+	b, e := hex.DecodeString(s)
+	return len(s) == 64 && e == nil && len(b) == 32
+}
+func finite(x float64) bool { return !math.IsNaN(x) && !math.IsInf(x, 0) }
+func textOK(s string) bool {
+	return len(s) > 0 && len(s) <= shortclaim.MaxTextBytes && utf8.ValidString(s)
+}
+func truthName(t claimfit.TruthState) string {
+	switch t {
+	case claimfit.Known:
+		return "known"
+	case claimfit.NoAnswer:
+		return "no_answer"
+	case claimfit.Unknown:
+		return "unknown"
+	}
+	return ""
+}
+func roleName(r roleplan.Role) string {
+	switch r {
+	case roleplan.DevelopmentTrain:
+		return "development_train"
+	case roleplan.DevelopmentValidation:
+		return "development_validation"
+	case roleplan.DevelopmentCalibration:
+		return "development_calibration"
+	}
+	return ""
+}
+
+// JoinMetadata binds the already-saved76 prefix and caller-qualified3 additions.
+// It never executes Validate, Assign, Project, features, a model or fitting.
+func JoinMetadata(base claimfit.Projection, roles []RoleRow, draft Proposal, a Append, pins Bindings, consumed Consumption) (Joined, error) {
+	var out Joined
+	if a.Schema != AppendSchema || a.IndependentHeldout == nil || *a.IndependentHeldout || len(a.Parents) != AddedParents || len(draft.Parents) != AddedParents {
+		return out, ErrSchema
+	}
+	for _, flag := range [4]*bool{a.Qualification, a.TrainingReady, a.ProductionReady, a.ProtectedFinal} {
+		if flag == nil || *flag {
+			return out, ErrSchema
+		}
+	}
+	parentIDs := [3]string{"conversion80-parse-partial-errors", "conversion80-scan-state-errors", "conversion80-ordinal-teen-suffix"}
+	candidateIDs := [3][3]string{{"parse-zero-on-error", "parse-preserve", "parse-panic-on-error"}, {"scan-preserve", "scan-clear-before", "scan-suppress-error"}, {"ordinal-last-digit", "ordinal-constant-th", "ordinal-preserve"}}
+	got := [8]string{a.SourceProposalSHA, a.CandidateWantSHA, a.CandidateGotSHA, a.RootSavedReviewSHA, a.RootEligibilitySHA, a.FamilyReviewSHA, a.OriginalProjectionSHA, a.OriginalRoleSHA}
+	expected := [8]string{pins.SourceProposalSHA, pins.CandidateWantSHA, pins.CandidateGotSHA, pins.RootSavedReviewSHA, pins.RootEligibilitySHA, pins.FamilyReviewSHA, pins.OriginalProjectionSHA, pins.OriginalRoleSHA}
+	for i, s := range got {
+		if !validSHA(s) || s != expected[i] {
+			return out, ErrPin
+		}
+	}
+	if !consumed.Frozen || consumed.OriginalMaxFits != 8 || consumed.OriginalMaxArtifacts != 16 || consumed.UsedFits != 2 || consumed.UsedArtifacts < 2 || consumed.UsedArtifacts >= 16 {
+		return out, ErrBudget
+	}
+	if len(base.Parents) != OriginalParents || len(roles) != OriginalParents || base.PayloadBytes == 0 || base.PayloadBytes > MaxPayloadBytes {
+		return out, ErrBase
+	}
+	if !shape(base.Development, true) || !shape(base.Validation, true) || !shape(base.DevelopmentAUC.Data, false) || !shape(base.ValidationAUC.Data, false) {
+		return out, ErrBase
+	}
+	// Bounded preflight before own copies. Raw JSON size and the module's Payload
+	// remain separate. This sum covers copied numerical columns and references;
+	// fixed76 headers/text are bounded separately by the existing input contract.
+	owned := uint64(OriginalParents * 4096)
+	for _, d := range [4]pairlearn.Dataset{base.Development, base.Validation, base.DevelopmentAUC.Data, base.ValidationAUC.Data} {
+		for _, col := range [6]struct {
+			count int
+			width uint64
+		}{{len(d.Offsets), 8}, {len(d.Indices), 2}, {len(d.Values), 8}, {len(d.Labels), 8}, {len(d.Groups), 8}, {len(d.SampleWeights), 8}} {
+			if uint64(col.count) > (MaxPayloadBytes-owned)/col.width {
+				return out, ErrBase
+			}
+			owned += uint64(col.count) * col.width
+		}
+	}
+	for _, n := range [4]int{len(base.DevelopmentRefs), len(base.ValidationRefs), len(base.DevelopmentAUC.Refs), len(base.ValidationAUC.Refs)} {
+		if uint64(n) > (MaxPayloadBytes-owned)/16 {
+			return out, ErrBase
+		}
+		owned += uint64(n) * 16
+	}
+	var lookup [OriginalParents]int
+	for i := range lookup {
+		lookup[i] = -1
+	}
+	for row, r := range roles {
+		if r.Index < 0 || r.Index >= OriginalParents || lookup[r.Index] != -1 {
+			return out, ErrRole
+		}
+		lookup[r.Index] = row
+	}
+	var groups [TotalParents]bool
+	var groupRoles [TotalParents]int
+	for i := range groupRoles {
+		groupRoles[i] = -1
+	}
+	counts := [3]int{}
+	states := [3]int{}
+	candidates := 0
+	maxGroup := -1
+	out.Parents = make([]ParentPlan, TotalParents)
+	for i, p := range base.Parents {
+		if lookup[i] < 0 || p.Text.Count < 1 || p.Text.Count > 8 || p.Text.Schema != shortclaim.Schema || p.WholeGroup < 0 || p.WholeGroup >= TotalParents || truthName(p.Truth) == "" || roleName(p.Role) == "" {
+			return Joined{}, ErrBase
+		}
+		if !textOK(p.Text.Request) || len(p.Text.NormalizedRequest) > 512 || len(p.Text.Provenance) > 128 {
+			return Joined{}, ErrBase
+		}
+		textBytes := len(p.Text.Schema) + len(p.Text.Request) + len(p.Text.NormalizedRequest) + len(p.Text.Provenance)
+		for c, x := range p.Text.Candidates {
+			if len(x.ID) > 64 || len(x.Text) > 512 || len(x.NormalizedText) > 512 || (c < p.Text.Count && (x.ID == "" || !textOK(x.Text))) {
+				return Joined{}, ErrBase
+			}
+			textBytes += len(x.ID) + len(x.Text) + len(x.NormalizedText)
+		}
+		if uint64(textBytes) > MaxPayloadBytes-owned {
+			return Joined{}, ErrBase
+		}
+		owned += uint64(textBytes)
+		r := roles[lookup[i]]
+		if r.ID != p.Text.Provenance || r.Group != p.WholeGroup || r.Role != roleName(p.Role) || r.Truth != truthName(p.Truth) || r.Count != p.Text.Count {
+			return Joined{}, ErrRole
+		}
+		if groupRoles[p.WholeGroup] != -1 && groupRoles[p.WholeGroup] != int(p.Role) {
+			return Joined{}, ErrRole
+		}
+		groupRoles[p.WholeGroup] = int(p.Role)
+		groups[p.WholeGroup] = true
+		maxGroup = max(maxGroup, p.WholeGroup)
+		counts[int(p.Role)]++
+		states[int(p.Truth)-1]++
+		candidates += p.Text.Count
+		if p.AcceptableCount < 0 || p.AcceptableCount > p.Text.Count {
+			return Joined{}, ErrBase
+		}
+		ac := slices.Clone(p.Acceptable[:p.AcceptableCount])
+		var seen [8]bool
+		for _, c := range ac {
+			if c < 0 || c >= p.Text.Count || seen[c] {
+				return Joined{}, ErrBase
+			}
+			seen[c] = true
+		}
+		if (p.Truth == claimfit.Known) != (len(ac) > 0) {
+			return Joined{}, ErrBase
+		}
+		in := shortclaim.Input{Schema: shortclaim.Schema, Request: p.Text.Request, Provenance: p.Text.Provenance, Candidates: make([]shortclaim.Candidate, p.Text.Count)}
+		for c := range in.Candidates {
+			if p.Labels[c].Known != (p.Truth != claimfit.Unknown) || (p.Labels[c].Known && p.Labels[c].Positive != seen[c]) {
+				return Joined{}, ErrBase
+			}
+			in.Candidates[c] = shortclaim.Candidate{ID: p.Text.Candidates[c].ID, Text: p.Text.Candidates[c].Text}
+		}
+		out.Parents[i] = ParentPlan{Input: in, Truth: p.Truth, Acceptable: ac, Role: p.Role, Group: p.WholeGroup, Masks: p.LossEligible, OriginalPrepared: p.Text, Existing: true}
+	}
+	nGroups := 0
+	for _, g := range groups {
+		if g {
+			nGroups++
+		}
+	}
+	if candidates != 226 || states != [3]int{38, 17, 21} || counts != [3]int{44, 20, 12} || nGroups != 19 || maxGroup != 74 {
+		return Joined{}, ErrBase
+	}
+	var newGroupPositive [2]bool
+	for g, p := range a.Parents {
+		d := draft.Parents[g]
+		group := 75
+		family := "google/uuid"
+		rev := "2d3c2a9cc518326daf99a383f07c4d3c44317e4d"
+		if g == 2 {
+			group = 76
+			family = "dustin/go-humanize Ordinal source slice"
+			rev = "a1b4e66b9a6d890e9e15e7091cf16c8032367d6e"
+		}
+		if p.Index != OriginalParents+g || p.ID != parentIDs[g] || d.ID != p.ID || p.Request != d.Request || !textOK(p.Request) || len(p.Candidates) != 3 || len(d.Candidates) != 3 || p.Role != "development_train" || p.RoleEnum == nil || *p.RoleEnum != 0 || p.Group == nil || *p.Group != group || groups[group] || p.SourceFamily != family || p.Revision != rev {
+			return Joined{}, ErrAppend
+		}
+		if p.Truth != "known" || len(p.Acceptable) == 0 || len(p.Acceptable) > 3 {
+			return Joined{}, ErrTruth
+		}
+		var positive [3]bool
+		for _, c := range p.Acceptable {
+			if c < 0 || c >= 3 || positive[c] {
+				return Joined{}, ErrTruth
+			}
+			positive[c] = true
+		}
+		in := shortclaim.Input{Schema: shortclaim.Schema, Request: p.Request, Provenance: p.ID, Candidates: make([]shortclaim.Candidate, 3)}
+		var masks [8]bool
+		for c, x := range p.Candidates {
+			if x.Index != c || x.ID != candidateIDs[g][c] || x.ID != d.Candidates[c].ID || x.Caption != d.Candidates[c].Caption || !textOK(x.Caption) {
+				return Joined{}, ErrAppend
+			}
+			if x.CodeSatisfaction == nil || x.CaptionFidelity == nil || x.ChannelComplete == nil || x.LossEligible == nil || x.Label == nil || x.SampleWeight == nil {
+				return Joined{}, ErrTruth
+			}
+			if *x.CodeSatisfaction != positive[c] || *x.Label != positive[c] || !finite(*x.SampleWeight) || (*x.SampleWeight != 0 && *x.SampleWeight != 1) || *x.LossEligible != (*x.SampleWeight == 1) || (*x.LossEligible && (!*x.CaptionFidelity || !*x.ChannelComplete)) {
+				return Joined{}, ErrTruth
+			}
+			masks[c] = *x.LossEligible
+			if !masks[c] {
+				out.NewZeroWeightRows++
+			} else {
+				k := 0
+				if g == 2 {
+					k = 1
+				}
+				newGroupPositive[k] = true
+			}
+			in.Candidates[c] = shortclaim.Candidate{ID: x.ID, Text: x.Caption}
+		}
+		out.Parents[p.Index] = ParentPlan{Input: in, Truth: claimfit.Known, Acceptable: slices.Clone(p.Acceptable), Role: roleplan.DevelopmentTrain, Group: group, Masks: masks}
+	}
+	for _, b := range newGroupPositive {
+		if b {
+			out.NewPositiveWeightGroups++
+		}
+	}
+	out.Base = cloneProjection(base)
+	return out, nil
+}
+
+// Prepare executes only the caller callback. A future production driver supplies
+// shortclaim.Validate; synthetic tests supply stubs. No fallback or hidden retry.
+// Counters record reserved intent before entry; checkpoint failure blocks entry.
+func (j Joined) Prepare(c *Counters, call ValidateFunc, checkpoint Checkpoint) (out []claimfit.Parent, err error) {
+	if c == nil || call == nil || c.ValidateIntents != 0 || c.ValidateReturned != 0 || c.PreparedPrefix != 0 || len(j.Parents) != TotalParents {
+		return nil, ErrRetry
+	}
+	out = make([]claimfit.Parent, TotalParents)
+	for i, p := range j.Parents {
+		c.ValidateIntents++
+		if checkpoint != nil && checkpoint(*c) != nil {
+			return nil, ErrPrepare
+		}
+		var prepared shortclaim.Prepared
+		returned := false
+		func() {
+			defer func() {
+				if !returned {
+					_ = recover()
+					err = ErrPrepare
+				}
+			}()
+			prepared, err = call(p.Input)
+			returned = true
+			c.ValidateReturned++
+		}()
+		if err != nil || prepared.Schema != p.Input.Schema || prepared.Request != p.Input.Request || prepared.Provenance != p.Input.Provenance || prepared.Count != len(p.Input.Candidates) {
+			return nil, ErrPrepare
+		}
+		for n, x := range p.Input.Candidates {
+			if prepared.Candidates[n].ID != x.ID || prepared.Candidates[n].Text != x.Text {
+				return nil, ErrPrepare
+			}
+		}
+		if p.Existing && prepared != p.OriginalPrepared {
+			return nil, ErrPrepare
+		}
+		out[i] = claimfit.Parent{Text: prepared, Truth: p.Truth, Acceptable: slices.Clone(p.Acceptable), Role: p.Role, WholeGroup: p.Group, LossEligible: p.Masks}
+		c.PreparedPrefix++
+		if checkpoint != nil && checkpoint(*c) != nil {
+			return nil, ErrPrepare
+		}
+	}
+	return out, nil
+}

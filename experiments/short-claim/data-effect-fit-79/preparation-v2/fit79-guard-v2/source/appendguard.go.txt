@@ -1,0 +1,128 @@
+package main
+
+import (
+	"encoding/json"
+	"math"
+	"slices"
+
+	"github.com/teamswyg/laya-tools/internal/claimfit"
+	"github.com/teamswyg/laya-tools/internal/pairlearn"
+)
+
+const appendSHA = "dc375daeddbd9dd744d28af5e72a63f532c6b332c1839154e1341aa4121249a5"
+const oldProjectionSHA = "f68bff5f48747a66f038c17262568c1bd91251a8c81b3f46f7ae5090c8fe4b99"
+const firstResultSHA = "060eaa602f27f7fd9a67306e2fa2a530f0ef4c5c4548858a7818d9dfdb4bb28a"
+const proposalSHA = "abb81f32a6401be2e9682ea7ebfe2c0c24647f93144d6fdf81b6e1d0583e1b63"
+
+type AppendInput struct {
+	Schema                                                        string         `json:"schema"`
+	State                                                         string         `json:"state"`
+	OriginalProjectionSHA                                         string         `json:"original76_projection_sha256"`
+	Parents                                                       []AppendParent `json:"parents"`
+	TrainingReady, Qualification, ProductionReady, ProtectedFinal bool
+}
+type AppendParent struct {
+	ID         string            `json:"id"`
+	Index      int               `json:"parent_index"`
+	Request    string            `json:"request"`
+	Role       int               `json:"role_enum"`
+	WholeGroup int               `json:"whole_group"`
+	Truth      string            `json:"truth"`
+	Acceptable []int             `json:"acceptable_candidate_indices"`
+	Candidates []AppendCandidate `json:"candidates"`
+}
+type AppendCandidate struct {
+	Index    int     `json:"candidate_index"`
+	ID       string  `json:"id"`
+	Caption  string  `json:"caption"`
+	Label    bool    `json:"label"`
+	Eligible bool    `json:"loss_eligible"`
+	Weight   float64 `json:"sample_weight"`
+}
+
+func floatBitsEqual(a, b []float64) bool {
+	if len(a) != len(b) || (a == nil) != (b == nil) {
+		return false
+	}
+	for i, x := range a {
+		if math.Float64bits(x) != math.Float64bits(b[i]) {
+			return false
+		}
+	}
+	return true
+}
+func sameDatasetPrefix(old, now pairlearn.Dataset, exact bool) bool {
+	n := len(old.Labels)
+	f := len(old.Values)
+	if now.Split != old.Split || now.Excluded != old.Excluded || len(now.Labels) < n || len(now.Offsets) < n+1 || len(now.Values) < f || len(now.Indices) < f || len(now.Groups) < n || len(now.SampleWeights) < n {
+		return false
+	}
+	if exact && (len(now.Labels) != n || len(now.Values) != f) {
+		return false
+	}
+	return slices.Equal(old.Offsets, now.Offsets[:n+1]) && slices.Equal(old.Indices, now.Indices[:f]) && slices.Equal(old.Groups, now.Groups[:n]) && floatBitsEqual(old.Values, now.Values[:f]) && floatBitsEqual(old.Labels, now.Labels[:n]) && floatBitsEqual(old.SampleWeights, now.SampleWeights[:n])
+}
+func checkOriginalAndAppend(old, now claimfit.Projection, a AppendInput) error {
+	if len(old.Parents) != 76 || len(now.Parents) != 79 || a.Schema != "riido-qualified-original76-plus-source80-train-append-v1" || a.State != "typed_supervision_and_train_membership_frozen_projection_not_run" || a.OriginalProjectionSHA != oldProjectionSHA || len(a.Parents) != 3 {
+		return fail("append_input_contract")
+	}
+	for i, x := range old.Parents {
+		if now.Parents[i] != x {
+			return fail("original76_parent_snapshot_changed")
+		}
+	}
+	if !sameDatasetPrefix(old.Development, now.Development, false) || !sameDatasetPrefix(old.Validation, now.Validation, true) || !sameDatasetPrefix(old.DevelopmentAUC.Data, now.DevelopmentAUC.Data, false) || !sameDatasetPrefix(old.ValidationAUC.Data, now.ValidationAUC.Data, true) {
+		return fail("original76_sparse_columns_changed")
+	}
+	if len(now.DevelopmentRefs) < len(old.DevelopmentRefs) || len(now.DevelopmentAUC.Refs) < len(old.DevelopmentAUC.Refs) || !slices.Equal(old.DevelopmentRefs, now.DevelopmentRefs[:len(old.DevelopmentRefs)]) || !slices.Equal(old.ValidationRefs, now.ValidationRefs) || !slices.Equal(old.DevelopmentAUC.Refs, now.DevelopmentAUC.Refs[:len(old.DevelopmentAUC.Refs)]) || !slices.Equal(old.ValidationAUC.Refs, now.ValidationAUC.Refs) || old.ValidationAUC.Denominators != now.ValidationAUC.Denominators || old.Counts[1] != now.Counts[1] || old.Counts[2] != now.Counts[2] {
+		return fail("original76_refs_calibration_validation_changed")
+	}
+	wantPositive := [3]int{1, 0, 2}
+	wantGroups := [3]int{75, 75, 76}
+	for i, x := range a.Parents {
+		p := now.Parents[76+i]
+		if x.Index != 76+i || x.Role != 0 || x.Truth != "known" || x.WholeGroup != wantGroups[i] || len(x.Acceptable) != 1 || x.Acceptable[0] != wantPositive[i] || len(x.Candidates) != 3 || p.Text.Request != x.Request || p.Text.Count != 3 || p.Role != 0 || p.WholeGroup != x.WholeGroup || p.Truth != claimfit.Known || p.AcceptableCount != 1 || p.Acceptable[0] != wantPositive[i] {
+			return fail("new_parent_binding")
+		}
+		for c, y := range x.Candidates {
+			if y.Index != c || y.ID != p.Text.Candidates[c].ID || y.Caption != p.Text.Candidates[c].Text || !y.Eligible || y.Weight != 1 || y.Label != (c == wantPositive[i]) || !p.LossEligible[c] || !p.Labels[c].Known || p.Labels[c].Positive != y.Label {
+				return fail("new_candidate_binding")
+			}
+		}
+	}
+	return nil
+}
+func preservedInput(p Plan, base string, now claimfit.Projection) error {
+	oldRaw, e := readPin(p.OriginalProjection, base, maxPayload)
+	if e != nil {
+		return e
+	}
+	var old Envelope
+	if json.Unmarshal(oldRaw, &old) != nil || old.Projection == nil || old.Failure != "" || old.Schema != "riido-full76-projection-result-v1" || old.State != "completed_projection_only_no_fit_or_readiness_approval" {
+		return fail("original76_envelope")
+	}
+	appendRaw, e := readPin(p.QualifiedAppend, base, maxPayload)
+	if e != nil {
+		return e
+	}
+	var a AppendInput
+	if json.Unmarshal(appendRaw, &a) != nil {
+		return fail("append_JSON")
+	}
+	return checkOriginalAndAppend(*old.Projection, now, a)
+}
+func sameHistoricalControls(old, current Utility) bool {
+	for k, a := range old.Controls {
+		b := current.Controls[k]
+		if a.Kind != b.Kind || a.Metric.Parents != b.Metric.Parents || a.Metric.Answerable != b.Metric.Answerable || a.Metric.NoAnswer != b.Metric.NoAnswer || a.Metric.UnknownExcluded != b.Metric.UnknownExcluded || a.Metric.TotalChecks != b.Metric.TotalChecks || a.Metric.OracleChecks != b.Metric.OracleChecks || a.Metric.Top1Correct != b.Metric.Top1Correct || a.Metric.Top3Correct != b.Metric.Top3Correct || len(a.Parents) != len(b.Parents) {
+			return false
+		}
+		for i, x := range a.Parents {
+			y := b.Parents[i]
+			if x.ParentIndex != y.ParentIndex || x.Role != y.Role || x.Truth != y.Truth || x.CandidateCount != y.CandidateCount || x.Order != y.Order || x.Checks != y.Checks || x.Top1 != y.Top1 || x.Top3 != y.Top3 || x.FirstLossMasked != y.FirstLossMasked || !floatBitsEqual(x.Scores[:], y.Scores[:]) {
+				return false
+			}
+		}
+	}
+	return old.StrongestControlIndex == current.StrongestControlIndex && math.Float64bits(old.OracleHeadroom) == math.Float64bits(current.OracleHeadroom) && old.HeadroomPass == current.HeadroomPass
+}

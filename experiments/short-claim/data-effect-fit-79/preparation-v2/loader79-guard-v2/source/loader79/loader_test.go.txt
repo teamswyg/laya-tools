@@ -1,0 +1,474 @@
+package loader79
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"math"
+	"slices"
+	"strconv"
+	"strings"
+	"testing"
+
+	"github.com/teamswyg/laya-tools/internal/claimfit"
+	"github.com/teamswyg/laya-tools/internal/pairlearn"
+	"github.com/teamswyg/laya-tools/internal/roleplan"
+	"github.com/teamswyg/laya-tools/pkg/shortclaim"
+)
+
+func ptr[T any](x T) *T { return &x }
+func fixture() (claimfit.Projection, []RoleRow, Proposal, Append, Bindings, Consumption) {
+	p := claimfit.Projection{Parents: make([]claimfit.RuntimeParent, 76), PayloadBytes: 1024}
+	roles := make([]RoleRow, 76)
+	for i := range p.Parents {
+		group := i / 4 * 4
+		if i >= 36 && i < 40 {
+			group = 8
+		}
+		if i == 73 {
+			group = 72
+		}
+		if i == 75 {
+			group = 74
+		}
+		role := roleplan.DevelopmentTrain
+		switch group {
+		case 0, 56, 68:
+			role = roleplan.DevelopmentCalibration
+		case 4, 8, 12, 60:
+			role = roleplan.DevelopmentValidation
+		}
+		truth := claimfit.Known
+		if i < 72 {
+			if i%4 == 2 {
+				truth = claimfit.NoAnswer
+			}
+			if i%4 == 3 || (i >= 64 && i < 68) {
+				truth = claimfit.Unknown
+			}
+		}
+		count := 3
+		if i == 72 || i == 73 {
+			count = 2
+		}
+		v := claimfit.RuntimeParent{Text: shortclaim.Prepared{Schema: shortclaim.Schema, Request: "toy request " + strconv.Itoa(i), NormalizedRequest: "toyrequest", Provenance: "toy-" + strconv.Itoa(i), Count: count}, Truth: truth, Role: role, WholeGroup: group}
+		if truth == claimfit.Known {
+			v.Acceptable[0] = 1
+			v.AcceptableCount = 1
+		}
+		for c := 0; c < count; c++ {
+			v.Text.Candidates[c] = shortclaim.PreparedCandidate{ID: "candidate-" + strconv.Itoa(c), Text: "toy caption " + strconv.Itoa(c), NormalizedText: "toycaption"}
+			v.LossEligible[c] = true
+			v.Labels[c] = claimfit.NullableLabel{Known: truth != claimfit.Unknown, Positive: truth == claimfit.Known && c == 1}
+		}
+		p.Parents[i] = v
+		roles[i] = RoleRow{i, v.Text.Provenance, group, roleName(role), truthName(truth), count}
+	}
+	zero := [2]int{18, 1}
+	for i, pv := range p.Parents {
+		if pv.Role != roleplan.DevelopmentCalibration && pv.Truth != claimfit.Unknown {
+			r := int(pv.Role)
+			for c := 0; c < pv.Text.Count && zero[r] > 0; c++ {
+				p.Parents[i].LossEligible[c] = false
+				zero[r]--
+			}
+		}
+	}
+	// Deliberately noncanonical row order like actual70; never reorder parent data.
+	slices.Reverse(roles)
+	buildToyArrays(&p)
+	sha := strings.Repeat("a", 64)
+	a := Append{Schema: AppendSchema, SourceProposalSHA: sha, CandidateWantSHA: sha, CandidateGotSHA: sha, RootSavedReviewSHA: sha, RootEligibilitySHA: sha, FamilyReviewSHA: sha, OriginalProjectionSHA: sha, OriginalRoleSHA: sha, IndependentHeldout: ptr(false), Qualification: ptr(false), TrainingReady: ptr(false), ProductionReady: ptr(false), ProtectedFinal: ptr(false)}
+	d := Proposal{}
+	pids := [3]string{"conversion80-parse-partial-errors", "conversion80-scan-state-errors", "conversion80-ordinal-teen-suffix"}
+	cids := [3][3]string{{"parse-zero-on-error", "parse-preserve", "parse-panic-on-error"}, {"scan-preserve", "scan-clear-before", "scan-suppress-error"}, {"ordinal-last-digit", "ordinal-constant-th", "ordinal-preserve"}}
+	positive := [3]int{1, 0, 2}
+	for g := 0; g < 3; g++ {
+		group := 75
+		family := "google/uuid"
+		rev := "2d3c2a9cc518326daf99a383f07c4d3c44317e4d"
+		if g == 2 {
+			group = 76
+			family = "dustin/go-humanize Ordinal source slice"
+			rev = "a1b4e66b9a6d890e9e15e7091cf16c8032367d6e"
+		}
+		ap := AddedParent{Index: 76 + g, ID: pids[g], Request: "toy request", Truth: "known", Acceptable: []int{positive[g]}, Role: "development_train", RoleEnum: ptr(0), Group: ptr(group), SourceFamily: family, Revision: rev}
+		dp := DraftParent{ID: ap.ID, Request: ap.Request}
+		for c := 0; c < 3; c++ {
+			caption := "toy caption " + strconv.Itoa(c)
+			ap.Candidates = append(ap.Candidates, Candidate{Index: c, ID: cids[g][c], Caption: caption, CodeSatisfaction: ptr(c == positive[g]), CaptionFidelity: ptr(true), ChannelComplete: ptr(true), LossEligible: ptr(true), Label: ptr(c == positive[g]), SampleWeight: ptr(1.)})
+			dp.Candidates = append(dp.Candidates, DraftCandidate{cids[g][c], caption})
+		}
+		a.Parents = append(a.Parents, ap)
+		d.Parents = append(d.Parents, dp)
+	}
+	return p, roles, d, a, Bindings{sha, sha, sha, sha, sha, sha, sha, sha}, Consumption{8, 16, 2, 2, true}
+}
+
+// Fixture-only CSR construction: no original Validate/Normalize/Project/Features.
+func buildToyArrays(p *claimfit.Projection) {
+	p.Development = pairlearn.Dataset{Split: "development", Offsets: []int{0}, SampleWeights: []float64{}}
+	p.Validation = pairlearn.Dataset{Split: "validation", Offsets: []int{0}, SampleWeights: []float64{}}
+	p.DevelopmentRefs = nil
+	p.ValidationRefs = nil
+	p.DevelopmentAUC = claimfit.DiagnosticView{Data: pairlearn.Dataset{Split: "development", Offsets: []int{0}, SampleWeights: []float64{}}}
+	p.ValidationAUC = claimfit.DiagnosticView{Data: pairlearn.Dataset{Split: "validation", Offsets: []int{0}, SampleWeights: []float64{}}}
+	p.Counts = [3]claimfit.RoleCounts{}
+	var seen [3][79]bool
+	var positive [3][79]bool
+	for i, v := range p.Parents {
+		r := int(v.Role)
+		rc := &p.Counts[r]
+		rc.Parents++
+		rc.Candidates += v.Text.Count
+		seen[r][v.WholeGroup] = true
+		if v.Truth == claimfit.Unknown {
+			rc.UnknownParents++
+			rc.UnknownCandidates += v.Text.Count
+			if r < 2 {
+				if r == 0 {
+					p.Development.Excluded += v.Text.Count
+					p.DevelopmentAUC.Denominators.UnknownAuditCandidates += v.Text.Count
+				} else {
+					p.Validation.Excluded += v.Text.Count
+					p.ValidationAUC.Denominators.UnknownAuditCandidates += v.Text.Count
+				}
+			}
+			continue
+		}
+		if r == 2 {
+			continue
+		}
+		d := &p.Development
+		refs := &p.DevelopmentRefs
+		auc := &p.DevelopmentAUC
+		if r == 1 {
+			d = &p.Validation
+			refs = &p.ValidationRefs
+			auc = &p.ValidationAUC
+		}
+		for c := 0; c < v.Text.Count; c++ {
+			row := len(d.Labels)
+			y := 0.
+			if v.Labels[c].Positive {
+				y = 1
+			}
+			w := 0.
+			if v.LossEligible[c] {
+				w = 1
+				positive[r][v.WholeGroup] = true
+			} else {
+				rc.ZeroWeightFitRows++
+			}
+			idx := uint16((i*8 + c) % 8192)
+			value := float64(i*8+c+1) / 100.
+			d.Indices = append(d.Indices, idx)
+			d.Values = append(d.Values, value)
+			d.Offsets = append(d.Offsets, len(d.Values))
+			d.Labels = append(d.Labels, y)
+			d.Groups = append(d.Groups, v.WholeGroup)
+			d.SampleWeights = append(d.SampleWeights, w)
+			*refs = append(*refs, claimfit.RowRef{ParentIndex: i, CandidateIndex: c})
+			rc.FitRows++
+			auc.Denominators.OriginalFitRows++
+			if w == 0 {
+				auc.Denominators.ZeroWeightRows++
+				continue
+			}
+			auc.Data.Indices = append(auc.Data.Indices, idx)
+			auc.Data.Values = append(auc.Data.Values, value)
+			auc.Data.Offsets = append(auc.Data.Offsets, len(auc.Data.Values))
+			auc.Data.Labels = append(auc.Data.Labels, y)
+			auc.Data.Groups = append(auc.Data.Groups, v.WholeGroup)
+			auc.Data.SampleWeights = append(auc.Data.SampleWeights, 1)
+			auc.Refs = append(auc.Refs, (*refs)[row])
+			auc.Denominators.PositiveWeightRows++
+			if y == 1 {
+				auc.Denominators.PositiveLabels++
+			} else {
+				auc.Denominators.NegativeLabels++
+			}
+		}
+	}
+	for r := range seen {
+		for g, s := range seen[r] {
+			if s {
+				p.Counts[r].WholeGroups++
+			}
+			if positive[r][g] {
+				p.Counts[r].PositiveWeightGroups++
+			}
+		}
+	}
+	p.FeatureScans = 2 * (len(p.Development.Labels) + len(p.Validation.Labels))
+}
+func stub(in shortclaim.Input, originals []claimfit.RuntimeParent) shortclaim.Prepared {
+	for _, p := range originals {
+		if p.Text.Provenance == in.Provenance {
+			return p.Text
+		}
+	}
+	p := shortclaim.Prepared{Schema: in.Schema, Request: in.Request, NormalizedRequest: "toy-normalized", Provenance: in.Provenance, Count: len(in.Candidates)}
+	for c, x := range in.Candidates {
+		p.Candidates[c] = shortclaim.PreparedCandidate{ID: x.ID, Text: x.Text, NormalizedText: "toy-normalized"}
+	}
+	return p
+}
+func joinFixture(t *testing.T) (Joined, claimfit.Projection) {
+	t.Helper()
+	base, r, d, a, b, c := fixture()
+	j, e := JoinMetadata(base, r, d, a, b, c)
+	if e != nil {
+		t.Fatal(e)
+	}
+	return j, base
+}
+func fakeProjected(t *testing.T, j Joined) claimfit.Projection {
+	t.Helper()
+	counter := Counters{}
+	ps, e := j.Prepare(&counter, func(in shortclaim.Input) (shortclaim.Prepared, error) { return stub(in, j.Base.Parents), nil }, nil)
+	if e != nil {
+		t.Fatal(e)
+	}
+	p := cloneProjection(j.Base)
+	for _, v := range ps[76:] {
+		r := claimfit.RuntimeParent{Text: v.Text, Truth: v.Truth, AcceptableCount: len(v.Acceptable), Role: v.Role, WholeGroup: v.WholeGroup, LossEligible: v.LossEligible}
+		copy(r.Acceptable[:], v.Acceptable)
+		for c := 0; c < v.Text.Count; c++ {
+			r.Labels[c] = claimfit.NullableLabel{Known: true, Positive: slices.Contains(v.Acceptable, c)}
+		}
+		p.Parents = append(p.Parents, r)
+	}
+	buildToyArrays(&p)
+	return p
+}
+
+func TestJoinGroupOrderOwnershipAndNull(t *testing.T) {
+	base, r, d, a, b, c := fixture()
+	j, e := JoinMetadata(base, r, d, a, b, c)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if len(j.Parents) != 79 || j.Parents[76].Group != 75 || j.Parents[77].Group != 75 || j.Parents[78].Group != 76 {
+		t.Fatal("append groups")
+	}
+	for i, p := range base.Parents {
+		if j.Parents[i].OriginalPrepared != p.Text || j.Parents[i].Truth != p.Truth || j.Parents[i].Masks != p.LossEligible {
+			t.Fatal("old prefix")
+		}
+	}
+	base.Development.Values[0] = 99
+	base.Parents[0].Text.Request = "mutated"
+	a.Parents[0].Acceptable[0] = 0
+	d.Parents[0].Candidates[0].Caption = "mutated"
+	if j.Base.Development.Values[0] == 99 || j.Base.Parents[0].Text.Request == "mutated" || j.Parents[76].Acceptable[0] != 1 || j.Parents[76].Input.Candidates[0].Text == "mutated" {
+		t.Fatal("ownership")
+	}
+	unknown := 0
+	for _, p := range j.Base.Parents {
+		if p.Truth == claimfit.Unknown {
+			unknown++
+			for n := 0; n < p.Text.Count; n++ {
+				if p.Labels[n].Known {
+					t.Fatal("unknown negative")
+				}
+			}
+		}
+	}
+	if unknown != 21 {
+		t.Fatal(unknown)
+	}
+}
+func TestInvalidBindingsNoCoercion(t *testing.T) {
+	cases := []struct {
+		name   string
+		change func(*Append, *Bindings, *Consumption, []RoleRow)
+	}{
+		{"missing_label", func(a *Append, _ *Bindings, _ *Consumption, _ []RoleRow) { a.Parents[0].Candidates[0].Label = nil }},
+		{"unknown_truth", func(a *Append, _ *Bindings, _ *Consumption, _ []RoleRow) { a.Parents[0].Truth = "unknown" }},
+		{"mask_weight", func(a *Append, _ *Bindings, _ *Consumption, _ []RoleRow) {
+			a.Parents[0].Candidates[0].SampleWeight = ptr(0.)
+		}},
+		{"unsupported_eligible", func(a *Append, _ *Bindings, _ *Consumption, _ []RoleRow) {
+			a.Parents[0].Candidates[0].CaptionFidelity = ptr(false)
+		}},
+		{"duplicate_acceptable", func(a *Append, _ *Bindings, _ *Consumption, _ []RoleRow) { a.Parents[0].Acceptable = []int{1, 1} }},
+		{"cross_role", func(a *Append, _ *Bindings, _ *Consumption, _ []RoleRow) {
+			a.Parents[0].Role = "development_validation"
+		}},
+		{"old_group_alias", func(a *Append, _ *Bindings, _ *Consumption, _ []RoleRow) { a.Parents[0].Group = ptr(74) }},
+		{"caption_order", func(a *Append, _ *Bindings, _ *Consumption, _ []RoleRow) {
+			a.Parents[0].Candidates[0].Caption = "different"
+		}},
+		{"heldout_claim", func(a *Append, _ *Bindings, _ *Consumption, _ []RoleRow) { a.IndependentHeldout = ptr(true) }},
+		{"consumed_limit", func(_ *Append, _ *Bindings, c *Consumption, _ []RoleRow) { c.UsedArtifacts = 16 }},
+		{"changed_pin", func(_ *Append, b *Bindings, _ *Consumption, _ []RoleRow) {
+			b.RootEligibilitySHA = strings.Repeat("b", 64)
+		}},
+		{"duplicate_old_role", func(_ *Append, _ *Bindings, _ *Consumption, r []RoleRow) { r[1].Index = r[0].Index }},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			p, r, d, a, b, c := fixture()
+			tc.change(&a, &b, &c, r)
+			if _, e := JoinMetadata(p, r, d, a, b, c); e == nil {
+				t.Fatal("accepted")
+			}
+		})
+	}
+}
+func TestMaskedKnownRowsStayKnown(t *testing.T) {
+	p, r, d, a, b, c := fixture()
+	a.Parents[0].Candidates[1].LossEligible = ptr(false)
+	a.Parents[0].Candidates[1].SampleWeight = ptr(0.)
+	j, e := JoinMetadata(p, r, d, a, b, c)
+	if e != nil {
+		t.Fatal(e)
+	}
+	next := fakeProjected(t, j)
+	if next.Development.Labels[len(p.Development.Labels)+1] != 1 || next.Development.SampleWeights[len(p.Development.Labels)+1] != 0 || !next.Parents[76].Labels[1].Positive {
+		t.Fatal("masked positive removed")
+	}
+	if _, e = j.CheckProjectedPrefix(next); e != nil {
+		t.Fatal(e)
+	}
+}
+func TestPrepareOnceAndCounterFailure(t *testing.T) {
+	j, _ := joinFixture(t)
+	c := Counters{}
+	calls := 0
+	call := func(in shortclaim.Input) (shortclaim.Prepared, error) { calls++; return stub(in, j.Base.Parents), nil }
+	ps, e := j.Prepare(&c, call, nil)
+	if e != nil || len(ps) != 79 || calls != 79 || c != (Counters{79, 79, 79}) {
+		t.Fatal(e, c, calls)
+	}
+	if _, e = j.Prepare(&c, call, nil); e != ErrRetry || calls != 79 {
+		t.Fatal("retry")
+	}
+	blocked := Counters{}
+	if _, e = j.Prepare(&blocked, call, func(Counters) error { return errors.New("toy fsync failure") }); e != ErrPrepare || calls != 79 || blocked != (Counters{1, 0, 0}) {
+		t.Fatal("intent vs entry")
+	}
+}
+func TestPrepareCallbackFailurePanicAndChangedOld(t *testing.T) {
+	for _, kind := range []string{"error", "panic", "changedold"} {
+		t.Run(kind, func(t *testing.T) {
+			j, _ := joinFixture(t)
+			c := Counters{}
+			call := func(in shortclaim.Input) (shortclaim.Prepared, error) {
+				if kind == "panic" {
+					panic("toy")
+				}
+				if kind == "error" {
+					return shortclaim.Prepared{}, errors.New("toy")
+				}
+				v := stub(in, j.Base.Parents)
+				v.NormalizedRequest = "changed"
+				return v, nil
+			}
+			if _, e := j.Prepare(&c, call, nil); e != ErrPrepare || c.PreparedPrefix != 0 {
+				t.Fatal(e, c)
+			}
+			if kind == "panic" && c.ValidateReturned != 0 {
+				t.Fatal("panic returned")
+			}
+		})
+	}
+}
+func TestProjectedProofAndBitMutations(t *testing.T) {
+	j, base := joinFixture(t)
+	next := fakeProjected(t, j)
+	proof, e := j.CheckProjectedPrefix(next)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if proof.OriginalTrainingRows != 91 || proof.ValidationRows != 45 || proof.CanonicalOriginalMetadataSHA != proof.CanonicalPreservedMetadataSHA || proof.OriginalTrainingCSRBitsSHA != proof.PreservedTrainingCSRBitsSHA || proof.OriginalValidationCSRBitsSHA != proof.PreservedValidationCSRBitsSHA || proof.OriginalCalibrationMetadataSHA != proof.PreservedCalibrationMetadataSHA {
+		t.Fatal(proof)
+	}
+	if len(next.Development.Labels) != 100 || next.FeatureScans != 290 {
+		t.Fatal("counts")
+	}
+	mutations := []struct {
+		name   string
+		change func(*claimfit.Projection)
+	}{
+		{"old_text", func(p *claimfit.Projection) { p.Parents[0].Text.Request = "changed" }},
+		{"old_label", func(p *claimfit.Projection) { p.Development.Labels[0] = 1 - p.Development.Labels[0] }},
+		{"old_weight", func(p *claimfit.Projection) { p.Development.SampleWeights[0] = 1 - p.Development.SampleWeights[0] }},
+		{"old_value_bit", func(p *claimfit.Projection) {
+			p.Development.Values[0] = math.Nextafter(p.Development.Values[0], math.Inf(1))
+		}},
+		{"val_group", func(p *claimfit.Projection) { p.Validation.Groups[0]++ }},
+		{"cal_mask", func(p *claimfit.Projection) { p.Parents[0].LossEligible[0] = false }},
+		{"short_new_weight", func(p *claimfit.Projection) { p.Development.SampleWeights = p.Development.SampleWeights[:91] }},
+		{"nonfinite_new_feature", func(p *claimfit.Projection) { p.Development.Values[len(p.Development.Values)-1] = math.NaN() }},
+	}
+	for _, tc := range mutations {
+		t.Run(tc.name, func(t *testing.T) {
+			copy := cloneProjection(next)
+			tc.change(&copy)
+			if _, e := j.CheckProjectedPrefix(copy); e != ErrPrefix {
+				t.Fatal(e)
+			}
+		})
+	}
+	if base.Parents[0].Text.Request != j.Base.Parents[0].Text.Request {
+		t.Fatal("caller changed")
+	}
+}
+func TestFloatBitsNilAndEmpty(t *testing.T) {
+	if equalFloatBits([]float64{0}, []float64{math.Copysign(0, -1)}) || equalFloatBits(nil, []float64{}) || equalFloatBits([]float64{math.NaN()}, []float64{math.NaN()}) {
+		t.Fatal("bit/nil")
+	}
+	a := pairlearn.Dataset{Offsets: []int{0}}
+	b := a
+	b.Values = []float64{}
+	if datasetBits(a) == datasetBits(b) {
+		t.Fatal("nil digest")
+	}
+}
+func TestPinnedBoundedReader(t *testing.T) {
+	raw := []byte(`{"schema":"toy"}`)
+	s := sha256.Sum256(raw)
+	sha := hex.EncodeToString(s[:])
+	var dst struct{ Schema string }
+	if e := ReadPinned(bytes.NewReader(raw), int64(len(raw)), sha, 1024, &dst); e != nil || dst.Schema != "toy" {
+		t.Fatal(e)
+	}
+	if e := ReadPinned(bytes.NewReader(append(raw, ' ')), int64(len(raw)), sha, 1024, &dst); e != ErrRead {
+		t.Fatal(e)
+	}
+	if e := ReadPinned(bytes.NewReader(raw), int64(len(raw)), strings.Repeat("b", 64), 1024, &dst); e != ErrPin {
+		t.Fatal(e)
+	}
+	if e := ReadPinned(bytes.NewReader(raw), 2048, sha, 1024, &dst); e != ErrRead {
+		t.Fatal(e)
+	}
+	var round Append
+	_, _, _, a, _, _ := fixture()
+	b, _ := json.Marshal(a)
+	h := sha256.Sum256(b)
+	if e := ReadPinned(bytes.NewReader(b), int64(len(b)), hex.EncodeToString(h[:]), int64(len(b)), &round); e != nil || round.Parents[0].Candidates[0].Label == nil {
+		t.Fatal(e)
+	}
+}
+
+func TestConsumptionWireAndMissingCount(t *testing.T) {
+	p, r, d, a, b, _ := fixture()
+	var consumed Consumption
+	if e := json.Unmarshal([]byte(`{"original_max_fits":8,"original_max_artifacts":16,"prior_corpus_fit_attempts":2,"prior_model_artifacts":2,"frozen":true}`), &consumed); e != nil {
+		t.Fatal(e)
+	}
+	if _, e := JoinMetadata(p, r, d, a, b, consumed); e != nil {
+		t.Fatal(e)
+	}
+	consumed = Consumption{} // The production reader always decodes a fresh DTO.
+	if e := json.Unmarshal([]byte(`{"original_max_fits":8,"original_max_artifacts":16,"prior_corpus_fit_attempts":2,"prior_model_artifacts":null,"frozen":true}`), &consumed); e != nil {
+		t.Fatal(e)
+	}
+	if _, e := JoinMetadata(p, r, d, a, b, consumed); e != ErrBudget {
+		t.Fatal("missing consumption coerced", e)
+	}
+}

@@ -1,0 +1,134 @@
+package main
+
+import (
+	"bytes"
+	"encoding/json"
+	"errors"
+	"github.com/teamswyg/laya-tools/internal/claimfit"
+	"github.com/teamswyg/laya-tools/pkg/shortclaim"
+	"math"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
+
+func toyStorage() Storage {
+	p := Pin{ID: "toy", Path: "metadata-not-opened", Bytes: 1, SHA: strings.Repeat("a", 64)}
+	s := Storage{Frozen: true, Amendment: p, Registry: p, RetainedBytes: 197 << 20, RetainedMax: retainedCap, StageMax: stageCap, ResultCopies: 1, LedgerCopies: 1, StdoutKillCap: uint64(resultCap), OutsideMax: 960 << 10, FitReserve: fitOutputReserve}
+	s.ProjectReserve = uint64(resultCap+ledgerCap) + s.OutsideMax
+	s.StageReserve = s.ProjectReserve + s.FitReserve
+	return s
+}
+func TestStorageReservation(t *testing.T) {
+	s := toyStorage()
+	if !validStorage(s) || s.ProjectReserve != 13<<20 || s.StageReserve != (29<<20)+32792 {
+		t.Fatal("literal reservation")
+	}
+	s.OutsideMax = 1 << 20
+	s.ProjectReserve = uint64(resultCap+ledgerCap) + s.OutsideMax
+	s.StageReserve = s.ProjectReserve + s.FitReserve
+	if !validStorage(s) || s.ProjectReserve != (13<<20)+(64<<10) {
+		t.Fatal("outside rounding")
+	}
+	for _, field := range []string{"pending", "mirror", "stdoutcopy", "ledgercopy", "retained", "stage", "overflow", "pin", "fit"} {
+		t.Run(field, func(t *testing.T) {
+			q := toyStorage()
+			switch field {
+			case "pending":
+				q.Frozen = false
+			case "mirror":
+				q.RawMirrorCopies = 1
+			case "stdoutcopy":
+				q.StdoutCopies = 1
+			case "ledgercopy":
+				q.LedgerCopies = 2
+			case "retained":
+				q.RetainedBytes = retainedCap - 1
+			case "stage":
+				q.StageReserve++
+			case "overflow":
+				q.OtherReserve = math.MaxUint64
+			case "pin":
+				q.Registry.Bytes = 0
+			case "fit":
+				q.FitReserve = fitOutputReserve - 1
+			}
+			if validStorage(q) {
+				t.Fatal("accepted invalid reservation")
+			}
+		})
+	}
+}
+func TestEncodePrewriteBoundAndFinite(t *testing.T) {
+	v := struct {
+		Text string `json:"text"`
+	}{"a"}
+	b, err := encodeBounded(v, 13)
+	if err != nil || string(b) != "{\"text\":\"a\"}\n" || !json.Valid(b) {
+		t.Fatal("exact limit")
+	}
+	if out, err := encodeBounded(v, 12); !errors.Is(err, errEncodedBound) || out != nil {
+		t.Fatal("over limit")
+	}
+	if out, err := encodeBounded(math.NaN(), 128); err == nil || out != nil {
+		t.Fatal("nonfinite")
+	}
+	if out, err := encodeBounded(v, resultCap+1); !errors.Is(err, errEncodedBound) || out != nil {
+		t.Fatal("cap contract")
+	}
+	path := filepath.Join(t.TempDir(), "result")
+	if err := os.WriteFile(path, []byte("old checkpoint"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	// The caller does not truncate until encoding succeeds.
+	if b, e := encodeBounded(v, 12); e == nil {
+		t.Fatal(b)
+	}
+	old, e := os.ReadFile(path)
+	if e != nil || !bytes.Equal(old, []byte("old checkpoint")) {
+		t.Fatal("old bytes")
+	}
+}
+func TestCheckpointSameFileReadback(t *testing.T) {
+	f, e := os.OpenFile(filepath.Join(t.TempDir(), "result"), os.O_CREATE|os.O_EXCL|os.O_RDWR, 0600)
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer f.Close()
+	before, e := f.Stat()
+	if e != nil {
+		t.Fatal(e)
+	}
+	for _, text := range []string{"long synthetic phase checkpoint", "terminal"} {
+		b, e := encodeBounded(struct {
+			Text string `json:"text"`
+		}{text}, 512)
+		if e != nil {
+			t.Fatal(e)
+		}
+		if e = writeSync(f, b); e != nil {
+			t.Fatal(e)
+		}
+		now, e := f.Stat()
+		if e != nil || !os.SameFile(before, now) {
+			t.Fatal("inode")
+		}
+		read, e := os.ReadFile(f.Name())
+		if e != nil || !bytes.Equal(read, b) || int64(len(read)) != now.Size() {
+			t.Fatal("final exact readback")
+		}
+	}
+}
+
+func TestOversizedProjectionRecordsReturnedCounter(t *testing.T) {
+	r := Result{Schema: resultSchema, State: "completed", Counters: Counts{ProjectIntents: 1, ProjectReturned: 1, FeatureScans: 290}, PayloadBytes: 123}
+	r.Projection = &claimfit.Projection{Parents: []claimfit.RuntimeParent{{Text: shortclaim.Prepared{Request: strings.Repeat("x", int(resultCap))}}}}
+	b, failed, e := encodeResult(&r, resultCap)
+	if e != nil || !failed || r.Projection != nil || r.Proof != nil || r.State != "failed_projection79_output_bound" || r.Counters.ProjectReturned != 1 || r.Counters.FeatureScans != 290 || r.PayloadBytes != 123 || !json.Valid(b) || int64(len(b)) > resultCap {
+		t.Fatal("lost actual counters or oversized success")
+	}
+	if bytes.Contains(b, []byte("metadata-not-opened")) {
+		t.Fatal("private paths")
+	}
+}

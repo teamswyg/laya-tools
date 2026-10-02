@@ -1,0 +1,133 @@
+{
+  "schema": "riido-fit79-independent-source-peer-review-v2",
+  "state": "guard_v2_source_review_passes_previous_P1_corrections_actual_execution_prerequisites_remain_pending",
+  "review_kind": "Independent delta/source and saved metadata review only; no original runtime or model API calls",
+  "prior_v1_review": {
+    "id": "REVIEW.v1.json",
+    "bytes": 14619,
+    "sha256": "baf3d336f1f192b85963b4e2ecdaa0ffc5b7f5cbd54e0868f659da8bab30a632",
+    "preserved_unchanged": true
+  },
+  "guard_v2_handoff": {
+    "id": "HANDOFF.v2.json",
+    "bytes": 5538,
+    "sha256": "eca50b97b9c3d5aa57c933becf17a998002f424542e020db3022df349a86f2a5"
+  },
+  "checked_pins": {
+    "driver_sources": 11,
+    "test_sources": 2,
+    "public_compiled_sources": 16,
+    "unchanged_owned_files": 9,
+    "changed_runtime_files": [
+      {
+        "id": "assets.go",
+        "bytes": 13275,
+        "sha256": "947c4dcbf5a2a0d8f6ae44f12a76fe256a8a1136a1ec9c0b09e51dc15bbed2c2"
+      },
+      {
+        "id": "amendment.go",
+        "bytes": 2890,
+        "sha256": "23abc9e303f5fa621eda743309ec06c079e82c1082887b0a9981afa2c6b2ec70"
+      }
+    ],
+    "changed_synthetic_test": {
+      "id": "mechanics_test.go",
+      "bytes": 22441,
+      "sha256": "9cff6f65f968aa83d5c9578ee7eadc17dc67891e59fee7af5ad4106cf4067f4b"
+    },
+    "source_hash_and_unchanged_byte_comparison_attempts": 1,
+    "source_hash_and_unchanged_byte_comparison_failures": 0
+  },
+  "v1_findings_resolution": [
+    {
+      "id": "F1",
+      "status": "RESOLVED_STATIC_AND_AUTHOR_SYNTHETIC_REGRESSION",
+      "evidence": "amendment.go:32-38 now requires frozen=true and exact state=frozen_resource_policy_for_one_data_effect79_stage. CurrentRegistrySHA and CurrentRegistryBytes must match the unique retained-serialized-audit-registry Evidence pin. assets.go:41-83 verifies that pin, reads its exact bytes, requires the declared audit schema, complete snapshot/per-path flags, count and bounded sums, and rejects duplicate IDs. The original SHA-filled pending-proposal counterexample is rejected by the explicit frozen/state predicates."
+    },
+    {
+      "id": "F2",
+      "status": "RESOLVED_STATIC_AND_AUTHOR_SYNTHETIC_REGRESSION",
+      "evidence": "assets.go:192-197 requires all audited IDs/bytes/SHA to occur in the unique Assets list and every registered model path/bytes/SHA to match a charged asset before model pin reads. Only then are actual file pins and the charged total validated. The new-stage projection and append subset checks remain in place."
+    },
+    {
+      "id": "F3",
+      "status": "UNCHANGED_EXPLICIT_LIMIT_NONBLOCKING",
+      "evidence": "The scientific main and checkpoint writer are byte-identical to v1. Successful returned file fsync remains supported, but power-loss directory-entry persistence, atomic two-file transactions and complete recovery after a partial in-place checkpoint are not independently guaranteed. Root's outside durable attempt intent and preserved-output stat/readback remain required."
+    }
+  ],
+  "regression_review": {
+    "test_sources_read": "Complete v1 tests plus complete v2 mechanics-test delta",
+    "author_saved_log": {
+      "id": "pure-race.v2.private.jsonl-SHA-only",
+      "bytes": 70674,
+      "sha256": "5c8ae32b4d7977a4bce659e543616a9dc70cef984ae10c36e4778695627b213f"
+    },
+    "log_reparsed_not_rerun": true,
+    "top_tests_pass": 23,
+    "sub_tests_pass": 45,
+    "package_pass": 1,
+    "failure_events": 0,
+    "skip_events": 0,
+    "meaningful_failure_cases": ["SHA-filled pending proposal", "unfrozen exact state", "frozen wrong state", "absent or duplicate audit evidence", "audit SHA or byte mismatch", "omitted audit entry or empty-file entry", "renamed or mismatched audit asset", "model omitted from charged assets", "model path/bytes/SHA mismatch", "false governed sum", "incomplete audit snapshot", "changed per-path counting basis", "false audit path count or byte sum", "duplicate audit IDs", "negative bytes"],
+    "reviewer_test_reruns": 0
+  },
+  "preserved_scientific_contract": {
+    "main_fit_utility_origin_prefix_guard_and_config_bytes_unchanged": true,
+    "public16_source_pins_unchanged": true,
+    "same_first71_seed1729_weighted_BCE_earliest_strict_validation_minimum": true,
+    "old76_parent_roles_masks_sparse_float_bits_validation_and_calibration_preserved_by_unchanged_guard": true,
+    "new3_train_only_all9_unit_weight_candidates": true,
+    "old15_known_validation_and_four_full_candidate_controls_unchanged": true,
+    "unknown_nullable_and_zero_weight_rows_retained": true,
+    "model_bytes_reserved_before_fit": 32792,
+    "result_and_ledger_each_max_bytes": 8388608,
+    "new_stage_data_models_numeric_max_bytes": 67108864,
+    "default_retained_max_bytes": 67108864,
+    "conditional_retained_max_bytes": 536870912,
+    "historical64MiB_excess_preserved": true
+  },
+  "additional_guard_scope": {
+    "audit_membership_uses_sorted_owned_arrays": true,
+    "locks_added": false,
+    "zero_byte_governed_asset": "Allowed only by asset-specific exact regular-file size0 and empty-content SHA checks; scientific readPin positive-size bounds remain unchanged.",
+    "audit_scope_limit": "Completeness is asserted within the audit's fixed selector and snapshot; no entire-machine or deleted-file completeness is inferred.",
+    "path_counting_limit": "Different governed paths count independently even if SHA or inode matches; this is a logical path-byte budget, not APFS physical usage or RAM."
+  },
+  "build_and_CI_distinction": {
+    "public_source_commit": "01ce47dcca16c8f82022c97354d82105b6819875",
+    "public_source_CI_run": 37015530233,
+    "public_source_reference": "PR103 exact Go source bytes",
+    "public_CI_covers_private_guard_CLI": false,
+    "new_private_binary_declared_pin": {
+      "id": "riido79fit",
+      "bytes": 3003506,
+      "sha256": "9e3bb812390597998f022ef69c8b4e842d59d0b958f427c1bf6e2a3998418d2e"
+    },
+    "binary_pin_independently_read_by_this_reviewer": false,
+    "build_flags_read_from_identity_record": ["CGO_ENABLED=0", "-trimpath", "-buildvcs=false", "-ldflags=-s -w"],
+    "binary_size_comparison_limit": "The new build strips symbols/debug information, so its smaller executable is not evidence of a smaller trained model, lower total RSS or faster scientific computation.",
+    "root_binary_hash_and_compiled_source_closure_preflight_still_required": true
+  },
+  "pending_before_one_actual_fit": [
+    "Root's actual frozen executable resource amendment, with the unique exact audit evidence pin",
+    "Actual79 projection and independent saved runtime preservation QA",
+    "Complete current per-path consumption and model-artifact registry; known two filenames are not sufficient",
+    "Bounded caller readiness and exact source, binary, plan and outside-controller CPU/RSS/timeout/readback reservations",
+    "Root's once-only scientific attempt reservation and launch after all dependent gates pass"
+  ],
+  "reviewer_execution_counts": {
+    "new_metadata_helper_builds_or_runs_for_v2": 0,
+    "source_and_pin_readback_sequences": 1,
+    "saved_synthetic_log_reparse_sequences": 1,
+    "worker_main_or_help": 0,
+    "Fit_Score_Features_Project_RoleAssign_Encode_Decode": 0,
+    "actual_consumption_or_root_amendment_execution": 0,
+    "model_body_reads": 0,
+    "native_or_external_calls": 0,
+    "shared_repository_mutations": 0
+  },
+  "review_narrow_lookup_failure": "One exploratory read used the old execution-plan-79.v2.template.json filename in the new guard directory. It was absent; the HANDOFF-declared execution-plan-79.guard-v2.template.json was then read fully. No source change, worker invocation or model call occurred.",
+  "scientific_execution_approved": false,
+  "publication_or_production_approved": false,
+  "source_review_no_remaining_P1_within_reviewed_guard_delta": true
+}

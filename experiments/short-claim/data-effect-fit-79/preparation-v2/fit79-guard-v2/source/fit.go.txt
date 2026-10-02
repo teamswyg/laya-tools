@@ -1,0 +1,180 @@
+package main
+
+import (
+	"errors"
+	"github.com/teamswyg/laya-tools/internal/claimfit"
+	"github.com/teamswyg/laya-tools/internal/hintlearn"
+	"github.com/teamswyg/laya-tools/internal/pairlearn"
+	"math"
+	"slices"
+)
+
+func fail(s string) error   { return errors.New("fit79_" + s) }
+func finite(x float64) bool { return !math.IsNaN(x) && !math.IsInf(x, 0) }
+func positive(a []int, c int) int {
+	for _, i := range a {
+		if i == c {
+			return 1
+		}
+	}
+	return 0
+}
+func checkInput(p claimfit.Projection, plan Plan) error {
+	if len(p.Parents) != plan.ParentCount || len(p.Parents) != expectedParents || p.PayloadBytes == 0 || p.PayloadBytes > maxPayload {
+		return fail("projection_scope_or_payload")
+	}
+	in := make([]claimfit.Parent, len(p.Parents))
+	positions, known, noanswer, unknown := 0, 0, 0, 0
+	var seenGroups, knownGroups [expectedParents]bool
+	for i, x := range p.Parents {
+		if x.AcceptableCount < 0 || x.AcceptableCount > x.Text.Count || x.Text.Count < 1 || x.Text.Count > 8 || x.WholeGroup < 0 || x.WholeGroup >= expectedParents {
+			return fail("runtime_parent_bounds")
+		}
+		acceptable := slices.Clone(x.Acceptable[:x.AcceptableCount])
+		var seen [8]bool
+		for _, c := range acceptable {
+			if c < 0 || c >= x.Text.Count || seen[c] {
+				return fail("acceptable_bounds")
+			}
+			seen[c] = true
+		}
+		switch x.Truth {
+		case claimfit.Known:
+			known++
+			if len(acceptable) == 0 {
+				return fail("known_empty")
+			}
+		case claimfit.NoAnswer:
+			noanswer++
+			if len(acceptable) != 0 {
+				return fail("noanswer_acceptable")
+			}
+		case claimfit.Unknown:
+			unknown++
+			if len(acceptable) != 0 {
+				return fail("unknown_acceptable")
+			}
+		default:
+			return fail("truth")
+		}
+		seenGroups[x.WholeGroup] = true
+		if x.Truth != claimfit.Unknown {
+			knownGroups[x.WholeGroup] = true
+		}
+		in[i] = claimfit.Parent{Text: x.Text, Truth: x.Truth, Acceptable: acceptable, Role: x.Role, WholeGroup: x.WholeGroup, LossEligible: x.LossEligible}
+		positions += x.Text.Count
+	}
+	groups, kg := 0, 0
+	for i, s := range seenGroups {
+		if s {
+			groups++
+		}
+		if knownGroups[i] {
+			kg++
+		}
+	}
+	if positions != expectedCandidates || known != 41 || noanswer != 17 || unknown != 21 || groups != 21 || kg != 20 {
+		return fail("frozen_combined_counts")
+	}
+	if plan.CandidateCount != positions || plan.Known != known || plan.NoAnswer != noanswer || plan.Unknown != unknown || plan.WholeGroups != groups || plan.KnownGroups != kg {
+		return fail("plan_counts")
+	}
+	if e := checkProjection(in, p); e != nil {
+		return e
+	}
+	if p.Counts[0].Parents != 47 || p.Counts[1].Parents != 20 || p.Counts[2].Parents != 12 || p.Counts[0].FitRows != 100 || p.Counts[1].FitRows != 45 || p.Counts[2].FitRows != 0 || p.Counts[0].ZeroWeightFitRows != 18 || p.Counts[1].ZeroWeightFitRows != 1 || p.FeatureScans != 290 {
+		return fail("frozen79_row_scope")
+	}
+	for _, d := range []pairlearn.Dataset{p.Development, p.Validation} {
+		sum := 0.
+		for _, w := range d.SampleWeights {
+			sum += w
+		}
+		if !(sum > 0) || !finite(sum) {
+			return fail("zero_weight_fit_dataset")
+		}
+	}
+	return nil
+}
+
+type fitFunc func(pairlearn.Dataset, pairlearn.Dataset, pairlearn.Config) (pairlearn.Result, pairlearn.Trace, error)
+
+func oneFit(p claimfit.Projection, c *Counts, call fitFunc) (r pairlearn.Result, t pairlearn.Trace, e error) {
+	return oneFitCheckpoint(p, c, call, nil)
+}
+func oneFitCheckpoint(p claimfit.Projection, c *Counts, call fitFunc, before func() error) (r pairlearn.Result, t pairlearn.Trace, e error) {
+	if c.FitAttempts != 0 || call == nil {
+		return r, t, fail("retry_refused")
+	}
+	c.FitAttempts++
+	// Attempts are durably reserved intent; a failed checkpoint prevents entry.
+	if before != nil && before() != nil {
+		return r, t, fail("fit_checkpoint_failed_before_dispatch")
+	}
+	returned := false
+	defer func() {
+		if !returned {
+			_ = recover()
+			e = fail("fit_panic")
+		}
+	}()
+	r, t, e = call(p.Development, p.Validation, primaryConfig)
+	returned = true
+	c.FitReturned++
+	if e != nil {
+		return r, t, fail("fit_failed")
+	}
+	if e = checkFit(r, t, p.Development, p.Validation); e != nil {
+		return r, t, e
+	}
+	c.FitSuccessful++
+	return r, t, nil
+}
+func checkFit(r pairlearn.Result, t pairlearn.Trace, train, val pairlearn.Dataset) error {
+	if r.Config != primaryConfig || len(r.Weights) != hintlearn.Dimension || r.Epoch < 1 || r.Epoch > 50 || !finite(r.TrainingNLL) || !finite(r.ValidationNLL) {
+		return fail("fit_result")
+	}
+	for _, w := range r.Weights {
+		if !finite(w) || w != float64(float32(w)) {
+			return fail("FP32_coefficients")
+		}
+	}
+	if t.Schema != pairlearn.TraceSchema || t.Mode != "fp32" || !t.Complete || t.FailureKind != "" || t.FailureEpoch != 0 || len(t.Epochs) != 50 || t.SelectedEpoch != r.Epoch {
+		return fail("trace_incomplete")
+	}
+	best := math.Inf(1)
+	epoch := 0
+	for i, x := range t.Epochs {
+		if x.Epoch != i+1 || !finite(x.TrainingNLL) || !finite(x.ValidationNLL) {
+			return fail("trace_finite_order")
+		}
+		isbest := x.ValidationNLL < best
+		if isbest {
+			best = x.ValidationNLL
+			epoch = x.Epoch
+		}
+		if x.IsNewBest != isbest || x.BestEpochSoFar != epoch {
+			return fail("trace_epoch_choice")
+		}
+	}
+	if epoch != r.Epoch || best != r.ValidationNLL || t.Epochs[epoch-1].TrainingNLL != r.TrainingNLL {
+		return fail("selected_epoch_result")
+	}
+	for _, x := range []struct {
+		D pairlearn.Dataset
+		S pairlearn.WeightSummary
+	}{{train, t.Training}, {val, t.Validation}} {
+		sum := 0.
+		zeros := 0
+		for _, w := range x.D.SampleWeights {
+			sum += w
+			if w == 0 {
+				zeros++
+			}
+		}
+		if x.S.Rows != len(x.D.Labels) || x.S.ZeroWeightRows != zeros || x.S.SampleWeightSum != sum {
+			return fail("trace_weight_summary")
+		}
+	}
+	return nil
+}

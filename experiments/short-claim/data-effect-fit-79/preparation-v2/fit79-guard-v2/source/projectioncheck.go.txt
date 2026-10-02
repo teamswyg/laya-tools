@@ -1,0 +1,155 @@
+package main
+
+import (
+	"github.com/teamswyg/laya-tools/internal/claimfit"
+	"github.com/teamswyg/laya-tools/internal/hintlearn"
+	"github.com/teamswyg/laya-tools/internal/pairlearn"
+	"github.com/teamswyg/laya-tools/pkg/shortclaim"
+	"math"
+	"slices"
+)
+
+// checkProjection uses stored columns and loops only. It never recomputes Features.
+func checkProjection(in []claimfit.Parent, p claimfit.Projection) error {
+	if len(p.Parents) != len(in) || p.PayloadBytes == 0 || p.PayloadBytes > claimfit.MaxPreparedPayloadBytes {
+		return fail("output_parent_or_payload_bounds")
+	}
+	var counts [3]claimfit.RoleCounts
+	var roleOf [expectedParents]int
+	var seen, eligible [expectedParents]bool
+	refs := [2][]claimfit.RowRef{}
+	for i, x := range in {
+		r := int(x.Role)
+		if r < 0 || r > 2 || x.WholeGroup < 0 || x.WholeGroup >= expectedParents || x.Text.Count < 1 || x.Text.Count > shortclaim.MaxCandidates {
+			return fail("output_expected_input_bounds")
+		}
+		if seen[x.WholeGroup] && roleOf[x.WholeGroup] != r {
+			return fail("output_group_leakage")
+		}
+		seen[x.WholeGroup] = true
+		roleOf[x.WholeGroup] = r
+		y := p.Parents[i]
+		if y.Text != x.Text || y.Truth != x.Truth || y.Role != x.Role || y.WholeGroup != x.WholeGroup || y.LossEligible != x.LossEligible || y.AcceptableCount != len(x.Acceptable) {
+			return fail("runtime_preservation")
+		}
+		var acceptable [shortclaim.MaxCandidates]int
+		copy(acceptable[:], x.Acceptable)
+		if y.Acceptable != acceptable {
+			return fail("acceptable_order_preservation")
+		}
+		counts[r].Parents++
+		counts[r].Candidates += x.Text.Count
+		if x.Truth == claimfit.Unknown {
+			counts[r].UnknownParents++
+			counts[r].UnknownCandidates += x.Text.Count
+		}
+		var labels [shortclaim.MaxCandidates]claimfit.NullableLabel
+		for c := 0; c < x.Text.Count; c++ {
+			labels[c] = claimfit.NullableLabel{Known: x.Truth != claimfit.Unknown, Positive: x.Truth != claimfit.Unknown && positive(x.Acceptable, c) == 1}
+			if x.Truth != claimfit.Unknown && r < 2 {
+				refs[r] = append(refs[r], claimfit.RowRef{ParentIndex: i, CandidateIndex: c})
+				counts[r].FitRows++
+				if !x.LossEligible[c] {
+					counts[r].ZeroWeightFitRows++
+				} else {
+					eligible[x.WholeGroup] = true
+				}
+			}
+		}
+		if y.Labels != labels {
+			return fail("nullable_label_preservation")
+		}
+	}
+	for g, s := range seen {
+		if s {
+			counts[roleOf[g]].WholeGroups++
+			if eligible[g] {
+				counts[roleOf[g]].PositiveWeightGroups++
+			}
+		}
+	}
+	if counts != p.Counts || p.FeatureScans != 2*(len(refs[0])+len(refs[1])) {
+		return fail("output_counts")
+	}
+	for r := 0; r < 2; r++ {
+		d, got, view := p.Development, p.DevelopmentRefs, p.DevelopmentAUC
+		if r == 1 {
+			d, got, view = p.Validation, p.ValidationRefs, p.ValidationAUC
+		}
+		split := "development"
+		if r == 1 {
+			split = "validation"
+		}
+		if d.Split != split || !slices.Equal(got, refs[r]) || d.Excluded != counts[r].UnknownCandidates {
+			return fail("row_ref_order")
+		}
+		if e := checkColumns(d); e != nil {
+			return e
+		}
+		if len(d.Labels) != len(refs[r]) {
+			return fail("row_lengths")
+		}
+		eligibleRefs := []claimfit.RowRef{}
+		positiveLabels, negativeLabels := 0, 0
+		for i, ref := range refs[r] {
+			x := in[ref.ParentIndex]
+			wantLabel := float64(positive(x.Acceptable, ref.CandidateIndex))
+			wantWeight := 0.
+			if x.LossEligible[ref.CandidateIndex] {
+				wantWeight = 1
+			}
+			if d.Groups[i] != x.WholeGroup || d.Labels[i] != wantLabel || d.SampleWeights[i] != wantWeight {
+				return fail("row_supervision_preservation")
+			}
+			if wantWeight > 0 {
+				eligibleRefs = append(eligibleRefs, ref)
+				if wantLabel == 1 {
+					positiveLabels++
+				} else {
+					negativeLabels++
+				}
+			}
+		}
+		if e := checkColumns(view.Data); e != nil {
+			return e
+		}
+		if view.Data.Split != split || view.Data.Excluded != 0 || !slices.Equal(view.Refs, eligibleRefs) || len(view.Data.Labels) != len(eligibleRefs) {
+			return fail("diagnostic_refs")
+		}
+		want := claimfit.Denominators{OriginalFitRows: len(refs[r]), PositiveWeightRows: len(eligibleRefs), ZeroWeightRows: len(refs[r]) - len(eligibleRefs), UnknownAuditCandidates: counts[r].UnknownCandidates, PositiveLabels: positiveLabels, NegativeLabels: negativeLabels}
+		if view.Denominators != want {
+			return fail("diagnostic_denominators")
+		}
+		k := 0
+		for i, w := range d.SampleWeights {
+			if w == 0 {
+				continue
+			}
+			if view.Data.Labels[k] != d.Labels[i] || view.Data.Groups[k] != d.Groups[i] || view.Data.SampleWeights[k] != w || !slices.Equal(view.Data.Indices[view.Data.Offsets[k]:view.Data.Offsets[k+1]], d.Indices[d.Offsets[i]:d.Offsets[i+1]]) || !slices.Equal(view.Data.Values[view.Data.Offsets[k]:view.Data.Offsets[k+1]], d.Values[d.Offsets[i]:d.Offsets[i+1]]) {
+				return fail("diagnostic_filter_preservation")
+			}
+			k++
+		}
+	}
+	return nil
+}
+func checkColumns(d pairlearn.Dataset) error {
+	n := len(d.Labels)
+	if len(d.Groups) != n || len(d.SampleWeights) != n || len(d.Offsets) != n+1 || len(d.Indices) != len(d.Values) || d.Offsets[0] != 0 || d.Offsets[n] != len(d.Values) {
+		return fail("sparse_shape")
+	}
+	for i := 0; i < n; i++ {
+		if d.Offsets[i] < 0 || d.Offsets[i] > d.Offsets[i+1] || d.Offsets[i+1] > len(d.Values) || d.Labels[i] != 0 && d.Labels[i] != 1 || d.SampleWeights[i] != 0 && d.SampleWeights[i] != 1 {
+			return fail("sparse_row")
+		}
+		var seen [hintlearn.Dimension]bool
+		for j := d.Offsets[i]; j < d.Offsets[i+1]; j++ {
+			f := int(d.Indices[j])
+			if f >= hintlearn.Dimension || seen[f] || math.IsNaN(d.Values[j]) || math.IsInf(d.Values[j], 0) {
+				return fail("sparse_features")
+			}
+			seen[f] = true
+		}
+	}
+	return nil
+}

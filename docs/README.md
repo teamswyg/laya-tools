@@ -1,6 +1,6 @@
 # Documentation / 문서 안내
 
-Latest finite candidate verification / 최근 유한 후보 검증: [한국어](wiki/Claim-Behavior-Validation-KO.md) · [English](wiki/Claim-Behavior-Validation-EN.md). All72 fixed candidate observations matched; three source-scoped requests now have three positive and six negative candidates. The original76 roles remain unchanged; Go79 projection and the next data-only fit are pending. / 후보 관찰72건 일치 후 요청3개·정답후보3개·오답후보6개를 확정했습니다. 기존76개 역할은 그대로이며 Go79 투영과 다음 데이터 추가 학습은 아직 실행하지 않았습니다.
+Latest data-addition fit / 최근 데이터 추가 학습: [한국어](../experiments/short-claim/data-effect-fit-79/README.ko.md) · [English](../experiments/short-claim/data-effect-fit-79/README.en.md). Project79 and one fixed-recipe Fit completed, preserving the original76 and full validation/calibration parts. Utility failed:31 checks versus27 for the lexical control; the model remains inactive. / Go79 변환과 동일 조건 학습1회를 완료했고 기존76개와 검증·보정 구간 보존을 확인했습니다. 확인31회로 단순 정렬27회보다 나빠 효용 검사를 실패했으며 모델은 비활성입니다.
 
 Recent actual claim checks66–69 / 최근 실제 주장 검사66–69: [한국어](wiki/Claim-Checks-66-69-KO.md) · [English](wiki/Claim-Checks-66-69-EN.md). Actual roles, finite public-source behavior, unchanged input bounds and loss-mask bindings are recorded; fitting remains a separate next step. / 실제 역할·유한 공개 원천 동작·기존 입력 한도·학습 제외 연결을 기록하고, 학습은 다음 별도 단계로 진행합니다.
 
@@ -16,6 +16,7 @@ Latest owned task evidence: [experiment55](../experiments/task-outcomes/RESULTS-
 | Topic / 주제 | English | 한국어 |
 |---|---|---|
 | Project overview / 프로젝트 개요 | [README](../README.en.md) | [README](../README.md) |
+| Actual fixed-recipe data addition79 / 같은 조건 데이터 추가 실제 학습79 | [No utility improvement; CPU/RSS and storage accounting](../experiments/short-claim/data-effect-fit-79/README.en.md) | [개선 없음·CPU/RSS·저장량 기록](../experiments/short-claim/data-effect-fit-79/README.ko.md) |
 | Training preparation review / 학습 준비 재검토 | [Data connections before another fit](../experiments/short-claim/training-resume-review/REVIEW.v1.en.md) | [다음 학습 전 자료 연결](../experiments/short-claim/training-resume-review/REVIEW.v1.ko.md) |
 | Actual time/slice observations / 실제 시간·슬라이스 관찰 | [32 matches and182 explicit dispatches](../experiments/short-claim/native-observation-81/README.en.md) | [32일치·명시적 호출182회](../experiments/short-claim/native-observation-81/README.ko.md) |
 | Actual candidate observations / 실제 후보 관찰 | [72 matches,69 returns/3 expected panics](../experiments/short-claim/conversion-pilot-80/observation/README.en.md) | [72일치·69반환/예상패닉3](../experiments/short-claim/conversion-pilot-80/observation/README.ko.md) |

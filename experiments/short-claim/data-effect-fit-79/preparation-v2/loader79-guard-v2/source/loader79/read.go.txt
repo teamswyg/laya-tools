@@ -1,0 +1,34 @@
+package loader79
+
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"io"
+)
+
+// ReadPinned applies the frozen byte count and SHA before JSON decoding. The
+// caller owns the trusted pin and chooses a small cap for append/consumption,
+// or the original64MiB cap for saved projection. It does not inspect eligibility.
+// Root-generated pinned JSON is the trust boundary; this is not a generic public
+// duplicate-key parser or streaming CSR reader, and JSON temporary heap is extra.
+// Decode into a fresh zero DTO, as the production runner does; do not reuse a
+// partially populated destination after a failed read or expect JSON null to
+// erase a previous numeric struct field.
+func ReadPinned(r io.Reader, size int64, hash string, capBytes int64, out any) error {
+	if r == nil || out == nil || !validSHA(hash) || size < 1 || capBytes < 1 || capBytes > MaxPayloadBytes || size > capBytes {
+		return ErrRead
+	}
+	b, e := io.ReadAll(io.LimitReader(r, size+1))
+	if e != nil || int64(len(b)) != size {
+		return ErrRead
+	}
+	s := sha256.Sum256(b)
+	if hex.EncodeToString(s[:]) != hash {
+		return ErrPin
+	}
+	if json.Unmarshal(b, out) != nil {
+		return ErrRead
+	}
+	return nil
+}

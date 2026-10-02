@@ -1,0 +1,71 @@
+{
+  "actual_counter_scope": {
+    "actual_Fit_calls": 0,
+    "actual_Project_calls": 0,
+    "actual_corpus_reads": 0,
+    "actual_model_encode_or_decode_calls": 0,
+    "actual_original_API_calls": 0,
+    "actual_worker_help_invocations": 0,
+    "actual_worker_starts": 0,
+    "public_or_shared_writes": 0
+  },
+  "authoring_failed_compile_attempts": 0,
+  "authoring_failed_patch_attempts": 0,
+  "binary_CGO_ENABLED": "0",
+  "binary_dependencies": 0,
+  "binary_trimpath": true,
+  "compile_invocations": 1,
+  "expected_absent_directory_lookup_count": 1,
+  "go_list_metadata_invocations": 1,
+  "go_version_metadata_invocations": 1,
+  "gofmt_readback_invocations": 1,
+  "gofmt_write_invocations": 1,
+  "limitations": [
+    "Controller has not been run, even with --help.",
+    "No actual child-exit, process-group-kill, timeout, or RSS integration test has been executed; Root must review source and observed actual outcome.",
+    "Darwin MaxRSS must be positive and at most 256 MiB; an observed normal completion after 300 seconds fails even when the completion select wins a timer race.",
+    "Final OS MaxRSS is an observed gate, not an enforced process memory cap; it has no GPU attribution.",
+    "Controller and worker are directly invoked by absolute path; caller pin checks are not kernel execution attestation."
+  ],
+  "mechanics": "Six pure synthetic tests cover stdout overflow without raw retention, stderr bounded private prefix and full hash, regular-file size/hash checks and symlink rejection, Project/Fit plan headers and separate exclusive paths, metadata-only Darwin directory fsync, and exact exclusive final metadata byte accounting. No test calls run/exec/Start or a corpus API.",
+  "metadata_seal_helper_compile_invocations": 1,
+  "metadata_seal_invocations": 1,
+  "nonstandard_package_count": 1,
+  "platform": "darwin/arm64",
+  "runtime_go": "go1.27.1",
+  "schema": "riido-projection79-outside-controller-preparation-receipt-v1",
+  "source_and_binary_pins": [
+    {
+      "id": "main.go",
+      "bytes": 23047,
+      "sha256": "ab8cad024ec235f14e4e3ebbcc25d72547c6025a4e22c8f4c7307455ca4059a6"
+    },
+    {
+      "id": "main_test.go",
+      "bytes": 4617,
+      "sha256": "1f990a2bbd9f9e512bc05ec2c12f311127aa72cabe0045b0b73184d8bd57bcf5"
+    },
+    {
+      "id": "go.mod",
+      "bytes": 62,
+      "sha256": "cc729c399ed71f0ce9beca1d531a391d9180c8bb5add79b5fa7f47776efd37c4"
+    },
+    {
+      "id": "riido79outside-v1",
+      "bytes": 4408690,
+      "sha256": "7f003a195d2719789b25cbb36c02355060a90e754aac6860ab8357152771dd9e"
+    }
+  ],
+  "source_files_selected_by_go_list": [
+    "main.go"
+  ],
+  "standard_library_package_count": 107,
+  "state": "synthetic_mechanics_checks_passed_no_actual_worker_execution",
+  "synthetic_failures": 0,
+  "synthetic_pass_packages": 1,
+  "synthetic_pass_subtests": 0,
+  "synthetic_pass_top_level_tests": 6,
+  "synthetic_race_invocations": 1,
+  "synthetic_skips": 0,
+  "vet_invocations": 1
+}

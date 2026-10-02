@@ -1,0 +1,467 @@
+package main
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"flag"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"runtime"
+	"runtime/debug"
+	"slices"
+	"time"
+
+	"github.com/teamswyg/laya-tools/internal/hintlearn"
+	"github.com/teamswyg/laya-tools/internal/pairlearn"
+	"github.com/teamswyg/laya-tools/pkg/shortclaim"
+)
+
+func sha(b []byte) string { h := sha256.Sum256(b); return hex.EncodeToString(h[:]) }
+func resolve(base, path string) string {
+	if filepath.IsAbs(path) {
+		return path
+	}
+	return filepath.Join(base, path)
+}
+
+// Repository evidence uses the explicit repository root. Other frozen inputs
+// and driver sources are relative to the plan directory.
+func evidenceBase(p Pin, planBase, sourceRoot string) string {
+	if p.ID == "original-plan56" {
+		return sourceRoot
+	}
+	return planBase
+}
+func readPin(p Pin, base string, limit int64) ([]byte, error) {
+	if p.Bytes < 1 || p.Bytes > limit || len(p.SHA256) != 64 {
+		return nil, fail("pin_bounds")
+	}
+	f, e := os.Open(resolve(base, p.Path))
+	if e != nil {
+		return nil, fail("pin_read")
+	}
+	defer f.Close()
+	st, e := f.Stat()
+	if e != nil || !st.Mode().IsRegular() || st.Size() != p.Bytes {
+		return nil, fail("pin_size")
+	}
+	b, e := io.ReadAll(io.LimitReader(f, limit+1))
+	if e != nil || int64(len(b)) != p.Bytes || sha(b) != p.SHA256 {
+		return nil, fail("pin_mismatch")
+	}
+	return b, nil
+}
+func readPlan(path string) ([]byte, error) {
+	f, e := os.Open(path)
+	if e != nil {
+		return nil, fail("plan_read")
+	}
+	defer f.Close()
+	st, e := f.Stat()
+	if e != nil || !st.Mode().IsRegular() || st.Size() < 1 || st.Size() > 1<<20 {
+		return nil, fail("plan_bounds")
+	}
+	b, e := io.ReadAll(io.LimitReader(f, (1<<20)+1))
+	if e != nil || len(b) < 1 || len(b) > 1<<20 {
+		return nil, fail("plan_bounds")
+	}
+	return b, nil
+}
+
+type options struct{ PlanPath, PlanSHA, SourceRoot, Output string }
+
+func arguments(args []string) (options, error) {
+	var o options
+	f := flag.NewFlagSet("riido79fit", flag.ContinueOnError)
+	f.SetOutput(io.Discard)
+	f.StringVar(&o.PlanPath, "plan", "", "caller-frozen plan")
+	f.StringVar(&o.PlanSHA, "plan-sha256", "", "exact frozen plan hash")
+	f.StringVar(&o.SourceRoot, "source-root", ".", "repository root")
+	f.StringVar(&o.Output, "output-dir", "", "exact exclusive attempt directory")
+	if f.Parse(args) != nil || f.NArg() != 0 || o.PlanPath == "" || len(o.PlanSHA) != 64 || o.Output == "" {
+		return o, fail("arguments")
+	}
+	return o, nil
+}
+func safe(p Pin) Pin { p.Path = ""; return p }
+func safePins(ps []Pin) []Pin {
+	out := slices.Clone(ps)
+	for i := range out {
+		out[i].Path = ""
+	}
+	return out
+}
+func encode(v any) ([]byte, error) {
+	b, e := json.MarshalIndent(v, "", "  ")
+	if e != nil {
+		return nil, fail("result_encoding")
+	}
+	b = append(b, '\n')
+	if len(b) > maxNumericAsset {
+		return nil, fail("numeric_asset_bounds")
+	}
+	return b, nil
+}
+func writeSync(f *os.File, b []byte) error {
+	n, e := f.Write(b)
+	if e == nil && n != len(b) {
+		e = io.ErrShortWrite
+	}
+	if e == nil {
+		e = f.Sync()
+	}
+	c := f.Close()
+	if e != nil || c != nil {
+		return fail("persist")
+	}
+	return nil
+}
+func exclusive(path string, b []byte) error {
+	f, e := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if e != nil {
+		return fail("exclusive_create")
+	}
+	return writeSync(f, b)
+}
+func checkPlan(p Plan) error {
+	if _, e := retainedLimit(p); e != nil {
+		return e
+	}
+	if p.Schema != planSchema || !p.Frozen || !p.PrerequisitesFrozen || p.ReadinessScope != "bounded_development_primary_only_no_generalization_or_production_claim" || p.Attempt != 1 || p.AttemptDirectory == "" || p.RuntimeGo != "go1.27.1" || p.CPU != 1 || p.HeapSoft != 256<<20 || p.WallSeconds != 300 || p.RSSMax != 256<<20 || p.AssetsMax != 64<<20 || p.Config != primaryConfig || p.RankLambda != 0 || p.SourceCommit != sourceCommit || p.SourceCIRun != 37015530233 || hintlearn.Dimension != 8192 || p.MaxFits != 8 || p.MaxArtifacts != 16 || p.PriorFitAttempts != 2 || p.PriorArtifacts == nil || *p.PriorArtifacts < 0 || *p.PriorArtifacts >= p.MaxArtifacts || p.PublicationPermitted || p.ProductionPermitted {
+		return fail("plan_contract")
+	}
+	if p.ParentCount != expectedParents || p.CandidateCount != expectedCandidates || p.Known != 41 || p.NoAnswer != 17 || p.Unknown != 21 || p.WholeGroups != 21 || p.KnownGroups != 20 || p.ProjectionSchema != "riido-source80-appended79-projection-result-v1" || p.ProjectionState != "completed_projection_only_no_fit_or_model_readiness_approval" || p.Projection.Bytes < 1 || len(p.Projection.SHA256) != 64 || p.QualifiedAppend.SHA256 != appendSHA || p.OriginalProjection.SHA256 != oldProjectionSHA || p.FirstFitResult.SHA256 != firstResultSHA || p.AdoptedProposal.SHA256 != proposalSHA || p.ConsumptionRegistry.Bytes < 1 || len(p.ConsumptionRegistry.SHA256) != 64 {
+		return fail("plan_input_scope")
+	}
+	if len(p.Sources) != len(expectedSources) || len(p.DriverSources) != 11 || len(p.Evidence) < 1 || len(p.Evidence) > 32 {
+		return fail("plan_pins")
+	}
+	for i, x := range p.Sources {
+		w := expectedSources[i]
+		if x.ID != w.ID || x.Path != x.ID || x.Bytes != w.Bytes || x.SHA256 != w.SHA256 {
+			return fail("source_contract")
+		}
+	}
+	names := [11]string{"main.go", "types.go", "projectioncheck.go", "fit.go", "utility.go", "pins.go", "appendguard.go", "assets.go", "origin.go", "amendment.go", "go.mod"}
+	for i, pin := range p.DriverSources {
+		if pin.ID != names[i] {
+			return fail("driver_source_ids")
+		}
+	}
+	for i, x := range p.Evidence {
+		if x.ID == "" || x.Bytes < 1 || x.Bytes > maxPayload || len(x.SHA256) != 64 {
+			return fail("prerequisite_evidence_pin")
+		}
+		for j := 0; j < i; j++ {
+			if x.ID == p.Evidence[j].ID {
+				return fail("duplicate_prerequisite_pin")
+			}
+		}
+	}
+	for i, x := range p.Strata {
+		if x.ParentIndex < 0 || x.ParentIndex >= expectedParents || len(x.Tags) > 8 {
+			return fail("stratum_bounds")
+		}
+		for j := 0; j < i; j++ {
+			if x.ParentIndex == p.Strata[j].ParentIndex {
+				return fail("stratum_duplicate_parent")
+			}
+		}
+		for a, t := range x.Tags {
+			if len(t) < 1 || len(t) > 64 {
+				return fail("stratum_tag")
+			}
+			for b := 0; b < a; b++ {
+				if t == x.Tags[b] {
+					return fail("stratum_duplicate_tag")
+				}
+			}
+		}
+	}
+	if p.Binary.ID != "riido79fit" || p.Binary.Bytes < 1 || len(p.Binary.SHA256) != 64 {
+		return fail("binary_pin")
+	}
+	return nil
+}
+func main() { os.Exit(runArgs(os.Args[1:], os.Stderr)) }
+func runArgs(args []string, stderr io.Writer) (status int) {
+	status = 2
+	o, e := arguments(args)
+	if e != nil {
+		fmt.Fprintln(stderr, "fit79_arguments")
+		return 2
+	}
+	raw, e := readPlan(o.PlanPath)
+	if e != nil || sha(raw) != o.PlanSHA {
+		return 2
+	}
+	var p Plan
+	d := json.NewDecoder(bytes.NewReader(raw))
+	d.DisallowUnknownFields()
+	if d.Decode(&p) != nil || d.Decode(new(any)) != io.EOF || checkPlan(p) != nil || o.Output != p.AttemptDirectory {
+		return 2
+	}
+	if runtime.Version() != p.RuntimeGo || os.Getenv("GOMAXPROCS") != "1" || os.Getenv("GOMEMLIMIT") != "256MiB" || runtime.GOMAXPROCS(0) != 1 || debug.SetMemoryLimit(-1) != p.HeapSoft {
+		return 2
+	}
+	base := filepath.Dir(o.PlanPath)
+	own, e := os.Executable()
+	if e != nil {
+		return 2
+	}
+	bp := p.Binary
+	bp.Path = own
+	if _, e = readPin(bp, base, 64<<20); e != nil {
+		return 2
+	}
+	for _, x := range p.Sources {
+		if _, e = readPin(x, o.SourceRoot, 4<<20); e != nil {
+			return 2
+		}
+	}
+	for _, x := range p.DriverSources {
+		if _, e = readPin(x, base, 4<<20); e != nil {
+			return 2
+		}
+	}
+	for _, x := range p.Evidence {
+		if _, e = readPin(x, evidenceBase(x, base, o.SourceRoot), maxPayload); e != nil {
+			return 2
+		}
+	}
+	for _, x := range []Pin{p.QualifiedAppend, p.OriginalProjection, p.FirstFitResult, p.AdoptedProposal} {
+		if _, e = readPin(x, base, maxPayload); e != nil {
+			return 2
+		}
+	}
+	budget, e := consumption(p, base)
+	if e != nil {
+		return 2
+	}
+	if os.Mkdir(o.Output, 0700) != nil {
+		return 2
+	}
+	reservation, _ := encode(struct {
+		Schema, State, PlanSHA string
+		Attempt                int
+	}{"riido-data-effect-fit-reservation-79-v1", "reserved_before_controls_or_actual_fit", o.PlanSHA, 1})
+	if budget.create(filepath.Join(o.Output, "reservation.json"), reservation) != nil {
+		return 2
+	}
+	f, e := os.OpenFile(filepath.Join(o.Output, "results.json"), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if e != nil {
+		return 2
+	}
+	defer f.Close()
+	ledger, e := os.OpenFile(filepath.Join(o.Output, "attempt-ledger.json"), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if e != nil {
+		return 2
+	}
+	defer ledger.Close()
+	r := Result{Schema: resultSchema, State: "reserved_no_fit", PlanSHA: o.PlanSHA, RuntimeGo: runtime.Version(), ProjectionInput: safe(p.Projection), Evidence: safePins(p.Evidence), TrainingReadinessScope: p.ReadinessScope, LimitsExplanation: "CPU1/256MiB Go heap is soft; Root outside controller observes whole-process CPU/RSS256MiB budget and kills/reaps at300s, with no OS hard-cap or strict return-time guarantee. JSON read cap and sparse owned payload64MiB differ from temporary allocations/RSS. Retained per-path storage defaults64MiB;512MiB requires exact versioned Root resource amendment and never retroactively passes historical64MiB. Result/ledger each<=8MiB; model32792B reserved before Fit; successful repeated I/O bytes separate. Old validation is exposed development regression; appended3 training-origin diagnostics are not a gate."}
+	r.Counts.TrainerInternalScoring = "FitWithTrace Quantize/NLL/score calls uninstrumented; one explicit Fit entry plus finite epoch trace; separate local cached score rows counted"
+	checkpoint := func() error { return checkpointBudget(f, ledger, r, budget) }
+	if checkpoint() != nil {
+		return 2
+	}
+	start := time.Now()
+	completed := false
+	defer func() {
+		if !completed {
+			_ = recover()
+			status = 1
+			r.State = "failed_actual_fit_attempt"
+			r.Failure = "fit79_unhandled_panic"
+			r.Fit = nil
+			_ = checkpoint()
+		}
+	}()
+	e = execute(p, base, o.Output, &r, checkpoint, budget)
+	if e != nil {
+		r.State = "failed_bounded_primary_attempt"
+		r.Failure = e.Error()
+	} else if r.Counts.FitSuccessful == 0 {
+		r.State = "stopped_insufficient_nonlearned_headroom_no_fit"
+	} else {
+		r.State = "completed_primary_fit_and_same_validation_utility_no_publication_or_production_approval"
+	}
+	if time.Since(start) > 300*time.Second {
+		r.State = "failed_wall_budget"
+		r.Failure = "fit79_wall_budget"
+		e = fail("wall_budget")
+	}
+	b, e2 := encode(r)
+	if e2 != nil {
+		r.Fit = nil
+		r.Trace = pairlearn.Trace{Schema: pairlearn.TraceSchema, FailureKind: "driver_serialization_refused"}
+		r.Utility = nil
+		r.State = "failed_safe_result_serialization"
+		r.Failure = "fit79_result_encoding"
+		b, _ = encode(r)
+		e = e2
+	}
+	_ = b // checkpointResult encodes the final safe result and ledger.
+	e3 := checkpoint()
+	completed = true
+	if e != nil || e3 != nil {
+		return 1
+	}
+	return 0
+}
+func updateSync(f *os.File, b []byte) error {
+	if f.Truncate(0) != nil {
+		return fail("checkpoint_truncate")
+	}
+	if _, e := f.Seek(0, 0); e != nil {
+		return fail("checkpoint_seek")
+	}
+	n, e := f.Write(b)
+	if e != nil || n != len(b) || f.Sync() != nil {
+		return fail("checkpoint_persist")
+	}
+	return nil
+}
+func checkpointResult(result, ledger *os.File, r Result) error {
+	b, e := encode(r)
+	if e != nil {
+		return e
+	}
+	if e = updateSync(result, b); e != nil {
+		return e
+	}
+	b, e = encode(struct {
+		Schema, State, Failure, PlanSHA string
+		Counts                          Counts
+		Artifact                        *Pin
+		PublicationQualified            bool
+	}{"riido-primary-fit-attempt-ledger-71-v1", r.State, r.Failure, r.PlanSHA, r.Counts, r.Artifact, false})
+	if e != nil {
+		return e
+	}
+	return updateSync(ledger, b)
+}
+func execute(p Plan, base, dir string, r *Result, checkpoint func() error, budget *assetBudget) error {
+	raw, e := readPin(p.Projection, base, maxPayload)
+	if e != nil {
+		return e
+	}
+	var frame Envelope
+	if json.Unmarshal(raw, &frame) != nil || frame.Schema != p.ProjectionSchema || frame.State != p.ProjectionState || frame.Failure != "" || frame.Projection == nil {
+		return fail("projection_envelope")
+	}
+	projection := *frame.Projection
+	if e = checkInput(projection, p); e != nil {
+		return e
+	}
+	if e = preservedInput(p, base, projection); e != nil {
+		return e
+	}
+	utility, e := controlsBeforeFitCheckpoint(projection, p.Strata, &r.Counts, shortclaim.Baselines, func(phase string, u *Utility) error { r.State = phase; r.Utility = u; return checkpoint() })
+	r.Utility = &utility
+	if e != nil {
+		return e
+	}
+	firstRaw, e := readPin(p.FirstFitResult, base, maxPayload)
+	if e != nil {
+		return e
+	}
+	var first Result
+	if json.Unmarshal(firstRaw, &first) != nil || first.Utility == nil || !sameHistoricalControls(*first.Utility, utility) {
+		return fail("first71_controls_changed")
+	}
+	r.HistoricalControlsPreserved = true
+	if !utility.HeadroomPass {
+		return nil
+	}
+	// Fixed model bytes are reserved before the only Fit dispatch. Variable
+	// result/ledger bytes are encoded and jointly reserved at each checkpoint.
+	if budget == nil || budget.reservePrimaryBeforeFit() != nil {
+		return fail("model_storage_reservation_before_fit")
+	}
+	before, _ := encode(struct {
+		State      string
+		FitPlanned int
+		Config     pairlearn.Config
+		Headroom   float64
+	}{"fixed_same_validation_control_oracle_bound_passed_before_fit", 1, primaryConfig, utility.OracleHeadroom})
+	if e = budget.create(filepath.Join(dir, "before-fit.json"), before); e != nil {
+		return e
+	}
+	fit, trace, e := oneFitCheckpoint(projection, &r.Counts, pairlearn.FitWithTrace, func() error { r.State = "primary_fit_dispatch_reserved_before_call"; return checkpoint() })
+	r.Trace = trace
+	if e != nil {
+		return e
+	}
+	r.Fit = &FitSummary{Config: fit.Config, SelectedEpoch: fit.Epoch, TrainingNLL: fit.TrainingNLL, ValidationNLL: fit.ValidationNLL}
+	r.State = "primary_fit_returned_validated"
+	if e = checkpoint(); e != nil {
+		return e
+	}
+	r.Counts.EncodeAttempts++
+	r.State = "model_encode_dispatch_reserved"
+	if e = checkpoint(); e != nil {
+		return e
+	}
+	artifact, e := hintlearn.Encode(fit.Weights, "fp32")
+	r.Counts.EncodeReturned++
+	if e != nil || len(artifact) != modelBytes {
+		return fail("model_encode")
+	}
+	r.Counts.DecodeAttempts++
+	r.State = "model_decode_dispatch_reserved"
+	if e = checkpoint(); e != nil {
+		return e
+	}
+	decoded, e := hintlearn.Decode(artifact)
+	r.Counts.DecodeReturned++
+	if e != nil || !slices.Equal(decoded, fit.Weights) {
+		return fail("model_roundtrip")
+	}
+	r.Counts.NLLRechecks++
+	r.State = "training_NLL_recheck_dispatch_reserved"
+	if e = checkpoint(); e != nil {
+		return e
+	}
+	tn := pairlearn.NLL(projection.Development, decoded)
+	r.Counts.NLLReturned++
+	r.Counts.NLLRechecks++
+	r.State = "validation_NLL_recheck_dispatch_reserved"
+	if e = checkpoint(); e != nil {
+		return e
+	}
+	vn := pairlearn.NLL(projection.Validation, decoded)
+	r.Counts.NLLReturned++
+	if !finite(tn) || !finite(vn) || tn != fit.TrainingNLL || vn != fit.ValidationNLL {
+		return fail("selected_weight_NLL_roundtrip")
+	}
+	evaluation, e := learnedEvaluation(projection, decoded, p.Strata, &r.Counts)
+	if e != nil {
+		return e
+	}
+	if e = compareUtility(&utility, evaluation); e != nil {
+		return e
+	}
+	r.Utility = &utility
+	origin, e := originDiagnostic(projection, decoded, &r.Counts, shortclaim.Baselines, func(d *OriginDiagnostic) error {
+		r.NewTrainingOriginDiagnostic = d
+		r.State = "new_training_origin_diagnostic_only"
+		return checkpoint()
+	})
+	r.NewTrainingOriginDiagnostic = &origin
+	if e != nil {
+		return e
+	}
+	// Preserve private failure artifacts too. Publication requires separate frozen
+	// utility/reproducibility/format/license/resource review; never writes HF/Git.
+	name := "data-only8192-fp32-seed1729.hbin"
+	if e = budget.create(filepath.Join(dir, name), artifact); e != nil {
+		return e
+	}
+	a := Pin{ID: name, Bytes: int64(len(artifact)), SHA256: sha(artifact)}
+	r.Artifact = &a
+	return nil
+}

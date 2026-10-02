@@ -1,0 +1,67 @@
+package main
+
+import (
+	"slices"
+	"strconv"
+	"strings"
+	"testing"
+)
+
+func policyFixture() (Storage, resourcePolicy, auditRegistry) {
+	s := toyStorage()
+	s.OutsideMax = 1 << 20
+	s.ProjectReserve = uint64(resultCap+ledgerCap) + s.OutsideMax
+	s.StageReserve = s.ProjectReserve + s.FitReserve
+	s.RetainedBytes = 206707066
+	a := resourcePolicy{Schema: "riido-source80-data-effect79-resource-amendment-v1", State: "frozen_resource_policy_for_one_data_effect79_stage", Frozen: true, HistoricalLimit: stageCap, HistoricalExcessPreserved: true, RetainedMax: s.RetainedMax, StageMax: s.StageMax, CountingBasis: "sum current regular-file bytes per distinct governed path; identical SHA/inode remains counted", RegistrySHA: s.Registry.SHA, RegistryBytes: s.Registry.Bytes, RegistryRetainedBytes: 206707066, ProjectionMax: resultCap, ProjectionLedgerMax: ledgerCap, OutsideMax: s.OutsideMax, ProjectionCopies: 1, ProjectReserve: s.ProjectReserve, ResultMax: 8 << 20, LedgerMax: 8 << 20, ModelBytes: 32792, FitReserve: fitOutputReserve}
+	a.OriginalCaps.Fits = 8
+	a.OriginalCaps.Models = 16
+	a.OriginalCaps.Sparse = stageCap
+	a.OriginalCaps.CPU = 1
+	a.OriginalCaps.Heap = 256 << 20
+	a.OriginalCaps.RSS = 256 << 20
+	a.OriginalCaps.Time = 300
+	r := auditRegistry{Schema: "riido-plan56-covered-retained-serialized-registry-v1", Complete: true, Count: 2776, Bytes: 206707066, CountsCopies: true, Assets: make([]auditAsset, 2776)}
+	for i := range r.Assets {
+		r.Assets[i] = auditAsset{ID: "toy-" + strconv.Itoa(i), SHA: strings.Repeat("a", 64)}
+	}
+	r.Assets[0].Bytes = r.Bytes
+	return s, a, r
+}
+
+func TestStoredStorageRejectsUnfrozenOrUnboundPolicy(t *testing.T) {
+	s, a, r := policyFixture()
+	if e := checkStoredStorage(s, a, r); e != nil {
+		t.Fatal(e)
+	}
+	for _, name := range []string{"pending_state", "pending_frozen", "registry_hash", "registry_bytes", "registry_sum", "registry_incomplete", "duplicate_asset", "cpu_changed", "missing_model_reserve"} {
+		t.Run(name, func(t *testing.T) {
+			x, y, z := s, a, r
+			z.Assets = slices.Clone(r.Assets)
+			switch name {
+			case "pending_state":
+				y.State = "proposed_not_executable_until_complete_registry_and_exact_source_pins"
+			case "pending_frozen":
+				y.Frozen = false
+			case "registry_hash":
+				y.RegistrySHA = strings.Repeat("b", 64)
+			case "registry_bytes":
+				y.RegistryBytes++
+			case "registry_sum":
+				z.Assets[0].Bytes--
+			case "registry_incomplete":
+				z.Complete = false
+			case "duplicate_asset":
+				z.Assets[1].ID = z.Assets[0].ID
+			case "cpu_changed":
+				y.OriginalCaps.CPU = 2
+			case "missing_model_reserve":
+				x.FitReserve = 16 << 20
+				x.StageReserve = x.ProjectReserve + x.FitReserve
+			}
+			if checkStoredStorage(x, y, z) == nil {
+				t.Fatal("accepted invalid frozen resource policy")
+			}
+		})
+	}
+}

@@ -1,0 +1,275 @@
+package loader79
+
+import (
+	"crypto/sha256"
+	"encoding/binary"
+	"encoding/hex"
+	"encoding/json"
+	"hash"
+	"math"
+	"slices"
+
+	"github.com/teamswyg/laya-tools/internal/claimfit"
+	"github.com/teamswyg/laya-tools/internal/pairlearn"
+	"github.com/teamswyg/laya-tools/internal/roleplan"
+)
+
+func cloneDataset(d pairlearn.Dataset) pairlearn.Dataset {
+	d.Offsets = slices.Clone(d.Offsets)
+	d.Indices = slices.Clone(d.Indices)
+	d.Values = slices.Clone(d.Values)
+	d.Labels = slices.Clone(d.Labels)
+	d.Groups = slices.Clone(d.Groups)
+	d.SampleWeights = slices.Clone(d.SampleWeights)
+	return d
+}
+func cloneDiagnostic(d claimfit.DiagnosticView) claimfit.DiagnosticView {
+	d.Data = cloneDataset(d.Data)
+	d.Refs = slices.Clone(d.Refs)
+	return d
+}
+func cloneProjection(p claimfit.Projection) claimfit.Projection {
+	p.Parents = slices.Clone(p.Parents)
+	p.Development = cloneDataset(p.Development)
+	p.Validation = cloneDataset(p.Validation)
+	p.DevelopmentRefs = slices.Clone(p.DevelopmentRefs)
+	p.ValidationRefs = slices.Clone(p.ValidationRefs)
+	p.DevelopmentAUC = cloneDiagnostic(p.DevelopmentAUC)
+	p.ValidationAUC = cloneDiagnostic(p.ValidationAUC)
+	return p
+}
+func equalFloatBits(a, b []float64) bool {
+	if (a == nil) != (b == nil) || len(a) != len(b) {
+		return false
+	}
+	for i, x := range a {
+		if !finite(x) || !finite(b[i]) || math.Float64bits(x) != math.Float64bits(b[i]) {
+			return false
+		}
+	}
+	return true
+}
+func prefixDataset(old, next pairlearn.Dataset, rows int) (pairlearn.Dataset, error) {
+	if rows != len(old.Labels) || len(next.Labels) < rows || len(old.Offsets) != rows+1 || len(next.Offsets) < rows+1 || len(old.Groups) != rows || len(next.Groups) < rows || old.Split != next.Split || old.Excluded != next.Excluded {
+		return pairlearn.Dataset{}, ErrPrefix
+	}
+	end := old.Offsets[rows]
+	if len(old.Indices) != end || len(old.Values) != end || len(next.Indices) < end || len(next.Values) < end || len(next.Indices) != len(next.Values) || end < 0 {
+		return pairlearn.Dataset{}, ErrPrefix
+	}
+	p := pairlearn.Dataset{Split: next.Split, Excluded: next.Excluded, Offsets: next.Offsets[:rows+1], Indices: next.Indices[:end], Values: next.Values[:end], Labels: next.Labels[:rows], Groups: next.Groups[:rows]}
+	if old.SampleWeights != nil {
+		if len(old.SampleWeights) != rows || len(next.SampleWeights) < rows {
+			return p, ErrPrefix
+		}
+		p.SampleWeights = next.SampleWeights[:rows]
+	} else if next.SampleWeights != nil {
+		return p, ErrPrefix
+	}
+	if (old.Offsets == nil) != (p.Offsets == nil) || (old.Indices == nil) != (p.Indices == nil) || (old.Groups == nil) != (p.Groups == nil) || !slices.Equal(old.Offsets, p.Offsets) || !slices.Equal(old.Indices, p.Indices) || !slices.Equal(old.Groups, p.Groups) || !equalFloatBits(old.Values, p.Values) || !equalFloatBits(old.Labels, p.Labels) || !equalFloatBits(old.SampleWeights, p.SampleWeights) {
+		return p, ErrPrefix
+	}
+	return p, nil
+}
+func exactDataset(a, b pairlearn.Dataset) bool {
+	_, e := prefixDataset(a, b, len(a.Labels))
+	return e == nil && len(a.Labels) == len(b.Labels) && len(a.Offsets) == len(b.Offsets) && len(a.Indices) == len(b.Indices) && len(a.Values) == len(b.Values) && len(a.Groups) == len(b.Groups) && len(a.SampleWeights) == len(b.SampleWeights)
+}
+func shape(d pairlearn.Dataset, weighted bool) bool {
+	rows := len(d.Labels)
+	if len(d.Offsets) != rows+1 || len(d.Groups) != rows || len(d.Indices) != len(d.Values) || len(d.SampleWeights) != rows || d.Offsets[0] != 0 || d.Offsets[rows] != len(d.Values) {
+		return false
+	}
+	for i, v := range d.Offsets {
+		if v < 0 || v > len(d.Values) || (i > 0 && v < d.Offsets[i-1]) {
+			return false
+		}
+	}
+	for i, v := range d.Values {
+		if !finite(v) || d.Indices[i] >= 8192 {
+			return false
+		}
+	}
+	for i, y := range d.Labels {
+		if !finite(y) || (y != 0 && y != 1) || d.Groups[i] < 0 {
+			return false
+		}
+		if !finite(d.SampleWeights[i]) || (d.SampleWeights[i] != 0 && d.SampleWeights[i] != 1) || (!weighted && d.SampleWeights[i] != 1) {
+			return false
+		}
+	}
+	return true
+}
+func write64(h hash.Hash, n uint64) {
+	var b [8]byte
+	binary.LittleEndian.PutUint64(b[:], n)
+	_, _ = h.Write(b[:])
+}
+func writeColumn(h hash.Hash, nilColumn bool, lenColumn int) {
+	if nilColumn {
+		write64(h, 0)
+	} else {
+		write64(h, 1)
+	}
+	write64(h, uint64(lenColumn))
+}
+func datasetBits(d pairlearn.Dataset) string {
+	h := sha256.New()
+	write64(h, uint64(len(d.Split)))
+	_, _ = h.Write([]byte(d.Split))
+	write64(h, uint64(d.Excluded))
+	writeColumn(h, d.Offsets == nil, len(d.Offsets))
+	for _, v := range d.Offsets {
+		write64(h, uint64(v))
+	}
+	writeColumn(h, d.Indices == nil, len(d.Indices))
+	for _, v := range d.Indices {
+		write64(h, uint64(v))
+	}
+	for _, col := range [3][]float64{d.Values, d.Labels, d.SampleWeights} {
+		writeColumn(h, col == nil, len(col))
+		for _, v := range col {
+			write64(h, math.Float64bits(v))
+		}
+	}
+	writeColumn(h, d.Groups == nil, len(d.Groups))
+	for _, v := range d.Groups {
+		write64(h, uint64(v))
+	}
+	return hex.EncodeToString(h.Sum(nil))
+}
+func metadataSHA(ps []claimfit.RuntimeParent) (string, error) {
+	b, e := json.Marshal(ps)
+	if e != nil {
+		return "", ErrPrefix
+	}
+	s := sha256.Sum256(b)
+	return hex.EncodeToString(s[:]), nil
+}
+func calibrationParents(ps []claimfit.RuntimeParent) []claimfit.RuntimeParent {
+	out := []claimfit.RuntimeParent{}
+	for _, p := range ps {
+		if p.Role == roleplan.DevelopmentCalibration {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+// CheckProjectedPrefix inspects supplied arrays only. It does not invoke Project.
+// It proves preservation of the old prefix and full validation/calibration,
+// not correctness of freshly extracted new numerical feature values.
+func (j Joined) CheckProjectedPrefix(next claimfit.Projection) (PrefixProof, error) {
+	var proof PrefixProof
+	old := j.Base
+	if len(j.Parents) != TotalParents || len(old.Parents) != OriginalParents || len(next.Parents) != TotalParents || next.PayloadBytes == 0 || next.PayloadBytes > MaxPayloadBytes {
+		return proof, ErrPrefix
+	}
+	if !shape(old.Development, true) || !shape(old.Validation, true) || !shape(next.Development, true) || !shape(next.Validation, true) || !shape(old.DevelopmentAUC.Data, false) || !shape(next.DevelopmentAUC.Data, false) || !shape(old.ValidationAUC.Data, false) || !shape(next.ValidationAUC.Data, false) || len(old.DevelopmentRefs) != len(old.Development.Labels) || len(next.DevelopmentRefs) != len(next.Development.Labels) {
+		return proof, ErrPrefix
+	}
+	for i, p := range old.Parents {
+		if p != next.Parents[i] {
+			return proof, ErrPrefix
+		}
+	}
+	for i := OriginalParents; i < TotalParents; i++ {
+		p := next.Parents[i]
+		want := j.Parents[i]
+		if p.Text.Request != want.Input.Request || p.Text.Provenance != want.Input.Provenance || p.Text.Count != 3 || p.Truth != want.Truth || p.Role != want.Role || p.WholeGroup != want.Group || p.AcceptableCount != len(want.Acceptable) || p.LossEligible != want.Masks {
+			return proof, ErrPrefix
+		}
+		for c := 0; c < 3; c++ {
+			positive := slices.Contains(want.Acceptable, c)
+			if p.Text.Candidates[c].ID != want.Input.Candidates[c].ID || p.Text.Candidates[c].Text != want.Input.Candidates[c].Text || !p.Labels[c].Known || p.Labels[c].Positive != positive {
+				return proof, ErrPrefix
+			}
+		}
+		if !slices.Equal(p.Acceptable[:p.AcceptableCount], want.Acceptable) {
+			return proof, ErrPrefix
+		}
+	}
+	rows := len(old.Development.Labels)
+	trainPrefix, e := prefixDataset(old.Development, next.Development, rows)
+	if e != nil {
+		return proof, e
+	}
+	if len(next.Development.Labels) != rows+9 || len(next.DevelopmentRefs) != len(old.DevelopmentRefs)+9 || !slices.Equal(old.DevelopmentRefs, next.DevelopmentRefs[:len(old.DevelopmentRefs)]) || !exactDataset(old.Validation, next.Validation) || !slices.Equal(old.ValidationRefs, next.ValidationRefs) || (old.ValidationRefs == nil) != (next.ValidationRefs == nil) {
+		return proof, ErrPrefix
+	}
+	for row := 0; row < 9; row++ {
+		ref := next.DevelopmentRefs[rows+row]
+		pi := OriginalParents + row/3
+		ci := row % 3
+		plan := j.Parents[pi]
+		positive := slices.Contains(plan.Acceptable, ci)
+		label := 0.
+		if positive {
+			label = 1
+		}
+		weight := 0.
+		if plan.Masks[ci] {
+			weight = 1
+		}
+		if ref != (claimfit.RowRef{ParentIndex: pi, CandidateIndex: ci}) || next.Development.Labels[rows+row] != label || next.Development.SampleWeights[rows+row] != weight || next.Development.Groups[rows+row] != plan.Group {
+			return proof, ErrPrefix
+		}
+	}
+	if next.Counts[1] != old.Counts[1] || next.Counts[2] != old.Counts[2] {
+		return proof, ErrPrefix
+	}
+	expected := old.Counts[0]
+	expected.Parents += 3
+	expected.Candidates += 9
+	expected.FitRows += 9
+	expected.ZeroWeightFitRows += j.NewZeroWeightRows
+	expected.WholeGroups += 2
+	expected.PositiveWeightGroups += j.NewPositiveWeightGroups
+	if next.Counts[0] != expected || next.FeatureScans != 2*(rows+9+len(old.Validation.Labels)) {
+		return proof, ErrPrefix
+	}
+	if !exactDataset(old.ValidationAUC.Data, next.ValidationAUC.Data) || !slices.Equal(old.ValidationAUC.Refs, next.ValidationAUC.Refs) || (old.ValidationAUC.Refs == nil) != (next.ValidationAUC.Refs == nil) || old.ValidationAUC.Denominators != next.ValidationAUC.Denominators {
+		return proof, ErrPrefix
+	}
+	_, e = prefixDataset(old.DevelopmentAUC.Data, next.DevelopmentAUC.Data, len(old.DevelopmentAUC.Data.Labels))
+	if e != nil || len(next.DevelopmentAUC.Refs) < len(old.DevelopmentAUC.Refs) || !slices.Equal(old.DevelopmentAUC.Refs, next.DevelopmentAUC.Refs[:len(old.DevelopmentAUC.Refs)]) {
+		return proof, ErrPrefix
+	}
+	for _, d := range [2]pairlearn.Dataset{next.Development, next.Validation} {
+		if len(d.Offsets) != len(d.Labels)+1 || len(d.Groups) != len(d.Labels) || len(d.SampleWeights) != len(d.Labels) || len(d.Indices) != len(d.Values) || d.Offsets[0] != 0 || d.Offsets[len(d.Labels)] != len(d.Values) {
+			return proof, ErrPrefix
+		}
+		for i, n := range d.Offsets {
+			if n < 0 || n > len(d.Values) || (i > 0 && n < d.Offsets[i-1]) {
+				return proof, ErrPrefix
+			}
+		}
+		for i, x := range d.Values {
+			if !finite(x) || d.Indices[i] >= 8192 {
+				return proof, ErrPrefix
+			}
+		}
+	}
+	proof = PrefixProof{OriginalParentCount: OriginalParents, OriginalTrainingRows: rows, ValidationRows: len(old.Validation.Labels), NilAndEmptyPreserved: true, ValidationAndCalibrationUnchanged: true}
+	proof.CanonicalOriginalMetadataSHA, e = metadataSHA(old.Parents)
+	if e != nil {
+		return PrefixProof{}, e
+	}
+	proof.CanonicalPreservedMetadataSHA, e = metadataSHA(next.Parents[:OriginalParents])
+	if e != nil {
+		return PrefixProof{}, e
+	}
+	proof.OriginalTrainingCSRBitsSHA = datasetBits(old.Development)
+	proof.PreservedTrainingCSRBitsSHA = datasetBits(trainPrefix)
+	proof.OriginalValidationCSRBitsSHA = datasetBits(old.Validation)
+	proof.PreservedValidationCSRBitsSHA = datasetBits(next.Validation)
+	proof.OriginalCalibrationMetadataSHA, e = metadataSHA(calibrationParents(old.Parents))
+	if e != nil {
+		return PrefixProof{}, e
+	}
+	proof.PreservedCalibrationMetadataSHA, e = metadataSHA(calibrationParents(next.Parents))
+	if e != nil {
+		return PrefixProof{}, e
+	}
+	return proof, nil
+}

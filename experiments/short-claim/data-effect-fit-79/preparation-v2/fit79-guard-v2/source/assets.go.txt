@@ -1,0 +1,364 @@
+package main
+
+import (
+	"encoding/json"
+	"math"
+	"os"
+	"path/filepath"
+	"sort"
+	"unicode/utf8"
+)
+
+// Root supplies the complete bounded-experiment consumption record. Two old
+// output filenames are insufficient evidence for an artifact registry count.
+type Consumption struct {
+	Schema           string `json:"schema"`
+	Frozen           bool   `json:"frozen"`
+	RegistryComplete bool   `json:"complete_artifact_registry"`
+	PriorFitAttempts int    `json:"prior_corpus_fit_attempts"`
+	Models           []Pin  `json:"registered_model_artifacts"`
+	Assets           []Pin  `json:"already_created_governed_assets"`
+	AssetsBytes      int64  `json:"already_created_governed_assets_bytes"`
+	RetainedMax      int64  `json:"retained_per_path_logical_bytes_max"`
+	AmendmentSHA     string `json:"versioned_resource_amendment_sha256"`
+	NewStageAssets   []Pin  `json:"already_created_new_stage_assets"`
+	NewStageBytes    int64  `json:"already_created_new_stage_assets_bytes"`
+}
+type RetainedAuditAsset struct {
+	ID     string `json:"id"`
+	Bytes  int64  `json:"bytes"`
+	SHA256 string `json:"sha256"`
+}
+type RetainedAudit struct {
+	Schema                 string               `json:"schema"`
+	CompleteWithinSnapshot bool                 `json:"complete_within_fixed_selector_and_snapshot"`
+	CountPerPath           bool                 `json:"count_equal_sha_or_equal_inode_per_path"`
+	PathCount              int                  `json:"path_count"`
+	PathBytes              int64                `json:"path_payload_bytes"`
+	Assets                 []RetainedAuditAsset `json:"assets"`
+}
+
+func retainedAuditPin(p Plan) (Pin, error) {
+	var audit Pin
+	count := 0
+	for _, pin := range p.Evidence {
+		if pin.ID == "retained-serialized-audit-registry" {
+			audit = pin
+			count++
+		}
+	}
+	if count != 1 || audit.Bytes < 1 || audit.Bytes > 1<<20 || len(audit.SHA256) != 64 {
+		return Pin{}, fail("retained_audit_evidence_pin")
+	}
+	return audit, nil
+}
+
+func readRetainedAudit(p Plan, base string) (*RetainedAudit, error) {
+	pin, e := retainedAuditPin(p)
+	if e != nil {
+		return nil, e
+	}
+	raw, e := readPin(pin, base, 1<<20)
+	if e != nil {
+		return nil, e
+	}
+	var audit RetainedAudit
+	if json.Unmarshal(raw, &audit) != nil || audit.Schema != "riido-plan56-covered-retained-serialized-registry-v1" || !audit.CompleteWithinSnapshot || !audit.CountPerPath || len(audit.Assets) < 1 || len(audit.Assets) > 4096 || audit.PathCount != len(audit.Assets) || audit.PathBytes < 1 || audit.PathBytes > amendedRetainedMax {
+		return nil, fail("retained_audit_contract")
+	}
+	// The public audit has IDs, bytes and hashes, without private host paths.
+	// Join those IDs to the caller's unique per-path inventory below. Sorting
+	// this private DTO keeps bounded array storage and avoids quadratic joins.
+	sort.Slice(audit.Assets, func(i, j int) bool { return audit.Assets[i].ID < audit.Assets[j].ID })
+	total := int64(0)
+	for i, asset := range audit.Assets {
+		if len(asset.ID) < 1 || len(asset.ID) > 512 || !utf8.ValidString(asset.ID) || len(asset.SHA256) != 64 || asset.Bytes < 0 || asset.Bytes > amendedRetainedMax-total || i > 0 && asset.ID == audit.Assets[i-1].ID {
+			return nil, fail("retained_audit_asset_contract")
+		}
+		total += asset.Bytes
+	}
+	if total != audit.PathBytes {
+		return nil, fail("retained_audit_asset_sum")
+	}
+	return &audit, nil
+}
+
+func containsRetainedAuditAssets(assets []Pin, audit *RetainedAudit) bool {
+	byID := append([]Pin(nil), assets...)
+	sort.Slice(byID, func(i, j int) bool { return byID[i].ID < byID[j].ID })
+	for _, required := range audit.Assets {
+		i := sort.Search(len(byID), func(i int) bool { return byID[i].ID >= required.ID })
+		if i == len(byID) || byID[i].ID != required.ID || byID[i].Bytes != required.Bytes || byID[i].SHA256 != required.SHA256 {
+			return false
+		}
+	}
+	return true
+}
+
+func verifyGovernedAsset(pin Pin, base string) error {
+	if pin.Bytes != 0 {
+		_, e := readPin(pin, base, maxPayload)
+		return e
+	}
+	// The frozen audit includes an empty regular file. Empty paths still count
+	// as inventory entries; checking its exact size and SHA does not read a
+	// model or allow an omitted file to masquerade as zero bytes.
+	if pin.SHA256 != sha(nil) {
+		return fail("empty_governed_asset_sha")
+	}
+	f, e := os.Open(resolve(base, pin.Path))
+	if e != nil {
+		return fail("empty_governed_asset_read")
+	}
+	defer f.Close()
+	st, e := f.Stat()
+	if e != nil || !st.Mode().IsRegular() || st.Size() != 0 {
+		return fail("empty_governed_asset_size")
+	}
+	return nil
+}
+
+type FileAsset struct {
+	ID                          string
+	ReservedBytes, DurableBytes int64
+	Outcome                     string
+}
+type AssetSummary struct {
+	Scope                                                              string
+	PriorGovernedBytes, CurrentReservedBytes, PeakReservedBytes, Limit int64
+	SuccessfulBytesWritten                                             uint64
+	NewStagePriorBytes, NewStageLimit                                  int64
+	Files                                                              []FileAsset
+}
+type assetBudget struct {
+	prior, max, current, peak, stagePrior, stageMax int64
+	written                                         uint64
+	used                                            int
+	files                                           [8]FileAsset
+}
+
+func (b *assetBudget) reservePrimaryBeforeFit() error {
+	_, e := b.reserve("data-only8192-fp32-seed1729.hbin", modelBytes)
+	return e
+}
+func retainedLimit(p Plan) (int64, error) {
+	if p.AssetsMax != maxPayload || p.NumericFileMax != maxNumericAsset {
+		return 0, fail("storage_policy")
+	}
+	limit := int64(maxPayload)
+	if p.RetainedMax != nil {
+		limit = *p.RetainedMax
+	}
+	if limit != maxPayload && limit != amendedRetainedMax {
+		return 0, fail("retained_storage_policy")
+	}
+	if limit == amendedRetainedMax && (p.ResourceAmendment == nil || p.ResourceAmendment.Bytes < 1 || p.ResourceAmendment.Bytes > 1<<20 || len(p.ResourceAmendment.SHA256) != 64) {
+		return 0, fail("retained_storage_amendment_required")
+	}
+	return limit, nil
+}
+
+func consumption(p Plan, base string) (*assetBudget, error) {
+	limit, e := retainedLimit(p)
+	if e != nil {
+		return nil, e
+	}
+	amendmentSHA := ""
+	if p.ResourceAmendment != nil {
+		amendment, err := readPin(*p.ResourceAmendment, base, 1<<20)
+		if err != nil {
+			return nil, err
+		}
+		if e = verifyAmendment(amendment, p); e != nil {
+			return nil, e
+		}
+		amendmentSHA = p.ResourceAmendment.SHA256
+	}
+	audit, e := readRetainedAudit(p, base)
+	if e != nil {
+		return nil, e
+	}
+	b, e := readPin(p.ConsumptionRegistry, base, 1<<20)
+	if e != nil {
+		return nil, e
+	}
+	var x Consumption
+	if json.Unmarshal(b, &x) != nil || x.Schema != "riido-fit79-root-frozen-consumption-v1" || !x.Frozen || !x.RegistryComplete || x.PriorFitAttempts != 2 || p.PriorArtifacts == nil || len(x.Models) != *p.PriorArtifacts || len(x.Models) >= 16 || len(x.Assets) > 4096 || len(x.NewStageAssets) > 4096 || x.AssetsBytes < 0 || x.AssetsBytes > limit || x.RetainedMax != limit || x.AmendmentSHA != amendmentSHA || x.NewStageBytes < 0 || x.NewStageBytes > maxPayload {
+		return nil, fail("consumption_registry")
+	}
+	if !uniqueConsumptionPins(x.Models, base) || !uniqueConsumptionPins(x.Assets, base) || !uniqueConsumptionPins(x.NewStageAssets, base) {
+		return nil, fail("registry_pin_ids_or_paths")
+	}
+	if !containsRetainedAuditAssets(x.Assets, audit) {
+		return nil, fail("retained_audit_asset_missing_from_consumption")
+	}
+	for _, pin := range x.Models {
+		if !containsAsset(x.Assets, pin, base) {
+			return nil, fail("registered_model_asset_missing_from_consumption")
+		}
+		if _, e = readPin(pin, base, maxPayload); e != nil {
+			return nil, e
+		}
+	}
+	total := int64(0)
+	for _, pin := range x.Assets {
+		if pin.Bytes < 0 || pin.Bytes > limit-total {
+			return nil, fail("governed_asset_total")
+		}
+		if e = verifyGovernedAsset(pin, base); e != nil {
+			return nil, e
+		}
+		total += pin.Bytes
+	}
+	if total != x.AssetsBytes {
+		return nil, fail("governed_asset_sum")
+	}
+	stageTotal := int64(0)
+	for _, asset := range x.NewStageAssets {
+		if asset.Bytes < 1 || asset.Bytes > maxPayload-stageTotal || !containsAsset(x.Assets, asset, base) {
+			return nil, fail("new_stage_asset_subset_or_total")
+		}
+		stageTotal += asset.Bytes
+	}
+	if stageTotal != x.NewStageBytes {
+		return nil, fail("new_stage_asset_sum")
+	}
+	// The two new data inputs are already-created governed assets, never
+	// silently excluded by starting the writer counter at zero.
+	for _, required := range []Pin{p.Projection, p.QualifiedAppend} {
+		if !containsAsset(x.Assets, required, base) || !containsAsset(x.NewStageAssets, required, base) {
+			return nil, fail("new_input_asset_missing_from_consumption")
+		}
+	}
+	return &assetBudget{prior: total, max: limit, stagePrior: stageTotal, stageMax: maxPayload}, nil
+}
+func containsAsset(assets []Pin, required Pin, base string) bool {
+	for _, asset := range assets {
+		if resolve(base, asset.Path) == resolve(base, required.Path) && asset.Bytes == required.Bytes && asset.SHA256 == required.SHA256 {
+			return true
+		}
+	}
+	return false
+}
+func uniqueConsumptionPins(pins []Pin, base string) bool {
+	ids := make([]string, len(pins))
+	paths := make([]string, len(pins))
+	for i, p := range pins {
+		if len(p.ID) < 1 || len(p.ID) > 512 || !utf8.ValidString(p.ID) || len(p.Path) < 1 || len(p.Path) > 4096 || !utf8.ValidString(p.Path) {
+			return false
+		}
+		ids[i] = p.ID
+		paths[i] = resolve(base, p.Path)
+	}
+	sort.Strings(ids)
+	sort.Strings(paths)
+	for i := 1; i < len(ids); i++ {
+		if ids[i] == ids[i-1] || paths[i] == paths[i-1] {
+			return false
+		}
+	}
+	return true
+}
+func (b *assetBudget) reserve(id string, n int64) (int, error) {
+	if n < 0 || n > b.max || filepath.Base(id) != id || id == "." || id == "" {
+		return 0, fail("asset_bounds")
+	}
+	slot := -1
+	for i := 0; i < b.used; i++ {
+		if b.files[i].ID == id {
+			slot = i
+			break
+		}
+	}
+	old := int64(0)
+	if slot >= 0 {
+		old = b.files[slot].ReservedBytes
+	} else {
+		if b.used == len(b.files) {
+			return 0, fail("asset_file_count")
+		}
+		slot = b.used
+	}
+	next := b.current - old + n
+	if b.prior > b.max || next > b.max-b.prior {
+		return 0, fail("aggregate_asset_budget")
+	}
+	if b.stageMax > 0 && (b.stagePrior > b.stageMax || next > b.stageMax-b.stagePrior) {
+		return 0, fail("new_stage_asset_budget")
+	}
+	if slot == b.used {
+		b.used++
+		b.files[slot].ID = id
+	}
+	b.current = next
+	if next > b.peak {
+		b.peak = next
+	}
+	b.files[slot].ReservedBytes = n
+	b.files[slot].Outcome = "reserved_before_file_write"
+	return slot, nil
+}
+func (b *assetBudget) commit(slot int, n int64, e error) error {
+	if e != nil {
+		b.files[slot].Outcome = "write_or_fsync_failed_durable_bytes_unknown"
+		return e
+	}
+	if uint64(n) > math.MaxUint64-b.written {
+		b.files[slot].Outcome = "write_count_overflow"
+		return fail("write_counter_overflow")
+	}
+	b.written += uint64(n)
+	b.files[slot].DurableBytes = n
+	b.files[slot].Outcome = "write_and_fsync_returned"
+	return nil
+}
+func (b *assetBudget) snapshot() AssetSummary {
+	files := append([]FileAsset(nil), b.files[:b.used]...)
+	return AssetSummary{Scope: "Distinct per-path currently reserved governed file bytes plus caller-frozen prior assets; 64MiB remains default. A 512MiB retained-storage limit requires the exact Root versioned amendment, never retroactively passes old64MiB; new-stage data/model/numeric files and sparse payload each remain64MiB. Same-SHA or same-inode distinct paths count separately. Result/ledger each<=8MiB and fixed model32792B reserved before Fit; rewritten I/O bytes separate. Snapshot before own checkpoint writes; after failure root must stat preserved outputs, not assume zero.", PriorGovernedBytes: b.prior, CurrentReservedBytes: b.current, PeakReservedBytes: b.peak, Limit: b.max, SuccessfulBytesWritten: b.written, Files: files, NewStagePriorBytes: b.stagePrior, NewStageLimit: b.stageMax}
+}
+func (b *assetBudget) create(path string, data []byte) error {
+	slot, e := b.reserve(filepath.Base(path), int64(len(data)))
+	if e != nil {
+		return e
+	}
+	return b.commit(slot, int64(len(data)), exclusive(path, data))
+}
+func (b *assetBudget) update(f *os.File, data []byte) error {
+	slot, e := b.reserve(filepath.Base(f.Name()), int64(len(data)))
+	if e != nil {
+		return e
+	}
+	return b.commit(slot, int64(len(data)), updateSync(f, data))
+}
+func checkpointBudget(result, ledger *os.File, r Result, b *assetBudget) error {
+	if b == nil {
+		return checkpointResult(result, ledger, r)
+	}
+	r.Assets = b.snapshot()
+	raw, e := encode(r)
+	if e != nil {
+		return e
+	}
+	log, e := encode(struct {
+		Schema, State, Failure, PlanSHA string
+		Counts                          Counts
+		Artifact                        *Pin
+		Assets                          AssetSummary
+		PublicationQualified            bool
+	}{"riido-data-effect-fit-attempt-ledger-79-v1", r.State, r.Failure, r.PlanSHA, r.Counts, r.Artifact, r.Assets, false})
+	if e != nil {
+		return e
+	}
+	// Reserve BOTH sizes before truncating either current file. A cap refusal
+	// preserves the previous durable result/counters and never dispatches fit.
+	if _, e = b.reserve(filepath.Base(result.Name()), int64(len(raw))); e != nil {
+		return e
+	}
+	if _, e = b.reserve(filepath.Base(ledger.Name()), int64(len(log))); e != nil {
+		return e
+	}
+	if e = b.update(result, raw); e != nil {
+		return e
+	}
+	return b.update(ledger, log)
+}
