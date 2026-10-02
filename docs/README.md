@@ -14,6 +14,10 @@ Latest owned task evidence: [experiment55](../experiments/task-outcomes/RESULTS-
 | Topic / 주제 | English | 한국어 |
 |---|---|---|
 | Project overview / 프로젝트 개요 | [README](../README.en.md) | [README](../README.md) |
+| Optional packed Go coefficient reader78 / 선택형 Go 압축 가중치 reader78 | [API and ownership](../pkg/hintweights/README.en.md) · [Measured tradeoffs](../experiments/short-claim/packed-weights-78/README.en.md) | [API·소유권](../pkg/hintweights/README.ko.md) · [실측과 선택 기준](../experiments/short-claim/packed-weights-78/README.ko.md) |
+| Finite source observations77 / 유한 원문 동작 관찰77 | [24 matches; 209 original callbacks plus 8 standard error strings](../experiments/short-claim/native-observation-77/README.en.md) | [24개 일치; 원문 callback209·표준 오류문자열8회](../experiments/short-claim/native-observation-77/README.ko.md) |
+| Further public-source proposals79 / 다음 공개 원천 제안79 | [Six primary families; acquisition and qualification kept separate](../experiments/short-claim/source-growth-79/README.en.md) | [주 원천6계열; 취득·학습 자격은 별도](../experiments/short-claim/source-growth-79/README.ko.md) |
+| Verified publication100 / 실제 게시 확인100 | [Required CI, automatic merge and exact Wiki readback](../experiments/short-claim/publication-proof-100/README.en.md) | [필수 CI·자동 병합·Wiki 바이트 확인](../experiments/short-claim/publication-proof-100/README.ko.md) |
 | Actual fixed-model caption comparison76 / 설명 보강 실제 모델 비교76 | [Cheap controls improve; existing models worsen](../experiments/short-claim/caption-inference-76/README.en.md) | [단순 기준선 개선·기존 모델 악화](../experiments/short-claim/caption-inference-76/README.ko.md) |
 | Finite function observations75 / 유한 함수 관찰75 | [24 matching cases across two goals,17.81MiB child RSS](../experiments/short-claim/native-observation-75/README.en.md) | [두 목표의24개 기대값 일치·자식 RSS17.81MiB](../experiments/short-claim/native-observation-75/README.ko.md) |
 | Scoped request preparation75 / 요청 범위 준비75 | [Caption information, code satisfaction and corrected pair weights](../experiments/short-claim/request-scope-75/README.en.md) | [설명 정보·코드 충족·pair 가중치 정정](../experiments/short-claim/request-scope-75/README.ko.md) |

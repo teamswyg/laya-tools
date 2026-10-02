@@ -1,0 +1,201 @@
+package pure
+
+import (
+	"bytes"
+	"encoding/json"
+	"errors"
+	"reflect"
+	"testing"
+)
+
+type fakeDecoder struct {
+	record, at                     int
+	key, value                     []byte
+	buf                            [2]byte
+	infiniteRecords, infinitePairs bool
+	err                            error
+}
+
+func (d *fakeDecoder) ScanRecord() bool {
+	d.buf = [2]byte{'X', 'Y'}
+	d.record++
+	d.at = 0
+	return d.infiniteRecords || d.record <= 2
+}
+func (d *fakeDecoder) ScanKeyval() bool {
+	n := 2
+	if d.record == 2 {
+		n = 1
+	}
+	if d.record > 2 || d.at >= n && !d.infinitePairs {
+		d.key = nil
+		d.value = nil
+		return false
+	}
+	d.at++
+	d.buf = [2]byte{'a', byte('0' + d.at)}
+	if d.record == 2 {
+		d.buf = [2]byte{'b', '3'}
+	}
+	d.key = d.buf[:1]
+	d.value = d.buf[1:]
+	return true
+}
+func (d *fakeDecoder) Key() []byte   { return d.key }
+func (d *fakeDecoder) Value() []byte { return d.value }
+func (d *fakeDecoder) Err() error    { return d.err }
+func stubs() Ops {
+	return Ops{New: func(string, int) Decoder { return &fakeDecoder{} }, ErrorInfo: func(e error) ErrorState { return ErrorState{Type: "toy_error", Message: e.Error()} }, Escape: func(b []byte) string { return string(b) }, Unescape: func(s string) ([]byte, error) {
+		if s == "" {
+			return nil, nil
+		}
+		return []byte(s), nil
+	}}
+}
+func runToy(w WantSet, o Ops) (Result, error) {
+	r := NewResult(w, "toy-only")
+	e := Run(w, o, &r, func(*Result) error { return nil })
+	return r, e
+}
+func TestSealedShapeAndBudgetsOnly(t *testing.T) {
+	w := Specifications()
+	if Validate(w) != nil {
+		t.Fatal("shape")
+	}
+	if w.OriginalCalls != 0 || w.NewParents != 0 || w.NewLabels != 0 {
+		t.Fatal("scope")
+	}
+	for _, f := range w.Fixtures {
+		if len(f.Input) > 512 || f.DirectCallBudget != Budget(f) {
+			t.Fatal("bound")
+		}
+	}
+}
+func TestStubOrderAndBorrowedSnapshots(t *testing.T) {
+	r, e := runToy(Specifications(), stubs())
+	if e != nil {
+		t.Fatal(e)
+	}
+	if r.Started != 24 || r.Finished != 24 || r.State != "completed_with_differences_no_qualification" {
+		t.Fatal("all fixture differences must survive")
+	}
+	l := r.Cases[2].Got.Log
+	if len(l.Records) != 2 || l.Records[0].Steps[0].Key.Hex != "61" || l.Records[0].Steps[0].Value.Hex != "31" || l.Records[0].Steps[1].Key.Hex != "61" || l.Records[0].Steps[1].Value.Hex != "32" || l.Records[1].Steps[0].Key.Hex != "62" {
+		t.Fatal("order, duplicates or borrowed materialization")
+	}
+	if l.Records[0].Steps[2].Key.Nil != true || l.StickyKeyval.Key.Nil != true {
+		t.Fatal("terminal nil")
+	}
+	if r.Calls[0].Returned != 11 || r.Calls[1].Returned != 1 || r.Calls[8].Returned != 4 || r.Calls[9].Returned != 8 {
+		t.Fatal("constructors and percent calls are not24API calls")
+	}
+}
+func TestWantsRemainUnmodifiedThroughDifferences(t *testing.T) {
+	w := Specifications()
+	before, _ := json.Marshal(w)
+	r, e := runToy(w, stubs())
+	after, _ := json.Marshal(w)
+	if e != nil || !reflect.DeepEqual(before, after) || r.Cases[0].Fixture.Want.Log == nil || r.Cases[0].Matches {
+		t.Fatal("source wants changed or mismatch erased")
+	}
+}
+func TestNilVersusNonNilEmptyReturnedBytes(t *testing.T) {
+	o := stubs()
+	o.Unescape = func(s string) ([]byte, error) { return []byte{}, nil }
+	r, e := runToy(Specifications(), o)
+	if e != nil || r.Cases[16].Got.Bytes.Nil || r.Cases[16].Got.Bytes.Length != 0 || r.Cases[16].Matches {
+		t.Fatal("nil empty normalization")
+	}
+	if !r.Cases[12].Got.InputBefore.Nil || !r.Cases[12].Got.InputAfter.Nil {
+		t.Fatal("nil Escape input")
+	}
+}
+func TestPanicCounterAndOtherCasesSurvive(t *testing.T) {
+	o := stubs()
+	calls := 0
+	o.New = func(string, int) Decoder {
+		calls++
+		if calls == 1 {
+			panic("private panic text must not be copied")
+		}
+		return &fakeDecoder{}
+	}
+	r, e := runToy(Specifications(), o)
+	if e == nil || r.Finished != 24 || r.Cases[0].Calls[0].Reserved != 1 || r.Cases[0].Calls[0].Returned != 0 || r.Cases[0].Calls[0].Panicked != 1 || !r.Cases[0].Got.Panic || r.Cases[0].Failure != "observer77_callback_panic" || !r.Cases[23].Finished {
+		t.Fatal("panic handling")
+	}
+	b, _ := json.Marshal(r)
+	if bytes.Contains(b, []byte("private panic text must not be copied")) {
+		t.Fatal("panic leaked")
+	}
+}
+func TestFailedReservationPreventsConstructor(t *testing.T) {
+	w := Specifications()
+	r := NewResult(w, "toy-only")
+	o := stubs()
+	called := 0
+	o.New = func(string, int) Decoder { called++; return &fakeDecoder{} }
+	n := 0
+	e := Run(w, o, &r, func(*Result) error {
+		n++
+		if n == 2 {
+			return errors.New("toy storage failure")
+		}
+		return nil
+	})
+	if e == nil || called != 0 || r.Cases[0].Calls[0].Reserved != 1 || r.Cases[0].Calls[0].Returned != 0 || r.Finished != 0 {
+		t.Fatal("dispatch before durable intent")
+	}
+}
+func TestRecordAndPairBounds(t *testing.T) {
+	for _, which := range []string{"records", "pairs"} {
+		t.Run(which, func(t *testing.T) {
+			o := stubs()
+			o.New = func(string, int) Decoder {
+				return &fakeDecoder{infiniteRecords: which == "records", infinitePairs: which == "pairs"}
+			}
+			r, e := runToy(Specifications(), o)
+			if e == nil || r.Finished != 24 || r.Cases[0].Failure == "" {
+				t.Fatal("bound accepted")
+			}
+			for _, c := range r.Cases {
+				for i, v := range c.Calls {
+					if v.Reserved > caps[i] {
+						t.Fatal("API cap")
+					}
+				}
+			}
+		})
+	}
+}
+func TestErrorTextIsCountedSeparately(t *testing.T) {
+	o := stubs()
+	o.Unescape = func(string) ([]byte, error) { return nil, errors.New("toy explicit error") }
+	r, e := runToy(Specifications(), o)
+	if e != nil || r.Calls[9].Returned != 8 || r.Calls[7].Returned != 8 || r.Cases[16].Got.Error.Message != "toy explicit error" {
+		t.Fatal("error string call not accounted")
+	}
+}
+func TestMalformedInputRefusedBeforeCallbacks(t *testing.T) {
+	w := Specifications()
+	x := *w.Fixtures[12].EscapeInput
+	x.Length = 1
+	w.Fixtures[12].EscapeInput = &x
+	o := stubs()
+	called := 0
+	o.New = func(string, int) Decoder { called++; return &fakeDecoder{} }
+	r, e := runToy(w, o)
+	if e == nil || called != 0 || r.Started != 0 {
+		t.Fatal("input bound")
+	}
+}
+func TestResultBoundAndExplicitFalseFlags(t *testing.T) {
+	r, e := runToy(Specifications(), stubs())
+	if e != nil {
+		t.Fatal(e)
+	}
+	b, e := json.Marshal(r)
+	if e != nil || len(b) >= MaxBytes || r.Qualification || r.TrainingReady || r.ProductionReady || r.ProtectedFinal {
+		t.Fatal("result scope")
+	}
+}

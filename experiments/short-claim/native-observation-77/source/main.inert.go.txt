@@ -1,0 +1,215 @@
+// Maintainer-only native adapter. Do not execute during preparation, even help.
+package main
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"flag"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"runtime"
+	"runtime/debug"
+	"strings"
+	"time"
+
+	"github.com/go-logfmt/logfmt"
+	"github.com/teamswyg/laya-tools/maintainer/observer77/pure"
+	"github.com/vincent-petithory/dataurl"
+)
+
+const wantSHA = "5cc2498db4c307ea623360504cee4e438f6d450ca33d7444acac40029af90ef6"
+
+type Pin struct {
+	ID    string `json:"id"`
+	Bytes int64  `json:"bytes"`
+	SHA   string `json:"sha256"`
+}
+type Plan struct {
+	Schema          string `json:"schema"`
+	Frozen          bool   `json:"frozen"`
+	Wants           Pin    `json:"wants"`
+	Sources         []Pin  `json:"sources"`
+	Binary          Pin    `json:"binary"`
+	CPU             int    `json:"CPU"`
+	SoftHeap        int64  `json:"soft_Go_heap_bytes"`
+	Timeout         int    `json:"outside_timeout_seconds"`
+	MaxOutput       int    `json:"max_output_bytes"`
+	AutomaticRetry  int    `json:"automatic_retries"`
+	Qualification   bool   `json:"qualification"`
+	TrainingReady   bool   `json:"training_ready"`
+	ProductionReady bool   `json:"production_ready"`
+}
+
+func hash(b []byte) string { s := sha256.Sum256(b); return hex.EncodeToString(s[:]) }
+func readPin(path string, p Pin, cap int64) ([]byte, error) {
+	if p.Bytes < 1 || p.Bytes > cap || len(p.SHA) != 64 {
+		return nil, pure.Fail("pin")
+	}
+	f, e := os.Open(path)
+	if e != nil {
+		return nil, pure.Fail("read")
+	}
+	defer f.Close()
+	st, e := f.Stat()
+	if e != nil || !st.Mode().IsRegular() || st.Size() != p.Bytes {
+		return nil, pure.Fail("file")
+	}
+	b, e := io.ReadAll(io.LimitReader(f, p.Bytes+1))
+	if e != nil || int64(len(b)) != p.Bytes || hash(b) != p.SHA {
+		return nil, pure.Fail("pin_mismatch")
+	}
+	return b, nil
+}
+func decode(b []byte, x any) error {
+	d := json.NewDecoder(bytes.NewReader(b))
+	d.DisallowUnknownFields()
+	if d.Decode(x) != nil {
+		return pure.Fail("JSON")
+	}
+	var extra any
+	if d.Decode(&extra) != io.EOF {
+		return pure.Fail("JSON_trailing")
+	}
+	return nil
+}
+func nativeOps() pure.Ops {
+	return pure.Ops{New: func(s string, n int) pure.Decoder {
+		if n == 0 {
+			return logfmt.NewDecoder(strings.NewReader(s))
+		}
+		return logfmt.NewDecoderSize(strings.NewReader(s), n)
+	}, ErrorInfo: func(e error) pure.ErrorState {
+		r := pure.ErrorState{Type: fmt.Sprintf("%T", e), Message: e.Error()}
+		if s, ok := e.(*logfmt.SyntaxError); ok {
+			r.Syntax = &pure.Syntax{Msg: s.Msg, Line: s.Line, Pos: s.Pos}
+		}
+		return r
+	}, Escape: dataurl.Escape, Unescape: dataurl.Unescape}
+}
+func run(args []string) (r pure.Result, err error) {
+	r.Schema = "riido-logfmt-percent77-finite-observation-v2"
+	r.State = "preflight_no_native_API_calls"
+	r.APINames = pure.APINames
+	r.WantSHA = wantSHA
+	r.GoalCount = 2
+	start := time.Now()
+	var initial runtime.MemStats
+	runtime.ReadMemStats(&initial)
+	attempt := ""
+	snapshot := func() {
+		var m runtime.MemStats
+		runtime.ReadMemStats(&m)
+		r.Memory = pure.Memory{HeapAlloc: m.HeapAlloc, HeapSys: m.HeapSys, TotalAlloc: m.TotalAlloc, WorkAlloc: m.TotalAlloc - initial.TotalAlloc}
+		r.Wall = time.Since(start).Seconds()
+	}
+	defer func() {
+		if recover() != nil {
+			err = pure.Fail("worker_panic")
+		}
+		if err != nil {
+			r.State = "failed_partial_no_qualification"
+			r.Failure = err.Error()
+		}
+		snapshot()
+		if attempt != "" {
+			if e := partial(attempt, r); e != nil {
+				err = e
+				r.State = "failed_persistence_no_qualification"
+				r.Failure = e.Error()
+			}
+			if e := exclusive(filepath.Join(attempt, "results.json"), r); e != nil {
+				err = e
+				r.State = "failed_persistence_no_qualification"
+				r.Failure = e.Error()
+			}
+		}
+	}()
+	var planPath, planHash, wants, sourceRoot, out string
+	var execute bool
+	f := flag.NewFlagSet("observer77", flag.ContinueOnError)
+	f.SetOutput(io.Discard)
+	f.StringVar(&planPath, "plan", "", "")
+	f.StringVar(&planHash, "plan-sha", "", "")
+	f.StringVar(&wants, "wants", "", "")
+	f.StringVar(&sourceRoot, "source-root", "", "")
+	f.StringVar(&out, "attempt-dir", "", "")
+	f.BoolVar(&execute, "execute-once", false, "")
+	if f.Parse(args) != nil || f.NArg() != 0 || !execute || planPath == "" || len(planHash) != 64 || wants == "" || sourceRoot == "" || out == "" {
+		return r, pure.Fail("flags")
+	}
+	if runtime.Version() != "go1.27.1" {
+		return r, pure.Fail("Go_version")
+	}
+	s, e := os.Lstat(planPath)
+	if e != nil || !s.Mode().IsRegular() || s.Size() < 1 || s.Size() > pure.MaxBytes {
+		return r, pure.Fail("plan_file")
+	}
+	b, e := readPin(planPath, Pin{Bytes: s.Size(), SHA: planHash}, pure.MaxBytes)
+	if e != nil {
+		return r, e
+	}
+	var p Plan
+	if decode(b, &p) != nil {
+		return r, pure.Fail("plan_JSON")
+	}
+	if p.Schema != "riido-logfmt-percent77-observer-execution-plan-v2" || !p.Frozen || p.CPU != 1 || p.SoftHeap != 256<<20 || p.Timeout != 60 || p.MaxOutput != pure.MaxBytes || p.AutomaticRetry != 0 || p.Qualification || p.TrainingReady || p.ProductionReady || p.Wants.Bytes != 38148 || p.Wants.SHA != wantSHA || len(p.Sources) != 16 {
+		return r, pure.Fail("plan_scope")
+	}
+	b, e = readPin(wants, p.Wants, pure.MaxBytes)
+	if e != nil {
+		return r, e
+	}
+	var w pure.WantSet
+	if decode(b, &w) != nil {
+		return r, pure.Fail("want_JSON")
+	}
+	if e = pure.Validate(w); e != nil {
+		return r, e
+	}
+	paths := [16]string{"upstream/logfmt/decode.go", "upstream/logfmt/doc.go", "upstream/logfmt/encode.go", "upstream/logfmt/jsonstring.go", "upstream/logfmt/go.mod", "upstream/logfmt/go.sum", "upstream/logfmt/LICENSE", "upstream/logfmt/README.md", "upstream/dataurl/dataurl.go", "upstream/dataurl/doc.go", "upstream/dataurl/lex.go", "upstream/dataurl/rfc2396.go", "upstream/dataurl/LICENSE", "upstream/dataurl/README.md", "attribution/Go-BSD-LICENSE", "attribution/NOTICE-Go.txt"}
+	for i, pin := range p.Sources {
+		if pin.ID != paths[i] {
+			return r, pure.Fail("source_path")
+		}
+		if _, e = readPin(filepath.Join(sourceRoot, pin.ID), pin, pure.MaxBytes); e != nil {
+			return r, e
+		}
+	}
+	self, e := os.Executable()
+	if e != nil {
+		return r, pure.Fail("binary_path")
+	}
+	if _, e = readPin(self, p.Binary, 16<<20); e != nil {
+		return r, e
+	}
+	r = pure.NewResult(w, wantSHA)
+	if os.Mkdir(out, 0700) != nil {
+		return r, pure.Fail("attempt_exists_or_mkdir")
+	}
+	attempt = out
+	snapshot()
+	if e = exclusive(filepath.Join(out, "reservation.json"), r); e != nil {
+		return r, e
+	}
+	progress := func(v *pure.Result) error { snapshot(); return partial(attempt, *v) }
+	err = pure.Run(w, nativeOps(), &r, progress)
+	return
+}
+func main() {
+	runtime.GOMAXPROCS(1)
+	debug.SetMemoryLimit(256 << 20)
+	r, e := run(os.Args[1:])
+	b, je := encode(r)
+	if je != nil {
+		fmt.Fprintln(os.Stdout, `{"schema":"riido-logfmt-percent77-finite-observation-v2","state":"failed_output","qualification":false}`)
+		os.Exit(1)
+	}
+	n, we := os.Stdout.Write(b)
+	if e != nil || we != nil || n != len(b) {
+		os.Exit(1)
+	}
+}

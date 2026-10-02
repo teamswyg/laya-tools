@@ -1,0 +1,13 @@
+# 77 v2: review of the EOF change
+
+No execution blocker remains in the narrow v2 delta reviewed here. `pure/run.go`, lines 148–150, returns immediately with `no_current_record_after_EOF` when the terminal error is nil. It does not reserve subsequent ScanRecord/ScanKeyval/Key/Value/Err callbacks. Sticky fields are null, distinguishing a skipped call from an observed false return. A nonnil error retains the previous guard-supported sticky observations.
+
+The original v1 Wants and review remain unchanged. Each of the 7 EOF-nil fixtures removes 1 ScanRecord, 1 ScanKeyval, 1 Key, 1 Value, and 2 Err calls from its plan. The 5 error fixtures preserve values, sticky observations, and budgets. All 12 logfmt inputs and existing record contents are unchanged; all fields of the 12 percent fixtures are unchanged. Schema and nullable DTO changes are explicitly versioned as v2.
+
+Expected calls in the fixed API order are `[11,1,28,31,31,31,48,24,4,8]`. The total is **217 = 193 primary callbacks + 16 upstream logfmt SyntaxError.Error calls + 8 standard-library ErrorString calls**. This gives 209 original-package public calls and 8 standard-library error-message calls. These are pre-execution budgets, not observed calls. The 24 fixtures are finite observations of two existing behavior goals, not 24 new parents or training labels.
+
+Actual byte lengths and hashes match Want `5cc2498d…`, draft plan `5ee1d22f…`, HANDOFF `7d6250f5…`, and binary `f3d2bfb8…`. All 16 original-source/license pins and 10 maintainer-source/recipe pins agree. Plan and handoff use identical Want, binary, and original-source references. Reading binary build info without executing it confirms Go 1.27.1, CGO 0, trimpath, Darwin arm64, and relative local replacements. This is not independent compiler proof. The original absence of dataurl module files is distinguished from its separately added, pinned maintainer go.mod.
+
+The author reports passing stub regressions for EOF and sticky errors. The reviewer read those test bodies but did not rerun them. Native initialization, upstream API, observer, test, model, Features/Project/Fit execution remains 0. On eventual execution, package initialization precedes main counters and is separate from the existing root outside-process control. This review neither re-reviews that controller nor adds an approval workflow.
+
+Only the source/metadata correction to v1's observation scope has been reviewed. It does not prove 24 runtime matches, universal function truth, training-source diversity, or final generalization. New parents, labels, and roles remain 0; qualification, training, production, and final flags remain false. Full pins and limits are recorded in the [receipt](RECEIPT.v2.json) and [ledger](ATTEMPT-LEDGER.v2.json).

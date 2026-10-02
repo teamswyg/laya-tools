@@ -1,0 +1,144 @@
+package pure
+
+import "fmt"
+
+// All semantic expectations below were authored from pinned source reading,
+// before native adapter creation, compilation or any original API execution.
+func Specifications() WantSet {
+	nilBytes := ByteState{Nil: true}
+	falseStep := Step{Key: nilBytes, Value: nilBytes}
+	pair := func(k, v string, nilValue bool) Step {
+		b := Literal(v)
+		if nilValue {
+			b = nilBytes
+		}
+		return Step{ScanKeyval: true, Key: Literal(k), Value: b}
+	}
+	syntax := func(msg string, pos int) *ErrorState {
+		return &ErrorState{Type: "*logfmt.SyntaxError", Message: fmt.Sprintf("logfmt syntax error at pos %d on line 1: %s", pos, msg), Syntax: &Syntax{msg, 1, pos}}
+	}
+	failed := func(key string, e *ErrorState) Step {
+		k := nilBytes
+		if key != "" {
+			k = Literal(key)
+		}
+		return Step{Key: k, Value: nilBytes, Error: e}
+	}
+	logWant := func(records [][]Step, e *ErrorState) Observation {
+		l := &LogObservation{ScanRecords: []bool{}, Records: []Record{}, TerminalError: e}
+		if e == nil {
+			l.SkippedReason = "no_current_record_after_EOF"
+		} else {
+			b := false
+			x := falseStep
+			x.Error = e
+			l.StickyRecord = &b
+			l.StickyRecordError = e
+			l.StickyKeyval = &x
+		}
+		for i, s := range records {
+			l.ScanRecords = append(l.ScanRecords, true)
+			l.Records = append(l.Records, Record{i, s})
+		}
+		l.ScanRecords = append(l.ScanRecords, false)
+		return Observation{Returned: true, Log: l}
+	}
+	var w WantSet
+	w.Schema = "riido-logfmt-percent77-pre-native-wants-v2"
+	w.Scope = "12 bounded logfmt fixtures and 4 Escape plus 8 Unescape literals; two source behavior goals, no parents or labels"
+	inputs := [12]string{"", "\n\r\n", "a=1 a=2 b=3\n", "bare empty= quoted=\"\"\n", "last=ok", "q=\"say\\\"hi\" path=\"a\\\\b\" text=한글\n", "u=\"\\u0041\\uD83D\\uDE00\"\n", "ok=1 =x\n", "ok=1 bad=x=y\n", "ok=1 bad=\"x\n", "ok=1 bad=\"\\q\"\n", "long=record\n"}
+	e8 := syntax("unexpected '='", 6)
+	e9 := syntax("unexpected '='", 11)
+	e10 := syntax("unterminated quoted value", 12)
+	e11 := syntax("invalid quoted value", 14)
+	tooLong := &ErrorState{Type: "*errors.errorString", Message: "bufio.Scanner: token too long"}
+	wants := [12]Observation{
+		logWant(nil, nil), logWant([][]Step{{falseStep}, {falseStep}}, nil),
+		logWant([][]Step{{pair("a", "1", false), pair("a", "2", false), pair("b", "3", false), falseStep}}, nil),
+		logWant([][]Step{{pair("bare", "", true), pair("empty", "", true), pair("quoted", "", true), falseStep}}, nil),
+		logWant([][]Step{{pair("last", "ok", false), falseStep}}, nil),
+		logWant([][]Step{{pair("q", "say\"hi", false), pair("path", "a\\b", false), pair("text", "한글", false), falseStep}}, nil),
+		logWant([][]Step{{pair("u", "A😀", false), falseStep}}, nil),
+		logWant([][]Step{{pair("ok", "1", false), failed("", e8)}}, e8),
+		logWant([][]Step{{pair("ok", "1", false), failed("bad", e9)}}, e9),
+		logWant([][]Step{{pair("ok", "1", false), failed("bad", e10)}}, e10),
+		logWant([][]Step{{pair("ok", "1", false), failed("bad", e11)}}, e11), logWant(nil, tooLong),
+	}
+	for i := 0; i < 12; i++ {
+		f := Fixture{ID: fmt.Sprintf("logfmt-%02d", i+1), Goal: "logfmt-record-decoding", Operation: "logfmt", Input: inputs[i], Want: wants[i]}
+		if i == 11 {
+			f.BufferSize = 4
+		}
+		f.DirectCallBudget = Budget(f)
+		w.Fixtures[i] = f
+	}
+	escapeInputs := [4]ByteState{nilBytes, Literal("aAZ09-_.!~*'()"), Literal(" +%/?=:#&"), {Length: 4, Hex: "007f80ff"}}
+	escapeOutputs := [4]string{"", "aAZ09-_.!~*'()", "%20%2B%25%2F%3F%3D%3A%23%26", "%00%7F%80%FF"}
+	for i := 0; i < 4; i++ {
+		b := escapeInputs[i]
+		s := escapeOutputs[i]
+		f := Fixture{ID: fmt.Sprintf("percent-%02d", i+1), Goal: "dataurl-percent-bytes", Operation: "Escape", EscapeInput: &b, Want: Observation{Returned: true, Text: &s, InputBefore: &b, InputAfter: &b}}
+		f.DirectCallBudget = Budget(f)
+		w.Fixtures[12+i] = f
+	}
+	unescapeInputs := [8]string{"", "a+b", "%41%2f%00%fF", "%", "%A", "%g0", "ok%4g", "oké"}
+	endMsg := "rfc2396: unexpected end of unescape sequence"
+	hexMsg := "rfc2396: invalid char 0x25 in unescape sequence"
+	msgs := [8]string{"", "", "", endMsg, endMsg, hexMsg, hexMsg, "rfc2396: non-ASCII char detected"}
+	values := [8]ByteState{nilBytes, Literal("a+b"), {Length: 4, Hex: "412f00ff"}, nilBytes, nilBytes, nilBytes, nilBytes, nilBytes}
+	for i := 0; i < 8; i++ {
+		b := values[i]
+		var e *ErrorState
+		if msgs[i] != "" {
+			e = &ErrorState{Type: "*errors.errorString", Message: msgs[i]}
+		}
+		f := Fixture{ID: fmt.Sprintf("percent-%02d", i+5), Goal: "dataurl-percent-bytes", Operation: "Unescape", Input: unescapeInputs[i], Want: Observation{Returned: true, Bytes: &b, Error: e}}
+		f.DirectCallBudget = Budget(f)
+		w.Fixtures[16+i] = f
+	}
+	return w
+}
+
+// Budget counts every planned direct callback; it never invokes original APIs.
+// ErrorString is a separate Error() call after a nonnil Err/Unescape error.
+func Budget(f Fixture) (c [10]int) {
+	if f.Operation == "Escape" {
+		c[8] = 1
+		return
+	}
+	if f.Operation == "Unescape" {
+		c[9] = 1
+		if f.Want.Error != nil {
+			c[7] = 1
+		}
+		return
+	}
+	if f.BufferSize == 0 {
+		c[0] = 1
+	} else {
+		c[1] = 1
+	}
+	l := f.Want.Log
+	c[2] = len(l.ScanRecords)
+	for _, r := range l.Records {
+		for _, s := range r.Steps {
+			for _, i := range []int{3, 4, 5, 6} {
+				c[i]++
+			}
+			if s.Error != nil {
+				c[7]++
+			}
+		}
+	}
+	c[6]++ // Terminal Err is always observed.
+	if l.TerminalError != nil {
+		c[7]++
+		c[2]++
+		c[6] += 2
+		c[3]++
+		c[4]++
+		c[5]++
+		c[7] += 2
+	}
+	return
+}

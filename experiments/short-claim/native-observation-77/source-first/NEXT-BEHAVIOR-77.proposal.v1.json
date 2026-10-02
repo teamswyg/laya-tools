@@ -1,0 +1,155 @@
+{
+  "schema": "riido-next-bounded-public-behavior77-source-proposal-v1",
+  "state": "source_first_selection_and_fixture_categories_only",
+  "selected_existing_goal_concepts": 2,
+  "new_goal_concepts_added_to_inventory": 0,
+  "planned_finite_cases": 24,
+  "actual_finite_cases": 0,
+  "new_materialized_parents": 0,
+  "new_truth_labels": 0,
+  "observed_values": 0,
+  "wants_authored": 0,
+  "original_imports_builds_init_API_tests_executions": 0,
+  "models_features_project_roles_fits_protected_final_reads": 0,
+  "source_reference": {
+    "source_audit_receipt": {
+      "path": "experiments/short-claim/source-audit-74/SOURCE-READ-RECEIPT.v1.json",
+      "bytes": 26329,
+      "sha256": "e6718739b12575db76d35d33c4572fbfd0f487058c2d22a9d933b56b01b608bc"
+    },
+    "retained_archive_commit": "0a25491e83df23809c30d3497113e1d4969256b6",
+    "retained_archive_url": "https://github.com/teamswyg/laya-tools/tree/0a25491e83df23809c30d3497113e1d4969256b6/experiments/short-claim/source-audit-74",
+    "byte_read_method": "Existing immutable public-source copies only; no downloads, imports, AST, tests or original APIs."
+  },
+  "goals": [
+    {
+      "id": "logfmt-record-decoding",
+      "repository": "go-logfmt/logfmt",
+      "revision": "804e98fff868b206344991c57a8182172e5ba41e",
+      "import_path": "github.com/go-logfmt/logfmt",
+      "planned_fixture_cases": 12,
+      "original_language": "go1.21",
+      "original_module_files": ["go.mod", "go.sum"],
+      "closed_root_non_test_go": ["decode.go", "doc.go", "encode.go", "jsonstring.go"],
+      "semantic_call_graph": [
+        {"path": "decode.go", "declarations": ["Decoder", "NewDecoder", "NewDecoderSize", "(*Decoder).ScanRecord", "(*Decoder).ScanKeyval", "(*Decoder).Key", "(*Decoder).Value", "(*Decoder).Err", "(*Decoder).syntaxError", "(*Decoder).unexpectedByte", "SyntaxError", "(*SyntaxError).Error"], "line_ranges": [[12, 19], [25, 47], [54, 207], [212, 254]]},
+        {"path": "jsonstring.go", "declarations": ["unquoteBytes", "getu4"], "line_ranges": [[154, 277]], "line_range_last_is_file_end": true}
+      ],
+      "stdlib_semantic_dependencies": ["bufio.Scanner", "bytes.ContainsRune", "fmt", "io.Reader", "unicode/utf8", "unicode/utf16", "strconv.ParseUint", "unicode.ReplacementChar"],
+      "package_initialization_source_only": "Whole root also contains four errors.New sentinels, byte-slice globals, a hex string and a sync.Pool with a New function literal. The selected decoder does not call encoder callbacks or pool Get/Put. Native initialization has not run.",
+      "observer_input_scope": {"reader": "strings.NewReader on explicit fixed public input only", "max_input_bytes_proposed": 512, "max_records_proposed": 4, "max_successful_pairs_total_proposed": 8, "fresh_decoder_each_fixture": true, "arbitrary_reader_or_writer_callbacks": false},
+      "proposed_observation_fields": ["each ScanRecord result and ordered record index", "each ScanKeyval result", "ordered successful key/value byte states with nil/length/hex", "first failing step key/value byte states", "Err null or concrete type/message", "SyntaxError Msg/Line/Pos", "first-error sticky scan results", "API dispatch intent/return/panic counters"],
+      "buffer_lifetime_policy": "Capture nil/length/hex into observer-owned arrays before next ScanRecord. Never infer original owned storage from observer copies; never depend on contents after the documented lifetime.",
+      "fixture_categories": [
+        "empty input and terminal EOF",
+        "blank records and LF versus CRLF record framing",
+        "ordered pairs with duplicate keys",
+        "bare key, empty equals value, and empty quoted value",
+        "final record without trailing LF",
+        "quoted escaped quote/backslash with ordinary UTF-8 text",
+        "quoted Unicode escape and surrogate path",
+        "empty key error after a valid prefix",
+        "illegal equals in an unquoted value after a valid prefix",
+        "unterminated quoted value after a valid prefix",
+        "invalid quoted escape after a valid prefix",
+        "NewDecoderSize bounded record overflow"
+      ],
+      "direct_call_budget_status": "Not yet frozen. Multiple constructor/scan/getter/Err calls per fixture; 12 fixtures are not 12 API calls. Bound and reserve each direct call in the later observer.",
+      "unsupported": ["custom readers or concurrency on one Decoder", "encoder callbacks and external writer state", "precise bytes consumed despite read-ahead", "borrowed contents after next ScanRecord", "unbounded input or arbitrary invalid UTF-8 conformance", "universal logfmt standard conformance"]
+    },
+    {
+      "id": "dataurl-percent-bytes",
+      "repository": "vincent-petithory/dataurl",
+      "revision": "d1553a71de50473073e188aa79cebf7f993f20fe",
+      "import_path": "github.com/vincent-petithory/dataurl",
+      "planned_fixture_cases": 12,
+      "planned_Escape_calls": 4,
+      "planned_Unescape_calls": 8,
+      "original_language": "no_original_go_mod_recipe_pending",
+      "original_module_files": [],
+      "absent_resources_preserved": ["go.mod", "go.sum", "NOTICE"],
+      "closed_root_non_test_go": ["dataurl.go", "doc.go", "lex.go", "rfc2396.go"],
+      "semantic_call_graph": [
+        {"path": "rfc2396.go", "declarations": ["Escape", "isUnreserved"], "line_ranges": [[15, 26], [37, 50]]},
+        {"path": "rfc2396.go", "declarations": ["Unescape", "isHex", "unhex"], "line_ranges": [[52, 75], [79, 123]]}
+      ],
+      "stdlib_semantic_dependencies": ["bytes.Buffer", "fmt.Fprintf", "fmt.Errorf", "strings.Reader.ReadRune", "strings.Reader.ReadByte", "io.EOF"],
+      "package_initialization_source_only": "dataurl globals assign two function literals. Full original compile closure still imports additional standard packages, including net/http; transitive standard-library initialization has not been executed or instrumented.",
+      "observer_input_scope": {"max_input_bytes_proposed": 512, "Escape_input": "explicit finite byte slices, including nil and raw non-UTF8 bytes", "Unescape_input": "ASCII strings and one deliberate raw well-formed multibyte rejection category", "raw_invalid_UTF8_Unescape": false, "calls_independent": true},
+      "proposed_observation_fields": ["Escape returned string and input byte state before/after", "Unescape returned nil/length/hex", "nullable error type and exact message", "returned/no panic flags and dispatch counters"],
+      "source_first_facts": ["Escape processes bytes and uses uppercase hex percent formatting", "Unescape preserves literal plus rather than query-style space conversion", "decoded output may contain NUL or invalid UTF-8 bytes", "error returns discard buffer and return nil bytes", "invalid-hex messages use the current rune in both branches", "successful empty output nil status must not be normalized away"],
+      "fixture_categories": [
+        {"operation": "Escape", "category": "nil byte slice"},
+        {"operation": "Escape", "category": "all unreserved character classes"},
+        {"operation": "Escape", "category": "space, literal plus, percent and other reserved punctuation"},
+        {"operation": "Escape", "category": "NUL, high and raw non-UTF8 bytes"},
+        {"operation": "Unescape", "category": "empty input"},
+        {"operation": "Unescape", "category": "literal ASCII with plus"},
+        {"operation": "Unescape", "category": "mixed hex case with encoded NUL/high bytes"},
+        {"operation": "Unescape", "category": "lone percent"},
+        {"operation": "Unescape", "category": "truncated one-hex-digit escape"},
+        {"operation": "Unescape", "category": "invalid first hex digit"},
+        {"operation": "Unescape", "category": "invalid second hex digit after valid prefix"},
+        {"operation": "Unescape", "category": "raw well-formed multibyte text after valid prefix"}
+      ],
+      "excluded_full_decoder": {
+        "entrypoints": ["DecodeString", "Decode", "New", "WriteTo", "EncodeBytes", "UnmarshalText", "MarshalText"],
+        "source_paths": ["dataurl.go", "lex.go"],
+        "evidence": ["dataurl.go199-252 parser returns early on unquote/unescape/data-reader errors", "lex.go151-192 goroutine and unbuffered channel have no parser-return cancel/drain/join", "lex.go158-160 emit can wait for a receiver", "lex.go487-521 data then EOF are separate emits"],
+        "reason": "A source-visible later-send blockage can follow parser early return. No actual leak was measured and not every malformed input necessarily leaks. Keep this out of the small percent-helper observation.",
+        "fallback_or_patch": "None; original sources remain unchanged. Full-decoder lifecycle needs its own future scope, not an unobserved adapter assumption."
+      },
+      "unsupported": ["full Data URL parsing and media/parameter semantics", "Decode Reader ReadAll and external I/O", "raw invalid UTF-8 Unescape", "query/form URL normalization", "general roundtrip promise or large input resource claim"]
+    }
+  ],
+  "hard_negative_and_no_answer_design": {
+    "hard_negative_hypotheses": ["deduplicate or sort logfmt pairs", "merge nil and empty observations", "claim original always-owned buffers", "silently recover from first syntax error", "translate plus to space", "escape runes rather than original bytes", "claim partial bytes returned on Unescape error"],
+    "no_answer": "Only after an explicit future supported request and concrete candidate pool are frozen; retain all candidates when none satisfy it.",
+    "unknown": "Unsupported scope or insufficiently specified caption remains unknown, not a negative label.",
+    "candidate_set_frozen": false,
+    "acceptable_set_or_masks_assigned": false
+  },
+  "grouping_policy": {
+    "whole_repository_source_helper_global_family": true,
+    "aliases_same_family": ["EscapeString", "UnescapeToString", "Decoder constructor size variants"],
+    "literal_translation_nearvariant_new_parent_inflation": false,
+    "cross_repository_borrowed_Go_author_flow_review": "Retain attribution/provenance relation without claiming automatic independent-source diversity. Later semantic grouping may require shared-helper links.",
+    "actual_memberships_or_roles_generated": false
+  },
+  "license_policy": {
+    "root_licenses": ["MIT", "MIT"],
+    "supplemental_borrowed_Go_license": "BSD-3-Clause",
+    "full_notices_preserved": true,
+    "root_MIT_relicenses_borrowed_Go": false,
+    "actual_copied_Go_release_proven": false,
+    "fixed_authoritative_Go_comparisons": ["402d3590b54e4a0df9fb51ed14b2999e85ce0b76", "c303df658d43b9f3e98e56e646f8e84a83495991"],
+    "automatic_training_or_weight_rights_approval": false
+  },
+  "source_pins": [
+    {"path": "upstream/logfmt/decode.go", "bytes": 5624, "sha256": "8996665a4f52b59361758cc6b23e45c81b144a1269f3fc97ac09dc24b0c9f02c"},
+    {"path": "upstream/logfmt/doc.go", "bytes": 336, "sha256": "f4b4a04a9cfafd055659f7d366d1e6df8cb9127158474e2beca087c22fa15fa0"},
+    {"path": "upstream/logfmt/encode.go", "bytes": 7984, "sha256": "370613e641dd9c0b528e8c059a647ebd52997455a00cb0f9706e42730cbe3f2a"},
+    {"path": "upstream/logfmt/jsonstring.go", "bytes": 5241, "sha256": "47fafd410502e02561492129698bf9f8274d1b8eb36cee7659f6441101cd6eba"},
+    {"path": "upstream/logfmt/go.mod", "bytes": 85, "sha256": "0b2156771924d6013115a2e80b391afc2ff9d6a22f1bd83a03acf621be39ee4c"},
+    {"path": "upstream/logfmt/go.sum", "bytes": 167, "sha256": "914c00c3fe0abb847abcdc66929e93e4cc62abccc7fb381563cc4c70dc9dafec"},
+    {"path": "upstream/logfmt/LICENSE", "bytes": 1077, "sha256": "1b582013d963b973548e8a51b99fc2e8e1937855698c6a7b460886ac2e90017e"},
+    {"path": "upstream/logfmt/README.md", "bytes": 1835, "sha256": "1231e95fd0a7228e1e4eeecc4735b6874e4183920c356d77d1ab8d2d72133532"},
+    {"path": "upstream/dataurl/dataurl.go", "bytes": 6871, "sha256": "57fe21f9eef484a6f41950ebd46789c34227564c8fd30c9c2e5ca72c29dd2efd"},
+    {"path": "upstream/dataurl/doc.go", "bytes": 1078, "sha256": "111f6d433c18229beb8e8dc5dcc111bb2c5157870ec6b3332b6f2af4d3739fdd"},
+    {"path": "upstream/dataurl/lex.go", "bytes": 10130, "sha256": "c2e12e2c2cf7b239bffcd1809115273765510b9865c44e4979cf1eb8d9a99130"},
+    {"path": "upstream/dataurl/rfc2396.go", "bytes": 2778, "sha256": "ea58845ebf74183621e793506801ea2e4fc5c63da50298614532c89f6e9c01d2"},
+    {"path": "upstream/dataurl/LICENSE", "bytes": 1084, "sha256": "d9243f8fb5530dd09ef056ba977be8ff677805986f1f26a66afde2484da8bc60"},
+    {"path": "upstream/dataurl/README.md", "bytes": 2809, "sha256": "9acb66bd6ba03efd1220322065d2b078494d03317eaeabb3b7002fc9e5b3d8cf"},
+    {"path": "attribution/Go-BSD-LICENSE", "bytes": 1479, "sha256": "dd26a7abddd02e2d0aba97805b31f248ef7835d9e10da289b22e3b8ab78b324d"},
+    {"path": "attribution/NOTICE-Go.txt", "bytes": 2656, "sha256": "abdcdb342489c66e45f1f1eb2283f5bd9c54aae3424f21b59540046b7366427a"}
+  ],
+  "readiness": {
+    "observer_or_execution_plan_ready": false,
+    "source_caption_or_truth_qualified": false,
+    "training_ready": false,
+    "source_language_author_diversity_cleared": false,
+    "new_128_or_256_development_tasks_claimed": false,
+    "protected_final_2400_per_domain_target_unchanged": true
+  },
+  "next_action": "Independently author finite Wants and a bounded direct-call observer for these two goals after source-first notes are frozen; preserve source bytes and declare the offline maintainer module recipe before any native startup."
+}
