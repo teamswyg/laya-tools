@@ -1,0 +1,663 @@
+{
+  "evidence": {
+    "atomic:fields": {
+      "end_byte": 1039,
+      "end_line": 50,
+      "path": "internal/typedbehavior/state.go",
+      "raw_file_sha256": "35324ed595bcf384c484f33d98c6866164bebb2b636986ee8ea51bb979bdad7c",
+      "raw_line_span_sha256": "ec996c294bbd17e87a93b9d351bf4a4a7b493c9eb080322651b8c3a62854fa5b",
+      "reference_kind": "independent_text_line_span_not_new_AST_inventory",
+      "start_byte": 395,
+      "start_line": 20,
+      "symbol_or_fields": "atomicConfig/atomicFn/ErrSyntax/atomicError/atomicObservation/atomicVector",
+      "text": "type atomicConfig struct {\n\tCount   uint8\n\tEnabled bool\n}\n\ntype atomicFn func(string, *atomicConfig) (atomicConfig, error)\n\n// ErrSyntax is the exact error required by the finite atomic-commit contract.\n// An error with equal text, or a wrapping of this sentinel, is not exact.\nvar ErrSyntax = errors.New(\"invalid DD,F syntax\")\n\ntype atomicError uint8\n\nconst (\n\tatomicNoError atomicError = iota\n\tatomicSyntaxError\n\tatomicOtherError\n)\n\ntype atomicObservation struct {\n\tReturned atomicConfig\n\tAfter    atomicConfig\n\tError    atomicError\n\tPanicked bool\n}\n\ntype atomicVector struct {\n\tRaw    string\n\tBefore atomicConfig\n\tWant   atomicObservation\n}\n",
+      "whole_program_object_binding_claim": false
+    },
+    "atomic:observer": {
+      "end_byte": 5864,
+      "end_line": 159,
+      "path": "internal/typedbehavior/state.go",
+      "raw_file_sha256": "35324ed595bcf384c484f33d98c6866164bebb2b636986ee8ea51bb979bdad7c",
+      "raw_line_span_sha256": "da2f71bdca18a99585eb76b873cd2f79d2a5a65ecc9cf427fd4b3e4dfe05599e",
+      "reference_kind": "independent_text_line_span_not_new_AST_inventory",
+      "start_byte": 5030,
+      "start_line": 126,
+      "symbol_or_fields": "invokeAtomic/observeAtomic/checkAtomic",
+      "text": "func invokeAtomic(fn atomicFn, raw string, dst *atomicConfig) (out atomicConfig, err error, panicked bool) {\n\tpanicked = true\n\tdefer func() { _ = recover() }()\n\tout, err = fn(raw, dst)\n\tpanicked = false\n\treturn\n}\n\nfunc observeAtomic(fn atomicFn, v atomicVector) atomicObservation {\n\tdst := v.Before\n\tout, err, panicked := invokeAtomic(fn, v.Raw, \u0026dst)\n\te := atomicOtherError\n\tif err == nil {\n\t\te = atomicNoError\n\t} else if err == ErrSyntax {\n\t\te = atomicSyntaxError\n\t}\n\treturn atomicObservation{out, dst, e, panicked}\n}\n\nfunc checkAtomic(fn atomicFn, vectors []atomicVector) controlCheck {\n\tif fn == nil || len(vectors) == 0 {\n\t\treturn controlCheck{Unknown: true}\n\t}\n\tvar result controlCheck\n\tfor _, v := range vectors {\n\t\tgot := observeAtomic(fn, v)\n\t\tresult.Checked++\n\t\tif got != v.Want {\n\t\t\tresult.Failed++\n\t\t}\n\t}\n\treturn result\n}\n",
+      "whole_program_object_binding_claim": false
+    },
+    "component:typedbehavior/state.go:function:atomicCorrect": {
+      "declaration": {
+        "EndByte": 4014,
+        "EndLine": 89,
+        "FormattedSHA256": "46ffcfcee3761e7a3ac53ba90c1f1c6b6fafe8ab3f1e3fd5aa94bce766a620cd",
+        "ID": "typedbehavior/state.go:function:atomicCorrect",
+        "Kind": "function",
+        "NormalizedSHA256": "dca3e7a660b35078749feaba837122e7dadb2cd56a94896e3a99098b67943344",
+        "Path": "internal/typedbehavior/state.go",
+        "RawSHA256": "46ffcfcee3761e7a3ac53ba90c1f1c6b6fafe8ab3f1e3fd5aa94bce766a620cd",
+        "StartByte": 3829,
+        "StartLine": 82,
+        "Symbol": "atomicCorrect"
+      },
+      "json_pointer": "/inventory/Roots/36/Components/0",
+      "official_result_sha256": "d99d635929555d4123bbaa84aac99d0fb29db345f8b813ed70074dd3e09cdbd4",
+      "raw_file_sha256": "35324ed595bcf384c484f33d98c6866164bebb2b636986ee8ea51bb979bdad7c",
+      "reference_kind": "existing_official60_declaration"
+    },
+    "component:typedbehavior/state.go:function:atomicNoCommit": {
+      "declaration": {
+        "EndByte": 4875,
+        "EndLine": 122,
+        "FormattedSHA256": "80eeb6d452732eb4283f5ee4b067101345f6b987339280767c78066004f2e730",
+        "ID": "typedbehavior/state.go:function:atomicNoCommit",
+        "Kind": "function",
+        "NormalizedSHA256": "795a9012b1d7fdacb883e69512be363fbb00911822283e26748d70f6e6488136",
+        "Path": "internal/typedbehavior/state.go",
+        "RawSHA256": "80eeb6d452732eb4283f5ee4b067101345f6b987339280767c78066004f2e730",
+        "StartByte": 4702,
+        "StartLine": 116,
+        "Symbol": "atomicNoCommit"
+      },
+      "json_pointer": "/inventory/Roots/39/Components/0",
+      "official_result_sha256": "d99d635929555d4123bbaa84aac99d0fb29db345f8b813ed70074dd3e09cdbd4",
+      "raw_file_sha256": "35324ed595bcf384c484f33d98c6866164bebb2b636986ee8ea51bb979bdad7c",
+      "reference_kind": "existing_official60_declaration"
+    },
+    "component:typedbehavior/state.go:function:atomicPartialCommit": {
+      "declaration": {
+        "EndByte": 4343,
+        "EndLine": 101,
+        "FormattedSHA256": "615dfbc56f07e812193964b52046473105203c739dbe3fa8a271a8dbeefb03ac",
+        "ID": "typedbehavior/state.go:function:atomicPartialCommit",
+        "Kind": "function",
+        "NormalizedSHA256": "a01e4844627b73036c45720b764f939311166447a3040e06530eb8a82d11e198",
+        "Path": "internal/typedbehavior/state.go",
+        "RawSHA256": "615dfbc56f07e812193964b52046473105203c739dbe3fa8a271a8dbeefb03ac",
+        "StartByte": 4016,
+        "StartLine": 91,
+        "Symbol": "atomicPartialCommit"
+      },
+      "json_pointer": "/inventory/Roots/37/Components/0",
+      "official_result_sha256": "d99d635929555d4123bbaa84aac99d0fb29db345f8b813ed70074dd3e09cdbd4",
+      "raw_file_sha256": "35324ed595bcf384c484f33d98c6866164bebb2b636986ee8ea51bb979bdad7c",
+      "reference_kind": "existing_official60_declaration"
+    },
+    "component:typedbehavior/state.go:function:atomicPartialResult": {
+      "declaration": {
+        "EndByte": 4700,
+        "EndLine": 114,
+        "FormattedSHA256": "86b8fccecfcce7da2ed165d1369d827a9399df200448c0a0bcb66857e7dc78c2",
+        "ID": "typedbehavior/state.go:function:atomicPartialResult",
+        "Kind": "function",
+        "NormalizedSHA256": "f86dc7f169967c5e4f0fa5b09ea5daed7c48898fe987f0787f395eaa56c31733",
+        "Path": "internal/typedbehavior/state.go",
+        "RawSHA256": "86b8fccecfcce7da2ed165d1369d827a9399df200448c0a0bcb66857e7dc78c2",
+        "StartByte": 4345,
+        "StartLine": 103,
+        "Symbol": "atomicPartialResult"
+      },
+      "json_pointer": "/inventory/Roots/38/Components/0",
+      "official_result_sha256": "d99d635929555d4123bbaa84aac99d0fb29db345f8b813ed70074dd3e09cdbd4",
+      "raw_file_sha256": "35324ed595bcf384c484f33d98c6866164bebb2b636986ee8ea51bb979bdad7c",
+      "reference_kind": "existing_official60_declaration"
+    },
+    "component:typedbehavior/state.go:function:decodeAtomic": {
+      "declaration": {
+        "EndByte": 3827,
+        "EndLine": 80,
+        "FormattedSHA256": "2df511c5bb45a47dec2ac9efa026c904b0275729170d40af8ac5ded784e6f4a7",
+        "ID": "typedbehavior/state.go:function:decodeAtomic",
+        "Kind": "function",
+        "NormalizedSHA256": "daca208cea692e5d187bbfe5523c9d3ff757af8fda596da1b4bea5162f2f9aee",
+        "Path": "internal/typedbehavior/state.go",
+        "RawSHA256": "2df511c5bb45a47dec2ac9efa026c904b0275729170d40af8ac5ded784e6f4a7",
+        "StartByte": 3530,
+        "StartLine": 75,
+        "Symbol": "decodeAtomic"
+      },
+      "json_pointer": "/inventory/Roots/36/Components/1",
+      "official_result_sha256": "d99d635929555d4123bbaa84aac99d0fb29db345f8b813ed70074dd3e09cdbd4",
+      "raw_file_sha256": "35324ed595bcf384c484f33d98c6866164bebb2b636986ee8ea51bb979bdad7c",
+      "reference_kind": "existing_official60_declaration"
+    },
+    "component:typedbehavior/state.go:function:identityByMessage": {
+      "declaration": {
+        "EndByte": 9295,
+        "EndLine": 275,
+        "FormattedSHA256": "0565502417948ff00c05a831127d7a79aa78cd2e0bcf3843cf3829517904175e",
+        "ID": "typedbehavior/state.go:function:identityByMessage",
+        "Kind": "function",
+        "NormalizedSHA256": "520f281b642c6e964d53cc0146092c6f1e68e49a9f8153da8393b4cd52ff0f08",
+        "Path": "internal/typedbehavior/state.go",
+        "RawSHA256": "0565502417948ff00c05a831127d7a79aa78cd2e0bcf3843cf3829517904175e",
+        "StartByte": 8935,
+        "StartLine": 263,
+        "Symbol": "identityByMessage"
+      },
+      "json_pointer": "/inventory/Roots/41/Components/0",
+      "official_result_sha256": "d99d635929555d4123bbaa84aac99d0fb29db345f8b813ed70074dd3e09cdbd4",
+      "raw_file_sha256": "35324ed595bcf384c484f33d98c6866164bebb2b636986ee8ea51bb979bdad7c",
+      "reference_kind": "existing_official60_declaration"
+    },
+    "component:typedbehavior/state.go:function:identityCorrect": {
+      "declaration": {
+        "EndByte": 8933,
+        "EndLine": 261,
+        "FormattedSHA256": "f02edc44fbf0405947f4a3e98c507df3667aad579b223723bfda5e8994e938de",
+        "ID": "typedbehavior/state.go:function:identityCorrect",
+        "Kind": "function",
+        "NormalizedSHA256": "f93eed542a280982fe5cc5a3be4525cea9af01e3bc6626b73a8ebae8474dc78a",
+        "Path": "internal/typedbehavior/state.go",
+        "RawSHA256": "f02edc44fbf0405947f4a3e98c507df3667aad579b223723bfda5e8994e938de",
+        "StartByte": 8660,
+        "StartLine": 253,
+        "Symbol": "identityCorrect"
+      },
+      "json_pointer": "/inventory/Roots/40/Components/0",
+      "official_result_sha256": "d99d635929555d4123bbaa84aac99d0fb29db345f8b813ed70074dd3e09cdbd4",
+      "raw_file_sha256": "35324ed595bcf384c484f33d98c6866164bebb2b636986ee8ea51bb979bdad7c",
+      "reference_kind": "existing_official60_declaration"
+    },
+    "component:typedbehavior/state.go:function:identityDirectOnly": {
+      "declaration": {
+        "EndByte": 9532,
+        "EndLine": 285,
+        "FormattedSHA256": "a0386d06a659c232b79320e468a7df09779dde83d334bf30c3bb8c0c85bd75f5",
+        "ID": "typedbehavior/state.go:function:identityDirectOnly",
+        "Kind": "function",
+        "NormalizedSHA256": "2afd93064f5ecd39a29ec844d689a0ad25a7effee881874dd9ba4605f26aa74c",
+        "Path": "internal/typedbehavior/state.go",
+        "RawSHA256": "a0386d06a659c232b79320e468a7df09779dde83d334bf30c3bb8c0c85bd75f5",
+        "StartByte": 9297,
+        "StartLine": 277,
+        "Symbol": "identityDirectOnly"
+      },
+      "json_pointer": "/inventory/Roots/42/Components/0",
+      "official_result_sha256": "d99d635929555d4123bbaa84aac99d0fb29db345f8b813ed70074dd3e09cdbd4",
+      "raw_file_sha256": "35324ed595bcf384c484f33d98c6866164bebb2b636986ee8ea51bb979bdad7c",
+      "reference_kind": "existing_official60_declaration"
+    },
+    "component:typedbehavior/state.go:function:identityMutateCause": {
+      "declaration": {
+        "EndByte": 9826,
+        "EndLine": 296,
+        "FormattedSHA256": "f2596e4ce22604409ef431f1129fc601eb735ea6d050c08961d1467ec7442108",
+        "ID": "typedbehavior/state.go:function:identityMutateCause",
+        "Kind": "function",
+        "NormalizedSHA256": "b6d1c0376229a7ba132dc982003ff7baa6f84c8fb923831836c9707d12e8c20b",
+        "Path": "internal/typedbehavior/state.go",
+        "RawSHA256": "f2596e4ce22604409ef431f1129fc601eb735ea6d050c08961d1467ec7442108",
+        "StartByte": 9534,
+        "StartLine": 287,
+        "Symbol": "identityMutateCause"
+      },
+      "json_pointer": "/inventory/Roots/43/Components/0",
+      "official_result_sha256": "d99d635929555d4123bbaa84aac99d0fb29db345f8b813ed70074dd3e09cdbd4",
+      "raw_file_sha256": "35324ed595bcf384c484f33d98c6866164bebb2b636986ee8ea51bb979bdad7c",
+      "reference_kind": "existing_official60_declaration"
+    },
+    "component:typedbehavior/state.go:method:*identityCause.Error": {
+      "declaration": {
+        "EndByte": 5971,
+        "EndLine": 165,
+        "FormattedSHA256": "dd75201e0ddb84096b225d6b9b62f4195558c4aa5be492f2e0a46bcf96172eba",
+        "ID": "typedbehavior/state.go:method:*identityCause.Error",
+        "Kind": "method",
+        "NormalizedSHA256": "ba07d731e7776ff81ea78b6faabbe49ff0b8957afdb45de0d2f7e1c96d81c899",
+        "Path": "internal/typedbehavior/state.go",
+        "RawSHA256": "dd75201e0ddb84096b225d6b9b62f4195558c4aa5be492f2e0a46bcf96172eba",
+        "StartByte": 5908,
+        "StartLine": 165,
+        "Symbol": "*identityCause.Error"
+      },
+      "json_pointer": "/inventory/Roots/40/Components/1",
+      "official_result_sha256": "d99d635929555d4123bbaa84aac99d0fb29db345f8b813ed70074dd3e09cdbd4",
+      "raw_file_sha256": "35324ed595bcf384c484f33d98c6866164bebb2b636986ee8ea51bb979bdad7c",
+      "reference_kind": "existing_official60_declaration"
+    },
+    "component:typedbehavior/state.go:type:atomicConfig": {
+      "declaration": {
+        "EndByte": 452,
+        "EndLine": 23,
+        "FormattedSHA256": "6e06d527d24c4683de37e0ff9f8ab066ef3d3ec48e8e65910bf532e3788ae03d",
+        "ID": "typedbehavior/state.go:type:atomicConfig",
+        "Kind": "type",
+        "NormalizedSHA256": "",
+        "Path": "internal/typedbehavior/state.go",
+        "RawSHA256": "6e06d527d24c4683de37e0ff9f8ab066ef3d3ec48e8e65910bf532e3788ae03d",
+        "StartByte": 400,
+        "StartLine": 20,
+        "Symbol": "atomicConfig"
+      },
+      "json_pointer": "/inventory/Roots/36/Components/2",
+      "official_result_sha256": "d99d635929555d4123bbaa84aac99d0fb29db345f8b813ed70074dd3e09cdbd4",
+      "raw_file_sha256": "35324ed595bcf384c484f33d98c6866164bebb2b636986ee8ea51bb979bdad7c",
+      "reference_kind": "existing_official60_declaration"
+    },
+    "component:typedbehavior/state.go:type:identityCause": {
+      "declaration": {
+        "EndByte": 5906,
+        "EndLine": 163,
+        "FormattedSHA256": "3264b4a629a02906b78c64be8dc9d449367bc35b4bb46bba70932d969c754d3e",
+        "ID": "typedbehavior/state.go:type:identityCause",
+        "Kind": "type",
+        "NormalizedSHA256": "",
+        "Path": "internal/typedbehavior/state.go",
+        "RawSHA256": "3264b4a629a02906b78c64be8dc9d449367bc35b4bb46bba70932d969c754d3e",
+        "StartByte": 5870,
+        "StartLine": 161,
+        "Symbol": "identityCause"
+      },
+      "json_pointer": "/inventory/Roots/40/Components/2",
+      "official_result_sha256": "d99d635929555d4123bbaa84aac99d0fb29db345f8b813ed70074dd3e09cdbd4",
+      "raw_file_sha256": "35324ed595bcf384c484f33d98c6866164bebb2b636986ee8ea51bb979bdad7c",
+      "reference_kind": "existing_official60_declaration"
+    },
+    "component:typedbehavior/state.go:type:identityFacts": {
+      "declaration": {
+        "EndByte": 6057,
+        "EndLine": 170,
+        "FormattedSHA256": "6d4eb5c9289ee5bdb77a001836086a82ea36f237bf6858ac6e28e2e54222b940",
+        "ID": "typedbehavior/state.go:type:identityFacts",
+        "Kind": "type",
+        "NormalizedSHA256": "",
+        "Path": "internal/typedbehavior/state.go",
+        "RawSHA256": "6d4eb5c9289ee5bdb77a001836086a82ea36f237bf6858ac6e28e2e54222b940",
+        "StartByte": 5978,
+        "StartLine": 167,
+        "Symbol": "identityFacts"
+      },
+      "json_pointer": "/inventory/Roots/40/Components/3",
+      "official_result_sha256": "d99d635929555d4123bbaa84aac99d0fb29db345f8b813ed70074dd3e09cdbd4",
+      "raw_file_sha256": "35324ed595bcf384c484f33d98c6866164bebb2b636986ee8ea51bb979bdad7c",
+      "reference_kind": "existing_official60_declaration"
+    },
+    "component:typedbehavior/state.go:value:ErrSyntax": {
+      "declaration": {
+        "EndByte": 722,
+        "EndLine": 29,
+        "FormattedSHA256": "4a6c1727f64978798529fa383c4110091656c0d21167fe99524e02138ff33bc2",
+        "ID": "typedbehavior/state.go:value:ErrSyntax",
+        "Kind": "value",
+        "NormalizedSHA256": "",
+        "Path": "internal/typedbehavior/state.go",
+        "RawSHA256": "4a6c1727f64978798529fa383c4110091656c0d21167fe99524e02138ff33bc2",
+        "StartByte": 673,
+        "StartLine": 29,
+        "Symbol": "ErrSyntax"
+      },
+      "json_pointer": "/inventory/Roots/36/Components/3",
+      "official_result_sha256": "d99d635929555d4123bbaa84aac99d0fb29db345f8b813ed70074dd3e09cdbd4",
+      "raw_file_sha256": "35324ed595bcf384c484f33d98c6866164bebb2b636986ee8ea51bb979bdad7c",
+      "reference_kind": "existing_official60_declaration"
+    },
+    "identity:fields": {
+      "end_byte": 6512,
+      "end_line": 194,
+      "path": "internal/typedbehavior/state.go",
+      "raw_file_sha256": "35324ed595bcf384c484f33d98c6866164bebb2b636986ee8ea51bb979bdad7c",
+      "raw_line_span_sha256": "794d197b74153654021f96af50562095467853ef82a2d695ea512e7e8fb97bc1",
+      "reference_kind": "independent_text_line_span_not_new_AST_inventory",
+      "start_byte": 5865,
+      "start_line": 161,
+      "symbol_or_fields": "identityCause/Error/identityFacts/identityFn/identityCase/identityVector",
+      "text": "type identityCause struct {\n\tCode uint8\n}\n\nfunc (c *identityCause) Error() string { return \"typed cause\" }\n\ntype identityFacts struct {\n\tHasA, HasB, HasCause bool\n\tCauseCode            uint8\n}\n\ntype identityFn func(input, targetA, targetB error) identityFacts\n\ntype identityCase uint8\n\nconst (\n\tidentityNil identityCase = iota\n\tidentityDirectA\n\tidentityDirectB\n\tidentityWrappedA\n\tidentityJoinedAB\n\tidentitySameMessage\n\tidentityDirectCause\n\tidentityWrappedCause\n\tidentityJoinedACause\n\tidentityJoinedUnrelatedCause\n\tidentityUnrelated\n)\n\ntype identityVector struct {\n\tCase           identityCase\n\tWant           identityFacts\n\tWantCauseAfter uint8\n}\n",
+      "whole_program_object_binding_claim": false
+    },
+    "identity:fixtures": {
+      "end_byte": 8659,
+      "end_line": 251,
+      "path": "internal/typedbehavior/state.go",
+      "raw_file_sha256": "35324ed595bcf384c484f33d98c6866164bebb2b636986ee8ea51bb979bdad7c",
+      "raw_line_span_sha256": "7e241f778f37d1345b4f5ab677a4d26e8cc0d593c75a15a3a23d0edf491ee24a",
+      "reference_kind": "independent_text_line_span_not_new_AST_inventory",
+      "start_byte": 7417,
+      "start_line": 212,
+      "symbol_or_fields": "identityFixture/buildIdentityFixture",
+      "text": "type identityFixture struct {\n\tInput, TargetA, TargetB error\n\tCause                   *identityCause\n}\n\nfunc buildIdentityFixture(kind identityCase) (identityFixture, bool) {\n\t// Equal text is deliberate: equality of messages must not imply identity.\n\ta, b := errors.New(\"same-text\"), errors.New(\"same-text\")\n\tf := identityFixture{TargetA: a, TargetB: b}\n\tswitch kind {\n\tcase identityNil:\n\tcase identityDirectA:\n\t\tf.Input = a\n\tcase identityDirectB:\n\t\tf.Input = b\n\tcase identityWrappedA:\n\t\tf.Input = fmt.Errorf(\"outer: %w\", fmt.Errorf(\"inner: %w\", a))\n\tcase identityJoinedAB:\n\t\tf.Input = errors.Join(a, b)\n\tcase identitySameMessage:\n\t\tf.Input = errors.New(\"same-text\")\n\tcase identityDirectCause:\n\t\tf.Cause = \u0026identityCause{7}\n\t\tf.Input = f.Cause\n\tcase identityWrappedCause:\n\t\tf.Cause = \u0026identityCause{9}\n\t\tf.Input = fmt.Errorf(\"outer: %w\", fmt.Errorf(\"inner: %w\", f.Cause))\n\tcase identityJoinedACause:\n\t\tf.Cause = \u0026identityCause{7}\n\t\tf.Input = errors.Join(a, f.Cause)\n\tcase identityJoinedUnrelatedCause:\n\t\tf.Cause = \u0026identityCause{9}\n\t\tf.Input = errors.Join(errors.New(\"unrelated\"), fmt.Errorf(\"inner: %w\", f.Cause))\n\tcase identityUnrelated:\n\t\tf.Input = errors.New(\"unrelated\")\n\tdefault:\n\t\treturn identityFixture{}, false\n\t}\n\treturn f, true\n}\n",
+      "whole_program_object_binding_claim": false
+    },
+    "identity:observer": {
+      "end_byte": 10554,
+      "end_line": 325,
+      "path": "internal/typedbehavior/state.go",
+      "raw_file_sha256": "35324ed595bcf384c484f33d98c6866164bebb2b636986ee8ea51bb979bdad7c",
+      "raw_line_span_sha256": "b1e353a014a35438ff29c646782d3a56631fd4a47c097b04869ca0c8d4004b29",
+      "reference_kind": "independent_text_line_span_not_new_AST_inventory",
+      "start_byte": 9828,
+      "start_line": 298,
+      "symbol_or_fields": "invokeIdentity/checkIdentity",
+      "text": "func invokeIdentity(fn identityFn, f identityFixture) (out identityFacts, panicked bool) {\n\tpanicked = true\n\tdefer func() { _ = recover() }()\n\tout = fn(f.Input, f.TargetA, f.TargetB)\n\tpanicked = false\n\treturn\n}\n\nfunc checkIdentity(fn identityFn, vectors []identityVector) controlCheck {\n\tif fn == nil || len(vectors) == 0 {\n\t\treturn controlCheck{Unknown: true}\n\t}\n\tvar result controlCheck\n\tfor _, v := range vectors {\n\t\tf, ok := buildIdentityFixture(v.Case)\n\t\tif !ok {\n\t\t\tresult.Unknown = true\n\t\t\treturn result\n\t\t}\n\t\tgot, panicked := invokeIdentity(fn, f)\n\t\tresult.Checked++\n\t\tchanged := f.Cause != nil \u0026\u0026 f.Cause.Code != v.WantCauseAfter\n\t\tif panicked || got != v.Want || changed {\n\t\t\tresult.Failed++\n\t\t}\n\t}\n\treturn result\n}\n",
+      "whole_program_object_binding_claim": false
+    },
+    "literal:atomic-commit": {
+      "historical_contract": {
+        "core_template": "staged-commit",
+        "input_semantics": "Exact ASCII DD,F: two digits, comma, flag 0/1; fresh non-nil destination. Success returns/commits parsed Config. Invalid input returns zero/exact ErrSyntax and preserves destination; no candidate panic.",
+        "literal_vectors": 18,
+        "prototype": "atomic-commit",
+        "truth_table_sha256": "1db8a7b5c077fd02f734b5c9e89739cd1c83d718c71c3cf8b4a1395d75b8075d"
+      },
+      "literal_source_reference": {
+        "end_byte": 3528,
+        "end_line": 73,
+        "expression_kind": "typed_vector_initializer",
+        "file": "internal/typedbehavior/state.go",
+        "literal_vector_expressions": 18,
+        "raw_expression_sha256": "4dc910622c72d6c24f11d16b3a710bd2cb8e2ced1bd18dcf338cf9215d47cfc3",
+        "start_byte": 1217,
+        "start_line": 54,
+        "top_level_symbol": "atomicVectors"
+      },
+      "per_vector_got_available": false,
+      "raw_file_sha256": "35324ed595bcf384c484f33d98c6866164bebb2b636986ee8ea51bb979bdad7c",
+      "reference59_json_pointer": "/references/contracts/12",
+      "reference_kind": "existing59_literal_expression_not_reified"
+    },
+    "literal:error-identity": {
+      "historical_contract": {
+        "core_template": "error-cause-identity",
+        "input_semantics": "Fresh A/B sentinels with equal text and fresh non-nil Cause values. Direct, multiple wrapping, joining, same-message unrelated, and nil error cases; report errors.Is(A/B), errors.As(Cause)/code without changing causes; no candidate panic.",
+        "literal_vectors": 11,
+        "prototype": "error-identity",
+        "truth_table_sha256": "a3f82cc54e5ed58840fff8938107ce5c5636f96eb268141c8d96ca191fa0c230"
+      },
+      "literal_source_reference": {
+        "end_byte": 7415,
+        "end_line": 210,
+        "expression_kind": "typed_vector_initializer",
+        "file": "internal/typedbehavior/state.go",
+        "literal_vector_expressions": 11,
+        "raw_expression_sha256": "4c9ec6036dbb67f307188f004940f36b492d522f48bd5c74a73ecd28c84e2a12",
+        "start_byte": 6693,
+        "start_line": 198,
+        "top_level_symbol": "identityVectors"
+      },
+      "per_vector_got_available": false,
+      "raw_file_sha256": "35324ed595bcf384c484f33d98c6866164bebb2b636986ee8ea51bb979bdad7c",
+      "reference59_json_pointer": "/references/contracts/13",
+      "reference_kind": "existing59_literal_expression_not_reified"
+    },
+    "literal:stable-odd": {
+      "historical_contract": {
+        "core_template": "stable-filter",
+        "input_semantics": "integer sequence; output retained integer sequence; five literal sequences only",
+        "literal_vectors": 5,
+        "prototype": "stable-odd",
+        "truth_table_sha256": "a969d8f0ba9f6ffcd6bce511eb8e154ae2e709708a89e006a090a69384d524cb"
+      },
+      "literal_source_reference": {
+        "end_byte": 14193,
+        "end_line": 400,
+        "expression_kind": "legacy_contract_element",
+        "file": "internal/behaviorprobe/data.go",
+        "literal_vector_expressions": 5,
+        "raw_expression_sha256": "fc7bc48d5a9fa18389393fa31568916935fa24880fcc26fc4d15470daf232628",
+        "start_byte": 13986,
+        "start_line": 400,
+        "top_level_symbol": "contracts"
+      },
+      "per_vector_got_available": false,
+      "raw_file_sha256": "b377343a64c019c205f69865286a21ce5d91dda3051c31aa5c69b75a40300559",
+      "reference59_json_pointer": "/references/contracts/4",
+      "reference_kind": "existing59_literal_expression_not_reified"
+    },
+    "odd:observer": {
+      "end_byte": 21325,
+      "end_line": 507,
+      "path": "internal/behaviorprobe/data.go",
+      "raw_file_sha256": "b377343a64c019c205f69865286a21ce5d91dda3051c31aa5c69b75a40300559",
+      "raw_line_span_sha256": "317f47717098fe9d3b8da82355eb167e6ac9c316540e409dd74acd89bbd4aee4",
+      "reference_kind": "independent_text_line_span_not_new_AST_inventory",
+      "start_byte": 20940,
+      "start_line": 489,
+      "symbol_or_fields": "check: clone/input-preservation/output slices.Equal/panic unknown",
+      "text": "func check(fn func([]int) []int, vectors []vector) (checked, failed int, unknown bool) {\n\tdefer func() {\n\t\tif recover() != nil {\n\t\t\tunknown = true\n\t\t}\n\t}()\n\tfor _, v := range vectors {\n\t\tinput := slices.Clone(v.Input)\n\t\tgot := fn(input)\n\t\tchecked++\n\t\tif !slices.Equal(input, v.Input) {\n\t\t\treturn checked, failed, true\n\t\t}\n\t\tif !slices.Equal(got, v.Want) {\n\t\t\tfailed++\n\t\t}\n\t}\n\treturn\n}\n",
+      "whole_program_object_binding_claim": false
+    },
+    "odd:types": {
+      "end_byte": 12898,
+      "end_line": 390,
+      "path": "internal/behaviorprobe/data.go",
+      "raw_file_sha256": "b377343a64c019c205f69865286a21ce5d91dda3051c31aa5c69b75a40300559",
+      "raw_line_span_sha256": "ea1eec654cf456930e305261bc939a7f15dab33e2517ada499815f8795aa08ad",
+      "reference_kind": "independent_text_line_span_not_new_AST_inventory",
+      "start_byte": 12758,
+      "start_line": 382,
+      "symbol_or_fields": "vector.Input/Want and contract.vectors",
+      "text": "\ntype vector struct {\n\tInput []int `json:\"input\"`\n\tWant  []int `json:\"want\"`\n}\ntype contract struct {\n\tid, core string\n\tvectors  []vector\n}\n",
+      "whole_program_object_binding_claim": false
+    },
+    "root:atomic-correct": {
+      "declaration": {
+        "EndByte": 4014,
+        "EndLine": 89,
+        "FormattedSHA256": "46ffcfcee3761e7a3ac53ba90c1f1c6b6fafe8ab3f1e3fd5aa94bce766a620cd",
+        "ID": "",
+        "Kind": "function",
+        "NormalizedSHA256": "dca3e7a660b35078749feaba837122e7dadb2cd56a94896e3a99098b67943344",
+        "Path": "internal/typedbehavior/state.go",
+        "RawSHA256": "46ffcfcee3761e7a3ac53ba90c1f1c6b6fafe8ab3f1e3fd5aa94bce766a620cd",
+        "StartByte": 3829,
+        "StartLine": 82,
+        "Symbol": "atomicCorrect"
+      },
+      "json_pointer": "/inventory/Roots/36/Root",
+      "official_result_sha256": "d99d635929555d4123bbaa84aac99d0fb29db345f8b813ed70074dd3e09cdbd4",
+      "raw_file_sha256": "35324ed595bcf384c484f33d98c6866164bebb2b636986ee8ea51bb979bdad7c",
+      "reference_kind": "existing_official60_declaration"
+    },
+    "root:atomic-no-commit": {
+      "declaration": {
+        "EndByte": 4875,
+        "EndLine": 122,
+        "FormattedSHA256": "80eeb6d452732eb4283f5ee4b067101345f6b987339280767c78066004f2e730",
+        "ID": "",
+        "Kind": "function",
+        "NormalizedSHA256": "795a9012b1d7fdacb883e69512be363fbb00911822283e26748d70f6e6488136",
+        "Path": "internal/typedbehavior/state.go",
+        "RawSHA256": "80eeb6d452732eb4283f5ee4b067101345f6b987339280767c78066004f2e730",
+        "StartByte": 4702,
+        "StartLine": 116,
+        "Symbol": "atomicNoCommit"
+      },
+      "json_pointer": "/inventory/Roots/39/Root",
+      "official_result_sha256": "d99d635929555d4123bbaa84aac99d0fb29db345f8b813ed70074dd3e09cdbd4",
+      "raw_file_sha256": "35324ed595bcf384c484f33d98c6866164bebb2b636986ee8ea51bb979bdad7c",
+      "reference_kind": "existing_official60_declaration"
+    },
+    "root:atomic-partial-commit": {
+      "declaration": {
+        "EndByte": 4343,
+        "EndLine": 101,
+        "FormattedSHA256": "615dfbc56f07e812193964b52046473105203c739dbe3fa8a271a8dbeefb03ac",
+        "ID": "",
+        "Kind": "function",
+        "NormalizedSHA256": "a01e4844627b73036c45720b764f939311166447a3040e06530eb8a82d11e198",
+        "Path": "internal/typedbehavior/state.go",
+        "RawSHA256": "615dfbc56f07e812193964b52046473105203c739dbe3fa8a271a8dbeefb03ac",
+        "StartByte": 4016,
+        "StartLine": 91,
+        "Symbol": "atomicPartialCommit"
+      },
+      "json_pointer": "/inventory/Roots/37/Root",
+      "official_result_sha256": "d99d635929555d4123bbaa84aac99d0fb29db345f8b813ed70074dd3e09cdbd4",
+      "raw_file_sha256": "35324ed595bcf384c484f33d98c6866164bebb2b636986ee8ea51bb979bdad7c",
+      "reference_kind": "existing_official60_declaration"
+    },
+    "root:atomic-partial-result": {
+      "declaration": {
+        "EndByte": 4700,
+        "EndLine": 114,
+        "FormattedSHA256": "86b8fccecfcce7da2ed165d1369d827a9399df200448c0a0bcb66857e7dc78c2",
+        "ID": "",
+        "Kind": "function",
+        "NormalizedSHA256": "f86dc7f169967c5e4f0fa5b09ea5daed7c48898fe987f0787f395eaa56c31733",
+        "Path": "internal/typedbehavior/state.go",
+        "RawSHA256": "86b8fccecfcce7da2ed165d1369d827a9399df200448c0a0bcb66857e7dc78c2",
+        "StartByte": 4345,
+        "StartLine": 103,
+        "Symbol": "atomicPartialResult"
+      },
+      "json_pointer": "/inventory/Roots/38/Root",
+      "official_result_sha256": "d99d635929555d4123bbaa84aac99d0fb29db345f8b813ed70074dd3e09cdbd4",
+      "raw_file_sha256": "35324ed595bcf384c484f33d98c6866164bebb2b636986ee8ea51bb979bdad7c",
+      "reference_kind": "existing_official60_declaration"
+    },
+    "root:identity-by-message": {
+      "declaration": {
+        "EndByte": 9295,
+        "EndLine": 275,
+        "FormattedSHA256": "0565502417948ff00c05a831127d7a79aa78cd2e0bcf3843cf3829517904175e",
+        "ID": "",
+        "Kind": "function",
+        "NormalizedSHA256": "520f281b642c6e964d53cc0146092c6f1e68e49a9f8153da8393b4cd52ff0f08",
+        "Path": "internal/typedbehavior/state.go",
+        "RawSHA256": "0565502417948ff00c05a831127d7a79aa78cd2e0bcf3843cf3829517904175e",
+        "StartByte": 8935,
+        "StartLine": 263,
+        "Symbol": "identityByMessage"
+      },
+      "json_pointer": "/inventory/Roots/41/Root",
+      "official_result_sha256": "d99d635929555d4123bbaa84aac99d0fb29db345f8b813ed70074dd3e09cdbd4",
+      "raw_file_sha256": "35324ed595bcf384c484f33d98c6866164bebb2b636986ee8ea51bb979bdad7c",
+      "reference_kind": "existing_official60_declaration"
+    },
+    "root:identity-correct": {
+      "declaration": {
+        "EndByte": 8933,
+        "EndLine": 261,
+        "FormattedSHA256": "f02edc44fbf0405947f4a3e98c507df3667aad579b223723bfda5e8994e938de",
+        "ID": "",
+        "Kind": "function",
+        "NormalizedSHA256": "f93eed542a280982fe5cc5a3be4525cea9af01e3bc6626b73a8ebae8474dc78a",
+        "Path": "internal/typedbehavior/state.go",
+        "RawSHA256": "f02edc44fbf0405947f4a3e98c507df3667aad579b223723bfda5e8994e938de",
+        "StartByte": 8660,
+        "StartLine": 253,
+        "Symbol": "identityCorrect"
+      },
+      "json_pointer": "/inventory/Roots/40/Root",
+      "official_result_sha256": "d99d635929555d4123bbaa84aac99d0fb29db345f8b813ed70074dd3e09cdbd4",
+      "raw_file_sha256": "35324ed595bcf384c484f33d98c6866164bebb2b636986ee8ea51bb979bdad7c",
+      "reference_kind": "existing_official60_declaration"
+    },
+    "root:identity-direct-only": {
+      "declaration": {
+        "EndByte": 9532,
+        "EndLine": 285,
+        "FormattedSHA256": "a0386d06a659c232b79320e468a7df09779dde83d334bf30c3bb8c0c85bd75f5",
+        "ID": "",
+        "Kind": "function",
+        "NormalizedSHA256": "2afd93064f5ecd39a29ec844d689a0ad25a7effee881874dd9ba4605f26aa74c",
+        "Path": "internal/typedbehavior/state.go",
+        "RawSHA256": "a0386d06a659c232b79320e468a7df09779dde83d334bf30c3bb8c0c85bd75f5",
+        "StartByte": 9297,
+        "StartLine": 277,
+        "Symbol": "identityDirectOnly"
+      },
+      "json_pointer": "/inventory/Roots/42/Root",
+      "official_result_sha256": "d99d635929555d4123bbaa84aac99d0fb29db345f8b813ed70074dd3e09cdbd4",
+      "raw_file_sha256": "35324ed595bcf384c484f33d98c6866164bebb2b636986ee8ea51bb979bdad7c",
+      "reference_kind": "existing_official60_declaration"
+    },
+    "root:identity-mutate-cause": {
+      "declaration": {
+        "EndByte": 9826,
+        "EndLine": 296,
+        "FormattedSHA256": "f2596e4ce22604409ef431f1129fc601eb735ea6d050c08961d1467ec7442108",
+        "ID": "",
+        "Kind": "function",
+        "NormalizedSHA256": "b6d1c0376229a7ba132dc982003ff7baa6f84c8fb923831836c9707d12e8c20b",
+        "Path": "internal/typedbehavior/state.go",
+        "RawSHA256": "f2596e4ce22604409ef431f1129fc601eb735ea6d050c08961d1467ec7442108",
+        "StartByte": 9534,
+        "StartLine": 287,
+        "Symbol": "identityMutateCause"
+      },
+      "json_pointer": "/inventory/Roots/43/Root",
+      "official_result_sha256": "d99d635929555d4123bbaa84aac99d0fb29db345f8b813ed70074dd3e09cdbd4",
+      "raw_file_sha256": "35324ed595bcf384c484f33d98c6866164bebb2b636986ee8ea51bb979bdad7c",
+      "reference_kind": "existing_official60_declaration"
+    },
+    "root:odd-correct": {
+      "declaration": {
+        "EndByte": 25174,
+        "EndLine": 665,
+        "FormattedSHA256": "ce2a42cd591012e6a66cb512b2f3204f4e857d054366a5aae2571b2c32eb956d",
+        "ID": "",
+        "Kind": "function",
+        "NormalizedSHA256": "7b8890d20f70a359a8f6f078638e0f992a33f94b4bfa73f4d223d2b13141b389",
+        "Path": "internal/behaviorprobe/data.go",
+        "RawSHA256": "ce2a42cd591012e6a66cb512b2f3204f4e857d054366a5aae2571b2c32eb956d",
+        "StartByte": 25042,
+        "StartLine": 657,
+        "Symbol": "oddCorrect"
+      },
+      "json_pointer": "/inventory/Roots/12/Root",
+      "official_result_sha256": "d99d635929555d4123bbaa84aac99d0fb29db345f8b813ed70074dd3e09cdbd4",
+      "raw_file_sha256": "b377343a64c019c205f69865286a21ce5d91dda3051c31aa5c69b75a40300559",
+      "reference_kind": "existing_official60_declaration"
+    },
+    "root:odd-positive": {
+      "declaration": {
+        "EndByte": 25470,
+        "EndLine": 683,
+        "FormattedSHA256": "8600d00a3b890be7f7c12dd10077bc76ac7914733fe0340b4de58bf157892885",
+        "ID": "",
+        "Kind": "function",
+        "NormalizedSHA256": "fe03a25b0e9a7fb50555bb5a21987274e5596e923e2e2878ac394a9f8fd07b9d",
+        "Path": "internal/behaviorprobe/data.go",
+        "RawSHA256": "8600d00a3b890be7f7c12dd10077bc76ac7914733fe0340b4de58bf157892885",
+        "StartByte": 25328,
+        "StartLine": 675,
+        "Symbol": "oddPositive"
+      },
+      "json_pointer": "/inventory/Roots/14/Root",
+      "official_result_sha256": "d99d635929555d4123bbaa84aac99d0fb29db345f8b813ed70074dd3e09cdbd4",
+      "raw_file_sha256": "b377343a64c019c205f69865286a21ce5d91dda3051c31aa5c69b75a40300559",
+      "reference_kind": "existing_official60_declaration"
+    },
+    "root:odd-reversed": {
+      "declaration": {
+        "EndByte": 25327,
+        "EndLine": 674,
+        "FormattedSHA256": "d811808cef9bf365adb3319d9a2e2d3ca8fd509b2db908edf158c31e14e8553e",
+        "ID": "",
+        "Kind": "function",
+        "NormalizedSHA256": "867eb192a2d7fe0382ef2918c2d391b415752cd1bb7cb53130c3999f1794e293",
+        "Path": "internal/behaviorprobe/data.go",
+        "RawSHA256": "d811808cef9bf365adb3319d9a2e2d3ca8fd509b2db908edf158c31e14e8553e",
+        "StartByte": 25175,
+        "StartLine": 666,
+        "Symbol": "oddReversed"
+      },
+      "json_pointer": "/inventory/Roots/13/Root",
+      "official_result_sha256": "d99d635929555d4123bbaa84aac99d0fb29db345f8b813ed70074dd3e09cdbd4",
+      "raw_file_sha256": "b377343a64c019c205f69865286a21ce5d91dda3051c31aa5c69b75a40300559",
+      "reference_kind": "existing_official60_declaration"
+    },
+    "typed:control-fields": {
+      "end_byte": 795,
+      "end_line": 24,
+      "path": "internal/typedbehavior/spec.go",
+      "raw_file_sha256": "013a486ecc1d28913c2dda8cf74b3068dcb193d8b77e534dc62e2f87b9ee6b80",
+      "raw_line_span_sha256": "f220c57cfbe8db0c255f94eaa340f8dd24e23f2513decf30ad5a5f9b3d5226e8",
+      "reference_kind": "independent_text_line_span_not_new_AST_inventory",
+      "start_byte": 726,
+      "start_line": 20,
+      "symbol_or_fields": "controlCheck.Checked/Failed/Unknown",
+      "text": "type controlCheck struct {\n\tChecked int\n\tFailed  int\n\tUnknown bool\n}\n",
+      "whole_program_object_binding_claim": false
+    }
+  },
+  "input_freeze_commit": "c0f279da4c2410699977b502ae4ca2fddd3d3ca8",
+  "literal_payload_reified": false,
+  "new_AST_formatter_or_Rebind_calls": 0,
+  "new_per_vector_got": 0,
+  "official_result_sha256": "d99d635929555d4123bbaa84aac99d0fb29db345f8b813ed70074dd3e09cdbd4",
+  "protocol_sha256": "6f4504ba04e0b5813e4dc58ec0f6dbe5101a1127e09a379172dd57d7ed11ff19",
+  "schema": "riido-caption-review-source-evidence-catalog-60-v1",
+  "source_freeze_commit": "cc8502f872b047e02961322ff1fcdce4af46e59c"
+}

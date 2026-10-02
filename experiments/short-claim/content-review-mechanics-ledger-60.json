@@ -1,0 +1,52 @@
+{
+  "schema": "riido-independent-artifact-mechanics-attempt-ledger-60-v1",
+  "scope": "Private independent artifact integrity check only. No second origin, semantic assessment, behavior experiment, model-quality experiment or candidate approval.",
+  "actual_metadata_verifier_invocations": 2,
+  "actual_metadata_verifier_failed": 1,
+  "actual_metadata_verifier_passed": 1,
+  "attempts": [
+    {
+      "attempt": 1,
+      "exit_code": 1,
+      "checks": 118713,
+      "failed_checks": 340,
+      "report": "review-attempt-1.json",
+      "cause": "Checker incorrectly treated protocol.axes object entries as strings, causing 195 vocabulary and 144 coverage-key false positives. Its forbidden-field scan also incorrectly treated the execution-ledger new_labels=0 counter as a label feature. The 340 failures were checker errors, not artifact defects.",
+      "artifact_mutations": 0
+    },
+    {
+      "attempt": 2,
+      "exit_code": 0,
+      "checks": 118712,
+      "failed_checks": 0,
+      "report": "review-attempt-2.json",
+      "checker_changes": "Read each protocol axis object's id. Accept only the exact zero-valued review/execution_ledger/new_labels counter while continuing to reject label features and nonzero new-label counters.",
+      "artifact_mutations": 0
+    }
+  ],
+  "synthetic_race_test_commands": 1,
+  "synthetic_race_test_commands_passed": 1,
+  "synthetic_race_test_commands_failed": 0,
+  "synthetic_test_functions": 7,
+  "vet_commands": 1,
+  "vet_commands_passed": 1,
+  "vet_commands_failed": 0,
+  "format_commands": 2,
+  "format_commands_failed": 0,
+  "original_inventory_calls": 0,
+  "original_AST_formatter_SourcePins_Bind_Generate_candidate_API_calls": 0,
+  "new_semantic_assessments": 0,
+  "behavior_executions": 0,
+  "models_paid_calls_fits": 0,
+  "shared_public_writes_commits_pushes": 0,
+  "judgment_rewrites": 0,
+  "successful_final_artifact_pins": {
+    "protocol_sha256": "6f4504ba04e0b5813e4dc58ec0f6dbe5101a1127e09a379172dd57d7ed11ff19",
+    "reference_scaffolding_sha256": "0f3f0b7742bd74a45e5c263f501bcce63964e2432a3cafb3217156d694f6ffdd",
+    "source_inventory_sha256": "d99d635929555d4123bbaa84aac99d0fb29db345f8b813ed70074dd3e09cdbd4",
+    "assessments_sha256": "1beb5c06d3fb70c0a5e0727de793f1890b4ab4a47f1d392a6666b068f096c526",
+    "evidence_sha256": "be5bb734158c2148818c7f97e2965eb9b9f0d0f76b33506d3262d7671fbe6bea",
+    "producer_receipt_sha256": "1ac37c2f2f1e8d10d2f5cda02e7e3f96d6b8ba1ba466f453cb7b39f3a4e4f170"
+  },
+  "remaining_limit": "This checker verifies exact bytes, recorded ranges, pointer joins, cardinality, protocol states and record references. It does not prove the natural-language judgments, general whole-program closure, independent data origin, runtime performance or training readiness. The producer's separate byte-check failure/retry counters were read as declared provenance, not executed or counted as this checker's invocations."
+}
