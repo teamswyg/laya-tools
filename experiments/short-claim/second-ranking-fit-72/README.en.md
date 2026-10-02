@@ -20,4 +20,6 @@ The new coefficient file is32,792B, SHA `539bd0de1c4b08af99645ebc113eeaa7a7aeaef
 
 Independent numerical review used saved coefficients and projection to verify scores, weighted BCE, selected-epoch pair loss, candidate orders and check counts. It reran no original trainer, feature, baseline or role API. Intermediate epoch coefficients, repeatability and generalization were not independently reconstructed.
 
-[Original result](results.json) · [Outside execution ledger](ROOT-ACTUAL-LEDGER.v1.json) · [Independent numeric review](RECEIPT-SECOND-FIT-NUMERIC.v1.json) · [Source CI](SOURCE-CI.v1.json) · [한국어](README.ko.md)
+The [failed HF research archive](https://huggingface.co/JooYoon/riidolaya-shortclaim-rank-bce-failed-72/tree/d090b00e9a5dab00d5372dfd6412c9aee0c60b7b) was published and all9 files matched after downloading again. Archiving does not promote the model; all qualification flags remain false. [Publication/readback proof](../publication-proof-96/HF-PUBLICATION-72.v1.json).
+
+[Original result](results.json) · [Outside execution ledger](ROOT-ACTUAL-LEDGER.v1.json) · [Independent numeric review](RECEIPT-SECOND-FIT-NUMERIC.v1.json) · [Source CI](SOURCE-CI.v1.json) · [Failure analysis](ANALYSIS.en.md) · [한국어](README.ko.md)

@@ -20,4 +20,6 @@
 
 독립 수치 검토는 저장된 계수·projection만으로 점수·가중 BCE·선택 epoch의 후보 쌍 손실·후보 순서·확인 횟수를 재계산해 일치를 확인했다. 원본 trainer·feature·baseline·role API나 실제 학습은 다시 실행하지 않았다. 중간 epoch의 계수를 복원하거나 재현성·일반화까지 검증한 것은 아니다.
 
-[원본 결과](results.json) · [외부 실행 기록](ROOT-ACTUAL-LEDGER.v1.json) · [독립 수치 검토](RECEIPT-SECOND-FIT-NUMERIC.v1.json) · [소스 CI](SOURCE-CI.v1.json) · [English](README.en.md)
+[실패 연구 모델의 HF 보관본](https://huggingface.co/JooYoon/riidolaya-shortclaim-rank-bce-failed-72/tree/d090b00e9a5dab00d5372dfd6412c9aee0c60b7b)을 게시하고 파일9개를 다시 내려받아 원본과 일치를 확인했다. 연구 보관은 모델 승격이 아니며 모든 적격성 false를 유지한다. [게시·검증 기록](../publication-proof-96/HF-PUBLICATION-72.v1.json).
+
+[원본 결과](results.json) · [외부 실행 기록](ROOT-ACTUAL-LEDGER.v1.json) · [독립 수치 검토](RECEIPT-SECOND-FIT-NUMERIC.v1.json) · [소스 CI](SOURCE-CI.v1.json) · [실패 분석](ANALYSIS.ko.md) · [English](README.en.md)

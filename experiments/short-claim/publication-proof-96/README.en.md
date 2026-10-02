@@ -8,4 +8,6 @@ PR94's [Korean Wiki](https://github.com/teamswyg/laya-tools/wiki/First-Claim-Fit
 
 The first Issue19 comment comparison failed because the CLI added a trailing newline; exact raw-body readback subsequently matched. The comment was posted once. Before HF publication, one CI JSON assertion used fields from a different response shape and failed; the corrected assertion passed before any remote mutation. These metadata handoff failures are not training retries or changes in model utility.
 
+The second scratch sibling was published in a separate [failed research archive](https://huggingface.co/JooYoon/riidolaya-shortclaim-rank-bce-failed-72/tree/d090b00e9a5dab00d5372dfd6412c9aee0c60b7b). All9 project files,157,923B, matched after a fresh download; `failed-rank-bce-72-v1` resolves to the same commit. The collection retains its earlier16 items and now has17. [Publication proof](HF-PUBLICATION-72.v1.json) links the [final PR95 CI/merge receipt](CI-PR95.v1.json). Fit source isd506; later851 has unchanged Go sources. Remote publication followed successful851 CI and automatic merge. The27-to33 regression and false qualification remain unchanged.
+
 [한국어](README.ko.md)

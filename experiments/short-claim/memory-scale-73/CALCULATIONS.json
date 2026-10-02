@@ -1,0 +1,511 @@
+{
+  "Schema": "riido-sparse-memory-scale-analysis-v1",
+  "Scope": "Source reading and saved metadata arithmetic; theory only, not a constructed corpus or runtime capacity guarantee",
+  "SourceCommit": "d506f58ccf9629e2d2b6ca3cd1766ab20789bf64",
+  "Input": {
+    "id": "historical_full76_projection_result",
+    "bytes": 8390462,
+    "sha256": "f68bff5f48747a66f038c17262568c1bd91251a8c81b3f46f7ae5090c8fe4b99"
+  },
+  "Sources": [
+    {
+      "id": "internal/claimfit/projection.go",
+      "bytes": 13216,
+      "sha256": "2e6dcc5e53d50ca315a59113c3493c8e08a2492979c5817b82563dd7e354e316"
+    },
+    {
+      "id": "internal/pairlearn/learn.go",
+      "bytes": 8115,
+      "sha256": "e25ca8e75b55b7dc1b91c3b29222835ca38e5399e7ba78a38be9207c671a8768"
+    },
+    {
+      "id": "internal/pairlearn/ranking.go",
+      "bytes": 13968,
+      "sha256": "531ce807d0b4117dc9acaaa800e7d42f8ed38998bc799a69fb588092dce2c11d"
+    },
+    {
+      "id": "internal/hintlearn/learn.go",
+      "bytes": 10192,
+      "sha256": "fd3c93b516ad5f3a84dd8e221aa38b5d6d9b6fb26345bd2dfda937b889ce6899"
+    },
+    {
+      "id": "internal/lexicalhint/features.go",
+      "bytes": 4019,
+      "sha256": "20224bcab1ea2d6e5203a2efb7772adef0786eea67f43a003a5b2db896804557"
+    },
+    {
+      "id": "pkg/shortclaim/input.go",
+      "bytes": 9454,
+      "sha256": "3b296ca0835c4397af7444a2f956aeae59638dd350cbc861bf36dd81bc210ecb"
+    }
+  ],
+  "Sizes": [
+    {
+      "type": "int",
+      "bytes": 8
+    },
+    {
+      "type": "Prepared",
+      "bytes": 456
+    },
+    {
+      "type": "RuntimeParent",
+      "bytes": 576
+    },
+    {
+      "type": "Projection",
+      "bytes": 1096
+    },
+    {
+      "type": "Dataset",
+      "bytes": 168
+    },
+    {
+      "type": "RowRef",
+      "bytes": 16
+    },
+    {
+      "type": "rowPlan",
+      "bytes": 32
+    },
+    {
+      "type": "groupRole",
+      "bytes": 16
+    },
+    {
+      "type": "RankingEpoch_actual_struct",
+      "bytes": 40
+    }
+  ],
+  "Actual": {
+    "Parents": 76,
+    "Candidates": 226,
+    "TextBytes": 64586,
+    "ParentArrayBytes": 43776,
+    "ProjectionHeaderBytes": 1096,
+    "RecomputedPayloadBytes": 1928154,
+    "FeatureBytes": 1806520,
+    "RowAndRefBytes": 12176,
+    "Columns": [
+      {
+        "id": "train",
+        "Rows": 91,
+        "Features": 67104,
+        "Minimum": 124,
+        "Median": 462,
+        "P95": 2072,
+        "Maximum": 2275,
+        "PayloadBytes": 675416
+      },
+      {
+        "id": "validation",
+        "Rows": 45,
+        "Features": 37975,
+        "Minimum": 220,
+        "Median": 396,
+        "P95": 2729,
+        "Maximum": 2735,
+        "PayloadBytes": 381918
+      },
+      {
+        "id": "train_positive_weight_diagnostic",
+        "Rows": 73,
+        "Features": 37916,
+        "Minimum": 124,
+        "Median": 409,
+        "P95": 1777,
+        "Maximum": 2072,
+        "PayloadBytes": 382672
+      },
+      {
+        "id": "validation_positive_weight_diagnostic",
+        "Rows": 44,
+        "Features": 37657,
+        "Minimum": 220,
+        "Median": 434,
+        "P95": 2729,
+        "Maximum": 2735,
+        "PayloadBytes": 378690
+      }
+    ],
+    "FullFitMeanStoredEntries": 772.6397058823529,
+    "RankingConservativeReserveBytes": 11712,
+    "CompactRowRefSavingBytes": 3289,
+    "Uint32OffsetSavingBytes": 1028,
+    "DiagnosticFeatureCopyBytes": 755730
+  },
+  "Scaling": [
+    {
+      "requests": 128,
+      "same_76_composition_payload_bytes_estimate": 3246668,
+      "payload_mib": 3.096263885498047,
+      "same_76_serialization_file_bytes_estimate": 14131305,
+      "json_mib": 13.476662635803223,
+      "OwnCap": true,
+      "FileCap": true
+    },
+    {
+      "requests": 256,
+      "same_76_composition_payload_bytes_estimate": 6492239,
+      "payload_mib": 6.191481590270996,
+      "same_76_serialization_file_bytes_estimate": 28262609,
+      "json_mib": 26.95332431793213,
+      "OwnCap": true,
+      "FileCap": true
+    },
+    {
+      "requests": 512,
+      "same_76_composition_payload_bytes_estimate": 12983382,
+      "payload_mib": 12.381917953491211,
+      "same_76_serialization_file_bytes_estimate": 56525218,
+      "json_mib": 53.90664863586426,
+      "OwnCap": true,
+      "FileCap": true
+    },
+    {
+      "requests": 2400,
+      "same_76_composition_payload_bytes_estimate": 60855560,
+      "payload_mib": 58.03638458251953,
+      "same_76_serialization_file_bytes_estimate": 264961958,
+      "json_mib": 252.68741416931152,
+      "OwnCap": true,
+      "FileCap": false
+    }
+  ],
+  "AllKnownAllWeightOneScenarios": [
+    {
+      "Requests": 128,
+      "Candidates": 2,
+      "StoredFeaturesPerRow": 772.6397058823529,
+      "TextBytesBoundPerParent": 3357,
+      "PayloadBytes": 4485043.294117647,
+      "PayloadMiB": 4.277270597570083,
+      "WithinOwnCap": true,
+      "MaxPairCount": 128,
+      "RankingReserveBytes": 18880,
+      "RankingReserveMiB": 0.01800537109375,
+      "MaxMeanFeaturesAt64MiB": 13003.8546875
+    },
+    {
+      "Requests": 128,
+      "Candidates": 2,
+      "StoredFeaturesPerRow": 3970,
+      "TextBytesBoundPerParent": 3357,
+      "PayloadBytes": 20855528,
+      "PayloadMiB": 19.889381408691406,
+      "WithinOwnCap": true,
+      "MaxPairCount": 128,
+      "RankingReserveBytes": 18880,
+      "RankingReserveMiB": 0.01800537109375,
+      "MaxMeanFeaturesAt64MiB": 13003.8546875
+    },
+    {
+      "Requests": 128,
+      "Candidates": 4,
+      "StoredFeaturesPerRow": 772.6397058823529,
+      "TextBytesBoundPerParent": 5533,
+      "PayloadBytes": 8744062.588235294,
+      "PayloadMiB": 8.33898791144876,
+      "WithinOwnCap": true,
+      "MaxPairCount": 512,
+      "RankingReserveBytes": 43456,
+      "RankingReserveMiB": 0.04144287109375,
+      "MaxMeanFeaturesAt64MiB": 6472.32734375
+    },
+    {
+      "Requests": 128,
+      "Candidates": 4,
+      "StoredFeaturesPerRow": 3970,
+      "TextBytesBoundPerParent": 5533,
+      "PayloadBytes": 41485032,
+      "PayloadMiB": 39.563209533691406,
+      "WithinOwnCap": true,
+      "MaxPairCount": 512,
+      "RankingReserveBytes": 43456,
+      "RankingReserveMiB": 0.04144287109375,
+      "MaxMeanFeaturesAt64MiB": 6472.32734375
+    },
+    {
+      "Requests": 128,
+      "Candidates": 8,
+      "StoredFeaturesPerRow": 772.6397058823529,
+      "TextBytesBoundPerParent": 9885,
+      "PayloadBytes": 17262101.17647059,
+      "PayloadMiB": 16.462422539206113,
+      "WithinOwnCap": true,
+      "MaxPairCount": 2048,
+      "RankingReserveBytes": 117184,
+      "RankingReserveMiB": 0.11175537109375,
+      "MaxMeanFeaturesAt64MiB": 3206.563671875
+    },
+    {
+      "Requests": 128,
+      "Candidates": 8,
+      "StoredFeaturesPerRow": 3970,
+      "TextBytesBoundPerParent": 9885,
+      "PayloadBytes": 82744040,
+      "PayloadMiB": 78.9108657836914,
+      "WithinOwnCap": false,
+      "MaxPairCount": 2048,
+      "RankingReserveBytes": 117184,
+      "RankingReserveMiB": 0.11175537109375,
+      "MaxMeanFeaturesAt64MiB": 3206.563671875
+    },
+    {
+      "Requests": 256,
+      "Candidates": 2,
+      "StoredFeaturesPerRow": 772.6397058823529,
+      "TextBytesBoundPerParent": 3357,
+      "PayloadBytes": 8968958.588235294,
+      "PayloadMiB": 8.55346545051126,
+      "WithinOwnCap": true,
+      "MaxPairCount": 256,
+      "RankingReserveBytes": 35264,
+      "RankingReserveMiB": 0.03363037109375,
+      "MaxMeanFeaturesAt64MiB": 6450.36484375
+    },
+    {
+      "Requests": 256,
+      "Candidates": 2,
+      "StoredFeaturesPerRow": 3970,
+      "TextBytesBoundPerParent": 3357,
+      "PayloadBytes": 41709928,
+      "PayloadMiB": 39.777687072753906,
+      "WithinOwnCap": true,
+      "MaxPairCount": 256,
+      "RankingReserveBytes": 35264,
+      "RankingReserveMiB": 0.03363037109375,
+      "MaxMeanFeaturesAt64MiB": 6450.36484375
+    },
+    {
+      "Requests": 256,
+      "Candidates": 4,
+      "StoredFeaturesPerRow": 772.6397058823529,
+      "TextBytesBoundPerParent": 5533,
+      "PayloadBytes": 17486997.17647059,
+      "PayloadMiB": 16.676900078268613,
+      "WithinOwnCap": true,
+      "MaxPairCount": 1024,
+      "RankingReserveBytes": 84416,
+      "RankingReserveMiB": 0.08050537109375,
+      "MaxMeanFeaturesAt64MiB": 3195.582421875
+    },
+    {
+      "Requests": 256,
+      "Candidates": 4,
+      "StoredFeaturesPerRow": 3970,
+      "TextBytesBoundPerParent": 5533,
+      "PayloadBytes": 82968936,
+      "PayloadMiB": 79.1253433227539,
+      "WithinOwnCap": false,
+      "MaxPairCount": 1024,
+      "RankingReserveBytes": 84416,
+      "RankingReserveMiB": 0.08050537109375,
+      "MaxMeanFeaturesAt64MiB": 3195.582421875
+    },
+    {
+      "Requests": 256,
+      "Candidates": 8,
+      "StoredFeaturesPerRow": 772.6397058823529,
+      "TextBytesBoundPerParent": 9885,
+      "PayloadBytes": 34523074.35294118,
+      "PayloadMiB": 32.92376933378332,
+      "WithinOwnCap": true,
+      "MaxPairCount": 4096,
+      "RankingReserveBytes": 231872,
+      "RankingReserveMiB": 0.22113037109375,
+      "MaxMeanFeaturesAt64MiB": 1568.1912109375
+    },
+    {
+      "Requests": 256,
+      "Candidates": 8,
+      "StoredFeaturesPerRow": 3970,
+      "TextBytesBoundPerParent": 9885,
+      "PayloadBytes": 165486952,
+      "PayloadMiB": 157.8206558227539,
+      "WithinOwnCap": false,
+      "MaxPairCount": 4096,
+      "RankingReserveBytes": 231872,
+      "RankingReserveMiB": 0.22113037109375,
+      "MaxMeanFeaturesAt64MiB": 1568.1912109375
+    },
+    {
+      "Requests": 512,
+      "Candidates": 2,
+      "StoredFeaturesPerRow": 772.6397058823529,
+      "TextBytesBoundPerParent": 3357,
+      "PayloadBytes": 17936789.17647059,
+      "PayloadMiB": 17.105855156393613,
+      "WithinOwnCap": true,
+      "MaxPairCount": 512,
+      "RankingReserveBytes": 68032,
+      "RankingReserveMiB": 0.06488037109375,
+      "MaxMeanFeaturesAt64MiB": 3173.619921875
+    },
+    {
+      "Requests": 512,
+      "Candidates": 2,
+      "StoredFeaturesPerRow": 3970,
+      "TextBytesBoundPerParent": 3357,
+      "PayloadBytes": 83418728,
+      "PayloadMiB": 79.5542984008789,
+      "WithinOwnCap": false,
+      "MaxPairCount": 512,
+      "RankingReserveBytes": 68032,
+      "RankingReserveMiB": 0.06488037109375,
+      "MaxMeanFeaturesAt64MiB": 3173.619921875
+    },
+    {
+      "Requests": 512,
+      "Candidates": 4,
+      "StoredFeaturesPerRow": 772.6397058823529,
+      "TextBytesBoundPerParent": 5533,
+      "PayloadBytes": 34972866.35294118,
+      "PayloadMiB": 33.35272441190832,
+      "WithinOwnCap": true,
+      "MaxPairCount": 2048,
+      "RankingReserveBytes": 166336,
+      "RankingReserveMiB": 0.15863037109375,
+      "MaxMeanFeaturesAt64MiB": 1557.2099609375
+    },
+    {
+      "Requests": 512,
+      "Candidates": 4,
+      "StoredFeaturesPerRow": 3970,
+      "TextBytesBoundPerParent": 5533,
+      "PayloadBytes": 165936744,
+      "PayloadMiB": 158.2496109008789,
+      "WithinOwnCap": false,
+      "MaxPairCount": 2048,
+      "RankingReserveBytes": 166336,
+      "RankingReserveMiB": 0.15863037109375,
+      "MaxMeanFeaturesAt64MiB": 1557.2099609375
+    },
+    {
+      "Requests": 512,
+      "Candidates": 8,
+      "StoredFeaturesPerRow": 772.6397058823529,
+      "TextBytesBoundPerParent": 9885,
+      "PayloadBytes": 69045020.70588236,
+      "PayloadMiB": 65.84646292293773,
+      "WithinOwnCap": false,
+      "MaxPairCount": 8192,
+      "RankingReserveBytes": 461248,
+      "RankingReserveMiB": 0.43988037109375,
+      "MaxMeanFeaturesAt64MiB": 749.00498046875
+    },
+    {
+      "Requests": 512,
+      "Candidates": 8,
+      "StoredFeaturesPerRow": 3970,
+      "TextBytesBoundPerParent": 9885,
+      "PayloadBytes": 330972776,
+      "PayloadMiB": 315.6402359008789,
+      "WithinOwnCap": false,
+      "MaxPairCount": 8192,
+      "RankingReserveBytes": 461248,
+      "RankingReserveMiB": 0.43988037109375,
+      "MaxMeanFeaturesAt64MiB": 749.00498046875
+    },
+    {
+      "Requests": 2400,
+      "Candidates": 2,
+      "StoredFeaturesPerRow": 772.6397058823529,
+      "TextBytesBoundPerParent": 3357,
+      "PayloadBytes": 84074539.76470588,
+      "PayloadMiB": 80.17972923727596,
+      "WithinOwnCap": false,
+      "MaxPairCount": 2400,
+      "RankingReserveBytes": 309696,
+      "RankingReserveMiB": 0.29534912109375,
+      "MaxMeanFeaturesAt64MiB": 595.9139166666666
+    },
+    {
+      "Requests": 2400,
+      "Candidates": 2,
+      "StoredFeaturesPerRow": 3970,
+      "TextBytesBoundPerParent": 3357,
+      "PayloadBytes": 391021128,
+      "PayloadMiB": 372.9068069458008,
+      "WithinOwnCap": false,
+      "MaxPairCount": 2400,
+      "RankingReserveBytes": 309696,
+      "RankingReserveMiB": 0.29534912109375,
+      "MaxMeanFeaturesAt64MiB": 595.9139166666666
+    },
+    {
+      "Requests": 2400,
+      "Candidates": 4,
+      "StoredFeaturesPerRow": 772.6397058823529,
+      "TextBytesBoundPerParent": 5533,
+      "PayloadBytes": 163931151.52941176,
+      "PayloadMiB": 156.33692887250115,
+      "WithinOwnCap": false,
+      "MaxPairCount": 9600,
+      "RankingReserveBytes": 770496,
+      "RankingReserveMiB": 0.73480224609375,
+      "MaxMeanFeaturesAt64MiB": 268.35695833333335
+    },
+    {
+      "Requests": 2400,
+      "Candidates": 4,
+      "StoredFeaturesPerRow": 3970,
+      "TextBytesBoundPerParent": 5533,
+      "PayloadBytes": 777824328,
+      "PayloadMiB": 741.7910842895508,
+      "WithinOwnCap": false,
+      "MaxPairCount": 9600,
+      "RankingReserveBytes": 770496,
+      "RankingReserveMiB": 0.73480224609375,
+      "MaxMeanFeaturesAt64MiB": 268.35695833333335
+    },
+    {
+      "Requests": 2400,
+      "Candidates": 8,
+      "StoredFeaturesPerRow": 772.6397058823529,
+      "TextBytesBoundPerParent": 9885,
+      "PayloadBytes": 323644375.0588235,
+      "PayloadMiB": 308.6513281429515,
+      "WithinOwnCap": false,
+      "MaxPairCount": 38400,
+      "RankingReserveBytes": 2152896,
+      "RankingReserveMiB": 2.05316162109375,
+      "MaxMeanFeaturesAt64MiB": 104.57847916666667
+    },
+    {
+      "Requests": 2400,
+      "Candidates": 8,
+      "StoredFeaturesPerRow": 3970,
+      "TextBytesBoundPerParent": 9885,
+      "PayloadBytes": 1551430728,
+      "PayloadMiB": 1479.5596389770508,
+      "WithinOwnCap": false,
+      "MaxPairCount": 38400,
+      "RankingReserveBytes": 2152896,
+      "RankingReserveMiB": 2.05316162109375,
+      "MaxMeanFeaturesAt64MiB": 104.57847916666667
+    }
+  ],
+  "Limits": {
+    "OwnPayloadCap": 67108864,
+    "RankingIndependentCap": 67108864,
+    "DriverPerInputFileCap": 67108864,
+    "GoSoftHeap": 268435456,
+    "MaxSparseEntriesPerBoundedTextRow": 3970,
+    "SameCompositionOwnCapRequests": 2646,
+    "SameSerializationFileCapRequests": 607
+  },
+  "Operations": {
+    "SavedArrayCalculatorAttempts": 1,
+    "Failures": 0,
+    "OriginalAPICalls": 0,
+    "TrainingCalls": 0,
+    "FeatureCalls": 0,
+    "ProjectionCalls": 0,
+    "Benchmarks": 0,
+    "SharedEdits": 0,
+    "PublicWrites": 0,
+    "ReadingSearchFailureCount": 1,
+    "CollaborationCost": "AI-assisted source/text reading; ordinary collaboration cost not measured; no separate model/API process was launched."
+  }
+}
