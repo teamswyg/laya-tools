@@ -1,5 +1,10 @@
 **[Home / 홈](https://github.com/teamswyg/laya-tools/wiki)**
 
+- [설명 내용61 결과](https://github.com/teamswyg/laya-tools/wiki/Caption-Content-Review-Results-61-KO) · [Caption content61](https://github.com/teamswyg/laya-tools/wiki/Caption-Content-Review-Results-61-EN)
+- [설명 내용61 상세 검토](https://github.com/teamswyg/laya-tools/wiki/Caption-Content-Review-Findings-61-KO) · [Content findings61](https://github.com/teamswyg/laya-tools/wiki/Caption-Content-Review-Findings-61-EN)
+- [설명 내용61 기계적 대조](https://github.com/teamswyg/laya-tools/wiki/Caption-Content-Review-QA-61-KO) · [Mechanical checks61](https://github.com/teamswyg/laya-tools/wiki/Caption-Content-Review-QA-61-EN)
+- [Go 역할 분할62](https://github.com/teamswyg/laya-tools/blob/main/experiments/short-claim/role-preparation/README.ko.md) · [Go role module62](https://github.com/teamswyg/laya-tools/blob/main/experiments/short-claim/role-preparation/README.en.md)
+- [공개 원문 문구63](https://github.com/teamswyg/laya-tools/blob/main/experiments/short-claim/upstream-wording/README.ko.md) · [Public upstream wording63](https://github.com/teamswyg/laya-tools/blob/main/experiments/short-claim/upstream-wording/README.en.md)
 - [설명 참조59 결과](https://github.com/teamswyg/laya-tools/wiki/Caption-Reference-Results-59-KO) · [Caption references59](https://github.com/teamswyg/laya-tools/wiki/Caption-Reference-Results-59-EN)
 - [설명 참조59 사용법](https://github.com/teamswyg/laya-tools/wiki/Caption-Reference-Usage-59-KO) · [Caption reference usage59](https://github.com/teamswyg/laya-tools/wiki/Caption-Reference-Usage-59-EN)
 - [공개 원천 전이59](https://github.com/teamswyg/laya-tools/wiki/Source-Transfer-59-KO) · [Source transfer59](https://github.com/teamswyg/laya-tools/wiki/Source-Transfer-59-EN)

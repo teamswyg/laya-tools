@@ -1,0 +1,9 @@
+# Confirmation of the coverage-ID resource fix
+
+The final source SHA is `df8d53d0600e80c331c4912d90ff199aef753704f34c87e085fa738fe920ba0b`; the public test SHA is `c858a8138bde70629a51effaeb8259878419afffe7d2f5e0880f1b5bb79e9b92`. The earlier finding, reproductions and ledger for `47af…` remain unchanged. The public author added only a nonempty, valid-UTF-8, at-most-512-byte check for every coverage reference before copying or sorting.
+
+One independent affected synthetic run passed 10 named tests/subtests. Empty, invalid-UTF-8 and over-512-byte IDs are refused with `coverage_component_id_invalid` before ordering; ASCII and UTF-8 IDs exactly 512 bytes long remain accepted. Small literal 3:1:1 allocations, caller/result ownership, original requirement offsets, exclusion of unknown-only groups from labeled floors, and no partial role return after a later coverage failure remain intact. Vet and formatting passed.
+
+This follow-up used nine synthetic Assign calls and five AllocateCounts calls. Unchanged membership and 64 MiB behavior retain the earlier source review and synthetic evidence without redundant execution. One preparatory tool launch was refused because its private working directory had not yet been created; no tests or APIs started. That event is separately recorded rather than confused with synthetic test failures, which remain zero.
+
+No mechanics blocker remains within this preparation review. Opaque membership hashes, known flags, pointer/path/source relations and frozen seed/coverage qualification still depend on a caller freeze. Exact membership encoding remains proposed. The reviewer authored the private prototype, but not the public port or fix; the review is not blind. Actual original graph/seed/role assignment, fitting, models, source APIs, new labels, resource measurement, shared-source edits and publication remain zero, and training_ready remains false. No new human-approval workflow is added.

@@ -1,0 +1,73 @@
+{
+  "schema": "riido-whole-component-encoding-proposal-62-v1",
+  "state": "private_proposal_not_frozen_no_original_assignments",
+  "role_recipe59": {
+    "path": "experiments/short-claim/role-recipe-59.json",
+    "sha256": "a4a6b1094f3b279ef16748dbd70a801a72f259a66e04cf379b75e7913a9a3619"
+  },
+  "algorithm_version": "whole-component-sha256-order-weighted-3-1-1-v1",
+  "component_role_input": {
+    "fields": ["ID: exact UTF-8 identity", "OriginalGroupID: nonnegative int64", "MembershipSHA256: raw 32-byte digest of complete frozen membership", "HasKnownMembers: externally frozen known/no_answer-containing flag"],
+    "external_inputs": ["One externally fixed seed byte string", "Explicit declared coverage plan, including an explicit empty plan only when that is the planned scope"],
+    "trust_boundary": "Opaque digests cannot prove graph completeness, source relationships, coverage correctness or known flags. A future runner must bind exact count/order/fields, seed and plan to independently frozen full provenance/truth metadata before Assign.",
+    "member_labels_emitted": false,
+    "scorer_features_include_graph_or_roles": false
+  },
+  "membership_encoding": {
+    "status": "proposal_only",
+    "domain": "riido-whole-component-membership-v1",
+    "integer": "unsigned 64-bit big-endian",
+    "lp": "u64BE exact byte length followed by exact bytes",
+    "sequence": [
+      "LP(UTF-8 domain)",
+      "u64BE member count",
+      "For each distinct member ID, sorted by exact case-sensitive UTF-8 byte order: LP(member ID)",
+      "u64BE directed relationship count",
+      "For each distinct tuple sorted lexicographically by From, Kind, To: LP(From), LP(Kind), LP(To)"
+    ],
+    "relationship_endpoints": "Both endpoints must be declared member IDs. Self-edges are permitted; duplicate tuples are refused.",
+    "normalization": "None. No Unicode, case, whitespace, path or source normalization is inferred.",
+    "digest": "SHA256 of the complete encoded bytes",
+    "sideband_fields": "Component ID, original group ID and known-containing flag are separate immutable metadata and must be bound to the same complete graph snapshot. They are not encoded by this membership helper.",
+    "source_binding_limit": "This encoding hashes declared member IDs and edge tuples only. External code/artifact/policy pins must be included in future declared immutable identities or bound through the separately frozen full graph/source snapshot. No missing member, source pin, semantic edge or omitted relationship is discovered here.",
+    "synthetic_literal": {
+      "members": ["a", "b"],
+      "relationships": [["a", "source", "b"]],
+      "encoded_bytes": 109,
+      "sha256": "57b4f7bd5cc092cdc4d6e09f815689974bdce87eee5e00db28b8e4bf472c480f",
+      "kind": "synthetic_byte_recipe_control_not_original_component"
+    }
+  },
+  "ordering_encoding": {
+    "domain": "riido-whole-component-role-order-v1",
+    "sequence": ["LP(domain UTF-8)", "LP(externally frozen seed raw bytes)", "LP(raw 32-byte membership SHA256)"],
+    "primary_key": "SHA256 of these encoded bytes",
+    "ties": ["membership digest raw bytes", "original group ID ascending"],
+    "unknown_only": "Not counted or hashed as known. Preserve whole unknown-only components in development_train provenance accounting. Members of a known-containing component follow its whole-component role while unknown members remain unknown and label/cost/Top-ineligible.",
+    "seed_search": false
+  },
+  "allocation": {
+    "known_only_weights": [3, 1, 1],
+    "first_step": "integer floors of 3N/5, N/5, N/5",
+    "remainder_step": "descending fractional remainder; ties train, validation, calibration",
+    "segments": ["development_train", "development_validation", "development_calibration"],
+    "existing_labeled_floors": [9, 3, 3],
+    "transfer_development_required": 0,
+    "coverage": "Only explicit future-plan requirements are checked; this prototype adds no requirement for every prototype in every role, 2,400 per development fit, fresh groups or repository count.",
+    "failure": "Return a fixed refusal code and partial counters, with no assignments returned. Do not split groups, shrink existing floors or search a replacement seed."
+  },
+  "maintainer_implementation_bounds": {
+    "components_at_most": 4096,
+    "seed_raw_bytes_at_most": 256,
+    "identity_raw_utf8_bytes_at_most": 512,
+    "members_or_relationships_per_membership_at_most": 65536,
+    "whole_membership_set_members_at_most": 65536,
+    "encoded_membership_and_set_bytes_at_most": 67108864,
+    "byte_preflight": "Checked additions account for every u64/LP field before copies and Buffer.Grow. Refuse overflow or excess; Grow once for the exact declared encoded length.",
+    "cross_component_overlap": "Flatten member ID plus owner index into one bounded slice, sort, and compare neighbors. No cross-component member-pair loop, map or lock.",
+    "scope": "Implementation safety bounds for private maintainer tooling; not scientific readiness gates or measured runtime-hint savings."
+  },
+  "original_execution": {"graph_generation": 0, "membership_encoding": 0, "seed_assignment": 0, "roles_assignment": 0, "labels": 0, "fits": 0, "models": 0, "paid": 0, "protected_final_reads": 0},
+  "runtime_shortclaim_dependency_added": false,
+  "training_ready": false
+}
