@@ -1,5 +1,8 @@
 **[Home / 홈](https://github.com/teamswyg/laya-tools/wiki)**
 
+- [설명 참조59 결과](https://github.com/teamswyg/laya-tools/wiki/Caption-Reference-Results-59-KO) · [Caption references59](https://github.com/teamswyg/laya-tools/wiki/Caption-Reference-Results-59-EN)
+- [설명 참조59 사용법](https://github.com/teamswyg/laya-tools/wiki/Caption-Reference-Usage-59-KO) · [Caption reference usage59](https://github.com/teamswyg/laya-tools/wiki/Caption-Reference-Usage-59-EN)
+- [공개 원천 전이59](https://github.com/teamswyg/laya-tools/wiki/Source-Transfer-59-KO) · [Source transfer59](https://github.com/teamswyg/laya-tools/wiki/Source-Transfer-59-EN)
 - [저장 정답 개선 여지58](Stored-Utility-Results-58-KO) · [Stored-truth headroom58](Stored-Utility-Results-58-EN)
 - [저장 정답 도구 사용법58](Stored-Utility-Usage-58-KO) · [Stored utility usage58](Stored-Utility-Usage-58-EN)
 - [문구·전이·역할 다음 준비58](Stored-Utility-Next-58-KO) · [Caption, transfer and role preparation58](Stored-Utility-Next-58-EN)
