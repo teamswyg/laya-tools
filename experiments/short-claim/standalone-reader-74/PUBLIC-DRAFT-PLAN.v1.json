@@ -1,0 +1,166 @@
+{
+  "Schema": "riido-reader74-derived-public-plan-view-v1",
+  "OriginalPrivatePlan": {
+    "ID": "original-private-draft-plan",
+    "Bytes": 3664,
+    "SHA256": "dae475a0b64e68d4a18003e8e85c817719716619d953ef0d219ddd40c3228956"
+  },
+  "Purpose": "Sanitized publication-only view, not an executable plan or original signed bytes. Only four host-path fields are replaced; original plan SHA/bytes remain evidence refs.",
+  "Runnable": false,
+  "Sanitizations": [
+    {
+      "JSONPointer": "/ReaderRoot",
+      "Replacement": "source-archive/reader74",
+      "Reason": "Private host source root withheld; .go.txt archival copies only."
+    },
+    {
+      "JSONPointer": "/CompactRoot",
+      "Replacement": "source-archive/compact",
+      "Reason": "Private host codec root withheld; .go.txt archival copies only."
+    },
+    {
+      "JSONPointer": "/JSON/Path",
+      "Replacement": "withheld-input/snapshot76-json",
+      "Reason": "Actual snapshot bytes/location are not published in this archive."
+    },
+    {
+      "JSONPointer": "/Compact/Path",
+      "Replacement": "withheld-input/snapshot76-compact",
+      "Reason": "Actual compact blob/location is not published in this archive."
+    }
+  ],
+  "Plan": {
+    "Schema": "riido-standalone-reader74-plan-v1",
+    "Frozen": false,
+    "ReaderRoot": "source-archive/reader74",
+    "CompactRoot": "source-archive/compact",
+    "JSON": {
+      "ID": "snapshot76-json",
+      "Path": "withheld-input/snapshot76-json",
+      "Bytes": 8390462,
+      "SHA256": "f68bff5f48747a66f038c17262568c1bd91251a8c81b3f46f7ae5090c8fe4b99"
+    },
+    "Compact": {
+      "ID": "snapshot76-compact",
+      "Path": "withheld-input/snapshot76-compact",
+      "Bytes": 1978694,
+      "SHA256": "43736823fa4dfa1206eaa9e939b7ab042e97be5950bc3a73b6196668db33a627"
+    },
+    "WorkerBinary": {
+      "ID": "bin/reader74-worker",
+      "Path": "",
+      "Bytes": 4888690,
+      "SHA256": "a6f2a7cdb86c0483495c67923854e53d3646859b487c5f833de8004ed2f03c23"
+    },
+    "ControllerBinary": {
+      "ID": "bin/reader74-controller",
+      "Path": "",
+      "Bytes": 4977122,
+      "SHA256": "f019130f54b32fcf9ac1dfdca5a19194a1f2ef7e0c1359efe769a29fb31b96f5"
+    },
+    "Closure": [
+      {
+        "Base": "reader74",
+        "ID": "go.mod",
+        "Path": "",
+        "Bytes": 192,
+        "SHA256": "27eedd37767749d263bf57167e089eae694c261ea62997e0615a22b3d1629550"
+      },
+      {
+        "Base": "reader74",
+        "ID": "reader/json.go",
+        "Path": "",
+        "Bytes": 10762,
+        "SHA256": "ed0b03ab8ba2698da239d05d2810f88c0e3917ef9d5b4c4d77b68d15d7bcb753"
+      },
+      {
+        "Base": "reader74",
+        "ID": "reader/digest.go",
+        "Path": "",
+        "Bytes": 2546,
+        "SHA256": "2938a17962c648171a9ceb458184548791780984c93b214f78c242ee2d7e4858"
+      },
+      {
+        "Base": "reader74",
+        "ID": "reader/files.go",
+        "Path": "",
+        "Bytes": 6810,
+        "SHA256": "b978bde3e28cc2a283fd5b8899d85969b13df3a5cc7a1c518fba4200df4be4ae"
+      },
+      {
+        "Base": "reader74",
+        "ID": "reader/protocol.go",
+        "Path": "",
+        "Bytes": 2699,
+        "SHA256": "2262efb55a6d534e8a7b82c5def758acf6f3fb8afba76ea369217cd57b83f17d"
+      },
+      {
+        "Base": "reader74",
+        "ID": "cmd/worker/main.go",
+        "Path": "",
+        "Bytes": 5866,
+        "SHA256": "69167db4201c2490d5ceaea48c7e61d50550bfbd73c82438fd2c1fb1e67b0349"
+      },
+      {
+        "Base": "reader74",
+        "ID": "cmd/controller/main.go",
+        "Path": "",
+        "Bytes": 13580,
+        "SHA256": "7108f581079e7752b36b28903d4d9086d99eac5de1d307031d047efbaca49159"
+      },
+      {
+        "Base": "compact",
+        "ID": "go.mod",
+        "Path": "",
+        "Bytes": 52,
+        "SHA256": "7e6fe3ffe04f3d457606b72860e1f62d7fcaa5af213932bdd0ef65f6876d656e"
+      },
+      {
+        "Base": "compact",
+        "ID": "codec/codec.go",
+        "Path": "",
+        "Bytes": 7592,
+        "SHA256": "08cb5050f022a7491bc145dde7f3ff22a1f59b8640d1ce58fcd0409857b1af99"
+      },
+      {
+        "Base": "compact",
+        "ID": "codec/json.go",
+        "Path": "",
+        "Bytes": 2693,
+        "SHA256": "c719868bf7f9c906979edad9c4f717deb588a70f900dde2ee3a672617caf9a73"
+      }
+    ],
+    "Toolchain": "go1.27.1",
+    "GOOS": "darwin",
+    "GOARCH": "arm64",
+    "CPU": 1,
+    "SoftGoHeapBytes": 268435456,
+    "ChildTimeoutSeconds": 60,
+    "ResultLimitBytes": 1048575,
+    "InputCapBytes": 67108864,
+    "OwnedPayloadCapBytes": 67108864,
+    "FormatOrder": [
+      "json",
+      "compact"
+    ],
+    "MetadataSHA256": "c9b56cea372707068f48369f8a19f8d1a3f3d6aaefe47bea6517cbc4d77686c5",
+    "MetadataBytes": 163758,
+    "ExpectedRows": [
+      91,
+      45,
+      73,
+      44
+    ],
+    "ExpectedNNZ": [
+      67104,
+      37975,
+      37916,
+      37657
+    ],
+    "NoAutomaticRetry": true,
+    "InputPinsPrimeFileCache": true,
+    "TrainingReady": false,
+    "PerformanceApproved": false,
+    "Final2400Complete": false
+  }
+}

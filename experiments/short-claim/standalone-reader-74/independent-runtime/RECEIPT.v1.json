@@ -1,0 +1,62 @@
+{
+  "schema": "riido-reader74-independent-runtime-saved-record-receipt-v1",
+  "state": "passed_saved_records_only_no_performance_or_training_approval",
+  "reviewer": "semantic_review60_prep",
+  "scope": "AI-assisted saved-file byte/hash/counter/summary/OS-log QA, independent of reader and controller authorship; prior codec and reader preflight exposure is nonblind. No second numeric-array read.",
+  "mechanics": {"id": "MECHANICS.v1.json", "bytes": 24754, "sha256": "ebfa5b2565839a4e02586717e1a1fb8a879548b27ceb19aa2449e77356adade0", "passed_conditions": 184, "saved_file_pins": 16},
+  "immutable_inputs": [
+    {"id": "reader74-preflight-receipt-v1", "bytes": 6768, "sha256": "23319baf3527b63bf8a4e52da9c245ba82e9d34628a5fe7ef30b4bfa2f433d45"},
+    {"id": "execution-plan-74.v1.draft.json", "bytes": 3664, "sha256": "dae475a0b64e68d4a18003e8e85c817719716619d953ef0d219ddd40c3228956"},
+    {"id": "execution-plan.frozen.json", "bytes": 3663, "sha256": "c2c8e3f1e3f90cabeea758835b148ee8808502d84a8aa9230b3971e7920d04cf"},
+    {"id": "root-invocation-v1.json", "bytes": 1120, "sha256": "589608fdb6d580695b7497706d175d7bef86e5258cd08a90ebbe20fd219f8c2f"},
+    {"id": "controller.results.json", "bytes": 17839, "sha256": "fbf7395e73095e02b84fd1d60d7545965747aaa9b6900af70b88810636321e51"},
+    {"id": "json/results.json", "bytes": 5689, "sha256": "421ab726c818517b4a944863eb4e2e19e7bb5f6f1654d3c69b828b5a14d89b9a"},
+    {"id": "compact/results.json", "bytes": 5692, "sha256": "b9aa0181a702f2ffa3dab25ec700d62d6e4e20d8d2f14d558521eb5f9619fc3a"}
+  ],
+  "passed_saved_record_properties": [
+    "Frozen plan differs only by the false-to-true Frozen token; preflight receipt unchanged",
+    "Controller and each child final/partial records byte-identical; all embedded worker fields match saved standalone final records",
+    "Two expected child starts, one per format, zero retry, exits0, no start failure/timeout/kill failure/overflow, Wait returned",
+    "Completed-match state plus BothCompleted and ArrayAndMetadataDigestsEqual true; exit0 alone not used",
+    "JSON preflight/materialization1attempt1return; compact read/Decode1attempt1return; validation1attempt1return per child",
+    "All24 column lengths, nil flags and recorded hashes match, together with source/metadata/complete-bit hashes",
+    "Owned payload equals exact length arithmetic and stays within64MiB",
+    "Saved raw OS real/user/sys/RSS/peak-footprint match controller record",
+    "All no-feature/no-projection/no-fit/no-role/no-label/no-model/no-paid/no-final counters and false approval fields preserved"
+  ],
+  "array_summary": {
+    "rows": [91,45,73,44],
+    "nnz": [67104,37975,37916,37657],
+    "columns": 24,
+    "nil_columns": 0,
+    "numeric_array_bytes": 1814648,
+    "metadata_bytes": 163758,
+    "owned_array_metadata_bytes": 1978406,
+    "source_json_sha256": "f68bff5f48747a66f038c17262568c1bd91251a8c81b3f46f7ae5090c8fe4b99",
+    "metadata_sha256": "c9b56cea372707068f48369f8a19f8d1a3f3d6aaefe47bea6517cbc4d77686c5",
+    "numeric_bit_sha256": "f232ad2cad12105a61b2a7750b01c7a643d6404afd890057a3fd037ca22ef69f",
+    "new_numeric_array_read_or_digest_recomputation": false
+  },
+  "saved_measurements": {
+    "json": {"os_real_seconds":0.49,"os_user_seconds":0.08,"os_sys_seconds":0.01,"controller_child_wall_seconds":0.50100075,"maximum_rss_bytes":19120128,"peak_footprint_bytes":16269840,"go_final_heap_alloc_bytes":4660664,"go_cumulative_total_alloc_bytes":44840120},
+    "compact": {"os_real_seconds":0.05,"os_user_seconds":0.01,"os_sys_seconds":0,"controller_child_wall_seconds":0.058869916,"maximum_rss_bytes":19300352,"peak_footprint_bytes":15745528,"go_final_heap_alloc_bytes":4765512,"go_cumulative_total_alloc_bytes":21608800},
+    "compact_minus_json_rss_bytes":180224,
+    "compact_minus_json_final_go_heap_bytes":104848,
+    "ram_savings_demonstrated":false,
+    "causal_format_speedup_demonstrated":false
+  },
+  "limits": [
+    "Complete-array equality is comparison of recorded digests/shapes backed by earlier static algorithm inspection, not an independently recomputed array oracle",
+    "Starts, Wait and minimal environment are saved-record declarations; reviewer did not independently observe historical process count or environment",
+    "One warm fixed-order JSON then compact sample; time includes full worker lifetime, pin checks, reads, validation, digest and reporting",
+    "Displayed OS times are rounded; cumulative allocation is neither peak heap nor RSS; softGo256MiB/payload64MiB are not hardRSS bounds",
+    "No causal10x speedup, RAM saving, cold-I/O, scaling, serving, model quality, LLM savings, training readiness or protected final approval"
+  ],
+  "new_original_reader_parser_codec_or_source_api_executions":0,
+  "new_input_snapshot_or_compact_content_reads":0,
+  "new_features_project_fit_roles_labels_models_paid_final_or_HF_calls":0,
+  "training_ready":false,
+  "performance_approved":false,
+  "final2400_complete":false,
+  "AI_collaboration_cost":"not_measured; separate_model_or_paid_calls0_does_not_mean_agent_work_cost0"
+}

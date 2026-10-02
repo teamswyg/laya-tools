@@ -1,0 +1,103 @@
+package reader
+
+import (
+	"bytes"
+	"math"
+	"testing"
+
+	"riido.local/claim-compact-storage/codec"
+)
+
+func toyJSON() []byte {
+	d := `{"Split":"development","Offsets":[0,2],"Indices":[0,65535],"Values":[-0,1.0000000000000002],"Labels":[0],"Groups":[7],"Excluded":0,"SampleWeights":null}`
+	return []byte(`{"schema":"riido-full76-projection-result-v1","training_ready":false,"parent_audit":[{"nullable":[null,0],"text":"toy"}],"projection":{"Parents":[],"Development":` + d + `,"Validation":` + d + `,"DevelopmentAUC":{"Data":` + d + `,"Refs":[]},"ValidationAUC":{"Data":` + d + `,"Refs":[]}}}`)
+}
+func TestTwoPassBeforeAllocationExactNumericAndMetadata(t *testing.T) {
+	raw := toyJSON()
+	p, e := PreflightJSON(bytes.NewReader(raw))
+	if e != nil || p.OwnedBytes == 0 {
+		t.Fatal("preflight")
+	}
+	s, e := MaterializeJSON(bytes.NewReader(raw), &p)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if len(s.Data[0].Values) != 2 || math.Float64bits(s.Data[0].Values[0]) != 1<<63 || math.Float64bits(s.Data[0].Values[1]) != 0x3ff0000000000001 || s.Data[0].SampleWeights != nil {
+		t.Fatal("precision/null")
+	}
+	a, e := Summarize(s)
+	if e != nil {
+		t.Fatal(e)
+	}
+	b, e := codec.Encode(s)
+	if e != nil {
+		t.Fatal(e)
+	}
+	d, e := codec.Decode(b)
+	if e != nil {
+		t.Fatal(e)
+	}
+	z, e := Summarize(d)
+	if e != nil || a != z {
+		t.Fatal("columns/metadata")
+	}
+	s.Data[0].Values[0] = 0
+	changed, e := Summarize(s)
+	if e != nil || changed.NumericBitSHA256 == a.NumericBitSHA256 {
+		t.Fatal("minuszero-digest")
+	}
+	if !bytes.Contains(p.Metadata, []byte(`"nullable":[null,0]`)) {
+		t.Fatal("metadata-null")
+	}
+}
+func TestDuplicatesTrailingNumericOverflowAndChangedPassRefuse(t *testing.T) {
+	raw := toyJSON()
+	for _, bad := range [][]byte{bytes.Replace(raw, []byte(`"training_ready":false`), []byte(`"training_ready":false,"training_ready":true`), 1), bytes.Replace(raw, []byte(`"text":"toy"`), []byte(`"text":"toy","text":"other"`), 1), bytes.Replace(raw, []byte(`"Offsets":[0,2]`), []byte(`"Offsets":[0,2],"Offsets":[0,2]`), 1), append(append([]byte{}, raw...), []byte(` {}`)...), bytes.ReplaceAll(raw, []byte(`65535`), []byte(`65536`)), bytes.ReplaceAll(raw, []byte(`1.0000000000000002`), []byte(`1e999`))} {
+		if _, e := PreflightJSON(bytes.NewReader(bad)); e == nil {
+			t.Fatal("rejected")
+		}
+	}
+	p, e := PreflightJSON(bytes.NewReader(raw))
+	if e != nil {
+		t.Fatal(e)
+	}
+	changed := bytes.Replace(raw, []byte(`"toy"`), []byte(`"new"`), 1)
+	if _, e = MaterializeJSON(bytes.NewReader(changed), &p); e == nil {
+		t.Fatal("TOCTOU")
+	}
+	if _, e = MaterializeJSON(bytes.NewReader(raw), nil); e == nil {
+		t.Fatal("nil-preflight")
+	}
+	p.Shapes[0].NilMask |= 4
+	p.Shapes[0].Counts[2] = 0
+	p.Shapes[0].Counts[1] = 0
+	p.Shapes[0].LastOffset = 0
+	if _, e = MaterializeJSON(bytes.NewReader(raw), &p); e == nil {
+		t.Fatal("forged-null-refusal")
+	}
+	p, e = PreflightJSON(bytes.NewReader(raw))
+	if e != nil {
+		t.Fatal(e)
+	}
+	p.Shapes[0].Counts[2] = Limit
+	if _, e = MaterializeJSON(bytes.NewReader(raw), &p); e == nil {
+		t.Fatal("cap-before-allocation")
+	}
+}
+func TestCompactMetadataStrictDuplicateAndArrayRefusal(t *testing.T) {
+	p, e := PreflightJSON(bytes.NewReader(toyJSON()))
+	if e != nil {
+		t.Fatal(e)
+	}
+	if ValidateMetadata(p.Metadata) != nil {
+		t.Fatal("canonical")
+	}
+	bad := bytes.Replace(p.Metadata, []byte(`"training_ready":false`), []byte(`"training_ready":false,"training_ready":false`), 1)
+	if ValidateMetadata(bad) == nil {
+		t.Fatal("duplicate")
+	}
+	bad = bytes.Replace(p.Metadata, []byte(`"Excluded":0`), []byte(`"Excluded":0,"Values":[]`), 1)
+	if ValidateMetadata(bad) == nil {
+		t.Fatal("arrays-in-metadata")
+	}
+}

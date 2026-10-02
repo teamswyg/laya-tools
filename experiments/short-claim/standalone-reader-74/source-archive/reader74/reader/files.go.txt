@@ -1,0 +1,218 @@
+package reader
+
+import (
+	"bytes"
+	"debug/buildinfo"
+	"encoding/json"
+	"io"
+	"os"
+	"path/filepath"
+	"strings"
+)
+
+func BoundedRead(path string, limit int) ([]byte, error) {
+	s, e := os.Lstat(path)
+	if e != nil || !s.Mode().IsRegular() || s.Size() < 0 || s.Size() > int64(limit) {
+		return nil, invalid()
+	}
+	f, e := os.Open(path)
+	if e != nil {
+		return nil, invalid()
+	}
+	defer f.Close()
+	b, e := io.ReadAll(io.LimitReader(f, int64(limit)+1))
+	if e != nil || len(b) > limit || int64(len(b)) != s.Size() {
+		return nil, invalid()
+	}
+	return b, nil
+}
+func StrictDecode(b []byte, out any) error {
+	// Plan/results are small control records, not snapshot data. Exact and
+	// case-folded duplicates are rejected before typed Go JSON decoding.
+	if len(b) == 0 || len(b) > 1<<20 {
+		return invalid()
+	}
+	d := json.NewDecoder(bytes.NewReader(b))
+	d.UseNumber()
+	var value func(int) error
+	value = func(depth int) error {
+		if depth > 32 {
+			return invalid()
+		}
+		t, e := d.Token()
+		if e != nil {
+			return invalid()
+		}
+		delim, ok := t.(json.Delim)
+		if !ok {
+			return nil
+		}
+		switch delim {
+		case '{':
+			keys := []string{}
+			for d.More() {
+				t, e = d.Token()
+				k, ok := t.(string)
+				if e != nil || !ok || len(k) > 512 || len(keys) >= 256 {
+					return invalid()
+				}
+				fold := strings.ToLower(k)
+				for _, old := range keys {
+					if old == fold {
+						return invalid()
+					}
+				}
+				keys = append(keys, fold)
+				if e = value(depth + 1); e != nil {
+					return e
+				}
+			}
+			t, e = d.Token()
+			if e != nil || t != json.Delim('}') {
+				return invalid()
+			}
+		case '[':
+			for d.More() {
+				if e = value(depth + 1); e != nil {
+					return e
+				}
+			}
+			t, e = d.Token()
+			if e != nil || t != json.Delim(']') {
+				return invalid()
+			}
+		default:
+			return invalid()
+		}
+		return nil
+	}
+	if value(0) != nil {
+		return invalid()
+	}
+	if _, e := d.Token(); e != io.EOF {
+		return invalid()
+	}
+	d = json.NewDecoder(bytes.NewReader(b))
+	d.DisallowUnknownFields()
+	if d.Decode(out) != nil {
+		return invalid()
+	}
+	return nil
+}
+func VerifyBinary(path string, ref Ref, plan Plan) error {
+	b, e := BoundedRead(path, Limit)
+	if e != nil || len(b) != ref.Bytes || Hash(b) != ref.SHA256 {
+		return invalid()
+	}
+	bi, e := buildinfo.ReadFile(path)
+	wantPath := "riido.local/standalone-reader74/cmd/worker"
+	if ref.ID == "bin/reader74-controller" {
+		wantPath = "riido.local/standalone-reader74/cmd/controller"
+	} else if ref.ID != "bin/reader74-worker" {
+		return invalid()
+	}
+	if e != nil || bi.GoVersion != plan.Toolchain || bi.Path != wantPath || bi.Main.Path != "riido.local/standalone-reader74" || len(bi.Deps) != 1 || bi.Deps[0].Path != "riido.local/claim-compact-storage" || bi.Deps[0].Version != "v0.0.0" || bi.Deps[0].Replace == nil || bi.Deps[0].Replace.Path != plan.CompactRoot {
+		return invalid()
+	}
+	var osName, arch, cgo, trim string
+	for _, s := range bi.Settings {
+		switch s.Key {
+		case "GOOS":
+			osName = s.Value
+		case "GOARCH":
+			arch = s.Value
+		case "CGO_ENABLED":
+			cgo = s.Value
+		case "-trimpath":
+			trim = s.Value
+		case "vcs.revision":
+			return invalid()
+		}
+	}
+	if osName != plan.GOOS || arch != plan.GOARCH || cgo != "0" || trim != "true" {
+		return invalid()
+	}
+	return nil
+}
+func VerifyClosure(p Plan) error {
+	required := [10][2]string{{"reader74", "go.mod"}, {"reader74", "reader/json.go"}, {"reader74", "reader/digest.go"}, {"reader74", "reader/files.go"}, {"reader74", "reader/protocol.go"}, {"reader74", "cmd/worker/main.go"}, {"reader74", "cmd/controller/main.go"}, {"compact", "go.mod"}, {"compact", "codec/codec.go"}, {"compact", "codec/json.go"}}
+	if len(p.Closure) != len(required) {
+		return invalid()
+	}
+	for _, want := range required {
+		found := false
+		for _, r := range p.Closure {
+			found = found || r.Base == want[0] && r.ID == want[1]
+		}
+		if !found {
+			return invalid()
+		}
+	}
+	var total int
+	for i, r := range p.Closure {
+		root := p.ReaderRoot
+		if r.Base == "compact" {
+			root = p.CompactRoot
+		} else if r.Base != "reader74" {
+			return invalid()
+		}
+		if r.ID == "" || filepath.IsAbs(r.ID) || filepath.Clean(r.ID) != r.ID || r.ID == ".." || strings.HasPrefix(r.ID, "../") || strings.ContainsAny(r.ID, "\\\x00") {
+			return invalid()
+		}
+		for _, old := range p.Closure[:i] {
+			if old.Base == r.Base && old.ID == r.ID {
+				return invalid()
+			}
+		}
+		resolved, e := filepath.EvalSymlinks(root)
+		if e != nil {
+			return invalid()
+		}
+		target := filepath.Join(resolved, r.ID)
+		actual, e := filepath.EvalSymlinks(target)
+		if e != nil || actual != target {
+			return invalid()
+		}
+		b, e := BoundedRead(target, 1<<20)
+		if e != nil || len(b) != r.Bytes || Hash(b) != r.SHA256 {
+			return invalid()
+		}
+		total += len(b)
+		if total > 1<<20 {
+			return invalid()
+		}
+	}
+	return nil
+}
+func ValidPlan(p Plan) bool {
+	for _, root := range []string{p.ReaderRoot, p.CompactRoot} {
+		if !filepath.IsAbs(root) || filepath.Clean(root) != root {
+			return false
+		}
+	}
+	if p.JSON.ID != "snapshot76-json" || p.Compact.ID != "snapshot76-compact" || !filepath.IsAbs(p.JSON.Path) || !filepath.IsAbs(p.Compact.Path) || p.WorkerBinary.ID != "bin/reader74-worker" || p.ControllerBinary.ID != "bin/reader74-controller" {
+		return false
+	}
+	for _, r := range []Ref{p.WorkerBinary, p.ControllerBinary} {
+		if r.Path != "" || r.Bytes <= 0 || r.Bytes > Limit || len(r.SHA256) != 64 || strings.ContainsAny(r.SHA256, "ABCDEF") {
+			return false
+		}
+		for _, c := range r.SHA256 {
+			if !(c >= '0' && c <= '9' || c >= 'a' && c <= 'f') {
+				return false
+			}
+		}
+	}
+	return p.Schema == "riido-standalone-reader74-plan-v1" && p.Toolchain == "go1.27.1" && p.GOOS == "darwin" && p.GOARCH == "arm64" && p.CPU == 1 && p.SoftGoHeapBytes == 268435456 && p.ChildTimeoutSeconds == 60 && p.ResultLimitBytes == (1<<20)-1 && p.InputCapBytes == Limit && p.OwnedPayloadCapBytes == Limit && p.FormatOrder == [2]string{"json", "compact"} && p.NoAutomaticRetry && p.InputPinsPrimeFileCache && !p.TrainingReady && !p.PerformanceApproved && !p.Final2400Complete && p.JSON.Bytes == 8390462 && p.JSON.SHA256 == "f68bff5f48747a66f038c17262568c1bd91251a8c81b3f46f7ae5090c8fe4b99" && p.Compact.Bytes == 1978694 && p.Compact.SHA256 == "43736823fa4dfa1206eaa9e939b7ab042e97be5950bc3a73b6196668db33a627" && p.MetadataSHA256 == "c9b56cea372707068f48369f8a19f8d1a3f3d6aaefe47bea6517cbc4d77686c5" && p.MetadataBytes == 163758 && p.ExpectedRows == [4]int{91, 45, 73, 44} && p.ExpectedNNZ == [4]int{67104, 37975, 37916, 37657}
+}
+func ExpectedSummary(s Summary, p Plan) bool {
+	if s.SourceJSONSHA256 != p.JSON.SHA256 || s.MetadataSHA256 != p.MetadataSHA256 || s.MetadataBytes != p.MetadataBytes {
+		return false
+	}
+	for i, d := range s.Datasets {
+		if d.Columns[3].Count != uint64(p.ExpectedRows[i]) || d.Columns[1].Count != uint64(p.ExpectedNNZ[i]) {
+			return false
+		}
+	}
+	return true
+}

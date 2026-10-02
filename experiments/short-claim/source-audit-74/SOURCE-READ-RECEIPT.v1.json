@@ -1,0 +1,626 @@
+{
+  "schema": "riido-next-four-public-source-read-audit-74-v1",
+  "state": "source_read_proposal_not_contract_ready",
+  "original_inventory": {
+    "path": "experiments/short-claim/development-expansion-73/NEXT-DEVELOPMENT-SOURCES.proposal.v1.json",
+    "bytes": 43446,
+    "sha256": "7c4e1029e8edf704b02d1f5bb7f67be855b82ab00653d60e817f68c4447b857f"
+  },
+  "families": [
+    {
+      "original_inventory_subset": {
+        "family_id": "next-joho-godotenv",
+        "repository": "joho/godotenv",
+        "revision": "97a2850142438b3c357c1d3439e325181afdcc1d",
+        "root_license_spdx": "MIT",
+        "import_path": "github.com/joho/godotenv",
+        "original_module_language": "go1.13",
+        "proposed_compile_and_attribution_closure": [
+          {
+            "path": "LICENCE",
+            "bytes": 1069,
+            "sha256": "4334bf49b7e1a6736ce1b21814d5cce392000204d059ee6a845eeb966e7a1e31",
+            "url": "https://raw.githubusercontent.com/joho/godotenv/97a2850142438b3c357c1d3439e325181afdcc1d/LICENCE",
+            "git_blob_sha1": "e7ddd51be9033398af8a84271f09eefdbedcdac5"
+          },
+          {
+            "path": "go.mod",
+            "bytes": 41,
+            "sha256": "9b628d6302422e9932d24e21a63e803a47473d092d3053e510d7c2d60e58685b",
+            "url": "https://raw.githubusercontent.com/joho/godotenv/97a2850142438b3c357c1d3439e325181afdcc1d/go.mod",
+            "git_blob_sha1": "7a0410526fab8bb3636f5c7cc31fcab27d7fb820"
+          },
+          {
+            "path": "godotenv.go",
+            "bytes": 6369,
+            "sha256": "c4bfd90250cd5caf760bc91ef0eeb8748b1596e2d720ac0d944e8079cc9d0488",
+            "url": "https://raw.githubusercontent.com/joho/godotenv/97a2850142438b3c357c1d3439e325181afdcc1d/godotenv.go",
+            "git_blob_sha1": "9cc368856cd295c9bf4d718c861f0d4f9c773918"
+          },
+          {
+            "path": "parser.go",
+            "bytes": 6589,
+            "sha256": "99e43b5aaee90a02a3f630f511ab110182349f0dc3636746a56d35288a0936f2",
+            "url": "https://raw.githubusercontent.com/joho/godotenv/97a2850142438b3c357c1d3439e325181afdcc1d/parser.go",
+            "git_blob_sha1": "c07b55ab4369e638746e2b0e6e0ae7b679b6b214"
+          }
+        ],
+        "primary_readme": {
+          "path": "README.md",
+          "bytes": 6413,
+          "sha256": "7b6edbd04884821a10af0e8a4b1feedb013ac3d881890f9a6baf0e3a27e8273e",
+          "url": "https://raw.githubusercontent.com/joho/godotenv/97a2850142438b3c357c1d3439e325181afdcc1d/README.md"
+        },
+        "objectives": [
+          {
+            "id": "dotenv-explicit-values",
+            "entrypoint": "UnmarshalBytes",
+            "path": "godotenv.go",
+            "entrypoint_line": 113,
+            "distinct_behavior_goal_proposed": "Parse explicit dotenv assignments with quoting, escapes, duplicate keys and exact error/partial-map observations.",
+            "semantic_helpers_to_pin": [
+              "parseBytes",
+              "getStatementStart",
+              "locateKeyName",
+              "extractVarValue",
+              "expandEscapes",
+              "expandVariables",
+              "hasQuotePrefix",
+              "isSpace",
+              "isLineEnd",
+              "regex globals",
+              "error sentinels"
+            ]
+          },
+          {
+            "id": "dotenv-canonical-marshal",
+            "entrypoint": "Marshal",
+            "path": "godotenv.go",
+            "entrypoint_line": 183,
+            "distinct_behavior_goal_proposed": "Serialize explicit maps in deterministic order while preserving textual integers and escaping string values.",
+            "semantic_helpers_to_pin": [
+              "isInt",
+              "doubleQuoteEscape",
+              "doubleQuoteSpecialChars"
+            ]
+          }
+        ]
+      },
+      "fixed_revision_tree": {
+        "path": "primary/godotenv-tree.json",
+        "bytes": 7599,
+        "sha256": "9db36d28d69d959a014118db54eb9af95b8892b88b4a96fb8e65fd4d0fba5a83",
+        "url": "https://api.github.com/repos/joho/godotenv/git/trees/97a2850142438b3c357c1d3439e325181afdcc1d?recursive=1"
+      },
+      "closed_root_non_test_go_files": [
+        "godotenv.go",
+        "parser.go"
+      ],
+      "absent_root_resources": [
+        "go.sum",
+        "NOTICE"
+      ],
+      "raw_bytes_sha256_size_git_blob_checks": 4,
+      "private_archive_relative_prefix": "upstream/godotenv/"
+    },
+    {
+      "original_inventory_subset": {
+        "family_id": "next-go-logfmt-logfmt",
+        "repository": "go-logfmt/logfmt",
+        "revision": "804e98fff868b206344991c57a8182172e5ba41e",
+        "root_license_spdx": "MIT",
+        "import_path": "github.com/go-logfmt/logfmt",
+        "original_module_language": "go1.21",
+        "proposed_compile_and_attribution_closure": [
+          {
+            "path": "LICENSE",
+            "bytes": 1077,
+            "sha256": "1b582013d963b973548e8a51b99fc2e8e1937855698c6a7b460886ac2e90017e",
+            "url": "https://raw.githubusercontent.com/go-logfmt/logfmt/804e98fff868b206344991c57a8182172e5ba41e/LICENSE",
+            "git_blob_sha1": "c026508962ba50e32a7bed1cd0998e5a8c14efd0"
+          },
+          {
+            "path": "decode.go",
+            "bytes": 5624,
+            "sha256": "8996665a4f52b59361758cc6b23e45c81b144a1269f3fc97ac09dc24b0c9f02c",
+            "url": "https://raw.githubusercontent.com/go-logfmt/logfmt/804e98fff868b206344991c57a8182172e5ba41e/decode.go",
+            "git_blob_sha1": "a1c22dcbda95b727b3a4848967803a623adda9cd"
+          },
+          {
+            "path": "doc.go",
+            "bytes": 336,
+            "sha256": "f4b4a04a9cfafd055659f7d366d1e6df8cb9127158474e2beca087c22fa15fa0",
+            "url": "https://raw.githubusercontent.com/go-logfmt/logfmt/804e98fff868b206344991c57a8182172e5ba41e/doc.go",
+            "git_blob_sha1": "378e9ad126a9c27fd5e470409b36ceff7ff9e1e1"
+          },
+          {
+            "path": "encode.go",
+            "bytes": 7984,
+            "sha256": "370613e641dd9c0b528e8c059a647ebd52997455a00cb0f9706e42730cbe3f2a",
+            "url": "https://raw.githubusercontent.com/go-logfmt/logfmt/804e98fff868b206344991c57a8182172e5ba41e/encode.go",
+            "git_blob_sha1": "d8f69351a72ab10df55b7809599f8cfeda31ca51"
+          },
+          {
+            "path": "go.mod",
+            "bytes": 85,
+            "sha256": "0b2156771924d6013115a2e80b391afc2ff9d6a22f1bd83a03acf621be39ee4c",
+            "url": "https://raw.githubusercontent.com/go-logfmt/logfmt/804e98fff868b206344991c57a8182172e5ba41e/go.mod",
+            "git_blob_sha1": "8adccb0ecb6f859510538e72abdf1d4512753158"
+          },
+          {
+            "path": "go.sum",
+            "bytes": 167,
+            "sha256": "914c00c3fe0abb847abcdc66929e93e4cc62abccc7fb381563cc4c70dc9dafec",
+            "url": "https://raw.githubusercontent.com/go-logfmt/logfmt/804e98fff868b206344991c57a8182172e5ba41e/go.sum",
+            "git_blob_sha1": "40e761ae7cddc0c7c463f637aebdd02d44e3a1d9"
+          },
+          {
+            "path": "jsonstring.go",
+            "bytes": 5241,
+            "sha256": "47fafd410502e02561492129698bf9f8274d1b8eb36cee7659f6441101cd6eba",
+            "url": "https://raw.githubusercontent.com/go-logfmt/logfmt/804e98fff868b206344991c57a8182172e5ba41e/jsonstring.go",
+            "git_blob_sha1": "26e1b1c137c5e6997e6295aca699daf6fc8da6c5"
+          }
+        ],
+        "primary_readme": {
+          "path": "README.md",
+          "bytes": 1835,
+          "sha256": "1231e95fd0a7228e1e4eeecc4735b6874e4183920c356d77d1ab8d2d72133532",
+          "url": "https://raw.githubusercontent.com/go-logfmt/logfmt/804e98fff868b206344991c57a8182172e5ba41e/README.md"
+        },
+        "objectives": [
+          {
+            "id": "logfmt-record-decoding",
+            "entrypoint": "NewDecoder; Decoder.ScanRecord/ScanKeyval/Key/Value/Err",
+            "path": "decode.go",
+            "entrypoint_line": 25,
+            "distinct_behavior_goal_proposed": "Observe ordered records and key/value pairs including quoted escapes and error location.",
+            "semantic_helpers_to_pin": [
+              "Decoder",
+              "ScanRecord",
+              "ScanKeyval",
+              "syntaxError",
+              "unexpectedByte",
+              "SyntaxError",
+              "unquoteBytes",
+              "getu4"
+            ]
+          },
+          {
+            "id": "logfmt-single-keyval-state",
+            "entrypoint": "Encoder.EncodeKeyval; EndRecord",
+            "path": "encode.go",
+            "entrypoint_line": 48,
+            "distinct_behavior_goal_proposed": "Write one typed key/value at a time with exact escaping and validation-failure state preservation.",
+            "semantic_helpers_to_pin": [
+              "Encoder",
+              "writeKey",
+              "keyRuneFilter",
+              "writeValue",
+              "writeStringValue",
+              "writeBytesValue",
+              "writeQuotedString",
+              "writeQuotedBytes",
+              "safeMarshal",
+              "safeString",
+              "safeError",
+              "error sentinels",
+              "bufferPool"
+            ]
+          }
+        ]
+      },
+      "fixed_revision_tree": {
+        "path": "primary/logfmt-tree.json",
+        "bytes": 5166,
+        "sha256": "344ec3139eaa2ff1abd6b4184e14ac3ba9c1f92efbaec180a99d45e9bc1db3c5",
+        "url": "https://api.github.com/repos/go-logfmt/logfmt/git/trees/804e98fff868b206344991c57a8182172e5ba41e?recursive=1"
+      },
+      "closed_root_non_test_go_files": [
+        "decode.go",
+        "doc.go",
+        "encode.go",
+        "jsonstring.go"
+      ],
+      "absent_root_resources": [
+        "NOTICE"
+      ],
+      "raw_bytes_sha256_size_git_blob_checks": 7,
+      "private_archive_relative_prefix": "upstream/logfmt/"
+    },
+    {
+      "original_inventory_subset": {
+        "family_id": "next-mitchellh-go-wordwrap",
+        "repository": "mitchellh/go-wordwrap",
+        "revision": "ecf0936a077a4bd73a1cc2ac5c370f2b55618d62",
+        "root_license_spdx": "MIT",
+        "import_path": "github.com/mitchellh/go-wordwrap",
+        "original_module_language": "go1.14",
+        "proposed_compile_and_attribution_closure": [
+          {
+            "path": "LICENSE.md",
+            "bytes": 1085,
+            "sha256": "3c377fad2e5ae1d7081c7c2f16da867a87cca1d1f5f1aa7ed0b8a16bb553142a",
+            "url": "https://raw.githubusercontent.com/mitchellh/go-wordwrap/ecf0936a077a4bd73a1cc2ac5c370f2b55618d62/LICENSE.md",
+            "git_blob_sha1": "229851590442a1f243c3031435fba118a9fd65ce"
+          },
+          {
+            "path": "go.mod",
+            "bytes": 49,
+            "sha256": "4f2239514c1de72e2f5b0f544b61d8c404eb2f04057d6ba1441875d7ac8311f0",
+            "url": "https://raw.githubusercontent.com/mitchellh/go-wordwrap/ecf0936a077a4bd73a1cc2ac5c370f2b55618d62/go.mod",
+            "git_blob_sha1": "431d615d47abee20e8321982b84e77078fa67922"
+          },
+          {
+            "path": "wordwrap.go",
+            "bytes": 1826,
+            "sha256": "a924b1cb3b0e04c603019e608d3196275cea56bbd1aab82af04d0996fb7a86ee",
+            "url": "https://raw.githubusercontent.com/mitchellh/go-wordwrap/ecf0936a077a4bd73a1cc2ac5c370f2b55618d62/wordwrap.go",
+            "git_blob_sha1": "f7bedda3882896007b74a661c5d69b2b220f5fbe"
+          }
+        ],
+        "primary_readme": {
+          "path": "README.md",
+          "bytes": 1063,
+          "sha256": "d7d516e22db7141b4e72ee47550f39e109292046e2c0e94f300d8dbc86c055b0",
+          "url": "https://raw.githubusercontent.com/mitchellh/go-wordwrap/ecf0936a077a4bd73a1cc2ac5c370f2b55618d62/README.md"
+        },
+        "objectives": [
+          {
+            "id": "wordwrap-whitespace-layout",
+            "entrypoint": "WrapString",
+            "path": "wordwrap.go",
+            "entrypoint_line": 16,
+            "distinct_behavior_goal_proposed": "Wrap rune-counted text at permitted whitespace without chopping long words or treating NBSP as an ordinary break.",
+            "semantic_helpers_to_pin": [
+              "WrapString",
+              "nbsp"
+            ]
+          }
+        ]
+      },
+      "fixed_revision_tree": {
+        "path": "primary/wordwrap-tree.json",
+        "bytes": 1613,
+        "sha256": "d2e0500ffcfba7f12451c4664eb2728126e66610af33d28af3684e19c05384b6",
+        "url": "https://api.github.com/repos/mitchellh/go-wordwrap/git/trees/ecf0936a077a4bd73a1cc2ac5c370f2b55618d62?recursive=1"
+      },
+      "closed_root_non_test_go_files": [
+        "wordwrap.go"
+      ],
+      "absent_root_resources": [
+        "go.sum",
+        "NOTICE"
+      ],
+      "raw_bytes_sha256_size_git_blob_checks": 3,
+      "private_archive_relative_prefix": "upstream/go-wordwrap/"
+    },
+    {
+      "original_inventory_subset": {
+        "family_id": "next-vincent-petithory-dataurl",
+        "repository": "vincent-petithory/dataurl",
+        "revision": "d1553a71de50473073e188aa79cebf7f993f20fe",
+        "root_license_spdx": "MIT",
+        "import_path": "github.com/vincent-petithory/dataurl",
+        "original_module_language": "no_original_go_mod_recipe_pending",
+        "proposed_compile_and_attribution_closure": [
+          {
+            "path": "LICENSE",
+            "bytes": 1084,
+            "sha256": "d9243f8fb5530dd09ef056ba977be8ff677805986f1f26a66afde2484da8bc60",
+            "url": "https://raw.githubusercontent.com/vincent-petithory/dataurl/d1553a71de50473073e188aa79cebf7f993f20fe/LICENSE",
+            "git_blob_sha1": "ae6cb62bc63bfabe4a3df902981c8d7384e32b45"
+          },
+          {
+            "path": "dataurl.go",
+            "bytes": 6871,
+            "sha256": "57fe21f9eef484a6f41950ebd46789c34227564c8fd30c9c2e5ca72c29dd2efd",
+            "url": "https://raw.githubusercontent.com/vincent-petithory/dataurl/d1553a71de50473073e188aa79cebf7f993f20fe/dataurl.go",
+            "git_blob_sha1": "7a9fe67e4d62e4a6086c5f5a3ef5277458b39b28"
+          },
+          {
+            "path": "doc.go",
+            "bytes": 1078,
+            "sha256": "111f6d433c18229beb8e8dc5dcc111bb2c5157870ec6b3332b6f2af4d3739fdd",
+            "url": "https://raw.githubusercontent.com/vincent-petithory/dataurl/d1553a71de50473073e188aa79cebf7f993f20fe/doc.go",
+            "git_blob_sha1": "56461d043ac2cfe956608599a16eb8eb93feadd6"
+          },
+          {
+            "path": "lex.go",
+            "bytes": 10130,
+            "sha256": "c2e12e2c2cf7b239bffcd1809115273765510b9865c44e4979cf1eb8d9a99130",
+            "url": "https://raw.githubusercontent.com/vincent-petithory/dataurl/d1553a71de50473073e188aa79cebf7f993f20fe/lex.go",
+            "git_blob_sha1": "1a8717f579895b46c75ee13b8d9715bf69c36d91"
+          },
+          {
+            "path": "rfc2396.go",
+            "bytes": 2778,
+            "sha256": "ea58845ebf74183621e793506801ea2e4fc5c63da50298614532c89f6e9c01d2",
+            "url": "https://raw.githubusercontent.com/vincent-petithory/dataurl/d1553a71de50473073e188aa79cebf7f993f20fe/rfc2396.go",
+            "git_blob_sha1": "e2ea0caca2ec9bd07ec693a7f1f28b2a40e66a68"
+          }
+        ],
+        "primary_readme": {
+          "path": "README.md",
+          "bytes": 2809,
+          "sha256": "9acb66bd6ba03efd1220322065d2b078494d03317eaeabb3b7002fc9e5b3d8cf",
+          "url": "https://raw.githubusercontent.com/vincent-petithory/dataurl/d1553a71de50473073e188aa79cebf7f993f20fe/README.md"
+        },
+        "objectives": [
+          {
+            "id": "dataurl-decoded-media-bytes",
+            "entrypoint": "DecodeString",
+            "path": "dataurl.go",
+            "entrypoint_line": 256,
+            "distinct_behavior_goal_proposed": "Decode bounded data URLs observing exact media parameters, encoding and byte payload.",
+            "semantic_helpers_to_pin": [
+              "DataURL",
+              "MediaType",
+              "defaultMediaType",
+              "parser.parse",
+              "asciiDataReader",
+              "base64DataReader",
+              "lex",
+              "lexer state functions",
+              "item enums",
+              "Unescape",
+              "unhex"
+            ]
+          },
+          {
+            "id": "dataurl-percent-bytes",
+            "entrypoint": "Escape; Unescape",
+            "path": "rfc2396.go",
+            "entrypoint_line": 15,
+            "distinct_behavior_goal_proposed": "Percent-encode bytes and decode strict ASCII escapes while preserving plus as a literal byte.",
+            "semantic_helpers_to_pin": [
+              "isUnreserved",
+              "isHex",
+              "unhex"
+            ]
+          }
+        ]
+      },
+      "fixed_revision_tree": {
+        "path": "primary/dataurl-tree.json",
+        "bytes": 3594,
+        "sha256": "639608d9e01f1687dba94ac6391827966d980d525f333b0fa2a10a440f52822c",
+        "url": "https://api.github.com/repos/vincent-petithory/dataurl/git/trees/d1553a71de50473073e188aa79cebf7f993f20fe?recursive=1"
+      },
+      "closed_root_non_test_go_files": [
+        "dataurl.go",
+        "doc.go",
+        "lex.go",
+        "rfc2396.go"
+      ],
+      "absent_root_resources": [
+        "go.mod",
+        "go.sum",
+        "NOTICE"
+      ],
+      "raw_bytes_sha256_size_git_blob_checks": 5,
+      "private_archive_relative_prefix": "upstream/dataurl/"
+    }
+  ],
+  "primary_provenance_files": [
+    {
+      "path": "primary/Go-go1.2-LICENSE",
+      "bytes": 1479,
+      "sha256": "dd26a7abddd02e2d0aba97805b31f248ef7835d9e10da289b22e3b8ab78b324d"
+    },
+    {
+      "path": "primary/Go-go1.2-template-lex.go",
+      "bytes": 13865,
+      "sha256": "7111b73b55755b364d5cbe567c612f693839320752b9a7d60351210a52cd34a8"
+    },
+    {
+      "path": "primary/Go-go1.2-url.go",
+      "bytes": 17586,
+      "sha256": "a15343480ee289e46ddbcb561036a1d9b0db2d6f9b36779016a159c933c9d1e1"
+    },
+    {
+      "path": "primary/Go-go1.4-LICENSE",
+      "bytes": 1479,
+      "sha256": "dd26a7abddd02e2d0aba97805b31f248ef7835d9e10da289b22e3b8ab78b324d"
+    },
+    {
+      "path": "primary/Go-go1.4-json-decode.go",
+      "bytes": 26523,
+      "sha256": "4e712e6c7ca34d623024a157a087debec4366ab61434bc4e4b6c8c4d18d66930"
+    },
+    {
+      "path": "primary/Go-go1.4-json-encode.go",
+      "bytes": 30907,
+      "sha256": "451965f433973f418ca0a3db68f4e0a973150418926a5d6676ccc52c3e83b8a7"
+    },
+    {
+      "path": "primary/dataurl-lex-history.json",
+      "bytes": 20636,
+      "sha256": "c2ea09167d431cc952330f46c43af14c17f3682a14b5eb74cbc59f083b66892f"
+    },
+    {
+      "path": "primary/dataurl-original-lex.go",
+      "bytes": 10037,
+      "sha256": "687aa2ea29612fafa6fe99753695e57a2e27453cb58f818183d33549cc73ba80"
+    },
+    {
+      "path": "primary/dataurl-original-rfc2396.go",
+      "bytes": 2870,
+      "sha256": "44d1fb616a9f3420da29fd6431ca9dfde5776dbe038e1b1a87dce0c1dab81674"
+    },
+    {
+      "path": "primary/dataurl-rfc2396-history.json",
+      "bytes": 12398,
+      "sha256": "e47bb0cef3c1ef3bf47bf55f77fea87270598011c3f4def7a984c907f3d53ac9"
+    },
+    {
+      "path": "primary/dataurl-tree.json",
+      "bytes": 3594,
+      "sha256": "639608d9e01f1687dba94ac6391827966d980d525f333b0fa2a10a440f52822c"
+    },
+    {
+      "path": "primary/go1.2-commit.json",
+      "bytes": 5120,
+      "sha256": "d71e7081b813558dfa337c5a176758adefd4a8adb49a7fbe8fd24f455be6ff20"
+    },
+    {
+      "path": "primary/go1.4-commit.json",
+      "bytes": 4377,
+      "sha256": "159883c964416a65f9d3839662184afa8f517bec84d41759ea2bc419a2b8477c"
+    },
+    {
+      "path": "primary/godotenv-tree.json",
+      "bytes": 7599,
+      "sha256": "9db36d28d69d959a014118db54eb9af95b8892b88b4a96fb8e65fd4d0fba5a83"
+    },
+    {
+      "path": "primary/logfmt-jsonstring-history.json",
+      "bytes": 33909,
+      "sha256": "295f8ec25a89f6952ab7f9daddf657c91b417b53c4af676fa94365ff0def8d62"
+    },
+    {
+      "path": "primary/logfmt-original-jsonstring.go",
+      "bytes": 2581,
+      "sha256": "d6fecbbe57a22be5cd727ffaeba973ba9343cc25a4f5f0d707ca3c121379ed6b"
+    },
+    {
+      "path": "primary/logfmt-tree.json",
+      "bytes": 5166,
+      "sha256": "344ec3139eaa2ff1abd6b4184e14ac3ba9c1f92efbaec180a99d45e9bc1db3c5"
+    },
+    {
+      "path": "primary/wordwrap-tree.json",
+      "bytes": 1613,
+      "sha256": "d2e0500ffcfba7f12451c4664eb2728126e66610af33d28af3684e19c05384b6"
+    }
+  ],
+  "borrowed_source_comparisons": [
+    {
+      "description": "Go JSON getu4 copied helper",
+      "current": {
+        "path": "upstream/logfmt/jsonstring.go",
+        "first_line": 154,
+        "last_line": 163,
+        "byte_start": 3010,
+        "byte_end_exclusive": 3204,
+        "raw_span_sha256": "5edc194ca15618910e2394397ce4fcf14a8624dfb42f55b57aeb376b50146ebf"
+      },
+      "authoritative_comparison": {
+        "path": "primary/Go-go1.4-json-decode.go",
+        "first_line": 953,
+        "last_line": 962,
+        "byte_start": 24036,
+        "byte_end_exclusive": 24230,
+        "raw_span_sha256": "5edc194ca15618910e2394397ce4fcf14a8624dfb42f55b57aeb376b50146ebf"
+      },
+      "exact_raw_span_equal": true,
+      "actual_copy_revision_status": "not_established; fixed_authoritative_comparison_only"
+    },
+    {
+      "description": "Go URL unhex borrowed helper",
+      "current": {
+        "path": "upstream/dataurl/rfc2396.go",
+        "first_line": 65,
+        "last_line": 75,
+        "byte_start": 1325,
+        "byte_end_exclusive": 1521,
+        "raw_span_sha256": "94bbcfcd3695d416998cfd4dbb11ff383c6c2599f615ba56505da63ebf345bb5"
+      },
+      "authoritative_comparison": {
+        "path": "primary/Go-go1.2-url.go",
+        "first_line": 38,
+        "last_line": 48,
+        "byte_start": 702,
+        "byte_end_exclusive": 898,
+        "raw_span_sha256": "94bbcfcd3695d416998cfd4dbb11ff383c6c2599f615ba56505da63ebf345bb5"
+      },
+      "exact_raw_span_equal": true,
+      "actual_copy_revision_status": "not_established; fixed_authoritative_comparison_only"
+    },
+    {
+      "description": "Go template lexer backup",
+      "current": {
+        "path": "upstream/dataurl/lex.go",
+        "first_line": 173,
+        "last_line": 175,
+        "byte_start": 3019,
+        "byte_end_exclusive": 3066,
+        "raw_span_sha256": "5397655bdc5f9d736d4d62ed921e0d7b28c0c66a42b31b2f3a4960873fd9b39a"
+      },
+      "authoritative_comparison": {
+        "path": "primary/Go-go1.2-template-lex.go",
+        "first_line": 124,
+        "last_line": 126,
+        "byte_start": 3865,
+        "byte_end_exclusive": 3912,
+        "raw_span_sha256": "5397655bdc5f9d736d4d62ed921e0d7b28c0c66a42b31b2f3a4960873fd9b39a"
+      },
+      "exact_raw_span_equal": true,
+      "actual_copy_revision_status": "not_established; fixed_authoritative_comparison_only"
+    },
+    {
+      "description": "Go template lexer ignore",
+      "current": {
+        "path": "upstream/dataurl/lex.go",
+        "first_line": 177,
+        "last_line": 179,
+        "byte_start": 3067,
+        "byte_end_exclusive": 3113,
+        "raw_span_sha256": "e0244ba04b538a6d80b39f945f6159ce4db8bb299b8e5ab8477b7a6a99376fdd"
+      },
+      "authoritative_comparison": {
+        "path": "primary/Go-go1.2-template-lex.go",
+        "first_line": 135,
+        "last_line": 137,
+        "byte_start": 4122,
+        "byte_end_exclusive": 4168,
+        "raw_span_sha256": "e0244ba04b538a6d80b39f945f6159ce4db8bb299b8e5ab8477b7a6a99376fdd"
+      },
+      "exact_raw_span_equal": true,
+      "actual_copy_revision_status": "not_established; fixed_authoritative_comparison_only"
+    }
+  ],
+  "original_closure_files": 19,
+  "original_closure_bytes": 59483,
+  "root_non_test_go_files": 11,
+  "proposed_behavior_goal_concepts": 7,
+  "supplemental_go_bsd_license": {
+    "path": "attribution/Go-BSD-LICENSE",
+    "bytes": 1479,
+    "sha256": "dd26a7abddd02e2d0aba97805b31f248ef7835d9e10da289b22e3b8ab78b324d",
+    "url": "https://raw.githubusercontent.com/golang/go/c303df658d43b9f3e98e56e646f8e84a83495991/LICENSE"
+  },
+  "metadata_check_attempt": 1,
+  "metadata_check_completed": true,
+  "curl_primary_http_successes": 18,
+  "curl_primary_http_failures": 0,
+  "primary_browser_calls": 1,
+  "primary_browser_page_opens": 2,
+  "missing_local_inventory_path_reads": 1,
+  "new_materialized_parents": 0,
+  "new_truth_labels": 0,
+  "original_go_api_calls": 0,
+  "native_package_initializers_executed": 0,
+  "native_package_builds": 0,
+  "separate_model_calls": 0,
+  "fits": 0,
+  "protected_final_reads": 0,
+  "shared_repository_edits": 0,
+  "remote_publications": 0,
+  "contract_ready": false,
+  "training_ready": false,
+  "source_author_language_diversity_cleared": false,
+  "dataset_or_model_weight_license_automatically_cleared": false,
+  "limits": [
+    "The helper checks only saved public bytes/metadata and copies exact closure files; no upstream imports, AST/type-check/formatter, test/init/API execution or semantic labels.",
+    "Four repository families and seven goal concepts remain proposals; finite vectors/aliases/paraphrases/translations are not new independent parents.",
+    "MIT roots plus separately retained Go BSD-3 attribution support conditional source redistribution. Root MIT does not relicense borrowed Go code. Dataset/model-weight rights require their own provenance.",
+    "Authoritative Go releases are fixed comparison and notice references, not proven historical copy releases. Exact copy-release lineage remains unknown.",
+    "Original modules remain unchanged; dataurl has no original go.mod/go.sum. Any maintainer module/language recipe must be separately declared/frozen before building.",
+    "logfmt go-cmp is an upstream test requirement; no upstream tests/build ran. Primitive in-memory observer scopes avoid arbitrary callback/writer code.",
+    "Source diversity, author-flow diversity, English caption fidelity and caption/truth/model readiness are not cleared by repository count or hash checks.",
+    "Next development expansion must add genuine behavior goals toward 128 then 256 then 512; eleven total inventory concepts cannot supply those counts by nearvariants. Protected final \u003e=2400/domain stays separate and unread.",
+    "Package-global initialization is source-inspected only, not dynamically instrumented or executed. Decoder goroutine behavior and malformed-input panic paths remain unobserved.",
+    "Separate model calls zero does not mean the collaborating Codex source-reading work had no cost; that general collaboration cost was not measured."
+  ]
+}

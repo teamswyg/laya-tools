@@ -1,5 +1,7 @@
 # laya-tools · User Guide / 사용자 안내
 
+[Go 계산 개선74 한국어](https://github.com/teamswyg/laya-tools/tree/main/experiments/short-claim/feature-prefix-74) · [Go calculation improvement74 English](https://github.com/teamswyg/laya-tools/blob/main/experiments/short-claim/feature-prefix-74/README.en.md): 같은 특징·점수를 유지하고 로컬 공개 예제에서 계산 시간이약24%·20% 줄었으며 할당량은 같습니다 / identical features and scores with approximately24%/20% lower local feature time and unchanged allocations. [단독 저장 reader74](Compact-Storage-73-KO) · [Standalone storage readers74](Compact-Storage-73-EN): RSS18.23/18.41MiB로 RAM 절감은 입증되지 않았습니다 / no RAM saving was demonstrated. [입력 설명 보강](Source-Observation-73-KO) · [Input description review](Source-Observation-73-EN) keeps source truth and visible information separate / 코드 정답과 모델이 읽는 정보를 나눠 다음 튜닝을 준비합니다.
+
 [새 자료의 실제 관찰73](Source-Observation-73-KO) · [New-source observations73](Source-Observation-73-EN): three goals/24 finite inputs matched in one actual Go run; labels/fits0 / 3목표24입력은 일치했지만 새 학습 정답은0입니다. [저장 형식73](Compact-Storage-73-KO) · [Storage73](Compact-Storage-73-EN) preserves FP64 bits and compares minified/gzip controls; file size is separate from RAM / 수치를 유지한 저장 기준선을 비교하며 파일과 RAM을 구분합니다.
 
 [두 번째 작은 주장 모델 결과](Second-Claim-Fit-72-KO) · [Second tiny claim fit](Second-Claim-Fit-72-EN): 후보 확인27→31→33으로 두 학습 방식의 효용은 실패했습니다. 기본 정렬을 유지하고 개발 데이터 다양성을 먼저 늘립니다. [Go 입력 재사용](Validated-Input-71-KO) · [Go input reuse](Validated-Input-71-EN)은 정렬 할당81→0을 관측했고 전체 회귀 검사를 통과했습니다.

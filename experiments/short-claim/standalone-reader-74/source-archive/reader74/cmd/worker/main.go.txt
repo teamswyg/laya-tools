@@ -1,0 +1,201 @@
+package main
+
+import (
+	"encoding/json"
+	"errors"
+	"flag"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"runtime"
+	"runtime/debug"
+
+	"riido.local/claim-compact-storage/codec"
+	"riido.local/standalone-reader74/reader"
+)
+
+func save(path string, b []byte) error {
+	f, e := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	if e != nil {
+		return e
+	}
+	n, e := f.Write(b)
+	if e != nil || n != len(b) {
+		f.Close()
+		return errors.New("write")
+	}
+	if e = f.Sync(); e != nil {
+		f.Close()
+		return e
+	}
+	return f.Close()
+}
+func run(args []string) error {
+	fs := flag.NewFlagSet("reader74-worker", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	planPath := fs.String("plan", "", "")
+	planSHA := fs.String("plan-sha256", "", "")
+	mode := fs.String("format", "", "")
+	out := fs.String("attempt-dir", "", "")
+	if fs.Parse(args) != nil || len(fs.Args()) != 0 || (*mode != "json" && *mode != "compact") || !filepath.IsAbs(*out) {
+		return errors.New("arguments")
+	}
+	b, e := reader.BoundedRead(*planPath, 1<<20)
+	if e != nil || reader.Hash(b) != *planSHA {
+		return errors.New("plan_pin")
+	}
+	var p reader.Plan
+	if reader.StrictDecode(b, &p) != nil || !reader.ValidPlan(p) || !p.Frozen {
+		return errors.New("plan")
+	}
+	if runtime.Version() != p.Toolchain || runtime.GOMAXPROCS(0) != p.CPU || debug.SetMemoryLimit(-1) != int64(p.SoftGoHeapBytes) || reader.VerifyClosure(p) != nil {
+		return errors.New("runtime_source")
+	}
+	self, e := os.Executable()
+	if e != nil || reader.VerifyBinary(self, p.WorkerBinary, p) != nil {
+		return errors.New("binary")
+	}
+	// Root controller owns this existing, exclusively reserved format directory.
+	intent, e := reader.BoundedRead(filepath.Join(*out, "worker-intent.json"), 1<<20)
+	var binding reader.WorkerIntent
+	if e != nil || reader.StrictDecode(intent, &binding) != nil || binding.Schema != "riido-reader74-child-intent-v1" || binding.Mode != *mode || binding.PlanSHA256 != *planSHA || binding.WorkerSHA256 != p.WorkerBinary.SHA256 {
+		return errors.New("reservation")
+	}
+	final, e := os.OpenFile(filepath.Join(*out, "results.json"), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	if e != nil {
+		return e
+	}
+	defer final.Close()
+	dir, e := os.Open(*out)
+	if e != nil {
+		return e
+	}
+	defer dir.Close()
+	r := reader.WorkerResult{Schema: "riido-standalone-reader74-worker-v1", State: "running_reader_only", Mode: *mode, PlanSHA256: *planSHA, RuntimeGo: runtime.Version()}
+	checkpoint := func() error {
+		raw, e := json.MarshalIndent(r, "", "  ")
+		if e != nil || len(raw) > p.ResultLimitBytes {
+			return errors.New("output_bound")
+		}
+		raw = append(raw, '\n')
+		tmp := filepath.Join(*out, "results.partial.next")
+		if e = save(tmp, raw); e != nil {
+			return e
+		}
+		if e = os.Rename(tmp, filepath.Join(*out, "results.partial.json")); e != nil {
+			return e
+		}
+		return dir.Sync()
+	}
+	abort := func(code string) error {
+		r.State = "failed_reader_only_no_retry"
+		r.Failure = code
+		_ = checkpoint()
+		return errors.New("reader_failed")
+	}
+	var s codec.Snapshot
+	if *mode == "json" {
+		r.Phase = "json_preflight_before_CSR_allocation"
+		r.Counts.JSONPreflightAttempts++
+		if checkpoint() != nil {
+			return errors.New("checkpoint")
+		}
+		st, e := os.Lstat(p.JSON.Path)
+		if e != nil || !st.Mode().IsRegular() || st.Size() != int64(p.JSON.Bytes) {
+			return abort("json_file")
+		}
+		f, e := os.Open(p.JSON.Path)
+		if e != nil {
+			return abort("json_open")
+		}
+		pre, e := reader.PreflightJSON(f)
+		closeErr := f.Close()
+		if e != nil || closeErr != nil || pre.InputBytes != uint64(p.JSON.Bytes) || fmt.Sprintf("%x", pre.SourceSHA) != p.JSON.SHA256 {
+			return abort("json_preflight")
+		}
+		r.Counts.JSONPreflightReturned++
+		r.Phase = "json_materialize_after_owned_cap"
+		r.Counts.JSONMaterializeAttempts++
+		if checkpoint() != nil {
+			return errors.New("checkpoint")
+		}
+		f, e = os.Open(p.JSON.Path)
+		if e != nil {
+			return abort("json_second_open")
+		}
+		s, e = reader.MaterializeJSON(f, &pre)
+		closeErr = f.Close()
+		if e != nil || closeErr != nil {
+			return abort("json_materialize")
+		}
+		r.Counts.JSONMaterializeReturned++
+	} else {
+		r.Phase = "compact_read"
+		r.Counts.CompactReadAttempts++
+		if checkpoint() != nil {
+			return errors.New("checkpoint")
+		}
+		raw, e := reader.BoundedRead(p.Compact.Path, p.InputCapBytes)
+		if e != nil || len(raw) != p.Compact.Bytes || reader.Hash(raw) != p.Compact.SHA256 {
+			return abort("compact_pin")
+		}
+		r.Counts.CompactReadReturned++
+		r.Phase = "compact_existing_decoder"
+		r.Counts.CompactDecodeAttempts++
+		if checkpoint() != nil {
+			return errors.New("checkpoint")
+		}
+		s, e = codec.Decode(raw)
+		if e != nil {
+			return abort("compact_decode")
+		}
+		r.Counts.CompactDecodeReturned++
+	}
+	r.Phase = "same_array_metadata_validation_digest"
+	r.Counts.ValidationAttempts++
+	if checkpoint() != nil {
+		return errors.New("checkpoint")
+	}
+	summary, e := reader.Summarize(s)
+	if e != nil || !reader.ExpectedSummary(summary, p) {
+		return abort("summary_binding")
+	}
+	r.Summary = &summary
+	r.Counts.ValidationReturned++
+	var memory runtime.MemStats
+	runtime.ReadMemStats(&memory)
+	r.GoHeapAllocBytes = memory.HeapAlloc
+	r.GoTotalAllocBytes = memory.TotalAlloc
+	r.State = "completed_reader_only_no_performance_or_training_approval"
+	r.Phase = "complete"
+	if checkpoint() != nil {
+		return errors.New("checkpoint")
+	}
+	raw, e := json.MarshalIndent(r, "", "  ")
+	if e != nil {
+		return e
+	}
+	raw = append(raw, '\n')
+	if len(raw) > p.ResultLimitBytes {
+		return errors.New("output_bound")
+	}
+	n, e := final.Write(raw)
+	if e != nil || n != len(raw) {
+		return errors.New("output")
+	}
+	if e = final.Sync(); e != nil {
+		return e
+	}
+	if e = dir.Sync(); e != nil {
+		return e
+	}
+	fmt.Println("standalone_reader_complete_digest_only_no_original_API")
+	return nil
+}
+func main() {
+	if run(os.Args[1:]) != nil {
+		fmt.Fprintln(os.Stderr, "standalone_reader74_refused_or_failed")
+		os.Exit(1)
+	}
+}

@@ -1,0 +1,117 @@
+package codec
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/json"
+	"io"
+)
+
+type jsonDataset struct {
+	Split          string
+	Offsets        []int64
+	Indices        []uint16
+	Values, Labels []float64
+	Groups         []int64
+	Excluded       int64
+	SampleWeights  []float64
+}
+
+func object(b []byte) (map[string]json.RawMessage, error) {
+	if len(b) > Limit {
+		return nil, fail()
+	}
+	var m map[string]json.RawMessage
+	d := json.NewDecoder(bytes.NewReader(b))
+	if e := d.Decode(&m); e != nil || m == nil {
+		return nil, fail()
+	}
+	var trailing any
+	if d.Decode(&trailing) != io.EOF {
+		return nil, fail()
+	}
+	return m, nil
+}
+
+// ImportJSON is a storage DTO reader. It calls no original projection,
+// normalization, feature, role, model or learning package.
+func ImportJSON(b []byte) (Snapshot, error) {
+	var s Snapshot
+	if len(b) > Limit {
+		return s, fail()
+	}
+	root, e := object(b)
+	if e != nil {
+		return s, e
+	}
+	var schema string
+	if json.Unmarshal(root["schema"], &schema) != nil || schema != "riido-full76-projection-result-v1" {
+		return s, fail()
+	}
+	projection, e := object(root["projection"])
+	if e != nil {
+		return s, e
+	}
+	for i, name := range []string{"Development", "Validation", "DevelopmentAUC", "ValidationAUC"} {
+		var holder map[string]json.RawMessage
+		raw := projection[name]
+		if i >= 2 {
+			holder, e = object(raw)
+			if e != nil {
+				return s, e
+			}
+			raw = holder["Data"]
+		}
+		fields, e := object(raw)
+		if e != nil {
+			return s, e
+		}
+		if len(fields) != 8 {
+			return s, fail()
+		}
+		for _, key := range []string{"Split", "Offsets", "Indices", "Values", "Labels", "Groups", "Excluded", "SampleWeights"} {
+			if _, ok := fields[key]; !ok {
+				return s, fail()
+			}
+		}
+		var dto jsonDataset
+		dec := json.NewDecoder(bytes.NewReader(raw))
+		dec.DisallowUnknownFields()
+		if dec.Decode(&dto) != nil {
+			return s, fail()
+		}
+		s.Data[i] = Dataset{Offsets: dto.Offsets, Indices: dto.Indices, Values: dto.Values, Labels: dto.Labels, Groups: dto.Groups, SampleWeights: dto.SampleWeights}
+		if e = valid(s.Data[i]); e != nil {
+			return s, e
+		}
+		for _, key := range []string{"Offsets", "Indices", "Values", "Labels", "Groups", "SampleWeights"} {
+			delete(fields, key)
+		}
+		meta, e := json.Marshal(fields)
+		if e != nil {
+			return s, e
+		}
+		if i >= 2 {
+			holder["Data"] = meta
+			meta, e = json.Marshal(holder)
+			if e != nil {
+				return s, e
+			}
+		}
+		projection[name] = meta
+	}
+	p, e := json.Marshal(projection)
+	if e != nil {
+		return s, e
+	}
+	root["projection"] = p
+	s.Metadata, e = json.Marshal(root)
+	if e != nil {
+		return s, e
+	}
+	s.SourceSHA256 = sha256.Sum256(b)
+	if _, e = OwnedPayloadBytes(s); e != nil {
+		return Snapshot{}, e
+	}
+	return s, nil
+}
