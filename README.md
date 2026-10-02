@@ -1,5 +1,7 @@
 # laya-tools
 
+[저장 정답 효용58](experiments/short-claim/RESULTS-STORED-58.ko.md)은 기존 72개 요청을 네 가지 비학습 방식으로 정렬했습니다. 가장 좋은 고정 기준의 91회 확인과 정답을 아는 순서의 73회 사이에 **약 19.8% 개선 여지**가 있었습니다. 이는 달성한 모델 성능이나 Codex 절감이 아니며, 판단 보류 21개와 학습 준비 미완성을 유지합니다. [사용법](experiments/short-claim/USAGE-STORED-58.ko.md)에서 Go 회귀 검사를 실행하고, [다음 준비](experiments/short-claim/NEXT-STORED-58.ko.md)에서 문구·원천 전이·역할 분할 계획을 확인할 수 있습니다.
+
 [공개 동작 검증57](experiments/public-behavior/RESULTS-57.ko.md)은 버전·경로 패턴의 원본 Go API62건을 실제 관측했습니다.59건 일치·3건 차이를 그대로 보존하며, 큰 숫자의 비교 문제와 더 엄격한 패턴 검사 정책을 구분합니다. [사용법](experiments/public-behavior/USAGE-57.ko.md)에서 공개 결과를 재생할 수 있습니다. 두 원천 가족·여섯 유한 계약이며 모델 성능이나2400독립 작업 결과는 아닙니다. [Laya 원본 회고](docs/laya-source-retrospective-57.ko.md)는 체크포인트 선택과 Codex 비용 예측의 차이, 캐시·보류·라이선스의 다음 범위를 설명합니다.
 
 별도 연구: **아주 작은 힌트로 비싼 탐색의 순서를 개선**하는 [의미 탐색 힌트 실험](experiments/semantic-hints/PLAN.ko.md)을 진행합니다. 모델 없이 직접 시험할 수 있는 [선택형 보조 검색](experiments/baseline-first/README.ko.md)은 `riido-hints --identifier-hints`로 실행합니다. 2,948개 문서 설명의 결과와 한계를 공개하며, 기존 난이도 라우터 및 기본 설정과 독립적입니다.

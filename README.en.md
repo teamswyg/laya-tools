@@ -1,5 +1,7 @@
 # laya-tools
 
+[Stored-truth utility58](experiments/short-claim/RESULTS-STORED-58.en.md) ranks 72 existing requests with four nonlearned controls. The best fixed baseline's 91 checks versus an answer-knowing oracle's 73 leave **about 19.8% headroom**. This is neither achieved model performance nor Codex savings; preserve 21 unknowns and incomplete training readiness. [Usage](experiments/short-claim/USAGE-STORED-58.en.md) explains Go regression checks, and [next preparation](experiments/short-claim/NEXT-STORED-58.en.md) covers caption fidelity, source transfer and role planning.
+
 [Public behavior verification57](experiments/public-behavior/RESULTS-57.en.md) observes62 original Go APIs for version/path patterns. Preserve59 matches and3 disagreements, distinguishing large-number comparison from stronger pattern-validation policy. [Usage](experiments/public-behavior/USAGE-57.en.md) replays published observations. Two source families and six finite contracts are neither model performance nor2400 independent tasks. The [Laya retrospective](docs/laya-source-retrospective-57.en.md) explains checkpoint selection versus Codex cost prediction and subsequent caching, abstention and license boundaries.
 
 Separate research: [semantic hints](experiments/semantic-hints/PLAN.en.md) explores cheap suggestions for expensive search. Try the model-free [opt-in search helper](experiments/baseline-first/README.en.md) with `riido-hints --identifier-hints`. Results and limitations cover 2,948 documentation queries; difficulty routing and defaults remain independent.

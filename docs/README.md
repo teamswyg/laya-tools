@@ -12,6 +12,7 @@ Latest owned task evidence: [experiment55](../experiments/task-outcomes/RESULTS-
 | Topic / 주제 | English | 한국어 |
 |---|---|---|
 | Project overview / 프로젝트 개요 | [README](../README.en.md) | [README](../README.md) |
+| Stored-truth ordering headroom58 / 저장 정답 확인 순서 개선 여지58 | [91 checks versus oracle73; training not ready](../experiments/short-claim/RESULTS-STORED-58.en.md) · [Usage](../experiments/short-claim/USAGE-STORED-58.en.md) · [Next preparation](../experiments/short-claim/NEXT-STORED-58.en.md) | [91회와 이상적73회; 학습 준비 미완성](../experiments/short-claim/RESULTS-STORED-58.ko.md) · [사용법](../experiments/short-claim/USAGE-STORED-58.ko.md) · [다음 준비](../experiments/short-claim/NEXT-STORED-58.ko.md) |
 | Router design / 라우터 설계 | [Design](design.en.md) | [설계](design.ko.md) |
 | Decomposition decision plan / 작업 분할 판단 계획 | [Preview](decomposition-preview.en.md) | [Preview](decomposition-preview.ko.md) |
 | Maintainer MPS preparation / 유지보수 MPS 준비 | [Readiness and limits](mps-training.en.md) | [준비 검사와 한계](mps-training.ko.md) |

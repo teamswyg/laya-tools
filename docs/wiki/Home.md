@@ -1,5 +1,7 @@
 # laya-tools · User Guide / 사용자 안내
 
+**Stored-truth utility58 / 저장 정답 효용58:** [한국어 결과](https://github.com/teamswyg/laya-tools/wiki/Stored-Utility-Results-58-KO) / [English results](https://github.com/teamswyg/laya-tools/wiki/Stored-Utility-Results-58-EN) · [사용법](https://github.com/teamswyg/laya-tools/wiki/Stored-Utility-Usage-58-KO) / [Usage](https://github.com/teamswyg/laya-tools/wiki/Stored-Utility-Usage-58-EN). The best fixed control needs 91 checks versus an answer-knowing oracle's 73: 19.8% headroom on 72 existing development requests, not achieved model or Codex savings. Retain 21 unknowns; training is not ready. / 기존 개발 요청 72개에서 가장 좋은 고정 기준은 확인 91회, 정답을 아는 순서는 73회였습니다. 약 19.8%는 개선 여지이며 모델 성과나 Codex 절감이 아닙니다. 보류 21개를 유지하고 학습 준비는 미완성입니다. [다음 준비](https://github.com/teamswyg/laya-tools/wiki/Stored-Utility-Next-58-KO) / [Next preparation](https://github.com/teamswyg/laya-tools/wiki/Stored-Utility-Next-58-EN).
+
 [![CI](https://github.com/teamswyg/laya-tools/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/teamswyg/laya-tools/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/teamswyg/laya-tools)](https://github.com/teamswyg/laya-tools/releases/latest)
 [![Project license](https://img.shields.io/badge/project_license-Apache--2.0-blue)](https://github.com/teamswyg/laya-tools/blob/main/LICENSE)
