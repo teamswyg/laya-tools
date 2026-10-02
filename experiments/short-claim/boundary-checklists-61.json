@@ -1,0 +1,196 @@
+{
+  "schema": "riido-caption-boundary-checklist-preparation-61-v1",
+  "state": "private_preparation_questions_only_all_content_pending",
+  "purpose": "Predeclare source-reading questions and observer limits for the selected existing families, not implementation/caption assessments.",
+  "source_inventory60_sha256": "d99d635929555d4123bbaa84aac99d0fb29db345f8b813ed70074dd3e09cdbd4",
+  "caption_reference59_sha256": "7c1bd449d533d3d46a9211dea0a436ce338fe8f16ee3197d554744c3c24b0a29",
+  "source_navigation_policy": "Use saved60 source/root/component pointers in scope references for exact physical declarations. These symbol names are reading navigation only; no new AST or formatter call is made.",
+  "legacy_observer_prerequisite": {
+    "path": "internal/behaviorprobe/data.go",
+    "raw_file_sha256": "b377343a64c019c205f69865286a21ce5d91dda3051c31aa5c69b75a40300559",
+    "symbol": "check",
+    "start_line": 489,
+    "end_line": 507,
+    "questions": [
+      "Account for cloned input, slices.Equal value comparison, and input-preservation observation before interpreting an aggregate outcome.",
+      "Keep legacy candidate panic or input mutation as observer unknown; do not replace it with typed known-mismatch policy.",
+      "Nil versus nonnil empty output is not distinguished by slices.Equal. Ownership, capacity, allocation and unbounded inputs are not established."
+    ],
+    "review_state": "pending"
+  },
+  "families": [
+    {
+      "prototype": "retain-active",
+      "contract59_pointer": "/references/contracts/0",
+      "literal_cases": 4,
+      "root_symbols": ["retainCorrect", "retainReversed", "retainIgnoreExpiry"],
+      "observer_symbols": ["check"],
+      "observation_fields": ["boolean active/expired inputs", "returned retain/remove value", "post-call input sequence"],
+      "questions": ["Does the claim preserve active AND NOT expired polarity for all four boolean states?", "Are reversed retention and omitted expiry faithfully described independently of task acceptability?"],
+      "unsupported_claims_not_to_infer": ["Nonboolean values, variable input length, nil-input safety or general authorization semantics"],
+      "state": "pending"
+    },
+    {
+      "prototype": "allow-owner",
+      "contract59_pointer": "/references/contracts/1",
+      "literal_cases": 8,
+      "root_symbols": ["ownerCorrect", "ownerUnverified", "ownerAdminVerified"],
+      "observer_symbols": ["check"],
+      "observation_fields": ["administrator/owner/verified boolean inputs", "returned accept/reject value", "post-call input sequence"],
+      "questions": ["Does administrator bypass verification while owner requires verification?", "Does AND/OR grouping match each scoped implementation rather than keyword presence?"],
+      "unsupported_claims_not_to_infer": ["Nonboolean inputs or an actual security/identity system"],
+      "state": "pending"
+    },
+    {
+      "prototype": "closed-window",
+      "contract59_pointer": "/references/contracts/2",
+      "literal_cases": 6,
+      "root_symbols": ["windowCorrect", "windowExclusive", "windowInverted"],
+      "observer_symbols": ["check"],
+      "observation_fields": ["one integer value", "returned accept/reject value", "post-call input sequence"],
+      "questions": ["Are both 3 and 7 included, and outside values excluded, as stated in the retained finite contract?", "Does an only-if clause omit the positive obligation to accept every in-range value?"],
+      "unsupported_claims_not_to_infer": ["Arbitrary bound parameters or noninteger numeric semantics", "A new separate group from clamp-window; both retain historical group 8"],
+      "state": "pending"
+    },
+    {
+      "prototype": "quota-total",
+      "contract59_pointer": "/references/contracts/3",
+      "literal_cases": 6,
+      "root_symbols": ["quotaCorrect", "quotaExclusive", "quotaSeparate"],
+      "observer_symbols": ["check"],
+      "observation_fields": ["used/requested/limit nonnegative small integers", "returned accept/reject value", "post-call input sequence"],
+      "questions": ["Is used+requested compared to the limit, rather than comparing each operand separately?", "Does equality to the limit count as acceptable?"],
+      "unsupported_claims_not_to_infer": ["Overflow, negative values, arbitrary arithmetic types or external quotas"],
+      "state": "pending"
+    },
+    {
+      "prototype": "remove-first",
+      "contract59_pointer": "/references/contracts/5",
+      "literal_cases": 5,
+      "root_symbols": ["firstCorrect", "firstAll", "firstLast"],
+      "observer_symbols": ["check"],
+      "observation_fields": ["integer input sequence", "returned ordered sequence", "post-call input sequence"],
+      "questions": ["Is exactly the first occurrence of target 2 removed, with later occurrences and all other values preserved?", "Does wording distinguish first, last and all occurrences without promising unobserved alias behavior?"],
+      "unsupported_claims_not_to_infer": ["A configurable target, backing-store ownership or noninteger sequences"],
+      "state": "pending"
+    },
+    {
+      "prototype": "compact-runs",
+      "contract59_pointer": "/references/contracts/6",
+      "literal_cases": 5,
+      "root_symbols": ["compactCorrect", "compactGlobal", "compactCopy"],
+      "observer_symbols": ["check"],
+      "observation_fields": ["integer input sequence", "returned ordered sequence", "post-call input sequence"],
+      "questions": ["Are adjacent equal runs required to collapse, while nonadjacent repeats remain?", "Does a prohibition against nonadjacent deduplication fail to express the positive collapse obligation?"],
+      "unsupported_claims_not_to_infer": ["Nil/empty identity, general equality callbacks, ownership or capacity guarantees"],
+      "state": "pending"
+    },
+    {
+      "prototype": "rotate-left",
+      "contract59_pointer": "/references/contracts/7",
+      "literal_cases": 5,
+      "root_symbols": ["rotateCorrect", "rotateRight", "rotateReverse"],
+      "observer_symbols": ["check"],
+      "observation_fields": ["integer input sequence", "returned ordered sequence", "post-call input sequence"],
+      "questions": ["Does one-position cyclic left rotation preserve all values and relative cyclic order?", "Are empty and singleton cases distinguished from right rotation and reversal?"],
+      "unsupported_claims_not_to_infer": ["Arbitrary rotation distance or output ownership"],
+      "state": "pending"
+    },
+    {
+      "prototype": "nondecreasing",
+      "contract59_pointer": "/references/contracts/8",
+      "literal_cases": 6,
+      "root_symbols": ["sortedCorrect", "sortedStrict", "sortedEndpoints"],
+      "observer_symbols": ["check"],
+      "observation_fields": ["integer input sequence", "returned accept/reject value", "post-call input sequence"],
+      "questions": ["Is equality permitted between adjacent values?", "Does every adjacent pair matter instead of only first/last endpoints?"],
+      "unsupported_claims_not_to_infer": ["Sorting the input, custom ordering or proof over arbitrary lengths"],
+      "state": "pending"
+    },
+    {
+      "prototype": "clamp-window",
+      "contract59_pointer": "/references/contracts/9",
+      "literal_cases": 6,
+      "root_symbols": ["clampCorrect", "clampZero", "clampWrap"],
+      "observer_symbols": ["check"],
+      "observation_fields": ["value/lower/upper with lower<=upper", "one returned clamped integer", "post-call input sequence"],
+      "questions": ["Are in-range values preserved and out-of-range values replaced by the nearest inclusive endpoint?", "Does wording separate clamping from returning zero or wrapping to the opposite endpoint?"],
+      "unsupported_claims_not_to_infer": ["Reversed bounds or numeric overflow", "A separate independent group from closed-window"],
+      "state": "pending"
+    },
+    {
+      "prototype": "prefix-balance",
+      "contract59_pointer": "/references/contracts/10",
+      "literal_cases": 7,
+      "root_symbols": ["balanceCorrect", "balanceFinalOnly", "balanceFirstOnly"],
+      "observer_symbols": ["check"],
+      "observation_fields": ["+1/-1 step sequence", "returned accept/reject value", "post-call input sequence"],
+      "questions": ["Must every prefix be nonnegative as well as the final sum be zero?", "Does checking only the first step or final balance omit a material ordering condition?"],
+      "unsupported_claims_not_to_infer": ["Other step values, real parsers or unbounded depth"],
+      "state": "pending"
+    },
+    {
+      "prototype": "transform-order",
+      "contract59_pointer": "/references/contracts/11",
+      "literal_cases": 5,
+      "root_symbols": ["transformCorrect", "transformReversed", "transformAdd"],
+      "observer_symbols": ["check"],
+      "observation_fields": ["one small integer", "one returned transformed integer", "post-call input sequence"],
+      "questions": ["Is subtracting 3 performed before multiplying by 2?", "Do candidate claims distinguish operation order and changed operators?"],
+      "unsupported_claims_not_to_infer": ["Overflow or arbitrary numeric types"],
+      "state": "pending"
+    },
+    {
+      "prototype": "owned-snapshot",
+      "contract59_pointer": "/references/contracts/14",
+      "literal_cases": 6,
+      "root_symbols": ["snapshotCorrect", "snapshotAlias", "snapshotMutates", "snapshotEmptyNil"],
+      "observer_symbols": ["invokeSnapshot", "validSliceState", "sliceStateOf", "checkSnapshot"],
+      "observation_fields": ["slice Values[4]/Len/Nil", "Returned", "InputAfterCall", "InputAfterResultWrite", "ResultAfterInputWrite", "candidate panicked"],
+      "questions": ["Are nil and nonnil-empty preserved distinctly?", "Does the claim separately account for immediate input mutation, result-to-input aliasing and input-to-result aliasing after sequential inspector writes?", "Are all source-specific helper/type references included before making an ownership claim?"],
+      "unsupported_claims_not_to_infer": ["Capacity, spare backing-store memory or whole-memory noninterference beyond logical lengths 0..4 and indices within each length", "Wrong output length/nilness is a known mismatch; observer support failure remains unknown"],
+      "state": "pending"
+    },
+    {
+      "prototype": "cancellation-lifecycle",
+      "contract59_pointer": "/references/contracts/15",
+      "literal_cases": 12,
+      "root_symbols": ["lifecycleCorrect", "lifecyclePreacquire", "lifecycleFailureLeak", "lifecycleReleaseFirst"],
+      "observer_symbols": ["validLifecycle", "observeLifecycle", "checkLifecycle"],
+      "authored_helper_navigation": ["runLifecycle", "lifecycleTrace", "lifecycleObservation", "lifecycleInputEvent", "lifecycleOutputEvent", "lifecycleStatus"],
+      "observation_fields": ["trace Events[8]/Count", "returned Events[8]/Count/Status", "candidate panicked"],
+      "questions": ["Does pre-begin cancellation emit cancellation without acquisition?", "After acquisition, does terminal outcome precede exactly one release, including failure?", "Are duplicate begin and all post-terminal events ignored under the valid trace preconditions?"],
+      "unsupported_claims_not_to_infer": ["Finish/fail before begin is excluded support, not a fabricated candidate failure", "Real contexts, clocks, resources, goroutines or networking were not observed"],
+      "state": "pending"
+    },
+    {
+      "prototype": "quoted-delimiters",
+      "contract59_pointer": "/references/contracts/16",
+      "literal_cases": 23,
+      "root_symbols": ["quotedCorrect", "quotedLiteralComma", "quotedInsideEscape", "quotedPartialError"],
+      "observer_symbols": ["observeQuoted", "checkQuoted"],
+      "authored_helper_navigation": ["scanQuoted", "quotedMode", "quotedTokens", "quotedError", "whole retained enum declarations"],
+      "observation_fields": ["input ASCII/raw byte bound", "returned Tokens[8]/Count/Error", "candidate panicked"],
+      "questions": ["Are comma delimiting outside quotes, quote removal anywhere, escaping inside/outside quotes and empty tokens all expressed?", "Does wording distinguish removing the escape backslash from keeping the escaped byte as content?", "Are exact error kind and zero Count plus all eight zero Tokens represented for failures?", "Does the short request fully state the intended bounds and malformed-input scope? Preserve all four original unknowns rather than fabricating coverage."],
+      "unsupported_claims_not_to_infer": ["No source-truth promotion from source names or a faithful bounded claim", "No new observation or precedence proof when input exceeds multiple bounds", "The later scoped-property proposals are not replacement parents or truth for these originals"],
+      "state": "pending"
+    },
+    {
+      "prototype": "ancestor-cycle",
+      "contract59_pointer": "/references/contracts/17",
+      "literal_cases": 10,
+      "root_symbols": ["graphCorrect", "graphRevisitCycle", "graphIgnoreCycle", "graphMutatesInput"],
+      "observer_symbols": ["validFlowGraph", "observeGraph", "checkGraph"],
+      "authored_helper_navigation": ["walkFlowGraph", "flowGraph", "flowGraphNode", "graphObservation", "graphError"],
+      "observation_fields": ["graph Nodes[4]/Count and each Children[4]/Count", "returned exact graph error enum", "whole post-call graph value", "candidate panicked"],
+      "questions": ["Are only cycles on the reachable ancestor path rejected, while shared descendants, duplicate edges and unreachable cycles remain allowed?", "Does a visited-set claim incorrectly replace ancestor-path state?", "Is unchanged input distinguished from a returned correct error value?"],
+      "unsupported_claims_not_to_infer": ["Invalid node/child counts or indices are observer support failures, not task failure labels", "Path traces, real graph libraries or unbounded traversal are outside the finite observation"],
+      "state": "pending"
+    }
+  ],
+  "material_ambiguity_policy": "A question or navigation anchor is not a judgment. Later reading must retain exact original clause bytes and competing interpretations. Do not rewrite text or promote historical unknown. Consistent status is blocked by any material unresolved claim for that axis.",
+  "actual_content_review_records": 0,
+  "source_or_candidate_api_calls": 0,
+  "new_labels": 0,
+  "training_ready": false
+}
