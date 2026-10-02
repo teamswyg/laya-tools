@@ -1,0 +1,165 @@
+// Pure protocol types; this package never imports original packages.
+package pure
+
+import "encoding/json"
+
+const WantSHA = "c93ac2b7e4c9af530b07db28a42ee3f9d6eadb6319f5ddf3a835c0ccff09ffa8"
+const InputSHA = "a6110ab85d52fa4b8c62af6aab26bd13a988f04a0a5e38ce1e24e26542fa165b"
+const Limit = 1048576
+
+type Channels struct {
+	ReturnedNormally  bool    `json:"returned_normally"`
+	UUIDHex           *string `json:"uuid_hex"`
+	ReceiverBeforeHex *string `json:"receiver_before_hex"`
+	ReceiverAfterHex  *string `json:"receiver_after_hex"`
+	ExactOutputString *string `json:"exact_output_string"`
+	ErrorNil          *bool   `json:"error_nil"`
+	ErrorType         *string `json:"error_type"`
+	ErrorMessage      *string `json:"error_message"`
+	PanicPresent      bool    `json:"panic_present"`
+	PanicType         *string `json:"panic_type"`
+	PanicText         *string `json:"panic_text"`
+}
+type Reference struct {
+	ArtifactID string `json:"artifact_id"`
+	Pointer    string `json:"json_pointer"`
+}
+type Literal struct {
+	Ordinal        int             `json:"ordinal"`
+	GoalIndex      int             `json:"goal_index"`
+	FixtureIndex   int             `json:"fixture_index"`
+	GoalID         string          `json:"goal_id"`
+	FixtureID      string          `json:"fixture_id"`
+	InputReference Reference       `json:"input_reference"`
+	Input          json.RawMessage `json:"input"`
+	SourceClauses  []string        `json:"source_clause_ids"`
+	Want           Channels        `json:"Want"`
+	Got            json.RawMessage `json:"Got"`
+	Truth          json.RawMessage `json:"truth"`
+	Role           json.RawMessage `json:"role"`
+	Weight         json.RawMessage `json:"weight"`
+	Acceptable     json.RawMessage `json:"acceptable_candidate_indices"`
+}
+type FilePin struct {
+	ID     string `json:"id"`
+	Base   string `json:"base"`
+	Path   string `json:"path"`
+	Bytes  int    `json:"bytes"`
+	SHA256 string `json:"sha256"`
+}
+type SourceFile struct {
+	Path   string `json:"repository_relative_path"`
+	Bytes  int    `json:"bytes"`
+	SHA256 string `json:"sha256"`
+}
+type SourceBinding struct {
+	Family   string       `json:"family"`
+	Module   string       `json:"module"`
+	Revision string       `json:"revision"`
+	License  string       `json:"license"`
+	Kind     string       `json:"kind"`
+	Files    []SourceFile `json:"files"`
+}
+type WantFile struct {
+	Schema  string          `json:"schema"`
+	State   string          `json:"state"`
+	Records []Literal       `json:"records"`
+	Sources []SourceBinding `json:"source_bindings"`
+}
+type Plan struct {
+	Schema             string    `json:"schema"`
+	Frozen             bool      `json:"frozen"`
+	ObserverRoot       string    `json:"observer_root"`
+	OriginalSourceRoot string    `json:"original_source_root"`
+	Closure            []FilePin `json:"closure"`
+	Want               FilePin   `json:"Want"`
+	Binary             FilePin   `json:"binary"`
+	GoVersion          string    `json:"go_version"`
+	GOOS               string    `json:"goos"`
+	GOARCH             string    `json:"goarch"`
+	CGOEnabled         string    `json:"cgo_enabled"`
+	CPU                int       `json:"cpu_threads"`
+	SoftHeapBytes      int       `json:"go_soft_heap_bytes"`
+	OutsideSeconds     int       `json:"outside_timeout_seconds"`
+	OutputBytes        int       `json:"output_bytes"`
+	Goals              int       `json:"behavior_goals"`
+	Fixtures           int       `json:"finite_fixtures"`
+	DirectAPI          int       `json:"planned_direct_entrypoints"`
+	ExpectedErrors     int       `json:"expected_explicit_Error_calls"`
+	MaximumErrors      int       `json:"maximum_explicit_Error_calls_preserving_mismatches"`
+	PlannedTracked     int       `json:"planned_tracked_dispatches"`
+	MaximumTracked     int       `json:"maximum_tracked_dispatches"`
+	StaticStartupSites int       `json:"static_startup_sites_reserved"`
+	Retry              int       `json:"automatic_retries"`
+	Policy             string    `json:"policy"`
+}
+type InputAudit struct {
+	DynamicType string  `json:"dynamic_type"`
+	BytesNil    *bool   `json:"bytes_nil"`
+	BytesHex    *string `json:"bytes_hex"`
+	Text        *string `json:"text"`
+	Int         *int    `json:"int"`
+}
+type Observed struct {
+	Literal                      Literal    `json:"literal"`
+	InputObservation             InputAudit `json:"input_observation"`
+	Got                          *Channels  `json:"Got"`
+	Matches                      *bool      `json:"Matches"`
+	Phase                        string     `json:"phase"`
+	ErrorMethodPanicked          bool       `json:"error_method_panicked"`
+	ErrorMethodPanicType         *string    `json:"error_method_panic_type"`
+	ErrorMethodPanicText         *string    `json:"error_method_panic_text"`
+	NonStringPanicTextUnobserved bool       `json:"nonstring_panic_text_unobserved"`
+}
+type Counters struct {
+	PrimaryReserved           int `json:"primary_reserved"`
+	PrimaryReturned           int `json:"primary_returned"`
+	PrimaryPanicked           int `json:"primary_panicked"`
+	ErrorReserved             int `json:"Error_reserved"`
+	ErrorReturned             int `json:"Error_returned"`
+	ErrorPanicked             int `json:"Error_panicked"`
+	UpstreamURNErrorReserved  int `json:"upstream_URN_Error_reserved"`
+	StdlibErrorReserved       int `json:"stdlib_errorString_Error_reserved"`
+	UnclassifiedErrorReserved int `json:"unclassified_Error_reserved"`
+	CompletedFixtures         int `json:"completed_fixtures"`
+	Matches                   int `json:"matches"`
+	Differences               int `json:"differences"`
+}
+type RunState struct {
+	Phase    string     `json:"phase"`
+	Counters Counters   `json:"counters"`
+	Records  []Observed `json:"records"`
+}
+type Result struct {
+	Schema                               string          `json:"schema"`
+	State                                string          `json:"state"`
+	Failure                              string          `json:"failure"`
+	PlanSHA256                           string          `json:"plan_sha256"`
+	WantSHA256                           string          `json:"Want_sha256"`
+	InputSHA256                          string          `json:"input_sha256"`
+	BinarySHA256                         string          `json:"binary_sha256"`
+	RuntimeGo                            string          `json:"runtime_go"`
+	SourcePins                           []FilePin       `json:"source_pins"`
+	SourceBindings                       []SourceBinding `json:"source_bindings"`
+	Run                                  RunState        `json:"run"`
+	BehaviorGoals                        int             `json:"behavior_goals"`
+	FiniteFixtures                       int             `json:"finite_fixtures"`
+	SourceFamilies                       int             `json:"source_families"`
+	PlannedDirectAPI                     int             `json:"planned_direct_entrypoints"`
+	PlannedExplicitError                 int             `json:"planned_explicit_Error_calls"`
+	PlannedTracked                       int             `json:"planned_tracked_dispatches"`
+	MaximumTracked                       int             `json:"maximum_tracked_dispatches"`
+	StaticStartupSitesReserved           int             `json:"static_startup_sites_reserved"`
+	ActualInitCallbacks                  *int            `json:"actual_init_callbacks"`
+	ActualInitReturns                    *int            `json:"actual_init_returns"`
+	InitDynamicallyInstrumented          bool            `json:"init_dynamically_instrumented"`
+	InternalCallsDynamicallyInstrumented bool            `json:"internal_calls_dynamically_instrumented"`
+	All24WantMatched                     bool            `json:"all24Want_matched"`
+	ActualParents                        int             `json:"actual_parents"`
+	LabelsRolesWeights                   int             `json:"labels_roles_weights"`
+	ModelFeaturesFit                     int             `json:"model_Features_Fit"`
+	TrainingReady                        bool            `json:"training_ready"`
+	ProductionReady                      bool            `json:"production_ready"`
+	Qualification                        bool            `json:"qualification"`
+	ProtectedFinal                       bool            `json:"protected_final"`
+}

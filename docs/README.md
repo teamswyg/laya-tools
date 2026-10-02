@@ -14,6 +14,9 @@ Latest owned task evidence: [experiment55](../experiments/task-outcomes/RESULTS-
 | Topic / 주제 | English | 한국어 |
 |---|---|---|
 | Project overview / 프로젝트 개요 | [README](../README.en.md) | [README](../README.md) |
+| Public function verification / 공개 함수 동작 검증 | [24 matches; evidence before training](../experiments/short-claim/native-observation-80/ACTUAL-RESULTS.en.md) | [24개 일치; 학습 전 근거](../experiments/short-claim/native-observation-80/ACTUAL-RESULTS.ko.md) |
+| Next source reading / 다음 원문 읽기 | [Four goals,32 input drafts](../experiments/short-claim/source-observation-81/README.en.md) | [네 목표·입력 초안32개](../experiments/short-claim/source-observation-81/README.ko.md) |
+| Packed module publication / 압축 모듈 게시 확인 | [CI and exact Wiki readback](../experiments/short-claim/publication-proof-101/README.en.md) | [CI·Wiki 바이트 일치](../experiments/short-claim/publication-proof-101/README.ko.md) |
 | Optional packed Go coefficient reader78 / 선택형 Go 압축 가중치 reader78 | [API and ownership](../pkg/hintweights/README.en.md) · [Measured tradeoffs](../experiments/short-claim/packed-weights-78/README.en.md) | [API·소유권](../pkg/hintweights/README.ko.md) · [실측과 선택 기준](../experiments/short-claim/packed-weights-78/README.ko.md) |
 | Finite source observations77 / 유한 원문 동작 관찰77 | [24 matches; 209 original callbacks plus 8 standard error strings](../experiments/short-claim/native-observation-77/README.en.md) | [24개 일치; 원문 callback209·표준 오류문자열8회](../experiments/short-claim/native-observation-77/README.ko.md) |
 | Further public-source proposals79 / 다음 공개 원천 제안79 | [Six primary families; acquisition and qualification kept separate](../experiments/short-claim/source-growth-79/README.en.md) | [주 원천6계열; 취득·학습 자격은 별도](../experiments/short-claim/source-growth-79/README.ko.md) |

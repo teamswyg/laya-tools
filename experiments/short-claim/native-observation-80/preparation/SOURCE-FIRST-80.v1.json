@@ -1,0 +1,1280 @@
+{
+  "actual_execution_counts": {
+    "Features": 0,
+    "Fit": 0,
+    "HF": 0,
+    "Normalize": 0,
+    "Project": 0,
+    "Wants_authored": 0,
+    "adapter_authored": 0,
+    "import_init": 0,
+    "model": 0,
+    "native_observer": 0,
+    "new_source_acquisition": 0,
+    "original_API": 0,
+    "original_Compile_or_go_list": 0,
+    "original_tests": 0,
+    "roles": 0,
+    "shared_edits": 0
+  },
+  "author": "semantic_review60_prep",
+  "bounds_proposal": {
+    "CPU": 1,
+    "Go_soft_heap_bytes": 268435456,
+    "OS_RSS_is_soft_heap": false,
+    "concurrent_workers": 1,
+    "execution_authorized_by_this_document": false,
+    "lists_or_backing_files": 0,
+    "no_heavy_training_concurrency": true,
+    "output_bytes": 1048576,
+    "selected_input_max_bytes": 45,
+    "whole_child_seconds": 60
+  },
+  "call_paths_source_read_only": [
+    "Parse -\u003e strings.EqualFold for URN, xtob -\u003e xvalues; length/format sentinels and URNPrefixError or invalidLengthError values; no selected entropy/time/node/random-pool calls.",
+    "MustParse -\u003e Parse -\u003e panic on error; Validate and ParseBytes have distinct API/output contracts. These source comparisons are not directly observed facts.",
+    "UUID.Scan -\u003e Parse on string; Scan(string(src)) on non16 bytes; direct copy on16 bytes; fmt.Errorf on errors or unsupported types; caller always provides a fresh nonnil receiver.",
+    "UnmarshalText -\u003e ParseBytes and assignment only after success; UnmarshalBinary checks16 then copy. NullUUID.Scan has separate validity/reset behavior and is excluded from the selected receiver API.",
+    "Ordinal -\u003e strconv.Itoa; int modulo branches and default th. All three goals share no behavioral execution here."
+  ],
+  "compile_source_candidates": [
+    {
+      "build_go_list_or_import_performed": false,
+      "family": "google/uuid",
+      "files": [
+        {
+          "bytes": 30,
+          "computed_git_blob_sha1": "fc84cd79d4c79a2ad598d6c5285473aa32b34982",
+          "historical_definition_raw_sha256_matched": true,
+          "inventory_git_blob_sha1": "fc84cd79d4c79a2ad598d6c5285473aa32b34982",
+          "inventory_pointers": [
+            "/repositories/7/go_mod_blob_sha1"
+          ],
+          "repo": "google/uuid",
+          "repository_relative_path": "internal/taskverify/testdata/uuid-canonical-v1/go.mod",
+          "revision": "2d3c2a9cc518326daf99a383f07c4d3c44317e4d",
+          "selection": "original_module_or_full_license",
+          "sha256": "73da47b6338b00a082fd451aa35a3273d3adc09b8e9bba98dab01091e402af6e",
+          "upstream_path": "go.mod",
+          "upstream_url": "https://github.com/google/uuid/blob/2d3c2a9cc518326daf99a383f07c4d3c44317e4d/go.mod"
+        },
+        {
+          "bytes": 2072,
+          "computed_git_blob_sha1": "fa820b9d3092b433238026b451eca869387d91fb",
+          "historical_definition_raw_sha256_matched": true,
+          "inventory_git_blob_sha1": "fa820b9d3092b433238026b451eca869387d91fb",
+          "inventory_pointers": [
+            "/tasks/119/source_files/0"
+          ],
+          "repo": "google/uuid",
+          "repository_relative_path": "internal/taskverify/testdata/uuid-canonical-v1/dce.go",
+          "revision": "2d3c2a9cc518326daf99a383f07c4d3c44317e4d",
+          "selection": "candidate_Darwin_non_js_runtime_source",
+          "sha256": "6a4b89e7f6165a673e76f00bebaabf8d0d7eb4356a672c6cb771d95a45fb2695",
+          "upstream_path": "dce.go",
+          "upstream_url": "https://github.com/google/uuid/blob/2d3c2a9cc518326daf99a383f07c4d3c44317e4d/dce.go"
+        },
+        {
+          "bytes": 427,
+          "computed_git_blob_sha1": "6c2ab76b1de49b5b4c8b7f9c7a68e9a801f85724",
+          "historical_definition_raw_sha256_matched": true,
+          "inventory_git_blob_sha1": null,
+          "inventory_pointers": null,
+          "repo": "google/uuid",
+          "repository_relative_path": "internal/taskverify/testdata/uuid-canonical-v1/doc.go",
+          "revision": "2d3c2a9cc518326daf99a383f07c4d3c44317e4d",
+          "selection": "candidate_Darwin_non_js_runtime_source",
+          "sha256": "d0e86d759ab8cd66ab72bb4b2c00b40475a5ceb4a2ff4cf881dcae91f1482491",
+          "upstream_path": "doc.go",
+          "upstream_url": "https://github.com/google/uuid/blob/2d3c2a9cc518326daf99a383f07c4d3c44317e4d/doc.go"
+        },
+        {
+          "bytes": 1955,
+          "computed_git_blob_sha1": "d3bc00a31b83b71bc3907d2d135fce059588baac",
+          "historical_definition_raw_sha256_matched": true,
+          "inventory_git_blob_sha1": "d3bc00a31b83b71bc3907d2d135fce059588baac",
+          "inventory_pointers": [
+            "/tasks/114/source_files/0"
+          ],
+          "repo": "google/uuid",
+          "repository_relative_path": "internal/taskverify/testdata/uuid-canonical-v1/hash.go",
+          "revision": "2d3c2a9cc518326daf99a383f07c4d3c44317e4d",
+          "selection": "candidate_Darwin_non_js_runtime_source",
+          "sha256": "588b314f396d99aa304c9e89b6786e9280ec430223349f2ebb48d9145272f81d",
+          "upstream_path": "hash.go",
+          "upstream_url": "https://github.com/google/uuid/blob/2d3c2a9cc518326daf99a383f07c4d3c44317e4d/hash.go"
+        },
+        {
+          "bytes": 907,
+          "computed_git_blob_sha1": "14bd34072b64d2c9cd0491d00454e593af99e1e2",
+          "historical_definition_raw_sha256_matched": true,
+          "inventory_git_blob_sha1": "14bd34072b64d2c9cd0491d00454e593af99e1e2",
+          "inventory_pointers": [
+            "/tasks/107/source_files/0",
+            "/tasks/110/source_files/0",
+            "/tasks/112/source_files/1"
+          ],
+          "repo": "google/uuid",
+          "repository_relative_path": "internal/taskverify/testdata/uuid-canonical-v1/marshal.go",
+          "revision": "2d3c2a9cc518326daf99a383f07c4d3c44317e4d",
+          "selection": "candidate_Darwin_non_js_runtime_source",
+          "sha256": "933eb226d049268e17809fd37f777c650b9ec8cb3fa988534b792610a64dcc43",
+          "upstream_path": "marshal.go",
+          "upstream_url": "https://github.com/google/uuid/blob/2d3c2a9cc518326daf99a383f07c4d3c44317e4d/marshal.go"
+        },
+        {
+          "bytes": 2323,
+          "computed_git_blob_sha1": "d651a2b0619fa44b7f24cdaf731197e6c1023863",
+          "historical_definition_raw_sha256_matched": true,
+          "inventory_git_blob_sha1": "d651a2b0619fa44b7f24cdaf731197e6c1023863",
+          "inventory_pointers": [
+            "/tasks/119/source_files/3"
+          ],
+          "repo": "google/uuid",
+          "repository_relative_path": "internal/taskverify/testdata/uuid-canonical-v1/node.go",
+          "revision": "2d3c2a9cc518326daf99a383f07c4d3c44317e4d",
+          "selection": "candidate_Darwin_non_js_runtime_source",
+          "sha256": "73a93d192ca24078e0f93b8c1675e13adb442421252d3974d697b0821c4832cf",
+          "upstream_path": "node.go",
+          "upstream_url": "https://github.com/google/uuid/blob/2d3c2a9cc518326daf99a383f07c4d3c44317e4d/node.go"
+        },
+        {
+          "bytes": 949,
+          "computed_git_blob_sha1": "0cbbcddbd6e81da612534338c786a4e111bc0a04",
+          "historical_definition_raw_sha256_matched": true,
+          "inventory_git_blob_sha1": null,
+          "inventory_pointers": null,
+          "repo": "google/uuid",
+          "repository_relative_path": "internal/taskverify/testdata/uuid-canonical-v1/node_net.go",
+          "revision": "2d3c2a9cc518326daf99a383f07c4d3c44317e4d",
+          "selection": "candidate_Darwin_non_js_runtime_source",
+          "sha256": "78e274b465de8da8690f4ab06281f41025b142c1d093e337fda1d6726b35662b",
+          "upstream_path": "node_net.go",
+          "upstream_url": "https://github.com/google/uuid/blob/2d3c2a9cc518326daf99a383f07c4d3c44317e4d/node_net.go"
+        },
+        {
+          "bytes": 2461,
+          "computed_git_blob_sha1": "d7fcbf28651697b00add519d8b4402a5ab46ffc2",
+          "historical_definition_raw_sha256_matched": true,
+          "inventory_git_blob_sha1": "d7fcbf28651697b00add519d8b4402a5ab46ffc2",
+          "inventory_pointers": [
+            "/tasks/113/source_files/0"
+          ],
+          "repo": "google/uuid",
+          "repository_relative_path": "internal/taskverify/testdata/uuid-canonical-v1/null.go",
+          "revision": "2d3c2a9cc518326daf99a383f07c4d3c44317e4d",
+          "selection": "candidate_Darwin_non_js_runtime_source",
+          "sha256": "791638f42d54fcf07ac752df6b2df92593f7da308f944465e2cda443dc3346cf",
+          "upstream_path": "null.go",
+          "upstream_url": "https://github.com/google/uuid/blob/2d3c2a9cc518326daf99a383f07c4d3c44317e4d/null.go"
+        },
+        {
+          "bytes": 1459,
+          "computed_git_blob_sha1": "2e02ec06c0121d1c82a8b07275091549f9a0c950",
+          "historical_definition_raw_sha256_matched": true,
+          "inventory_git_blob_sha1": "2e02ec06c0121d1c82a8b07275091549f9a0c950",
+          "inventory_pointers": [
+            "/tasks/111/source_files/0",
+            "/tasks/112/source_files/0"
+          ],
+          "repo": "google/uuid",
+          "repository_relative_path": "internal/taskverify/testdata/uuid-canonical-v1/sql.go",
+          "revision": "2d3c2a9cc518326daf99a383f07c4d3c44317e4d",
+          "selection": "candidate_Darwin_non_js_runtime_source",
+          "sha256": "29281b11e8f97f1ddf73d087854cb401ba42a87c4f59ce45fc69763a4d927f2f",
+          "upstream_path": "sql.go",
+          "upstream_url": "https://github.com/google/uuid/blob/2d3c2a9cc518326daf99a383f07c4d3c44317e4d/sql.go"
+        },
+        {
+          "bytes": 4034,
+          "computed_git_blob_sha1": "efa4d42f2b5830e4ab6a2eab46ba622cacb9af92",
+          "historical_definition_raw_sha256_matched": true,
+          "inventory_git_blob_sha1": "efa4d42f2b5830e4ab6a2eab46ba622cacb9af92",
+          "inventory_pointers": [
+            "/tasks/115/source_files/2",
+            "/tasks/116/source_files/0",
+            "/tasks/117/source_files/2",
+            "/tasks/118/source_files/1",
+            "/tasks/119/source_files/2"
+          ],
+          "repo": "google/uuid",
+          "repository_relative_path": "internal/taskverify/testdata/uuid-canonical-v1/time.go",
+          "revision": "2d3c2a9cc518326daf99a383f07c4d3c44317e4d",
+          "selection": "candidate_Darwin_non_js_runtime_source",
+          "sha256": "4154b2d7897acfff253c4c2ac0d38d1765cfe3f6ca2e482c71c0677d98380d63",
+          "upstream_path": "time.go",
+          "upstream_url": "https://github.com/google/uuid/blob/2d3c2a9cc518326daf99a383f07c4d3c44317e4d/time.go"
+        },
+        {
+          "bytes": 2127,
+          "computed_git_blob_sha1": "de4bfb1381b51691d734c526837b9d1b30a0b97e",
+          "historical_definition_raw_sha256_matched": true,
+          "inventory_git_blob_sha1": "de4bfb1381b51691d734c526837b9d1b30a0b97e",
+          "inventory_pointers": [
+            "/tasks/105/source_files/1",
+            "/tasks/108/source_files/1",
+            "/tasks/115/source_files/3"
+          ],
+          "repo": "google/uuid",
+          "repository_relative_path": "internal/taskverify/testdata/uuid-canonical-v1/util.go",
+          "revision": "2d3c2a9cc518326daf99a383f07c4d3c44317e4d",
+          "selection": "candidate_Darwin_non_js_runtime_source",
+          "sha256": "4237eba5a7bc7934b938c9b0bce5fa502d832e5660de71cbef130582e517f89e",
+          "upstream_path": "util.go",
+          "upstream_url": "https://github.com/google/uuid/blob/2d3c2a9cc518326daf99a383f07c4d3c44317e4d/util.go"
+        },
+        {
+          "bytes": 10254,
+          "computed_git_blob_sha1": "dc75ceefca17f2497d1ac8d99d366251924d2189",
+          "historical_definition_raw_sha256_matched": true,
+          "inventory_git_blob_sha1": "dc75ceefca17f2497d1ac8d99d366251924d2189",
+          "inventory_pointers": [
+            "/tasks/105/source_files/0",
+            "/tasks/106/source_files/0",
+            "/tasks/107/source_files/1",
+            "/tasks/108/source_files/0",
+            "/tasks/109/source_files/1",
+            "/tasks/110/source_files/1",
+            "/tasks/118/source_files/2"
+          ],
+          "repo": "google/uuid",
+          "repository_relative_path": "internal/taskverify/testdata/uuid-canonical-v1/uuid.go",
+          "revision": "2d3c2a9cc518326daf99a383f07c4d3c44317e4d",
+          "selection": "candidate_Darwin_non_js_runtime_source",
+          "sha256": "00d93a3f65d8b0063266e63ff0e16ac543e30a911fd35119bcf1a66437161360",
+          "upstream_path": "uuid.go",
+          "upstream_url": "https://github.com/google/uuid/blob/2d3c2a9cc518326daf99a383f07c4d3c44317e4d/uuid.go"
+        },
+        {
+          "bytes": 1257,
+          "computed_git_blob_sha1": "463109629eee180e87507373a3e957e72c34f179",
+          "historical_definition_raw_sha256_matched": true,
+          "inventory_git_blob_sha1": "463109629eee180e87507373a3e957e72c34f179",
+          "inventory_pointers": [
+            "/tasks/115/source_files/0",
+            "/tasks/119/source_files/1"
+          ],
+          "repo": "google/uuid",
+          "repository_relative_path": "internal/taskverify/testdata/uuid-canonical-v1/version1.go",
+          "revision": "2d3c2a9cc518326daf99a383f07c4d3c44317e4d",
+          "selection": "candidate_Darwin_non_js_runtime_source",
+          "sha256": "38a2c229a2aad4bb72d45529304f210b1f31e8ef60bbd2605690a10f0d8a8242",
+          "upstream_path": "version1.go",
+          "upstream_url": "https://github.com/google/uuid/blob/2d3c2a9cc518326daf99a383f07c4d3c44317e4d/version1.go"
+        },
+        {
+          "bytes": 2057,
+          "computed_git_blob_sha1": "7697802e4d16b255e7ea22a86071cfbe9af6aa39",
+          "historical_definition_raw_sha256_matched": true,
+          "inventory_git_blob_sha1": "7697802e4d16b255e7ea22a86071cfbe9af6aa39",
+          "inventory_pointers": [
+            "/tasks/109/source_files/0",
+            "/tasks/117/source_files/1"
+          ],
+          "repo": "google/uuid",
+          "repository_relative_path": "internal/taskverify/testdata/uuid-canonical-v1/version4.go",
+          "revision": "2d3c2a9cc518326daf99a383f07c4d3c44317e4d",
+          "selection": "candidate_Darwin_non_js_runtime_source",
+          "sha256": "f252aeb4028659d83cbf7b037d4524f7c9b76cde1fdca1f6f7de310dab6f4dcd",
+          "upstream_path": "version4.go",
+          "upstream_url": "https://github.com/google/uuid/blob/2d3c2a9cc518326daf99a383f07c4d3c44317e4d/version4.go"
+        },
+        {
+          "bytes": 3102,
+          "computed_git_blob_sha1": "17bbafe0fb6315c88d0c3da29106cc0192feea61",
+          "historical_definition_raw_sha256_matched": true,
+          "inventory_git_blob_sha1": "17bbafe0fb6315c88d0c3da29106cc0192feea61",
+          "inventory_pointers": [
+            "/tasks/115/source_files/1"
+          ],
+          "repo": "google/uuid",
+          "repository_relative_path": "internal/taskverify/testdata/uuid-canonical-v1/version6.go",
+          "revision": "2d3c2a9cc518326daf99a383f07c4d3c44317e4d",
+          "selection": "candidate_Darwin_non_js_runtime_source",
+          "sha256": "0bafc74725a9ee94939d6cde6bad8e13804aa594328e7b20d7cf05fb86315307",
+          "upstream_path": "version6.go",
+          "upstream_url": "https://github.com/google/uuid/blob/2d3c2a9cc518326daf99a383f07c4d3c44317e4d/version6.go"
+        },
+        {
+          "bytes": 3337,
+          "computed_git_blob_sha1": "3fec67102ec3b0e6e6bb4898abb2cfc5d06eeefd",
+          "historical_definition_raw_sha256_matched": true,
+          "inventory_git_blob_sha1": "3fec67102ec3b0e6e6bb4898abb2cfc5d06eeefd",
+          "inventory_pointers": [
+            "/tasks/117/source_files/0",
+            "/tasks/118/source_files/0"
+          ],
+          "repo": "google/uuid",
+          "repository_relative_path": "internal/taskverify/testdata/uuid-canonical-v1/version7.go",
+          "revision": "2d3c2a9cc518326daf99a383f07c4d3c44317e4d",
+          "selection": "candidate_Darwin_non_js_runtime_source",
+          "sha256": "1b154d61434747ca823e5c5c0f58dd3ffc47620badefd0b65626be0010fe6c28",
+          "upstream_path": "version7.go",
+          "upstream_url": "https://github.com/google/uuid/blob/2d3c2a9cc518326daf99a383f07c4d3c44317e4d/version7.go"
+        },
+        {
+          "bytes": 1480,
+          "computed_git_blob_sha1": "5dc68268d900581915a7bfdc1f2be75cd503dd9e",
+          "historical_definition_raw_sha256_matched": true,
+          "inventory_git_blob_sha1": "5dc68268d900581915a7bfdc1f2be75cd503dd9e",
+          "inventory_pointers": [
+            "/repositories/7/license"
+          ],
+          "repo": "google/uuid",
+          "repository_relative_path": "internal/taskverify/testdata/uuid-canonical-v1/LICENSE",
+          "revision": "2d3c2a9cc518326daf99a383f07c4d3c44317e4d",
+          "selection": "original_module_or_full_license",
+          "sha256": "0a8d61ed3cbfd5312326e8126c31ce9c627a283adc99131b56896d29ada04b2d",
+          "upstream_path": "LICENSE",
+          "upstream_url": "https://github.com/google/uuid/blob/2d3c2a9cc518326daf99a383f07c4d3c44317e4d/LICENSE"
+        }
+      ],
+      "kind": "full_retained_upstream_runtime_package_Darwin_non_js_candidate",
+      "license": "BSD-3-Clause",
+      "module": "github.com/google/uuid",
+      "original_test_contents_used_for_new_Want": false,
+      "original_tests_required": false,
+      "platform_excluded_source": [
+        {
+          "bytes": 498,
+          "computed_git_blob_sha1": "b2a0bc8711b3dcab80f2b96050b318b5748cff70",
+          "historical_definition_raw_sha256_matched": true,
+          "inventory_git_blob_sha1": null,
+          "inventory_pointers": null,
+          "repo": "google/uuid",
+          "repository_relative_path": "internal/taskverify/testdata/uuid-canonical-v1/node_js.go",
+          "revision": "2d3c2a9cc518326daf99a383f07c4d3c44317e4d",
+          "selection": "source_read_but_excluded_from_Darwin_non_js_profile",
+          "sha256": "334b6ac9f50339341696319aaf9b912ea8007d0aacf0e909a48a0bb02d982d6d",
+          "upstream_path": "node_js.go",
+          "upstream_url": "https://github.com/google/uuid/blob/2d3c2a9cc518326daf99a383f07c4d3c44317e4d/node_js.go"
+        }
+      ],
+      "revision": "2d3c2a9cc518326daf99a383f07c4d3c44317e4d",
+      "selection_basis": "All16 retained runtime .go files read; node_js.go has +build js and node_net.go +build !js. Exact selected15 must be confirmed by the future compile recipe, not assumed as a hermetic compiler proof.",
+      "source_runtime_bytes": 38721,
+      "source_runtime_files": 15
+    },
+    {
+      "all_slice_function_references_source_read": "Ordinal only calls strconv.Itoa; no package variables or init functions in the selected file.",
+      "family": "dustin/go-humanize",
+      "files": [
+        {
+          "bytes": 371,
+          "computed_git_blob_sha1": "43d88a861950eac85b0f742a59621f92345d7109",
+          "historical_definition_raw_sha256_matched": true,
+          "inventory_git_blob_sha1": "43d88a861950eac85b0f742a59621f92345d7109",
+          "inventory_pointers": [
+            "/tasks/102/source_files/0"
+          ],
+          "repo": "dustin/go-humanize",
+          "repository_relative_path": "internal/taskverify/testdata/go53-humanize-ordinal64-v1/ordinals.go",
+          "revision": "a1b4e66b9a6d890e9e15e7091cf16c8032367d6e",
+          "sha256": "aac3d5ceefd8044baae1f3deb76613470c7eb94fc26af1ea51cec93f8eab075f",
+          "upstream_path": "ordinals.go",
+          "upstream_url": "https://github.com/dustin/go-humanize/blob/a1b4e66b9a6d890e9e15e7091cf16c8032367d6e/ordinals.go"
+        },
+        {
+          "bytes": 46,
+          "computed_git_blob_sha1": "611d24fa1a8560ca99ba83263ec3d6a12d85c3e9",
+          "historical_definition_raw_sha256_matched": true,
+          "inventory_git_blob_sha1": "611d24fa1a8560ca99ba83263ec3d6a12d85c3e9",
+          "inventory_pointers": [
+            "/repositories/6/go_mod_blob_sha1"
+          ],
+          "repo": "dustin/go-humanize",
+          "repository_relative_path": "internal/taskverify/testdata/go53-humanize-ordinal64-v1/go.mod",
+          "revision": "a1b4e66b9a6d890e9e15e7091cf16c8032367d6e",
+          "sha256": "73ef52590e41200a113c6f8fbffd10cc5eb90dc0dc11d79bc5d46d85bddf9c0d",
+          "upstream_path": "go.mod",
+          "upstream_url": "https://github.com/dustin/go-humanize/blob/a1b4e66b9a6d890e9e15e7091cf16c8032367d6e/go.mod"
+        },
+        {
+          "bytes": 1136,
+          "computed_git_blob_sha1": "8d9a94a90680d9fc114a1b3a2b4123c233c324af",
+          "historical_definition_raw_sha256_matched": true,
+          "inventory_git_blob_sha1": "8d9a94a90680d9fc114a1b3a2b4123c233c324af",
+          "inventory_pointers": [
+            "/repositories/6/license"
+          ],
+          "repo": "dustin/go-humanize",
+          "repository_relative_path": "internal/taskverify/testdata/go53-humanize-ordinal64-v1/LICENSE",
+          "revision": "a1b4e66b9a6d890e9e15e7091cf16c8032367d6e",
+          "sha256": "a973b4498c13eb74baa2a8e5c351426a6826f2fcdd909916dbe53ee2e755fd71",
+          "upstream_path": "LICENSE",
+          "upstream_url": "https://github.com/dustin/go-humanize/blob/a1b4e66b9a6d890e9e15e7091cf16c8032367d6e/LICENSE"
+        }
+      ],
+      "kind": "explicit_original_Ordinal_source_slice_not_whole_upstream_package",
+      "known_missing_upstream_bodies_not_required_for_slice": [
+        {
+          "inventory_git_blob_sha1": "f49dc337dcd7318c6e827b81b5020a5715c41bfd",
+          "inventory_pointers": [
+            "/tasks/93/source_files/1",
+            "/tasks/95/source_files/2"
+          ],
+          "known_missing_list_is_exhaustive_whole_package_closure": false,
+          "raw_sha256": null,
+          "required_for_selected_slice": false,
+          "state": "body_not_retained_in_inspected_ordinal_slice",
+          "upstream_path": "big.go",
+          "url": "https://github.com/dustin/go-humanize/blob/a1b4e66b9a6d890e9e15e7091cf16c8032367d6e/big.go"
+        },
+        {
+          "inventory_git_blob_sha1": "3b015fd59ecd16ad0efa8ae2589e9a66a3f2efb0",
+          "inventory_pointers": [
+            "/tasks/91/source_files/1",
+            "/tasks/93/source_files/0"
+          ],
+          "known_missing_list_is_exhaustive_whole_package_closure": false,
+          "raw_sha256": null,
+          "required_for_selected_slice": false,
+          "state": "body_not_retained_in_inspected_ordinal_slice",
+          "upstream_path": "bigbytes.go",
+          "url": "https://github.com/dustin/go-humanize/blob/a1b4e66b9a6d890e9e15e7091cf16c8032367d6e/bigbytes.go"
+        },
+        {
+          "inventory_git_blob_sha1": "e07fce8d23dbd88e9cc91a760a8b468f2ca936ba",
+          "inventory_pointers": [
+            "/tasks/90/source_files/0",
+            "/tasks/91/source_files/0",
+            "/tasks/92/source_files/0"
+          ],
+          "known_missing_list_is_exhaustive_whole_package_closure": false,
+          "raw_sha256": null,
+          "required_for_selected_slice": false,
+          "state": "body_not_retained_in_inspected_ordinal_slice",
+          "upstream_path": "bytes.go",
+          "url": "https://github.com/dustin/go-humanize/blob/a1b4e66b9a6d890e9e15e7091cf16c8032367d6e/bytes.go"
+        },
+        {
+          "inventory_git_blob_sha1": "a870e912d10ab35fd460143d7508b8df1566122a",
+          "inventory_pointers": [
+            "/tasks/94/source_files/0",
+            "/tasks/95/source_files/0"
+          ],
+          "known_missing_list_is_exhaustive_whole_package_closure": false,
+          "raw_sha256": null,
+          "required_for_selected_slice": false,
+          "state": "body_not_retained_in_inspected_ordinal_slice",
+          "upstream_path": "comma.go",
+          "url": "https://github.com/dustin/go-humanize/blob/a1b4e66b9a6d890e9e15e7091cf16c8032367d6e/comma.go"
+        },
+        {
+          "inventory_git_blob_sha1": null,
+          "inventory_pointers": null,
+          "known_missing_list_is_exhaustive_whole_package_closure": false,
+          "raw_sha256": null,
+          "required_for_selected_slice": false,
+          "state": "body_not_retained_in_inspected_ordinal_slice",
+          "upstream_path": "commaf.go",
+          "url": "https://github.com/dustin/go-humanize/blob/a1b4e66b9a6d890e9e15e7091cf16c8032367d6e/commaf.go"
+        },
+        {
+          "inventory_git_blob_sha1": "68c4948b5fb1bdda11892e21df072668de088cd5",
+          "inventory_pointers": [
+            "/tasks/103/source_files/0",
+            "/tasks/104/source_files/0"
+          ],
+          "known_missing_list_is_exhaustive_whole_package_closure": false,
+          "raw_sha256": null,
+          "required_for_selected_slice": false,
+          "state": "body_not_retained_in_inspected_ordinal_slice",
+          "upstream_path": "english/words.go",
+          "url": "https://github.com/dustin/go-humanize/blob/a1b4e66b9a6d890e9e15e7091cf16c8032367d6e/english/words.go"
+        },
+        {
+          "inventory_git_blob_sha1": "a4433afa6b51c0fa2eccb8014f9a612763be87d4",
+          "inventory_pointers": [
+            "/tasks/95/source_files/1",
+            "/tasks/97/source_files/0",
+            "/tasks/99/source_files/1"
+          ],
+          "known_missing_list_is_exhaustive_whole_package_closure": false,
+          "raw_sha256": null,
+          "required_for_selected_slice": false,
+          "state": "body_not_retained_in_inspected_ordinal_slice",
+          "upstream_path": "ftoa.go",
+          "url": "https://github.com/dustin/go-humanize/blob/a1b4e66b9a6d890e9e15e7091cf16c8032367d6e/ftoa.go"
+        },
+        {
+          "inventory_git_blob_sha1": null,
+          "inventory_pointers": null,
+          "known_missing_list_is_exhaustive_whole_package_closure": false,
+          "raw_sha256": null,
+          "required_for_selected_slice": false,
+          "state": "body_not_retained_in_inspected_ordinal_slice",
+          "upstream_path": "humanize.go",
+          "url": "https://github.com/dustin/go-humanize/blob/a1b4e66b9a6d890e9e15e7091cf16c8032367d6e/humanize.go"
+        },
+        {
+          "inventory_git_blob_sha1": "f6d1c4867009d67824655e450a2bd29b72facabb",
+          "inventory_pointers": [
+            "/tasks/96/source_files/0"
+          ],
+          "known_missing_list_is_exhaustive_whole_package_closure": false,
+          "raw_sha256": null,
+          "required_for_selected_slice": false,
+          "state": "body_not_retained_in_inspected_ordinal_slice",
+          "upstream_path": "number.go",
+          "url": "https://github.com/dustin/go-humanize/blob/a1b4e66b9a6d890e9e15e7091cf16c8032367d6e/number.go"
+        },
+        {
+          "inventory_git_blob_sha1": "b3f7b01feed69cd878b1296f4a28c4a338bb1196",
+          "inventory_pointers": [
+            "/tasks/98/source_files/0",
+            "/tasks/99/source_files/0"
+          ],
+          "known_missing_list_is_exhaustive_whole_package_closure": false,
+          "raw_sha256": null,
+          "required_for_selected_slice": false,
+          "state": "body_not_retained_in_inspected_ordinal_slice",
+          "upstream_path": "si.go",
+          "url": "https://github.com/dustin/go-humanize/blob/a1b4e66b9a6d890e9e15e7091cf16c8032367d6e/si.go"
+        },
+        {
+          "inventory_git_blob_sha1": "96f173c2c1f014621c7ef16544f9b6e42adb53f3",
+          "inventory_pointers": [
+            "/tasks/100/source_files/0",
+            "/tasks/101/source_files/0"
+          ],
+          "known_missing_list_is_exhaustive_whole_package_closure": false,
+          "raw_sha256": null,
+          "required_for_selected_slice": false,
+          "state": "body_not_retained_in_inspected_ordinal_slice",
+          "upstream_path": "times.go",
+          "url": "https://github.com/dustin/go-humanize/blob/a1b4e66b9a6d890e9e15e7091cf16c8032367d6e/times.go"
+        }
+      ],
+      "license": "MIT",
+      "module": "github.com/dustin/go-humanize",
+      "optional_whole_package_license_cleared": false,
+      "optional_whole_package_license_origin": [
+        {
+          "detail": "States adaptation from gorhill/5285193. The pinned origin has a separate WTFPL v2 ~LICENSE; record the source lineage and both license bases.",
+          "kind": "adapted_gist",
+          "line": 3,
+          "origin_license": "WTFPL-2.0",
+          "origin_license_url": "https://gist.githubusercontent.com/gorhill/5285193/raw/f45156c00aace6db928e0d89660606e6bb500231/%7ELICENSE",
+          "origin_revision": "cc36e402754549e658cf1d7255fd84f3c284f063",
+          "origin_url": "https://gist.github.com/gorhill/5285193/cc36e402754549e658cf1d7255fd84f3c284f063",
+          "path": "number.go",
+          "source_url": "https://github.com/dustin/go-humanize/blob/a1b4e66b9a6d890e9e15e7091cf16c8032367d6e/number.go#L3",
+          "status": "combined_provenance_manifest_pending"
+        }
+      ],
+      "revision": "a1b4e66b9a6d890e9e15e7091cf16c8032367d6e",
+      "slice_provenance_notice": "Preserve ordinals.go raw bytes, original complete MIT LICENSE and go.mod. State that this is one original function at the immutable upstream revision in an explicitly reduced source package; exclude Ordinal64, tests and all other upstream files. This source composition differs from importing the complete library.",
+      "source_runtime_files": 1,
+      "upstream_go_mod_go_directive": "1.21",
+      "whole_upstream_package_init_or_footprint_equivalent": false,
+      "whole_upstream_package_required_for_selected_Ordinal_body": false
+    }
+  ],
+  "count_interpretation": {
+    "KO_EN_translation_multiplies_parents": false,
+    "actual_direct_callbacks": 0,
+    "actual_parents": 0,
+    "direct_callback_budget_is_final_execution_plan": false,
+    "fixture_slots": 24,
+    "fixture_slots_are_independent_parents": false,
+    "internal_xtob_recursion_Error_and_stdlib_calls_instrumented": false,
+    "optional_wrapper_comparison_callbacks_in_core_scope": 0,
+    "per_goal_slots": 8,
+    "proposed_behavior_goals": 3,
+    "proposed_direct_entrypoint_callbacks": {
+      "Ordinal": 8,
+      "Parse": 8,
+      "UUID.Scan": 8,
+      "total": 24
+    },
+    "provisional_source_families": 2,
+    "startup_return_count_unknown": true,
+    "static_startup_sites_separate": 4
+  },
+  "exposure": {
+    "inventory53_development_exposed": true,
+    "new_paid_calls": 0,
+    "old55_tasks": [
+      "go55-humanize-ordinal64-v2",
+      "go55-uuid-canonical-parse-v2"
+    ],
+    "old_modification_prompt_or_acceptance_used_as_new_truth": false,
+    "prior55_started_CLI_attempts_across_two_tasks": 4,
+    "prior_old_request_results_are_new_labels": false,
+    "prior_paid_cli55_exposed": true,
+    "protected_final": false,
+    "source55_cli_internal_model_request_counts": null
+  },
+  "goals": [
+    {
+      "acceptable_candidate_indices": null,
+      "actual_parent_created": false,
+      "candidate_captions": null,
+      "entrypoint": "Parse",
+      "family": "google/uuid",
+      "fixture_order_is_source_proposal_only": true,
+      "fixtures": [
+        {
+          "Got": null,
+          "Want": null,
+          "id": "parse80-raw32-valid",
+          "input": "00112233445566778899aabbccddeeff",
+          "input_kind": "string",
+          "selection_reason": "Successful raw32 branch reference for the paired late hex case.",
+          "state": "input_proposal_only"
+        },
+        {
+          "Got": null,
+          "Want": null,
+          "id": "parse80-raw32-late-hex",
+          "input": "00112233445566778899aabbccddgeff",
+          "input_kind": "string",
+          "selection_reason": "Late invalid hex pair: raw32 writes xtob's calculated byte before checking ok; preserve all sixteen returned bytes.",
+          "state": "input_proposal_only"
+        },
+        {
+          "Got": null,
+          "Want": null,
+          "id": "parse80-standard36-valid",
+          "input": "00112233-4455-6677-8899-aabbccddeeff",
+          "input_kind": "string",
+          "selection_reason": "Successful hyphenated branch reference.",
+          "state": "input_proposal_only"
+        },
+        {
+          "Got": null,
+          "Want": null,
+          "id": "parse80-standard36-late-hex",
+          "input": "00112233-4455-6677-8899-aabbccddgeff",
+          "input_kind": "string",
+          "selection_reason": "Same logical late hex pair as raw32, but this path checks ok before assigning its calculated byte.",
+          "state": "input_proposal_only"
+        },
+        {
+          "Got": null,
+          "Want": null,
+          "id": "parse80-urn45-casefold",
+          "input": "UrN:UuId:00112233-4455-6677-8899-aabbccddeeff",
+          "input_kind": "string",
+          "selection_reason": "ASCII mixed-case URN prefix dispatches through EqualFold and the standard36 decoder.",
+          "state": "input_proposal_only"
+        },
+        {
+          "Got": null,
+          "Want": null,
+          "id": "parse80-urn45-wrong-prefix",
+          "input": "bad:uuid:00112233-4455-6677-8899-aabbccddeeff",
+          "input_kind": "string",
+          "selection_reason": "Wrong nine-byte prefix follows a separate pre-decode error path; do not merge with late-hex partial values.",
+          "state": "input_proposal_only"
+        },
+        {
+          "Got": null,
+          "Want": null,
+          "id": "parse80-braced38",
+          "input": "{00112233-4455-6677-8899-aabbccddeeff}",
+          "input_kind": "string",
+          "selection_reason": "The documented braced-size path drops the first byte and decodes its inner36 positions.",
+          "state": "input_proposal_only"
+        },
+        {
+          "Got": null,
+          "Want": null,
+          "id": "parse80-other-outer38",
+          "input": "[00112233-4455-6677-8899-aabbccddeeff]",
+          "input_kind": "string",
+          "selection_reason": "Non-brace outer bytes at length38 distinguish Parse's body from Validate's bracket checks; classify by each API, not a generic invalid-input label.",
+          "state": "input_proposal_only"
+        }
+      ],
+      "goal": "Distinguish finite parsing paths, partial returned UUID bytes and error categories; do not treat Parse as strict format validation.",
+      "id": "scope80-uuid-parse",
+      "material_request_boundary": "The existing79 generic invalid-input wording is not a universal RFC validator contract. Any later request must explicitly name the finite length/hex/prefix policy rather than treating all noncanonical forms as rejected. Historical79 text is unchanged.",
+      "not_in_finite_fixture_scope": [
+        "Every other byte length",
+        "Malformed hyphens",
+        "Early hex failures",
+        "Unicode or invalid UTF-8 inputs",
+        "Version or variant validation",
+        "Observed MustParse panic or Validate behavior",
+        "Concurrent mutation of exported error sentinels"
+      ],
+      "observation_fields_to_freeze_later": [
+        "returned_normally",
+        "returned_uuid_16_exact_bytes",
+        "error_nil",
+        "error_type",
+        "error_message",
+        "panic_present",
+        "panic_type",
+        "panic_text"
+      ],
+      "role": null,
+      "source_alternatives_read_not_observed": [
+        "MustParse",
+        "Validate",
+        "ParseBytes"
+      ],
+      "truth": null,
+      "truth_state": "unknown",
+      "weights": null
+    },
+    {
+      "acceptable_candidate_indices": null,
+      "actual_parent_created": false,
+      "candidate_captions": null,
+      "entrypoint": "(*UUID).Scan",
+      "family": "google/uuid",
+      "fixture_order_is_source_proposal_only": true,
+      "fixtures": [
+        {
+          "Got": null,
+          "Want": null,
+          "id": "scan80-nil-interface",
+          "input": null,
+          "input_kind": "nil_interface",
+          "selection_reason": "Type switch's nil case returns before assignment.",
+          "state": "input_proposal_only"
+        },
+        {
+          "Got": null,
+          "Want": null,
+          "id": "scan80-empty-string",
+          "input": "",
+          "input_kind": "string",
+          "selection_reason": "Empty string returns before parsing and assignment; do not infer reset from the comment.",
+          "state": "input_proposal_only"
+        },
+        {
+          "Got": null,
+          "Want": null,
+          "bytes_hex": null,
+          "bytes_nil": true,
+          "id": "scan80-nil-bytes",
+          "input_kind": "bytes",
+          "selection_reason": "Typed nil byte slice is a []byte switch case with length0, distinct from nil interface.",
+          "state": "input_proposal_only"
+        },
+        {
+          "Got": null,
+          "Want": null,
+          "bytes_hex": "",
+          "bytes_nil": false,
+          "id": "scan80-empty-bytes",
+          "input_kind": "bytes",
+          "selection_reason": "Nonnil empty byte slice shares the length0 return but input nilness remains observable metadata.",
+          "state": "input_proposal_only"
+        },
+        {
+          "Got": null,
+          "Want": null,
+          "id": "scan80-valid-text",
+          "input": "00112233-4455-6677-8899-aabbccddeeff",
+          "input_kind": "string",
+          "selection_reason": "Receiver assignment occurs only after Parse returns no error.",
+          "state": "input_proposal_only"
+        },
+        {
+          "Got": null,
+          "Want": null,
+          "bytes_hex": "00112233445566778899aabbccddeeff",
+          "bytes_nil": false,
+          "id": "scan80-raw16",
+          "input_kind": "bytes",
+          "selection_reason": "Exactly sixteen bytes use direct copy rather than textual parsing.",
+          "state": "input_proposal_only"
+        },
+        {
+          "Got": null,
+          "Want": null,
+          "id": "scan80-late-bad-text",
+          "input": "00112233-4455-6677-8899-aabbccddgeff",
+          "input_kind": "string",
+          "selection_reason": "A local partial Parse result is not committed to the receiver after its error.",
+          "state": "input_proposal_only"
+        },
+        {
+          "Got": null,
+          "Want": null,
+          "bytes_nil": false,
+          "id": "scan80-late-bad-bytes",
+          "input": "00112233-4455-6677-8899-aabbccddgeff",
+          "input_kind": "bytes_text",
+          "selection_reason": "Non-sixteen byte slice is converted to a string and delegated to a recursive Scan call; distinguish direct observer calls from internal calls.",
+          "state": "input_proposal_only"
+        }
+      ],
+      "goal": "Preserve nil/empty input distinctions, before/after nonnil receiver bytes and source-visible assignment timing separately from Parse's returned partial UUID.",
+      "id": "scope80-uuid-scan",
+      "initial_receiver_hex_draft": "ffeeddccbbaa99887766554433221100",
+      "material_request_boundary": "Use UUID.Scan on a fresh nonnil receiver, not NullUUID.Scan. Source-readable wrapper differences are not direct observed API facts. fmt.Errorf uses %v rather than %w; do not invent wrapped error identity.",
+      "not_in_finite_fixture_scope": [
+        "Nil receiver",
+        "Unsupported dynamic input types",
+        "Database connection or SQL driver callbacks",
+        "All other textual formats",
+        "Aliasing or mutation of input after return",
+        "Observed UnmarshalText/UnmarshalBinary/NullUUID methods",
+        "Error Unwrap or errors.Is properties"
+      ],
+      "observation_fields_to_freeze_later": [
+        "input_dynamic_kind",
+        "input_bytes_nil",
+        "input_exact_length_and_bytes",
+        "receiver_before_16_exact_bytes",
+        "receiver_after_16_exact_bytes",
+        "returned_normally",
+        "error_nil",
+        "error_type",
+        "error_message",
+        "panic_present",
+        "panic_type",
+        "panic_text"
+      ],
+      "receiver_setup_rule": "Fresh explicit sixteen-byte UUID value per fixture; do not call MustParse, FromBytes or another original API to initialize it.",
+      "role": null,
+      "source_alternatives_read_not_observed": [
+        "(*UUID).UnmarshalText",
+        "(*UUID).UnmarshalBinary",
+        "(*NullUUID).Scan"
+      ],
+      "truth": null,
+      "truth_state": "unknown",
+      "weights": null
+    },
+    {
+      "acceptable_candidate_indices": null,
+      "actual_parent_created": false,
+      "candidate_captions": null,
+      "entrypoint": "Ordinal",
+      "family": "dustin/go-humanize",
+      "fixture_order_is_source_proposal_only": true,
+      "fixtures": [
+        {
+          "Got": null,
+          "Want": null,
+          "id": "ordinal80-zero",
+          "input": 0,
+          "input_kind": "int",
+          "selection_reason": "Boundary0 and the default suffix branch.",
+          "state": "input_proposal_only"
+        },
+        {
+          "Got": null,
+          "Want": null,
+          "id": "ordinal80-one",
+          "input": 1,
+          "input_kind": "int",
+          "selection_reason": "Last-digit1 non-teen branch.",
+          "state": "input_proposal_only"
+        },
+        {
+          "Got": null,
+          "Want": null,
+          "id": "ordinal80-two",
+          "input": 2,
+          "input_kind": "int",
+          "selection_reason": "Last-digit2 non-teen branch.",
+          "state": "input_proposal_only"
+        },
+        {
+          "Got": null,
+          "Want": null,
+          "id": "ordinal80-three",
+          "input": 3,
+          "input_kind": "int",
+          "selection_reason": "Last-digit3 non-teen branch.",
+          "state": "input_proposal_only"
+        },
+        {
+          "Got": null,
+          "Want": null,
+          "id": "ordinal80-eleven",
+          "input": 11,
+          "input_kind": "int",
+          "selection_reason": "Modulo100 exception to the last-digit1 branch.",
+          "state": "input_proposal_only"
+        },
+        {
+          "Got": null,
+          "Want": null,
+          "id": "ordinal80-twelve",
+          "input": 12,
+          "input_kind": "int",
+          "selection_reason": "Modulo100 exception to the last-digit2 branch.",
+          "state": "input_proposal_only"
+        },
+        {
+          "Got": null,
+          "Want": null,
+          "id": "ordinal80-thirteen",
+          "input": 13,
+          "input_kind": "int",
+          "selection_reason": "Modulo100 exception to the last-digit3 branch.",
+          "state": "input_proposal_only"
+        },
+        {
+          "Got": null,
+          "Want": null,
+          "id": "ordinal80-hundred-twelve",
+          "input": 112,
+          "input_kind": "int",
+          "selection_reason": "The exception is modulo100 rather than a check restricted to the literal twelve.",
+          "state": "input_proposal_only"
+        }
+      ],
+      "goal": "Observe the original int ordinal formatter on small nonnegative integers, including last-digit suffixes and modulo100 teen exceptions.",
+      "id": "scope80-humanize-ordinal",
+      "material_request_boundary": "The original signature accepts int and has no nonnegative guard. Restricting this observation to0..112 does not make negative inputs unsupported or fix their existing suffix behavior. No source changes are proposed.",
+      "not_in_finite_fixture_scope": [
+        "Negative integers",
+        "Platform int endpoints or large values",
+        "Ordinal64 or any added API",
+        "Other whole-package formatting or English joining methods",
+        "Whole-upstream package initialization equivalence"
+      ],
+      "observation_fields_to_freeze_later": [
+        "input_int",
+        "returned_normally",
+        "exact_output_string",
+        "panic_present",
+        "panic_type",
+        "panic_text"
+      ],
+      "role": null,
+      "source_alternatives_read_not_observed": [],
+      "truth": null,
+      "truth_state": "unknown",
+      "weights": null
+    }
+  ],
+  "group_policy": "Keep both UUID goals, Parse/Scan/shared xtob/error types/helpers, wrappers, initializer sources and locale/fixture variants together; the humanize original Ordinal and all future aliases/variants stay in its same upstream family. Provisional2 families are not proven independent author/source groups, assigned roles or untouched final data.",
+  "input_pins": [
+    {
+      "bytes": 341538,
+      "json_pointers": [
+        "/repositories/6",
+        "/repositories/7",
+        "/tasks/102",
+        "/tasks/105",
+        "/tasks/111"
+      ],
+      "path": "benchmarks/training/public-go-acquisition-53.json",
+      "sha256": "e79cf90505fff4c636de99f322ab82001afd22516216cebcd8249b9b3d61cf67"
+    },
+    {
+      "bytes": 98055,
+      "namespace": "frozen-private-source-growth79",
+      "path": "SOURCE-TARGETS.v1.json",
+      "sha256": "d4a93c05ba50f001332f28cbd47ce43c972239d40549d59893dd5204cdfb24a8"
+    },
+    {
+      "bytes": 8265,
+      "namespace": "author-input-draft80",
+      "path": "INPUT-DRAFTS.v1.json",
+      "sha256": "a6110ab85d52fa4b8c62af6aab26bd13a988f04a0a5e38ce1e24e26542fa165b"
+    },
+    {
+      "bytes": 6681,
+      "path": "internal/taskverify/definition_uuid_canonical_v1.go",
+      "sha256": "6d40e3105e9cb2b8af18a3c8c6e340ba6f3afaaf55da000cb0979bad0dbda06b"
+    },
+    {
+      "bytes": 3257,
+      "path": "internal/taskverify/humanize_ordinal_v1.go",
+      "sha256": "51fb966fde3fa6dd3c8a99c7b6b2f1decd0e49b17484deb72d5b0cde1632a213"
+    },
+    {
+      "bytes": 7347,
+      "path": "experiments/task-outcomes/results-55.json",
+      "sha256": "3aa81cb96377872d6e48b4d82516159ac413abf7f5b10f1568a0fe8d9c8a1c94"
+    },
+    {
+      "bytes": 12916,
+      "path": "experiments/task-outcomes/plan-55-humanize.json",
+      "sha256": "a9495f469aab9fd2e38c4a032aca9002c4ebe62136a44da66ddc360b9571c1a7"
+    },
+    {
+      "bytes": 15699,
+      "path": "experiments/task-outcomes/plan-55-uuid.json",
+      "sha256": "663ad617a5fb117c91ece43d63f9e3fc6ded150c492fd47e225f969d7924e9d9"
+    }
+  ],
+  "license_correction": "Root's preliminary 'UUID full MIT' wording was corrected before freeze: UUID full license is BSD-3-Clause; the original humanize Ordinal slice has MIT. Historical source artifacts and Want records were not modified.",
+  "production_ready": false,
+  "protected_final": false,
+  "qualification": false,
+  "reader_scope": "AI-assisted source reading; prior caption74, results76 and inventory53 exposure; read historical taskverify definition/acceptance provenance after original source; nonblind; no new Wants or Got bodies exist or were read",
+  "roles": null,
+  "schema": "riido-source-first-observation-proposal-80-v1",
+  "source_clauses": [
+    {
+      "byte_end_exclusive": 371,
+      "byte_start": 353,
+      "exact_quote": "type UUID [16]byte",
+      "id": "UUID-array",
+      "label": null,
+      "line_start": 20,
+      "observed_API_fact": false,
+      "source_reading_note": "Returned UUID is a fixed-size value, not a nullable byte slice.",
+      "source_repository_path": "internal/taskverify/testdata/uuid-canonical-v1/uuid.go",
+      "source_sha256": "00d93a3f65d8b0063266e63ff0e16ac543e30a911fd35119bcf1a66437161360"
+    },
+    {
+      "byte_end_exclusive": 3386,
+      "byte_start": 3295,
+      "exact_quote": "uuid[i], ok = xtob(s[i*2], s[i*2+1])\n\t\t\tif !ok {\n\t\t\t\treturn uuid, ErrInvalidUUIDFormat\n\t\t\t}",
+      "id": "parse32-before-check",
+      "label": null,
+      "line_start": 116,
+      "observed_API_fact": false,
+      "source_reading_note": "The raw32 failing slot can contain the calculated byte; prefix-only plus zero-rest must not be assumed.",
+      "source_repository_path": "internal/taskverify/testdata/uuid-canonical-v1/uuid.go",
+      "source_sha256": "00d93a3f65d8b0063266e63ff0e16ac543e30a911fd35119bcf1a66437161360"
+    },
+    {
+      "byte_end_exclusive": 3869,
+      "byte_start": 3776,
+      "exact_quote": "v, ok := xtob(s[x], s[x+1])\n\t\tif !ok {\n\t\t\treturn uuid, ErrInvalidUUIDFormat\n\t\t}\n\t\tuuid[i] = v",
+      "id": "parse36-after-check",
+      "label": null,
+      "line_start": 138,
+      "observed_API_fact": false,
+      "source_reading_note": "A failed standard36 pair is checked before assignment; previously decoded prefix remains local to the returned value.",
+      "source_repository_path": "internal/taskverify/testdata/uuid-canonical-v1/uuid.go",
+      "source_sha256": "00d93a3f65d8b0063266e63ff0e16ac543e30a911fd35119bcf1a66437161360"
+    },
+    {
+      "byte_end_exclusive": 3135,
+      "byte_start": 3038,
+      "exact_quote": "if !strings.EqualFold(s[:9], \"urn:uuid:\") {\n\t\t\treturn uuid, URNPrefixError{s[:9]}\n\t\t}\n\t\ts = s[9:]",
+      "id": "urn-prefix",
+      "label": null,
+      "line_start": 103,
+      "observed_API_fact": false,
+      "source_reading_note": "Prefix errors happen before hex decoding; successful prefix stripping enters the standard36 path.",
+      "source_repository_path": "internal/taskverify/testdata/uuid-canonical-v1/uuid.go",
+      "source_sha256": "00d93a3f65d8b0063266e63ff0e16ac543e30a911fd35119bcf1a66437161360"
+    },
+    {
+      "byte_end_exclusive": 3205,
+      "byte_start": 3181,
+      "exact_quote": "case 36 + 2:\n\t\ts = s[1:]",
+      "id": "outer38",
+      "label": null,
+      "line_start": 109,
+      "observed_API_fact": false,
+      "source_reading_note": "Parse does not check these outer bytes; the initial length ensures its later fixed positions are in range.",
+      "source_repository_path": "internal/taskverify/testdata/uuid-canonical-v1/uuid.go",
+      "source_sha256": "00d93a3f65d8b0063266e63ff0e16ac543e30a911fd35119bcf1a66437161360"
+    },
+    {
+      "byte_end_exclusive": 1926,
+      "byte_start": 1881,
+      "exact_quote": "return (b1 \u003c\u003c 4) | b2, b1 != 255 \u0026\u0026 b2 != 255",
+      "id": "xtob-value-validity",
+      "label": null,
+      "line_start": 43,
+      "observed_API_fact": false,
+      "source_reading_note": "The byte calculation and success flag are separate; xvalues is a256-entry table read by this helper.",
+      "source_repository_path": "internal/taskverify/testdata/uuid-canonical-v1/util.go",
+      "source_sha256": "4237eba5a7bc7934b938c9b0bce5fa502d832e5660de71cbef130582e517f89e"
+    },
+    {
+      "byte_end_exclusive": 5321,
+      "byte_start": 5217,
+      "exact_quote": "uuid, err := Parse(s)\n\tif err != nil {\n\t\tpanic(`uuid: Parse(` + s + `): ` + err.Error())\n\t}\n\treturn uuid",
+      "id": "mustparse-error-panic",
+      "label": null,
+      "line_start": 195,
+      "observed_API_fact": false,
+      "source_reading_note": "This wrapper's panic path is source-readable only in80; no direct MustParse probe is planned.",
+      "source_repository_path": "internal/taskverify/testdata/uuid-canonical-v1/uuid.go",
+      "source_sha256": "00d93a3f65d8b0063266e63ff0e16ac543e30a911fd35119bcf1a66437161360"
+    },
+    {
+      "byte_end_exclusive": 6411,
+      "byte_start": 6333,
+      "exact_quote": "if s[0] != '{' || s[len(s)-1] != '}' {\n\t\t\treturn ErrInvalidBracketedFormat\n\t\t}",
+      "id": "validate-outer38",
+      "label": null,
+      "line_start": 237,
+      "observed_API_fact": false,
+      "source_reading_note": "Validate differs from Parse for38-byte outer characters and returns only an error.",
+      "source_repository_path": "internal/taskverify/testdata/uuid-canonical-v1/uuid.go",
+      "source_sha256": "00d93a3f65d8b0063266e63ff0e16ac543e30a911fd35119bcf1a66437161360"
+    },
+    {
+      "byte_end_exclusive": 560,
+      "byte_start": 523,
+      "exact_quote": "case nil:\n\t\treturn nil\n\n\tcase string:",
+      "id": "scan-nil-empty",
+      "label": null,
+      "line_start": 17,
+      "observed_API_fact": false,
+      "source_reading_note": "A nonnil receiver remains unchanged on the nil interface branch.",
+      "source_repository_path": "internal/taskverify/testdata/uuid-canonical-v1/sql.go",
+      "source_sha256": "29281b11e8f97f1ddf73d087854cb401ba42a87c4f59ce45fc69763a4d927f2f"
+    },
+    {
+      "byte_end_exclusive": 659,
+      "byte_start": 627,
+      "exact_quote": "if src == \"\" {\n\t\t\treturn nil\n\t\t}",
+      "id": "scan-empty-string",
+      "label": null,
+      "line_start": 22,
+      "observed_API_fact": false,
+      "source_reading_note": "The comment mentions a null UUID, but the body returns before receiver assignment.",
+      "source_repository_path": "internal/taskverify/testdata/uuid-canonical-v1/sql.go",
+      "source_sha256": "29281b11e8f97f1ddf73d087854cb401ba42a87c4f59ce45fc69763a4d927f2f"
+    },
+    {
+      "byte_end_exclusive": 798,
+      "byte_start": 705,
+      "exact_quote": "u, err := Parse(src)\n\t\tif err != nil {\n\t\t\treturn fmt.Errorf(\"Scan: %v\", err)\n\t\t}\n\n\t\t*uuid = u",
+      "id": "scan-error-before-commit",
+      "label": null,
+      "line_start": 27,
+      "observed_API_fact": false,
+      "source_reading_note": "Parse's partial return is not committed after error; %v is formatting, not a %w wrapping promise.",
+      "source_repository_path": "internal/taskverify/testdata/uuid-canonical-v1/sql.go",
+      "source_sha256": "29281b11e8f97f1ddf73d087854cb401ba42a87c4f59ce45fc69763a4d927f2f"
+    },
+    {
+      "byte_end_exclusive": 916,
+      "byte_start": 880,
+      "exact_quote": "if len(src) == 0 {\n\t\t\treturn nil\n\t\t}",
+      "id": "scan-empty-bytes",
+      "label": null,
+      "line_start": 36,
+      "observed_API_fact": false,
+      "source_reading_note": "Typed nil and nonnil empty byte slices take the same len0 return; retain their input nilness separately.",
+      "source_repository_path": "internal/taskverify/testdata/uuid-canonical-v1/sql.go",
+      "source_sha256": "29281b11e8f97f1ddf73d087854cb401ba42a87c4f59ce45fc69763a4d927f2f"
+    },
+    {
+      "byte_end_exclusive": 1082,
+      "byte_start": 1002,
+      "exact_quote": "if len(src) != 16 {\n\t\t\treturn uuid.Scan(string(src))\n\t\t}\n\t\tcopy((*uuid)[:], src)",
+      "id": "scan-recursion-or-copy",
+      "label": null,
+      "line_start": 42,
+      "observed_API_fact": false,
+      "source_reading_note": "Non16 byte input delegates to Scan(string); exactly16 bytes copy into the nonnil receiver.",
+      "source_repository_path": "internal/taskverify/testdata/uuid-canonical-v1/sql.go",
+      "source_sha256": "29281b11e8f97f1ddf73d087854cb401ba42a87c4f59ce45fc69763a4d927f2f"
+    },
+    {
+      "byte_end_exclusive": 527,
+      "byte_start": 455,
+      "exact_quote": "id, err := ParseBytes(data)\n\tif err != nil {\n\t\treturn err\n\t}\n\t*uuid = id",
+      "id": "unmarshal-text-commit",
+      "label": null,
+      "line_start": 18,
+      "observed_API_fact": false,
+      "source_reading_note": "Source-readable comparison only; a ParseBytes error is returned before assignment.",
+      "source_repository_path": "internal/taskverify/testdata/uuid-canonical-v1/marshal.go",
+      "source_sha256": "933eb226d049268e17809fd37f777c650b9ec8cb3fa988534b792610a64dcc43"
+    },
+    {
+      "byte_end_exclusive": 335,
+      "byte_start": 170,
+      "exact_quote": "switch x % 10 {\n\tcase 1:\n\t\tif x%100 != 11 {\n\t\t\tsuffix = \"st\"\n\t\t}\n\tcase 2:\n\t\tif x%100 != 12 {\n\t\t\tsuffix = \"nd\"\n\t\t}\n\tcase 3:\n\t\tif x%100 != 13 {\n\t\t\tsuffix = \"rd\"\n\t\t}\n\t}",
+      "id": "ordinal-teen-branches",
+      "label": null,
+      "line_start": 10,
+      "observed_API_fact": false,
+      "source_reading_note": "Original int arithmetic with no nonnegative guard; the small finite observation does not change negative behavior.",
+      "source_repository_path": "internal/taskverify/testdata/go53-humanize-ordinal64-v1/ordinals.go",
+      "source_sha256": "aac3d5ceefd8044baae1f3deb76613470c7eb94fc26af1ea51cec93f8eab075f"
+    },
+    {
+      "byte_end_exclusive": 368,
+      "byte_start": 337,
+      "exact_quote": "return strconv.Itoa(x) + suffix",
+      "id": "ordinal-digits",
+      "label": null,
+      "line_start": 24,
+      "observed_API_fact": false,
+      "source_reading_note": "Formatting retains strconv.Itoa's input digits and appends the selected suffix.",
+      "source_repository_path": "internal/taskverify/testdata/go53-humanize-ordinal64-v1/ordinals.go",
+      "source_sha256": "aac3d5ceefd8044baae1f3deb76613470c7eb94fc26af1ea51cec93f8eab075f"
+    }
+  ],
+  "startup_boundary": {
+    "actual_init_callback_count": null,
+    "actual_init_callbacks_instrumented": false,
+    "actual_init_invocations_here": 0,
+    "actual_init_returns_observed": false,
+    "call_path": "hash.go namespace variables -\u003e MustParse -\u003e Parse before main",
+    "no_UUID_func_init_declaration_found_in_selected_source_text": true,
+    "original_package_and_stdlib_import_init_yet_executed": false,
+    "other_static_globals": "xvalues256-byte table, error sentinel construction, rand.Reader reference, pool/locks/clock/node literals and zero values, jsonNull bytes; timeNow stores a function value rather than invoking it here.",
+    "package_initialization_is_not_only_func_init": true,
+    "reservation_boundary": "The future external dispatcher must reserve once before starting an imported native child; an in-main token check cannot prevent package initialization.",
+    "static_startup_call_sites_to_reserve": 4,
+    "uuid_static_initializer_sites": [
+      {
+        "byte_end_exclusive": 330,
+        "byte_start": 281,
+        "exact_quote": "MustParse(\"6ba7b810-9dad-11d1-80b4-00c04fd430c8\")",
+        "id": "startup-6ba7b810",
+        "label": null,
+        "line_start": 15,
+        "observed_API_fact": false,
+        "source_reading_note": "Static variable initializer call site; not an observed callback, return or instrumented runtime count.",
+        "source_repository_path": "internal/taskverify/testdata/uuid-canonical-v1/hash.go",
+        "source_sha256": "588b314f396d99aa304c9e89b6786e9280ec430223349f2ebb48d9145272f81d"
+      },
+      {
+        "byte_end_exclusive": 397,
+        "byte_start": 348,
+        "exact_quote": "MustParse(\"6ba7b811-9dad-11d1-80b4-00c04fd430c8\")",
+        "id": "startup-6ba7b811",
+        "label": null,
+        "line_start": 16,
+        "observed_API_fact": false,
+        "source_reading_note": "Static variable initializer call site; not an observed callback, return or instrumented runtime count.",
+        "source_repository_path": "internal/taskverify/testdata/uuid-canonical-v1/hash.go",
+        "source_sha256": "588b314f396d99aa304c9e89b6786e9280ec430223349f2ebb48d9145272f81d"
+      },
+      {
+        "byte_end_exclusive": 464,
+        "byte_start": 415,
+        "exact_quote": "MustParse(\"6ba7b812-9dad-11d1-80b4-00c04fd430c8\")",
+        "id": "startup-6ba7b812",
+        "label": null,
+        "line_start": 17,
+        "observed_API_fact": false,
+        "source_reading_note": "Static variable initializer call site; not an observed callback, return or instrumented runtime count.",
+        "source_repository_path": "internal/taskverify/testdata/uuid-canonical-v1/hash.go",
+        "source_sha256": "588b314f396d99aa304c9e89b6786e9280ec430223349f2ebb48d9145272f81d"
+      },
+      {
+        "byte_end_exclusive": 531,
+        "byte_start": 482,
+        "exact_quote": "MustParse(\"6ba7b814-9dad-11d1-80b4-00c04fd430c8\")",
+        "id": "startup-6ba7b814",
+        "label": null,
+        "line_start": 18,
+        "observed_API_fact": false,
+        "source_reading_note": "Static variable initializer call site; not an observed callback, return or instrumented runtime count.",
+        "source_repository_path": "internal/taskverify/testdata/uuid-canonical-v1/hash.go",
+        "source_sha256": "588b314f396d99aa304c9e89b6786e9280ec430223349f2ebb48d9145272f81d"
+      }
+    ],
+    "whole_child_lifetime_measurement_required_scope": "Future OS CPU/RSS/wall starts before import initialization and includes setup, direct probes, observations and persistence. Static4 sites are not measured return counts. Standard-library transitive initialization is not individually proven or instrumented."
+  },
+  "state": "source_text_and_input_scope_frozen_no_Wants_adapter_or_execution",
+  "training_ready": false,
+  "truth": null,
+  "unobserved_or_held": [
+    "No new Want, adapter, binary, actual import, original test, callback or model has been produced/executed. Input literals are proposals, not reference outputs.",
+    "No direct MustParse/Validate/ParseBytes/Unmarshal/NullUUID observation. Source-readable equivalence or contradiction is not observed direct API behavior.",
+    "No exact future observer method/stdlib internal call count is claimed; error strings/types and panic serialization must be frozen by the later author.",
+    "No labels, candidate coverage qualification, roles, weights, whole-group assignment, training readiness, model improvement, RSS/latency or2400 final claim.",
+    "The optional whole humanize package is not retained in the selected slice; number.go/gorhill origin full license and full tree/compile closure remain known missing if that different profile is chosen."
+  ],
+  "weights": null
+}

@@ -1,0 +1,17 @@
+{
+  "schema": "riido-source80-native-build-recipe-v1",
+  "go_version": "go1.27.1",
+  "goos": "darwin",
+  "goarch": "arm64",
+  "cgo_enabled": "0",
+  "arguments": ["build", "-trimpath", "-buildvcs=false", "-p=1", "-o", "bin/source80-observer", "./cmd/observe"],
+  "offline_environment": ["GOTOOLCHAIN=local", "GOPROXY=off", "GOSUMDB=off", "GOWORK=off", "GOENV=off", "GOMAXPROCS=1"],
+  "original_module_bytes_preserved": true,
+  "UUID_go_directive": null,
+  "Ordinal_go_directive": "1.21",
+  "original_init_API_or_test_execution_during_build": 0,
+  "pure_tests_only": "go test -race -p=1 ./pure",
+  "main_or_whole_module_go_test_authorized": false,
+  "native_binary_invocation_authorized_during_preparation": false,
+  "settings_are_OS_resource_measurements": false
+}

@@ -6,6 +6,7 @@
 - [작은 동작 힌트 KO](https://github.com/teamswyg/laya-tools/blob/main/experiments/short-claim/USAGE-56.ko.md) · [Small hints EN](https://github.com/teamswyg/laya-tools/blob/main/experiments/short-claim/USAGE-56.en.md)
 - [설명 보강 비교76](Claim-Diagnostic-76-KO) · [Caption diagnostic76](Claim-Diagnostic-76-EN)
 - [Go 압축 가중치78](Packed-Weights-78-KO) · [Packed Go weights78](Packed-Weights-78-EN)
+- [공개 함수 동작 검증](Source-Behavior-80-KO) · [Public function verification](Source-Behavior-80-EN)
 - [소스 동작 관찰](Source-Observation-73-KO) · [Source observations](Source-Observation-73-EN)
 - [저장 크기와 RAM](Compact-Storage-73-KO) · [Storage and RAM](Compact-Storage-73-EN)
 - [라이선스](Licensing-and-Project-KO) · [Licensing](Licensing-and-Project-EN)

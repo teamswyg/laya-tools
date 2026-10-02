@@ -2,7 +2,7 @@
 
 Recent research: [both small learned models](experiments/short-claim/second-ranking-fit-72/README.en.md) needed more candidate checks than the existing ordering and remain inactive. [Go feature computation](experiments/short-claim/feature-prefix-74/README.en.md) was approximately20–24% faster on two public fixtures, with unchanged allocations.
 
-[Function observations75](experiments/short-claim/native-observation-75/README.en.md) matched predeclared expectations for24 finite boundary cases across two behavior goals. These are neither model inference nor24 independent requests. [Research and failure history](RESEARCH-HISTORY.en.md) and [detailed documentation](docs/README.md) retain the scope and evidence.
+[Public function verification](experiments/short-claim/native-observation-80/ACTUAL-RESULTS.en.md) matched predeclared expectations on24 UUID Parse, Scan and Ordinal inputs. Whole-program RSS17.27 MiB/wall1.21s describe neither model inference nor24 independent requests. [Research and failure history](RESEARCH-HISTORY.en.md) and [detailed documentation](docs/README.md) retain the scope and evidence.
 
 [한국어](README.md) · **English** · [User Wiki](https://github.com/teamswyg/laya-tools/wiki) · [Documentation](docs/README.md)
 

@@ -1,0 +1,240 @@
+package pure
+
+import (
+	"bytes"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"path/filepath"
+	"strings"
+	"unicode/utf8"
+)
+
+var ErrProtocol = errors.New("observer80_protocol_invalid")
+var ErrCheckpoint = errors.New("observer80_checkpoint_failed")
+
+func Null(b json.RawMessage) bool { return bytes.Equal(bytes.TrimSpace(b), []byte("null")) }
+func SHAValid(s string) bool {
+	b, e := hex.DecodeString(s)
+	return e == nil && len(b) == 32 && s == strings.ToLower(s)
+}
+func SafePath(s string) bool {
+	return s != "" && !filepath.IsAbs(s) && filepath.Clean(s) == s && s != ".." && !strings.HasPrefix(s, "../") && !strings.Contains(s, "\\")
+}
+func Decode(b []byte, v any) error {
+	if len(b) == 0 || len(b) > Limit || !utf8.Valid(b) {
+		return ErrProtocol
+	}
+	if e := uniqueJSON(b); e != nil {
+		return e
+	}
+	d := json.NewDecoder(bytes.NewReader(b))
+	d.DisallowUnknownFields()
+	if e := d.Decode(v); e != nil {
+		return ErrProtocol
+	}
+	if d.Decode(new(any)) != io.EOF {
+		return ErrProtocol
+	}
+	return nil
+}
+
+// Reject repeated object keys without treating arrays or quoted values as keys.
+func uniqueJSON(b []byte) error {
+	d := json.NewDecoder(bytes.NewReader(b))
+	d.UseNumber()
+	var walk func(int) error
+	walk = func(depth int) error {
+		if depth > 32 {
+			return ErrProtocol
+		}
+		t, e := d.Token()
+		if e != nil {
+			return ErrProtocol
+		}
+		delim, ok := t.(json.Delim)
+		if !ok {
+			return nil
+		}
+		switch delim {
+		case '{':
+			var keys []string
+			for d.More() {
+				k, e := d.Token()
+				s, ok := k.(string)
+				if e != nil || !ok {
+					return ErrProtocol
+				}
+				for _, prior := range keys {
+					if strings.EqualFold(prior, s) {
+						return ErrProtocol
+					}
+				}
+				keys = append(keys, s)
+				if len(keys) > 128 {
+					return ErrProtocol
+				}
+				if e := walk(depth + 1); e != nil {
+					return e
+				}
+			}
+			t, e = d.Token()
+			if e != nil || t != json.Delim('}') {
+				return ErrProtocol
+			}
+		case '[':
+			for d.More() {
+				if e := walk(depth + 1); e != nil {
+					return e
+				}
+			}
+			t, e = d.Token()
+			if e != nil || t != json.Delim(']') {
+				return ErrProtocol
+			}
+		default:
+			return ErrProtocol
+		}
+		return nil
+	}
+	if e := walk(0); e != nil {
+		return e
+	}
+	if _, e := d.Token(); e != io.EOF {
+		return ErrProtocol
+	}
+	return nil
+}
+func ValidatePlan(p Plan) error {
+	if p.Schema != "riido-source80-native-observer-plan-v1" || !p.Frozen || !filepath.IsAbs(p.ObserverRoot) || !filepath.IsAbs(p.OriginalSourceRoot) || p.GoVersion != "go1.27.1" || p.GOOS != "darwin" || p.GOARCH != "arm64" || p.CGOEnabled != "0" || p.CPU != 1 || p.SoftHeapBytes != 268435456 || p.OutsideSeconds != 60 || p.OutputBytes != Limit || p.Goals != 3 || p.Fixtures != 24 || p.DirectAPI != 24 || p.ExpectedErrors != 5 || p.MaximumErrors != 24 || p.PlannedTracked != 29 || p.StaticStartupSites != 4 || p.Retry != 0 || p.Policy != "finite_observations_only_no_labels_no_retry" || len(p.Closure) < 27 || len(p.Closure) > 40 {
+		return ErrProtocol
+	}
+	if p.Want.Base != "observer" || p.Want.Path != "WANTS.v1.json" || p.Want.SHA256 != WantSHA || p.Want.Bytes != 38513 || p.Binary.Base != "observer" || p.Binary.Path != "bin/source80-observer" || p.Binary.Bytes <= 0 || p.Binary.Bytes > 16<<20 || !SHAValid(p.Binary.SHA256) {
+		return ErrProtocol
+	}
+	original := 0
+	for i, f := range p.Closure {
+		if (f.Base != "original" && f.Base != "observer") || !SafePath(f.Path) || f.Bytes <= 0 || f.Bytes >= Limit || !SHAValid(f.SHA256) || f.ID == "" {
+			return ErrProtocol
+		}
+		if f.Base == "original" {
+			original++
+		}
+		for _, prior := range p.Closure[:i] {
+			if prior.ID == f.ID || (prior.Base == f.Base && prior.Path == f.Path) {
+				return ErrProtocol
+			}
+		}
+	}
+	if original != 20 {
+		return ErrProtocol
+	}
+	return nil
+}
+
+type fixtureInput struct {
+	ID              string          `json:"id"`
+	Kind            string          `json:"input_kind"`
+	Input           json.RawMessage `json:"input"`
+	BytesNil        *bool           `json:"bytes_nil"`
+	BytesHex        *string         `json:"bytes_hex"`
+	SelectionReason string          `json:"selection_reason"`
+}
+
+func Fixture(l Literal) (any, InputAudit, error) {
+	var f fixtureInput
+	if Decode(l.Input, &f) != nil || f.ID != l.FixtureID {
+		return nil, InputAudit{}, ErrProtocol
+	}
+	var a InputAudit
+	var x any
+	switch f.Kind {
+	case "nil_interface":
+		if !Null(f.Input) || f.BytesNil != nil || f.BytesHex != nil {
+			return nil, a, ErrProtocol
+		}
+	case "string", "bytes_text":
+		var s string
+		if json.Unmarshal(f.Input, &s) != nil || len(s) > 512 || !utf8.ValidString(s) {
+			return nil, a, ErrProtocol
+		}
+		if f.Kind == "string" {
+			x = s
+			a.Text = &s
+		} else {
+			if f.BytesNil == nil || *f.BytesNil || f.BytesHex != nil {
+				return nil, a, ErrProtocol
+			}
+			x = []byte(s)
+			a.BytesNil = boolPtr(false)
+			v := hex.EncodeToString([]byte(s))
+			a.BytesHex = &v
+		}
+	case "bytes":
+		if f.BytesNil == nil {
+			return nil, a, ErrProtocol
+		}
+		if *f.BytesNil {
+			if f.BytesHex != nil {
+				return nil, a, ErrProtocol
+			}
+			x = []byte(nil)
+		} else {
+			if f.BytesHex == nil {
+				return nil, a, ErrProtocol
+			}
+			b, e := hex.DecodeString(*f.BytesHex)
+			if e != nil || len(b) > 512 {
+				return nil, a, ErrProtocol
+			}
+			if b == nil {
+				b = make([]byte, 0)
+			}
+			x = b
+		}
+		a.BytesNil = f.BytesNil
+		a.BytesHex = f.BytesHex
+	case "int":
+		var n int
+		if json.Unmarshal(f.Input, &n) != nil || n < 0 || n > 112 {
+			return nil, a, ErrProtocol
+		}
+		x = n
+		a.Int = &n
+	default:
+		return nil, a, ErrProtocol
+	}
+	a.DynamicType = fmt.Sprintf("%T", x)
+	return x, a, nil
+}
+func ValidateLiterals(rows []Literal) error {
+	if len(rows) != 24 {
+		return ErrProtocol
+	}
+	goals := [3]string{"scope80-uuid-parse", "scope80-uuid-scan", "scope80-humanize-ordinal"}
+	for i, l := range rows {
+		g := i / 8
+		if l.Ordinal != i || l.GoalIndex != g || l.FixtureIndex != i%8 || l.GoalID != goals[g] || l.InputReference.ArtifactID != "source-first80/INPUT-DRAFTS.v1.json" || l.InputReference.Pointer != fmt.Sprintf("/goals/%d/fixtures/%d", g, i%8) || !Null(l.Got) || !Null(l.Truth) || !Null(l.Role) || !Null(l.Weight) || !Null(l.Acceptable) || len(l.SourceClauses) == 0 {
+			return ErrProtocol
+		}
+		x, _, e := Fixture(l)
+		if e != nil {
+			return e
+		}
+		switch g {
+		case 0:
+			if _, ok := x.(string); !ok {
+				return ErrProtocol
+			}
+		case 2:
+			if _, ok := x.(int); !ok {
+				return ErrProtocol
+			}
+		}
+	}
+	return nil
+}
+func boolPtr(v bool) *bool    { return &v }
+func strPtr(v string) *string { return &v }
