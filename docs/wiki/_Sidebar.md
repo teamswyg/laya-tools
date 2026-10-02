@@ -1,5 +1,8 @@
 **[Home / 홈](https://github.com/teamswyg/laya-tools/wiki)**
 
+- [두 번째 주장 모델 결과](Second-Claim-Fit-72-KO) / [Second claim fit](Second-Claim-Fit-72-EN)
+- [Go 입력 재사용](Validated-Input-71-KO) / [Go input reuse](Validated-Input-71-EN)
+
 - [첫 주장 모델 실제 결과71](https://github.com/teamswyg/laya-tools/wiki/First-Claim-Fit-71-KO) · [Actual first claim fit71](https://github.com/teamswyg/laya-tools/wiki/First-Claim-Fit-71-EN)
 
 - [실제 준비69–70](https://github.com/teamswyg/laya-tools/wiki/Claim-Projection-69-70-KO) · [Actual preparation69–70](https://github.com/teamswyg/laya-tools/wiki/Claim-Projection-69-70-EN)

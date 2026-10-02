@@ -10,4 +10,6 @@ Independent read-only review confirmed the six optimized files, seven historical
 
 The single observed ranking allocation change, 81 to 0, is preserved. Different profiling settings prevent a causal latency/RSS improvement claim, and the increased ending Go heap remains recorded. These regression repairs add no benchmark, official fit, labels, role assignment or paid call.
 
+After integrating the ranking-learning code and PR94 documentation, the fifth full race suite also passed:80 packages,1,873 tests/subtests and zero failures. Full vet passed. Two documentation patches with incorrect context were rejected before applying; only the corrected patch was applied. Runtime, original results and fit counts were unaffected.
+
 [Usage and measurements](README.en.md) · [Initial targeted regression record](FINDINGS.v1.en.md) · [한국어](INTEGRATION.ko.md)
