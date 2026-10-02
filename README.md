@@ -1,6 +1,6 @@
 # laya-tools
 
-[다음 개발 학습 준비 안내](docs/wiki/Next60-Development-KO.md): [반올림 제어기의 합성 검사](experiments/short-claim/next60-ftoa-outside-preparation/README.ko.md)와 [다음 네 요청의 배치 준비](experiments/short-claim/next60-source-batch-preparation/README.ko.md)를 구분해 설명합니다. 현재 적격은 요청 2개·라벨 5개이고 새 학습은 0회입니다. PR111 CI와 HF 개발 데이터 공개는 대기 중입니다.
+[다음 개발 학습 안내](docs/wiki/Next60-Development-KO.md): 요청 2개·라벨 5개의 [공개 개발 데이터](https://huggingface.co/datasets/JooYoon/riidolaya-shortclaim-next60-development/tree/next60-2-finite-v1)를 게시하고 38개 파일을 고정 버전에서 다시 내려받아 확인했습니다. [Go reader 사용법](pkg/shortclaimdata/README.ko.md)은 모델용 문장·정답·출처를 분리해 읽는 방법을 설명합니다. PR111 필수 CI 4개가 통과했으며 새 학습은 0회입니다. 다음 네 과제의 배치 실행을 준비하고 있습니다.
 
 다음 학습 라운드의 [개발용 유한 요청 2개를 적격화](experiments/short-claim/next60-native2-qualification/README.ko.md)했습니다. 기존 초안 ID 두 개의 후보 5개에 긍정 2개·부정 3개를 부여했고, 문장 모두 기존 입력 제한을 통과했습니다. 기존 79개 자료는 그대로이며 새 학습은 아직 0회입니다. 적격 자료를 30개·60개로 늘린 뒤 별도 학습 비교를 진행합니다.
 

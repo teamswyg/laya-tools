@@ -1,5 +1,7 @@
 # Documentation / 문서 안내
 
+[공개 개발 데이터 고정 버전](https://huggingface.co/datasets/JooYoon/riidolaya-shortclaim-next60-development/tree/next60-2-finite-v1) · [Go reader 한글 사용법](../pkg/shortclaimdata/README.ko.md) · [Go reader English guide](../pkg/shortclaimdata/README.md) · [Actual publication / 실제 게시 기록](../experiments/short-claim/publication-proof-111/HF-PUBLICATION.v1.json): 요청 2개·라벨 5개, 고정 다운로드 38개 파일 확인 / Two requests, five labels, all 38 pinned files verified.
+
 Qualified development subset / 개발용 유한 요청 적격화: [English](../experiments/short-claim/next60-native2-qualification/README.en.md) · [한국어](../experiments/short-claim/next60-native2-qualification/README.ko.md). Two existing draft requests, five labels; no new fit or protected-final coverage.
 
 Next original-file-only rounding preparation / 다음 원본 한 파일 반올림 준비: [English](../experiments/short-claim/next60-ftoa-singlefile-preparation/README.en.md) · [한국어](../experiments/short-claim/next60-ftoa-singlefile-preparation/README.ko.md). Six frozen inputs, 18 planned candidate observations, zero executions. [Independent oracle review / 독립 계산 검토](../experiments/short-claim/next60-ftoa-oracle-review/ORACLE-REVIEW.v1.json) · [Static worker review / 정적 worker 검토](../experiments/short-claim/next60-ftoa-static-review/RECEIPT.v1.json). Compatible controller, real compiler selection and resource freeze remain pending.
