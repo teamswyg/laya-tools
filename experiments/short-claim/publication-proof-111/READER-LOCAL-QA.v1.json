@@ -1,0 +1,96 @@
+{
+  "schema": "riido112-reader-documentation-qa-v1",
+  "state": "documentation_write_stop",
+  "scope": "Public reader usage and reported structural checks; no training or semantic requalification",
+  "reader_package": "github.com/teamswyg/laya-tools/pkg/shortclaimdata",
+  "author_roles": {
+    "document_author_is_reader_author": false,
+    "document_author_is_converter_author": false,
+    "existing_finite_label_author": "Root",
+    "peer_review": "Independent implementation reviewer; nonblind source-informed mapping and ownership review, with prior rights-scope QA knowledge",
+    "independent_label_semantics_reapproval": false
+  },
+  "sealed_preparation": {
+    "files": 5,
+    "bytes": 38527,
+    "handoff_sha256": "f18d513f9327b50028665b783896b9ed580cf0fbcceb7adc8a874b445dd7f996",
+    "reader_source_sha256": "b51a5bcdb71bdc9b6c583a12afc5f1fc251ac82e61278eaf0a19caf877f114a2",
+    "reader_tests_sha256": "195d1d8e837b54fd647a2e2e090bae44fe1f925a3db4924cda504fac8e57eec1",
+    "preserved": true
+  },
+  "source_review": {
+    "concrete_blockers": 0,
+    "checks": [
+      "Exact mandatory keys with unknown, case-alias and decoded-duplicate rejection",
+      "Explicit Boolean label including false; sample_weight integer literal 1",
+      "Candidate bound before fixed-array writes; finite counts checked for structural consistency",
+      "Private owned fixed arrays and immutable strings; value-copy accessors",
+      "Only request/candidate text normalized; separate labels, weights and bookkeeping",
+      "Two pinned public rows test mapping, not new independent labels or quality"
+    ],
+    "source_review_execution_calls": 0,
+    "label_assignments": 0,
+    "role_assignments": 0,
+    "qualified_increment": 0
+  },
+  "root_reported_checks": {
+    "attribution": "Root message; not executed or independently rerun by this reviewer",
+    "go_version": "1.27.1",
+    "targeted_race_runs": 1,
+    "passed_test_and_subtest_records": 46,
+    "packages": 1,
+    "failures": 0,
+    "skips": 0,
+    "stderr_bytes": 0,
+    "vet_exit_code": 0,
+    "ci112": "pending"
+  },
+  "material_counts": {
+    "public_development_requests": 2,
+    "boolean_labels": 5,
+    "positive_labels": 2,
+    "negative_labels": 3,
+    "unit_weight": 1,
+    "finite_fixtures": 9,
+    "supporting_observations": 23,
+    "observations_added_as_requests_or_weights": 0,
+    "is_2400_example_validation_set": false
+  },
+  "limits": {
+    "row_bytes_max": 16384,
+    "candidates_min": 1,
+    "candidates_max": 8,
+    "accepted_role": "development_train",
+    "input_provenance": "finite-development-v1",
+    "model_features": "Only normalized request/candidate text; consumer must keep IDs, provenance, supervision and metadata out of encoder input"
+  },
+  "claims": {
+    "metadata_invariance": "Normalized text separation, not measured model quality",
+    "measured_speed_improvement": false,
+    "measured_memory_savings": false,
+    "gpu_measurement": false,
+    "rights_granted": false,
+    "training_authority_granted": false,
+    "new_semantic_truth": false,
+    "new_model_weights": false
+  },
+  "document_author_activity": {
+    "new_document_files": 3,
+    "shared_repo_edits": 0,
+    "sealed_source_edits": 0,
+    "Go": 0,
+    "helper": 0,
+    "test_execution": 0,
+    "Score": 0,
+    "Fit": 0,
+    "model": 0,
+    "original_API": 0,
+    "protected_reads": 0,
+    "HTTP": 0,
+    "HF": 0,
+    "Git": 0,
+    "auth": 0
+  },
+  "pending": ["CI112", "Future consumer feature projection and separate training execution plan"],
+  "write_stop": true
+}

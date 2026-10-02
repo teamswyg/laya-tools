@@ -1,6 +1,6 @@
 # laya-tools
 
-[Next development round](docs/wiki/Next60-Development-EN.md) separates [rounding-controller synthetic checks](experiments/short-claim/next60-ftoa-outside-preparation/README.en.md) from [four next batch targets](experiments/short-claim/next60-source-batch-preparation/README.en.md). The qualified subset remains two requests/five labels, with zero new fits. PR111 CI and the HF development dataset release are pending.
+[Next development round](docs/wiki/Next60-Development-EN.md): the [public development dataset](https://huggingface.co/datasets/JooYoon/riidolaya-shortclaim-next60-development/tree/next60-2-finite-v1) contains two requests/five labels, with all 38 files verified after a pinned download. The [Go reader guide](pkg/shortclaimdata/README.md) explains how to keep model text, supervision and source bookkeeping separate. PR111 passed all four required CI checks; no new fit has run. Four further batch targets are being prepared.
 
 [Two finite development requests are qualified](experiments/short-claim/next60-native2-qualification/README.en.md) for the next training round. Five candidates from two existing draft IDs have two positive and three negative labels; every text passed the existing input limits. The old 79-request corpus is unchanged and no new fit has run. Qualified data will expand toward 30/60 before a separate fit comparison.
 

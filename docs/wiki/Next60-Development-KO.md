@@ -6,6 +6,10 @@
 
 [반올림 제어기](https://github.com/teamswyg/laya-tools/tree/main/experiments/short-claim/next60-ftoa-outside-preparation)는 Root의 합성 race 검사에서 28개 통과·1개 건너뜀을 기록했습니다. 원본·계산 함수·모델 호출은 0회입니다. 검사 부모 RSS 121,012,224바이트를 worker나 GPU 메모리로 해석하지 않습니다. 원래 작성자 봉인과 이후 Root 검사 기록을 함께 보존합니다.
 
-자료가 30개·60개에 도달한 뒤 별도 학습 비교를 진행합니다. 주장 도메인별 보호 평가 2,400개 목표와 효용 기준을 유지하며 준비 입력을 독립 표본으로 부풀리지 않습니다. PR111 CI와 [예정 HF 데이터 저장소](https://huggingface.co/datasets/JooYoon/riidolaya-shortclaim-next60-development)의 공개는 아직 대기입니다. 해당 주소가 이미 게시됐다는 뜻은 아닙니다.
+자료가 30개·60개에 도달한 뒤 별도 학습 비교를 진행합니다. 주장 도메인별 보호 평가 2,400개 목표와 효용 기준을 유지하며 준비 입력을 독립 표본으로 부풀리지 않습니다. [PR111](https://github.com/teamswyg/laya-tools/pull/111)의 필수 CI 4개가 통과했고 자동 병합됐습니다.
+
+[HF 개발 데이터](https://huggingface.co/datasets/JooYoon/riidolaya-shortclaim-next60-development/tree/next60-2-finite-v1)는 고정 태그 `next60-2-finite-v1`로 게시했습니다. 다시 내려받은 38개 파일이 원본과 같고 payload 해시 36개가 모두 일치했습니다. 현재 HF 미리보기 서버는 HTTP500으로 준비 중이라고 응답해 실제 미리보기 수용은 아직 확인되지 않았습니다. 파일 직접 다운로드는 확인됐습니다. [게시 기록](https://github.com/teamswyg/laya-tools/blob/main/experiments/short-claim/publication-proof-111/HF-PUBLICATION.v1.json)을 보세요.
+
+[Go reader](https://github.com/teamswyg/laya-tools/tree/main/pkg/shortclaimdata)는 한 행을 모델용 문장·정답 배열·출처 정보로 나누어 읽습니다. 고정 배열과 값 복사를 사용해 공유 가변 상태나 lock을 두지 않았습니다. 로컬 race 검사 46건과 vet가 통과했으며, 이는 자료 형식과 정보 분리 검사입니다. 작은 힌트 모델의 성능이나 메모리 절감이 입증됐다는 뜻은 아닙니다.
 
 [적격 자료 설명](Native2-Training-KO) · [실제 원본 관측](Native2-Observation-KO) · [English](Next60-Development-EN)
