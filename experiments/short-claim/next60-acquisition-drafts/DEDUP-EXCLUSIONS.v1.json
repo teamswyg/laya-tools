@@ -1,0 +1,33 @@
+{
+  "exclusions": [
+    {
+      "catalog_id": "go53-afero-readonly-truncate",
+      "original_execution": 0,
+      "reason": "Pinned readonlyfs.go:75-79 already rejects O_WRONLY/O_RDWR/O_APPEND/O_CREATE/O_TRUNC before source.OpenFile. Baseline rejection for that exact requested change is unavailable; retire this stale improvement candidate.",
+      "static_source_asset": "acquired-source/spf13/afero/readonlyfs.go"
+    },
+    {
+      "catalog_id": "go53-uuid-canonical-parse",
+      "reason": "Existing79 parent76 already training-exposed UUID parser; differences in strict new API policy must be separate specifications, not unseen validation."
+    },
+    {
+      "catalog_id": "go53-uuid-sql-null-reset",
+      "reason": "Existing79 parent77 is already exposed original SQL Scan; proposed reset-on-nil differs from current keep-on-nil policy, but related group cannot be unseen."
+    },
+    {
+      "catalog_id": "go53-humanize-ordinal64",
+      "reason": "Old79 parent78 contains existing small nonnegative ordinal behavior, not the full signed Ordinal64 extension; keep explicit policy distinction and the same exposed humanize family. No re-count of old literals as new contracts."
+    }
+  ],
+  "mechanism_overlap_is_not_concrete_contract_identity": true,
+  "no_protected_membership_or_content_read": true,
+  "same_contract_new_counts": 0,
+  "schema": "riido-next60-dedup-exclusions-v1",
+  "source81_four_goals_preserved": [
+    "growth79-mapstructure-time-type-guard",
+    "growth79-mapstructure-empty-slice",
+    "growth79-pflag-set-state",
+    "growth79-pflag-replace-versus-append"
+  ],
+  "source_family_alias_fork_stdlib_connections_before_roles": true
+}

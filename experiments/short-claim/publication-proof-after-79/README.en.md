@@ -1,0 +1,17 @@
+# Archiving failed79 and preparing the next data batch
+
+The79-request data-addition fit completed but failed utility:31 simulated checks and Top-1 2/10, versus the lexical control's27 and5/10. Default behavior is unchanged.
+
+[PR105](https://github.com/teamswyg/laya-tools/pull/105) passed all four required checks at its exact head and merged automatically. The initial Ubuntu failure was an HTTP/2 dependency-download error. Failed jobs were rerun without changing code,gates or metrics. The [final receipt](ROOT-CI-FINAL.v1.json) and original official responses preserve the head,merge,run,jobs and timestamps. The final API marks all four job records attempt2 while retaining the original successful macOS/secrets timestamps. This does not claim that all four jobs physically reran.
+
+[Failed79 on Hugging Face](https://huggingface.co/JooYoon/riidolaya-shortclaim-data-effect-failed-79/tree/5bef215895b69d3f2ef4b82bb3f1970279d67f46) was published at immutable commit `5bef215895b69d3f2ef4b82bb3f1970279d67f46`, tag `failed-data-effect-79-v1`. All21 packaged files,185,100B, were downloaded again and checked against original sizes/SHA-256 values; the tag resolves to the same commit. The32,792B model is excluded from GitHub. See the [publication receipt](HF-PUBLICATION-79.v1.json), [file manifest](HF-FILE-MANIFEST.v2.json) and [provenance](HF-PROVENANCE.v3.json).
+
+This is an **inactive failed-research archive**, following the earlier71/72 archives. Scientific qualification,production readiness and the original worker's publication flag remain false. A separate [inactive-archive policy](ROOT-INACTIVE-ARCHIVE-POLICY.v1.json) authorizes public-safe archival records; it does not promote utility. There was no model activation,endpoint,paid evaluation or extra training. One item was added to the public research collection,17→18, preserving all17 previous item objects,order and notes.
+
+Wiki publication104 is commit `51069ff8eb4abe4fc91ad676e6739886d3df1cc5`; publication105 adds actual fit79 results at `c594f5adb47e956d7f191d1eae0a4b27d403c98a`. Each copied four source pages exactly and verified the fetched remote. Korean/English usage and measurement limits remain paired. See the [Wiki105 receipt](WIKI-PUBLICATION-105.v1.json).
+
+The next priority is [contract acquisition](../next60-acquisition-drafts/README.en.md). Of20 drafts,18 elaborate existing Source53 logical requests and2 describe new native behavior. Qualified requests and executions remain0;96 inputs and59 descriptions are separate counts. The protected-final minimum of2,400 distinct requests per claimed domain remains outstanding. Read the [independent PDCA analysis](../next-pdca-after-79/REPORT.en.md) together with subsequent contract-review findings.
+
+An unpublished preparation version incorrectly treated tentative job-attempt information as confirmed reporting. A fresh version corrected it from official facts while preserving the original; the [correction receipt](HF-PREPARATION-INTERPRETATION-CORRECTION.v3.json) records this. Numeric results and weights were unchanged.
+
+Cumulative consumption remains3/8 fits and3/16 logical models, with every retained path's full bytes counted even when SHA values match. The [prepublication resource snapshot](PUBLICATION-BUDGET.v1.json) covers named ledger assets,not the entire Mac,remote storage,deleted files or lifetime writes. Helper executables and caches are separate development tools; disk sizes do not establish RAM savings.
