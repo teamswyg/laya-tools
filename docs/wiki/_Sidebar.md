@@ -1,5 +1,6 @@
 **[Home / 홈](https://github.com/teamswyg/laya-tools/wiki)**
 
+- [작은 힌트 학습 준비64–67](https://github.com/teamswyg/laya-tools/wiki/Claim-Preparation-64-67-KO) · [Claim preparation64–67](https://github.com/teamswyg/laya-tools/wiki/Claim-Preparation-64-67-EN)
 - [설명 내용61 결과](https://github.com/teamswyg/laya-tools/wiki/Caption-Content-Review-Results-61-KO) · [Caption content61](https://github.com/teamswyg/laya-tools/wiki/Caption-Content-Review-Results-61-EN)
 - [설명 내용61 상세 검토](https://github.com/teamswyg/laya-tools/wiki/Caption-Content-Review-Findings-61-KO) · [Content findings61](https://github.com/teamswyg/laya-tools/wiki/Caption-Content-Review-Findings-61-EN)
 - [설명 내용61 기계적 대조](https://github.com/teamswyg/laya-tools/wiki/Caption-Content-Review-QA-61-KO) · [Mechanical checks61](https://github.com/teamswyg/laya-tools/wiki/Caption-Content-Review-QA-61-EN)

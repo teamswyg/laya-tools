@@ -1,0 +1,197 @@
+package claimfit
+
+import (
+	"math"
+	"reflect"
+	"testing"
+	"unsafe"
+
+	"github.com/teamswyg/laya-tools/internal/hintlearn"
+	"github.com/teamswyg/laya-tools/internal/pairlearn"
+	"github.com/teamswyg/laya-tools/internal/roleplan"
+	"github.com/teamswyg/laya-tools/pkg/shortclaim"
+)
+
+// Only newly authored toy strings and numerical columns are used. There are
+// no original corpus/source calls, role allocations, model operations or fits.
+func toy(t *testing.T, truth TruthState, role roleplan.Role, group int, n int) Parent {
+	t.Helper()
+	var cs [shortclaim.MaxCandidates]shortclaim.Candidate
+	for i := range n {
+		cs[i] = shortclaim.Candidate{ID: "toy-" + string(rune('a'+i)), Text: "Retain the toy elements in their written order."}
+	}
+	p, err := shortclaim.Validate(shortclaim.Input{Schema: shortclaim.Schema, Request: "Retain toy elements.", Candidates: cs[:n], Provenance: "independent-toy"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	x := Parent{Text: p, Truth: truth, Role: role, WholeGroup: group}
+	if truth == Known {
+		for i := n - 1; i >= 0; i-- {
+			x.Acceptable = append(x.Acceptable, i)
+		}
+	}
+	for i := range n {
+		x.LossEligible[i] = i%2 == 0
+	}
+	return x
+}
+
+func actualDatasetPayload(d pairlearn.Dataset, refs []RowRef) uint64 {
+	return uint64(cap(d.Offsets))*uint64(unsafe.Sizeof(int(0))) +
+		uint64(cap(d.Indices))*2 + uint64(cap(d.Values))*8 +
+		uint64(cap(d.Labels))*8 + uint64(cap(d.Groups))*uint64(unsafe.Sizeof(int(0))) +
+		uint64(cap(d.SampleWeights))*8 + uint64(cap(refs))*uint64(unsafe.Sizeof(RowRef{}))
+}
+
+func independentPayload(p Projection) uint64 {
+	n := uint64(unsafe.Sizeof(p)) + uint64(cap(p.Parents))*uint64(unsafe.Sizeof(RuntimeParent{}))
+	for _, x := range p.Parents {
+		n += uint64(len(x.Text.Schema)) + uint64(len(x.Text.Request)) + uint64(len(x.Text.NormalizedRequest)) + uint64(len(x.Text.Provenance))
+		for _, c := range x.Text.Candidates {
+			n += uint64(len(c.ID)) + uint64(len(c.Text)) + uint64(len(c.NormalizedText))
+		}
+	}
+	n += actualDatasetPayload(p.Development, p.DevelopmentRefs) + actualDatasetPayload(p.Validation, p.ValidationRefs)
+	n += actualDatasetPayload(p.DevelopmentAUC.Data, p.DevelopmentAUC.Refs) + actualDatasetPayload(p.ValidationAUC.Data, p.ValidationAUC.Refs)
+	return n
+}
+
+func TestIndependentExactPayloadAndInclusivePreflight(t *testing.T) {
+	inputs := []Parent{toy(t, Known, roleplan.DevelopmentTrain, 3, 8), toy(t, NoAnswer, roleplan.DevelopmentValidation, 5, 1), toy(t, Unknown, roleplan.DevelopmentCalibration, 8, 2)}
+	out, err := Project(inputs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := independentPayload(out); got != out.PayloadBytes {
+		t.Fatalf("actual column capacity payload=%d recorded=%d", got, out.PayloadBytes)
+	}
+	if _, err := project(inputs, hintlearn.Features, out.PayloadBytes); err != nil {
+		t.Fatal("exact returned payload boundary rejected", err)
+	}
+	if got, err := project(inputs, hintlearn.Features, out.PayloadBytes-1); err != ErrPayload || !reflect.DeepEqual(got, Projection{}) {
+		t.Fatal("one-byte bound did not fail atomically")
+	}
+	if len(out.Development.Labels) != 8 || len(out.DevelopmentAUC.Data.Labels) != 4 || len(out.Validation.Labels) != 1 || len(out.ValidationAUC.Data.Labels) != 1 {
+		t.Fatal("row or diagnostic counts changed")
+	}
+	for i, y := range out.Development.Labels {
+		if y != 1 || out.Development.SampleWeights[i] != float64(1-i%2) {
+			t.Fatal("all acceptable labels or zero masks changed")
+		}
+	}
+	if out.Parents[0].Acceptable[0] != 7 || out.Parents[0].Acceptable[7] != 0 {
+		t.Fatal("acceptable ordering changed")
+	}
+}
+
+func TestIndependentParentCountAndEmptyColumns(t *testing.T) {
+	// A reduced implementation limit checks parent-array preflight order without
+	// allocating a 64MiB fixture or inventing a scientific parent-count gate.
+	parents := make([]Parent, 2) // deliberately malformed; allocation bound wins first
+	calls := 0
+	cap := uint64(unsafe.Sizeof(Projection{})) + uint64(unsafe.Sizeof(RuntimeParent{}))
+	out, err := project(parents, func(string, string) []hintlearn.Feature { calls++; return nil }, cap)
+	if err != ErrPayload || calls != 0 || !reflect.DeepEqual(out, Projection{}) {
+		t.Fatal("parent-array preflight was skipped")
+	}
+	empty, err := Project(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if empty.PayloadBytes != independentPayload(empty) || empty.FeatureScans != 0 {
+		t.Fatal("empty payload or scans differ")
+	}
+	for _, d := range []pairlearn.Dataset{empty.Development, empty.Validation, empty.DevelopmentAUC.Data, empty.ValidationAUC.Data} {
+		if len(d.Offsets) != 1 || d.Offsets[0] != 0 || len(d.Labels) != 0 {
+			t.Fatal("empty sparse sentinel not retained")
+		}
+	}
+}
+
+func TestIndependentSecondPassAndUint16Bounds(t *testing.T) {
+	p := toy(t, Known, roleplan.DevelopmentTrain, 0, 1)
+	for _, idx := range []int{hintlearn.Dimension, math.MaxUint16, math.MaxUint16 + 1, -1} {
+		if got, err := project([]Parent{p}, func(string, string) []hintlearn.Feature { return []hintlearn.Feature{{Index: idx, Value: 1}} }, MaxPreparedPayloadBytes); err != ErrFeatures || !reflect.DeepEqual(got, Projection{}) {
+			t.Fatal("invalid index accepted")
+		}
+	}
+	out, err := project([]Parent{p}, func(string, string) []hintlearn.Feature {
+		return []hintlearn.Feature{{Index: hintlearn.Dimension - 1, Value: 1}}
+	}, MaxPreparedPayloadBytes)
+	if err != nil || out.Development.Indices[0] != uint16(hintlearn.Dimension-1) {
+		t.Fatal("maximum valid uint16 index not preserved")
+	}
+	for _, v := range []float64{math.NaN(), math.Inf(1), math.Inf(-1)} {
+		calls := 0
+		out, err := project([]Parent{p}, func(string, string) []hintlearn.Feature {
+			calls++
+			if calls == 1 {
+				return []hintlearn.Feature{{Index: 0, Value: 1}}
+			}
+			return []hintlearn.Feature{{Index: 0, Value: v}}
+		}, MaxPreparedPayloadBytes)
+		if err != ErrFeatures || calls != 2 || !reflect.DeepEqual(out, Projection{}) {
+			t.Fatal("nonfinite second pass accepted")
+		}
+	}
+}
+
+func TestIndependentRawFeatureArgumentsAndOwnedProjection(t *testing.T) {
+	p := toy(t, Known, roleplan.DevelopmentTrain, math.MaxInt, 2)
+	p.Text.Provenance = "provenance-marker"
+	p.Text.Candidates[0].ID = "id-marker"
+	want := p
+	calls := 0
+	out, err := project([]Parent{p}, func(q, d string) []hintlearn.Feature {
+		calls++
+		if q != want.Text.Request || d != want.Text.Candidates[0].Text {
+			t.Fatal("metadata or normalization entered feature arguments")
+		}
+		return []hintlearn.Feature{{Index: 0, Value: 1}}
+	}, MaxPreparedPayloadBytes)
+	if err != nil || calls != 4 {
+		t.Fatal("toy projection failed", err)
+	}
+	p.Acceptable[0] = 0
+	p.Text.Candidates[0].Text = "post-return mutation"
+	p.WholeGroup = 0
+	if out.Parents[0].Acceptable[0] != 1 || out.Parents[0].Text != want.Text || out.Development.Groups[0] != math.MaxInt {
+		t.Fatal("returned input snapshot aliased caller")
+	}
+	out.DevelopmentAUC.Data.Values[0] = 9
+	if out.Development.Values[0] != 1 {
+		t.Fatal("diagnostic and loss feature arrays alias")
+	}
+	out.DevelopmentRefs[0] = RowRef{99, 99}
+	if out.DevelopmentAUC.Refs[0] != (RowRef{0, 0}) {
+		t.Fatal("diagnostic and loss references alias")
+	}
+}
+
+func TestIndependentUnknownCalibrationLeakageEveryRolePair(t *testing.T) {
+	roles := []roleplan.Role{roleplan.DevelopmentTrain, roleplan.DevelopmentValidation, roleplan.DevelopmentCalibration}
+	for i, a := range roles {
+		for _, b := range roles[i+1:] {
+			one, two := toy(t, Unknown, a, 17, 1), toy(t, NoAnswer, b, 17, 1)
+			two.LossEligible = [8]bool{}
+			calls := 0
+			out, err := project([]Parent{one, two}, func(string, string) []hintlearn.Feature { calls++; return nil }, MaxPreparedPayloadBytes)
+			if err != ErrLeakage || calls != 0 || !reflect.DeepEqual(out, Projection{}) {
+				t.Fatal("role-pair leakage hidden by unknown/zero masks")
+			}
+		}
+	}
+	inputs := []Parent{toy(t, Unknown, roleplan.DevelopmentTrain, 1, 1), toy(t, NoAnswer, roleplan.DevelopmentCalibration, 2, 8)}
+	out, err := Project(inputs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(out.Development.Labels) != 0 || len(out.Validation.Labels) != 0 || out.FeatureScans != 0 || out.Counts[2].FitRows != 0 || out.Development.Excluded != 1 {
+		t.Fatal("unknown/calibration entered loss")
+	}
+	for c := 0; c < 8; c++ {
+		if out.Parents[1].Labels[c] != (NullableLabel{Known: true, Positive: false}) {
+			t.Fatal("calibration no_answer truth lost")
+		}
+	}
+}

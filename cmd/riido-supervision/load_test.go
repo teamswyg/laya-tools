@@ -1,0 +1,511 @@
+// SPDX-License-Identifier: Apache-2.0
+// Original private67 toy tests, ported without original-input execution.
+package main
+
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
+	"reflect"
+	"strings"
+	"testing"
+)
+
+// Every fixture is newly authored toy metadata; no original corpus is loaded.
+type fixture struct {
+	root     string
+	cfg      Config
+	probes   [2]Probes
+	saved    Saved
+	ref      Reference
+	sixty    Overlay
+	manifest Manifest
+	shard    Overlay
+}
+
+func jsonBytes(t *testing.T, v any) []byte {
+	t.Helper()
+	b, e := json.MarshalIndent(v, "", "  ")
+	if e != nil {
+		t.Fatal(e)
+	}
+	return append(b, '\n')
+}
+func (f *fixture) put(t *testing.T, i int, v any) {
+	t.Helper()
+	b := jsonBytes(t, v)
+	p := f.cfg.Pins[i]
+	if e := os.WriteFile(filepath.Join(f.root, p.Path), b, 0600); e != nil {
+		t.Fatal(e)
+	}
+	f.cfg.Pins[i] = Pin{p.Path, int64(len(b)), sha(b)}
+}
+func refText(p Pin, pointer, text string) TextRef {
+	return TextRef{Path: p.Path, Pointer: pointer, SHA: sha([]byte(text)), Bytes: len(text)}
+}
+func fixture67(t *testing.T) *fixture {
+	t.Helper()
+	f := &fixture{root: t.TempDir(), cfg: frozenConfig}
+	f.cfg.Expected = Expected{3, 7, 2, 1, 2, 26, 14}
+	if e := os.MkdirAll(filepath.Join(f.root, basePath), 0700); e != nil {
+		t.Fatal(e)
+	}
+	f.probes[0].Schema = "riido-behavior-probes-v1"
+	f.probes[1].Schema = "riido-typed-behavior-probes-v2"
+	for pi := 0; pi < 3; pi++ {
+		cohort, local, n := 0, pi, 3
+		if pi == 1 {
+			n = 2
+		}
+		if pi == 2 {
+			cohort, local, n = 1, 0, 2
+		}
+		proto := "toy-alpha"
+		if cohort == 1 {
+			proto = "toy-beta"
+		}
+		p := Parent{ID: fmt.Sprintf("toy-parent-%d", pi), Prototype: proto, ContractID: proto + "-contract", Request: "Preserve every explicitly requested toy condition."}
+		for ci := 0; ci < n; ci++ {
+			c := Candidate{ID: fmt.Sprintf("toy-option-%d", ci), Text: fmt.Sprintf("Toy candidate %d describes the original bounded behavior.", ci), SourceID: fmt.Sprintf("toy-source-%d-%d", pi, ci), CodeSHA: strings.Repeat("a", 64)}
+			if cohort == 1 {
+				c.BundleSHA = strings.Repeat("b", 64)
+			}
+			p.Candidates = append(p.Candidates, c)
+		}
+		f.probes[cohort].Parents = append(f.probes[cohort].Parents, p)
+		_ = local
+	}
+	f.put(t, 0, f.probes[0])
+	f.put(t, 1, f.probes[1])
+	f.saved.Schema = "riido-typed-truth-development-result-v1"
+	f.saved.LegacySHA = f.cfg.Pins[0].SHA
+	f.saved.InputSHA = f.cfg.Pins[1].SHA
+	f.ref.Schema = "riido-caption-reference-preparation-record-59-v1"
+	for pi := 0; pi < 3; pi++ {
+		cohort, local, g, cohortName := 0, pi, 7, "legacy"
+		if pi == 2 {
+			cohort, local, g, cohortName = 1, 0, 99, "typed"
+		}
+		raw := f.probes[cohort].Parents[local]
+		state := "known"
+		acceptable := []int{2, 0}
+		if pi == 1 {
+			state = "no_answer"
+			acceptable = []int{}
+		}
+		if pi == 2 {
+			state = "unknown"
+			acceptable = []int{}
+		}
+		tt := Truth{ID: raw.ID, State: state, Acceptable: acceptable}
+		rp := ReferenceParent{Index: pi, ID: raw.ID, Cohort: cohortName, Prototype: raw.Prototype, ContractID: raw.ContractID, Group: g, State: state, Acceptable: append([]int{}, acceptable...), Request: refText(f.cfg.Pins[cohort], fmt.Sprintf("/parents/%d/request", local), raw.Request)}
+		for ci, c := range raw.Candidates {
+			cs := "rejected"
+			if state == "unknown" {
+				cs = "unknown"
+			} else if contains(acceptable, ci) {
+				cs = "acceptable"
+			}
+			ct := CandidateTruth{c.ID, cs}
+			tt.Candidates = append(tt.Candidates, ct)
+			rp.Candidates = append(rp.Candidates, ReferenceCandidate{Index: ci, ID: c.ID, Caption: refText(f.cfg.Pins[cohort], fmt.Sprintf("/parents/%d/candidates/%d/text", local, ci), c.Text), SourceID: c.SourceID, CodeSHA: c.CodeSHA, BundleSHA: c.BundleSHA, Outcome: ct})
+		}
+		if cohort == 0 {
+			f.saved.Legacy.Outcomes = append(f.saved.Legacy.Outcomes, tt)
+		} else {
+			f.saved.Typed.Outcomes = append(f.saved.Typed.Outcomes, tt)
+		}
+		f.ref.References.Parents = append(f.ref.References.Parents, rp)
+	}
+	f.saved.Combined.Groups = []Group{{ID: 7, Parents: []string{"toy-parent-0", "toy-parent-1"}}, {ID: 99, Parents: []string{"toy-parent-2"}}}
+	f.ref.References.Groups = f.saved.Combined.Groups
+	for _, proto := range []string{"toy-alpha", "toy-beta"} {
+		var c Contract
+		c.Historical.Prototype = proto
+		c.Historical.Semantics = "Observe only the toy return value and preserved input."
+		f.ref.References.Contracts = append(f.ref.References.Contracts, c)
+	}
+	f.put(t, 2, f.saved)
+	f.put(t, 3, f.ref)
+	f.sixty.Schema = "riido-caption-content-scoped-review-60-v1"
+	f.shard.Schema = "riido-caption-content-family-review-61-v1"
+	f.shard.Prototype = "toy-beta"
+	for _, s := range makeSlots(f.ref) {
+		r := Record{Schema: "riido-caption-content-review-record-60-v1", Claim: fmt.Sprintf("toy-claim/%d/%d/%d/%s", s.parent, s.candidate, s.contract, s.kind), State: consistent, SHA: strings.Repeat("0", 64)}
+		if s.contract >= 0 {
+			c := f.ref.References.Contracts[s.contract]
+			r.Kind = "contract_observation"
+			r.Axis = "observation_fields"
+			r.Claim = "contract-observation/" + c.Historical.Prototype
+			r.Prototype = c.Historical.Prototype
+			r.Text.Contract = &TextRef{SHA: sha([]byte(c.Historical.Semantics)), Bytes: len(c.Historical.Semantics), ContractPointer: fmt.Sprintf("/references/contracts/%d", s.contract)}
+			r.Quote = c.Historical.Semantics
+		} else {
+			p := f.ref.References.Parents[s.parent]
+			r.ParentIndex = new(int)
+			*r.ParentIndex = s.parent
+			r.ParentID = new(string)
+			*r.ParentID = p.ID
+			r.Prototype = p.Prototype
+			request := p.Request
+			r.Text.Request = &request
+			r.Quote = f.probes[0].Parents[0].Request
+			if s.candidate >= 0 {
+				c := p.Candidates[s.candidate]
+				r.Candidate = &CandidateKey{ID: c.ID, Index: s.candidate}
+				caption := c.Caption
+				r.Text.Caption = &caption
+				r.SourceID = c.SourceID
+				r.Binding.Root = c.SourceID
+				cohort, local := 0, s.parent
+				if s.parent == 2 {
+					cohort, local = 1, 0
+				}
+				r.Quote = f.probes[cohort].Parents[local].Candidates[s.candidate].Text
+			}
+			switch s.kind {
+			case "request_contract":
+				r.Kind = "request_contract"
+				r.Axis = "request_contract_coverage"
+			case "candidate_closure":
+				r.Kind = "source_closure_only"
+				r.Axis = "source_fidelity"
+			case "candidate_fidelity":
+				r.Kind = "candidate_axis"
+				r.Axis = "source_fidelity"
+				r.CaptionFidelity = true
+			case "candidate_coverage":
+				r.Kind = "candidate_axis"
+				r.Axis = "request_contract_coverage"
+				if p.State == "unknown" {
+					r.State = "unsupported_or_uncertain"
+				} else if !contains(p.Acceptable, s.candidate) {
+					r.State = contradicts
+				}
+			case "observation_fields", "explicit_negative_boundaries":
+				r.Kind = "candidate_axis"
+				r.Axis = s.kind
+				r.State = "unsupported_or_uncertain"
+			}
+		}
+		r.Range = []int{0, len(r.Quote)}
+		raw := jsonBytes(t, r)
+		dg, e := recordDigest(raw)
+		if e != nil {
+			t.Fatal(e)
+		}
+		r.SHA = dg
+		raw = jsonBytes(t, r)
+		o := &f.sixty
+		if r.Prototype == "toy-beta" {
+			o = &f.shard
+		}
+		// Exercise nested60 artifact references as well as flat61 path references.
+		if o == &f.sixty && r.Text.Request != nil {
+			request := *r.Text.Request
+			request.Path = ""
+			pin := f.cfg.Pins[0]
+			request.Artifact = &pin
+			r.Text.Request = &request
+			if r.Text.Caption != nil {
+				caption := *r.Text.Caption
+				caption.Path = ""
+				caption.Artifact = &pin
+				r.Text.Caption = &caption
+			}
+			raw = jsonBytes(t, r)
+			dg, e = recordDigest(raw)
+			if e != nil {
+				t.Fatal(e)
+			}
+			r.SHA = dg
+			raw = jsonBytes(t, r)
+		}
+		ix := Index{Claim: r.Claim, SHA: r.SHA, State: r.State, Prototype: r.Prototype}
+		if r.ParentID != nil {
+			ix.ParentID = *r.ParentID
+		}
+		if o == &f.shard {
+			ix.Candidate = r.Candidate
+			ix.Axis = r.Axis
+		}
+		if s.kind == "observation_fields" || s.kind == "explicit_negative_boundaries" {
+			ix.Axis = s.kind
+			if o == &f.sixty {
+				o.Supplement = append(o.Supplement, ix)
+			} else {
+				o.ShardSupplement = append(o.ShardSupplement, ix)
+			}
+		} else {
+			ix.Kind = s.kind
+			o.Mapped = append(o.Mapped, ix)
+		}
+		o.Records = append(o.Records, raw)
+	}
+	f.put(t, 4, f.sixty)
+	f.manifest.Schema = "riido-caption-content-scoped-review-manifest-61-v1"
+	f.writeShard(t)
+	return f
+}
+func (f *fixture) writeShard(t *testing.T) {
+	t.Helper()
+	name := "content-review-family-61-toy-beta.json"
+	b := jsonBytes(t, f.shard)
+	if e := os.WriteFile(filepath.Join(f.root, basePath+name), b, 0600); e != nil {
+		t.Fatal(e)
+	}
+	f.manifest.Shards = []Shard{{name, int64(len(b)), sha(b), "toy-beta"}}
+	f.manifest.Mapped = append([]Index(nil), f.shard.Mapped...)
+	f.manifest.Supplement = append([]Index(nil), f.shard.ShardSupplement...)
+	f.put(t, 5, f.manifest)
+}
+func (f *fixture) changeRecord(t *testing.T, which int, edit func(*Record), rehash bool) {
+	t.Helper()
+	var r Record
+	if e := json.Unmarshal(f.sixty.Records[which], &r); e != nil {
+		t.Fatal(e)
+	}
+	old := r.SHA
+	edit(&r)
+	raw := jsonBytes(t, r)
+	if rehash {
+		dg, e := recordDigest(raw)
+		if e != nil {
+			t.Fatal(e)
+		}
+		r.SHA = dg
+		for i := range f.sixty.Mapped {
+			if f.sixty.Mapped[i].SHA == old {
+				f.sixty.Mapped[i].SHA = dg
+				f.sixty.Mapped[i].State = r.State
+			}
+		}
+		for i := range f.sixty.Supplement {
+			if f.sixty.Supplement[i].SHA == old {
+				f.sixty.Supplement[i].SHA = dg
+				f.sixty.Supplement[i].State = r.State
+			}
+		}
+		raw = jsonBytes(t, r)
+	}
+	f.sixty.Records[which] = raw
+	f.put(t, 4, f.sixty)
+}
+
+func TestToyFullBijectionTruthGroupsAndSupplementAuditOnly(t *testing.T) {
+	f := fixture67(t)
+	out, ledger, e := load(f.root, f.cfg)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if ledger.FilesVerified != 7 || ledger.OriginalSlotsJoined != 26 || ledger.SupplementalSlotsJoined != 14 || ledger.ReviewRecordsVerified != 40 || len(out.Parents) != 3 || out.OriginalCandidates != 7 || out.UnknownParents != 1 || out.TrainingReady || out.DiversityCleared || !out.ProposedSupervisionOnly {
+		t.Fatal("toy cardinality/readiness changed")
+	}
+	if !sameInts(out.Parents[0].Acceptable, []int{2, 0}) {
+		t.Fatal("multiple acceptable order changed")
+	}
+	for ci, c := range out.Parents[0].Candidates {
+		want := 0
+		if ci == 0 || ci == 2 {
+			want = 1
+		}
+		if c.Label == nil || *c.Label != want || !c.Mask || c.Observation.State != "unsupported_or_uncertain" {
+			t.Fatal("original truth or audit-only supplemental changed")
+		}
+	}
+	for _, c := range out.Parents[1].Candidates {
+		if c.Label == nil || *c.Label != 0 || !c.Mask {
+			t.Fatal("no_answer changed")
+		}
+	}
+	for _, c := range out.Parents[2].Candidates {
+		if c.Label != nil || c.Mask || len(c.Reasons) == 0 {
+			t.Fatal("unknown changed")
+		}
+	}
+	if out.Groups[0].EligiblePositive != 2 || out.Groups[0].EligibleNegative != 3 || out.Groups[0].Candidates != 5 || out.Groups[1].UnknownCandidates != 2 || out.Groups[1].EligibleNegative != 0 {
+		t.Fatal("whole-group denominators changed")
+	}
+	f.ref.References.Parents[0].Acceptable[0] = 1
+	f.saved.Combined.Groups[0].Parents[0] = "changed"
+	if out.Parents[0].Acceptable[0] != 2 || out.Groups[0].Parents[0] != "toy-parent-0" {
+		t.Fatal("output ownership violated")
+	}
+}
+
+func TestMaskPreservesEveryStateAndOriginalLabels(t *testing.T) {
+	zero, one := 0, 1
+	cases := []struct {
+		label                                          *int
+		request, contract, closure, fidelity, coverage string
+		want                                           bool
+	}{
+		{&one, consistent, consistent, consistent, consistent, consistent, true},
+		{&zero, consistent, consistent, consistent, consistent, contradicts, true},
+		{&one, consistent, consistent, consistent, consistent, contradicts, false},
+		{&zero, consistent, consistent, consistent, consistent, consistent, false},
+		{nil, consistent, consistent, consistent, consistent, consistent, false},
+	}
+	for _, state := range []string{"omits_required_scope", "unsupported_or_uncertain", "pending", contradicts} {
+		cases = append(cases, struct {
+			label                                          *int
+			request, contract, closure, fidelity, coverage string
+			want                                           bool
+		}{&one, state, consistent, consistent, consistent, consistent, false})
+	}
+	for _, x := range cases {
+		got, reasons := mask(x.label, x.request, x.contract, x.closure, x.fidelity, x.coverage)
+		if got != x.want || (got && len(reasons) != 0) || (!got && len(reasons) == 0) {
+			t.Fatal("mask rule or reason changed")
+		}
+	}
+	f := fixture67(t)
+	for i, raw := range f.sixty.Records {
+		var r Record
+		_ = json.Unmarshal(raw, &r)
+		if r.Kind == "candidate_axis" && r.Axis == "request_contract_coverage" && r.Candidate.Index == 0 {
+			f.changeRecord(t, i, func(r *Record) { r.State = "omits_required_scope" }, true)
+			break
+		}
+	}
+	out, _, e := load(f.root, f.cfg)
+	if e != nil {
+		t.Fatal(e)
+	}
+	c := out.Parents[0].Candidates[0]
+	if c.Mask || c.Label == nil || *c.Label != 1 || len(out.Parents[0].Candidates) != 3 || out.Groups[0].Candidates != 5 {
+		t.Fatal("mask deleted original label/candidate/group")
+	}
+}
+
+func TestCorruptRecordsFailClosedAndRetainLedgerPrefix(t *testing.T) {
+	cases := []struct {
+		name   string
+		change func(*fixture)
+	}{
+		{"digest", func(f *fixture) { f.changeRecord(t, 0, func(r *Record) { r.State = "pending" }, false) }},
+		{"closure-is-fidelity", func(f *fixture) { f.changeRecord(t, 1, func(r *Record) { r.CaptionFidelity = true }, true) }},
+		{"parent-index", func(f *fixture) { f.changeRecord(t, 0, func(r *Record) { *r.ParentIndex = 999 }, true) }},
+		{"request-pointer", func(f *fixture) {
+			f.changeRecord(t, 0, func(r *Record) { r.Text.Request.Pointer = "/parents/1/request" }, true)
+		}},
+		{"quote-range", func(f *fixture) { f.changeRecord(t, 0, func(r *Record) { r.Range[1]++ }, true) }},
+		{"wrong-root", func(f *fixture) { f.changeRecord(t, 1, func(r *Record) { r.Binding.Root = "wrong-root" }, true) }},
+		{"new-approval", func(f *fixture) { f.changeRecord(t, 0, func(r *Record) { r.Approval = true }, true) }},
+		{"missing", func(f *fixture) { f.sixty.Records = f.sixty.Records[:len(f.sixty.Records)-1]; f.put(t, 4, f.sixty) }},
+		{"duplicate", func(f *fixture) { f.sixty.Records[1] = f.sixty.Records[0]; f.put(t, 4, f.sixty) }},
+		{"manifest-index", func(f *fixture) { f.manifest.Mapped[0].SHA = strings.Repeat("e", 64); f.put(t, 5, f.manifest) }},
+		{"shard-bytes", func(f *fixture) { f.manifest.Shards[0].Bytes++; f.put(t, 5, f.manifest) }},
+		{"shard-traversal", func(f *fixture) { f.manifest.Shards[0].Path = "../escape.json"; f.put(t, 5, f.manifest) }},
+		{"unknown-positive", func(f *fixture) { f.ref.References.Parents[2].Acceptable = []int{0}; f.put(t, 3, f.ref) }},
+		{"group-member-loss", func(f *fixture) {
+			f.ref.References.Groups[0].Parents = f.ref.References.Groups[0].Parents[:1]
+			f.put(t, 3, f.ref)
+		}},
+		{"saved-label-change", func(f *fixture) { f.saved.Legacy.Outcomes[0].Acceptable = []int{1}; f.put(t, 2, f.saved) }},
+		{"source-bundle", func(f *fixture) {
+			f.ref.References.Parents[2].Candidates[0].BundleSHA = strings.Repeat("e", 64)
+			f.put(t, 3, f.ref)
+		}},
+	}
+	for _, x := range cases {
+		t.Run(x.name, func(t *testing.T) {
+			f := fixture67(t)
+			x.change(f)
+			out, l, e := load(f.root, f.cfg)
+			if e == nil || !reflect.DeepEqual(out, Output{}) || l.FilesVerified == 0 {
+				t.Fatal("corruption accepted or progress discarded")
+			}
+		})
+	}
+}
+
+func TestPinnedBoundedReadAndJSONFailures(t *testing.T) {
+	f := fixture67(t)
+	p := f.cfg.Pins[0]
+	for _, cfg := range []Config{func() Config { c := f.cfg; c.Pins[0].SHA = strings.Repeat("e", 64); return c }(), func() Config { c := f.cfg; c.Pins[0].Bytes++; return c }(), func() Config { c := f.cfg; c.Pins[0].Bytes = maxFileBytes + 1; return c }(), func() Config { c := f.cfg; c.Pins[0].Path = "../outside"; return c }(), func() Config { c := f.cfg; c.MaxTotal = p.Bytes - 1; return c }()} {
+		if out, l, e := load(f.root, cfg); e == nil || !reflect.DeepEqual(out, Output{}) || l.FilesVerified != 0 {
+			t.Fatal("invalid pin/bound accepted")
+		}
+	}
+	for _, raw := range []string{`{"x":1,"x":2}`, `{"x":1,"\u0078":2}`, `{"x":1} {"x":2}`, `{"x":1e99999}`, strings.Repeat("[", 66) + "0" + strings.Repeat("]", 66)} {
+		var x any
+		if strictJSON([]byte(raw), &x) == nil {
+			t.Fatal("bad JSON accepted")
+		}
+	}
+	var x any
+	if strictJSON([]byte{'"', 0xff, '"'}, &x) == nil {
+		t.Fatal("invalid UTF8 accepted")
+	}
+	outside := filepath.Join(t.TempDir(), "outside.json")
+	if e := os.WriteFile(outside, []byte("{}"), 0600); e != nil {
+		t.Fatal(e)
+	}
+	link := filepath.Join(f.root, "escape.json")
+	if e := os.Symlink(outside, link); e != nil {
+		t.Fatal(e)
+	}
+	r, e := os.OpenRoot(f.root)
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer r.Close()
+	l := loader{root: r, cfg: f.cfg}
+	if l.read(Pin{"escape.json", 2, sha([]byte("{}"))}, &x) == nil {
+		t.Fatal("root escape accepted")
+	}
+	if l.read(Pin{basePath, 0, sha(nil)}, &x) == nil {
+		t.Fatal("nonregular file accepted")
+	}
+	if e := os.WriteFile(filepath.Join(f.root, p.Path), []byte("not the frozen file"), 0600); e != nil {
+		t.Fatal(e)
+	}
+	if _, l, e := load(f.root, f.cfg); e == nil || l.FilesVerified != 0 {
+		t.Fatal("same-path corruption accepted")
+	}
+}
+
+func TestToyDeterministicReplayAndExactTotalCap(t *testing.T) {
+	f := fixture67(t)
+	a, l, e := load(f.root, f.cfg)
+	if e != nil {
+		t.Fatal(e)
+	}
+	b, _, e := load(f.root, f.cfg)
+	if e != nil || !reflect.DeepEqual(a, b) {
+		t.Fatal("toy replay differs")
+	}
+	f.cfg.MaxTotal = l.BytesVerified
+	if _, _, e := load(f.root, f.cfg); e != nil {
+		t.Fatal("inclusive total read bound rejected", e)
+	}
+	f.cfg.MaxTotal--
+	if out, _, e := load(f.root, f.cfg); e == nil || !reflect.DeepEqual(out, Output{}) {
+		t.Fatal("total read bound accepted")
+	}
+	if frozenConfig.Expected != (Expected{72, 216, 51, 21, 17, 738, 432}) || frozenConfig.Pins[4].SHA != "1beb5c06d3fb70c0a5e0727de793f1890b4ab4a47f1d392a6666b068f096c526" || frozenConfig.Pins[5].SHA != "f8f0b2320bb214f102575384cace477067a0f075b98ee09c071e778d9285224b" {
+		t.Fatal("frozen CLI plan drifted")
+	}
+}
+
+func TestActualReadAccountingAndOverlayWorkBound(t *testing.T) {
+	f := fixture67(t)
+	_, l, e := load(f.root, f.cfg)
+	if e != nil || l.BytesRead != l.BytesVerified || l.BytesRead > f.cfg.MaxTotal {
+		t.Fatal("actual successful bytes not accounted")
+	}
+	f.cfg.Pins[0].SHA = strings.Repeat("e", 64)
+	_, l, e = load(f.root, f.cfg)
+	if e == nil || l.BytesRead != f.cfg.Pins[0].Bytes || l.BytesVerified != 0 {
+		t.Fatal("failed pin read not accounted")
+	}
+	lr := loader{cfg: f.cfg}
+	slots := makeSlots(f.ref)
+	o := f.sixty
+	o.Records = make([]json.RawMessage, len(slots)+1)
+	if e := lr.joinOverlay(f.cfg.Pins[4], o, f.probes, f.ref, slots); e == nil || lr.ledger.ReviewRecordsVerified != 0 {
+		t.Fatal("oversized overlay entered join work")
+	}
+}

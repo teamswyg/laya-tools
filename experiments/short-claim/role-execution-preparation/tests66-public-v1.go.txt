@@ -1,0 +1,270 @@
+package main
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
+	"os"
+	"path/filepath"
+	"reflect"
+	"strings"
+	"testing"
+
+	"github.com/teamswyg/laya-tools/internal/roleplan"
+)
+
+// These sources/IDs/graphs are authored synthetic controls. No saved65 input
+// is opened by any test and no original group seed/order/role is computed.
+func syntheticSnapshot() snapshot {
+	s := snapshot{Schema: inputSchema, State: "private_metadata_proposal_no_seed_or_roles", Inputs: requiredInputs()}
+	n := 0
+	for _, gid := range []int64{0, 4, 8, 12, 16, 20, 24, 28, 32, 40, 44, 48, 52, 56, 60, 64, 68} {
+		name := fmt.Sprintf("synthetic-%d", gid)
+		digest := sha256.Sum256([]byte(name))
+		g := group{ID: fmt.Sprintf("original-whole-group:%d", gid), OriginalID: gid, Known: gid != 64, Members: []string{name}, MemberBindings: []memberBinding{{ID: name}}, Digest: hex.EncodeToString(digest[:]), EncodedBytes: 99}
+		states := []string{"known", "known", "no_answer", "unknown"}
+		if gid == 8 {
+			states = append(states, states...)
+		}
+		if gid == 64 {
+			states = []string{"unknown", "unknown", "unknown", "unknown"}
+		}
+		for _, state := range states {
+			g.Parents = append(g.Parents, parent{ID: fmt.Sprintf("synthetic-parent-%02d", n), Index: n, Truth: state, Candidates: 3})
+			n++
+		}
+		s.Groups = append(s.Groups, g)
+	}
+	return s
+}
+func syntheticPlan() executionPlan {
+	p := executionPlan{Schema: planSchema, State: "private_pre_execution_draft", Input: pin{"membership-proposal-65.json", inputSHA, 1986200}, InputSources: requiredInputs(), SupportSources: requiredSupport(), GoVersion: "go1.27.1", CGO: "0", Trimpath: true, CPUThreads: 1, HeapSoftLimit: 256 << 20, Seed: "1729", SeedHex: "31373239", MembershipDomain: roleplan.MembershipDomain, OrderDomain: roleplan.OrderDomain, Encoding: "LP64BE_UTF8_members_sorted_relationships_From_Kind_To_v1", Algorithm: "whole-component-sha256-order-weighted-3-1-1-v1", KnownFloors: [3]int{9, 3, 3}, Coverage: expectedCoverage(), PlannedExecutions: 1, UnknownPolicy: "retain_all_21_unknown;whole_group_64_train_provenance;never_labels_or_labeled_floor", CoveragePolicy: "stored_truth_only;answerable_and_no_answer_sets_identical;no_future_loss_eligibility_or_semantic_readiness", StopPolicy: "one_attempt;preserve_refusal;no_seed_search_split_merge_masks_or_retry", TrustLimits: []string{"a", "b", "c", "d"}}
+	p.BindingEvidence = requiredEvidence()
+	p.TrustLimits = trustLimits()
+	h := sha256.Sum256([]byte("synthetic-source"))
+	for _, name := range []string{"cmd/riido-roleplan/main.go", "cmd/riido-roleplan/loader.go", "internal/roleplan/role.go", "internal/roleplan/audit_source.go", "go.mod", "go.sum"} {
+		sha := hex.EncodeToString(h[:])
+		if name == "internal/roleplan/role.go" {
+			sha = roleSourceSHA
+		}
+		if name == "internal/roleplan/audit_source.go" {
+			sha = auditSourceSHA
+		}
+		p.Implementation = append(p.Implementation, pin{name, sha, 1})
+	}
+	return p
+}
+func TestSyntheticMetadataPreservesWholeGroupsAndUnknowns(t *testing.T) {
+	s := syntheticSnapshot()
+	out, e := validateSnapshot(s)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if len(out.Components) != 17 || len(out.Memberships) != 17 || out.Components[15].HasKnownMembers {
+		t.Fatal("unknown group changed")
+	}
+	if !reflect.DeepEqual(expectedCoverage()[0].ComponentIDs, expectedCoverage()[3].ComponentIDs) {
+		t.Fatal("coverage sets")
+	}
+	if !reflect.DeepEqual(s, out.Snapshot) {
+		t.Fatal("snapshot mutated")
+	}
+}
+func TestSyntheticBindingRejectsDrift(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		change func(*snapshot)
+	}{
+		{"group split", func(s *snapshot) { s.Groups[1].OriginalID = 0 }},
+		{"group count", func(s *snapshot) { s.Groups = s.Groups[:16] }},
+		{"known flag", func(s *snapshot) { s.Groups[15].Known = true }},
+		{"unknown promoted", func(s *snapshot) { s.Groups[15].Parents[0].Truth = "known" }},
+		{"parent duplicate", func(s *snapshot) { s.Groups[1].Parents[0].Index = 0 }},
+		{"candidate removed", func(s *snapshot) { s.Groups[0].Parents[0].Candidates = 2 }},
+		{"noanswer removed", func(s *snapshot) { s.Groups[0].Parents[2].Truth = "unknown" }},
+		{"source pin", func(s *snapshot) { s.Inputs[0].SHA256 = s.Inputs[1].SHA256 }},
+		{"preassigned", func(s *snapshot) { s.Roles = 17 }},
+		{"newlabels", func(s *snapshot) { s.NewLabels = 1 }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s := syntheticSnapshot()
+			tc.change(&s)
+			if _, e := validateSnapshot(s); e == nil {
+				t.Fatal("accepted drift")
+			}
+		})
+	}
+}
+func TestSyntheticPlanBoundsAndFrozenState(t *testing.T) {
+	p := syntheticPlan()
+	if e := validatePlan(p); e != nil {
+		t.Fatal(e)
+	}
+	for _, tc := range []struct {
+		name   string
+		change func(*executionPlan)
+	}{
+		{"seedsearch", func(p *executionPlan) { p.Seed = "1730" }},
+		{"newfloor", func(p *executionPlan) { p.KnownFloors[0] = 10 }},
+		{"unknowncoverage", func(p *executionPlan) {
+			p.Coverage[0].ComponentIDs = append(p.Coverage[0].ComponentIDs, "original-whole-group:64")
+		}},
+		{"newlabels", func(p *executionPlan) { p.Masks = true }},
+		{"trainingready", func(p *executionPlan) { p.TrainingReady = true }},
+		{"retry", func(p *executionPlan) { p.Retries = 1 }},
+		{"freeze_without_binary", func(p *executionPlan) { p.State = "frozen_for_whole_group_assignment"; p.ExecutionAuthorized = true }},
+		{"encoderchanged", func(p *executionPlan) { p.Implementation[2].SHA256 = p.Implementation[0].SHA256 }},
+		{"evidencechanged", func(p *executionPlan) { p.BindingEvidence[0].SHA256 = p.BindingEvidence[1].SHA256 }},
+		{"claimlimitremoved", func(p *executionPlan) { p.TrustLimits[0] = "all independent edges proved" }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			p := syntheticPlan()
+			tc.change(&p)
+			if validatePlan(p) == nil {
+				t.Fatal("accepted changed recipe")
+			}
+		})
+	}
+}
+func TestSyntheticStrictBytesAndPin(t *testing.T) {
+	for _, b := range [][]byte{[]byte(`null`), []byte(`{"x":1,"x":2}`), []byte(`{"x":{"y":1,"y":2}}`), []byte(`{} {}`), {0xff}} {
+		var v any
+		if decodeStrict(b, &v) == nil {
+			t.Fatal("invalid JSON accepted")
+		}
+	}
+	p := syntheticPlan()
+	b, e := canonical(p)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if _, e = validatePlanBytes(b, hash(b)); e != nil {
+		t.Fatal(e)
+	}
+	if _, e = validatePlanBytes(append(b, ' '), hash(append(b, ' '))); e == nil {
+		t.Fatal("noncanonical accepted")
+	}
+	if _, e = validatePlanBytes(b, roleSourceSHA); e == nil {
+		t.Fatal("wrong SHA")
+	}
+	tmp := filepath.Join(t.TempDir(), "toy.json")
+	if e = os.WriteFile(tmp, b, 0600); e != nil {
+		t.Fatal(e)
+	}
+	if _, e = pinnedBytes(tmp, pin{SHA256: hash(b), Bytes: len(b)}, maxInputBytes); e != nil {
+		t.Fatal(e)
+	}
+	if e = os.WriteFile(tmp, append(b, ' '), 0600); e != nil {
+		t.Fatal(e)
+	}
+	if _, e = pinnedBytes(tmp, pin{SHA256: hash(b), Bytes: len(b)}, maxInputBytes); e == nil {
+		t.Fatal("TOCTOU bytes accepted")
+	}
+}
+func TestSyntheticOutputIsExclusiveAndRedacted(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "new")
+	f, e := freshOutput(dir)
+	if e != nil {
+		t.Fatal(e)
+	}
+	f.Close()
+	if _, e = freshOutput(dir); e == nil {
+		t.Fatal("existing output accepted")
+	}
+	ledger := filepath.Join(t.TempDir(), "attempt.json")
+	f, e = reserve(ledger)
+	if e != nil {
+		t.Fatal(e)
+	}
+	f.Close()
+	if _, e = reserve(ledger); e == nil {
+		t.Fatal("ledger reused")
+	}
+	var out, errs bytes.Buffer
+	if run([]string{"--secret-private-path=/auth/token"}, &out, &errs) != 2 || strings.Contains(errs.String(), "auth") || strings.Contains(errs.String(), "secret") {
+		t.Fatal("argument redaction")
+	}
+	errs.Reset()
+	r := result{OriginalMembershipSetVerificationAttempts: 1, OriginalAssignAttempts: 1}
+	if resultFailure(&errs, "output_write_failed", r) != 3 || !strings.Contains(errs.String(), "assign_attempts=1") {
+		t.Fatal("partial counters")
+	}
+}
+func TestSyntheticAssignmentOneCallAndAtomicRefusal(t *testing.T) {
+	// This single synthetic Assign call uses unrelated IDs, digests and seed.
+	// It never opens65 or uses the original seed1729/group membership digests.
+	var cs []roleplan.Component
+	var qs []string
+	for i := 0; i < 17; i++ {
+		name := fmt.Sprintf("toy-component-%02d", i)
+		cs = append(cs, roleplan.Component{ID: name, OriginalGroupID: int64(1000 + i), MembershipSHA256: sha256.Sum256([]byte(name)), HasKnownMembers: i < 16})
+		if i < 16 {
+			qs = append(qs, name)
+		}
+	}
+	p := roleplan.CoveragePlan{Declared: true}
+	for i, r := range []roleplan.Role{0, 1, 2} {
+		p.Requirements = append(p.Requirements, roleplan.CoverageRequirement{Key: "toy-saved-truth", Role: r, ComponentIDs: qs, MinimumKnownComponents: [3]int{9, 3, 3}[i]})
+	}
+	rr, e := roleplan.Assign(cs, []byte("synthetic-seed-unrelated"), p)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if len(rr.Assignments) != 17 || rr.PlannedKnownCounts != [3]int{10, 3, 3} || !rr.Assignments[16].ProvenanceOnly || rr.Assignments[16].Role != roleplan.DevelopmentTrain || rr.TrainingReady || rr.ScorerFeatureProjectionPermitted {
+		t.Fatal("synthetic role result")
+	}
+	// A second synthetic call has an impossible explicit coverage requirement.
+	p.Requirements[0].MinimumKnownComponents = 16
+	rr, e = roleplan.Assign(cs, []byte("synthetic-seed-unrelated"), p)
+	if e == nil || rr.Assignments != nil || rr.Counters.AssignmentsReturned != 0 || rr.Counters.InvocationAttempts != 1 || rr.FailureCode != "predeclared_coverage_unmet" {
+		t.Fatal("atomic refusal")
+	}
+}
+
+func TestSyntheticExtraImplementationRefused(t *testing.T) {
+	root := t.TempDir()
+	if e := os.MkdirAll(filepath.Join(root, "internal/roleplan"), 0700); e != nil {
+		t.Fatal(e)
+	}
+	if e := os.MkdirAll(filepath.Join(root, "cmd/riido-roleplan"), 0700); e != nil {
+		t.Fatal(e)
+	}
+	for _, name := range []string{"cmd/riido-roleplan/main.go", "cmd/riido-roleplan/loader.go", "cmd/riido-roleplan/main_test.go", "internal/roleplan/role.go", "internal/roleplan/audit_source.go"} {
+		if e := os.WriteFile(filepath.Join(root, name), []byte("package toy\n"), 0600); e != nil {
+			t.Fatal(e)
+		}
+	}
+	if e := checkClosedSourceRoot(root); e != nil {
+		t.Fatal(e)
+	}
+	if e := os.WriteFile(filepath.Join(root, "cmd/riido-roleplan/hidden.go"), []byte("package toy\nfunc init(){}\n"), 0600); e != nil {
+		t.Fatal(e)
+	}
+	if e := checkClosedSourceRoot(root); e == nil || e.Error() != "implementation_extra_go_source" {
+		t.Fatal("extra source accepted")
+	}
+}
+
+func TestSyntheticExecuteRefusesUnfrozenBeforeOpeningInputs(t *testing.T) {
+	p := syntheticPlan()
+	b, e := canonical(p)
+	if e != nil {
+		t.Fatal(e)
+	}
+	dir := t.TempDir()
+	planPath := filepath.Join(dir, "plan.json")
+	if e = os.WriteFile(planPath, b, 0600); e != nil {
+		t.Fatal(e)
+	}
+	var out, errs bytes.Buffer
+	code := run([]string{"--stage", "execute", "--plan", planPath, "--plan-sha256", hash(b), "--input", filepath.Join(dir, "missing-input"), "--repo-root", filepath.Join(dir, "missing-repo"), "--source-root", filepath.Join(dir, "missing-code"), "--out", filepath.Join(dir, "unused-output"), "--ledger", filepath.Join(dir, "unused-ledger")}, &out, &errs)
+	if code != 2 || errs.String() != "execution_plan_not_frozen\n" || out.Len() != 0 {
+		t.Fatal("unfrozen dispatch guard")
+	}
+	for _, name := range []string{"unused-output", "unused-ledger"} {
+		if _, e = os.Stat(filepath.Join(dir, name)); !os.IsNotExist(e) {
+			t.Fatal("guard created output")
+		}
+	}
+}

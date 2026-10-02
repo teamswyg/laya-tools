@@ -1,0 +1,298 @@
+// Maintainer-only preparation66 draft. No default stage performs role assignment.
+package main
+
+import (
+	"bytes"
+	"embed"
+	"flag"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"runtime"
+	"runtime/debug"
+	"strconv"
+
+	"github.com/teamswyg/laya-tools/internal/roleplan"
+)
+
+//go:embed main.go loader.go
+var compiledFiles embed.FS
+
+type memberRole struct {
+	ParentID              string `json:"parent_id"`
+	OriginalParentIndex   int    `json:"original_parent_index"`
+	OriginalGroupID       int64  `json:"original_group_id"`
+	StoredTruthState      string `json:"stored_truth_state"`
+	Role                  string `json:"whole_component_role"`
+	UnknownRemainsUnknown bool   `json:"unknown_remains_unknown"`
+}
+type result struct {
+	Schema                                    string           `json:"schema"`
+	State                                     string           `json:"state"`
+	FailureCode                               string           `json:"failure_code"`
+	PlanSHA                                   string           `json:"plan_sha256"`
+	InputSHA                                  string           `json:"membership_input_sha256"`
+	EncoderSHA                                string           `json:"encoder_source_sha256"`
+	BinarySHA                                 string           `json:"binary_sha256"`
+	RuntimeGo                                 string           `json:"runtime_go"`
+	OriginalMembershipSetVerificationAttempts int              `json:"original_membership_set_verification_attempts"`
+	OriginalAssignAttempts                    int              `json:"original_assign_attempts"`
+	RoleResult                                *roleplan.Result `json:"role_result,omitempty"`
+	ParentRoles                               []memberRole     `json:"parent_roles,omitempty"`
+	WholeGroups                               int              `json:"whole_groups"`
+	KnownGroups                               int              `json:"known_containing_groups"`
+	Parents                                   int              `json:"parents"`
+	Candidates                                int              `json:"candidate_positions"`
+	StoredKnown                               int              `json:"stored_known"`
+	StoredNoAnswer                            int              `json:"stored_no_answer"`
+	StoredUnknown                             int              `json:"stored_unknown"`
+	MetadataOnly                              bool             `json:"metadata_only"`
+	SourceDiversityCleared                    bool             `json:"source_diversity_cleared"`
+	SemanticReadiness                         bool             `json:"semantic_readiness"`
+	MasksOrLabels                             int              `json:"loss_masks_or_new_labels"`
+	Fits                                      int              `json:"fits"`
+	Models                                    int              `json:"models"`
+	Paid                                      int              `json:"paid_calls"`
+	Final                                     int              `json:"protected_final_reads"`
+	TrainingReady                             bool             `json:"training_ready"`
+	ScorerFeaturesCreated                     bool             `json:"scorer_features_created"`
+	Limits                                    []string         `json:"limits"`
+}
+type reservation struct {
+	Schema          string `json:"schema"`
+	State           string `json:"state"`
+	PlanSHA         string `json:"plan_sha256"`
+	InputSHA        string `json:"membership_input_sha256"`
+	SeedASCII       string `json:"seed_ascii"`
+	PlannedAttempts int    `json:"planned_assign_attempts"`
+	ActualAttempts  int    `json:"actual_assign_attempts"`
+	Retry           int    `json:"retry"`
+	TrainingReady   bool   `json:"training_ready"`
+}
+
+func writeJSON(w io.Writer, v any) error {
+	b, e := canonical(v)
+	if e != nil {
+		return e
+	}
+	if len(b) > maxOutputBytes {
+		return errCode("output_bounds")
+	}
+	n, e := w.Write(b)
+	if e != nil || n != len(b) {
+		return errCode("output_write_failed")
+	}
+	return nil
+}
+func reserve(path string) (*os.File, error) {
+	f, e := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	if e != nil {
+		return nil, errCode("exclusive_output_failed")
+	}
+	return f, nil
+}
+func freshOutput(path string) (*os.File, error) {
+	if e := os.Mkdir(path, 0700); e != nil {
+		return nil, errCode("exclusive_output_directory_failed")
+	}
+	return reserve(filepath.Join(path, "results.json"))
+}
+func failure(stderr io.Writer, code string) int { fmt.Fprintln(stderr, code); return 2 }
+func baseResult(planSHA, binarySHA string, metadata bool) result {
+	return result{Schema: "riido-whole-group-role-execution-result-66-v1", State: "metadata_validated_no_roles", PlanSHA: planSHA, InputSHA: inputSHA, EncoderSHA: roleSourceSHA, BinarySHA: binarySHA, RuntimeGo: runtime.Version(), WholeGroups: 17, KnownGroups: 16, Parents: 72, Candidates: 216, StoredKnown: 34, StoredNoAnswer: 17, StoredUnknown: 21, MetadataOnly: metadata, Limits: trustLimits()}
+}
+
+// runAssignment has no hidden seed search, retry, scorer or feature projection.
+// The caller has already bound the exact input, sources and execution plan and
+// durably reserved its sole ledger/output attempt. Even refusal returns counters.
+func runAssignment(d loaded, p executionPlan, r result) (result, error) {
+	r.MetadataOnly = false
+	r.State = "refused"
+	r.OriginalMembershipSetVerificationAttempts = 1
+	if e := roleplan.VerifyMembershipSet(d.Components, d.Memberships); e != nil {
+		r.FailureCode = "membership_verification_failed"
+		return r, errCode(r.FailureCode)
+	}
+	r.OriginalAssignAttempts = 1
+	rr, e := roleplan.Assign(d.Components, []byte(p.Seed), d.Coverage)
+	r.RoleResult = &rr
+	if e != nil {
+		r.FailureCode = rr.FailureCode
+		return r, errCode("role_assignment_refused")
+	}
+	if len(rr.Assignments) != len(d.Snapshot.Groups) || rr.TrainingReady || rr.ScorerFeatureProjectionPermitted || !rr.UnknownMembersRemainUnknown {
+		r.FailureCode = "role_result_invalid"
+		return r, errCode("role_result_invalid")
+	}
+	for i, g := range d.Snapshot.Groups {
+		a := rr.Assignments[i]
+		if a.ComponentID != g.ID || a.OriginalGroupID != g.OriginalID || a.KnownContaining != g.Known || a.ProvenanceOnly == g.Known {
+			r.FailureCode = "role_result_invalid"
+			return r, errCode("role_result_invalid")
+		}
+		for _, p := range g.Parents {
+			r.ParentRoles = append(r.ParentRoles, memberRole{p.ID, p.Index, g.OriginalID, p.Truth, a.Role.String(), p.Truth == "unknown"})
+		}
+	}
+	r.State = "whole_component_roles_returned_not_training_ready"
+	return r, nil
+}
+func actualBinarySHA() (string, error) {
+	path, e := os.Executable()
+	if e != nil {
+		return "", errCode("binary_identity_failed")
+	}
+	b, e := readBounded(path, 64<<20)
+	if e != nil {
+		return "", errCode("binary_identity_failed")
+	}
+	return hash(b), nil
+}
+func actualBuild() error {
+	info, ok := debug.ReadBuildInfo()
+	if !ok || info.GoVersion != "go1.27.1" || runtime.Version() != "go1.27.1" {
+		return errCode("runtime_go_invalid")
+	}
+	if info.Main.Path != "github.com/teamswyg/laya-tools" {
+		return errCode("binary_module_identity_invalid")
+	}
+	cgo, trim := "", ""
+	for _, s := range info.Settings {
+		switch s.Key {
+		case "CGO_ENABLED":
+			cgo = s.Value
+		case "-trimpath":
+			trim = s.Value
+		}
+	}
+	if cgo != "0" || trim != "true" {
+		return errCode("binary_build_recipe_invalid")
+	}
+	return nil
+}
+func validatePlanBytes(b []byte, expected string) (executionPlan, error) {
+	var p executionPlan
+	if !validSHA(expected) || hash(b) != expected {
+		return p, errCode("plan_sha_mismatch")
+	}
+	if e := decodeStrict(b, &p); e != nil {
+		return p, e
+	}
+	cb, e := canonical(p)
+	if e != nil || !bytes.Equal(cb, b) {
+		return p, errCode("plan_not_canonical")
+	}
+	return p, validatePlan(p)
+}
+func resultFailure(stderr io.Writer, code string, r result) int {
+	fmt.Fprintf(stderr, "%s membership_verification_attempts=%d assign_attempts=%d\n", code, r.OriginalMembershipSetVerificationAttempts, r.OriginalAssignAttempts)
+	return 3
+}
+func run(args []string, stdout, stderr io.Writer) int {
+	fs := flag.NewFlagSet("riido-roleexec", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	stage := fs.String("stage", "", "prepare or execute")
+	planPath := fs.String("plan", "", "exact frozen or draft plan")
+	planSHA := fs.String("plan-sha256", "", "exact plan SHA256")
+	input := fs.String("input", "", "exact complete membership65 JSON")
+	repoRoot := fs.String("repo-root", "", "owned original source root")
+	sourceRoot := fs.String("source-root", "", "draft/ported implementation root")
+	out := fs.String("out", "", "new exclusive result directory")
+	ledgerPath := fs.String("ledger", "", "one stable exclusive ledger for future execution")
+	if fs.Parse(args) != nil || fs.NArg() != 0 || *stage != "prepare" && *stage != "execute" || *planPath == "" || *input == "" || *repoRoot == "" || *sourceRoot == "" || *out == "" {
+		return failure(stderr, "arguments_invalid")
+	}
+	if *stage == "prepare" && *ledgerPath != "" || *stage == "execute" && *ledgerPath == "" {
+		return failure(stderr, "ledger_argument_invalid")
+	}
+	b, e := readBounded(*planPath, maxOutputBytes)
+	if e != nil {
+		return failure(stderr, e.Error())
+	}
+	p, e := validatePlanBytes(b, *planSHA)
+	if e != nil {
+		return failure(stderr, e.Error())
+	}
+	if *stage == "execute" && !p.ExecutionAuthorized {
+		return failure(stderr, "execution_plan_not_frozen")
+	}
+	if e = actualBuild(); e != nil {
+		return failure(stderr, e.Error())
+	}
+	binarySHA, e := actualBinarySHA()
+	if e != nil {
+		return failure(stderr, e.Error())
+	}
+	if p.BinarySHA != "" && p.BinarySHA != binarySHA {
+		return failure(stderr, "binary_sha_mismatch")
+	}
+	runtime.GOMAXPROCS(1)
+	debug.SetMemoryLimit(256 << 20)
+	d, e := loadBound(*input, *repoRoot, *sourceRoot, p)
+	if e != nil {
+		return failure(stderr, e.Error())
+	}
+	r := baseResult(*planSHA, binarySHA, *stage == "prepare")
+	if *stage == "prepare" {
+		f, e := freshOutput(*out)
+		if e != nil {
+			return failure(stderr, e.Error())
+		}
+		defer f.Close()
+		if e = writeJSON(f, r); e != nil {
+			return resultFailure(stderr, e.Error(), r)
+		}
+		if e = f.Sync(); e != nil {
+			return resultFailure(stderr, "output_sync_failed", r)
+		}
+		fmt.Fprintln(stdout, "metadata_validated original_assign_attempts=0 training_ready=false")
+		return 0
+	}
+	// A fixed caller-selected ledger is per plan invocation, never a host-global
+	// authorization store. A consumed ledger is not automatically reset/refunded.
+	lf, e := reserve(*ledgerPath)
+	if e != nil {
+		return failure(stderr, e.Error())
+	}
+	defer lf.Close()
+	lr := reservation{Schema: "riido-whole-group-role-attempt-ledger-66-v1", State: "attempt_reserved_no_refund", PlanSHA: *planSHA, InputSHA: inputSHA, SeedASCII: p.Seed, PlannedAttempts: 1}
+	if e = writeJSON(lf, lr); e != nil {
+		return failure(stderr, e.Error())
+	}
+	if e = lf.Sync(); e != nil {
+		return failure(stderr, "ledger_sync_failed")
+	}
+	f, e := freshOutput(*out)
+	if e != nil {
+		return failure(stderr, e.Error())
+	}
+	defer f.Close()
+	r, dispatchErr := runAssignment(d, p, r)
+	lr.State = r.State
+	lr.ActualAttempts = r.OriginalAssignAttempts
+	if e = lf.Truncate(0); e != nil {
+		return resultFailure(stderr, "ledger_update_failed", r)
+	}
+	if _, e = lf.Seek(0, 0); e != nil {
+		return resultFailure(stderr, "ledger_update_failed", r)
+	}
+	if e = writeJSON(lf, lr); e != nil {
+		return resultFailure(stderr, e.Error(), r)
+	}
+	if e = lf.Sync(); e != nil {
+		return resultFailure(stderr, "ledger_sync_failed", r)
+	}
+	if e = writeJSON(f, r); e != nil {
+		return resultFailure(stderr, e.Error(), r)
+	}
+	if e = f.Sync(); e != nil {
+		return resultFailure(stderr, "output_sync_failed", r)
+	}
+	if dispatchErr != nil {
+		return resultFailure(stderr, "role_execution_refused", r)
+	}
+	fmt.Fprintln(stdout, "whole_component_roles_returned original_assign_attempts="+strconv.Itoa(r.OriginalAssignAttempts)+" training_ready=false")
+	return 0
+}
+func main() { os.Exit(run(os.Args[1:], os.Stdout, os.Stderr)) }
