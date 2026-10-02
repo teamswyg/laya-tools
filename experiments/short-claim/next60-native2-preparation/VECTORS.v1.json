@@ -1,0 +1,185 @@
+{
+  "frozen_draft": {
+    "asset_id": "frozen-draft-20",
+    "path": "FROZEN-DRAFT.v1.json",
+    "bytes": 209341,
+    "sha256": "c7bbf7bcc7912300fabdd6e671b0922df295299f00e5e7201df1ab5e824a2a9b"
+  },
+  "goals": [
+    {
+      "candidates": [
+        {
+          "caption": "Trim surrounding whitespace, parse CIDR, store the masked network only on success.",
+          "id": "ipNetValue.Set",
+          "source_file": "ipnet.go",
+          "symbol": "ipNetValue.Set"
+        },
+        {
+          "caption": "An empty string leaves state unchanged; otherwise trim and parse a plain IP, assigning only on success; no CIDR network mask.",
+          "id": "ipValue.Set",
+          "source_file": "ip.go",
+          "symbol": "ipValue.Set"
+        },
+        {
+          "caption": "Parse an IPv4 dotted mask or eight-character hexadecimal mask, assigning only on success; no CIDR network address result.",
+          "id": "ipMaskValue.Set",
+          "source_file": "ipmask.go",
+          "symbol": "ipMaskValue.Set"
+        }
+      ],
+      "id": "next60-pflag-native-ipnet",
+      "request_en": "Find a network flag parser that trims outer whitespace, masks host bits to the CIDR network on success, and leaves the previous network unchanged on invalid CIDR.",
+      "source_revision": "c966cfef47379dcb01e7929504d66d94b540945b",
+      "vectors": [
+        {
+          "Got": null,
+          "case_id": "next60-pflag-native-ipnet-vector-01",
+          "input": " 192.0.2.7/24 ",
+          "want": {
+            "error": null,
+            "network": "192.0.2.0/24"
+          }
+        },
+        {
+          "Got": null,
+          "case_id": "next60-pflag-native-ipnet-vector-02",
+          "input": "203.0.113.5/32",
+          "want": {
+            "error": null,
+            "network": "203.0.113.5/32"
+          }
+        },
+        {
+          "Got": null,
+          "case_id": "next60-pflag-native-ipnet-vector-03",
+          "input": "0.0.0.0/0",
+          "want": {
+            "error": null,
+            "network": "0.0.0.0/0"
+          }
+        },
+        {
+          "Got": null,
+          "case_id": "next60-pflag-native-ipnet-vector-04",
+          "input": "192.0.2.7/33",
+          "want": {
+            "error_non_nil": true,
+            "network": "192.0.2.0/24"
+          }
+        },
+        {
+          "Got": null,
+          "case_id": "next60-pflag-native-ipnet-vector-05",
+          "input": "192.0.2.7",
+          "want": {
+            "error_non_nil": true,
+            "network": "192.0.2.0/24"
+          }
+        }
+      ]
+    },
+    {
+      "candidates": [
+        {
+          "caption": "Try each hook with original input; return first success or concatenate every failure message with newlines.",
+          "id": "OrComposeDecodeHookFunc",
+          "source_file": "decode_hooks.go",
+          "symbol": "OrComposeDecodeHookFunc"
+        },
+        {
+          "caption": "Apply hooks in order to the preceding output and return immediately on the first error.",
+          "id": "ComposeDecodeHookFunc",
+          "source_file": "decode_hooks.go",
+          "symbol": "ComposeDecodeHookFunc"
+        }
+      ],
+      "id": "next60-mapstructure-native-or",
+      "request_en": "Find alternative decode-hook composition that retries each hook with the same original input, stops at the first nil error, and concatenates all failure messages with newlines when none succeeds.",
+      "source_revision": "52aa5c6dc1d27226460807054ca2107b2d54fb2d",
+      "vectors": [
+        {
+          "Got": null,
+          "case_id": "next60-mapstructure-native-or-vector-01",
+          "input": {
+            "hooks": [
+              "error E1",
+              "return 9 nil",
+              "return 99 nil"
+            ]
+          },
+          "want": {
+            "calls": [
+              1,
+              1,
+              0
+            ],
+            "error": null,
+            "result": 9,
+            "seen_input": [
+              4,
+              4
+            ]
+          }
+        },
+        {
+          "Got": null,
+          "case_id": "next60-mapstructure-native-or-vector-02",
+          "input": {
+            "hooks": [
+              "return nil nil",
+              "return 99 nil"
+            ]
+          },
+          "want": {
+            "calls": [
+              1,
+              0
+            ],
+            "error": null,
+            "result": null
+          }
+        },
+        {
+          "Got": null,
+          "case_id": "next60-mapstructure-native-or-vector-03",
+          "input": {
+            "hooks": [
+              "error E1",
+              "error E2"
+            ]
+          },
+          "want": {
+            "calls": [
+              1,
+              1
+            ],
+            "error_message": "E1\nE2\n",
+            "result": null,
+            "seen_input": [
+              4,
+              4
+            ]
+          }
+        },
+        {
+          "Got": null,
+          "case_id": "next60-mapstructure-native-or-vector-04",
+          "input": {
+            "hooks": []
+          },
+          "want": {
+            "calls": [],
+            "error_message": "",
+            "error_non_nil": true,
+            "result": null
+          }
+        }
+      ]
+    }
+  ],
+  "original_calls_at_preparation": 0,
+  "roles": null,
+  "schema": "riido-next60-native2-vectors-v1",
+  "truth": null,
+  "weights": null
+}

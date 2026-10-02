@@ -1,0 +1,62 @@
+{
+  "schema": "riido-native2-outside-independent-source-review-v1",
+  "state": "static_source_review_complete_bound_to_frozen_author_v4_handoff",
+  "source_version": "v4",
+  "remaining_concrete_source_blockers": 0,
+  "fixed_concrete_source_findings": 2,
+  "execution_eligibility_granted_by_this_review": false,
+  "original_Want_semantics_approved_by_this_review": false,
+  "production_controller_or_native_execution_observed_by_this_review": false,
+  "source_anchors": [
+    {"path": "main.go", "lines": "50-97", "scope": "fixed limits, acyclic static reservation and later binding schemas"},
+    {"path": "main.go", "lines": "114-245", "scope": "no symlink ancestors, physically disjoint roots, safe fresh output leaves"},
+    {"path": "main.go", "lines": "249-359", "scope": "exact file pins and closure inventory; original import/init absent"},
+    {"path": "main.go", "lines": "361-520", "scope": "declared buildinfo, controller/worker/source/plan/readiness/vector joins; second preflight uses same checks"},
+    {"path": "main.go", "lines": "523-584", "scope": "exclusive synced intent and safe identity-only receipt pins"},
+    {"path": "main.go", "lines": "585-660", "scope": "goroutine-owned stream count/hash and explicit private-prefix loss accounting"},
+    {"path": "main.go", "lines": "724-787", "scope": "running zero-size window allowed; final nonempty/fence/hash required; raw result copies0"},
+    {"path": "main.go", "lines": "791-907", "scope": "one Start, conditional one Wait, group kill, wall/OS RSS and stream-result gates"},
+    {"path": "main.go", "lines": "923-960", "scope": "bounded exclusive terminal receipt and storage failure exit"},
+    {"path": "main.go", "lines": "973-1035", "scope": "Root binding argv only, preflight before original init, fsync once then direct --plan, fixed child environment"},
+    {"path": "pure/protocol.go", "lines": "197-224", "scope": "Readiness/NativePlan gate including Root-frozen review declarations"}
+  ],
+  "counter_contract": {
+    "pre_start_rejection": {"StartAttempted": 0, "Started": 0, "WaitAttempted": 0},
+    "Start_failure": {"StartAttempted": 1, "StartReturned": 1, "Started": 0, "WaitAttempted": 0, "WaitReturned": 0, "wait_kind": "not_started_no_wait"},
+    "Start_success_including_later_failure": {"StartAttempted": 1, "StartReturned": 1, "Started": 1, "WaitAttempted": 1, "WaitReturned": 1},
+    "automatic_retries": 0,
+    "once_marker_cleanup_or_reuse": 0,
+    "main_failure_after_Start_proves_original_init0": false
+  },
+  "production_resource_contract": {
+    "scheduled_original_dispatches": 23,
+    "environment": ["GOMAXPROCS=1", "GOMEMLIMIT=256MiB"],
+    "successful_whole_child_wall_max_seconds": 300,
+    "observed_direct_child_Darwin_MaxRSS_min_exclusive_bytes": 0,
+    "observed_direct_child_Darwin_MaxRSS_max_bytes": 268435456,
+    "worker_result_max_bytes": 12582912,
+    "stdout_received_limit_trigger_bytes": 12582912,
+    "outside_metadata_and_logs_max_bytes": 1048576,
+    "stderr_private_prefix_max_bytes": 65536,
+    "stdout_raw_retained_bytes": 0,
+    "raw_worker_result_outside_copy_bytes": 0,
+    "hard_RSS_or_CPU_affinity_claim": false,
+    "GPU_or_all_descendant_resource_claim": false,
+    "failed_cleanup_strict_300second_return_guarantee": false
+  },
+  "Root_owned_pre_execution_conditions": [
+    "Read actual source/local-rights, exact CI and resource proof bodies before freezing their true Readiness declarations; controller pins do not parse semantic status. Keep proof bodies static and free of back-references to future worker, NativePlan, Readiness or final binding hashes.",
+    "Freeze actual compiler selection, toolchain/build command/environment and worker/controller source/binary receipts; buildinfo declarations alone do not independently attest compiled inputs.",
+    "Retain immutable ownership of exact files and physically separated directories; caller-frozen evidence is the trust boundary.",
+    "Freeze the exact directional reservation/readiness/NativePlan/binding and both binaries; no future hash back-reference in static reservation.",
+    "Retain parent invocation failures before an outside receipt is possible; gate successful outcome on controller exit, complete readback, counters, wall, RSS and worker results.",
+    "Preserve once marker, partial files and actual failure facts; no automatic retry/new output alias; inspect unknown child completion after forced controller termination.",
+    "Inspect failed worker-file presence/bytes at the original location if needed; OutputPresent denotes a successfully verified final pin, not exhaustive failure file inventory.",
+    "Interpret the final 23 original observations separately from synthetic tests and from model utility/generalization or publication eligibility."
+  ],
+  "alternatives": [
+    {"option": "v4 plus Root-frozen proofs and exact one-start plan", "fit": "recommended for current finite local scope", "new_scientific_execution_by_review": 0},
+    {"option": "controller parses all proof semantics", "fit": "possible later framework with separately frozen schemas; no present necessity established"},
+    {"option": "stronger isolation/kernel-toolchain attestation before start", "fit": "appropriate for hostile mutation or aggregate descendant guarantees; separate broader scope"}
+  ]
+}

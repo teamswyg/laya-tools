@@ -1,0 +1,45 @@
+{
+  "schema": "riido-native2-outside-independent-correction-ledger-v1",
+  "prior_first20_and_native2_review_seals_and_original_inputs_preserved": true,
+  "findings": [
+    {
+      "id": "running-result-empty-window",
+      "status": "fixed_in_v3_and_final_v4",
+      "before": "workerFiles rejected results.json size0 during both running and final polls.",
+      "actual_source_boundary": "The original observation worker save function opens O_EXCL and then writes; a valid empty-file interval exists.",
+      "risk": "A running poll can terminate a valid worker and consume the one allowed observation.",
+      "after": "Running size0 accepted; final size0 rejected. Final fence, cap, identity and hash checks remain.",
+      "controller_anchor": "main.go:744-750",
+      "worker_anchor": "cmd/observe/main.go:116-122",
+      "regression_anchor": "main_test.go:233-255 TestRunningEmptyResultThenFinalNonemptyGate",
+      "original_execution_required_to_find_or_fix": false,
+      "fake_v4_test_log_PASS": true,
+      "independent_parallel_finding": true
+    },
+    {
+      "id": "physical-case-alias-directory-separation",
+      "status": "fixed_in_final_v4",
+      "before": "filepath.Rel string-only disjointness does not prove physical separation on case-insensitive macOS volumes.",
+      "risk": "An existing source directory can be reached through a case alias without a symlink and overlap an output ancestor.",
+      "after": "Compare existing endpoints with opposite ancestor inodes using os.SameFile; require lowercase ASCII fresh leaves; reject same-physical-parent case-fold sibling collisions; apply to controller source/output too.",
+      "controller_anchor": "main.go:142-245 and main.go:450",
+      "regression_anchor": "main_test.go:117-139 TestPhysicalCaseAliasAndFreshLeafPolicy",
+      "Root_chosen_paths_observed_to_overlap": false,
+      "case_alias_test_branch_depends_on_actual_volume": true,
+      "fake_v4_test_log_PASS": true,
+      "fake_v4_case_alias_unobserved_skip_message_present": false
+    }
+  ],
+  "related_failure_accounting_refinement": {
+    "status": "author_v2_change_preserved_in_v4",
+    "change": "Failed Start labeled not_started_no_wait and tested with missing fake executable; Wait0 rather than a wait-I/O category.",
+    "anchor": "main.go:853 and main_test.go:349-365",
+    "scientific_retry": false
+  },
+  "semantic_scope_clarifications_not_new_blockers": [
+    "Source/CI/resource exact-pin checks do not parse evidence meaning; true Root Readiness declarations remain caller-frozen authority.",
+    "Binary/source/buildinfo links are not compiler-independent or kernel exec attestation.",
+    "Darwin direct-child RSS is observed after Wait, GOMAXPROCS is not affinity, and failed cleanup can exceed300s.",
+    "Synthetic controller tests do not verify original package initialization or actual Want semantics."
+  ]
+}

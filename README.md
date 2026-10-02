@@ -1,5 +1,7 @@
 # laya-tools
 
+첫 두 과제의 [원본 관측기 준비](experiments/short-claim/next60-native2-preparation/README.ko.md)와 [독립 검토](experiments/short-claim/next60-native2-review/REVIEW.ko.md)를 공개했습니다. 요청 2개에 입력 9개·예정 관측 23회를 고정했으며, 원본 실행·새 정답·추가 학습은 아직 0회입니다. [바깥 실행 제어기](experiments/short-claim/next60-native2-outside-preparation/README.ko.md)는 더미 테스트 15개와 [독립 검토](experiments/short-claim/next60-native2-outside-review/README.ko.md)를 마쳤습니다. 실제 실행 전 CI와 별도 소스·권리·자원 고정이 남아 있습니다.
+
 다음 PDCA는 [계약 초안20개](experiments/short-claim/next60-acquisition-drafts/README.ko.md)를 실제 검사로 적격화하며 30개·60개로 넓힙니다. 현재 적격0개이며, 같은79개 자료의 반복 튜닝은 멈췄습니다. [판단 근거와 도메인·2,400개 최종 평가 계획](experiments/short-claim/next-pdca-after-79/REPORT.ko.md)을 보세요. 실패79 모델은 [고정 HF 커밋](https://huggingface.co/JooYoon/riidolaya-shortclaim-data-effect-failed-79/tree/5bef215895b69d3f2ef4b82bb3f1970279d67f46)에 비활성 보관했고 21개 파일을 다시 내려받아 지문을 확인했습니다.
 
 최근 [데이터 추가 학습79](experiments/short-claim/data-effect-fit-79/README.ko.md)는 검증된 요청3개를 추가해 같은 조건으로 실제 학습했습니다. 후보 확인은 기존 모델과 같은31회로, 단순 정렬27회를 넘겨 개선 기준을 실패했습니다. 전체 학습 작업자는 CPU1개·1.244초·OS 최고 메모리35.08MiB였으며 새 모델도 비활성으로 보관합니다.

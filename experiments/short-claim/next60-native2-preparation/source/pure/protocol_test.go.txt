@@ -1,0 +1,123 @@
+package pure
+
+import (
+	"encoding/json"
+	"strings"
+	"testing"
+)
+
+func fixture() VectorFile {
+	n := json.RawMessage("null")
+	v := VectorFile{Schema: VectorSchema, Draft: Pin{ID: "frozen", Path: "frozen.json", Bytes: 1, SHA256: strings.Repeat("a", 64)}, Truth: n, Roles: n, Weights: n}
+	for gi, id := range []string{"next60-pflag-native-ipnet", "next60-mapstructure-native-or"} {
+		g := Goal{ID: id, Request: "test-only metadata"}
+		nc, nv := 3, 5
+		if gi == 1 {
+			nc, nv = 2, 4
+		}
+		for i := 0; i < nc; i++ {
+			g.Candidates = append(g.Candidates, Candidate{ID: string(rune('a' + i)), Symbol: "fake-only", Caption: "not an upstream execution", SourceFile: "fake"})
+		}
+		for i := 0; i < nv; i++ {
+			g.Vectors = append(g.Vectors, Vector{ID: string(rune('a' + i)), Input: json.RawMessage("4"), Want: json.RawMessage("{}"), Got: n})
+		}
+		v.Goals = append(v.Goals, g)
+	}
+	return v
+}
+func TestFrozenScheduleAndNoExecution(t *testing.T) {
+	v := fixture()
+	s, e := Schedule(v)
+	if e != nil || len(s) != 23 {
+		t.Fatal("wrong finite schedule")
+	}
+	seen := [2][5][3]bool{}
+	for _, d := range s {
+		if seen[d.Goal][d.Vector][d.Candidate] {
+			t.Fatal("duplicate dispatch")
+		}
+		seen[d.Goal][d.Vector][d.Candidate] = true
+	}
+	v.Goals[1].Candidates = append(v.Goals[1].Candidates, v.Goals[1].Candidates[0])
+	if _, e = Schedule(v); e == nil {
+		t.Fatal("unfrozen extra candidate accepted")
+	}
+}
+func TestNoFabricatedGotOrLabels(t *testing.T) {
+	for _, mode := range []string{"truth", "Got"} {
+		v := fixture()
+		if mode == "truth" {
+			v.Truth = json.RawMessage("\"known\"")
+		} else {
+			v.Goals[0].Vectors[0].Got = json.RawMessage("{}")
+		}
+		if _, e := Schedule(v); e == nil {
+			t.Fatal("non-null preparation channel accepted")
+		}
+	}
+}
+func TestDuplicateAndUnknownFields(t *testing.T) {
+	for _, b := range []string{`{"schema":"x","schema":"y"}`, `{"nested":{"a":1,"a":2}}`} {
+		if UniqueJSON([]byte(b)) == nil {
+			t.Fatal("duplicate JSON accepted")
+		}
+	}
+	var p Plan
+	if Decode([]byte(`{"invented":true}`), &p) == nil {
+		t.Fatal("unknown plan field accepted")
+	}
+}
+func TestUnsafeSourcePins(t *testing.T) {
+	for _, p := range []string{"../secret", "a/../b", "/absolute", "a\\b", ""} {
+		if SafePath(p) {
+			t.Fatal("unsafe path accepted")
+		}
+	}
+}
+func TestUnreadyPlanCannotDispatch(t *testing.T) {
+	p := Plan{Schema: Schema}
+	if CheckPlan(p, Readiness{}) == nil {
+		t.Fatal("unready plan accepted")
+	}
+	v := fixture()
+	s, e := Schedule(v)
+	if e != nil {
+		t.Fatal(e)
+	}
+	calls := 0
+	if CheckPlan(p, Readiness{}) == nil {
+		for range s {
+			calls++
+		}
+	}
+	if calls != 0 {
+		t.Fatal("unready metadata reached fake dispatcher")
+	}
+}
+
+func readyFixture() (Plan, Readiness) {
+	s := strings.Repeat("a", 64)
+	p := Plan{Schema: Schema, SourceRoot: "fake-source-only", AttemptDir: "fake-attempt-only", Closure: Pin{ID: "closure", Path: "closure.json", Bytes: 1, SHA256: s}, Vectors: Pin{ID: "vectors", Path: "vectors.json", Bytes: 1, SHA256: s}, Readiness: Pin{ID: "readiness", Path: "readiness.json", Bytes: 1, SHA256: s}, GoVersion: "go1.27.1", GOOS: "darwin", GOARCH: "arm64", CPU: 1, MaxRSS: HeapLimit, SoftHeap: HeapLimit, WholeSeconds: Seconds, MaxOutput: OutputLimit, MaxOutside: OutsideLimit, Scheduled: Scheduled, Mode: "reserved_native_observation_only", OutsideReservation: s, ImportedStartupIncluded: true}
+	r := Readiness{Schema: "riido-next60-native2-readiness-v1", ClosureSHA: s, VectorsSHA: s, OutsideReservation: s, IndependentWantReview: true, CandidateFidelityReview: true, SourceSelectionReview: true, LocalObservationRightsReview: true, RootCIReview: true, RootOutsideReserved: true, AllowOriginalObservation: true}
+	return p, r
+}
+func TestReadyGateAndForbiddenCapabilities(t *testing.T) {
+	p, r := readyFixture()
+	if CheckPlan(p, r) != nil {
+		t.Fatal("valid fake metadata rejected")
+	}
+	for _, mutate := range []func(*Readiness){func(x *Readiness) { x.AllowModelOperations = true }, func(x *Readiness) { x.AllowProtectedFinal = true }, func(x *Readiness) { x.AllowPublicWrites = true }, func(x *Readiness) { x.IndependentWantReview = false }, func(x *Readiness) { x.RootCIReview = false }, func(x *Readiness) { x.RootOutsideReserved = false }, func(x *Readiness) { x.CandidateFidelityReview = false }, func(x *Readiness) { x.LocalObservationRightsReview = false }} {
+		q := r
+		mutate(&q)
+		if CheckPlan(p, q) == nil {
+			t.Fatal("forbidden or unreviewed plan accepted")
+		}
+	}
+	for _, mutate := range []func(*Plan){func(x *Plan) { x.CPU = 2 }, func(x *Plan) { x.MaxRSS++ }, func(x *Plan) { x.SoftHeap++ }, func(x *Plan) { x.Scheduled = 24 }, func(x *Plan) { x.Retry = 1 }, func(x *Plan) { x.ImportedStartupIncluded = false }} {
+		q := p
+		mutate(&q)
+		if CheckPlan(q, r) == nil {
+			t.Fatal("unfrozen resource or retry accepted")
+		}
+	}
+}

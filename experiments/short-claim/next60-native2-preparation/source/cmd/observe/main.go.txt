@@ -1,0 +1,234 @@
+// This native worker is SOURCE-ONLY preparation. It must not be built or started
+// until Root reviews exact source/pins and CI, freezes an outside once-reservation
+// and independently reviews Wants. Imported package initializers run before main;
+// the outside controller is the gate preventing any unapproved native startup.
+package main
+
+import (
+	"encoding/json"
+	"flag"
+	"io"
+	"os"
+	"path/filepath"
+	"runtime"
+	"runtime/debug"
+	"strings"
+	"time"
+
+	"riido.local/next60native2/pure"
+)
+
+var compiledClosureSHA, compiledVectorSHA, compiledReadinessSHA string
+
+func readBounded(p string, n int64) ([]byte, error) {
+	s, e := os.Lstat(p)
+	if e != nil || !s.Mode().IsRegular() || s.Size() <= 0 || s.Size() > n {
+		return nil, pure.ErrProtocol
+	}
+	f, e := os.Open(p)
+	if e != nil {
+		return nil, pure.ErrProtocol
+	}
+	defer f.Close()
+	b, e := io.ReadAll(io.LimitReader(f, n+1))
+	if e != nil || int64(len(b)) > n {
+		return nil, pure.ErrProtocol
+	}
+	return b, nil
+}
+func pinned(root string, p pure.Pin) ([]byte, error) {
+	if !pure.ValidPin(p) {
+		return nil, pure.ErrProtocol
+	}
+	cur := root
+	for _, s := range strings.Split(p.Path, "/") {
+		cur = filepath.Join(cur, s)
+		st, e := os.Lstat(cur)
+		if e != nil || st.Mode()&os.ModeSymlink != 0 {
+			return nil, pure.ErrProtocol
+		}
+	}
+	b, e := readBounded(cur, pure.OutputLimit)
+	if e != nil || int64(len(b)) != p.Bytes || pure.Digest(b) != p.SHA256 {
+		return nil, pure.ErrProtocol
+	}
+	return b, nil
+}
+func verifyBuild(p pure.Plan) error {
+	if compiledClosureSHA != p.Closure.SHA256 || compiledVectorSHA != p.Vectors.SHA256 || compiledReadinessSHA != p.Readiness.SHA256 {
+		return pure.ErrProtocol
+	}
+	b, ok := debug.ReadBuildInfo()
+	if !ok || b.GoVersion != p.GoVersion {
+		return pure.ErrProtocol
+	}
+	cfg := map[string]string{}
+	for _, s := range b.Settings {
+		if strings.HasPrefix(s.Key, "vcs") {
+			return pure.ErrProtocol
+		}
+		cfg[s.Key] = s.Value
+	}
+	if cfg["CGO_ENABLED"] != "0" || cfg["-trimpath"] != "true" || cfg["GOOS"] != p.GOOS || cfg["GOARCH"] != p.GOARCH {
+		return pure.ErrProtocol
+	}
+	return nil
+}
+func verifyClosure(root string, c pure.Closure) error {
+	if c.Schema != "riido-next60-native2-source-closure-v1" || len(c.Runtime) < 50 || len(c.SourceProvenance) == 0 {
+		return pure.ErrProtocol
+	}
+	seen := map[string]bool{}
+	for _, list := range [][]pure.Pin{c.Runtime, c.SourceProvenance} {
+		for _, p := range list {
+			if seen[p.Path] {
+				return pure.ErrProtocol
+			}
+			seen[p.Path] = true
+			if _, e := pinned(root, p); e != nil {
+				return e
+			}
+		}
+	}
+	for _, dir := range []string{"upstream/mapstructure", "upstream/pflag", "pure", "cmd"} {
+		e := filepath.WalkDir(filepath.Join(root, dir), func(p string, d os.DirEntry, e error) error {
+			if e != nil || d.Type()&os.ModeSymlink != 0 {
+				return pure.ErrProtocol
+			}
+			if d.IsDir() {
+				return nil
+			}
+			if filepath.Ext(p) != ".go" && filepath.Base(p) != "go.mod" {
+				return nil
+			}
+			rel, e := filepath.Rel(root, p)
+			if e != nil || !seen[filepath.ToSlash(rel)] {
+				return pure.ErrProtocol
+			}
+			return nil
+		})
+		if e != nil {
+			return e
+		}
+	}
+	return nil
+}
+func save(p string, b []byte) error {
+	f, e := os.OpenFile(p, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if e != nil {
+		return pure.ErrProtocol
+	}
+	n, e := f.Write(b)
+	ce := f.Close()
+	if e != nil || ce != nil || n != len(b) {
+		return pure.ErrProtocol
+	}
+	return nil
+}
+func run(planPath string) error {
+	planBytes, e := readBounded(planPath, pure.OutsideLimit)
+	if e != nil {
+		return e
+	}
+	var p pure.Plan
+	if pure.Decode(planBytes, &p) != nil || !filepath.IsAbs(p.SourceRoot) || !filepath.IsAbs(p.AttemptDir) {
+		return pure.ErrProtocol
+	}
+	rb, e := pinned(p.SourceRoot, p.Readiness)
+	if e != nil {
+		return e
+	}
+	var ready pure.Readiness
+	if pure.Decode(rb, &ready) != nil || pure.CheckPlan(p, ready) != nil || verifyBuild(p) != nil {
+		return pure.ErrProtocol
+	}
+	cb, e := pinned(p.SourceRoot, p.Closure)
+	if e != nil {
+		return e
+	}
+	var closure pure.Closure
+	if pure.Decode(cb, &closure) != nil || verifyClosure(p.SourceRoot, closure) != nil {
+		return pure.ErrProtocol
+	}
+	vb, e := pinned(p.SourceRoot, p.Vectors)
+	if e != nil {
+		return e
+	}
+	var vectors pure.VectorFile
+	if pure.Decode(vb, &vectors) != nil {
+		return pure.ErrProtocol
+	}
+	schedule, e := pure.Schedule(vectors)
+	if e != nil {
+		return e
+	}
+	draftBytes, e := pinned(p.SourceRoot, vectors.Draft)
+	if e != nil || pure.CheckDraftBinding(vectors, draftBytes) != nil {
+		return pure.ErrProtocol
+	}
+	st, e := os.Lstat(p.AttemptDir)
+	if e != nil || !st.IsDir() || st.Mode()&os.ModeSymlink != 0 {
+		return pure.ErrProtocol
+	}
+	// The outside reservation must already exist. This second fence protects
+	// dispatches if Root accidentally reuses the attempt directory. It cannot
+	// prevent imported initializer startup; that is the outside controller's job.
+	if save(filepath.Join(p.AttemptDir, "native-dispatch.once"), []byte(p.OutsideReservation+"\n")) != nil {
+		return pure.ErrProtocol
+	}
+	runtime.GOMAXPROCS(p.CPU)
+	debug.SetMemoryLimit(p.SoftHeap)
+	started := time.Now()
+	counts := EntryCounts{}
+	rows := make([]Row, 0, len(schedule))
+	for i, d := range schedule {
+		if time.Since(started) > time.Duration(p.WholeSeconds)*time.Second {
+			return pure.ErrProtocol
+		}
+		g := vectors.Goals[d.Goal]
+		c := g.Candidates[d.Candidate]
+		v := g.Vectors[d.Vector]
+		var got Observation
+		if d.Goal == 0 {
+			got, e = observeFlag(c, v, &counts)
+		} else {
+			got, e = observeHook(c, v, &counts)
+		}
+		if e != nil {
+			return e
+		}
+		rows = append(rows, Row{Ordinal: i, Goal: g.ID, Candidate: c.ID, Case: v.ID, Want: v.Want, Got: got})
+	}
+	var mem runtime.MemStats
+	runtime.ReadMemStats(&mem)
+	result := struct {
+		Schema             string      `json:"schema"`
+		PlanSHA            string      `json:"plan_sha256"`
+		ClosureSHA         string      `json:"closure_sha256"`
+		VectorsSHA         string      `json:"vectors_sha256"`
+		ReadinessSHA       string      `json:"readiness_sha256"`
+		Rows               []Row       `json:"rows"`
+		Counts             EntryCounts `json:"tracked_upstream_entry_counts"`
+		Scheduled          int         `json:"scheduled_observations"`
+		Completed          int         `json:"completed_observations"`
+		GoHeap             uint64      `json:"go_heap_alloc_bytes"`
+		ObservationSeconds float64     `json:"observation_seconds_excludes_startup_and_pins"`
+		ModelCalls         int         `json:"model_calls"`
+		ProtectedReads     int         `json:"protected_reads"`
+		Labels             any         `json:"labels"`
+		ProductionReady    bool        `json:"production_ready"`
+		CounterScope       string      `json:"counter_scope"`
+	}{"riido-next60-native2-original-observation-result-v1", pure.Digest(planBytes), p.Closure.SHA256, p.Vectors.SHA256, p.Readiness.SHA256, rows, counts, pure.Scheduled, len(rows), mem.HeapAlloc, time.Since(started).Seconds(), 0, 0, nil, false, "Explicit upstream entry points only; init/internal/stdlib are not exhaustively counted. Whole startup/RSS/wall captured by Root outside controller."}
+	b, e := json.MarshalIndent(result, "", "  ")
+	if e != nil || int64(len(b))+1 > p.MaxOutput {
+		return pure.ErrProtocol
+	}
+	return save(filepath.Join(p.AttemptDir, "results.json"), append(b, '\n'))
+}
+func main() {
+	p := flag.String("plan", "", "Root frozen private plan path")
+	flag.Parse()
+	if *p == "" || flag.NArg() != 0 || run(*p) != nil {
+		os.Exit(2)
+	}
+}
