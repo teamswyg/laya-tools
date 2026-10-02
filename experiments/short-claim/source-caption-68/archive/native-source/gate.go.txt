@@ -1,0 +1,299 @@
+// SPDX-License-Identifier: Apache-2.0
+package main
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"embed"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"io"
+	"os"
+	"path/filepath"
+	"runtime"
+	"runtime/debug"
+	"strings"
+
+	"riido68-native-worker-prep/observation"
+)
+
+const contractSHA = "818eed54f6b14b1f512025804cf7782d4a59d94ed30eeeaa46c56a270afbd0eb"
+const sourcePlanSHA = "1493d14e9228cb147f8941c98d828bc221e0abdfe0be907e27b3799ae875cdb6"
+const artifactCap = 1 << 20
+
+// Native module source pins are compiled in the exact frozen contract. Raw
+// upstream modules remain unchanged. Their bytes and the build recipe must also
+// be independently checked by the controller BEFORE exec, because init precedes
+// this guard. Go prohibits embedding files across nested module boundaries.
+//
+//go:embed main.go gate.go observation/observation.go go.mod inputs/contract-68.v4.json inputs/PLAN-68.v4.ko.md
+var compiled embed.FS
+
+type Pin struct {
+	Path   string `json:"path"`
+	Bytes  int    `json:"bytes"`
+	SHA256 string `json:"sha256"`
+}
+
+type ExecutionPlan struct {
+	Schema                               string   `json:"schema"`
+	State                                string   `json:"state"`
+	ExecutionAuthorized                  bool     `json:"execution_authorized"`
+	AttemptID                            string   `json:"attempt_id"`
+	SourcePlanSHA256                     string   `json:"source_plan_sha256"`
+	ContractSHA256                       string   `json:"contract_sha256"`
+	BinarySHA256                         string   `json:"binary_sha256"`
+	GoVersion                            string   `json:"go_version"`
+	GOOS                                 string   `json:"goos"`
+	GOARCH                               string   `json:"goarch"`
+	CGOEnabled                           string   `json:"cgo_enabled"`
+	BuildArguments                       []string `json:"build_arguments"`
+	CPUThreads                           int      `json:"cpu_threads"`
+	GoHeapSoftLimitBytes                 int64    `json:"go_heap_soft_limit_bytes"`
+	ControllerWallLimitSeconds           int      `json:"controller_wall_limit_seconds"`
+	ControllerPeakRSSObservationCapBytes int64    `json:"controller_peak_rss_observation_cap_bytes"`
+	PlannedAttempts                      int      `json:"planned_attempts"`
+	Retries                              int      `json:"retries"`
+	PlannedEntrypointCalls               int      `json:"planned_entrypoint_calls"`
+	PlannedStringObserverCalls           int      `json:"planned_String_observer_calls"`
+	PlannedStrictStringCalls             int      `json:"planned_Strict_String_calls"`
+	RelatedRequests                      int      `json:"related_requests"`
+	WholeSourceFamilies                  int      `json:"whole_source_families"`
+	SourceFiles                          []Pin    `json:"source_files"`
+	MetadataFiles                        []Pin    `json:"metadata_files"`
+	RootReservationPolicy                string   `json:"root_reservation_policy"`
+	Features                             int      `json:"feature_projections"`
+	Roles                                int      `json:"roles"`
+	Fits                                 int      `json:"fits"`
+	ModelCalls                           int      `json:"model_calls"`
+	PaidTrials                           int      `json:"paid_trials"`
+	ProtectedFinalReads                  int      `json:"protected_final_reads"`
+	Policy                               string   `json:"policy"`
+}
+
+const rootReservationPolicy = "exclusive_run_directory_and_fixed_invocation_receipt_before_exec_no_retry_results_reserved_by_worker"
+const executionPolicy = "fixed_Want_vs_native_Got_only_no_relabel_pending_independent_reader_init_in_lifetime_resources_no_internal_init_helper_counts"
+
+func hash(b []byte) string   { h := sha256.Sum256(b); return hex.EncodeToString(h[:]) }
+func fail(code string) error { return errors.New(code) }
+func readBounded(path string) ([]byte, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, fail("artifact_read_failed")
+	}
+	defer f.Close()
+	s, err := f.Stat()
+	if err != nil || !s.Mode().IsRegular() || s.Size() > artifactCap {
+		return nil, fail("artifact_bounds_failed")
+	}
+	b, err := io.ReadAll(io.LimitReader(f, artifactCap+1))
+	if err != nil || len(b) > artifactCap {
+		return nil, fail("artifact_bounds_failed")
+	}
+	return b, nil
+}
+func validHash(s string) bool {
+	if len(s) != 64 {
+		return false
+	}
+	for _, c := range s {
+		if !(c >= '0' && c <= '9' || c >= 'a' && c <= 'f') {
+			return false
+		}
+	}
+	return true
+}
+func safePath(s string) bool {
+	return s != "" && !filepath.IsAbs(s) && filepath.Clean(s) == s && !strings.Contains(s, "\\") && !strings.Contains(s, "..")
+}
+
+type frozenContract struct {
+	Schema           string            `json:"schema"`
+	State            string            `json:"state"`
+	PlanSHA256       string            `json:"plan_sha256"`
+	ExpectedCoerce   bool              `json:"expected_CoerceNewVersion"`
+	ExpectedDetailed bool              `json:"expected_DetailedNewVersionErrors"`
+	Aux              observation.Wants `json:"auxiliary_observation_contract"`
+	Artifacts        []struct {
+		Repository   string `json:"repository"`
+		OriginalPath string `json:"original_path"`
+		Bytes        int    `json:"bytes"`
+		SHA          string `json:"sha256"`
+	} `json:"upstream_source_artifacts"`
+}
+
+func closedSources(c frozenContract) []Pin {
+	files := make([]Pin, 0, 19)
+	for _, a := range c.Artifacts {
+		family := "semver"
+		if a.Repository == "bmatcuk/doublestar" {
+			family = "doublestar"
+		}
+		files = append(files, Pin{Path: "upstream/" + family + "/" + a.OriginalPath, Bytes: a.Bytes, SHA256: a.SHA})
+	}
+	for _, p := range [4]string{"main.go", "gate.go", "observation/observation.go", "go.mod"} {
+		b, _ := compiled.ReadFile(p)
+		files = append(files, Pin{Path: p, Bytes: len(b), SHA256: hash(b)})
+	}
+	return files
+}
+
+// expectedMetadata retains copied immutable inputs including licenses in
+// source_files. Original attribution remains source metadata, not success labels.
+func expectedMetadata() []Pin {
+	return []Pin{
+		{Path: "inputs/PLAN-68.v4.ko.md", Bytes: 6995, SHA256: sourcePlanSHA},
+		{Path: "inputs/contract-68.v4.json", Bytes: 27415, SHA256: contractSHA},
+		{Path: "inputs/quote-catalog-63.json", Bytes: 204333, SHA256: "b8253c07943dda0984c5befd32ef3233cf2b8426f5beb6324aea1c6520ecb9ec"},
+		{Path: "inputs/upstream-manifest.json", Bytes: 5249, SHA256: "2bdb644667d0b7cee9a309a5b33b54df395b3b74684324a7eaffd0a008dec6ca"},
+	}
+}
+
+func checkPins(root string, got, want []Pin) error {
+	if len(got) != len(want) {
+		return fail("source_manifest_shape_failed")
+	}
+	for i, p := range got {
+		if p != want[i] || !safePath(p.Path) || !validHash(p.SHA256) || p.Bytes < 0 || p.Bytes > artifactCap {
+			return fail("source_manifest_pin_failed")
+		}
+		s, err := os.Lstat(filepath.Join(root, p.Path))
+		if err != nil || !s.Mode().IsRegular() {
+			return fail("source_type_failed")
+		}
+		b, err := readBounded(filepath.Join(root, p.Path))
+		if err != nil || len(b) != p.Bytes || hash(b) != p.SHA256 {
+			return fail("source_bytes_failed")
+		}
+	}
+	return nil
+}
+
+func checkClosedPackages(root string) error {
+	dirs := []struct {
+		path  string
+		files []string
+	}{
+		{".", []string{"main.go", "gate.go"}},
+		{"observation", []string{"observation.go", "observation_test.go"}},
+		{"upstream/semver", []string{"collection.go", "constraints.go", "doc.go", "version.go"}},
+		{"upstream/doublestar", []string{"doublestar.go", "glob.go", "globoptions.go", "globwalk.go", "match.go", "utils.go", "validate.go"}},
+	}
+	for _, d := range dirs {
+		es, err := os.ReadDir(filepath.Join(root, d.path))
+		if err != nil {
+			return fail("source_directory_failed")
+		}
+		for _, e := range es {
+			if !strings.HasSuffix(e.Name(), ".go") {
+				continue
+			}
+			allowed := false
+			for _, w := range d.files {
+				if e.Name() == w {
+					allowed = true
+				}
+			}
+			if !allowed || e.IsDir() || e.Type()&os.ModeSymlink != 0 {
+				return fail("extra_go_source_refused")
+			}
+		}
+	}
+	return nil
+}
+
+func checkBuild(p ExecutionPlan) error {
+	info, ok := debug.ReadBuildInfo()
+	if !ok || info.GoVersion != "go1.27.1" || runtime.Version() != "go1.27.1" {
+		return fail("toolchain_failed")
+	}
+	trim, cgo := false, false
+	for _, s := range info.Settings {
+		if s.Key == "-trimpath" && s.Value == "true" {
+			trim = true
+		}
+		if s.Key == "CGO_ENABLED" && s.Value == "0" {
+			cgo = true
+		}
+	}
+	if !trim || !cgo || runtime.GOOS != p.GOOS || runtime.GOARCH != p.GOARCH {
+		return fail("build_recipe_failed")
+	}
+	exe, err := os.Executable()
+	if err != nil {
+		return fail("binary_pin_failed")
+	}
+	f, err := os.Open(exe)
+	if err != nil {
+		return fail("binary_pin_failed")
+	}
+	defer f.Close()
+	h := sha256.New()
+	s, err := f.Stat()
+	if err != nil || !s.Mode().IsRegular() || s.Size() > 64<<20 {
+		return fail("binary_pin_failed")
+	}
+	if _, err = io.Copy(h, f); err != nil {
+		return fail("binary_pin_failed")
+	}
+	if hex.EncodeToString(h.Sum(nil)) != p.BinarySHA256 {
+		return fail("binary_pin_failed")
+	}
+	return nil
+}
+
+func preflight(planBytes []byte, planSHA, contractPath, root string) (ExecutionPlan, frozenContract, error) {
+	var p ExecutionPlan
+	var c frozenContract
+	if !validHash(planSHA) || hash(planBytes) != planSHA {
+		return p, c, fail("execution_plan_hash_failed")
+	}
+	d := json.NewDecoder(bytes.NewReader(planBytes))
+	d.DisallowUnknownFields()
+	if d.Decode(&p) != nil {
+		return p, c, fail("execution_plan_shape_failed")
+	}
+	canonical, err := json.MarshalIndent(p, "", "  ")
+	canonical = append(canonical, '\n')
+	if err != nil || !bytes.Equal(canonical, planBytes) {
+		return p, c, fail("execution_plan_canonical_failed")
+	}
+	args := []string{"build", "-trimpath", "-buildvcs=false", "-p=1", "-o", "<private_binary>", "."}
+	if p.Schema != "riido-source-caption-native-execution-plan-68-v1" || p.State != "frozen_before_first_native_exec" || !p.ExecutionAuthorized || p.AttemptID != "native68-attempt-1" || p.SourcePlanSHA256 != sourcePlanSHA || p.ContractSHA256 != contractSHA || !validHash(p.BinarySHA256) || p.GoVersion != "go1.27.1" || p.CGOEnabled != "0" || p.CPUThreads != 1 || p.GoHeapSoftLimitBytes != 256<<20 || p.ControllerWallLimitSeconds != 300 || p.ControllerPeakRSSObservationCapBytes != 256<<20 || p.PlannedAttempts != 1 || p.Retries != 0 || p.PlannedEntrypointCalls != 12 || p.PlannedStringObserverCalls != 3 || p.PlannedStrictStringCalls != 0 || p.RelatedRequests != 4 || p.WholeSourceFamilies != 2 || p.RootReservationPolicy != rootReservationPolicy || p.Policy != executionPolicy || p.Features != 0 || p.Roles != 0 || p.Fits != 0 || p.ModelCalls != 0 || p.PaidTrials != 0 || p.ProtectedFinalReads != 0 || len(p.BuildArguments) != len(args) {
+		return p, c, fail("execution_plan_policy_failed")
+	}
+	for i := range args {
+		if p.BuildArguments[i] != args[i] {
+			return p, c, fail("execution_plan_recipe_failed")
+		}
+	}
+	b, err := readBounded(contractPath)
+	if err != nil || len(b) != 27415 || hash(b) != contractSHA {
+		return p, c, fail("contract_pin_failed")
+	}
+	emb, err := compiled.ReadFile("inputs/contract-68.v4.json")
+	if err != nil || !bytes.Equal(emb, b) || json.Unmarshal(b, &c) != nil {
+		return p, c, fail("compiled_contract_failed")
+	}
+	embPlan, err := compiled.ReadFile("inputs/PLAN-68.v4.ko.md")
+	if err != nil || len(embPlan) != 6995 || hash(embPlan) != sourcePlanSHA {
+		return p, c, fail("compiled_source_plan_failed")
+	}
+	if c.Schema != "riido-finite-source-caption-contract-68-v4" || c.State != "frozen_proposal_before_native_execution" || c.PlanSHA256 != sourcePlanSHA || len(c.Artifacts) != 15 || !c.ExpectedCoerce || !c.ExpectedDetailed || c.Aux.PlannedEntries != 12 || c.Aux.PlannedStrings != 3 {
+		return p, c, fail("contract_scope_failed")
+	}
+	if err = checkPins(root, p.SourceFiles, closedSources(c)); err != nil {
+		return p, c, err
+	}
+	if err = checkPins(root, p.MetadataFiles, expectedMetadata()); err != nil {
+		return p, c, err
+	}
+	if err = checkClosedPackages(root); err != nil {
+		return p, c, err
+	}
+	if err = checkBuild(p); err != nil {
+		return p, c, err
+	}
+	return p, c, nil
+}

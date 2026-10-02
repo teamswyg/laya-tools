@@ -1,0 +1,159 @@
+// SPDX-License-Identifier: Apache-2.0
+package observation
+
+import (
+	"encoding/json"
+	"strings"
+	"testing"
+)
+
+func toyWants() Wants {
+	return Wants{VersionInputs: [3]string{"plain", "prefixed", "short"}, StrictAccepted: [3]bool{true, false, false}, NewAccepted: [3]bool{true, true, true}, NewString: [3]string{"n0", "n1", "n2"}, GlobNames: [2]string{"flat", "nested"}, GlobPatterns: [3]string{"one", "many", "middle"}, GlobMatched: [3][2]bool{{true, false}, {true, true}, {true, false}}, PlannedEntries: 12, PlannedStrings: 3}
+}
+func toyCallbacks() Callbacks {
+	return Callbacks{Flags: func() Flags { return Flags{true, true} },
+		Strict: func(s string) Parsed {
+			return Parsed{VersionPresent: s == "plain", ErrorPresent: s != "plain", String: func() string { panic("Strict.String must not be called") }}
+		},
+		New: func(s string) Parsed {
+			text := ""
+			switch s {
+			case "plain":
+				text = "n0"
+			case "prefixed":
+				text = "n1"
+			case "short":
+				text = "n2"
+			}
+			return Parsed{VersionPresent: true, String: func() string { return text }}
+		},
+		Match: func(p, n string) (bool, bool) { return n == "flat" || p == "many", false }}
+}
+
+func TestSyntheticCompleteConservesRowsAndCounters(t *testing.T) {
+	w := toyWants()
+	c := toyCallbacks()
+	r := Run(w, Flags{true, true}, c)
+	if r.State != "observed_Want_matches_pending_independent_reader" || r.Compared != 15 || r.Matches != 15 || r.Mismatches != 0 || r.Uncompared != 0 || r.NewObservedSupervision || r.TrainingReady {
+		t.Fatal("complete observation accounting")
+	}
+	if r.FlagReadAttempts != 2 || r.FlagReadReturns != 2 || !r.FlagsExpectedAndUnchanged {
+		t.Fatal("flag accounting")
+	}
+	for i, want := range [3]int{3, 3, 6} {
+		if r.Entries[i].Attempts != want || r.Entries[i].Returned != want || r.Entries[i].Panicked != 0 {
+			t.Fatal("entry accounting")
+		}
+	}
+	if r.Strings.Attempts != 3 || r.Strings.Returned != 3 || r.Strings.Panicked != 0 {
+		t.Fatal("observer accounting")
+	}
+	for i, v := range r.Versions {
+		if i < 3 && v.String.Attempted {
+			t.Fatal("Strict observer invoked")
+		}
+		if v.Input != w.VersionInputs[i%3] || !v.Compared {
+			t.Fatal("rows missing")
+		}
+	}
+	for i, g := range r.Glob {
+		if g.Pattern != w.GlobPatterns[i/2] || g.Name != w.GlobNames[i%2] || !g.Compared {
+			t.Fatal("matrix changed")
+		}
+	}
+}
+
+func TestSyntheticWantMismatchDoesNotRelabel(t *testing.T) {
+	w := toyWants()
+	before := w
+	c := toyCallbacks()
+	c.Strict = func(string) Parsed { return Parsed{VersionPresent: true} }
+	r := Run(w, Flags{true, true}, c)
+	if r.State != "completed_Want_mismatch" || r.Mismatches != 2 || r.Matches != 13 || w != before || r.NewObservedSupervision || r.TrainingReady {
+		t.Fatal("mismatch retention")
+	}
+	if !r.Versions[1].Got || r.Versions[1].Want || r.Versions[1].Matches {
+		t.Fatal("Want/Got were collapsed")
+	}
+}
+
+func TestSyntheticPanicsErrorAndNilDoNotBecomeRejections(t *testing.T) {
+	w := toyWants()
+	c := toyCallbacks()
+	c.Strict = func(s string) Parsed {
+		if s == "prefixed" {
+			panic("private-panic-marker")
+		}
+		return Parsed{VersionPresent: s == "plain", ErrorPresent: s != "plain"}
+	}
+	c.New = func(s string) Parsed {
+		if s == "short" {
+			return Parsed{ErrorPresent: true}
+		}
+		return Parsed{VersionPresent: true, String: func() string {
+			if s == "prefixed" {
+				panic("private-observer-marker")
+			}
+			return "n0"
+		}}
+	}
+	c.Match = func(p, n string) (bool, bool) {
+		if p == "middle" && n == "nested" {
+			panic("private-match-marker")
+		}
+		if p == "many" && n == "nested" {
+			return false, true
+		}
+		return n == "flat" || p == "many", false
+	}
+	r := Run(w, Flags{true, true}, c)
+	if r.State != "completed_observation_failure" || r.Uncompared != 5 || r.Mismatches != 1 || r.Compared+r.Uncompared != 15 {
+		t.Fatal("failure conservation")
+	}
+	if r.Entries[0].Attempts != 3 || r.Entries[0].Returned != 2 || r.Entries[0].Panicked != 1 || r.Entries[2].Attempts != 6 || r.Entries[2].Returned != 5 || r.Entries[2].Panicked != 1 {
+		t.Fatal("panic counters")
+	}
+	if r.Strings.Attempts != 2 || r.Strings.Returned != 1 || r.Strings.Panicked != 1 || r.Versions[5].String.Attempted {
+		t.Fatal("observer counters")
+	}
+	if r.Versions[1].GotDefined || r.Versions[1].Compared || r.Glob[3].GotDefined || r.Glob[5].GotDefined {
+		t.Fatal("undefined treated as rejection")
+	}
+	b, err := json.Marshal(r)
+	if err != nil || strings.Contains(string(b), "private-") {
+		t.Fatal("panic payload retained")
+	}
+}
+
+func TestSyntheticFlagsRefuseBeforeCallsAndPreserveAfterMutation(t *testing.T) {
+	w := toyWants()
+	c := toyCallbacks()
+	c.Flags = func() Flags { return Flags{false, true} }
+	r := Run(w, Flags{true, true}, c)
+	if r.State != "precondition_failed" || r.Uncompared != 15 || r.Entries[0].Attempts != 0 || r.Strings.Attempts != 0 || r.Versions[1].Input != "prefixed" || r.Glob[5].Name != "nested" {
+		t.Fatal("precondition rows/calls")
+	}
+	c = toyCallbacks()
+	reads := 0
+	c.Flags = func() Flags { reads++; return Flags{true, reads == 1} }
+	r = Run(w, Flags{true, true}, c)
+	if r.State != "completed_observation_failure" || r.FlagsExpectedAndUnchanged || r.Compared != 15 || r.Entries[2].Attempts != 6 {
+		t.Fatal("mutated flags hidden")
+	}
+}
+
+func TestSyntheticNilCallbackAndNilStringAreBoundedFailures(t *testing.T) {
+	w := toyWants()
+	c := toyCallbacks()
+	c.Flags = nil
+	r := Run(w, Flags{true, true}, c)
+	if r.State != "precondition_failed" || r.FlagReadPanics != 1 || r.FlagReadReturns != 0 || r.Entries[0].Attempts != 0 {
+		t.Fatal("nil flag callback")
+	}
+	c = toyCallbacks()
+	c.New = func(string) Parsed { return Parsed{VersionPresent: true} }
+	r = Run(w, Flags{true, true}, c)
+	if r.Strings.Attempts != 3 || r.Strings.Panicked != 3 || r.Uncompared != 3 || r.State != "completed_observation_failure" {
+		t.Fatal("nil observer accounting")
+	}
+}

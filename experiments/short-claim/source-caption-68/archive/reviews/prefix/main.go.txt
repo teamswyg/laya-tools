@@ -1,0 +1,53 @@
+package main
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"flag"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"unicode"
+)
+
+type M = map[string]any
+func must(ok bool, msg string){if !ok {panic(msg)}}
+func sha(b []byte)string{h:=sha256.Sum256(b);return hex.EncodeToString(h[:])}
+func words(t string)int{r:=[]rune(t);var b strings.Builder;for i,c:=range r {if unicode.IsUpper(c)&&i>0&&(unicode.IsLower(r[i-1])||unicode.IsDigit(r[i-1])||(i+1<len(r)&&unicode.IsLower(r[i+1])&&unicode.IsUpper(r[i-1]))){b.WriteByte(' ')};if unicode.IsLetter(c)||unicode.IsDigit(c){b.WriteRune(unicode.ToLower(c))}else{b.WriteByte(' ')}};return len(strings.Fields(b.String()))}
+func pin(path string,b []byte)M{return M{"path":path,"bytes":len(b),"sha256":sha(b)}}
+func read(dir,path string,expected string)[]byte{b,e:=os.ReadFile(filepath.Join(dir,path));must(e==nil,"read:"+path);must(sha(b)==expected,"sha:"+path);return b}
+func span(path string,b []byte,text string)M{s:=bytes.Index(b,[]byte(text));must(s>=0&&bytes.Count(b,[]byte(text))==1,"unique_span");e:=s+len(text);return M{"path":path,"file_sha256":sha(b),"byte_start":s,"byte_end":e,"line_start":bytes.Count(b[:s],[]byte{'\n'})+1,"line_end":bytes.Count(b[:e-1],[]byte{'\n'})+1,"raw_text":string(b[s:e]),"raw_text_bytes":e-s,"sha256":sha(b[s:e])}}
+func main(){repo:=flag.String("repo","","source repository");prior:=flag.String("prior","","immutable v3 review directory");out:=flag.String("out","","own private output");flag.Parse();must(*repo!=""&&*prior!=""&&*out!="","required_paths")
+	docPath:="internal/publicbehavior/testdata/upstream/semver/doc.go";doc:=read(*repo,docPath,"ad987af91a2a2c8dd5d01a38364263c53d294918670bed23edfad865d14afc22")
+	verPath:="internal/publicbehavior/testdata/upstream/semver/version.go";ver:=read(*repo,verPath,"8355b3625e19b5d0b1b326a838995846c1ed55ca623b8a550da57f23e5a19cb7")
+	priorPath:="INDEPENDENT-REVIEW-68.v1.json";old:=read(*prior,priorPath,"e1b2eb0e247fd22d98734d14dce535b4d85bf261f1d3eb75344a05d2bf65b814")
+	licensePath:="internal/publicbehavior/testdata/upstream/semver/LICENSE.txt";license:=read(*repo,licensePath,"2db9097f7b3750c1c9426996d21fe443d339131fb758c2167d2d5fabe8e6cbf9")
+	bullet:="  - Optionally work with a `v` prefix\n";bulletSpan:=span(docPath,doc,bullet);must(len(bullet)<=512&&words(bullet)<=32,"bullet_cap")
+	strict:="The `StrictNewVersion`\nfunction only parses valid version 2 semantic versions as outlined in the\nspecification."
+	context:="There are two functions that can parse semantic versions. The `StrictNewVersion`\nfunction only parses valid version 2 semantic versions as outlined in the\nspecification. The `NewVersion` function attempts to coerce a version into a\nsemantic version and parse it. For example, if there is a leading v or a version\nlisted without all 3 parts (e.g. 1.2) it will attempt to coerce it into a valid\nsemantic version (e.g., 1.2.0). In both cases a `Version` object is returned\nthat can be sorted, compared, and used in constraints."
+	specContext:="// See the Original() method to retrieve the original value. Semantic Versions\n// don't contain a leading v per the spec. Instead it's optional on\n// implementation.\n"
+	var draftRequests []M
+	for i,t:=range []string{"For v1.2.3, reject the leading v prefix when parsing a semantic version.","For v1.2.3, allow the optional leading v prefix when parsing a semantic version."}{must(len(t)<=512&&words(t)<=32,"request_cap");draftRequests=append(draftRequests,M{"position":i,"raw_text":t,"bytes":len(t),"normalized_words":words(t),"sha256":sha([]byte(t)),"authorship":"new_AI_assisted_reviewer_proposal; not_an_independently_approved_final_root_input"})}
+	result:=M{
+		"schema":"riido-prefix-only-source-contract-critical-review-68-v1",
+		"state":"new_narrow_contract_proposal_review; no_actual_API_observation_or_new_truth",
+		"reviewer":"semantic_review60_prep; independent_of_root_plan_and_upstream_wording; nonblind; author_of_this_new_proposal",
+		"prior_v3_artifact_pin":pin(priorPath,old),"v3_artifacts_modified":false,"v3_generic_coercion_fullfinitecoverage":"remains_unsupported; not_retroactively_cleared",
+		"input_pins":[]M{pin(docPath,doc),pin(verPath,ver),pin(licensePath,license)},
+		"new_complete_caption_selection":M{"repository":"Masterminds/semver","revision":"61fc460d28283a91c53be65c2e0f20b494ac8ad9","kind":"whole_upstream_introductory_bullet_including_indentation_dash_backticks_and_LF","span":bulletSpan,"normalized_words":words(bullet),"within_512B_32words":true,"source_subject":"package_semver_capability; not_a_NewVersion_function_comment","individual_or_human_only_authorship_verified":false},
+		"unchanged_Strict_caption":span(docPath,doc,strict),"attribution_context_evidence":[]M{span(docPath,doc,context),span(verPath,ver,specContext)},
+		"full_MIT_notice":M{"pin":pin(licensePath,license),"raw_text":string(license)},"request_drafts":draftRequests,
+		"explicit_candidate_binding":M{"Strict_candidate":"existing complete valid-v2 sentence instantiated as StrictNewVersion(v1.2.3)","prefix_candidate":"upstream package-level optional-prefix capability instantiated as NewVersion(v1.2.3) under pinned true defaults","binding_is":"explicit source/observation provenance; not appended paraphrase or replacement runtime caption and not a learned feature","function_attribution_must_not_be_claimed_from_bullet_alone":true},
+		"semantic_target_boundary":M{"only_model_target":"whether the exact v1.2.3 input is allowed or rejected because it has the leading v prefix","finite_Want_for_target":"Strict rejects, NewVersion allows; static reasoning only until actual execution","unchanged_observation_inputs":[]string{"1.2.3","v1.2.3","1.2"},"non_target_auxiliary":"Other acceptance bits and exact String values remain observer metadata, not missing-patch/normalization model targets.","no_error_panic_object_or_performance_promise_from_caption":true},
+		"critical_semantic_assessment":M{"bounded_contextual_coverage":"Supported for the optional-v permission/rejection property if the frozen candidate binding explicitly instantiates the capability as NewVersion and the request targets only v1.2.3. The whole bullet says the library can optionally work with a v prefix; doc.go immediately identifies NewVersion as the coercing parse path including leading v. The actual source uses the optional-v regex on its default coercing path. Strict digit-only parsing and the valid-v2 restriction give the opposite property for this fixed input.","caption_alone_API_guarantee":"Unsupported: the bullet names no function and does not promise every semver API accepts v, all v-prefixed strings succeed, or return/error/String/panic fields.","material_gap_if_binding_is_omitted":"A generic package capability is not automatically a faithful description of an arbitrary function. Keep coverage unresolved if the runtime candidate-to-NewVersion mapping is absent or only asserted by this report.","not_a_readiness_gate":"This is a narrower source/text contract proposal, not an execution pass, new supervision label, author-diversity approval or training-readiness decision."},
+		"source_trace_refs_in_immutable_v3_review":[]string{"/source_evidence/0","/source_evidence/2","/source_evidence/3","/source_evidence/4","/source_evidence/5","/source_evidence/7","/source_evidence/21"},
+		"grouping":"Both opposite-prefix requests and both entrypoints retain the same semver whole source family, shared Version/validation/regex/init/flags and String observer. No new independent group is invented; glob scope remains unchanged.",
+		"actual_counts":M{"private_metadata_serialization":1,"original_API_init_AST_parser_formatter_Features_role_fit_inference_paid":0,"new_acceptable_sets_or_truth_labels":0,"shared_edits_Git_publication":0,"prior_v3_regeneration":0},
+		"ordinary_AI_assisted_collaboration_cost":"not_measured; this Codex reading is AI-assisted even though separate model/judge APIs are zero",
+		"human_only_authorship_verified":false,"authoring_diversity_cleared":false,"training_ready":false,
+	}
+	b,e:=json.MarshalIndent(result,"","  ");must(e==nil,"json_encode");b=append(b,'\n');f,e:=os.OpenFile(filepath.Join(*out,"PREFIX-ONLY-CRITICAL-REVIEW-68.v1.json"),os.O_CREATE|os.O_EXCL|os.O_WRONLY,0600);must(e==nil,"exclusive_write");_,e=f.Write(b);must(e==nil,"write");must(f.Close()==nil,"close");fmt.Printf("Prefix-only proposal review serialized: %d bytes SHA256 %s; bullet %d bytes/%d words; no original execution.\n",len(b),sha(b),len(bullet),words(bullet))
+}

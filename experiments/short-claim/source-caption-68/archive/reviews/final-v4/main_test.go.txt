@@ -1,0 +1,26 @@
+package main
+
+import "testing"
+
+func TestWholeRawSpanRejectsBoundaryHashAndQuoteChanges(t *testing.T) {
+	b:=[]byte("header\n  - Optionally work with a `v` prefix\nfooter\n")
+	text:="  - Optionally work with a `v` prefix\n"
+	s:=Span{7,45,2,2,hash([]byte(text))}
+	if !validSpan(b,s,text) { t.Fatal("complete bullet rejected") }
+	bad:=s;bad.End--;if validSpan(b,bad,text) { t.Fatal("truncated LF accepted") }
+	bad=s;bad.SHA=hash([]byte("different"));if validSpan(b,bad,text) { t.Fatal("incorrect hash accepted") }
+	if validSpan(b,s,"- Optionally work with a v prefix") { t.Fatal("rewritten quote accepted") }
+	bad=s;bad.First=1;if validSpan(b,bad,text) { t.Fatal("incorrect line accepted") }
+}
+func TestWordBudgetKeepsWholeBulletAndCamelBoundaries(t *testing.T) {
+	if words("  - Optionally work with a `v` prefix\n")!=6 { t.Fatal("whole bullet words") }
+	if words("StrictNewVersion HTTPServer v1.2.3")!=8 { t.Fatal("normalization boundary drift") }
+}
+func TestCandidateBehaviorIsSeparateFromOppositeRequestGoal(t *testing.T) {
+	p:=Parent{ID:"source68-prefix-reject",Family:"semver",Request:"For v1.2.3, reject the leading v prefix when parsing a semantic version.",Inputs:[]string{"v1.2.3"},Want:[][]bool{{false},{true}},Acceptable:[]int{0},Candidates:[]Candidate{{ID:"strict",Entrypoint:"StrictNewVersion",Caption:Caption{ID:"s-doc-strict"}},{ID:"optional-v",Entrypoint:"NewVersion",Caption:Caption{ID:"s-package-optional-v"},Binding:"Upstream package capability instantiated as pinned NewVersion(v1.2.3); doc.go parsing context [328,852) and optional-v coercing regex. Not a function-specific comment."}}}
+	p.RequestSHA=hash([]byte(p.Request));checkParent(p,0)
+	p.ID="source68-prefix-allow";p.Request="For v1.2.3, allow the optional leading v prefix when parsing a semantic version.";p.RequestSHA=hash([]byte(p.Request));p.Acceptable=[]int{1};checkParent(p,1)
+	p.Want=[][]bool{{true},{true}}
+	defer func(){if recover()==nil {t.Fatal("candidate Want replaced by desired goal without rejection")}}()
+	checkParent(p,1)
+}

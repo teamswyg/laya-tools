@@ -1,5 +1,7 @@
 # Documentation / 문서 안내
 
+Recent actual claim checks66–69 / 최근 실제 주장 검사66–69: [한국어](wiki/Claim-Checks-66-69-KO.md) · [English](wiki/Claim-Checks-66-69-EN.md). Actual roles, finite public-source behavior, unchanged input bounds and loss-mask bindings are recorded; fitting remains a separate next step. / 실제 역할·유한 공개 원천 동작·기존 입력 한도·학습 제외 연결을 기록하고, 학습은 다음 별도 단계로 진행합니다.
+
 Choose a language; both versions cover the same features, measurements, and limits.
 같은 기능·측정·한계를 두 언어로 제공합니다.
 

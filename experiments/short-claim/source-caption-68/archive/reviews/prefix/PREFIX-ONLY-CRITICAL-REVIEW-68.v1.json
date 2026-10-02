@@ -1,0 +1,154 @@
+{
+  "actual_counts": {
+    "new_acceptable_sets_or_truth_labels": 0,
+    "original_API_init_AST_parser_formatter_Features_role_fit_inference_paid": 0,
+    "prior_v3_regeneration": 0,
+    "private_metadata_serialization": 1,
+    "shared_edits_Git_publication": 0
+  },
+  "attribution_context_evidence": [
+    {
+      "byte_end": 852,
+      "byte_start": 328,
+      "file_sha256": "ad987af91a2a2c8dd5d01a38364263c53d294918670bed23edfad865d14afc22",
+      "line_end": 19,
+      "line_start": 13,
+      "path": "internal/publicbehavior/testdata/upstream/semver/doc.go",
+      "raw_text": "There are two functions that can parse semantic versions. The `StrictNewVersion`\nfunction only parses valid version 2 semantic versions as outlined in the\nspecification. The `NewVersion` function attempts to coerce a version into a\nsemantic version and parse it. For example, if there is a leading v or a version\nlisted without all 3 parts (e.g. 1.2) it will attempt to coerce it into a valid\nsemantic version (e.g., 1.2.0). In both cases a `Version` object is returned\nthat can be sorted, compared, and used in constraints.",
+      "raw_text_bytes": 524,
+      "sha256": "1a5c4cdfea51af65b0a96e23357844b459114dd8c575739f4b41f40b27c365ee"
+    },
+    {
+      "byte_end": 8624,
+      "byte_start": 8458,
+      "file_sha256": "8355b3625e19b5d0b1b326a838995846c1ed55ca623b8a550da57f23e5a19cb7",
+      "line_end": 320,
+      "line_start": 318,
+      "path": "internal/publicbehavior/testdata/upstream/semver/version.go",
+      "raw_text": "// See the Original() method to retrieve the original value. Semantic Versions\n// don't contain a leading v per the spec. Instead it's optional on\n// implementation.\n",
+      "raw_text_bytes": 166,
+      "sha256": "b14f520c1a827042947b7fc7539056d777b67c6c161723d3b9920a7116fa5257"
+    }
+  ],
+  "authoring_diversity_cleared": false,
+  "critical_semantic_assessment": {
+    "bounded_contextual_coverage": "Supported for the optional-v permission/rejection property if the frozen candidate binding explicitly instantiates the capability as NewVersion and the request targets only v1.2.3. The whole bullet says the library can optionally work with a v prefix; doc.go immediately identifies NewVersion as the coercing parse path including leading v. The actual source uses the optional-v regex on its default coercing path. Strict digit-only parsing and the valid-v2 restriction give the opposite property for this fixed input.",
+    "caption_alone_API_guarantee": "Unsupported: the bullet names no function and does not promise every semver API accepts v, all v-prefixed strings succeed, or return/error/String/panic fields.",
+    "material_gap_if_binding_is_omitted": "A generic package capability is not automatically a faithful description of an arbitrary function. Keep coverage unresolved if the runtime candidate-to-NewVersion mapping is absent or only asserted by this report.",
+    "not_a_readiness_gate": "This is a narrower source/text contract proposal, not an execution pass, new supervision label, author-diversity approval or training-readiness decision."
+  },
+  "explicit_candidate_binding": {
+    "Strict_candidate": "existing complete valid-v2 sentence instantiated as StrictNewVersion(v1.2.3)",
+    "binding_is": "explicit source/observation provenance; not appended paraphrase or replacement runtime caption and not a learned feature",
+    "function_attribution_must_not_be_claimed_from_bullet_alone": true,
+    "prefix_candidate": "upstream package-level optional-prefix capability instantiated as NewVersion(v1.2.3) under pinned true defaults"
+  },
+  "full_MIT_notice": {
+    "pin": {
+      "bytes": 1078,
+      "path": "internal/publicbehavior/testdata/upstream/semver/LICENSE.txt",
+      "sha256": "2db9097f7b3750c1c9426996d21fe443d339131fb758c2167d2d5fabe8e6cbf9"
+    },
+    "raw_text": "Copyright (C) 2014-2019, Matt Butcher and Matt Farina\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in\nall copies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN\nTHE SOFTWARE.\n"
+  },
+  "grouping": "Both opposite-prefix requests and both entrypoints retain the same semver whole source family, shared Version/validation/regex/init/flags and String observer. No new independent group is invented; glob scope remains unchanged.",
+  "human_only_authorship_verified": false,
+  "input_pins": [
+    {
+      "bytes": 6879,
+      "path": "internal/publicbehavior/testdata/upstream/semver/doc.go",
+      "sha256": "ad987af91a2a2c8dd5d01a38364263c53d294918670bed23edfad865d14afc22"
+    },
+    {
+      "bytes": 20074,
+      "path": "internal/publicbehavior/testdata/upstream/semver/version.go",
+      "sha256": "8355b3625e19b5d0b1b326a838995846c1ed55ca623b8a550da57f23e5a19cb7"
+    },
+    {
+      "bytes": 1078,
+      "path": "internal/publicbehavior/testdata/upstream/semver/LICENSE.txt",
+      "sha256": "2db9097f7b3750c1c9426996d21fe443d339131fb758c2167d2d5fabe8e6cbf9"
+    }
+  ],
+  "new_complete_caption_selection": {
+    "individual_or_human_only_authorship_verified": false,
+    "kind": "whole_upstream_introductory_bullet_including_indentation_dash_backticks_and_LF",
+    "normalized_words": 6,
+    "repository": "Masterminds/semver",
+    "revision": "61fc460d28283a91c53be65c2e0f20b494ac8ad9",
+    "source_subject": "package_semver_capability; not_a_NewVersion_function_comment",
+    "span": {
+      "byte_end": 298,
+      "byte_start": 260,
+      "file_sha256": "ad987af91a2a2c8dd5d01a38364263c53d294918670bed23edfad865d14afc22",
+      "line_end": 9,
+      "line_start": 9,
+      "path": "internal/publicbehavior/testdata/upstream/semver/doc.go",
+      "raw_text": "  - Optionally work with a `v` prefix\n",
+      "raw_text_bytes": 38,
+      "sha256": "5780602667a40d7af64f4f879c65194d0e046d78ff78c614f73c7dd6a012453b"
+    },
+    "within_512B_32words": true
+  },
+  "ordinary_AI_assisted_collaboration_cost": "not_measured; this Codex reading is AI-assisted even though separate model/judge APIs are zero",
+  "prior_v3_artifact_pin": {
+    "bytes": 69531,
+    "path": "INDEPENDENT-REVIEW-68.v1.json",
+    "sha256": "e1b2eb0e247fd22d98734d14dce535b4d85bf261f1d3eb75344a05d2bf65b814"
+  },
+  "request_drafts": [
+    {
+      "authorship": "new_AI_assisted_reviewer_proposal; not_an_independently_approved_final_root_input",
+      "bytes": 72,
+      "normalized_words": 14,
+      "position": 0,
+      "raw_text": "For v1.2.3, reject the leading v prefix when parsing a semantic version.",
+      "sha256": "82491253d26250dbabd4b4d497c17f437ba571b436b37799378909de03eac3f9"
+    },
+    {
+      "authorship": "new_AI_assisted_reviewer_proposal; not_an_independently_approved_final_root_input",
+      "bytes": 80,
+      "normalized_words": 15,
+      "position": 1,
+      "raw_text": "For v1.2.3, allow the optional leading v prefix when parsing a semantic version.",
+      "sha256": "3f1eea27b3e3d7a098105e0ba7a052fa0b6767b71ee110466f8ef7a5870bd4be"
+    }
+  ],
+  "reviewer": "semantic_review60_prep; independent_of_root_plan_and_upstream_wording; nonblind; author_of_this_new_proposal",
+  "schema": "riido-prefix-only-source-contract-critical-review-68-v1",
+  "semantic_target_boundary": {
+    "finite_Want_for_target": "Strict rejects, NewVersion allows; static reasoning only until actual execution",
+    "no_error_panic_object_or_performance_promise_from_caption": true,
+    "non_target_auxiliary": "Other acceptance bits and exact String values remain observer metadata, not missing-patch/normalization model targets.",
+    "only_model_target": "whether the exact v1.2.3 input is allowed or rejected because it has the leading v prefix",
+    "unchanged_observation_inputs": [
+      "1.2.3",
+      "v1.2.3",
+      "1.2"
+    ]
+  },
+  "source_trace_refs_in_immutable_v3_review": [
+    "/source_evidence/0",
+    "/source_evidence/2",
+    "/source_evidence/3",
+    "/source_evidence/4",
+    "/source_evidence/5",
+    "/source_evidence/7",
+    "/source_evidence/21"
+  ],
+  "state": "new_narrow_contract_proposal_review; no_actual_API_observation_or_new_truth",
+  "training_ready": false,
+  "unchanged_Strict_caption": {
+    "byte_end": 497,
+    "byte_start": 386,
+    "file_sha256": "ad987af91a2a2c8dd5d01a38364263c53d294918670bed23edfad865d14afc22",
+    "line_end": 15,
+    "line_start": 13,
+    "path": "internal/publicbehavior/testdata/upstream/semver/doc.go",
+    "raw_text": "The `StrictNewVersion`\nfunction only parses valid version 2 semantic versions as outlined in the\nspecification.",
+    "raw_text_bytes": 111,
+    "sha256": "a4f670515069f4362db281361b7bbd2fd92be32c4ccff789e986ee5b22b407c5"
+  },
+  "v3_artifacts_modified": false,
+  "v3_generic_coercion_fullfinitecoverage": "remains_unsupported; not_retroactively_cleared"
+}
