@@ -1,0 +1,66 @@
+package reader
+
+import (
+	"bytes"
+	"testing"
+
+	"riido.local/claim-compact-storage/codec"
+)
+
+func TestControlDuplicateCaseFoldAndBounds(t *testing.T) {
+	var r WorkerIntent
+	for _, raw := range []string{`{"Mode":"json","Mode":"compact"}`, `{"Mode":"json","mode":"compact"}`, `{"Mode":"json"} {}`, `{"unexpected":1}`} {
+		if StrictDecode([]byte(raw), &r) == nil {
+			t.Fatal("strict-control-refusal")
+		}
+	}
+	if StrictDecode([]byte(`{"Schema":"toy","Mode":"json"}`), &r) != nil || r.Mode != "json" {
+		t.Fatal("valid-control")
+	}
+	if StrictDecode(make([]byte, (1<<20)+1), &r) == nil {
+		t.Fatal("control-bound")
+	}
+}
+
+func TestAllArrayValidationAndNullVersusEmptyDigest(t *testing.T) {
+	raw := toyJSON()
+	for _, bad := range [][]byte{
+		bytes.ReplaceAll(raw, []byte(`"Offsets":[0,2]`), []byte(`"Offsets":[1,2]`)),
+		bytes.ReplaceAll(raw, []byte(`"Groups":[7]`), []byte(`"Groups":[]`)),
+		bytes.ReplaceAll(raw, []byte(`"SampleWeights":null`), []byte(`"SampleWeights":[]`)),
+		bytes.ReplaceAll(raw, []byte(`"Labels":[0]`), []byte(`"Labels":[1e999]`)),
+	} {
+		if _, e := PreflightJSON(bytes.NewReader(bad)); e == nil {
+			t.Fatal("all-array-shape-or-numeric-refusal")
+		}
+	}
+	empty := bytes.ReplaceAll(raw, []byte(`"Offsets":[0,2]`), []byte(`"Offsets":[0]`))
+	for _, column := range []string{`"Indices":[0,65535]`, `"Values":[-0,1.0000000000000002]`, `"Labels":[0]`, `"Groups":[7]`} {
+		key := column[:bytes.IndexByte([]byte(column), ':')+1]
+		empty = bytes.ReplaceAll(empty, []byte(column), []byte(key+`[]`))
+	}
+	p, e := PreflightJSON(bytes.NewReader(empty))
+	if e != nil {
+		t.Fatal(e)
+	}
+	s, e := MaterializeJSON(bytes.NewReader(empty), &p)
+	if e != nil {
+		t.Fatal(e)
+	}
+	nullSummary, e := Summarize(s)
+	if e != nil {
+		t.Fatal(e)
+	}
+	s.Data[0].SampleWeights = []float64{}
+	emptySummary, e := Summarize(s)
+	if e != nil || emptySummary.NumericBitSHA256 == nullSummary.NumericBitSHA256 || emptySummary.Datasets[0].Columns[5].Nil {
+		t.Fatal("empty-is-distinct-from-null")
+	}
+	b, e := codec.Encode(s)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if _, e = codec.Decode(append(b, 0)); e == nil {
+		t.Fatal("binary-trailing")
+	}
+}

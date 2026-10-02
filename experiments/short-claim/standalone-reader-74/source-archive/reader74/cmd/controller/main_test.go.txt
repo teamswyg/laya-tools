@@ -1,0 +1,53 @@
+package main
+
+import (
+	"bytes"
+	"testing"
+
+	"riido.local/standalone-reader74/reader"
+)
+
+func TestFreezeOnlyOneTokenAndPreserveOtherBytes(t *testing.T) {
+	b := []byte("{\n  \"Frozen\": false,\n  \"toy\": 1\n}\n")
+	z, e := freeze(b)
+	if e != nil || !bytes.Equal(z, bytes.Replace(b, []byte(`"Frozen": false`), []byte(`"Frozen": true`), 1)) {
+		t.Fatal("freeze")
+	}
+	for _, bad := range [][]byte{[]byte(`{}`), []byte(`{"Frozen": false,"Frozen": false}`)} {
+		if _, e = freeze(bad); e == nil {
+			t.Fatal("refuse")
+		}
+	}
+}
+func TestBoundedWritesNoPromotedReadFrom(t *testing.T) {
+	var b boundedBuffer
+	if n, e := b.Write(make([]byte, 65536)); e != nil || n != 65536 {
+		t.Fatal("bound")
+	}
+	if _, e := b.Write([]byte{1}); e == nil || !b.overflow {
+		t.Fatal("overflow")
+	}
+}
+func TestTypedFailurePrefixAndMetrics(t *testing.T) {
+	p := reader.Plan{Toolchain: "go1.27.1"}
+	r := reader.WorkerResult{Schema: "riido-standalone-reader74-worker-v1", State: "failed_reader_only_no_retry", Mode: "json", PlanSHA256: "toy", RuntimeGo: "go1.27.1", Counts: reader.Counters{JSONPreflightAttempts: 1}}
+	if !verifyResult(r, p, "toy", "json", false) || verifyResult(r, p, "wrong", "json", false) {
+		t.Fatal("binding")
+	}
+	r.Counts.JSONPreflightReturned = 2
+	if verifyResult(r, p, "toy", "json", false) {
+		t.Fatal("counts")
+	}
+	m := parseTime([]byte("0.12 real 0.10 user 0.01 sys\n 123 maximum resident set size\n 100 peak memory footprint\n"))
+	if m.MaximumRSSBytes == nil || *m.MaximumRSSBytes != 123 || m.RealSeconds == nil || *m.RealSeconds != .12 {
+		t.Fatal("metrics")
+	}
+	if parseTime([]byte("+Inf real 0.10 user 0.01 sys\n")).RealSeconds != nil {
+		t.Fatal("nonfinite-metrics")
+	}
+	r.Counts.JSONPreflightReturned = 0
+	r.State = "forged"
+	if verifyResult(r, p, "toy", "json", false) {
+		t.Fatal("unknown-state")
+	}
+}

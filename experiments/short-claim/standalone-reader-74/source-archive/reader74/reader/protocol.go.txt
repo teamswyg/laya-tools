@@ -1,0 +1,37 @@
+package reader
+
+type Ref struct {
+	ID, Path string
+	Bytes    int
+	SHA256   string
+}
+type ClosureRef struct {
+	Base string
+	Ref
+}
+type Plan struct {
+	Schema                                                                                           string
+	Frozen                                                                                           bool
+	ReaderRoot, CompactRoot                                                                          string
+	JSON, Compact, WorkerBinary, ControllerBinary                                                    Ref
+	Closure                                                                                          []ClosureRef
+	Toolchain, GOOS, GOARCH                                                                          string
+	CPU, SoftGoHeapBytes, ChildTimeoutSeconds, ResultLimitBytes, InputCapBytes, OwnedPayloadCapBytes int
+	FormatOrder                                                                                      [2]string
+	MetadataSHA256                                                                                   string
+	MetadataBytes                                                                                    int
+	ExpectedRows                                                                                     [4]int
+	ExpectedNNZ                                                                                      [4]int
+	NoAutomaticRetry, InputPinsPrimeFileCache                                                        bool
+	TrainingReady, PerformanceApproved, Final2400Complete                                            bool
+}
+type Counters struct{ JSONPreflightAttempts, JSONPreflightReturned, JSONMaterializeAttempts, JSONMaterializeReturned, CompactReadAttempts, CompactReadReturned, CompactDecodeAttempts, CompactDecodeReturned, ValidationAttempts, ValidationReturned int }
+type WorkerResult struct {
+	Schema, State, Mode, PlanSHA256, RuntimeGo, Phase, Failure                                                        string
+	Counts                                                                                                            Counters
+	Summary                                                                                                           *Summary
+	GoHeapAllocBytes, GoTotalAllocBytes                                                                               uint64
+	OriginalProjectionCalls, FeaturesCalls, PrepareCalls, Fits, Roles, Labels, Models, PaidCalls, ProtectedFinalReads int
+	TrainingReady, PerformanceApproved, Final2400Complete                                                             bool
+}
+type WorkerIntent struct{ Schema, Mode, PlanSHA256, WorkerSHA256 string }

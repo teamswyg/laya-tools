@@ -1,0 +1,37 @@
+{
+ "schema":"riido-bounded-request75-independent-request-mask-receipt-v1",
+ "state":"bounded_scope_and_null_metadata_supported_pair_explanation_requires_separate_factual_correction",
+ "reviewer":"semantic_review60_prep",
+ "author_independence":{"request75_mask_proposal":true,"caption74":false,"whole_pipeline_blind":false,"AI_assisted":true},
+ "reviewed_proposal":{"id":"BOUNDED-REQUEST-SUPERVISION.v3.json","bytes":104620,"sha256":"d3bc8988f21bf684fd05ef90aa5be06b6ed3c8114460e63c97187c2ad29395d7"},
+ "metadata_QA":{"id":"METADATA-QA.v1.json","bytes":2122,"sha256":"cad1e3765b6f53f8baa780b7d7380e062e83c42e23aeb930d7c12380d510d6f4","helper_attempts":1,"helper_failures":0,"request_budget_rows":9,"same_candidate_positions":9,"prior_versions_retained":true,"all_actual_truth_role_weight_pair_fields_null":true,"caption74_evidence_source_license_and_candidate_binding_metadata_unchanged":true},
+ "source_findings":[
+  {"family":"datasize","request_bytes":173,"request_words":27,"scope":"Nonnil receiver; ASCII integers/binary units; syntax/bits receiver0 and range uint64max with returned errors","direct_selected_positive_proposal":0,"refs":["datasize.go:116-216","datasize.go:219-231"]},
+  {"family":"querystring","request_bytes":237,"request_words":32,"scope":"Exported nonignored default primitive fields; included named nonnil non-time nested structs; custom encoders excluded","direct_selected_positive_proposal":1,"refs":["query/encode.go:157-205","query/encode.go:216-271","query/encode.go:321-343"],"omission_precedes_recursion":true,"standalone_caption74_unconditional_fidelity_clearance":false},
+  {"family":"shlex","request_bytes":134,"request_words":21,"request_historically_unchanged":true,"scope":"String-to-list; empty quoted words; completed-prefix return on quote/escape error","direct_selected_positive_proposal":2,"refs":["shlex.go:152-167","shlex.go:279-325","shlex.go:398-415"]}
+ ],
+ "caption_supervision_review":{"A_negative_eligible_proposals":4,"A_positive_eligible_proposals":0,"B_negative_eligible_proposals":6,"B_positive_eligible_proposals":3,"common_positive_eligible_proposals":0,"nonzero_pair_proposals":{"A":0,"B":6,"common":0},"unknown_omission_not_automatically_negative":true,"hidden_source_not_caption_feature":true,"same_mask_required_for_caption_only_effect":true,"slice_alone_ready_paired_learning_claim":false,"actual_qualification_or_assignment":false},
+ "concrete_correction":{
+  "location":"v3 pair_eligibility_proposed_only.limit plus KO/EN pair-policy paragraphs and handoff pair_policy_limit",
+  "incorrect_implication":"Zero BCE sampleweight alone fails to block that endpoint's nonzero pair-loss contribution in existing72",
+  "source_fact":"PairAudit retains endpoint rows/pairs. Pair weight is endpoint sampleweight product; zero product is skipped by gradient and NLL. Saved caller uses the same unchanged projection sample weights with no pair unmasking.",
+  "required_action":"Preserve v1/v2/v3 and old results; separate factual correction version. Existing API change is not required to enforce the same zero-weight exclusion. A different future pair policy remains conceptual.",
+  "historical_training_results_or_numeric_threshold_changes":false
+ },
+ "exact_second_fit_evidence_pins":[
+  {"id":"second-fit-frozen-plan","sha256":"17afbf5c8d14fdd34f7c627d7b43b9582793984d010f52118f408b287bbc7daf","source_ci_commit":"d506f58ccf9629e2d2b6ca3cd1766ab20789bf64"},
+  {"id":"internal/pairlearn/ranking.go","bytes":13968,"sha256":"531ce807d0b4117dc9acaaa800e7d42f8ed38998bc799a69fb588092dce2c11d","refs":["243-277 endpoint product/audit retention","344-369 zero-weight gradient skip","372-390 zero-weight NLL skip"]},
+  {"id":"internal/pairlearn/learn.go","bytes":8115,"sha256":"e25ca8e75b55b7dc1b91c3b29222835ca38e5399e7ba78a38be9207c671a8768"},
+  {"id":"second-fit-driver/main.go","bytes":14112,"sha256":"40efd6817612b7241792175b7c95fcd4e6497ca931f9988382e00dfecb30bbc6","ref":"371-380 forwards same datasets"},
+  {"id":"second-fit-driver/fit.go","bytes":10749,"sha256":"fca4a111b8fa2e28a74ceab4d212ea9b4892d9ecdb53be08f0489536d3b8dd54","refs":["102-129 same projected datasets","205-213 unchanged supervision weights","283-290 exact pair-product trace check"]}
+ ],
+ "source_raw_SHA_pins":["512932730df3f5b92b025ccb03cb534670b9f9d77edc201f58ffbee711a583d9","644ee90c8857903116e74980705bc54a2bd671afbbfcba3f08f7993b6e083ff7","f34d676ee244f328c7cb43ff9cb285562df0afde0dc49a7d4f9705fe2703220b"],
+ "new_original_API_Normalize_Features_Project_roles_Fit_model_or_HF_calls":0,
+ "new_truth_labels_roles_weights_pairs":0,
+ "shared_source_or_artifact_edits":0,
+ "protected_final_reads":0,
+ "training_ready":false,
+ "production_ready":false,
+ "final2400_domain_approval":false,
+ "scope_limit":"Request/mask proposal peer review and exact saved-source factual correction only; caption74 authorship not independent, no corpus promotion or performance experiment"
+}

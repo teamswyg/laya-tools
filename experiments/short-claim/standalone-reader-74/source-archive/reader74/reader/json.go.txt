@@ -1,0 +1,464 @@
+// SPDX-License-Identifier: Apache-2.0
+// Independently authored streaming reader: no old ImportJSON calls.
+package reader
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/json"
+	"errors"
+	"io"
+	"math"
+	"os"
+	"slices"
+	"strconv"
+
+	"riido.local/claim-compact-storage/codec"
+)
+
+const Limit = 64 << 20
+const (
+	rootState = iota
+	projectionState
+	holderState
+	datasetState
+	generalState
+)
+
+var names = [6]string{"Offsets", "Indices", "Values", "Labels", "Groups", "SampleWeights"}
+var widths = [6]uint64{8, 2, 8, 8, 8, 8}
+
+type Shape struct {
+	Counts                  [6]uint64
+	NilMask                 uint16
+	FirstOffset, LastOffset int64
+	Seen                    uint8
+}
+type Preflight struct {
+	Metadata     []byte
+	Shapes       [4]Shape
+	SourceSHA    [32]byte
+	OwnedBytes   uint64
+	InputBytes   uint64
+	SeenDatasets uint8
+}
+type parser struct {
+	d           *json.Decoder
+	source      bool
+	materialize bool
+	pre         Preflight
+	expected    *Preflight
+	snapshot    codec.Snapshot
+}
+
+func invalid() error { return errors.New("reader74_invalid_or_bound") }
+func bounded(b []byte) ([]byte, error) {
+	if len(b) > Limit {
+		return nil, invalid()
+	}
+	return b, nil
+}
+func appendBound(b []byte, x ...byte) ([]byte, error) {
+	if len(x) > Limit-len(b) {
+		return nil, invalid()
+	}
+	return append(b, x...), nil
+}
+func (p *parser) scalarArray(dataset, array int) error {
+	t, e := p.d.Token()
+	if e != nil {
+		return invalid()
+	}
+	shape := &p.pre.Shapes[dataset]
+	if shape.Seen&(1<<array) != 0 {
+		return invalid()
+	}
+	shape.Seen |= 1 << array
+	if t == nil {
+		if p.materialize && p.expected.Shapes[dataset].NilMask&(1<<array) == 0 {
+			return invalid()
+		}
+		shape.NilMask |= 1 << array
+		return nil
+	}
+	if t != json.Delim('[') {
+		return invalid()
+	}
+	if p.materialize && p.expected.Shapes[dataset].NilMask&(1<<array) != 0 {
+		return invalid()
+	}
+	var prior int64
+	for p.d.More() {
+		t, e = p.d.Token()
+		if e != nil {
+			return invalid()
+		}
+		n, ok := t.(json.Number)
+		if !ok {
+			return invalid()
+		}
+		count := shape.Counts[array]
+		if count >= Limit/widths[array] {
+			return invalid()
+		}
+		var iv int64
+		var uv uint64
+		var fv float64
+		switch array {
+		case 0, 4:
+			iv, e = strconv.ParseInt(n.String(), 10, 64)
+		case 1:
+			uv, e = strconv.ParseUint(n.String(), 10, 16)
+		default:
+			fv, e = strconv.ParseFloat(n.String(), 64)
+			if math.IsNaN(fv) || math.IsInf(fv, 0) {
+				return invalid()
+			}
+		}
+		if e != nil {
+			return invalid()
+		}
+		if array == 0 {
+			if iv < 0 || (count == 0 && iv != 0) || (count > 0 && iv < prior) {
+				return invalid()
+			}
+			if count == 0 {
+				shape.FirstOffset = iv
+			}
+			prior = iv
+			shape.LastOffset = iv
+		}
+		if p.materialize {
+			if count >= p.expected.Shapes[dataset].Counts[array] {
+				return invalid()
+			}
+			d := &p.snapshot.Data[dataset]
+			i := int(count)
+			switch array {
+			case 0:
+				d.Offsets[i] = iv
+			case 1:
+				d.Indices[i] = uint16(uv)
+			case 2:
+				d.Values[i] = fv
+			case 3:
+				d.Labels[i] = fv
+			case 4:
+				d.Groups[i] = iv
+			case 5:
+				d.SampleWeights[i] = fv
+			}
+		}
+		shape.Counts[array]++
+	}
+	t, e = p.d.Token()
+	if e != nil || t != json.Delim(']') {
+		return invalid()
+	}
+	return nil
+}
+
+type field struct {
+	key   string
+	value []byte
+}
+
+func (p *parser) node(state, dataset, depth int) ([]byte, error) {
+	if depth > 64 {
+		return nil, invalid()
+	}
+	t, e := p.d.Token()
+	if e != nil {
+		return nil, invalid()
+	}
+	if delim, ok := t.(json.Delim); ok {
+		switch delim {
+		case '{':
+			keys := []string{}
+			fields := []field{}
+			for p.d.More() {
+				t, e := p.d.Token()
+				if e != nil {
+					return nil, invalid()
+				}
+				key, ok := t.(string)
+				if !ok || len(key) > 512 || len(keys) >= 256 || slices.Contains(keys, key) {
+					return nil, invalid()
+				}
+				keys = append(keys, key)
+				if state == datasetState {
+					if a := slices.Index(names[:], key); a >= 0 {
+						if !p.source {
+							return nil, invalid()
+						}
+						if e = p.scalarArray(dataset, a); e != nil {
+							return nil, e
+						}
+						continue
+					}
+					if key != "Split" && key != "Excluded" {
+						return nil, invalid()
+					}
+				}
+				next, di := generalState, dataset
+				if state == rootState && key == "projection" {
+					next = projectionState
+				}
+				if state == projectionState {
+					switch key {
+					case "Development":
+						next, di = datasetState, 0
+					case "Validation":
+						next, di = datasetState, 1
+					case "DevelopmentAUC":
+						next, di = holderState, 2
+					case "ValidationAUC":
+						next, di = holderState, 3
+					}
+				}
+				if state == holderState && key == "Data" {
+					next = datasetState
+				}
+				v, e := p.node(next, di, depth+1)
+				if e != nil {
+					return nil, e
+				}
+				if state == rootState && key == "schema" {
+					var s string
+					if json.Unmarshal(v, &s) != nil || s != "riido-full76-projection-result-v1" {
+						return nil, invalid()
+					}
+				}
+				fields = append(fields, field{key, v})
+			}
+			t, e = p.d.Token()
+			if e != nil || t != json.Delim('}') {
+				return nil, invalid()
+			}
+			if state == rootState && (!slices.Contains(keys, "schema") || !slices.Contains(keys, "projection")) {
+				return nil, invalid()
+			}
+			if state == datasetState {
+				want := 2
+				if p.source {
+					want = 8
+				}
+				if len(keys) != want || !slices.Contains(keys, "Split") || !slices.Contains(keys, "Excluded") || p.pre.SeenDatasets&(1<<dataset) != 0 {
+					return nil, invalid()
+				}
+				p.pre.SeenDatasets |= 1 << dataset
+			}
+			if state != generalState {
+				slices.SortFunc(fields, func(a, b field) int {
+					if a.key < b.key {
+						return -1
+					}
+					if a.key > b.key {
+						return 1
+					}
+					return 0
+				})
+			}
+			b := []byte{'{'}
+			for i, f := range fields {
+				if i > 0 {
+					b, e = appendBound(b, ',')
+					if e != nil {
+						return nil, e
+					}
+				}
+				k, _ := json.Marshal(f.key)
+				b, e = appendBound(b, k...)
+				if e != nil {
+					return nil, e
+				}
+				b, e = appendBound(b, ':')
+				if e != nil {
+					return nil, e
+				}
+				b, e = appendBound(b, f.value...)
+				if e != nil {
+					return nil, e
+				}
+			}
+			return appendBound(b, '}')
+		case '[':
+			b := []byte{'['}
+			i := 0
+			for p.d.More() {
+				if i > 0 {
+					b, e = appendBound(b, ',')
+					if e != nil {
+						return nil, e
+					}
+				}
+				v, e := p.node(generalState, 0, depth+1)
+				if e != nil {
+					return nil, e
+				}
+				b, e = appendBound(b, v...)
+				if e != nil {
+					return nil, e
+				}
+				i++
+			}
+			t, e = p.d.Token()
+			if e != nil || t != json.Delim(']') {
+				return nil, invalid()
+			}
+			return appendBound(b, ']')
+		default:
+			return nil, invalid()
+		}
+	}
+	if s, ok := t.(string); ok && len(s) > 1<<20 {
+		return nil, invalid()
+	}
+	if n, ok := t.(json.Number); ok {
+		return bounded([]byte(n.String()))
+	}
+	b, e := json.Marshal(t)
+	if e != nil {
+		return nil, invalid()
+	}
+	return bounded(b)
+}
+func validateShapes(pre *Preflight) error {
+	if pre.SeenDatasets != 15 {
+		return invalid()
+	}
+	owned := uint64(len(pre.Metadata))
+	if owned > Limit {
+		return invalid()
+	}
+	for _, s := range pre.Shapes {
+		c := s.Counts
+		if s.Seen != 63 || s.NilMask&^uint16(63) != 0 || s.NilMask&1 != 0 || c[0] == 0 || c[1] != c[2] || c[3]+1 != c[0] || c[3] != c[4] || (s.NilMask&32 == 0 && c[5] != c[3]) || s.LastOffset < 0 || uint64(s.LastOffset) != c[1] {
+			return invalid()
+		}
+		for a, n := range c {
+			if s.NilMask&(1<<a) != 0 && n != 0 {
+				return invalid()
+			}
+			if n > Limit/widths[a] || n*widths[a] > Limit-owned {
+				return invalid()
+			}
+			owned += n * widths[a]
+		}
+	}
+	pre.OwnedBytes = owned
+	return nil
+}
+
+type countingReader struct {
+	r io.Reader
+	n uint64
+}
+
+func (c *countingReader) Read(b []byte) (int, error) {
+	n, e := c.r.Read(b)
+	c.n += uint64(n)
+	return n, e
+}
+func parse(r io.Reader, source bool, expected *Preflight) (Preflight, codec.Snapshot, error) {
+	h := sha256.New()
+	limited := &countingReader{r: io.LimitReader(r, Limit+1)}
+	p := parser{d: json.NewDecoder(io.TeeReader(limited, h)), source: source, expected: expected}
+	p.d.UseNumber()
+	if expected != nil {
+		// Only after a completed aggregate-cap preflight can any CSR array exist.
+		if validateShapes(expected) != nil {
+			return Preflight{}, codec.Snapshot{}, invalid()
+		}
+		p.materialize = true
+		for i, s := range expected.Shapes {
+			d := &p.snapshot.Data[i]
+			c := s.Counts
+			if s.NilMask&1 == 0 {
+				d.Offsets = make([]int64, int(c[0]))
+			}
+			if s.NilMask&2 == 0 {
+				d.Indices = make([]uint16, int(c[1]))
+			}
+			if s.NilMask&4 == 0 {
+				d.Values = make([]float64, int(c[2]))
+			}
+			if s.NilMask&8 == 0 {
+				d.Labels = make([]float64, int(c[3]))
+			}
+			if s.NilMask&16 == 0 {
+				d.Groups = make([]int64, int(c[4]))
+			}
+			if s.NilMask&32 == 0 {
+				d.SampleWeights = make([]float64, int(c[5]))
+			}
+		}
+	}
+	meta, e := p.node(rootState, 0, 0)
+	if e != nil {
+		return Preflight{}, codec.Snapshot{}, e
+	}
+	if _, e = p.d.Token(); e != io.EOF || limited.n > Limit {
+		return Preflight{}, codec.Snapshot{}, invalid()
+	}
+	p.pre.Metadata = meta
+	p.pre.InputBytes = limited.n
+	copy(p.pre.SourceSHA[:], h.Sum(nil))
+	if source && validateShapes(&p.pre) != nil {
+		return Preflight{}, codec.Snapshot{}, invalid()
+	}
+	if !source && p.pre.SeenDatasets != 15 {
+		return Preflight{}, codec.Snapshot{}, invalid()
+	}
+	if expected != nil {
+		if p.pre.Shapes != expected.Shapes || p.pre.SourceSHA != expected.SourceSHA || !bytes.Equal(meta, expected.Metadata) {
+			return Preflight{}, codec.Snapshot{}, invalid()
+		}
+		p.snapshot.Metadata = meta
+		p.snapshot.SourceSHA256 = p.pre.SourceSHA
+	}
+	return p.pre, p.snapshot, nil
+}
+func PreflightJSON(r io.Reader) (Preflight, error) { p, _, e := parse(r, true, nil); return p, e }
+func MaterializeJSON(r io.Reader, p *Preflight) (codec.Snapshot, error) {
+	if p == nil {
+		return codec.Snapshot{}, invalid()
+	}
+	_, s, e := parse(r, true, p)
+	return s, e
+}
+func ReadJSON(path string) (codec.Snapshot, error) {
+	st, e := os.Lstat(path)
+	if e != nil || !st.Mode().IsRegular() || st.Size() > Limit {
+		return codec.Snapshot{}, invalid()
+	}
+	f, e := os.Open(path)
+	if e != nil {
+		return codec.Snapshot{}, invalid()
+	}
+	pre, e := PreflightJSON(f)
+	closeErr := f.Close()
+	if e != nil || closeErr != nil {
+		return codec.Snapshot{}, invalid()
+	}
+	f, e = os.Open(path)
+	if e != nil {
+		return codec.Snapshot{}, invalid()
+	}
+	s, e := MaterializeJSON(f, &pre)
+	closeErr = f.Close()
+	if e != nil || closeErr != nil {
+		return codec.Snapshot{}, invalid()
+	}
+	return s, nil
+}
+
+// Compact metadata must satisfy duplicate-key/trailing/dataset-shape policy too.
+// Byte equality additionally enforces the pre-existing compact metadata recipe.
+func ValidateMetadata(b []byte) error {
+	pre, _, e := parse(bytes.NewReader(b), false, nil)
+	if e != nil || !bytes.Equal(pre.Metadata, b) {
+		return invalid()
+	}
+	return nil
+}

@@ -1,6 +1,8 @@
 # laya-tools
 
-[다음 개발 자료73](experiments/short-claim/source-observation-73/README.ko.md): 서로 다른3개 동작 목표의24개 유한 입력을 실제 Go 원문에 한 번 적용해 사전 예상과 일치함을 확인했습니다. 아직 새 학습 정답은0이며, 후보 설명에 필요한 정보가 있는지를 먼저 검토합니다. [저장 형식73](experiments/short-claim/compact-storage-73/README.ko.md)은 FP64 bit를 유지하고8.39MB→1.98MB로 줄였으며 공백 제거·gzip 기준선도 따로 공개합니다. 파일 감소는 RAM·추론 성능 개선과 구분합니다.
+[개선74](experiments/short-claim/feature-prefix-74/README.ko.md): 같은 Go 특징·점수 비트를 유지하고 공개 예제2개에서 특징 계산 시간 중앙값을약24%·20% 줄였습니다. 할당량은 그대로이며 [필수 CI·자동 병합](experiments/short-claim/publication-proof-97/README.ko.md)을 확인했습니다. [단독 reader](experiments/short-claim/standalone-reader-74/README.ko.md)는 JSON/compact의24개 열·수치·null·메타데이터가 같았지만 peak RSS18.2/18.4MiB로 RAM 절감은 보이지 않았습니다.
+
+[다음 개발 자료73](experiments/short-claim/source-observation-73/README.ko.md): 서로 다른3개 동작 목표의24개 유한 입력을 실제 Go 원문에 한 번 적용해 사전 예상과 일치함을 확인했습니다. 아직 새 학습 정답은0이며, [모델 입력 설명의 정보74](experiments/short-claim/source-caption-74/README.ko.md)를 정답·학습 적격성과 분리해 보강합니다. [저장 형식73](experiments/short-claim/compact-storage-73/README.ko.md)은 FP64 bit를 유지하고8.39MB→1.98MB로 줄였으며 공백 제거·gzip 기준선도 따로 공개합니다. 파일 감소는 RAM·추론 성능 개선과 구분합니다.
 
 [최신 개발 결과](experiments/short-claim/second-ranking-fit-72/README.ko.md): 작은 주장 모델 두 방식 모두 기존 정렬보다 많은 후보 확인이 필요했습니다(**27→31→33회**). 기본 정렬은 유지하며 [새 개발 데이터의 다양성](experiments/short-claim/second-ranking-fit-72/ANALYSIS.ko.md)을 먼저 늘립니다. [Go 입력 재사용](experiments/short-claim/validated-input-runtime-71/README.ko.md)은 정렬 할당81→0을 관측했고 전체 race/vet 검사를 통과했습니다. [첫 실패 모델의 HF 보관·검증](experiments/short-claim/publication-proof-96/README.ko.md)은 완료했으며 모델 본체는 Git에 올리지 않습니다. [English](experiments/short-claim/second-ranking-fit-72/README.en.md). 아래 항목은 각 당시의 기록입니다.
 

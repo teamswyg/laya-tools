@@ -1,0 +1,305 @@
+// SPDX-License-Identifier: Apache-2.0
+// Storage-only prototype; all imports are from the Go standard library.
+package codec
+
+import (
+	"bytes"
+	"encoding/binary"
+	"encoding/json"
+	"errors"
+	"math"
+)
+
+const Limit = 64 << 20
+const HeaderBytes = 64
+const DatasetHeaderBytes = 56
+
+var magic = [8]byte{'R', 'C', 'L', 'M', 'C', 'S', 'R', '1'}
+var Paths = [4]string{"projection/Development", "projection/Validation", "projection/DevelopmentAUC/Data", "projection/ValidationAUC/Data"}
+
+type Dataset struct {
+	Offsets        []int64
+	Indices        []uint16
+	Values, Labels []float64
+	Groups         []int64
+	SampleWeights  []float64
+}
+type Snapshot struct {
+	SourceSHA256 [32]byte
+	Metadata     []byte
+	Data         [4]Dataset
+}
+
+func fail() error { return errors.New("compact_storage_invalid_or_bound") }
+func counts(d Dataset) [6]uint64 {
+	return [6]uint64{uint64(len(d.Offsets)), uint64(len(d.Indices)), uint64(len(d.Values)), uint64(len(d.Labels)), uint64(len(d.Groups)), uint64(len(d.SampleWeights))}
+}
+func nilMask(d Dataset) uint16 {
+	var m uint16
+	for i, n := range [6]bool{d.Offsets == nil, d.Indices == nil, d.Values == nil, d.Labels == nil, d.Groups == nil, d.SampleWeights == nil} {
+		if n {
+			m |= 1 << i
+		}
+	}
+	return m
+}
+func valid(d Dataset) error {
+	if len(d.Offsets) == 0 || d.Offsets[0] != 0 || len(d.Indices) != len(d.Values) || len(d.Labels)+1 != len(d.Offsets) || len(d.Groups) != len(d.Labels) || (d.SampleWeights != nil && len(d.SampleWeights) != len(d.Labels)) {
+		return fail()
+	}
+	prior := int64(0)
+	for _, o := range d.Offsets {
+		if o < prior || o < 0 || uint64(o) > uint64(len(d.Indices)) {
+			return fail()
+		}
+		prior = o
+	}
+	if prior != int64(len(d.Indices)) {
+		return fail()
+	}
+	for _, xs := range [][]float64{d.Values, d.Labels, d.SampleWeights} {
+		for _, v := range xs {
+			if math.IsNaN(v) || math.IsInf(v, 0) {
+				return fail()
+			}
+		}
+	}
+	return nil
+}
+func arrayBytes(c [6]uint64) (uint64, error) {
+	var n uint64
+	for i, width := range [6]uint64{8, 2, 8, 8, 8, 8} {
+		if c[i] > Limit/width {
+			return 0, fail()
+		}
+		add := c[i] * width
+		if add > Limit-n {
+			return 0, fail()
+		}
+		n += add
+	}
+	return n, nil
+}
+
+// OwnedPayloadBytes counts retained metadata bytes and typed array elements.
+// It excludes slice headers, allocator overhead, source/encoded buffers and RSS.
+func OwnedPayloadBytes(s Snapshot) (uint64, error) {
+	if len(s.Metadata) > Limit {
+		return 0, fail()
+	}
+	n := uint64(len(s.Metadata))
+	for _, d := range s.Data {
+		if e := valid(d); e != nil {
+			return 0, e
+		}
+		a, e := arrayBytes(counts(d))
+		if e != nil || a > Limit-n {
+			return 0, fail()
+		}
+		n += a
+	}
+	return n, nil
+}
+func Encode(s Snapshot) ([]byte, error) {
+	if !json.Valid(s.Metadata) {
+		return nil, fail()
+	}
+	payload, e := OwnedPayloadBytes(s)
+	if e != nil {
+		return nil, e
+	}
+	size := payload + HeaderBytes + 4*DatasetHeaderBytes
+	if size > Limit {
+		return nil, fail()
+	}
+	b := make([]byte, int(size))
+	copy(b[:8], magic[:])
+	binary.LittleEndian.PutUint32(b[8:12], 1)
+	binary.LittleEndian.PutUint32(b[12:16], 4)
+	binary.LittleEndian.PutUint64(b[16:24], uint64(len(s.Metadata)))
+	binary.LittleEndian.PutUint64(b[24:32], size)
+	copy(b[32:64], s.SourceSHA256[:])
+	pos := HeaderBytes
+	copy(b[pos:], s.Metadata)
+	pos += len(s.Metadata)
+	put := func(v uint64, w int) {
+		switch w {
+		case 2:
+			binary.LittleEndian.PutUint16(b[pos:pos+w], uint16(v))
+		case 8:
+			binary.LittleEndian.PutUint64(b[pos:pos+w], v)
+		}
+		pos += w
+	}
+	for _, d := range s.Data {
+		for _, c := range counts(d) {
+			put(c, 8)
+		}
+		put(uint64(nilMask(d)), 2)
+		pos += 6
+		for _, x := range d.Offsets {
+			put(uint64(x), 8)
+		}
+		for _, x := range d.Indices {
+			put(uint64(x), 2)
+		}
+		for _, x := range d.Values {
+			put(math.Float64bits(x), 8)
+		}
+		for _, x := range d.Labels {
+			put(math.Float64bits(x), 8)
+		}
+		for _, x := range d.Groups {
+			put(uint64(x), 8)
+		}
+		for _, x := range d.SampleWeights {
+			put(math.Float64bits(x), 8)
+		}
+	}
+	if pos != len(b) {
+		return nil, fail()
+	}
+	return b, nil
+}
+func Decode(b []byte) (Snapshot, error) {
+	var s Snapshot
+	if len(b) < HeaderBytes || len(b) > Limit || !bytes.Equal(b[:8], magic[:]) || binary.LittleEndian.Uint32(b[8:12]) != 1 || binary.LittleEndian.Uint32(b[12:16]) != 4 || binary.LittleEndian.Uint64(b[24:32]) != uint64(len(b)) {
+		return s, fail()
+	}
+	metaLen := binary.LittleEndian.Uint64(b[16:24])
+	if metaLen > uint64(len(b)-HeaderBytes) {
+		return s, fail()
+	}
+	copy(s.SourceSHA256[:], b[32:64])
+	pos := HeaderBytes + int(metaLen)
+	// First pass checks all counts, masks and the total allocation bound.
+	var cs [4][6]uint64
+	var masks [4]uint16
+	var starts [4]int
+	owned := metaLen
+	for i := range cs {
+		if len(b)-pos < DatasetHeaderBytes {
+			return s, fail()
+		}
+		for j := range cs[i] {
+			cs[i][j] = binary.LittleEndian.Uint64(b[pos+j*8 : pos+j*8+8])
+		}
+		masks[i] = binary.LittleEndian.Uint16(b[pos+48 : pos+50])
+		if masks[i]&^uint16(63) != 0 {
+			return s, fail()
+		}
+		for _, x := range b[pos+50 : pos+56] {
+			if x != 0 {
+				return s, fail()
+			}
+		}
+		for j, c := range cs[i] {
+			if masks[i]&(1<<j) != 0 && c != 0 {
+				return s, fail()
+			}
+		}
+		pos += DatasetHeaderBytes
+		starts[i] = pos
+		a, e := arrayBytes(cs[i])
+		if e != nil || a > uint64(len(b)-pos) || a > Limit-owned {
+			return s, fail()
+		}
+		owned += a
+		pos += int(a)
+	}
+	if pos != len(b) {
+		return s, fail()
+	}
+	if !json.Valid(b[HeaderBytes : HeaderBytes+int(metaLen)]) {
+		return s, fail()
+	}
+	s.Metadata = append([]byte{}, b[HeaderBytes:HeaderBytes+int(metaLen)]...)
+	for i, c := range cs {
+		pos = starts[i]
+		get := func(w int) uint64 {
+			var v uint64
+			if w == 2 {
+				v = uint64(binary.LittleEndian.Uint16(b[pos : pos+w]))
+			} else {
+				v = binary.LittleEndian.Uint64(b[pos : pos+w])
+			}
+			pos += w
+			return v
+		}
+		d := &s.Data[i]
+		if masks[i]&1 == 0 {
+			d.Offsets = make([]int64, int(c[0]))
+		}
+		if masks[i]&2 == 0 {
+			d.Indices = make([]uint16, int(c[1]))
+		}
+		if masks[i]&4 == 0 {
+			d.Values = make([]float64, int(c[2]))
+		}
+		if masks[i]&8 == 0 {
+			d.Labels = make([]float64, int(c[3]))
+		}
+		if masks[i]&16 == 0 {
+			d.Groups = make([]int64, int(c[4]))
+		}
+		if masks[i]&32 == 0 {
+			d.SampleWeights = make([]float64, int(c[5]))
+		}
+		for j := range d.Offsets {
+			d.Offsets[j] = int64(get(8))
+		}
+		for j := range d.Indices {
+			d.Indices[j] = uint16(get(2))
+		}
+		for j := range d.Values {
+			d.Values[j] = math.Float64frombits(get(8))
+		}
+		for j := range d.Labels {
+			d.Labels[j] = math.Float64frombits(get(8))
+		}
+		for j := range d.Groups {
+			d.Groups[j] = int64(get(8))
+		}
+		for j := range d.SampleWeights {
+			d.SampleWeights[j] = math.Float64frombits(get(8))
+		}
+		if e := valid(*d); e != nil {
+			return Snapshot{}, e
+		}
+	}
+	return s, nil
+}
+func sameFloats(a, b []float64) bool {
+	if (a == nil) != (b == nil) || len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if math.Float64bits(a[i]) != math.Float64bits(b[i]) {
+			return false
+		}
+	}
+	return true
+}
+func sameInts[T ~int64 | ~uint16](a, b []T) bool {
+	if (a == nil) != (b == nil) || len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+func Equal(a, b Snapshot) bool {
+	if a.SourceSHA256 != b.SourceSHA256 || !bytes.Equal(a.Metadata, b.Metadata) {
+		return false
+	}
+	for i, x := range a.Data {
+		y := b.Data[i]
+		if !sameInts(x.Offsets, y.Offsets) || !sameInts(x.Indices, y.Indices) || !sameInts(x.Groups, y.Groups) || !sameFloats(x.Values, y.Values) || !sameFloats(x.Labels, y.Labels) || !sameFloats(x.SampleWeights, y.SampleWeights) {
+			return false
+		}
+	}
+	return true
+}

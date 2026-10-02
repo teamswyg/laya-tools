@@ -1,0 +1,1459 @@
+{
+  "actual_labels": 0,
+  "actual_new_parents": 0,
+  "actual_roles": 0,
+  "actual_weights": 0,
+  "author": "semantic_review60_prep",
+  "authorship": {
+    "AI_assisted": true,
+    "Got_derived_feature_inputs": false,
+    "actual_Got_result_body_read": false,
+    "human_only": false,
+    "new_independent_source_origin_claim": false,
+    "root_actual_summary_exposed": true,
+    "source_target_and_prior_Want_reviews_exposed": true
+  },
+  "budget": {
+    "counter": "standalone Unicode letter/digit runs; no original Normalize/Validate/Features execution; all authored inputs ASCII",
+    "max_bytes": 512,
+    "max_words": 32,
+    "new_caption_max_bytes": 203,
+    "new_caption_max_standalone_words": 31
+  },
+  "candidate_positions": 9,
+  "draft_parent_templates": 3,
+  "evidence_catalog": [
+    {
+      "id": "D-types-units",
+      "source_id": "upstream/datasize/datasize.go",
+      "span": {
+        "start_line": 10,
+        "end_line_inclusive": 26,
+        "start_byte": 69,
+        "end_byte_exclusive": 487,
+        "sha256": "5ff345d2dcd5ca5eb0948199fb67c22494100e601c6af007b6d0a5de53ad2703"
+      },
+      "source_reading_proposal_not_final_review": "ByteSize is uint64; byte units are binary powers; error symbols are declared."
+    },
+    {
+      "id": "D-integer-prefix",
+      "source_id": "upstream/datasize/datasize.go",
+      "span": {
+        "start_line": 116,
+        "end_line_inclusive": 153,
+        "start_byte": 2244,
+        "end_byte_exclusive": 2766,
+        "sha256": "19aaab6ab959611dd0cc75dc7935b261e4c02303dc6da687b2af87baab99bfd1"
+      },
+      "source_reading_proposal_not_final_review": "ASCII digit prefix and unit suffix; empty input remains a separate source boundary."
+    },
+    {
+      "id": "D-units",
+      "source_id": "upstream/datasize/datasize.go",
+      "span": {
+        "start_line": 154,
+        "end_line_inclusive": 204,
+        "start_byte": 2766,
+        "end_byte_exclusive": 3752,
+        "sha256": "18e1b26cd2b7eb5b0b54a4b1b8d7fd37415b6bc6ce0c4492b95a288dc0844052"
+      },
+      "source_reading_proposal_not_final_review": "Recognized byte units and exact capital-prefix lowercase-b rejection; success assigns receiver."
+    },
+    {
+      "id": "D-errors",
+      "source_id": "upstream/datasize/datasize.go",
+      "span": {
+        "start_line": 206,
+        "end_line_inclusive": 216,
+        "start_byte": 3753,
+        "end_byte_exclusive": 4042,
+        "sha256": "a6f4755747228686034805ba95f8b1d98b416ca448bea70c99bb18f519236dda"
+      },
+      "source_reading_proposal_not_final_review": "Overflow sets maximum and returns ErrRange; syntax/bits set zero and return their NumError causes."
+    },
+    {
+      "id": "D-parse",
+      "source_id": "upstream/datasize/datasize.go",
+      "span": {
+        "start_line": 219,
+        "end_line_inclusive": 223,
+        "start_byte": 4045,
+        "end_byte_exclusive": 4146,
+        "sha256": "8119e6b198b894d555b724dc7466d111b40cb90be4b2b93f7cdb46c0df9a5487"
+      },
+      "source_reading_proposal_not_final_review": "Fresh local value delegates and returns both value and error."
+    },
+    {
+      "id": "D-must",
+      "source_id": "upstream/datasize/datasize.go",
+      "span": {
+        "start_line": 225,
+        "end_line_inclusive": 231,
+        "start_byte": 4147,
+        "end_byte_exclusive": 4248,
+        "sha256": "f8b67ccbb1e68ab2f81956f5f60ec282cd445396fa6ccf70eb634b9e63731f9e"
+      },
+      "source_reading_proposal_not_final_review": "Calls Parse, panics on error, otherwise returns value."
+    },
+    {
+      "id": "Q-interface",
+      "source_id": "upstream/querystring/query/encode.go",
+      "span": {
+        "start_line": 36,
+        "end_line_inclusive": 40,
+        "start_byte": 826,
+        "end_byte_exclusive": 1022,
+        "sha256": "e040391ac84f6c327418d4c6ce4e0ee68852b086b3ff1e559713b97e2f79bcfe"
+      },
+      "source_reading_proposal_not_final_review": "Only EncodeValues signature/interface, with no concrete implementation contract."
+    },
+    {
+      "id": "Q-doc",
+      "source_id": "upstream/querystring/query/encode.go",
+      "span": {
+        "start_line": 42,
+        "end_line_inclusive": 54,
+        "start_byte": 1023,
+        "end_byte_exclusive": 1554,
+        "sha256": "de9eec27318d8b043cf7ca6235b47a088272f59fc72c40a80d140216294cd517"
+      },
+      "source_reading_proposal_not_final_review": "Struct input, exported/tagged fields and omitempty policy documentation."
+    },
+    {
+      "id": "Q-values",
+      "source_id": "upstream/querystring/query/encode.go",
+      "span": {
+        "start_line": 125,
+        "end_line_inclusive": 146,
+        "start_byte": 4793,
+        "end_byte_exclusive": 5223,
+        "sha256": "19ca2687bf7f9c00badd7cd92f63419867624b4d6b71e65aebc6ea164220659c"
+      },
+      "source_reading_proposal_not_final_review": "Allocates output, handles nil/nonstruct separately and invokes reflectValue."
+    },
+    {
+      "id": "Q-scope",
+      "source_id": "upstream/querystring/query/encode.go",
+      "span": {
+        "start_line": 151,
+        "end_line_inclusive": 187,
+        "start_byte": 5428,
+        "end_byte_exclusive": 6185,
+        "sha256": "d8cf8234bbc91cbb590a78853fc65647fcd6f2058eaf0ee73a76cca25f747208"
+      },
+      "source_reading_proposal_not_final_review": "Field tags, bracket scope construction and omitempty filtering."
+    },
+    {
+      "id": "Q-custom",
+      "source_id": "upstream/querystring/query/encode.go",
+      "span": {
+        "start_line": 189,
+        "end_line_inclusive": 206,
+        "start_byte": 6186,
+        "end_byte_exclusive": 6777,
+        "sha256": "40828f151f36f2542a9edc1988c391dee013d2191a4bdd5c74a67d8d0c6b993e"
+      },
+      "source_reading_proposal_not_final_review": "Callback implementation may take over value encoding and return error."
+    },
+    {
+      "id": "Q-array",
+      "source_id": "upstream/querystring/query/encode.go",
+      "span": {
+        "start_line": 216,
+        "end_line_inclusive": 257,
+        "start_byte": 6929,
+        "end_byte_exclusive": 7859,
+        "sha256": "fd95fd68f91bf0160b32f9b1cc9a070132f4429b135470bcf4fd9de19bcdc737"
+      },
+      "source_reading_proposal_not_final_review": "Empty sequences skipped; default repeated values are added in index order, with separate option branches."
+    },
+    {
+      "id": "Q-nested",
+      "source_id": "upstream/querystring/query/encode.go",
+      "span": {
+        "start_line": 259,
+        "end_line_inclusive": 280,
+        "start_byte": 7860,
+        "end_byte_exclusive": 8254,
+        "sha256": "990f3a9aed2f2208967b390ef48f6962129654886cd71acb363a4b63cab81720"
+      },
+      "source_reading_proposal_not_final_review": "Nested structs recurse; scalar strings added; embedded fields handled separately."
+    },
+    {
+      "id": "Q-string",
+      "source_id": "upstream/querystring/query/encode.go",
+      "span": {
+        "start_line": 284,
+        "end_line_inclusive": 317,
+        "start_byte": 8318,
+        "end_byte_exclusive": 9057,
+        "sha256": "605aa80b35030fa0521e34ad5aa071911cd1820c58c06abe748634a612f6c56a"
+      },
+      "source_reading_proposal_not_final_review": "Returns one string; nil pointers, boolean int and time formatting branches."
+    },
+    {
+      "id": "Q-empty",
+      "source_id": "upstream/querystring/query/encode.go",
+      "span": {
+        "start_line": 321,
+        "end_line_inclusive": 345,
+        "start_byte": 9187,
+        "end_byte_exclusive": 9851,
+        "sha256": "f91dfd208748f225d716a697e8fd7ac1865d4bc6558f2eb4f0017d317524c2d2"
+      },
+      "source_reading_proposal_not_final_review": "Empty-value helper for omitempty, including custom IsZero outside proposed primitive scope."
+    },
+    {
+      "id": "Q-tags",
+      "source_id": "upstream/querystring/query/encode.go",
+      "span": {
+        "start_line": 354,
+        "end_line_inclusive": 367,
+        "start_byte": 10110,
+        "end_byte_exclusive": 10416,
+        "sha256": "21d864c3c685ed6f051187c77ef43755614d02345059f0c9550ca3458c8bd4b1"
+      },
+      "source_reading_proposal_not_final_review": "Tag options are parsed and tested by helpers."
+    },
+    {
+      "id": "S-ascii",
+      "source_id": "upstream/shlex/shlex.go",
+      "span": {
+        "start_line": 77,
+        "end_line_inclusive": 84,
+        "start_byte": 1995,
+        "end_byte_exclusive": 2188,
+        "sha256": "a56b57a0331c6a08e2fb5a5a159b67c604fd7b5f3a8924df27b1a314eb7ad3f0"
+      },
+      "source_reading_proposal_not_final_review": "Exact default separator/quote/escape/comment rune sets."
+    },
+    {
+      "id": "S-default",
+      "source_id": "upstream/shlex/shlex.go",
+      "span": {
+        "start_line": 125,
+        "end_line_inclusive": 139,
+        "start_byte": 3476,
+        "end_byte_exclusive": 4019,
+        "sha256": "5743e486ecc5ce0b89380f52f0cd60af54a6561d94c2a5e7966117e7987718fd"
+      },
+      "source_reading_proposal_not_final_review": "Default classifier construction and classification."
+    },
+    {
+      "id": "S-lexer",
+      "source_id": "upstream/shlex/shlex.go",
+      "span": {
+        "start_line": 141,
+        "end_line_inclusive": 167,
+        "start_byte": 4020,
+        "end_byte_exclusive": 4694,
+        "sha256": "c7995d4a9c3850651349034e88635333a5b01981c7856fc46466877a94ad49b2"
+      },
+      "source_reading_proposal_not_final_review": "Reader lexer streams one word, skips comments, discards tokenizer token on error."
+    },
+    {
+      "id": "S-constructor",
+      "source_id": "upstream/shlex/shlex.go",
+      "span": {
+        "start_line": 169,
+        "end_line_inclusive": 182,
+        "start_byte": 4695,
+        "end_byte_exclusive": 5085,
+        "sha256": "d1f6e9fb37fb939052891b72315c238c59708281334cea9ae4ca1d31ee9bf8e6"
+      },
+      "source_reading_proposal_not_final_review": "Tokenizer uses bufio.Reader and default classifier."
+    },
+    {
+      "id": "S-start",
+      "source_id": "upstream/shlex/shlex.go",
+      "span": {
+        "start_line": 186,
+        "end_line_inclusive": 242,
+        "start_byte": 5249,
+        "end_byte_exclusive": 6371,
+        "sha256": "9180d2231b0118584d409dc46135068248f5f0af03ce06f9cc54c4a871d984bc"
+      },
+      "source_reading_proposal_not_final_review": "Quoted input starts WordToken even before any word characters."
+    },
+    {
+      "id": "S-word",
+      "source_id": "upstream/shlex/shlex.go",
+      "span": {
+        "start_line": 244,
+        "end_line_inclusive": 278,
+        "start_byte": 6376,
+        "end_byte_exclusive": 7045,
+        "sha256": "72a6b61e5a610a0ed302f535adf39f5e7d51c3474df603c389a87c6fa3902949"
+      },
+      "source_reading_proposal_not_final_review": "Completed word emitted at separator or EOF, including empty quoted word."
+    },
+    {
+      "id": "S-escape",
+      "source_id": "upstream/shlex/shlex.go",
+      "span": {
+        "start_line": 279,
+        "end_line_inclusive": 314,
+        "start_byte": 7045,
+        "end_byte_exclusive": 7879,
+        "sha256": "f28f93886beb7a7535e955d208a986654c7abec4162c4ab23b95f87bf12a19b9"
+      },
+      "source_reading_proposal_not_final_review": "Escape EOF returns partial typed token and error."
+    },
+    {
+      "id": "S-quote",
+      "source_id": "upstream/shlex/shlex.go",
+      "span": {
+        "start_line": 315,
+        "end_line_inclusive": 360,
+        "start_byte": 7879,
+        "end_byte_exclusive": 8850,
+        "sha256": "c5290a1e46fcc5fef6b12a79d723a28fcc04aa7e0f1ae4635bfd5d550bda93fa"
+      },
+      "source_reading_proposal_not_final_review": "Quote EOF returns partial typed token and error."
+    },
+    {
+      "id": "S-next",
+      "source_id": "upstream/shlex/shlex.go",
+      "span": {
+        "start_line": 397,
+        "end_line_inclusive": 400,
+        "start_byte": 9497,
+        "end_byte_exclusive": 9613,
+        "sha256": "a32c854ca299ec254e605bf41ff850af4a03d81a8e23517c9124ebda454b3420"
+      },
+      "source_reading_proposal_not_final_review": "Tokenizer.Next directly delegates to scanStream."
+    },
+    {
+      "id": "S-split",
+      "source_id": "upstream/shlex/shlex.go",
+      "span": {
+        "start_line": 403,
+        "end_line_inclusive": 416,
+        "start_byte": 9668,
+        "end_byte_exclusive": 9957,
+        "sha256": "78a459bc9b9e681fded49c8dc18d3e50d79196dc743a5823a33ecb319174b128"
+      },
+      "source_reading_proposal_not_final_review": "String input; accumulates successful words, keeps completed prefix on error, normal EOF succeeds with nonnil slice."
+    }
+  ],
+  "excluded_from_features": [
+    "code/helper/source hashes/paths/repo/license/IDs",
+    "Want/Got/Matches/expected values from observer",
+    "coverage/review/truth/acceptable/weights/group/role",
+    "locale display text and private metadata"
+  ],
+  "historical_pins": [
+    {
+      "bytes": 29001,
+      "id": "candidate-drafts-v2",
+      "sha256": "a4e81d891456c8102fbd40dccb5cd7280f48251ed29245348db1b22802c4296b"
+    },
+    {
+      "bytes": 4840,
+      "id": "independent-source-review",
+      "sha256": "8d7ed8daccd3bcebccde73584b41c08c7df1ede1279e4e0aeb78f01da4d57b61"
+    },
+    {
+      "bytes": 7796,
+      "id": "independent-source-notes-ko",
+      "sha256": "2dbacf346a210c4a456ede8722c639583f4b544e0f9e69bde147e51c3e9a8465"
+    },
+    {
+      "bytes": 4944,
+      "id": "independent-want-review",
+      "sha256": "b073ca6f522f5f32c0f25f1578e907252558f3bb63a1d5290dd57160013829c5"
+    }
+  ],
+  "independent_family_count_proposed": 3,
+  "license_references_unchanged": [
+    {
+      "id": "datasize-MIT",
+      "spdx_from_pinned_handoff": "MIT",
+      "copyright_attribution": "Copyright (c) 2016 Maciej Lisiewski",
+      "original_license": {
+        "id": "upstream/datasize/LICENSE",
+        "bytes": 1083,
+        "sha256": "1da5ddc019236601d02468c7582cc6a8d8b9269dadf3b87ce8d40104ef2453de"
+      },
+      "bundled_exact_license": {
+        "id": "licenses/c2h5oh-datasize.MIT.txt",
+        "bytes": 1083,
+        "sha256": "1da5ddc019236601d02468c7582cc6a8d8b9269dadf3b87ce8d40104ef2453de"
+      },
+      "source_url": "https://github.com/c2h5oh/datasize/blob/aa82cc1e65004e2b59a6e44d26f774ca961b24d8/LICENSE"
+    },
+    {
+      "id": "querystring-BSD-3-Clause",
+      "spdx_from_pinned_handoff": "BSD-3-Clause",
+      "copyright_attribution": "Copyright (c) 2013 Google. All rights reserved.",
+      "original_license": {
+        "id": "upstream/querystring/LICENSE",
+        "bytes": 1471,
+        "sha256": "d906c9396b6805d16bbaaa8844c58a44c46159bfe494443c1e4cfbc791103dcc"
+      },
+      "bundled_exact_license": {
+        "id": "licenses/google-go-querystring.BSD-3-Clause.txt",
+        "bytes": 1471,
+        "sha256": "d906c9396b6805d16bbaaa8844c58a44c46159bfe494443c1e4cfbc791103dcc"
+      },
+      "source_url": "https://github.com/google/go-querystring/blob/965d79f2113ea0ff039d29828a08a616a0223d48/LICENSE"
+    },
+    {
+      "id": "shlex-Apache-2.0",
+      "spdx_from_pinned_handoff": "Apache-2.0",
+      "copyright_attribution": "Copyright 2012 Google Inc. All Rights Reserved.",
+      "original_license": {
+        "id": "upstream/shlex/COPYING",
+        "bytes": 11358,
+        "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+      },
+      "bundled_exact_license": {
+        "id": "licenses/google-shlex.Apache-2.0.txt",
+        "bytes": 11358,
+        "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+      },
+      "source_url": "https://github.com/google/shlex/blob/e7afc7fbc51079733e9468cdfd1efcd7d196cd1d/COPYING",
+      "additional_exact_notice": {
+        "id": "licenses/google-shlex.copyright-header.txt",
+        "bytes": 579,
+        "sha256": "b9d143b47b47ab93219c591484cb80884e6fd5192aa241ef4d43ba6b6dc346ba"
+      }
+    }
+  ],
+  "model_input_only": [
+    "unchanged English request",
+    "selected original OR new caption text"
+  ],
+  "operations": {
+    "collaboration_cost": "AI-assisted planning cost not measured; zero separate API/model trial does not mean zero AI involvement or cost.",
+    "features_project_fit_models_paid_trials": 0,
+    "historical_files_rewritten": 0,
+    "metadata_generation_attempts": 1,
+    "metadata_generation_failures": 0,
+    "new_parent_label_role_weight_assignments": 0,
+    "original_APIs_import_init_observer_tests_binary_executions": 0,
+    "protected_final_reads": 0,
+    "retained_public_source_files_verified": 3,
+    "shared_edits_git_hf_publication": 0,
+    "source_acquisition_failures": 0,
+    "source_acquisition_network_attempts": 0
+  },
+  "paired_ablation_design": {
+    "arms": [
+      "A: exact original v2 upstream captions",
+      "B: source-derived-finite-behavior-v1 captions"
+    ],
+    "final_boundary": "No observed24-to-broad-label promotion; original76 development evidence and existing fresh-domain protected final≥2400 requirement remain distinct; no protected final reads here.",
+    "first_step": "Independent fidelity and clause-coverage review on all nine candidates before any membership/model use; this document contains proposals, not final review outcomes.",
+    "held_fixed": [
+      "same three requests/parents",
+      "same candidate identity/count/source-declaration order",
+      "same whole-family grouping and any later frozen supervision/role/masks",
+      "same caller-frozen scorer/model/seed/objective/threshold/budget"
+    ],
+    "labels_and_roles": "Unset now. Any later bounded supervision must be independent of scores and apply equally to both arms. Missing/equivalence evidence stays unknown, not automatic negative/no_answer.",
+    "leakage_policy": "Alias/wrapper/helper links and AI author pipeline stay whole-family grouped; compare existing76 source aliases before new full role assignment, never copy historical roles. Do not split A/B or locales across roles. Shared organization or stdlib alone does not establish an edge.",
+    "no_sample_multiplication": "Two caption versions and KR display remain the same three parents/three families, not six or eighteen independent training examples.",
+    "possible_future_measurements": [
+      "clause sufficiency/fidelity reviewed independently",
+      "paired rank/check count and unchanged fallback only after qualified common labels/scorer are frozen",
+      "unknown/unqualified request and mask denominators retained"
+    ],
+    "target_conditioning_limit": "Captions are target-aware AI-authored summaries. A better paired result could show that explicit semantics help this scorer, not autonomous source discovery or new human-authored diversity."
+  },
+  "paired_input_versions": 2,
+  "parents": [
+    {
+      "acceptable_candidate_indices": null,
+      "actual_whole_group_id": null,
+      "candidates": [
+        {
+          "candidate_id": "candidate-1",
+          "candidate_satisfied": null,
+          "label": null,
+          "new_caption": {
+            "bytes": 167,
+            "fidelity_review_status": "pending",
+            "kind": "AI_assisted_public_source_summary_not_upstream_quote",
+            "request_coverage_review_status": "pending",
+            "sha256": "40a4d6bf30b3e666ad3c7720e1b4738c3f3e0d19e37105073ebd93fe4703d2c7",
+            "standalone_unicode_alphanumeric_words": 26,
+            "text": "UnmarshalText parses ASCII integers with binary byte units into a receiver; syntax or bits errors set zero, while range errors set uint64 maximum; errors are returned.",
+            "version": "source-derived-finite-behavior-v1"
+          },
+          "original_caption_unchanged": {
+            "text": "func (b *ByteSize) UnmarshalText(t []byte) error {\n",
+            "kind": "exact_upstream_signature_line",
+            "source_span": {
+              "start_line": 116,
+              "end_line_inclusive": 116,
+              "start_byte": 2244,
+              "end_byte_exclusive": 2295,
+              "span_sha256": "8112d8f7cd67afac22cc49ab459057df0eff70c5d8d8ebd83378a513efafb6eb"
+            },
+            "bytes": 51,
+            "budget_words_standalone_count_not_runtime_features": 9
+          },
+          "original_position": 0,
+          "original_source_binding": {
+            "repository": "c2h5oh/datasize",
+            "revision": "aa82cc1e65004e2b59a6e44d26f774ca961b24d8",
+            "path": "datasize.go",
+            "file_pin": {
+              "id": "upstream/datasize/datasize.go",
+              "bytes": 4397,
+              "sha256": "512932730df3f5b92b025ccb03cb534670b9f9d77edc201f58ffbee711a583d9"
+            },
+            "declaration": "(*ByteSize).UnmarshalText",
+            "root_span": {
+              "start_line": 116,
+              "end_line_inclusive": 217,
+              "start_byte": 2244,
+              "end_byte_exclusive": 4044,
+              "span_sha256": "94ddf6a58c485098bbfeb92b3af243dc1010ae584073aa5ea75598c8b93e5639"
+            },
+            "source_url": "https://github.com/c2h5oh/datasize/blob/aa82cc1e65004e2b59a6e44d26f774ca961b24d8/datasize.go#L116-L217",
+            "license_id": "datasize-MIT"
+          },
+          "per_requested_condition": [
+            {
+              "candidate_satisfied": null,
+              "condition_id": "receiver_method",
+              "evidence_ids": [
+                "D-parse",
+                "D-must",
+                "D-integer-prefix"
+              ],
+              "independent_review_status": "pending",
+              "meaning": "Caption names receiver mutation of a method, not a fresh returned value.",
+              "source_caption_proposal_state": "source_backed_caption_clause"
+            },
+            {
+              "candidate_satisfied": null,
+              "condition_id": "integer_binary_units",
+              "evidence_ids": [
+                "D-types-units",
+                "D-integer-prefix",
+                "D-units"
+              ],
+              "independent_review_status": "pending",
+              "meaning": "ASCII digit and binary-unit parsing is named; empty input, exact suffix case and complete grammar are not exhaustively stated.",
+              "source_caption_proposal_state": "source_backed_caption_clause"
+            },
+            {
+              "candidate_satisfied": null,
+              "condition_id": "returned_error_categories",
+              "evidence_ids": [
+                "D-errors",
+                "D-parse",
+                "D-must"
+              ],
+              "independent_review_status": "pending",
+              "meaning": "Returned syntax/bits/range errors are grounded in the helper branches; exact error identity remains outside this short caption.",
+              "source_caption_proposal_state": "source_backed_caption_clause"
+            },
+            {
+              "candidate_satisfied": null,
+              "condition_id": "distinct_receiver_states",
+              "evidence_ids": [
+                "D-errors",
+                "D-parse",
+                "D-must"
+              ],
+              "independent_review_status": "pending",
+              "meaning": "Zero versus uint64 maximum is explicit; for wrappers this describes Parse's fresh local value, not external receiver mutation.",
+              "source_caption_proposal_state": "source_backed_caption_clause"
+            }
+          ],
+          "training_loss_weight": null
+        },
+        {
+          "candidate_id": "candidate-2",
+          "candidate_satisfied": null,
+          "label": null,
+          "new_caption": {
+            "bytes": 171,
+            "fidelity_review_status": "pending",
+            "kind": "AI_assisted_public_source_summary_not_upstream_quote",
+            "request_coverage_review_status": "pending",
+            "sha256": "a602137713bf7d0be525640007d74056795f43e60bd47b14b468f85c56238dea",
+            "standalone_unicode_alphanumeric_words": 27,
+            "text": "Parse uses a fresh ByteSize with UnmarshalText for ASCII integers and binary units, returning value plus error; syntax or bits yield zero, and range yields uint64 maximum.",
+            "version": "source-derived-finite-behavior-v1"
+          },
+          "original_caption_unchanged": {
+            "text": "func Parse(t []byte) (ByteSize, error) {\n\tvar v ByteSize\n\terr := v.UnmarshalText(t)\n\treturn v, err\n}\n",
+            "kind": "complete_exact_upstream_short_function",
+            "source_span": {
+              "start_line": 219,
+              "end_line_inclusive": 223,
+              "start_byte": 4045,
+              "end_byte_exclusive": 4146,
+              "span_sha256": "8119e6b198b894d555b724dc7466d111b40cb90be4b2b93f7cdb46c0df9a5487"
+            },
+            "bytes": 101,
+            "budget_words_standalone_count_not_runtime_features": 19
+          },
+          "original_position": 1,
+          "original_source_binding": {
+            "repository": "c2h5oh/datasize",
+            "revision": "aa82cc1e65004e2b59a6e44d26f774ca961b24d8",
+            "path": "datasize.go",
+            "file_pin": {
+              "id": "upstream/datasize/datasize.go",
+              "bytes": 4397,
+              "sha256": "512932730df3f5b92b025ccb03cb534670b9f9d77edc201f58ffbee711a583d9"
+            },
+            "declaration": "Parse",
+            "root_span": {
+              "start_line": 219,
+              "end_line_inclusive": 223,
+              "start_byte": 4045,
+              "end_byte_exclusive": 4146,
+              "span_sha256": "8119e6b198b894d555b724dc7466d111b40cb90be4b2b93f7cdb46c0df9a5487"
+            },
+            "source_url": "https://github.com/c2h5oh/datasize/blob/aa82cc1e65004e2b59a6e44d26f774ca961b24d8/datasize.go#L219-L223",
+            "license_id": "datasize-MIT"
+          },
+          "per_requested_condition": [
+            {
+              "candidate_satisfied": null,
+              "condition_id": "receiver_method",
+              "evidence_ids": [
+                "D-parse",
+                "D-must",
+                "D-integer-prefix"
+              ],
+              "independent_review_status": "pending",
+              "meaning": "Selected declaration is a function over a fresh local value, not a caller receiver method; wrapper equivalence is not assumed.",
+              "source_caption_proposal_state": "source_backed_counterevidence"
+            },
+            {
+              "candidate_satisfied": null,
+              "condition_id": "integer_binary_units",
+              "evidence_ids": [
+                "D-types-units",
+                "D-integer-prefix",
+                "D-units"
+              ],
+              "independent_review_status": "pending",
+              "meaning": "ASCII digit and binary-unit parsing is named; empty input, exact suffix case and complete grammar are not exhaustively stated.",
+              "source_caption_proposal_state": "source_backed_caption_clause"
+            },
+            {
+              "candidate_satisfied": null,
+              "condition_id": "returned_error_categories",
+              "evidence_ids": [
+                "D-errors",
+                "D-parse",
+                "D-must"
+              ],
+              "independent_review_status": "pending",
+              "meaning": "Returned syntax/bits/range errors are grounded in the helper branches; exact error identity remains outside this short caption.",
+              "source_caption_proposal_state": "source_backed_caption_clause"
+            },
+            {
+              "candidate_satisfied": null,
+              "condition_id": "distinct_receiver_states",
+              "evidence_ids": [
+                "D-errors",
+                "D-parse",
+                "D-must"
+              ],
+              "independent_review_status": "pending",
+              "meaning": "Zero versus uint64 maximum is explicit; for wrappers this describes Parse's fresh local value, not external receiver mutation.",
+              "source_caption_proposal_state": "source_backed_caption_clause"
+            }
+          ],
+          "training_loss_weight": null
+        },
+        {
+          "candidate_id": "candidate-3",
+          "candidate_satisfied": null,
+          "label": null,
+          "new_caption": {
+            "bytes": 188,
+            "fidelity_review_status": "pending",
+            "kind": "AI_assisted_public_source_summary_not_upstream_quote",
+            "request_coverage_review_status": "pending",
+            "sha256": "9689ab8fee78bcf5831eacf4682e3a189024888ec5890f7749fd8b8bc8bf59ab",
+            "standalone_unicode_alphanumeric_words": 30,
+            "text": "MustParse calls Parse for ASCII integers and binary units; Parse yields zero on syntax or bits errors and uint64 maximum on range errors, then MustParse panics instead of returning errors.",
+            "version": "source-derived-finite-behavior-v1"
+          },
+          "original_caption_unchanged": {
+            "text": "func MustParse(t []byte) ByteSize {\n\tv, err := Parse(t)\n\tif err != nil {\n\t\tpanic(err)\n\t}\n\treturn v\n}\n",
+            "kind": "complete_exact_upstream_short_function",
+            "source_span": {
+              "start_line": 225,
+              "end_line_inclusive": 231,
+              "start_byte": 4147,
+              "end_byte_exclusive": 4248,
+              "span_sha256": "f8b67ccbb1e68ab2f81956f5f60ec282cd445396fa6ccf70eb634b9e63731f9e"
+            },
+            "bytes": 101,
+            "budget_words_standalone_count_not_runtime_features": 18
+          },
+          "original_position": 2,
+          "original_source_binding": {
+            "repository": "c2h5oh/datasize",
+            "revision": "aa82cc1e65004e2b59a6e44d26f774ca961b24d8",
+            "path": "datasize.go",
+            "file_pin": {
+              "id": "upstream/datasize/datasize.go",
+              "bytes": 4397,
+              "sha256": "512932730df3f5b92b025ccb03cb534670b9f9d77edc201f58ffbee711a583d9"
+            },
+            "declaration": "MustParse",
+            "root_span": {
+              "start_line": 225,
+              "end_line_inclusive": 231,
+              "start_byte": 4147,
+              "end_byte_exclusive": 4248,
+              "span_sha256": "f8b67ccbb1e68ab2f81956f5f60ec282cd445396fa6ccf70eb634b9e63731f9e"
+            },
+            "source_url": "https://github.com/c2h5oh/datasize/blob/aa82cc1e65004e2b59a6e44d26f774ca961b24d8/datasize.go#L225-L231",
+            "license_id": "datasize-MIT"
+          },
+          "per_requested_condition": [
+            {
+              "candidate_satisfied": null,
+              "condition_id": "receiver_method",
+              "evidence_ids": [
+                "D-parse",
+                "D-must",
+                "D-integer-prefix"
+              ],
+              "independent_review_status": "pending",
+              "meaning": "Selected declaration is a function over a fresh local value, not a caller receiver method; wrapper equivalence is not assumed.",
+              "source_caption_proposal_state": "source_backed_counterevidence"
+            },
+            {
+              "candidate_satisfied": null,
+              "condition_id": "integer_binary_units",
+              "evidence_ids": [
+                "D-types-units",
+                "D-integer-prefix",
+                "D-units"
+              ],
+              "independent_review_status": "pending",
+              "meaning": "ASCII digit and binary-unit parsing is named; empty input, exact suffix case and complete grammar are not exhaustively stated.",
+              "source_caption_proposal_state": "source_backed_caption_clause"
+            },
+            {
+              "candidate_satisfied": null,
+              "condition_id": "returned_error_categories",
+              "evidence_ids": [
+                "D-errors",
+                "D-parse",
+                "D-must"
+              ],
+              "independent_review_status": "pending",
+              "meaning": "MustParse panics rather than returning an error; helper intermediate values are not a returned error-state contract.",
+              "source_caption_proposal_state": "source_backed_counterevidence"
+            },
+            {
+              "candidate_satisfied": null,
+              "condition_id": "distinct_receiver_states",
+              "evidence_ids": [
+                "D-errors",
+                "D-parse",
+                "D-must"
+              ],
+              "independent_review_status": "pending",
+              "meaning": "Zero versus uint64 maximum is explicit; for wrappers this describes Parse's fresh local value, not external receiver mutation.",
+              "source_caption_proposal_state": "source_backed_caption_clause"
+            }
+          ],
+          "training_loss_weight": null
+        }
+      ],
+      "draft_id": "draft-datasize-receiver-parse",
+      "goal_id": "datasize-unit-parse-state",
+      "proposed_whole_family_key": "proposed-source-family:datasize",
+      "request_bytes": 140,
+      "request_en_model_input_unchanged": "Find the byte size receiver method that parses integer binary units and returns syntax, bits, or range errors with distinct receiver states.",
+      "request_ko_display_locale_unchanged": "정수와 이진 단위로 바이트 크기를 읽고, 문법·비트·범위 오류에 따라 receiver 상태를 바꾸며 오류를 반환하는 메서드를 찾아주세요.",
+      "request_standalone_unicode_alphanumeric_words": 22,
+      "role": null,
+      "truth": null,
+      "truth_state": "unknown",
+      "weights": null
+    },
+    {
+      "acceptable_candidate_indices": null,
+      "actual_whole_group_id": null,
+      "candidates": [
+        {
+          "candidate_id": "candidate-1",
+          "candidate_satisfied": null,
+          "label": null,
+          "new_caption": {
+            "bytes": 193,
+            "fidelity_review_status": "pending",
+            "kind": "AI_assisted_public_source_summary_not_upstream_quote",
+            "request_coverage_review_status": "pending",
+            "sha256": "cfd332d3f045cfd2627e31ba000a543e3030db3cd6e61b14357458900d812191",
+            "standalone_unicode_alphanumeric_words": 25,
+            "text": "Encoder declares custom URL encoding through EncodeValues with a key, values pointer, and returned error; implementations determine duplicate order, empty parameter handling, and nested naming.",
+            "version": "source-derived-finite-behavior-v1"
+          },
+          "original_caption_unchanged": {
+            "text": "// Encoder is an interface implemented by any type that wishes to encode\n// itself into URL values in a non-standard way.\n",
+            "kind": "complete_exact_upstream_comment_paragraph",
+            "source_span": {
+              "start_line": 36,
+              "end_line_inclusive": 37,
+              "start_byte": 826,
+              "end_byte_exclusive": 948,
+              "span_sha256": "46604453a33011c09d59d33077aedccd57b2d619c8220df08be7f30c99e2faa7"
+            },
+            "bytes": 122,
+            "budget_words_standalone_count_not_runtime_features": 21
+          },
+          "original_position": 0,
+          "original_source_binding": {
+            "repository": "google/go-querystring",
+            "revision": "965d79f2113ea0ff039d29828a08a616a0223d48",
+            "path": "query/encode.go",
+            "file_pin": {
+              "id": "upstream/querystring/query/encode.go",
+              "bytes": 10416,
+              "sha256": "644ee90c8857903116e74980705bc54a2bd671afbbfcba3f08f7993b6e083ff7"
+            },
+            "declaration": "Encoder",
+            "root_span": {
+              "start_line": 38,
+              "end_line_inclusive": 40,
+              "start_byte": 948,
+              "end_byte_exclusive": 1022,
+              "span_sha256": "3ac992fba7214dedc695001133a8d600dd95fbda77487a9984c96e627802913d"
+            },
+            "source_url": "https://github.com/google/go-querystring/blob/965d79f2113ea0ff039d29828a08a616a0223d48/query/encode.go#L38-L40",
+            "license_id": "querystring-BSD-3-Clause"
+          },
+          "per_requested_condition": [
+            {
+              "candidate_satisfied": null,
+              "condition_id": "struct_query_entrypoint",
+              "evidence_ids": [
+                "Q-interface",
+                "Q-custom"
+              ],
+              "independent_review_status": "pending",
+              "meaning": "The interface supplies a signature only; missing concrete callback behavior is not a negative label.",
+              "source_caption_proposal_state": "unknown"
+            },
+            {
+              "candidate_satisfied": null,
+              "condition_id": "ordered_duplicate_values",
+              "evidence_ids": [
+                "Q-interface",
+                "Q-custom"
+              ],
+              "independent_review_status": "pending",
+              "meaning": "The interface supplies a signature only; missing concrete callback behavior is not a negative label.",
+              "source_caption_proposal_state": "unknown"
+            },
+            {
+              "candidate_satisfied": null,
+              "condition_id": "absent_vs_empty",
+              "evidence_ids": [
+                "Q-interface",
+                "Q-custom"
+              ],
+              "independent_review_status": "pending",
+              "meaning": "The interface supplies a signature only; missing concrete callback behavior is not a negative label.",
+              "source_caption_proposal_state": "unknown"
+            },
+            {
+              "candidate_satisfied": null,
+              "condition_id": "nested_bracket_names",
+              "evidence_ids": [
+                "Q-interface",
+                "Q-custom"
+              ],
+              "independent_review_status": "pending",
+              "meaning": "The interface supplies a signature only; missing concrete callback behavior is not a negative label.",
+              "source_caption_proposal_state": "unknown"
+            }
+          ],
+          "training_loss_weight": null
+        },
+        {
+          "candidate_id": "candidate-2",
+          "candidate_satisfied": null,
+          "label": null,
+          "new_caption": {
+            "bytes": 183,
+            "fidelity_review_status": "pending",
+            "kind": "AI_assisted_public_source_summary_not_upstream_quote",
+            "request_coverage_review_status": "pending",
+            "sha256": "34456dc8c843fd70b18ab1969b7d71d9073e94ebac1d93d041627396ff55f4bd",
+            "standalone_unicode_alphanumeric_words": 26,
+            "text": "Values encodes primitive struct fields: default slice values keep order and duplicates; empty slices are omitted, empty strings remain unless omitempty, and nested names use brackets.",
+            "version": "source-derived-finite-behavior-v1"
+          },
+          "original_caption_unchanged": {
+            "text": "// Values returns the url.Values encoding of v.\n",
+            "kind": "complete_exact_upstream_comment_sentence",
+            "source_span": {
+              "start_line": 42,
+              "end_line_inclusive": 42,
+              "start_byte": 1023,
+              "end_byte_exclusive": 1071,
+              "span_sha256": "a951568f7926a02aad6e8c47704d9d329fd5b1327c5bebb46bfa64d852e99374"
+            },
+            "bytes": 48,
+            "budget_words_standalone_count_not_runtime_features": 8
+          },
+          "original_position": 1,
+          "original_source_binding": {
+            "repository": "google/go-querystring",
+            "revision": "965d79f2113ea0ff039d29828a08a616a0223d48",
+            "path": "query/encode.go",
+            "file_pin": {
+              "id": "upstream/querystring/query/encode.go",
+              "bytes": 10416,
+              "sha256": "644ee90c8857903116e74980705bc54a2bd671afbbfcba3f08f7993b6e083ff7"
+            },
+            "declaration": "Values",
+            "root_span": {
+              "start_line": 125,
+              "end_line_inclusive": 146,
+              "start_byte": 4793,
+              "end_byte_exclusive": 5223,
+              "span_sha256": "19ca2687bf7f9c00badd7cd92f63419867624b4d6b71e65aebc6ea164220659c"
+            },
+            "source_url": "https://github.com/google/go-querystring/blob/965d79f2113ea0ff039d29828a08a616a0223d48/query/encode.go#L125-L146",
+            "license_id": "querystring-BSD-3-Clause"
+          },
+          "per_requested_condition": [
+            {
+              "candidate_satisfied": null,
+              "condition_id": "struct_query_entrypoint",
+              "evidence_ids": [
+                "Q-values",
+                "Q-doc",
+                "Q-custom"
+              ],
+              "independent_review_status": "pending",
+              "meaning": "Primitive exported struct-field scope, not arbitrary callbacks/types.",
+              "source_caption_proposal_state": "source_backed_caption_clause"
+            },
+            {
+              "candidate_satisfied": null,
+              "condition_id": "ordered_duplicate_values",
+              "evidence_ids": [
+                "Q-array"
+              ],
+              "independent_review_status": "pending",
+              "meaning": "Default slice repetition keeps index order and duplicates; join/numbered options are separate.",
+              "source_caption_proposal_state": "source_backed_caption_clause"
+            },
+            {
+              "candidate_satisfied": null,
+              "condition_id": "absent_vs_empty",
+              "evidence_ids": [
+                "Q-array",
+                "Q-scope",
+                "Q-empty",
+                "Q-nested"
+              ],
+              "independent_review_status": "pending",
+              "meaning": "Empty slices are omitted; scalar empty strings survive unless omitempty. This is not a universal absence policy.",
+              "source_caption_proposal_state": "source_backed_caption_clause"
+            },
+            {
+              "candidate_satisfied": null,
+              "condition_id": "nested_bracket_names",
+              "evidence_ids": [
+                "Q-scope",
+                "Q-nested",
+                "Q-tags"
+              ],
+              "independent_review_status": "pending",
+              "meaning": "Nested scoped names use brackets; embedded/anonymously tagged special cases remain outside caption detail.",
+              "source_caption_proposal_state": "source_backed_caption_clause"
+            }
+          ],
+          "training_loss_weight": null
+        },
+        {
+          "candidate_id": "candidate-3",
+          "candidate_satisfied": null,
+          "label": null,
+          "new_caption": {
+            "bytes": 203,
+            "fidelity_review_status": "pending",
+            "kind": "AI_assisted_public_source_summary_not_upstream_quote",
+            "request_coverage_review_status": "pending",
+            "sha256": "637a3bde77a31ec06f99282e4d1c3f4ce3a47b9b653017136c990138950db8ed",
+            "standalone_unicode_alphanumeric_words": 28,
+            "text": "valueString formats one field: nil pointers become empty strings; boolean and time options affect formatting. It returns a string, without aggregating duplicates, omitting keys, or building nested names.",
+            "version": "source-derived-finite-behavior-v1"
+          },
+          "original_caption_unchanged": {
+            "text": "// valueString returns the string representation of a value.\n",
+            "kind": "complete_exact_upstream_comment_sentence",
+            "source_span": {
+              "start_line": 283,
+              "end_line_inclusive": 283,
+              "start_byte": 8257,
+              "end_byte_exclusive": 8318,
+              "span_sha256": "cafdd1e7530a72fb2d1f4ecd1faeaa23b6af54f63ee741d241577541f304827b"
+            },
+            "bytes": 61,
+            "budget_words_standalone_count_not_runtime_features": 9
+          },
+          "original_position": 2,
+          "original_source_binding": {
+            "repository": "google/go-querystring",
+            "revision": "965d79f2113ea0ff039d29828a08a616a0223d48",
+            "path": "query/encode.go",
+            "file_pin": {
+              "id": "upstream/querystring/query/encode.go",
+              "bytes": 10416,
+              "sha256": "644ee90c8857903116e74980705bc54a2bd671afbbfcba3f08f7993b6e083ff7"
+            },
+            "declaration": "valueString",
+            "root_span": {
+              "start_line": 284,
+              "end_line_inclusive": 317,
+              "start_byte": 8318,
+              "end_byte_exclusive": 9057,
+              "span_sha256": "605aa80b35030fa0521e34ad5aa071911cd1820c58c06abe748634a612f6c56a"
+            },
+            "source_url": "https://github.com/google/go-querystring/blob/965d79f2113ea0ff039d29828a08a616a0223d48/query/encode.go#L284-L317",
+            "license_id": "querystring-BSD-3-Clause"
+          },
+          "per_requested_condition": [
+            {
+              "candidate_satisfied": null,
+              "condition_id": "struct_query_entrypoint",
+              "evidence_ids": [
+                "Q-string",
+                "Q-nested",
+                "Q-array"
+              ],
+              "independent_review_status": "pending",
+              "meaning": "valueString returns one field string; the caller owns aggregation/key omission/scoping. Its use inside Values is not entrypoint equivalence.",
+              "source_caption_proposal_state": "source_backed_counterevidence"
+            },
+            {
+              "candidate_satisfied": null,
+              "condition_id": "ordered_duplicate_values",
+              "evidence_ids": [
+                "Q-string",
+                "Q-nested",
+                "Q-array"
+              ],
+              "independent_review_status": "pending",
+              "meaning": "valueString returns one field string; the caller owns aggregation/key omission/scoping. Its use inside Values is not entrypoint equivalence.",
+              "source_caption_proposal_state": "source_backed_counterevidence"
+            },
+            {
+              "candidate_satisfied": null,
+              "condition_id": "absent_vs_empty",
+              "evidence_ids": [
+                "Q-string",
+                "Q-nested",
+                "Q-array"
+              ],
+              "independent_review_status": "pending",
+              "meaning": "valueString returns one field string; the caller owns aggregation/key omission/scoping. Its use inside Values is not entrypoint equivalence.",
+              "source_caption_proposal_state": "source_backed_counterevidence"
+            },
+            {
+              "candidate_satisfied": null,
+              "condition_id": "nested_bracket_names",
+              "evidence_ids": [
+                "Q-string",
+                "Q-nested",
+                "Q-array"
+              ],
+              "independent_review_status": "pending",
+              "meaning": "valueString returns one field string; the caller owns aggregation/key omission/scoping. Its use inside Values is not entrypoint equivalence.",
+              "source_caption_proposal_state": "source_backed_counterevidence"
+            }
+          ],
+          "training_loss_weight": null
+        }
+      ],
+      "draft_id": "draft-query-ordered-values",
+      "goal_id": "query-tagged-multivalue",
+      "proposed_whole_family_key": "proposed-source-family:querystring",
+      "request_bytes": 155,
+      "request_en_model_input_unchanged": "Find the struct query encoder that preserves ordered duplicate values, distinguishes absent and empty parameters, and uses bracket names for nested fields.",
+      "request_ko_display_locale_unchanged": "구조체를 쿼리 매개변수로 바꾸면서 중복 값의 순서, 빠진 값과 빈 값의 구분, 중첩 필드의 대괄호 이름을 보존하는 코드를 찾아주세요.",
+      "request_standalone_unicode_alphanumeric_words": 22,
+      "role": null,
+      "truth": null,
+      "truth_state": "unknown",
+      "weights": null
+    },
+    {
+      "acceptable_candidate_indices": null,
+      "actual_whole_group_id": null,
+      "candidates": [
+        {
+          "candidate_id": "candidate-1",
+          "candidate_satisfied": null,
+          "label": null,
+          "new_caption": {
+            "bytes": 188,
+            "fidelity_review_status": "pending",
+            "kind": "AI_assisted_public_source_summary_not_upstream_quote",
+            "request_coverage_review_status": "pending",
+            "sha256": "210b1561e8e035b0f8cc77e6c05f8606ff62bf2c404ce990440f537366f0d49f",
+            "standalone_unicode_alphanumeric_words": 30,
+            "text": "Lexer.Next streams one word, preserving empty quoted words and skipping comments; quote or escape errors return an empty string and discard the unfinished word, not a completed token list.",
+            "version": "source-derived-finite-behavior-v1"
+          },
+          "original_caption_unchanged": {
+            "text": "// Next returns the next word, or an error. If there are no more words,\n// the error will be io.EOF.\n",
+            "kind": "complete_exact_upstream_comment_paragraph",
+            "source_span": {
+              "start_line": 150,
+              "end_line_inclusive": 151,
+              "start_byte": 4265,
+              "end_byte_exclusive": 4366,
+              "span_sha256": "57f713df0567bf88110f9a8d4a1d09b34f391d399576c2bbaa85865870f4156b"
+            },
+            "bytes": 101,
+            "budget_words_standalone_count_not_runtime_features": 20
+          },
+          "original_position": 0,
+          "original_source_binding": {
+            "repository": "google/shlex",
+            "revision": "e7afc7fbc51079733e9468cdfd1efcd7d196cd1d",
+            "path": "shlex.go",
+            "file_pin": {
+              "id": "upstream/shlex/shlex.go",
+              "bytes": 9957,
+              "sha256": "f34d676ee244f328c7cb43ff9cb285562df0afde0dc49a7d4f9705fe2703220b"
+            },
+            "declaration": "(*Lexer).Next",
+            "root_span": {
+              "start_line": 152,
+              "end_line_inclusive": 167,
+              "start_byte": 4366,
+              "end_byte_exclusive": 4694,
+              "span_sha256": "31b8adf6b074e2cb344b19d683baa2805eea47aa73573a2d7f80022c912c870a"
+            },
+            "source_url": "https://github.com/google/shlex/blob/e7afc7fbc51079733e9468cdfd1efcd7d196cd1d/shlex.go#L152-L167",
+            "license_id": "shlex-Apache-2.0"
+          },
+          "per_requested_condition": [
+            {
+              "candidate_satisfied": null,
+              "condition_id": "string_splitter_entrypoint",
+              "evidence_ids": [
+                "S-lexer",
+                "S-constructor",
+                "S-next",
+                "S-split"
+              ],
+              "independent_review_status": "pending",
+              "meaning": "Selected Next is a reader-backed incremental method, not a string-to-slice entrypoint; adapter equivalence is unknown.",
+              "source_caption_proposal_state": "source_backed_counterevidence"
+            },
+            {
+              "candidate_satisfied": null,
+              "condition_id": "empty_quoted_words",
+              "evidence_ids": [
+                "S-ascii",
+                "S-default",
+                "S-start",
+                "S-word"
+              ],
+              "independent_review_status": "pending",
+              "meaning": "Default quote state creates a WordToken even when its value is empty.",
+              "source_caption_proposal_state": "source_backed_caption_clause"
+            },
+            {
+              "candidate_satisfied": null,
+              "condition_id": "completed_prefix_before_error",
+              "evidence_ids": [
+                "S-lexer",
+                "S-next",
+                "S-split"
+              ],
+              "independent_review_status": "pending",
+              "meaning": "Next produces one word/token per call, not an accumulated completed prefix.",
+              "source_caption_proposal_state": "source_backed_counterevidence"
+            },
+            {
+              "candidate_satisfied": null,
+              "condition_id": "quote_or_trailing_escape_error",
+              "evidence_ids": [
+                "S-escape",
+                "S-quote",
+                "S-lexer",
+                "S-split"
+              ],
+              "independent_review_status": "pending",
+              "meaning": "The error and output form differ: Lexer empty string, Tokenizer partial token, Split completed slice. General injected Reader failures are not covered.",
+              "source_caption_proposal_state": "source_backed_caption_clause"
+            }
+          ],
+          "training_loss_weight": null
+        },
+        {
+          "candidate_id": "candidate-2",
+          "candidate_satisfied": null,
+          "label": null,
+          "new_caption": {
+            "bytes": 199,
+            "fidelity_review_status": "pending",
+            "kind": "AI_assisted_public_source_summary_not_upstream_quote",
+            "request_coverage_review_status": "pending",
+            "sha256": "cfd9c0586b4d15e0796c23c42261086d5b11f82464f2a0ee0bf48b68345aaaa4",
+            "standalone_unicode_alphanumeric_words": 30,
+            "text": "Tokenizer.Next with the default classifier returns one typed token, including empty quoted words; quote or trailing escape errors include unfinished text and error rather than a completed token list.",
+            "version": "source-derived-finite-behavior-v1"
+          },
+          "original_caption_unchanged": {
+            "text": "// Next returns the next token in the stream.\n",
+            "kind": "complete_exact_upstream_comment_sentence",
+            "source_span": {
+              "start_line": 397,
+              "end_line_inclusive": 397,
+              "start_byte": 9497,
+              "end_byte_exclusive": 9543,
+              "span_sha256": "4ce520f68e9a284fbbdec0096c072c93fc947c184c575f11bb76309d0204694a"
+            },
+            "bytes": 46,
+            "budget_words_standalone_count_not_runtime_features": 8
+          },
+          "original_position": 1,
+          "original_source_binding": {
+            "repository": "google/shlex",
+            "revision": "e7afc7fbc51079733e9468cdfd1efcd7d196cd1d",
+            "path": "shlex.go",
+            "file_pin": {
+              "id": "upstream/shlex/shlex.go",
+              "bytes": 9957,
+              "sha256": "f34d676ee244f328c7cb43ff9cb285562df0afde0dc49a7d4f9705fe2703220b"
+            },
+            "declaration": "(*Tokenizer).Next",
+            "root_span": {
+              "start_line": 398,
+              "end_line_inclusive": 400,
+              "start_byte": 9543,
+              "end_byte_exclusive": 9613,
+              "span_sha256": "e18bfaf1e391802c39ed6f17f7cbcd501d1eedfa404d103aa179589aa579676b"
+            },
+            "source_url": "https://github.com/google/shlex/blob/e7afc7fbc51079733e9468cdfd1efcd7d196cd1d/shlex.go#L398-L400",
+            "license_id": "shlex-Apache-2.0"
+          },
+          "per_requested_condition": [
+            {
+              "candidate_satisfied": null,
+              "condition_id": "string_splitter_entrypoint",
+              "evidence_ids": [
+                "S-lexer",
+                "S-constructor",
+                "S-next",
+                "S-split"
+              ],
+              "independent_review_status": "pending",
+              "meaning": "Selected Next is a reader-backed incremental method, not a string-to-slice entrypoint; adapter equivalence is unknown.",
+              "source_caption_proposal_state": "source_backed_counterevidence"
+            },
+            {
+              "candidate_satisfied": null,
+              "condition_id": "empty_quoted_words",
+              "evidence_ids": [
+                "S-ascii",
+                "S-default",
+                "S-start",
+                "S-word"
+              ],
+              "independent_review_status": "pending",
+              "meaning": "Default quote state creates a WordToken even when its value is empty.",
+              "source_caption_proposal_state": "source_backed_caption_clause"
+            },
+            {
+              "candidate_satisfied": null,
+              "condition_id": "completed_prefix_before_error",
+              "evidence_ids": [
+                "S-lexer",
+                "S-next",
+                "S-split"
+              ],
+              "independent_review_status": "pending",
+              "meaning": "Tokenizer exposes the unfinished typed token with error; it does not return an accumulated completed-word list.",
+              "source_caption_proposal_state": "source_backed_counterevidence"
+            },
+            {
+              "candidate_satisfied": null,
+              "condition_id": "quote_or_trailing_escape_error",
+              "evidence_ids": [
+                "S-escape",
+                "S-quote",
+                "S-lexer",
+                "S-split"
+              ],
+              "independent_review_status": "pending",
+              "meaning": "The error and output form differ: Lexer empty string, Tokenizer partial token, Split completed slice. General injected Reader failures are not covered.",
+              "source_caption_proposal_state": "source_backed_caption_clause"
+            }
+          ],
+          "training_loss_weight": null
+        },
+        {
+          "candidate_id": "candidate-3",
+          "candidate_satisfied": null,
+          "label": null,
+          "new_caption": {
+            "bytes": 191,
+            "fidelity_review_status": "pending",
+            "kind": "AI_assisted_public_source_summary_not_upstream_quote",
+            "request_coverage_review_status": "pending",
+            "sha256": "32c5603e7c036a1d32382fe5fa43bc0351473a57fed74b08c88a2d7195435fdb",
+            "standalone_unicode_alphanumeric_words": 31,
+            "text": "Split uses the default ASCII lexer on a string, preserves empty quoted words, and returns only completed tokens with quote or trailing escape errors; empty input returns a nonnil empty slice.",
+            "version": "source-derived-finite-behavior-v1"
+          },
+          "original_caption_unchanged": {
+            "text": "// Split partitions a string into a slice of strings.\n",
+            "kind": "complete_exact_upstream_comment_sentence",
+            "source_span": {
+              "start_line": 402,
+              "end_line_inclusive": 402,
+              "start_byte": 9614,
+              "end_byte_exclusive": 9668,
+              "span_sha256": "bc5f6844ea2a117c6b3a9d7e7ab9c0fc53ca17ff849b15ea952858c600388fa1"
+            },
+            "bytes": 54,
+            "budget_words_standalone_count_not_runtime_features": 9
+          },
+          "original_position": 2,
+          "original_source_binding": {
+            "repository": "google/shlex",
+            "revision": "e7afc7fbc51079733e9468cdfd1efcd7d196cd1d",
+            "path": "shlex.go",
+            "file_pin": {
+              "id": "upstream/shlex/shlex.go",
+              "bytes": 9957,
+              "sha256": "f34d676ee244f328c7cb43ff9cb285562df0afde0dc49a7d4f9705fe2703220b"
+            },
+            "declaration": "Split",
+            "root_span": {
+              "start_line": 403,
+              "end_line_inclusive": 416,
+              "start_byte": 9668,
+              "end_byte_exclusive": 9957,
+              "span_sha256": "78a459bc9b9e681fded49c8dc18d3e50d79196dc743a5823a33ecb319174b128"
+            },
+            "source_url": "https://github.com/google/shlex/blob/e7afc7fbc51079733e9468cdfd1efcd7d196cd1d/shlex.go#L403-L416",
+            "license_id": "shlex-Apache-2.0"
+          },
+          "per_requested_condition": [
+            {
+              "candidate_satisfied": null,
+              "condition_id": "string_splitter_entrypoint",
+              "evidence_ids": [
+                "S-lexer",
+                "S-constructor",
+                "S-next",
+                "S-split"
+              ],
+              "independent_review_status": "pending",
+              "meaning": "Split accepts string and returns a token slice.",
+              "source_caption_proposal_state": "source_backed_caption_clause"
+            },
+            {
+              "candidate_satisfied": null,
+              "condition_id": "empty_quoted_words",
+              "evidence_ids": [
+                "S-ascii",
+                "S-default",
+                "S-start",
+                "S-word"
+              ],
+              "independent_review_status": "pending",
+              "meaning": "Default quote state creates a WordToken even when its value is empty.",
+              "source_caption_proposal_state": "source_backed_caption_clause"
+            },
+            {
+              "candidate_satisfied": null,
+              "condition_id": "completed_prefix_before_error",
+              "evidence_ids": [
+                "S-lexer",
+                "S-next",
+                "S-split"
+              ],
+              "independent_review_status": "pending",
+              "meaning": "Only completed words enter Split's accumulated slice; unfinished token is discarded on error.",
+              "source_caption_proposal_state": "source_backed_caption_clause"
+            },
+            {
+              "candidate_satisfied": null,
+              "condition_id": "quote_or_trailing_escape_error",
+              "evidence_ids": [
+                "S-escape",
+                "S-quote",
+                "S-lexer",
+                "S-split"
+              ],
+              "independent_review_status": "pending",
+              "meaning": "The error and output form differ: Lexer empty string, Tokenizer partial token, Split completed slice. General injected Reader failures are not covered.",
+              "source_caption_proposal_state": "source_backed_caption_clause"
+            }
+          ],
+          "training_loss_weight": null
+        }
+      ],
+      "draft_id": "draft-shlex-prefix-errors",
+      "goal_id": "shlex-quoted-argv",
+      "proposed_whole_family_key": "proposed-source-family:shlex",
+      "request_bytes": 134,
+      "request_en_model_input_unchanged": "Find the string splitter that keeps empty quoted words and returns completed tokens before an unclosed quote or trailing escape error.",
+      "request_ko_display_locale_unchanged": "빈 따옴표 토큰을 보존하고, 닫히지 않은 따옴표나 마지막 escape 오류가 나면 이미 완성된 토큰을 반환하는 문자열 분리기를 찾아주세요.",
+      "request_standalone_unicode_alphanumeric_words": 21,
+      "role": null,
+      "truth": null,
+      "truth_state": "unknown",
+      "weights": null
+    }
+  ],
+  "remaining_review_blockers": [
+    "All nine new caption fidelity/coverage reviews pending independent reader.",
+    "Query request is broader than the caption's primitive/default-option scope; callback/option/general equivalence is unknown.",
+    "Parse/MustParse/Encoder/valueString/Lexer.Next/Tokenizer.Next were not independently executed by this preparation; wrapper/helper/adapter equivalence must not be inferred from the prior three entrypoint observations.",
+    "Whole-family existing76 alias/author-flow join and future common labels/roles/model binding are unset; no membership/training/readiness approval."
+  ],
+  "schema": "riido-source-derived-finite-caption-ablation-74-v1",
+  "sources": [
+    {
+      "bytes": 4397,
+      "id": "upstream/datasize/datasize.go",
+      "license_id": "datasize-MIT",
+      "path": "datasize.go",
+      "repository": "c2h5oh/datasize",
+      "revision": "aa82cc1e65004e2b59a6e44d26f774ca961b24d8",
+      "sha256": "512932730df3f5b92b025ccb03cb534670b9f9d77edc201f58ffbee711a583d9"
+    },
+    {
+      "bytes": 10416,
+      "id": "upstream/querystring/query/encode.go",
+      "license_id": "querystring-BSD-3-Clause",
+      "path": "query/encode.go",
+      "repository": "google/go-querystring",
+      "revision": "965d79f2113ea0ff039d29828a08a616a0223d48",
+      "sha256": "644ee90c8857903116e74980705bc54a2bd671afbbfcba3f08f7993b6e083ff7"
+    },
+    {
+      "bytes": 9957,
+      "id": "upstream/shlex/shlex.go",
+      "license_id": "shlex-Apache-2.0",
+      "path": "shlex.go",
+      "repository": "google/shlex",
+      "revision": "e7afc7fbc51079733e9468cdfd1efcd7d196cd1d",
+      "sha256": "f34d676ee244f328c7cb43ff9cb285562df0afde0dc49a7d4f9705fe2703220b"
+    }
+  ],
+  "state": "unlabelled_paired_original_source_caption_proposal"
+}

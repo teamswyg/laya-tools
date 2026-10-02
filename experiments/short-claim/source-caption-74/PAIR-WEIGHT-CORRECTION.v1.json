@@ -1,0 +1,25 @@
+{
+  "schema": "riido-source-caption-root-pair-weight-correction-v1",
+  "state": "corrected_before_publication_historical_science_unchanged",
+  "incorrect_root_draft_claim": "Zero BCE sample weight does not disable the existing ranking contribution.",
+  "corrected_fact": "The actual second-fit caller passes the same datasets and SampleWeights. Pair weights multiply endpoint SampleWeights; zero-weight pairs remain in PairAudit but are skipped by ranking gradient and NLL.",
+  "exact_second_fit_source": {
+    "commit": "d506f58ccf9629e2d2b6ca3cd1766ab20789bf64",
+    "plan_sha256": "17afbf5c8d14fdd34f7c627d7b43b9582793984d010f52118f408b287bbc7daf",
+    "ranking_go_sha256": "531ce807d0b4117dc9acaaa800e7d42f8ed38998bc799a69fb588092dce2c11d",
+    "learn_go_sha256": "e25ca8e75b55b7dc1b91c3b29222835ca38e5399e7ba78a38be9207c671a8768",
+    "ranking_go_lines": {"endpoint_product": 267, "gradient_zero_skip": [347,348], "NLL_zero_skip": [378,379]},
+    "caller_evidence": "Saved fit.go118 passes projection datasets; driver main.go373 calls FitWithRankingTrace with those same datasets; rankingAssociation fit.go205-213 binds weights to LossEligible1/0. Independent review inspected these saved files; no separate pair unmasking was found."
+  },
+  "saved_original_pair_audit": {"training_pairs": 56, "training_zero_weight_pairs": 16, "validation_pairs": 28, "validation_zero_weight_pairs": 2, "actual_result_sha256": "e01d7daf8a5f26cd5578674e87f996a578d747f6622221308da4624a71995220"},
+  "new_source_proposal_status": "Actual truth, role and weight fields remain null. Conceptual pair eligibility can be recorded separately; current zero SampleWeights already exclude ranking contributions. No code change is required for that exclusion.",
+  "old_published_second_fit_source_result_model_or_threshold_changed": false,
+  "incorrect_unpublished_root_draft_bytes_retained_privately": true,
+  "incorrect_unpublished_root_draft_pins": [
+    {"id": "root-caption-readme-ko", "sha256": "4324b5f8ba3db47b565a13bf62279739747b9f7e4b01ac526b3ecebc68fe28b3"},
+    {"id": "root-caption-readme-en", "sha256": "84044575e86df7c1f9be551b5a3d16afe5a9c9b53fa9463d152e61a889080014"},
+    {"id": "root-wiki-source-ko", "sha256": "900ae6854ffb218ce33f6ad40863a94e63c3835b6234cd625b5beaeec8ff6f9b"},
+    {"id": "root-wiki-source-en", "sha256": "0664d43b655d9a8de36b0537cb61a5898aaee857e9a974de36e1189274ea1b98"}
+  ],
+  "new_original_API_reader_trainer_or_model_executions": 0
+}

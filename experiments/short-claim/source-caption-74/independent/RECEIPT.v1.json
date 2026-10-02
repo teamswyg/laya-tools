@@ -1,0 +1,53 @@
+{
+  "schema": "riido-source-caption-independent-review-74-v1",
+  "state": "source_fact_review_completed_original_supervision_still_null",
+  "reviewer": "task_expansion_52",
+  "independent_of_caption_author": true,
+  "independent_of_original_source_preparation_author": false,
+  "prior_source_want_and_saved_first_three_result_exposure": true,
+  "blind_review_claim": false,
+  "independent_new_source_origin_claim": false,
+  "inputs": [
+    {"id": "author-handoff", "sha256": "a8df4fd3e8e98cee8bee759691556547539fe313793a7464b14b6843ece097de"},
+    {"id": "caption-drafts", "bytes": 64202, "sha256": "46a423c70503df7e4acfc2895d06aecd0888cf8edc83f31f7dbd8548edf419b8"},
+    {"id": "satisfaction-proposal", "bytes": 12103, "sha256": "0a4fc58e9eb6bc13b683be95a193f6470f2cfa8fab1085d62e75e4fb140e2a2b"},
+    {"id": "original-candidate-v2", "bytes": 29001, "sha256": "a4e81d891456c8102fbd40dccb5cd7280f48251ed29245348db1b22802c4296b"},
+    {"id": "datasize.go", "bytes": 4397, "sha256": "512932730df3f5b92b025ccb03cb534670b9f9d77edc201f58ffbee711a583d9"},
+    {"id": "query/encode.go", "bytes": 10416, "sha256": "644ee90c8857903116e74980705bc54a2bd671afbbfcba3f08f7993b6e083ff7"},
+    {"id": "shlex.go", "bytes": 9957, "sha256": "f34d676ee244f328c7cb43ff9cb285562df0afde0dc49a7d4f9705fe2703220b"}
+  ],
+  "metadata_check": {"path": "METADATA-CHECK.v1.json", "bytes": 922, "sha256": "f626fb5e0f7d553de86b4c9d67deba51db0e366a9d5511c25a536997d17a6deb", "completed_once": true, "raw_evidence_spans": 26, "candidate_root_spans": 9, "original_caption_spans": 9, "new_caption_pairs": 9, "historical_requests_locales_candidate_ids_order_bindings_and_licenses_preserved": true, "standalone_word_and_byte_budget_checked": true, "original_runtime_normalized_word_budget_observed": false},
+  "source_only_findings_not_candidate_labels": [
+    {"parent": "draft-datasize-receiver-parse", "candidate": "candidate-1", "caption_fidelity": "supported", "direct_selected_api_satisfaction": "unknown_material_request_interpretation", "evidence": ["D-integer-prefix", "D-units", "D-errors"], "fact": "UnmarshalText is a receiver method; errors are NumError causes, syntax/bits assign zero and range assigns uint64 maximum. Three pairwise distinct error states is contradicted; two state classes is supported."},
+    {"parent": "draft-datasize-receiver-parse", "candidate": "candidate-2", "caption_fidelity": "supported", "direct_selected_api_satisfaction": "contradicted_direct_receiver_method_shape", "evidence": ["D-parse", "D-errors"], "fact": "Parse creates a fresh local ByteSize, invokes UnmarshalText and returns value/error. It has no caller receiver. Uncalled wrapper status does not obscure this source fact; arbitrary caller adaptation remains unknown."},
+    {"parent": "draft-datasize-receiver-parse", "candidate": "candidate-3", "caption_fidelity": "supported", "direct_selected_api_satisfaction": "contradicted_direct_receiver_and_error_return", "evidence": ["D-must", "D-parse"], "fact": "MustParse is a function, panics on Parse error, and returns only the successful value. Parse's zero/max local states are not returned as error-state values from MustParse."},
+    {"parent": "draft-query-ordered-values", "candidate": "candidate-1", "caption_fidelity": "supported", "direct_selected_api_satisfaction": "unknown_concrete_callback_behavior", "evidence": ["Q-interface", "Q-custom"], "fact": "Encoder declares a custom field callback interface. No concrete traversal/order/empty/nesting behavior is implemented by this declaration. Missing callback evidence is not an automatic negative label."},
+    {"parent": "draft-query-ordered-values", "candidate": "candidate-2", "caption_fidelity": "supported_under_explicit_default_field_scope", "direct_selected_api_satisfaction": "unknown_material_request_scope", "evidence": ["Q-scope", "Q-custom", "Q-array", "Q-nested", "Q-empty"], "fact": "Exported nonignored primitive fields with default sequence options retain repeated value order; empty slices are omitted, scalar empty strings remain unless omitempty, named nesting uses bracket scopes. Delimiter/numbered options and custom encoders override this; anonymous structs can flatten. Original broad absent-vs-empty wording is not an unconditional universal guarantee."},
+    {"parent": "draft-query-ordered-values", "candidate": "candidate-3", "caption_fidelity": "supported", "direct_selected_api_satisfaction": "contradicted_direct_aggregation_shape", "evidence": ["Q-string", "Q-array", "Q-nested"], "fact": "valueString returns one formatted string. Aggregation, omission and bracket-key construction occur in its caller. A composed adapter is not equivalent to selecting this helper alone."},
+    {"parent": "draft-shlex-prefix-errors", "candidate": "candidate-1", "caption_fidelity": "supported", "direct_selected_api_satisfaction": "contradicted_direct_accumulated_result_shape", "evidence": ["S-lexer", "S-escape", "S-quote"], "fact": "Lexer.Next emits one word, skips comments and returns an empty string on tokenizer error. It does not return the previously completed token list. Caller loops are separate compositions."},
+    {"parent": "draft-shlex-prefix-errors", "candidate": "candidate-2", "caption_fidelity": "supported", "direct_selected_api_satisfaction": "contradicted_direct_accumulated_result_shape", "evidence": ["S-start", "S-escape", "S-quote", "S-next"], "fact": "Tokenizer.Next returns one typed token; quote/escape EOF returns the current unfinished token and error, not the accumulated completed prefix."},
+    {"parent": "draft-shlex-prefix-errors", "candidate": "candidate-3", "caption_fidelity": "supported", "direct_selected_api_satisfaction": "supported_bounded_default_string_split", "evidence": ["S-ascii", "S-default", "S-lexer", "S-split"], "fact": "Split constructs the default lexer, appends successful words only, returns completed words with a later quote/escape error, and starts with a nonnil empty slice. This directly supports the stated string-split scope; full POSIX substitution/Reader-fault proof is not required."}
+  ],
+  "separate_request_version_proposals_not_applied": [
+    {"parent": "draft-datasize-receiver-parse", "reason": "Resolve the material two-state versus pairwise-three-state ambiguity without reinterpreting old truth.", "request_en": "Find the receiver method parsing ASCII integers and binary byte units, returning syntax or bits errors with receiver zero and range errors with receiver uint64 maximum."},
+    {"parent": "draft-query-ordered-values", "reason": "State default exported nonignored primitive fields, omit/empty behavior and named nesting; exclude custom callback policy.", "request_en": "Find the struct encoder for exported nonignored fields: default primitive slices preserve duplicate order; omit empty slices, keep empty strings unless omitempty; named nesting uses brackets. Exclude custom encoders."}
+  ],
+  "eligibility_advances_and_remaining_limits": [
+    "Exact source/text/span binding and independent source-fact review are complete. Uncalled wrapper/Next presence is not an automatic block to readable shape or delegation facts.",
+    "The shlex direct string-split source supports the bounded requested clauses. This is a satisfaction finding, not an assigned acceptable set/label or broad formal proof.",
+    "Datasize and query require separately frozen clarified request versions before unconditional common supervision; any future A/B must use the same clarified request in both arms and retain the old version unchanged.",
+    "Concrete Encoder callback or caller adapter equivalence is unknown where not supplied. Missing evidence never creates no_answer.",
+    "Both caption arms, aliases, helper lineage and display translations remain the same whole family; old roles must not be copied. New family/membership/source-diversity readiness is not decided here.",
+    "Source-derived target-aware English captions do not establish autonomous source discovery, human-only author diversity, Korean model performance, or protected-final generalization."
+  ],
+  "actual_parent_truth_roles_weights_acceptable_assignments": 0,
+  "original_API_import_init_test_or_native_binary_calls": 0,
+  "features_normalize_validate_project_baseline_fit_model_calls": 0,
+  "new_Got_body_reads_in_this_review": 0,
+  "new_materialized_request_versions": 0,
+  "source_or_author_artifact_edits": 0,
+  "shared_edits_or_remote_publications": 0,
+  "protected_final_reads": 0,
+  "training_ready": false,
+  "production_ready": false
+}

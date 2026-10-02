@@ -1,0 +1,367 @@
+// Stdlib-only outside controller. Preparation never executes this binary.
+package main
+
+import (
+	"bytes"
+	"encoding/json"
+	"errors"
+	"flag"
+	"fmt"
+	"io"
+	"math"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
+	"runtime/debug"
+	"strconv"
+	"strings"
+	"syscall"
+	"time"
+
+	"riido.local/standalone-reader74/reader"
+)
+
+const resultLimit = (1 << 20) - 1
+
+type Metrics struct {
+	RealSeconds, UserSeconds, SysSeconds *float64
+	MaximumRSSBytes, PeakFootprintBytes  *uint64
+}
+type Child struct {
+	Mode                                                                            string
+	StartIntent, Starts, Retries                                                    int
+	ExitCode                                                                        *int
+	StartFailed, TimedOut, KillFailed, WaitReturned, StdoutOverflow, StderrOverflow bool
+	ControllerChildWallSeconds                                                      float64
+	OSWholeTimedProcess                                                             Metrics
+	Final, Partial, PrivateStdout, PrivateStderrAndTime                             *reader.Ref
+	SelectedPrefix, ResultValidation                                                string
+	Saved                                                                           *reader.WorkerResult
+}
+type Ledger struct {
+	Schema, State, DraftSHA256, FrozenPlanSHA256                                        string
+	Children                                                                            []Child
+	ExpectedChildren, WorkerStarts, Retries                                             int
+	BothCompleted, ArrayAndMetadataDigestsEqual                                         bool
+	ActualOriginalAPICalls, Models, Fits, Roles, Labels, PaidCalls, ProtectedFinalReads int
+	TrainingReady, PerformanceApproved, Final2400Complete                               bool
+	Scope, Limits                                                                       string
+}
+type boundedBuffer struct {
+	buf      bytes.Buffer
+	overflow bool
+}
+
+func (b *boundedBuffer) Write(p []byte) (int, error) {
+	if len(p) > 65536-b.buf.Len() {
+		b.overflow = true
+		return 0, io.ErrShortWrite
+	}
+	return b.buf.Write(p)
+}
+func encoded(v any) ([]byte, error) {
+	b, e := json.MarshalIndent(v, "", "  ")
+	if e != nil || len(b) >= resultLimit {
+		return nil, errors.New("result_bound")
+	}
+	return append(b, '\n'), nil
+}
+func exclusive(path string, b []byte) error {
+	f, e := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	if e != nil {
+		return e
+	}
+	n, e := f.Write(b)
+	if e != nil || n != len(b) {
+		f.Close()
+		return errors.New("write")
+	}
+	if e = f.Sync(); e != nil {
+		f.Close()
+		return e
+	}
+	return f.Close()
+}
+func freeze(b []byte) ([]byte, error) {
+	token := []byte(`"Frozen": false`)
+	if bytes.Count(b, token) != 1 {
+		return nil, errors.New("freeze_token")
+	}
+	return bytes.Replace(b, token, []byte(`"Frozen": true`), 1), nil
+}
+func parseTime(b []byte) Metrics {
+	var m Metrics
+	for _, line := range strings.Split(string(b), "\n") {
+		f := strings.Fields(line)
+		if len(f) == 6 && f[1] == "real" && f[3] == "user" && f[5] == "sys" {
+			a, e := strconv.ParseFloat(f[0], 64)
+			z, e2 := strconv.ParseFloat(f[2], 64)
+			c, e3 := strconv.ParseFloat(f[4], 64)
+			if e == nil && e2 == nil && e3 == nil && a >= 0 && z >= 0 && c >= 0 && !math.IsInf(a, 0) && !math.IsInf(z, 0) && !math.IsInf(c, 0) {
+				m.RealSeconds = &a
+				m.UserSeconds = &z
+				m.SysSeconds = &c
+			}
+		}
+		if len(f) >= 2 {
+			x, e := strconv.ParseUint(f[0], 10, 64)
+			if e == nil {
+				if strings.Contains(line, "maximum resident set size") {
+					m.MaximumRSSBytes = &x
+				}
+				if strings.Contains(line, "peak memory footprint") {
+					m.PeakFootprintBytes = &x
+				}
+			}
+		}
+	}
+	return m
+}
+func verifyResult(r reader.WorkerResult, p reader.Plan, sha, mode string, complete bool) bool {
+	if r.Schema != "riido-standalone-reader74-worker-v1" || r.Mode != mode || r.PlanSHA256 != sha || r.RuntimeGo != p.Toolchain || r.TrainingReady || r.PerformanceApproved || r.Final2400Complete || r.OriginalProjectionCalls != 0 || r.FeaturesCalls != 0 || r.PrepareCalls != 0 || r.Fits != 0 || r.Roles != 0 || r.Labels != 0 || r.Models != 0 || r.PaidCalls != 0 || r.ProtectedFinalReads != 0 {
+		return false
+	}
+	c := r.Counts
+	counts := []int{c.JSONPreflightAttempts, c.JSONPreflightReturned, c.JSONMaterializeAttempts, c.JSONMaterializeReturned, c.CompactReadAttempts, c.CompactReadReturned, c.CompactDecodeAttempts, c.CompactDecodeReturned, c.ValidationAttempts, c.ValidationReturned}
+	for _, n := range counts {
+		if n < 0 || n > 1 {
+			return false
+		}
+	}
+	if c.JSONPreflightReturned > c.JSONPreflightAttempts || c.JSONMaterializeReturned > c.JSONMaterializeAttempts || c.CompactReadReturned > c.CompactReadAttempts || c.CompactDecodeReturned > c.CompactDecodeAttempts || c.ValidationReturned > c.ValidationAttempts {
+		return false
+	}
+	if mode == "json" {
+		if c.CompactReadAttempts != 0 || c.CompactDecodeAttempts != 0 {
+			return false
+		}
+	} else if c.JSONPreflightAttempts != 0 || c.JSONMaterializeAttempts != 0 {
+		return false
+	}
+	if !complete {
+		return r.State == "running_reader_only" || r.State == "failed_reader_only_no_retry" || r.State == "completed_reader_only_no_performance_or_training_approval"
+	}
+	if r.State != "completed_reader_only_no_performance_or_training_approval" || r.Phase != "complete" || r.Failure != "" || r.Summary == nil || !reader.ExpectedSummary(*r.Summary, p) || c.ValidationReturned != 1 {
+		return false
+	}
+	if mode == "json" {
+		return c.JSONPreflightAttempts == 1 && c.JSONPreflightReturned == 1 && c.JSONMaterializeAttempts == 1 && c.JSONMaterializeReturned == 1
+	}
+	return c.CompactReadAttempts == 1 && c.CompactReadReturned == 1 && c.CompactDecodeAttempts == 1 && c.CompactDecodeReturned == 1
+}
+func timedChild(p reader.Plan, planPath, sha, dir, mode string) Child {
+	c := Child{Mode: mode, StartIntent: 1}
+	worker := filepath.Join(p.ReaderRoot, p.WorkerBinary.ID)
+	cmd := exec.Command("/usr/bin/time", "-l", worker, "--plan", planPath, "--plan-sha256", sha, "--format", mode, "--attempt-dir", dir)
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	for _, e := range os.Environ() {
+		key, _, _ := strings.Cut(e, "=")
+		if key != "GOMAXPROCS" && key != "GOMEMLIMIT" {
+			cmd.Env = append(cmd.Env, e)
+		}
+	}
+	cmd.Env = append(cmd.Env, "GOMAXPROCS=1", "GOMEMLIMIT=268435456")
+	var stdout, stderr boundedBuffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	start := time.Now()
+	if e := cmd.Start(); e != nil {
+		c.StartFailed = true
+	} else {
+		c.Starts = 1
+		done := make(chan error, 1)
+		go func() { done <- cmd.Wait() }()
+		timer := time.NewTimer(time.Duration(p.ChildTimeoutSeconds) * time.Second)
+		select {
+		case <-done:
+			timer.Stop()
+			c.WaitReturned = true
+		case <-timer.C:
+			c.TimedOut = true
+			if syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL) != nil {
+				c.KillFailed = true
+			}
+			<-done
+			c.WaitReturned = true
+		}
+		exit := cmd.ProcessState.ExitCode()
+		c.ExitCode = &exit
+	}
+	c.ControllerChildWallSeconds = time.Since(start).Seconds()
+	c.OSWholeTimedProcess = parseTime(stderr.buf.Bytes())
+	c.StdoutOverflow = stdout.overflow
+	c.StderrOverflow = stderr.overflow
+	for _, x := range []struct {
+		id     string
+		b      []byte
+		target **reader.Ref
+	}{{"stdout.private", stdout.buf.Bytes(), &c.PrivateStdout}, {"stderr-time.private", stderr.buf.Bytes(), &c.PrivateStderrAndTime}} {
+		if exclusive(filepath.Join(dir, x.id), x.b) == nil {
+			*x.target = &reader.Ref{ID: "private-" + mode + "-" + x.id, Bytes: len(x.b), SHA256: reader.Hash(x.b)}
+		}
+	}
+	for _, x := range []struct {
+		name   string
+		target **reader.Ref
+		final  bool
+	}{{"results.json", &c.Final, true}, {"results.partial.json", &c.Partial, false}} {
+		b, e := reader.BoundedRead(filepath.Join(dir, x.name), resultLimit)
+		if e != nil || len(b) == 0 {
+			continue
+		}
+		*x.target = &reader.Ref{ID: mode + "/" + x.name, Bytes: len(b), SHA256: reader.Hash(b)}
+		var r reader.WorkerResult
+		if reader.StrictDecode(b, &r) == nil && verifyResult(r, p, sha, mode, x.final) {
+			if c.Saved == nil {
+				c.Saved = &r
+				c.SelectedPrefix = x.name
+				c.ResultValidation = "fixed_bound_typed_record"
+			}
+		} else {
+			c.ResultValidation = "unvalidated_record_preserved"
+		}
+	}
+	return c
+}
+func run(args []string) error {
+	fs := flag.NewFlagSet("reader74-controller", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	draft := fs.String("draft", "", "")
+	draftSHA := fs.String("draft-sha256", "", "")
+	attempt := fs.String("attempt-dir", "", "")
+	if fs.Parse(args) != nil || len(fs.Args()) != 0 || !filepath.IsAbs(*attempt) || filepath.Clean(*attempt) != *attempt {
+		return errors.New("arguments")
+	}
+	b, e := reader.BoundedRead(*draft, 1<<20)
+	if e != nil || reader.Hash(b) != *draftSHA {
+		return errors.New("draft_pin")
+	}
+	var p reader.Plan
+	if reader.StrictDecode(b, &p) != nil || !reader.ValidPlan(p) || p.Frozen {
+		return errors.New("draft")
+	}
+	if runtime.Version() != p.Toolchain || runtime.GOMAXPROCS(0) != 1 || debug.SetMemoryLimit(-1) != int64(p.SoftGoHeapBytes) || reader.VerifyClosure(p) != nil {
+		return errors.New("runtime_source")
+	}
+	self, e := os.Executable()
+	if e != nil || reader.VerifyBinary(self, p.ControllerBinary, p) != nil || reader.VerifyBinary(filepath.Join(p.ReaderRoot, p.WorkerBinary.ID), p.WorkerBinary, p) != nil {
+		return errors.New("binary")
+	}
+	// These controller hash reads deliberately prime both files before timing.
+	for _, r := range []reader.Ref{p.JSON, p.Compact} {
+		raw, e := reader.BoundedRead(r.Path, p.InputCapBytes)
+		if e != nil || len(raw) != r.Bytes || reader.Hash(raw) != r.SHA256 {
+			return errors.New("input_pin")
+		}
+	}
+	frozen, e := freeze(b)
+	if e != nil {
+		return e
+	}
+	sha := reader.Hash(frozen)
+	var sealed reader.Plan
+	if reader.StrictDecode(frozen, &sealed) != nil || !sealed.Frozen || !reader.ValidPlan(sealed) {
+		return errors.New("freeze")
+	}
+	if e = os.Mkdir(*attempt, 0700); e != nil {
+		return errors.New("attempt_exists")
+	}
+	dir, e := os.Open(*attempt)
+	if e != nil {
+		return e
+	}
+	defer dir.Close()
+	planPath := filepath.Join(*attempt, "execution-plan.frozen.json")
+	if e = exclusive(planPath, frozen); e != nil {
+		return e
+	}
+	l := Ledger{Schema: "riido-standalone-reader74-controller-v1", State: "reserved_two_children_not_started", DraftSHA256: *draftSHA, FrozenPlanSHA256: sha, ExpectedChildren: 2, Children: []Child{}, Scope: "Two fresh standalone reader children, JSON then compact, same snapshot/all-array and exact metadata digest validation; warm files after controller hash reads. No conversion, features, models or fitting.", Limits: "One child per format/no retries. CPU1/softGoheap256MiB, each60s group kill followed by Wait; exact totalcontroller bound not guaranteed. OS process metrics include worker pin/source checks, reads, validation/digest and report; file/ownedpayload/Goheap/RSS differ. Fixed order and one sample do not prove causal format-only gain, cold I/O,128/512 scaling, serving or training success. Raw logs/host paths private."}
+	checkpoint := func() error {
+		raw, e := encoded(l)
+		if e != nil {
+			return e
+		}
+		tmp := filepath.Join(*attempt, "controller.partial.next")
+		if e = exclusive(tmp, raw); e != nil {
+			return e
+		}
+		if e = os.Rename(tmp, filepath.Join(*attempt, "controller.partial.json")); e != nil {
+			return e
+		}
+		return dir.Sync()
+	}
+	if e = checkpoint(); e != nil {
+		return e
+	}
+	for _, mode := range p.FormatOrder {
+		childDir := filepath.Join(*attempt, mode)
+		if e = os.Mkdir(childDir, 0700); e != nil {
+			return e
+		}
+		intent, e := encoded(reader.WorkerIntent{Schema: "riido-reader74-child-intent-v1", Mode: mode, PlanSHA256: sha, WorkerSHA256: p.WorkerBinary.SHA256})
+		if e != nil {
+			return e
+		}
+		if e = exclusive(filepath.Join(childDir, "worker-intent.json"), intent); e != nil {
+			return e
+		}
+		childHandle, openErr := os.Open(childDir)
+		if openErr != nil {
+			return openErr
+		}
+		syncErr := childHandle.Sync()
+		closeErr := childHandle.Close()
+		if syncErr != nil || closeErr != nil {
+			return errors.New("child_reservation_sync")
+		}
+		if e = dir.Sync(); e != nil {
+			return e
+		}
+		l.Children = append(l.Children, Child{Mode: mode, StartIntent: 1})
+		l.State = "starting_next_fixed_child"
+		if e = checkpoint(); e != nil {
+			return e
+		}
+		c := timedChild(sealed, planPath, sha, childDir, mode)
+		l.Children[len(l.Children)-1] = c
+		l.WorkerStarts += c.Starts
+		if e = checkpoint(); e != nil {
+			return e
+		}
+	}
+	l.BothCompleted = true
+	for _, c := range l.Children {
+		if c.Starts != 1 || c.ExitCode == nil || *c.ExitCode != 0 || c.TimedOut || c.StdoutOverflow || c.StderrOverflow || c.Saved == nil || c.SelectedPrefix != "results.json" || c.Saved.State != "completed_reader_only_no_performance_or_training_approval" {
+			l.BothCompleted = false
+		}
+	}
+	if l.BothCompleted {
+		l.ArrayAndMetadataDigestsEqual = *l.Children[0].Saved.Summary == *l.Children[1].Saved.Summary
+	}
+	l.State = "completed_two_children_failed_or_mismatched_no_approval"
+	if l.BothCompleted && l.ArrayAndMetadataDigestsEqual {
+		l.State = "completed_two_reader_digest_match_no_performance_or_training_approval"
+	}
+	if e = checkpoint(); e != nil {
+		return e
+	}
+	raw, e := encoded(l)
+	if e != nil {
+		return e
+	}
+	if e = exclusive(filepath.Join(*attempt, "controller.results.json"), raw); e != nil {
+		return e
+	}
+	if e = dir.Sync(); e != nil {
+		return e
+	}
+	fmt.Println("reader74_two_child_record_preserved_no_performance_approval")
+	return nil
+}
+func main() {
+	if run(os.Args[1:]) != nil {
+		fmt.Fprintln(os.Stderr, "reader74_controller_refused_or_failed")
+		os.Exit(1)
+	}
+}

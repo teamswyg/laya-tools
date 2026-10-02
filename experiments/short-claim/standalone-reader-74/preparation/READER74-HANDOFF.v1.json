@@ -1,0 +1,167 @@
+{
+  "Schema": "riido-standalone-reader74-preparation-handoff-v1",
+  "State": "prepared_built_synthetic_only_actual_two_reader_run_pending",
+  "AuthorBoundary": "Reader74/source/plan/controller author; prior compact/projection and reader69/76 exposure is nonblind. Author synthetic checks are not independent review.",
+  "PrivateDraft": {
+    "ID": "execution-plan-74.v1.draft.json",
+    "Bytes": 3664,
+    "SHA256": "dae475a0b64e68d4a18003e8e85c817719716619d953ef0d219ddd40c3228956"
+  },
+  "Inputs": [
+    {
+      "ID": "snapshot76-json",
+      "Bytes": 8390462,
+      "SHA256": "f68bff5f48747a66f038c17262568c1bd91251a8c81b3f46f7ae5090c8fe4b99"
+    },
+    {
+      "ID": "snapshot76-compact",
+      "Bytes": 1978694,
+      "SHA256": "43736823fa4dfa1206eaa9e939b7ab042e97be5950bc3a73b6196668db33a627"
+    }
+  ],
+  "RuntimeSourceClosure": [
+    {
+      "Base": "reader74",
+      "ID": "go.mod",
+      "Path": "",
+      "Bytes": 192,
+      "SHA256": "27eedd37767749d263bf57167e089eae694c261ea62997e0615a22b3d1629550"
+    },
+    {
+      "Base": "reader74",
+      "ID": "reader/json.go",
+      "Path": "",
+      "Bytes": 10762,
+      "SHA256": "ed0b03ab8ba2698da239d05d2810f88c0e3917ef9d5b4c4d77b68d15d7bcb753"
+    },
+    {
+      "Base": "reader74",
+      "ID": "reader/digest.go",
+      "Path": "",
+      "Bytes": 2546,
+      "SHA256": "2938a17962c648171a9ceb458184548791780984c93b214f78c242ee2d7e4858"
+    },
+    {
+      "Base": "reader74",
+      "ID": "reader/files.go",
+      "Path": "",
+      "Bytes": 6810,
+      "SHA256": "b978bde3e28cc2a283fd5b8899d85969b13df3a5cc7a1c518fba4200df4be4ae"
+    },
+    {
+      "Base": "reader74",
+      "ID": "reader/protocol.go",
+      "Path": "",
+      "Bytes": 2699,
+      "SHA256": "2262efb55a6d534e8a7b82c5def758acf6f3fb8afba76ea369217cd57b83f17d"
+    },
+    {
+      "Base": "reader74",
+      "ID": "cmd/worker/main.go",
+      "Path": "",
+      "Bytes": 5866,
+      "SHA256": "69167db4201c2490d5ceaea48c7e61d50550bfbd73c82438fd2c1fb1e67b0349"
+    },
+    {
+      "Base": "reader74",
+      "ID": "cmd/controller/main.go",
+      "Path": "",
+      "Bytes": 13580,
+      "SHA256": "7108f581079e7752b36b28903d4d9086d99eac5de1d307031d047efbaca49159"
+    },
+    {
+      "Base": "compact",
+      "ID": "go.mod",
+      "Path": "",
+      "Bytes": 52,
+      "SHA256": "7e6fe3ffe04f3d457606b72860e1f62d7fcaa5af213932bdd0ef65f6876d656e"
+    },
+    {
+      "Base": "compact",
+      "ID": "codec/codec.go",
+      "Path": "",
+      "Bytes": 7592,
+      "SHA256": "08cb5050f022a7491bc145dde7f3ff22a1f59b8640d1ce58fcd0409857b1af99"
+    },
+    {
+      "Base": "compact",
+      "ID": "codec/json.go",
+      "Path": "",
+      "Bytes": 2693,
+      "SHA256": "c719868bf7f9c906979edad9c4f717deb588a70f900dde2ee3a672617caf9a73"
+    }
+  ],
+  "PreparationSources": [
+    {
+      "ID": "prepare/main.go",
+      "Bytes": 9767,
+      "SHA256": "f4dd7b9c08ab84b19ba028cd415e4bb07f7ed317d4fa68ffdc677ae6aa56f769"
+    },
+    {
+      "ID": "reader/json_test.go",
+      "Bytes": 3597,
+      "SHA256": "03a38017ca91cdfa9dcabc306af52065e551fe92b0edb6d255d5f0cda3045e54"
+    },
+    {
+      "ID": "reader/files_test.go",
+      "Bytes": 2111,
+      "SHA256": "a01ba06cf820caef9eccdd9073ed950309ea77498d35a40f3bd8ba86a4ee0c94"
+    },
+    {
+      "ID": "cmd/controller/main_test.go",
+      "Bytes": 1806,
+      "SHA256": "12f64b996a60d45b1da297ec2d16e75392ef511182601dd6954041a09460c7df"
+    },
+    {
+      "ID": "PLAN-74.ko.md",
+      "Bytes": 4116,
+      "SHA256": "c9bb25ad877dcdd8b8573413fae5ffa9f72bde22d7c64f44efcd37f08f53ae58"
+    },
+    {
+      "ID": "PLAN-74.en.md",
+      "Bytes": 3751,
+      "SHA256": "5fd2b10f35a59a6641762ba6787b52653250f740242c5fd80149f1fc9c4ccc0c"
+    }
+  ],
+  "WorkerBinary": {
+    "ID": "bin/reader74-worker",
+    "Bytes": 4888690,
+    "SHA256": "a6f2a7cdb86c0483495c67923854e53d3646859b487c5f833de8004ed2f03c23"
+  },
+  "ControllerBinary": {
+    "ID": "bin/reader74-controller",
+    "Bytes": 4977122,
+    "SHA256": "f019130f54b32fcf9ac1dfdca5a19194a1f2ef7e0c1359efe769a29fb31b96f5"
+  },
+  "InputFileReads": 0,
+  "ActualWorkerStarts": 0,
+  "ActualControllerStarts": 0,
+  "ProcessMeasurements": 0,
+  "OriginalAPICalls": 0,
+  "Models": 0,
+  "Fits": 0,
+  "Roles": 0,
+  "Labels": 0,
+  "PaidCalls": 0,
+  "ProtectedFinalReads": 0,
+  "SyntheticRaceTestInvocations": 1,
+  "SyntheticTopLevelTests": 8,
+  "VetInvocations": 1,
+  "BuildCommands": 2,
+  "CompiledExecutables": 2,
+  "PreparationBinderInvocations": 1,
+  "PreparationFailures": 0,
+  "CorrectedBeforeTesting": [
+    "Values allocation count index corrected before any tests or actual reads.",
+    "Forged preflight nil-mask, complete-record phase, nonfinite OS metrics and durable child intent checks tightened before any tests or actual reads."
+  ],
+  "Scope": "Exact existing snapshot76 only: schema/membership/provenance/parent metadata plus all six columns of four CSR datasets. No projection recomputation, conversion in measured workers, feature/model/learning/upstream calls. Existing storage/control outputs immutable.",
+  "DuplicatePolicy": "Independent JSON tokenizer rejects exact duplicate keys after escape decoding everywhere; small typed control records additionally reject case-folded duplicate keys. Compact metadata must pass the same tokenizer policy and exact canonical metadata byte check. Ambiguous old ImportJSON last-key-wins inputs are refused, never silently accepted.",
+  "AllocationBoundary": "JSON pass1 streams numeric arrays and checks all shapes and aggregate retained metadata+typed arrays \u003c=64MiB before CSR allocation. Pass2 checks original file SHA/shape/metadata unchanged. Tokenizer buffers, temporary metadata, slice headers, allocator overhead, code/binary pin reads and runtime heap/RSS are outside retained cap. GOMEMLIMIT is a soft target, not a hard OS cap. Old ImportJSON is not called.",
+  "ComparisonBoundary": "One fresh child per format, fixed JSON-then-compact order, both input hashes read by controller before timing (warm-file comparison). Same all-array shape/finite validation, metadata/null checks and SHA256 over exact FP64 bits/uint16/int64/order/count/nil. Digest equivalence is hash-based, not a second direct storage roundtrip. Measures whole reader implementation process, not causal format-only gain, cold I/O, statistical reliability,128/512 scaling, serving/training success or LLM/token savings.",
+  "RuntimeLimits": "Darwin arm64 Go1.27.1 CGO0 trimpath buildvcs=false; CPU1 softGoheap256MiB. Two children each outside60s group SIGKILL then Wait, no retry. Controller total return has no strict120s guarantee because Wait/prefetch/postprocessing are outside child timers. Result\u003c1MiB; source/input and ownedpayload64MiB. OS real/user/sys/RSS/footprint separate from Go final HeapAlloc/TotalAlloc and retained payload. No GPU work.",
+  "ExecutionHandoff": "Root and independent peer review this unfrozen draft/code/binaries first. After authorization root alone executes controller once with exact draft SHA and fresh exclusive attempt directory under CPU1/soft256MiB; controller freezes only Frozen false=\u003etrue and fsyncs reservation before each Start. Actual input file pin reads and worker outcomes pending; no performance or readiness approval.",
+  "TrainingReady": false,
+  "PerformanceApproved": false,
+  "Final2400Complete": false
+}

@@ -1,0 +1,102 @@
+package reader
+
+import (
+	"crypto/sha256"
+	"encoding/binary"
+	"encoding/hex"
+	"math"
+
+	"riido.local/claim-compact-storage/codec"
+)
+
+type ColumnDigest struct {
+	Count  uint64
+	Nil    bool
+	SHA256 string
+}
+type DatasetDigest struct {
+	ID      string
+	Columns [6]ColumnDigest
+}
+type Summary struct {
+	SourceJSONSHA256, MetadataSHA256, NumericBitSHA256 string
+	MetadataBytes                                      int
+	OwnedArrayMetadataBytes                            uint64
+	Datasets                                           [4]DatasetDigest
+}
+
+func Hash(b []byte) string { h := sha256.Sum256(b); return hex.EncodeToString(h[:]) }
+func Summarize(s codec.Snapshot) (Summary, error) {
+	own, e := codec.OwnedPayloadBytes(s)
+	if e != nil || ValidateMetadata(s.Metadata) != nil {
+		return Summary{}, invalid()
+	}
+	out := Summary{SourceJSONSHA256: hex.EncodeToString(s.SourceSHA256[:]), MetadataSHA256: Hash(s.Metadata), MetadataBytes: len(s.Metadata), OwnedArrayMetadataBytes: own}
+	all := sha256.New()
+	all.Write([]byte("R74-FP64-U16-I64-BITS-v1"))
+	for i, d := range s.Data {
+		out.Datasets[i].ID = codec.Paths[i]
+		for j := 0; j < 6; j++ {
+			var n int
+			var nilArray bool
+			switch j {
+			case 0:
+				n = len(d.Offsets)
+				nilArray = d.Offsets == nil
+			case 1:
+				n = len(d.Indices)
+				nilArray = d.Indices == nil
+			case 2:
+				n = len(d.Values)
+				nilArray = d.Values == nil
+			case 3:
+				n = len(d.Labels)
+				nilArray = d.Labels == nil
+			case 4:
+				n = len(d.Groups)
+				nilArray = d.Groups == nil
+			case 5:
+				n = len(d.SampleWeights)
+				nilArray = d.SampleWeights == nil
+			}
+			h := sha256.New()
+			var hdr [18]byte
+			hdr[0] = byte(i)
+			hdr[1] = byte(j)
+			if nilArray {
+				hdr[2] = 1
+			}
+			binary.LittleEndian.PutUint64(hdr[3:11], uint64(n))
+			h.Write(hdr[:])
+			all.Write(hdr[:])
+			for k := 0; k < n; k++ {
+				var bits uint64
+				switch j {
+				case 0:
+					bits = uint64(d.Offsets[k])
+				case 1:
+					bits = uint64(d.Indices[k])
+				case 2:
+					bits = math.Float64bits(d.Values[k])
+				case 3:
+					bits = math.Float64bits(d.Labels[k])
+				case 4:
+					bits = uint64(d.Groups[k])
+				case 5:
+					bits = math.Float64bits(d.SampleWeights[k])
+				}
+				var b [8]byte
+				binary.LittleEndian.PutUint64(b[:], bits)
+				width := 8
+				if j == 1 {
+					width = 2
+				}
+				h.Write(b[:width])
+				all.Write(b[:width])
+			}
+			out.Datasets[i].Columns[j] = ColumnDigest{Count: uint64(n), Nil: nilArray, SHA256: hex.EncodeToString(h.Sum(nil))}
+		}
+	}
+	out.NumericBitSHA256 = hex.EncodeToString(all.Sum(nil))
+	return out, nil
+}

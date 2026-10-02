@@ -1,0 +1,257 @@
+{
+  "author": "semantic_review60_prep",
+  "direct_observation_boundary": "Prior source/Want reviews cover UnmarshalText, Values and Split selected finite probes only. This author saw root's24-match summary but did not read actual Got. No wrapper/interface/valueString/Next observation or broad equivalence is claimed.",
+  "qualification": {
+    "actual_labels_roles_weights": 0,
+    "author_proposal_only": true,
+    "candidate_satisfied_fields_assigned": false,
+    "historical_request_truth_order_modified": false,
+    "independent_review": "pending",
+    "native_Got_values_used": false,
+    "new_request_versions_materialized": false
+  },
+  "rows": [
+    {
+      "candidate": "candidate-1",
+      "contradicts_if_request_means": [
+        "Three pairwise different receiver states: syntax and bits actually share0."
+      ],
+      "declaration": "(*ByteSize).UnmarshalText",
+      "evidence_ids": [
+        "D-types-units",
+        "D-integer-prefix",
+        "D-units",
+        "D-errors"
+      ],
+      "observation_scope": "Source-readable full branches; earlier reviewed10 Want probes concern this direct method, not complete grammar proof.",
+      "parent": "draft-datasize-receiver-parse",
+      "source_proposal": "All clauses supported under explicit two-state interpretation; unresolved wording prevents an unconditional satisfaction proposal.",
+      "supports": [
+        "Caller receiver method; ASCII integer prefix and recognized binary byte units.",
+        "Returns NumError with syntax/bits/range causes.",
+        "Syntax/bits assign0; overflow assigns uint64 maximum."
+      ],
+      "unknown": [
+        "Whether frozen request 'distinct receiver states' means different states for all three error categories or the source's two states."
+      ]
+    },
+    {
+      "candidate": "candidate-2",
+      "contradicts_if_request_means": [
+        "A caller receiver method: Parse has no receiver and mutates only its fresh local.",
+        "Any guarantee that caller's preexisting receiver is changed by this function."
+      ],
+      "declaration": "Parse",
+      "evidence_ids": [
+        "D-parse",
+        "D-integer-prefix",
+        "D-units",
+        "D-errors"
+      ],
+      "observation_scope": "Wrapper/helper source only; earlier direct UnmarshalText observations do not constitute observed Parse calls.",
+      "parent": "draft-datasize-receiver-parse",
+      "source_proposal": "Direct API shape conflicts with receiver-method clause; delegated parsing facts are readable rather than unreviewable.",
+      "supports": [
+        "Fresh local ByteSize invokes UnmarshalText, inheriting binary units and value/error results."
+      ],
+      "unknown": [
+        "Whether a separately defined caller adapter may replace the requested receiver entrypoint; no such equivalence is declared."
+      ]
+    },
+    {
+      "candidate": "candidate-3",
+      "contradicts_if_request_means": [
+        "Receiver method: MustParse is a function over a fresh value.",
+        "Returning syntax/bits/range errors: MustParse panics on every Parse error."
+      ],
+      "declaration": "MustParse",
+      "evidence_ids": [
+        "D-must",
+        "D-parse",
+        "D-errors"
+      ],
+      "observation_scope": "Wrapper/panic path source only; no MustParse execution evidence.",
+      "parent": "draft-datasize-receiver-parse",
+      "source_proposal": "Direct shape and error-return clauses conflict; internal Parse zero/max states must not be advertised as returned MustParse error-state values.",
+      "supports": [
+        "Delegates to Parse and returns parsed ByteSize on success."
+      ],
+      "unknown": [
+        "A hypothetical panic-catching adapter is not the selected API and has not been frozen or observed."
+      ]
+    },
+    {
+      "candidate": "candidate-1",
+      "contradicts_if_request_means": [
+        "An implemented struct traversal entrypoint: this declaration is an interface, with no traversal body."
+      ],
+      "declaration": "Encoder",
+      "evidence_ids": [
+        "Q-interface",
+        "Q-custom"
+      ],
+      "observation_scope": "Interface and dispatch source only; callbacks excluded from earlier direct Values probes.",
+      "parent": "draft-query-ordered-values",
+      "source_proposal": "Unknown for behavioral satisfaction; direct declaration category is clear but concrete implementation semantics are absent.",
+      "supports": [
+        "Interface declares EncodeValues(key,*url.Values)error for custom field encoding."
+      ],
+      "unknown": [
+        "Every concrete callback's duplicate ordering, empty-key policy and nested scoping.",
+        "A callback implementation might implement those rules; missing implementation evidence is not a false label."
+      ]
+    },
+    {
+      "candidate": "candidate-2",
+      "contradicts_if_request_means": [
+        "Universal repeated-value behavior across comma/space/semicolon/del/numbered options: option branches alter representation.",
+        "Preserving a separate absent key for nil sequence versus empty sequence: both may be omitted.",
+        "Default behavior must apply to every custom Encoder: callback controls its own behavior."
+      ],
+      "declaration": "Values",
+      "evidence_ids": [
+        "Q-doc",
+        "Q-values",
+        "Q-scope",
+        "Q-custom",
+        "Q-array",
+        "Q-nested",
+        "Q-empty",
+        "Q-tags"
+      ],
+      "observation_scope": "Full source policy readable; earlier6 callback-free Want probes sample this direct entrypoint but do not observe all options/callbacks.",
+      "parent": "draft-query-ordered-values",
+      "source_proposal": "Supported for explicit bounded primitive/default policy; unresolved broader interpretation requires separate request version before unconditional satisfaction.",
+      "supports": [
+        "Traverses exported tagged primitive struct fields recursively.",
+        "Default sequence branch adds values in index order and retains duplicates.",
+        "Empty slices/arrays omitted regardless of omitempty; scalar empty strings retained unless omitempty.",
+        "Nested named structs build parent[field] scopes."
+      ],
+      "unknown": [
+        "Whether original broad wording is restricted to default primitive tagged fields and its intended absence/empty distinction."
+      ]
+    },
+    {
+      "candidate": "candidate-3",
+      "contradicts_if_request_means": [
+        "Returning a struct query map: result type is string.",
+        "Directly ordering repeated values, omitting parameter keys or constructing bracket scopes: caller reflectValue performs these operations."
+      ],
+      "declaration": "valueString",
+      "evidence_ids": [
+        "Q-string",
+        "Q-scope",
+        "Q-array",
+        "Q-nested"
+      ],
+      "observation_scope": "Helper source only; earlier Values observations do not constitute direct helper execution.",
+      "parent": "draft-query-ordered-values",
+      "source_proposal": "Direct aggregation/key/scope clauses conflict; single-field formatting is supported and need not be treated as unknowable.",
+      "supports": [
+        "Formats one reflected field; nil pointer becomes empty string; boolean/time options have explicit branches."
+      ],
+      "unknown": [
+        "A composed Values+helper implementation can use this function, but helper-to-entrypoint equivalence is not established by selecting valueString alone."
+      ]
+    },
+    {
+      "candidate": "candidate-1",
+      "contradicts_if_request_means": [
+        "String-to-slice splitter: Next returns one string per call.",
+        "Returning previously completed token list with an error: this method does not accumulate or return that list."
+      ],
+      "declaration": "(*Lexer).Next",
+      "evidence_ids": [
+        "S-lexer",
+        "S-ascii",
+        "S-default",
+        "S-start",
+        "S-word",
+        "S-escape",
+        "S-quote"
+      ],
+      "observation_scope": "Incremental method/helper source; original Split observation does not independently observe Next as a selected candidate.",
+      "parent": "draft-shlex-prefix-errors",
+      "source_proposal": "Direct entrypoint/accumulated-prefix shape conflicts; per-word behavior is supported.",
+      "supports": [
+        "Default reader-backed lexer emits empty quoted words, skips comments, and propagates quote/escape errors.",
+        "On tokenizer error returns empty string and discards unfinished token."
+      ],
+      "unknown": [
+        "A caller loop can collect prior words, as Split does; selecting Next alone does not specify such adapter equivalence."
+      ]
+    },
+    {
+      "candidate": "candidate-2",
+      "contradicts_if_request_means": [
+        "String-to-slice return type: Next returns *Token,error.",
+        "Completed-token-prefix result: error carries partial current token, not accumulated complete words."
+      ],
+      "declaration": "(*Tokenizer).Next",
+      "evidence_ids": [
+        "S-constructor",
+        "S-start",
+        "S-word",
+        "S-escape",
+        "S-quote",
+        "S-next"
+      ],
+      "observation_scope": "Incremental tokenizer/helper source only; no original direct Next execution.",
+      "parent": "draft-shlex-prefix-errors",
+      "source_proposal": "Direct output/accumulation clauses conflict; partial-token error behavior is source-readable.",
+      "supports": [
+        "Default tokenizer emits typed tokens including empty quoted WordToken.",
+        "Quote/escape EOF returns unfinished token and error."
+      ],
+      "unknown": [
+        "A separately written caller can transform typed tokens, but no adapter equivalence/behavior is qualified here."
+      ]
+    },
+    {
+      "candidate": "candidate-3",
+      "contradicts_if_request_means": [
+        "Full POSIX shell/substitution behavior would be a different requirement, absent from the frozen request."
+      ],
+      "declaration": "Split",
+      "evidence_ids": [
+        "S-ascii",
+        "S-default",
+        "S-constructor",
+        "S-start",
+        "S-word",
+        "S-lexer",
+        "S-escape",
+        "S-quote",
+        "S-split"
+      ],
+      "observation_scope": "Full source flow readable; earlier8 direct Split Want probes are finite samples rather than a broad label.",
+      "parent": "draft-shlex-prefix-errors",
+      "source_proposal": "Requested direct API/default-lexer clauses supported by source; independent reviewer may assess bounded satisfaction without requiring arbitrary adapter or full shell proof.",
+      "supports": [
+        "Takes string, constructs default ASCII lexer and returns []string,error.",
+        "Empty quoted words remain in output.",
+        "Only successful words are appended; later quote/escape errors return completed prefix and error.",
+        "Normal EOF/empty input return nonnil slice and nil error."
+      ],
+      "unknown": [
+        "No formal all-input/Reader-fault/whole-program proof is claimed; these are outside the requested default string split scope."
+      ]
+    }
+  ],
+  "schema": "riido-source-caption-satisfaction-proposal-74-v1",
+  "separate_request_version_proposals_not_applied": [
+    {
+      "original_parent": "draft-datasize-receiver-parse",
+      "reason": "Clarify two receiver states rather than imply all three error categories have distinct values.",
+      "request_en": "Find the receiver method parsing ASCII integers and binary byte units, returning syntax or bits errors with receiver zero and range errors with receiver uint64 maximum."
+    },
+    {
+      "original_parent": "draft-query-ordered-values",
+      "reason": "Bind default primitive sequence/empty-string/omitempty/nested policy; do not imply all custom encoders/options preserve repeated representation.",
+      "request_en": "Find the struct query encoder whose default primitive slices retain duplicate order, empty slices are omitted, empty strings remain unless omitempty, and nested fields use bracketed names."
+    }
+  ],
+  "state": "author_source_only_hypotheses_pending_independent_review_no_supervision",
+  "truth_label_role_weight_fields_unchanged_and_unset": true
+}

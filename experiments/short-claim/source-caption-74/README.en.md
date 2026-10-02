@@ -1,0 +1,13 @@
+# Does the model-visible description contain the needed information?
+
+Before changing model size or loss again, the next tuning cycle asks whether **the input can distinguish the answer**. Both small models increased candidate checks from27 to31 to33. A separate source-description experiment addresses this information gap before another fit.
+
+A preserves the upstream descriptions of the same3 requests and9 candidates. B supplies short descriptions derived from their pinned public source. Original requests, candidate order and pending truth remain unchanged. B includes discriminating conditions such as receiver state after errors, slice order/duplicates/empty values and unfinished token handling. The largest description is203B/31 words within the existing512B/32-word bounds. [The proposal](CAPTION-ABLATION-DRAFTS.v1.json) binds all9 pairs to26 exact source spans. Source and full license notices remain in the [earlier public archive](../source-observation-73).
+
+[Independent review](independent/REVIEW.en.md) checked the9 pairs,26 spans and preserved originals. Eight new descriptions have source support within their stated scope. Query Values needs an explicitly bounded request for options, custom encoders, nil, time and omitted fields. Datasize also needs wording that preserves the fact that syntax and bits errors both leave0. [Full-code satisfaction proposals](SATISFACTION-PROPOSAL.v1.json) are separate from description fidelity. Missing information does not become a negative label.
+
+Truth, roles and weights remain null; new fitting remains0. Next, freeze the bounded request and independently review code satisfaction and **whether the model-visible description communicates it**. The actual72 implementation uses the same SampleWeights: a zero endpoint weight produces a zero pair weight, skipped by ranking loss and gradient. Retaining pairs in the audit is different from contributing to training. Separate conceptual pair eligibility can document future policy, but a new code feature is not required to exclude these zero-weight endpoints. Preserve the [factual correction](PAIR-WEIGHT-CORRECTION.v1.json). Changing descriptions and eligibility together changes two experimental factors. If a common eligible set cannot support a description-only comparison, record that instead of forcing a comparison.
+
+A/B variants, translations and finite probes remain the same3 parents. No new whole-group allocation, feature arrays, fit, protected2,400-request final or default model change has occurred. These AI-assisted source summaries do not establish independent human author diversity. [The author-time plan](PLAN.en.md) and pending handoff remain historical records; later independent review is appended separately.
+
+[한국어](README.ko.md)
