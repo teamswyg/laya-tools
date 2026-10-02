@@ -1,0 +1,123 @@
+{
+  "schema": "riido-source-inventory-preparation-60-v1",
+  "state": "implementation_and_protocol_preparation_no_official_inventory",
+  "scope": "AST-only correspondence between retained public Go declarations and stored historical root/component/digest metadata",
+  "official_runner_prepared": false,
+  "source_code_freeze": "pending",
+  "input_and_binary_freeze": "pending",
+  "original_inventory_attempts": 0,
+  "original_inventory_retries": 0,
+  "planned_first_original_inventory_attempts": 1,
+  "planned_first_original_inventory_retries": 0,
+  "expected_metadata_input": {
+    "path": "experiments/short-claim/results-56b.json",
+    "bytes": 266818,
+    "sha256": "4128400c792d2151955a1d98f7d35aca6112d097a3ac20aa280a7357996636c4",
+    "root_arrays": ["/legacy_truth/sources", "/typed_truth/sources"],
+    "use_saved_descriptors_not_current_generated_expectations": true
+  },
+  "raw_source_inputs": [
+    {
+      "path": "internal/behaviorprobe/data.go",
+      "bytes": 28420,
+      "sha256": "b377343a64c019c205f69865286a21ce5d91dda3051c31aa5c69b75a40300559"
+    },
+    {
+      "path": "internal/typedbehavior/spec.go",
+      "bytes": 1228,
+      "sha256": "013a486ecc1d28913c2dda8cf74b3068dcb193d8b77e534dc62e2f87b9ee6b80"
+    },
+    {
+      "path": "internal/typedbehavior/state.go",
+      "bytes": 19402,
+      "sha256": "35324ed595bcf384c484f33d98c6866164bebb2b636986ee8ea51bb979bdad7c"
+    },
+    {
+      "path": "internal/typedbehavior/flow.go",
+      "bytes": 18242,
+      "sha256": "ea7f09d31e15e561173932ac0bb61db17746cdce929e0f976d97994d282d898b"
+    }
+  ],
+  "expected_counts_from_retained_metadata_not_actual_inventory": {
+    "legacy_roots": 36,
+    "typed_roots": 24,
+    "typed_component_relations": 204,
+    "typed_distinct_component_ids": 70,
+    "typed_distinct_formatted_component_sha256": 53,
+    "typed_distinct_normalized_root_sha256": 21,
+    "typed_distinct_component_kinds": {"function": 30, "method": 1, "type": 15, "value": 24},
+    "typed_behavioral_component_relations": 52,
+    "distinct_raw_declarations": null
+  },
+  "calculation_policy": {
+    "toolchain": "go1.27.1",
+    "parser_mode": 0,
+    "file_order": "raw_source_inputs order",
+    "file_set": "one FileSet with fixed files in declared order",
+    "position_policy": "physical PositionFor(false), zero-based start-inclusive/end-exclusive byte spans, inclusive one-based line bounds",
+    "registry_binding": "closed top-level sourceCatalog, state source-spec/run literals and flow source-spec/dispatch identifiers; syntax correspondence only",
+    "declaration_node_policy": "FuncDecl for function/method; TypeSpec for type; whole GenDecl for every value symbol including inherited const/iota positions",
+    "method_identity": "restricted receiver shape preserving the historical unqualified receiver symbol such as *identityCause.Error; no object binding or alias resolution",
+    "formatted_digest": "SHA256 of Go1.27.1 format.Node output over the original node",
+    "normalization": "scanner mode0; token decimal number + colon + literal + semicolon; IDENT except append,len,make,int,bool,true,false,nil becomes underscore",
+    "bundle": "canonical component-ID order: ID+NUL+formattedSHA+NUL, then package-wide sorted standard imports as std:path+NUL, exact suffix go1.27.1;standard-library-infrastructure-v1",
+    "cache_policy": "no cache: format each root and original component relation separately",
+    "ordering": "preserve original root and component relation positions; reject noncanonical component order instead of silently sorting altered descriptors",
+    "shared_spans": "distinct enum value IDs may share a whole GenDecl span; same-ID descriptors must agree across roots",
+    "counter_completion": "physical completed counts returned calls including error returns; ParsesSucceeded counts successful parses; file-pin and root/component completion follow expected digest agreement",
+    "registry_entry_counter": "aggregate registry cardinality recorded after successful registry extraction, not per-entry attempted/completed calls",
+    "first_mismatch": "stop and return an incomplete report with partial attempted/completed counters"
+  },
+  "planned_success_work_counts_not_observed": {
+    "ast_parse_calls": 4,
+    "root_relations": 60,
+    "typed_component_relations": 204,
+    "format_calls": 264,
+    "scanner_normalization_calls": 112,
+    "bundle_build_calls": 24
+  },
+  "future_runner_requirements": [
+    "Freeze the exact compiled Go source closure, support files, current build recipe and code commit before original inventory calculations",
+    "Bind actual Go1.27.1 build info, platform, CGO0, trimpath, buildvcs=false and binary byte count/SHA rather than trusting the caller GoVersion string",
+    "Pin original raw files and metadata bytes plus input commit and canonical execution-plan bytes",
+    "Use bounded regular files, fixed repository-relative paths, exclusive fresh output and fixed safe error enums; preserve all partial counters on failure",
+    "Reserve output before inventory calculations; no automatic retry or host-global approval lock",
+    "Keep physical formatter/scanner/bundle calls separate from logical relations and distinct metadata IDs/digests",
+    "Predeclare exact CI report/counter replay; later frozen regression tests are post-observation support, not retroactive source/support pins"
+  ],
+  "content_followup_preparation": {
+    "families": ["stable-odd", "atomic-commit", "error-identity"],
+    "original_parents": 12,
+    "original_candidate_positions": 36,
+    "source_ids": 11,
+    "distinct_caption_texts": 12,
+    "retained_literal_cases": 34,
+    "ambiguous_parents_preserved": 3,
+    "new_independent_requests": 0,
+    "canonical_axes_from_59": ["source_fidelity", "request_contract_coverage", "observation_fields", "explicit_negative_boundaries"],
+    "initial_review_state": "pending",
+    "records_generated": 0,
+    "source_fidelity_is_task_satisfaction": false,
+    "aggregate_failure_counts_are_per_vector_got": false
+  },
+  "object_binding_performed": false,
+  "closure_discovery_performed": false,
+  "closure_completeness_review": "pending",
+  "all_59_content_review_entries": 738,
+  "content_review": "pending",
+  "source_api_calls_in_new_inventory_work": 0,
+  "model_calls_in_new_inventory_work": 0,
+  "paid_calls": 0,
+  "ranking_calls": 0,
+  "new_labels": 0,
+  "roles_assigned": 0,
+  "fits": 0,
+  "new_weights": 0,
+  "protected_final_reads": 0,
+  "training_ready": false,
+  "existing_ci_note": "Existing repository regression and native model integration checks remain; their replays are not new60 source collection or model-performance experiments",
+  "resource_note": "No runtime memory, CPU/GPU, latency or savings measurement has been made for this preparation. Work-count expectations are not speed claims.",
+  "preservation": "Original 72 parents/216 candidate positions/21 unknowns/17 groups/16 groups containing known parents, captions, labels and stop reasons remain unchanged. No new15-repository condition or 2400-every-development-fit prerequisite; distinct2400-per-domain protected-final target remains separate.",
+  "human_approval_required": false,
+  "ci_merge_gate_preserved": true
+}

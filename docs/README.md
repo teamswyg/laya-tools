@@ -12,6 +12,7 @@ Latest owned task evidence: [experiment55](../experiments/task-outcomes/RESULTS-
 | Topic / 주제 | English | 한국어 |
 |---|---|---|
 | Project overview / 프로젝트 개요 | [README](../README.en.md) | [README](../README.md) |
+| Source declaration preparation60 / 소스 선언 연결 준비60 | [Go module and proposed plan; original run pending](../experiments/short-claim/PLAN-INVENTORY-60.en.md) | [Go 모듈·계획 초안; 원본 실행 전](../experiments/short-claim/PLAN-INVENTORY-60.ko.md) |
 | Caption references59 / 설명 참조59 | [288 text/18 literal references; content pending](../experiments/short-claim/RESULTS-REFERENCES-59.en.md) · [Usage](../experiments/short-claim/USAGE-REFERENCES-59.en.md) · [Source transfer](../experiments/short-claim/SOURCE-TRANSFER-59.en.md) | [원문288·표현식18; 내용 미검토](../experiments/short-claim/RESULTS-REFERENCES-59.ko.md) · [사용법](../experiments/short-claim/USAGE-REFERENCES-59.ko.md) · [공개 원천 전이](../experiments/short-claim/SOURCE-TRANSFER-59.ko.md) |
 | Stored-truth ordering headroom58 / 저장 정답 확인 순서 개선 여지58 | [91 checks versus oracle73; training not ready](../experiments/short-claim/RESULTS-STORED-58.en.md) · [Usage](../experiments/short-claim/USAGE-STORED-58.en.md) · [Next preparation](../experiments/short-claim/NEXT-STORED-58.en.md) | [91회와 이상적73회; 학습 준비 미완성](../experiments/short-claim/RESULTS-STORED-58.ko.md) · [사용법](../experiments/short-claim/USAGE-STORED-58.ko.md) · [다음 준비](../experiments/short-claim/NEXT-STORED-58.ko.md) |
 | Router design / 라우터 설계 | [Design](design.en.md) | [설계](design.ko.md) |
