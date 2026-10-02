@@ -144,6 +144,10 @@ func Fit(train, validation Dataset, c Config) (Result, error) {
 }
 
 func fit(train, validation Dataset, c Config, observer *fitObserver) (Result, error) {
+	return fitRanking(train, validation, c, observer, nil, nil)
+}
+
+func fitRanking(train, validation Dataset, c Config, observer *fitObserver, ranking *rankingObjective, rankingTrace *RankingTrace) (Result, error) {
 	var best Result
 	dimension := c.Dimension
 	if dimension == 0 {
@@ -211,6 +215,17 @@ func fit(train, validation Dataset, c Config, observer *fitObserver) (Result, er
 					grad[train.Indices[k]] += delta * train.Values[k]
 				}
 			}
+			if ranking != nil {
+				if err := ranking.training.addGradient(train, qw, order[start:end], ranking.lambda, grad); err != nil {
+					if observer != nil {
+						observer.fail(epoch, "nonfinite_ranking_gradient")
+					}
+					if rankingTrace != nil {
+						rankingTrace.fail(epoch, "nonfinite_ranking_gradient")
+					}
+					return best, err
+				}
+			}
 			for i := range w {
 				w[i] -= c.LearningRate * (grad[i]/float64(end-start) + c.L2*w[i])
 			}
@@ -227,6 +242,14 @@ func fit(train, validation Dataset, c Config, observer *fitObserver) (Result, er
 			best.Epoch = epoch
 			best.ValidationNLL = nll
 			best.Weights = qw
+		}
+		if rankingTrace != nil {
+			if err := rankingTrace.record(epoch, train, validation, qw, ranking); err != nil {
+				if observer != nil {
+					observer.fail(epoch, "nonfinite_ranking_nll")
+				}
+				return best, err
+			}
 		}
 		if observer != nil {
 			observer.record(EpochTrace{Epoch: epoch, TrainingNLL: NLL(train, qw), ValidationNLL: nll, IsNewBest: best.Epoch == epoch, BestEpochSoFar: best.Epoch})
