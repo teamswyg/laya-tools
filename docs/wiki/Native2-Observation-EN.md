@@ -6,6 +6,6 @@ The CIDR network request was satisfied by IPNet on all five inputs. The simple I
 
 There were no panics or unknowns. Child OS maximum memory was about 9.11MiB; startup/pin-inclusive wall time was about 0.37s. These are original-code observations, not Laya inference, model accuracy or Codex savings. Tool disk size, Go heap and OS memory describe different quantities.
 
-The 23 observations are not counted as 23 distinct requests. New training-qualified requests remain zero pending separate rights, semantic deduplication, connected groups and roles. Model utility will be tested separately: fewer checks than simple sorting while preserving correct answers. Existing utility-failed models remain inactive.
+The 23 observations are not counted as 23 distinct requests. Training qualification was zero at observation; the [subsequent two-request development admission](Native2-Training-EN) separately checks rights, semantic deduplication, connected groups and roles. Model utility will be tested separately: fewer checks than simple sorting while preserving correct answers. Existing utility-failed models remain inactive.
 
 [Detailed results and measurements](https://github.com/teamswyg/laya-tools/tree/main/experiments/short-claim/next60-native2-actual-observations) · [Original-source review](https://github.com/teamswyg/laya-tools/tree/main/experiments/short-claim/next60-native2-actual-semantic-review) · [한국어](https://github.com/teamswyg/laya-tools/wiki/Native2-Observation-KO)

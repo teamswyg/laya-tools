@@ -1,0 +1,42 @@
+// Authored candidate implementations; no original humanize body is copied here.
+package candidate
+
+import (
+	"errors"
+	"math"
+	"strconv"
+	"strings"
+)
+
+var ErrPrecision = errors.New("precision")
+var ErrNonfinite = errors.New("nonfinite")
+
+func policy(num float64, digits int) error {
+	if digits < 0 || digits > 18 { return ErrPrecision }
+	if math.IsNaN(num) || math.IsInf(num, 0) { return ErrNonfinite }
+	return nil
+}
+
+func clean(s string) string {
+	if strings.IndexByte(s, '.') >= 0 { s = strings.TrimSuffix(strings.TrimRight(s, "0"), ".") }
+	if s == "-0" { return "0" }
+	return s
+}
+
+// FtoaPrecise renders the represented float64 directly at the requested precision.
+// Its behavior is to be checked against the independent integer oracle.
+func FtoaPrecise(num float64, digits int) (string, error) {
+	if err := policy(num, digits); err != nil { return "", err }
+	return clean(strconv.FormatFloat(num, 'f', digits, 64)), nil
+}
+
+// FlawedDoubleRound is an authored negative control, independently implemented.
+// It first rounds to six decimal places, then rounds that parsed intermediate.
+// It does not invoke or substitute for the original FtoaWithDigits algorithm.
+func FlawedDoubleRound(num float64, digits int) (string, error) {
+	if err := policy(num, digits); err != nil { return "", err }
+	intermediate := strconv.FormatFloat(num, 'f', 6, 64)
+	v, err := strconv.ParseFloat(intermediate, 64)
+	if err != nil { return "", err }
+	return clean(strconv.FormatFloat(v, 'f', digits, 64)), nil
+}

@@ -1,0 +1,56 @@
+{
+  "schema": "riido-ftoa-file-slice-policy-v1",
+  "state": "source-only no build or execution; Root readiness/controller compatibility pending",
+  "request_id": "next60-humanize-precise-ftoa",
+  "catalog_id": "go53-humanize-precise-ftoa",
+  "source_family": "upstream53-humanize",
+  "source_group_role": null,
+  "labels": null,
+  "roles": null,
+  "weights": null,
+  "qualified_request_increment": 0,
+  "boundary": "Complete unchanged selected ftoa.go file plus retained MIT notice in private original package, separate authored candidates and integer oracle; not complete humanize importer/package closure",
+  "input_policy": "Six immutable draft representations are matched exactly by ID/order/digits. Positive finite decimal input strings select fixed typed float64 Go constants of the same literals. They are not parsed through candidate code. Negative zero selects0x8000000000000000 and +Inf selects explicit positive infinity. Actual input bit values and compiler decimal conversion are unobserved until a separately authorized first run.",
+  "float_semantics": "Round the represented IEEE float64 value, not ideal decimal real. Nearest ties-to-even at fixed decimal precision0..18. Strip fractional trailing zeroes only; canonicalize any rounded signed zero to0. Nonfinite values return a typed nonfinite error; invalid digits return precision error. These are authored new API policies, not native FtoaWithDigits behavior.",
+  "Wants": "Six existing draft Wants unchanged; typed text nullable/error-kind fields. No Want back-calculation from candidate/original observations.",
+  "candidate_contracts": [
+    {
+      "id": "original/FtoaWithDigits",
+      "implementation": "Private byte-exact original986B file",
+      "return_channels": "string only; error channel unavailable. Worker records availabilityfalse and error_kind unavailable, never invents a nil error.",
+      "observations": 6
+    },
+    {
+      "id": "authored/FtoaPrecise",
+      "implementation": "Author-created checked(string,error) direct strconv.FormatFloat at requested precision followed by own trimming/zero normalization",
+      "return_channels": "string and typed error; not a pre-existing upstream API",
+      "observations": 6
+    },
+    {
+      "id": "authored/FlawedDoubleRound",
+      "implementation": "Independent authored six-place FormatFloat->ParseFloat->requested FormatFloat; no original-function call",
+      "return_channels": "same authored(string,error) policy; intermediate rounding deliberately loses information",
+      "observations": 6
+    }
+  ],
+  "changes_from_preserved_draft": [
+    "Original-file-only preparation boundary is newly declared; previous whole-package closure remains unapproved and unchanged.",
+    "Concrete future authored API signatures FtoaPrecise(float64,int)(string,error) and FlawedDoubleRound(float64,int)(string,error) are fixed; original signature unchanged.",
+    "Wrong-seed caption differs from immutable draft truncation design: this separate version uses genuine double rounding rather than reusing native FtoaWithDigits.",
+    "Finite decimal representations are implemented as typed Go constants; binary identity is to be recorded by Root first run, not claimed observed now."
+  ],
+  "oracle": "Independent float bits -> exact significand*2^exponent -> integers N/D -> multiply10^digits -> QuoRem -> compare2*remainder withdenominator and increment quotient on > or equal+odd. Apply sign/decimal point/fractional trim at end. No FormatFloat/ParseFloat/original/candidate expected generation.",
+  "scoped_calls": "Planned6 original +6 precise +6 flawed =18 candidate/input observations, plus6 separately counted authored oracle checks. These are one existing request and6 fixed input vectors, not new logical requests/families.",
+  "coverage_pending": [
+    "valid precision endpoints0 and18",
+    "invalid digits-1 and19",
+    "NaN and negative infinity",
+    "smallest subnormal and adjacent tie boundaries",
+    "whole humanize package import/selection/init/provenance",
+    "actual compiler/tool/cache descendants and OS metrics"
+  ],
+  "protocol": "Source-only worker adopts --plan, Root source/closure/vector/readiness hashes, link-bound three main.compiled*SHA values, durable native-dispatch.once and results.json, models/protected/public=false, retry0. New plan schema and18observations are incompatible with unchanged native2 controller gates; future compatible outside source/review/CI/resource freeze required. No compatibility or compilation success is asserted.",
+  "rights": "Selected MIT notice1136B retained unchanged privately. Whole-package number.go adapted-gist/WTFPL provenance is not cleared or silently removed; it is outside this explicit selected-file scope. Training/redistribution rights are not granted by this preparation.",
+  "cap_bytes": 65536,
+  "activation": false
+}

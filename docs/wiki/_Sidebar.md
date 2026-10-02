@@ -1,6 +1,7 @@
 # laya-tools
 
 - [사용자 안내 / User guide](Home)
+- [개발용 학습 자료 2개](Native2-Training-KO) · [Two qualified training requests](Native2-Training-EN)
 - [첫 두 과제 실제 관측](Native2-Observation-KO) · [First two actual observations](Native2-Observation-EN)
 - [처음 시작하기](Getting-Started-KO) · [Getting started](Getting-Started-EN)
 - [전체 사용법 KO](https://github.com/teamswyg/laya-tools/blob/main/README.md) · [Full usage EN](https://github.com/teamswyg/laya-tools/blob/main/README.en.md)

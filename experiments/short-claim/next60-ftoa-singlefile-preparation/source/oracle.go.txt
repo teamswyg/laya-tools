@@ -1,0 +1,74 @@
+// Package oracle renders IEEE-754 binary64 bits with integer arithmetic.
+// Source-only preparation: this file has not been compiled or executed.
+package oracle
+
+import (
+	"errors"
+	"math/big"
+	"strings"
+)
+
+var (
+	ErrPrecision = errors.New("precision")
+	ErrNonfinite = errors.New("nonfinite")
+)
+
+// RenderBits rounds the represented binary64 value to 0..18 fixed decimal
+// places, nearest with ties to even. It trims fractional trailing zeros and
+// canonicalizes a rounded zero to "0". Nonfinite values are rejected.
+// Neither float parsing nor floating-point rendering supplies the oracle.
+func RenderBits(bits uint64, digits int) (string, error) {
+	if digits < 0 || digits > 18 {
+		return "", ErrPrecision
+	}
+	exponent := int((bits >> 52) & 0x7ff)
+	if exponent == 0x7ff {
+		return "", ErrNonfinite
+	}
+	mantissa := bits & ((uint64(1) << 52) - 1)
+	power := -1074
+	if exponent != 0 {
+		mantissa |= uint64(1) << 52
+		power = exponent - 1023 - 52
+	}
+	if mantissa == 0 {
+		return "0", nil
+	}
+
+	// Work with the nonnegative magnitude. Sign is restored only after rounding.
+	var numerator, denominator, scale big.Int
+	numerator.SetUint64(mantissa)
+	denominator.SetInt64(1)
+	if power >= 0 {
+		numerator.Lsh(&numerator, uint(power))
+	} else {
+		denominator.Lsh(&denominator, uint(-power))
+	}
+	scale.Exp(big.NewInt(10), big.NewInt(int64(digits)), nil)
+	numerator.Mul(&numerator, &scale)
+
+	var quotient, remainder big.Int
+	quotient.QuoRem(&numerator, &denominator, &remainder)
+	remainder.Lsh(&remainder, 1)
+	comparison := remainder.Cmp(&denominator)
+	if comparison > 0 || (comparison == 0 && quotient.Bit(0) == 1) {
+		quotient.Add(&quotient, big.NewInt(1))
+	}
+	if quotient.Sign() == 0 {
+		return "0", nil
+	}
+
+	text := quotient.String()
+	if digits > 0 {
+		if len(text) <= digits {
+			text = strings.Repeat("0", digits+1-len(text)) + text
+		}
+		point := len(text) - digits
+		text = text[:point] + "." + text[point:]
+		text = strings.TrimRight(strings.TrimRight(text, "0"), ".")
+	}
+	if bits>>63 != 0 {
+		text = "-" + text
+	}
+	return text, nil
+}
