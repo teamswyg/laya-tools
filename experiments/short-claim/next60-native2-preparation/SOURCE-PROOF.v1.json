@@ -1,0 +1,28 @@
+{
+ "schema":"riido-next60-native2-candidate-adapter-source-proof-v1",
+ "original_api_executed":0,
+ "candidate_implementation_replacement":false,
+ "scheduled_observations":23,
+ "pflag":{
+  "revision":"c966cfef47379dcb01e7929504d66d94b540945b",
+  "schedule":"3 candidates x 5 independent vectors = 15",
+  "original_routes":[{"symbol":"ipNetValue.Set","public_constructor":"FlagSet.IPNet","file":"ipnet.go","entry_lines":[17,76],"source_behavior":"TrimSpace -> net.ParseCIDR; error returns before mutation; store parsed masked network"},{"symbol":"ipValue.Set","public_constructor":"FlagSet.IP","file":"ip.go","entry_lines":[18,78],"source_behavior":"Empty input succeeds unchanged; otherwise trim/ParseIP; nil parse error before mutation"},{"symbol":"ipMaskValue.Set","public_constructor":"FlagSet.IPMask","file":"ipmask.go","entry_lines":[18,100],"source_behavior":"Original ParseIPv4Mask accepts dotted IP or eight-character hex; error returns before mutation"}],
+  "adapter":"Fresh public FlagSet/constructor and Lookup, then direct Flag.Value.Set; no FlagSet.Set, getter or String calls",
+  "states":"IPNet IP4+mask4; IP retains actual raw byte length including possible IPv4-mapped16; IPMask retains mask4. Owned numeric arrays, no synthesized network for other types.",
+  "expected_tracked_entry_counts_if_complete":{"NewFlagSet":15,"flag_constructor":15,"Lookup":15,"Value_Set":15},
+  "Flag_Changed":"Diagnostic only; direct Value.Set does not establish wrapper Changed state"
+ },
+ "mapstructure":{
+  "revision":"52aa5c6dc1d27226460807054ca2107b2d54fb2d",
+  "schedule":"2 candidates x 4 independent vectors = 8",
+  "original_routes":[{"symbol":"OrComposeDecodeHookFunc","file":"decode_hooks.go","lines":[140,169],"source_behavior":"Every alternative sees original input; first nil error returns even if output nil; all errors concatenate messages with trailing newlines; zero hooks returns nonnil empty-message error"},{"symbol":"ComposeDecodeHookFunc","file":"decode_hooks.go","lines":[109,137],"source_behavior":"Pass prior output to next hook; nil output yields invalid reflect.Value; first error stops; zero hooks returns original value without error"}],
+  "dispatch":"Explicit DecodeHookFuncValue fixture callbacks; original constructors/cache normalization and original DecodeHookExec; target reflect.ValueOf(0), input reflect.ValueOf(4)",
+  "fixtures":"At most three bounded callbacks: error E1, error E2, return9, return99, nil+nil. Trace records source validity/kind/value and valid int target.",
+  "expected_tracked_entry_counts_if_complete":{"composition_constructor":8,"DecodeHookExec":8},
+  "current_return_domain":"int or null only; arbitrary dynamic-type preservation not claimed",
+  "error_channels":"Presence separate from message; empty-message nonnil error not collapsed into nil. IsE1/E2 diagnostic uses standard errors.Is, not message equality. No satisfaction/label computation."
+ },
+ "counter_boundary":"Tracked upstream entrypoints only. Internal construction/normalization and stdlib/import startup not fully counted; outside captures full child resources.",
+ "runtime_type_and_api_compile_confirmation":"Pending Root source review/CI; no worker build performed",
+ "Root_instruction_correction":"Do not extend OrCompose from2 to3 candidates; preserve frozen23 schedule"
+}

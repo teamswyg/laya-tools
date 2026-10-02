@@ -1,0 +1,225 @@
+package main
+
+import (
+	"encoding/json"
+	"errors"
+	"net"
+	"reflect"
+
+	mapstructure "github.com/go-viper/mapstructure/v2"
+	"github.com/spf13/pflag"
+	"riido.local/next60native2/pure"
+)
+
+// EntryCounts tracks only explicitly dispatched upstream entry points. Package
+// startup, internal calls and Go/stdlib calls are included in child resources,
+// but are not claimed to be comprehensively instrumented by these counters.
+type EntryCounts struct {
+	NewFlagSet             int `json:"NewFlagSet"`
+	FlagConstructor        int `json:"flag_constructor"`
+	Lookup                 int `json:"Lookup"`
+	ValueSet               int `json:"Value_Set"`
+	CompositionConstructor int `json:"composition_constructor"`
+	DecodeHookExec         int `json:"DecodeHookExec"`
+	Callback               int `json:"callback_invocations"`
+}
+type ErrorChannel struct {
+	Present bool   `json:"present"`
+	Message string `json:"message"`
+	Type    string `json:"type"`
+	IsE1    bool   `json:"is_input_E1"`
+	IsE2    bool   `json:"is_input_E2"`
+}
+type State struct {
+	Type string   `json:"type"`
+	IP   []uint16 `json:"ip,omitempty"`
+	Mask []uint16 `json:"mask,omitempty"`
+}
+type Seen struct {
+	Hook        int    `json:"hook"`
+	Valid       bool   `json:"source_valid"`
+	Kind        string `json:"source_kind"`
+	Value       any    `json:"source_value"`
+	TargetValid bool   `json:"target_valid"`
+	TargetKind  string `json:"target_kind"`
+}
+type Observation struct {
+	StateBefore    *State       `json:"state_before,omitempty"`
+	StateAfter     *State       `json:"state_after,omitempty"`
+	FlagChanged    *bool        `json:"Flag_Changed_diagnostic_only,omitempty"`
+	Return         any          `json:"return"`
+	Error          ErrorChannel `json:"error"`
+	Callbacks      []Seen       `json:"callback_trace"`
+	CallbackCounts []int        `json:"callback_counts"`
+	Panic          bool         `json:"panic"`
+}
+
+func errChannel(e, a, b error) ErrorChannel {
+	x := ErrorChannel{}
+	if e != nil {
+		x.Present = true
+		x.Message = e.Error()
+		x.Type = reflect.TypeOf(e).String()
+		if a != nil {
+			x.IsE1 = errors.Is(e, a)
+		}
+		if b != nil {
+			x.IsE2 = errors.Is(e, b)
+		}
+	}
+	return x
+}
+func copied(b []byte) []uint16 {
+	if b == nil {
+		return nil
+	}
+	out := make([]uint16, len(b))
+	for i, x := range b {
+		out[i] = uint16(x)
+	}
+	return out
+}
+
+func observeFlag(c pure.Candidate, v pure.Vector, counts *EntryCounts) (o Observation, err error) {
+	var arg string
+	if pure.Decode(v.Input, &arg) != nil || len(arg) > 128 {
+		return o, pure.ErrProtocol
+	}
+	if c.Symbol != "ipNetValue.Set" && c.Symbol != "ipValue.Set" && c.Symbol != "ipMaskValue.Set" {
+		return o, pure.ErrProtocol
+	}
+	defer func() {
+		if recover() != nil {
+			o.Panic = true
+		}
+	}()
+	counts.NewFlagSet++
+	f := pflag.NewFlagSet("native2", pflag.ContinueOnError)
+	var network *net.IPNet
+	var ip *net.IP
+	var mask *net.IPMask
+	counts.FlagConstructor++
+	switch c.Symbol {
+	case "ipNetValue.Set":
+		network = f.IPNet("value", net.IPNet{IP: net.IP{192, 0, 2, 0}, Mask: net.IPMask{255, 255, 255, 0}}, "")
+	case "ipValue.Set":
+		ip = f.IP("value", net.IP{192, 0, 2, 0}, "")
+	case "ipMaskValue.Set":
+		mask = f.IPMask("value", net.IPMask{255, 255, 255, 0}, "")
+	}
+	snapshot := func() State {
+		switch c.Symbol {
+		case "ipNetValue.Set":
+			return State{Type: "net.IPNet", IP: copied(network.IP), Mask: copied(network.Mask)}
+		case "ipValue.Set":
+			return State{Type: "net.IP", IP: copied(*ip)}
+		default:
+			return State{Type: "net.IPMask", Mask: copied(*mask)}
+		}
+	}
+	a := snapshot()
+	o.StateBefore = &a
+	counts.Lookup++
+	fl := f.Lookup("value")
+	if fl == nil {
+		return o, pure.ErrProtocol
+	}
+	// Call the original Value.Set directly. FlagSet.Set would add wrapper behavior;
+	// direct Value.Set does not promise to update Flag.Changed.
+	counts.ValueSet++
+	e := fl.Value.Set(arg)
+	b := snapshot()
+	o.StateAfter = &b
+	changed := fl.Changed
+	o.FlagChanged = &changed
+	o.Error = errChannel(e, nil, nil)
+	// Do not call Value.String, GetIPNet or any getter that reparses state.
+	return o, nil
+}
+
+type HookInput struct {
+	Hooks []string `json:"hooks"`
+}
+
+func observeHook(c pure.Candidate, v pure.Vector, counts *EntryCounts) (o Observation, err error) {
+	var in HookInput
+	if pure.Decode(v.Input, &in) != nil || len(in.Hooks) > 3 {
+		return o, pure.ErrProtocol
+	}
+	if c.Symbol != "OrComposeDecodeHookFunc" && c.Symbol != "ComposeDecodeHookFunc" {
+		return o, pure.ErrProtocol
+	}
+	for _, s := range in.Hooks {
+		if s != "error E1" && s != "error E2" && s != "return 9 nil" && s != "return 99 nil" && s != "return nil nil" {
+			return o, pure.ErrProtocol
+		}
+	}
+	defer func() {
+		if recover() != nil {
+			o.Panic = true
+		}
+	}()
+	e1, e2 := errors.New("E1"), errors.New("E2")
+	o.Callbacks = make([]Seen, 0, len(in.Hooks))
+	o.CallbackCounts = make([]int, len(in.Hooks))
+	hooks := make([]mapstructure.DecodeHookFunc, 0, len(in.Hooks))
+	for i, s := range in.Hooks {
+		index, behavior := i, s
+		h := mapstructure.DecodeHookFuncValue(func(from, to reflect.Value) (any, error) {
+			counts.Callback++
+			o.CallbackCounts[index]++
+			seen := Seen{Hook: index, Valid: from.IsValid(), Kind: "invalid", TargetValid: to.IsValid(), TargetKind: "invalid"}
+			if from.IsValid() {
+				seen.Kind = from.Kind().String()
+				if from.Kind() != reflect.Int {
+					return nil, pure.ErrProtocol
+				}
+				seen.Value = from.Int()
+			}
+			if to.IsValid() {
+				seen.TargetKind = to.Kind().String()
+			}
+			o.Callbacks = append(o.Callbacks, seen)
+			switch behavior {
+			case "error E1":
+				return nil, e1
+			case "error E2":
+				return nil, e2
+			case "return 9 nil":
+				return 9, nil
+			case "return 99 nil":
+				return 99, nil
+			default:
+				return nil, nil
+			}
+		})
+		hooks = append(hooks, h)
+	}
+	// Signature normalization is done by the original composition constructor and
+	// DecodeHookExec. The callback bodies are bounded observation fixtures, not a
+	// replacement implementation of OrCompose/Compose.
+	counts.CompositionConstructor++
+	var composed mapstructure.DecodeHookFunc
+	if c.Symbol == "OrComposeDecodeHookFunc" {
+		composed = mapstructure.OrComposeDecodeHookFunc(hooks...)
+	} else {
+		composed = mapstructure.ComposeDecodeHookFunc(hooks...)
+	}
+	counts.DecodeHookExec++
+	out, e := mapstructure.DecodeHookExec(composed, reflect.ValueOf(4), reflect.ValueOf(0))
+	o.Return = out
+	o.Error = errChannel(e, e1, e2)
+	return o, nil
+}
+
+type Row struct {
+	Ordinal   int             `json:"ordinal"`
+	Goal      string          `json:"goal_id"`
+	Candidate string          `json:"candidate_id"`
+	Case      string          `json:"case_id"`
+	Want      json.RawMessage `json:"frozen_Want_unverified"`
+	Got       Observation     `json:"Got"`
+	Truth     any             `json:"truth"`
+	Role      any             `json:"role"`
+	Weight    any             `json:"weight"`
+}
