@@ -1,0 +1,221 @@
+package main
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"flag"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"unicode"
+	"unicode/utf8"
+)
+
+// This program reads bytes and saved JSON only. It neither imports nor compiles
+// retained upstream packages. Its normalization is a metadata word counter,
+// copied visibly from the pinned lexical contract; it computes no Features.
+type obj = map[string]any
+type Pin struct {
+	Path string `json:"path"`
+	Bytes int `json:"bytes"`
+	SHA string `json:"sha256"`
+}
+type Span struct {
+	ID string `json:"id"`
+	Path string `json:"path"`
+	FileSHA string `json:"file_sha256"`
+	Start int `json:"byte_start"`
+	End int `json:"byte_end"`
+	LineStart int `json:"line_start"`
+	LineEnd int `json:"line_end"`
+	SHA string `json:"sha256"`
+	Raw string `json:"raw_text"`
+}
+type Caption struct {
+	Span
+	Repository string `json:"repository"`
+	Revision string `json:"revision"`
+	OriginalPath string `json:"original_path"`
+	PriorCatalogPointer string `json:"prior_catalog_pointer,omitempty"`
+	Words int `json:"normalized_words"`
+	WithinBudget bool `json:"within_512_bytes_32_words"`
+	Selected bool `json:"proposed_caption_choice"`
+	SelectionState string `json:"selection_state"`
+}
+type RequestDraft struct {
+	ID string `json:"id"`
+	Group string `json:"connected_source_family"`
+	Text string `json:"raw_text"`
+	SHA string `json:"sha256"`
+	Bytes int `json:"bytes"`
+	Words int `json:"normalized_words"`
+	CaptionOrder []string `json:"proposed_caption_order"`
+	Authorship string `json:"authorship"`
+	FinalRuntimeInputFrozen bool `json:"final_runtime_input_frozen"`
+}
+
+func must(ok bool, msg string) { if !ok { panic(msg) } }
+func hash(b []byte) string { h:=sha256.Sum256(b);return hex.EncodeToString(h[:]) }
+func read(root, rel string) []byte {
+	must(!filepath.IsAbs(rel)&&filepath.Clean(rel)==rel&&!strings.HasPrefix(rel,".."),"unsafe_relative_path")
+	b,e:=os.ReadFile(filepath.Join(root,rel));must(e==nil,"read:"+rel);must(utf8.Valid(b),"utf8:"+rel);return b
+}
+func decode(b []byte) obj { d:=json.NewDecoder(bytes.NewReader(b));d.UseNumber();var m obj;must(d.Decode(&m)==nil,"json_decode");return m }
+func arr(v any) []any { x,ok:=v.([]any);must(ok,"array_expected");return x }
+func mapof(v any) obj { x,ok:=v.(map[string]any);must(ok,"object_expected");return x }
+func str(m obj,k string) string { x,ok:=m[k].(string);must(ok,"string:"+k);return x }
+func num(m obj,k string) int { x,ok:=m[k].(json.Number);must(ok,"number:"+k);n,e:=strconv.Atoi(string(x));must(e==nil,"integer:"+k);return n }
+func encoded(v any) []byte { b,e:=json.MarshalIndent(v,"","  ");must(e==nil,"json_encode");return append(b,'\n') }
+func writeNew(root,name string,b []byte) { f,e:=os.OpenFile(filepath.Join(root,name),os.O_CREATE|os.O_EXCL|os.O_WRONLY,0600);must(e==nil,"exclusive_write:"+name);_,e=f.Write(b);must(e==nil,"write:"+name);must(f.Close()==nil,"close:"+name) }
+func wordCount(t string) int {
+	r:=[]rune(t);var b strings.Builder
+	for i,c:=range r {
+		if unicode.IsUpper(c)&&i>0&&(unicode.IsLower(r[i-1])||unicode.IsDigit(r[i-1])||(i+1<len(r)&&unicode.IsLower(r[i+1])&&unicode.IsUpper(r[i-1]))) { b.WriteByte(' ') }
+		if unicode.IsLetter(c)||unicode.IsDigit(c) { b.WriteRune(unicode.ToLower(c)) } else { b.WriteByte(' ') }
+	}
+	return len(strings.Fields(b.String()))
+}
+func pin(rel string,b []byte) Pin { return Pin{rel,len(b),hash(b)} }
+func textSpan(id,path string,b []byte,text string) Span {
+	start:=bytes.Index(b,[]byte(text));must(start>=0,"span_missing:"+id)
+	must(bytes.Count(b,[]byte(text))==1,"span_not_unique:"+id)
+	end:=start+len(text)
+	return Span{id,path,hash(b),start,end,bytes.Count(b[:start],[]byte{'\n'})+1,bytes.Count(b[:end-1],[]byte{'\n'})+1,hash(b[start:end]),string(b[start:end])}
+}
+func lineSpan(id,path string,b []byte,lo,hi int) Span {
+	must(lo>0&&hi>=lo,"invalid_line_span")
+	start,end,line:=0,0,1
+	for i,c:=range b { if line<lo {start=i+1};if line<=hi {end=i+1};if c=='\n'{line++} }
+	must(line>=hi,"line_span_out_of_bounds")
+	must(start<end,"empty_line_span")
+	return Span{id,path,hash(b),start,end,lo,hi,hash(b[start:end]),string(b[start:end])}
+}
+func rawPointer(raw []byte,p string) json.RawMessage {
+	must(strings.HasPrefix(p,"/"),"pointer_absolute");cur:=json.RawMessage(raw)
+	for _,k:=range strings.Split(p[1:],"/") {
+		trim:=bytes.TrimSpace(cur)
+		if len(trim)>0&&trim[0]=='{' { var m map[string]json.RawMessage;must(json.Unmarshal(cur,&m)==nil,"pointer_object");var ok bool;cur,ok=m[k];must(ok,"pointer_key:"+p) } else { var a []json.RawMessage;must(json.Unmarshal(cur,&a)==nil,"pointer_array");i,e:=strconv.Atoi(k);must(e==nil&&i>=0&&i<len(a),"pointer_index:"+p);cur=a[i] }
+	}
+	return cur
+}
+func ref(path string,raw []byte,p string) obj { b:=rawPointer(raw,p);return obj{"path":path,"file_sha256":hash(raw),"json_pointer":p,"raw_json_value_sha256":hash(b),"raw_json_value_bytes":len(b)} }
+
+func makeReview(repo,plans,out string) obj {
+	plan:=read(plans,"PLAN-68.v2.ko.md");must(hash(plan)=="d1de515f6b5fc5946a9fee3b74a6f1c7767483b5747326e8d65e3065dfeed4c1","plan_v2_sha")
+	priorPlan:=read(plans,"PLAN-68.ko.md");must(hash(priorPlan)=="228be4b3cd586616ec634c93c98e7fb3a969af4b4c51f53c2c23c5bd13dd31ce","plan_v1_sha")
+	finalPlan:=read(plans,"PLAN-68.v3.ko.md");must(hash(finalPlan)=="6a3b9eb06fcd1223392dab767b7e739304927f14d239879d5cc0dbe4ac057831","plan_v3_sha")
+	l2,l3:=strings.Split(string(plan),"\n"),strings.Split(string(finalPlan),"\n");must(len(l2)==len(l3),"plan_v3_line_count")
+	differingLines:=0
+	for i:=range l2 {if l2[i]!=l3[i] {differingLines++;must(strings.HasPrefix(l2[i],"최초 원본 worker는")&&strings.HasPrefix(l3[i],"최초 원본 worker는"),"plan_v3_changed_nonworker_content")}}
+	must(differingLines==1,"plan_v3_worker_only_difference")
+	catPath:="experiments/short-claim/upstream-wording/quote-catalog-63.json"
+	catRaw:=read(repo,catPath);must(hash(catRaw)=="b8253c07943dda0984c5befd32ef3233cf2b8426f5beb6324aea1c6520ecb9ec","catalog63_sha");cat:=decode(catRaw)
+	manifestPath:="internal/publicbehavior/upstream-manifest.json";manifestRaw:=read(repo,manifestPath);must(hash(manifestRaw)=="2bdb644667d0b7cee9a309a5b33b54df395b3b74684324a7eaffd0a008dec6ca","manifest_sha");manifest:=decode(manifestRaw)
+	inputs:=[]Pin{pin("PLAN-68.v3.ko.md",finalPlan),pin("PLAN-68.v2.ko.md",plan),pin("PLAN-68.ko.md",priorPlan),pin(catPath,catRaw),pin(manifestPath,manifestRaw)}
+	for _,v:=range arr(cat["input_pins"]) { p:=mapof(v);path:=str(p,"path");b:=read(repo,path);must(hash(b)==str(p,"sha256")&&len(b)==num(p,"bytes"),"catalog_input_pin:"+path);inputs=append(inputs,pin(path,b)) }
+	var sourcePins []Pin;var sources=map[string][]byte{}
+	for _,v:=range arr(manifest["artifacts"]) { m:=mapof(v);path:=str(m,"packaged_path");b:=read(repo,path);must(hash(b)==str(m,"sha256")&&len(b)==num(m,"bytes"),"original_artifact_pin:"+path);sourcePins=append(sourcePins,pin(path,b));sources[path]=b }
+	must(len(sourcePins)==15,"original_artifact_count")
+	var licenses []obj
+	for i,v:=range arr(cat["original_full_mit_licenses"]) { m:=mapof(v);repository:=str(m,"repository");prefix:="semver";if repository=="bmatcuk/doublestar"{prefix="doublestar"};p:="internal/publicbehavior/testdata/upstream/"+prefix+"/"+str(m,"original_path");b:=sources[p];must(string(b)==str(m,"raw_text")&&hash(b)==str(m,"sha256")&&len(b)==num(m,"bytes"),"full_mit_bytes");licenses=append(licenses,obj{"repository":repository,"source_pin":pin(p,b),"prior_reference":ref(catPath,catRaw,fmt.Sprintf("/original_full_mit_licenses/%d",i)),"raw_text":string(b)});writeNew(out,"FULL-MIT-"+prefix+"-68.txt",b) }
+	must(len(licenses)==2,"license_count")
+	var captions []Caption
+	for _,selectID:=range []string{"s-doc-strict","g-star","g-globstar","g-mid-component"} {
+		found:=false
+		for i,v:=range arr(cat["quotes"]) { m:=mapof(v);if str(m,"id")!=selectID {continue};must(!found,"duplicate_catalog_quote");found=true
+			p:=str(m,"retained_path");b:=sources[p];s:=textSpan(selectID,p,b,str(m,"raw_text"));old:=mapof(m["raw_quote_span"])
+			must(s.Start==num(old,"byte_start")&&s.End==num(old,"byte_end")&&s.LineStart==num(old,"line_start")&&s.LineEnd==num(old,"line_end")&&s.SHA==str(old,"sha256"),"old_quote_pin:"+selectID)
+			words:=wordCount(s.Raw);must(words==num(m,"normalized_words"),"old_quote_word_count")
+			must(len(s.Raw)<=512&&words<=32,"selected_old_quote_budget")
+			captions=append(captions,Caption{s,str(m,"repository"),str(m,"revision"),str(m,"original_path"),fmt.Sprintf("/quotes/%d",i),words,true,true,"exact_prior63_quote_proposed_for_new68_use"})
+		};must(found,"old_quote_missing:"+selectID)
+	}
+	docPath:="internal/publicbehavior/testdata/upstream/semver/doc.go";doc:=sources[docPath]
+	newText:="The `NewVersion` function attempts to coerce a version into a\nsemantic version and parse it."
+	newSpan:=textSpan("s-doc-newversion-68",docPath,doc,newText);words:=wordCount(newText);must(len(newText)<=512&&words<=32,"new_caption_budget")
+	captions=append(captions,Caption{newSpan,"Masterminds/semver","61fc460d28283a91c53be65c2e0f20b494ac8ad9","doc.go","",words,true,true,"new68_selection_of_preexisting_upstream_sentence_not_in63_quote_list"})
+	exampleText:="For example, if there is a leading v or a version\nlisted without all 3 parts (e.g. 1.2) it will attempt to coerce it into a valid\nsemantic version (e.g., 1.2.0)."
+	exampleSpan:=textSpan("s-doc-coercion-example-unselected-68",docPath,doc,exampleText);exampleWords:=wordCount(exampleText)
+	rejected:=Caption{exampleSpan,"Masterminds/semver","61fc460d28283a91c53be65c2e0f20b494ac8ad9","doc.go","",exampleWords,len(exampleText)<=512&&exampleWords<=32,false,"not_selected_whole_sentence_exceeds_normalized_word_cap_no_truncation"}
+	must(exampleWords>32,"example_word_overflow_expected")
+	versionPath:="internal/publicbehavior/testdata/upstream/semver/version.go";version:=sources[versionPath]
+	matchPath:="internal/publicbehavior/testdata/upstream/doublestar/match.go";match:=sources[matchPath]
+	var evidence []Span
+	add:=func(id,path string,lo,hi int){evidence=append(evidence,lineSpan(id,path,sources[path],lo,hi))}
+	add("semver-flags",versionPath,14,28);add("semver-sentinels",versionPath,30,51);add("semver-regex-type-init-constants",versionPath,53,82)
+	add("StrictNewVersion",versionPath,89,157);add("NewVersion",versionPath,163,234);add("coerceNewVersion",versionPath,236,288);add("Version.String",versionPath,321,333)
+	add("containsOnly",versionPath,696,700);add("validatePrerelease",versionPath,706,721);add("validateMetadata",versionPath,727,737);add("validateVersion",versionPath,740,788)
+	add("Match",matchPath,52,54);add("matchWithSeparator",matchPath,91,93);add("doMatchWithSeparator",matchPath,95,317);add("matchRune",matchPath,319,324);add("isZeroLengthPattern",matchPath,326,384);add("indexUnescapedByte",matchPath,387,398);add("indexMatchedClosingAlt",matchPath,403,419)
+	add("indexNextAlt","internal/publicbehavior/testdata/upstream/doublestar/utils.go",137,153)
+	add("doValidatePattern","internal/publicbehavior/testdata/upstream/doublestar/validate.go",26,82)
+	add("ErrBadPattern","internal/publicbehavior/testdata/upstream/doublestar/doublestar.go",8,9)
+	add("semver-doc-context",docPath,13,19);add("Match-doc-context",matchPath,8,51)
+	must(bytes.Contains(version,[]byte("var CoerceNewVersion = true"))&&bytes.Contains(version,[]byte("var DetailedNewVersionErrors = true")),"actual_default_flags_true")
+	must(bytes.Contains(match,[]byte("return matchWithSeparator(pattern, name, '/', true, false)")),"Match_slash_validated_case_sensitive")
+	drafts:=[]RequestDraft{
+		{ID:"68-semver-complete-only",Group:"semver-connected-family",Text:"For inputs 1.2.3, v1.2.3, and 1.2, accept only the complete unprefixed version; reject both other inputs.",CaptionOrder:[]string{"s-doc-strict","s-doc-newversion-68"}},
+		{ID:"68-semver-coercion",Group:"semver-connected-family",Text:"For inputs 1.2.3, v1.2.3, and 1.2, accept all three, coercing the prefix or missing patch into a semantic version.",CaptionOrder:[]string{"s-doc-strict","s-doc-newversion-68"}},
+		{ID:"68-glob-zero-and-nested",Group:"slash-Match-connected-family",Text:"Using whole-name slash matching with src/ and .go fixed, match both src/main.go and src/lib/main.go, allowing zero or nested directories.",CaptionOrder:[]string{"g-star","g-globstar","g-mid-component"}},
+		{ID:"68-glob-only-single",Group:"slash-Match-connected-family",Text:"Using whole-name slash matching with src/ and .go fixed, match src/main.go but reject src/lib/main.go; wildcard matching must stay within one path segment.",CaptionOrder:[]string{"g-star","g-globstar","g-mid-component"}},
+	}
+	for i:=range drafts {d:=&drafts[i];d.SHA=hash([]byte(d.Text));d.Bytes=len(d.Text);d.Words=wordCount(d.Text);d.Authorship="new_AI_assisted_reviewer_authored_proposal_not_preexisting_upstream_or_independently_approved_final_input";must(d.Bytes<=512&&d.Words<=32,"request_draft_budget:"+d.ID)}
+	probesPath:="experiments/public-behavior/probes-57.json";probesRaw:=read(repo,probesPath);probes:=decode(probesRaw)
+	var overlaps []obj
+	for _,idx:=range []int{1,2,30,31,32,33,34} {p:=fmt.Sprintf("/vectors/%d",idx);v:=mapof(arr(probes["vectors"])[idx]);overlaps=append(overlaps,obj{"id":str(v,"id"),"reference":ref(probesPath,probesRaw,p),"input":v["input"],"use":"provenance_and_overlap_navigation_only_not68_Got_or_new_truth"})}
+	source59Path:="experiments/short-claim/source-transfer-59.json";source59Raw:=read(repo,source59Path)
+	return obj{
+		"schema":"riido-independent-preexecution-source-contract-review-68-v1",
+		"state":"static_source_text_and_finite_Want_review_only_no_actual_observations_or_eligibility_approval",
+		"reviewer":obj{"agent":"semantic_review60_prep","scope":"independent_reader_of_root_PLAN68_and_preexisting_sources; author_of_this_review_and_request_drafts","blind":false,"prior_exposure":"protocol60_and_actual60/61_reader; independent63_wording_QA; private/public64_projection_author; independent65_metadata_QA; source_and_metadata_navigation_exposure","plan68_author":false,"upstream_caption_author":false,"human_only_authorship_claim":false},
+		"input_pins":inputs,"retained_original_source_pins":sourcePins,"byte_range_convention":"zero_based_start_inclusive_end_exclusive; line_ranges_one_based; no_original_AST_parser_formatter",
+		"plan_revision_review":obj{"final_binding":"PLAN-68.v3.ko.md","v2_to_v3_byte_check":"Only the single worker paragraph line changed; all raw request/quote/Want description bytes remain unchanged.","v1_history":"Root caught DetailedNewVersionErrors=false through source reading before any reported original execution, preserved v1 and corrected to true in v2. Source declarations independently confirm both flags are true.","root_reported_prior_patch_attempts":obj{"attempts":2,"failures":1,"successes":1,"reviewer_reruns":0},"v3_counter_refinement":"12 primary entrypoints plus 3 NewVersion String observers; no Strict String call, no individual initializer/helper instrumentation claim; child CPU/RSS includes initialization."},
+		"caption_choices":captions,"unselected_complete_example":rejected,"full_MIT_notices":licenses,"source_evidence":evidence,"request_draft_proposals":drafts,
+		"fixed_finite_expectations":[]obj{
+			{"entrypoint":"StrictNewVersion","inputs":[]string{"1.2.3","v1.2.3","1.2"},"predeclared_accepted":[]bool{true,false,false},"static_source_reason":"Three SplitN parts plus digit-only check permit 1.2.3, reject prefix-v through containsOnly, and reject 1.2 at len(parts)!=3. Each fixed component is within uint64 width. This is source reading, not observed Got.","evidence_ids":[]string{"StrictNewVersion","containsOnly","semver-regex-type-init-constants"},"actual_Got":nil},
+			{"entrypoint":"NewVersion","inputs":[]string{"1.2.3","v1.2.3","1.2"},"predeclared_accepted":[]bool{true,true,true},"predeclared_strings":[]string{"1.2.3","1.2.3","1.2.0"},"static_source_reason":"With CoerceNewVersion=true, coerceNewVersion uses anchored loose regex with optional v and optional patch; groups become small uint64 parts and omitted patch becomes zero. String formats numeric major.minor.patch without original prefix. DetailedNewVersionErrors is true but reached only in the noncoercing branch.","evidence_ids":[]string{"semver-flags","semver-regex-type-init-constants","NewVersion","coerceNewVersion","Version.String"},"actual_Got":nil,"prior57_59_63_NewVersion_observation_claim":false},
+			{"entrypoint":"Match","patterns":[]string{"src/*.go","src/**/*.go","src/**.go"},"names":[]string{"src/main.go","src/lib/main.go"},"predeclared_matched_by_pattern":[][]bool{{true,false},{true,true},{true,false}},"static_source_reason":"Match selects slash, validation=true and caseInsensitive=false. Plain star backtracking cannot cross slash. A segment-start double star followed by slash supports zero directories and directory backtracking. Double star followed by . rather than slash falls through to ordinary star handling. ASCII literal prefix/suffix compare directly and success consumes the whole name.","evidence_ids":[]string{"Match","matchWithSeparator","doMatchWithSeparator","matchRune","isZeroLengthPattern","doValidatePattern"},"actual_Got":nil},
+		},
+		"caption_coverage_review":[]obj{
+			{"caption":"s-doc-strict","fidelity":"Faithful complete upstream restriction on valid v2 versions; no contradiction in the selected three inputs.","finite_coverage_limit":"Only-valid is a restriction, not a universal positive acceptance promise. Exact positive 1.2.3/no-panic/nil-error and errors on the other inputs are checked by bounded source reasoning and future observation, not all expressly enumerated by this sentence.","narrower_honest_target":"Strict complete unprefixed semantic parsing on the three frozen inputs, with returned-field details outside the caption guarantee."},
+			{"caption":"s-doc-newversion-68","fidelity":"Faithful complete upstream statement that parsing attempts coercion. It is a new selection of old doc.go text, not a new upstream quote or a prior63 selected caption.","finite_coverage_limit":"The word attempts does not promise successful coercion for every input. The three accepted bits, omitted-patch=0, normalized strings and nil-error/no-panic fields are not fully stated by the selected sentence. Its fuller example sentence exceeds the word cap and remains wholly unselected.","narrower_honest_target":"Coercing semantic-parser behavior on three frozen inputs; treat exact normalized strings as observer evidence rather than a caption-literal entailment or a new wording-quality success label."},
+			{"caption":"g-star","fidelity":"Exact grammar item expresses nonseparator sequence matching. On the fixed literal prefix/suffix and whole-name slash assumptions it explains main versus nested discrimination.","finite_coverage_limit":"A grammar item alone is not a whole pattern contract. The fixed src/ prefix, .go suffix, Match entrypoint/whole-name behavior and two names must be explicit shared request/candidate-instance context. No error/panic/resource guarantee is stated."},
+			{"caption":"g-globstar","fidelity":"Exact /**/ grammar item covers zero or more directories, consistent with src/**/*.go on the two fixed names.","finite_coverage_limit":"Does not describe arbitrary double-star placement or trailing src/**. Literal prefix/suffix and whole-name context are external to the item. Error/panic/resource guarantees are not stated."},
+			{"caption":"g-mid-component","fidelity":"Exact complete upstream sentence gives an example of **.txt behaving as *.txt; unchanged comment prefixes/newlines and source grammar retained.","finite_coverage_limit":"The caption example is path/to/**.txt, not the literal src/**.go instance. Bounded analogy plus source reading supports the main/nested result, conditional on shared literal src/ and .go context. Without this binding the exact .go cases are not expressly enumerated. No broad placement/malformed/Windows/generalization promise is made."},
+		},
+		"source_target_comparisons_not_labels":[]string{
+			"StrictNewVersion source behavior matches complete-only finite Want and differs from accept-all Want on two inputs.",
+			"NewVersion source behavior matches accept-all finite Want and differs from complete-only Want on two inputs.",
+			"src/*.go and src/**.go source behavior matches only-single finite Want and differs from zero+nested Want on the nested name.",
+			"src/**/*.go source behavior matches zero+nested finite Want and differs from only-single Want on the nested name.",
+			"These are bounded static target comparisons. No new Acceptable arrays, supervision truth states, masks or eligibility decisions are created."
+		},
+		"connected_source_groups":[]obj{
+			{"group":"semver-connected-family","requests":[]string{"68-semver-complete-only","68-semver-coercion"},"entrypoints":[]string{"StrictNewVersion","NewVersion"},"shared_or_related_source_components":[]string{"Version","containsOnly","validatePrerelease","validateMetadata","validateVersion","coerceNewVersion","versionRegex","looseVersionRegex","semVerRegex","looseSemVerRegex","init","CoerceNewVersion","DetailedNewVersionErrors","num","allowed","error_sentinels"},"observer":"Version.String reads shared Version; keep connected and distinguish observer from input features.","trace_basis":ref(source59Path,source59Raw,"/proposals/0"),"new_scope_note":"59 Strict trace does not itself include or observe NewVersion; source reading here explicitly adds its entrypoint/flags/regex/coerce relation for future membership, not a new graph union execution."},
+			{"group":"slash-Match-connected-family","requests":[]string{"68-glob-zero-and-nested","68-glob-only-single"},"fixed_pattern_instances":[]string{"src/*.go","src/**/*.go","src/**.go"},"entrypoints":[]string{"Match"},"shared_source_components":[]string{"matchWithSeparator","doMatchWithSeparator","matchRune","isZeroLengthPattern","indexUnescapedByte","indexMatchedClosingAlt","indexNextAlt","doValidatePattern","ErrBadPattern"},"trace_basis":ref(source59Path,source59Raw,"/proposals/1"),"compile_only_note":"Preserve all original raw Go artifacts; utils.go compile closure needs glob/options/walk declarations. This does not authorize calling filesystem/PathMatch/Glob APIs."},
+		},
+		"membership_boundary":"Exactly two proposed connected source families here. This is a read trace, not actual graph union/role allocation or proof of complete external dependency independence. Root must bind shared member identities with its existing membership policy, not count two requests per family or three pattern wrappers as independent groups.",
+		"prior57_overlap_references":overlaps,"new_observation_positions":"All three NewVersion inputs are a new observation scope; src/**.go on src/main.go is not in old g01-g05. Old observations remain frozen and are not copied into new Got.",
+		"observation_fields_boundary":obj{"accepted_definition":"no panic AND err==nil AND Version!=nil; do not turn nil-ness alone into acceptance","strings":"NewVersion normalized strings need original Version.String observer calls","Match":"record matched, error support and panic separately; no blanket malformed/error policy inferred","current_observations":"not_executed"},
+		"counter_wording_minimal_fix":obj{"state":"addressed_in_v3","planned_primary_entrypoint_calls":12,"semver_primary_calls":6,"Match_primary_calls":6,"additional_Version_String_observer_calls_for_NewVersion_strings":3,"Strict_String_calls":0,"initializer_scope":"Package initialization compiles two regexes and constructs sentinels; compile-only global initializers may also run. v3 does not instrument or claim individual initializer/helper counts, and includes initialization in child CPU/RSS. None ran in this review.","claim":"12 is a primary entrypoint count, not a complete count of all original source/observer/initializer activity."},
+		"minimum_before_actual_worker":"Finalize exact English request bytes and caption-to-entrypoint/pattern bindings, finite Want/observer schema, full source/license/compile-closure/worker/plan pins, then freeze. This fulfills the existing v2 plan; no invented diversity/readiness gate. The reviewer-authored drafts here are proposals, not independently approved frozen runtime inputs.",
+		"critical_objection":"Actually using these original captions can add preexisting upstream wording origin relative to project-authored descriptions. Two related families, lexical identifiers, shared requests and reused finite inputs cannot establish individual human-only authorship, independent populations, out-of-family generalization, memory/CPU savings or training readiness.",
+		"interpretation_and_mechanics_separation":"SHA/raw-byte/line/pointer/word-cap checks are mechanical. Correctness of the bounded source reading and caption entailment remains a reviewer interpretation, not executable Got or whole-program proof.",
+		"existing_history_preserved":obj{"old_parents":72,"old_candidate_positions":216,"old_unknown":21,"old_groups":17,"old_known_groups":16,"original_roots_and_prior_review_states":"unchanged; no new inventory or old asset regeneration"},
+		"actual_counters":obj{"source_text_review_sessions":1,"original_source_APIs":0,"original_initializers":0,"original_AST_parser_formatter":0,"actual_Features":0,"graph_union_or_membership_allocation":0,"roles":0,"fit":0,"inference":0,"separate_judge_or_paid_APIs":0,"new_supervision_labels_or_acceptability_sets":0,"protected_final_reads":0,"shared_repository_edits":0,"Git_mutations":0,"HF_or_other_publications":0},
+		"AI_assistance_and_cost":"This is AI-assisted Codex source/text reading. Ordinary collaboration cost is not measured. Zero separate model/judge/paid API execution does not mean no AI agent was used or total work cost was zero.",
+		"authoring_diversity_cleared":false,"human_only_authorship_verified":false,"training_ready":false,"actual_fit_approval":false,
+	}
+}
+
+func main(){
+	repo:=flag.String("repo","","public source repository directory");plans:=flag.String("plans","","frozen plan directory");out:=flag.String("out","","private output directory");flag.Parse()
+	must(*repo!=""&&*plans!=""&&*out!="","required_paths")
+	must(os.MkdirAll(*out,0700)==nil,"output_directory")
+	r:=makeReview(*repo,*plans,*out)
+	b:=encoded(r);writeNew(*out,"INDEPENDENT-REVIEW-68.v1.json",b)
+	fmt.Printf("Static metadata/source review serialized: %d bytes, SHA256 %s; no original APIs or eligibility approval.\n",len(b),hash(b))
+}

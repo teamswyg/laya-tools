@@ -169,3 +169,4 @@
 - [공개 동작 검증57 결과](https://github.com/teamswyg/laya-tools/wiki/Public-Behavior-Results-57-KO) · [EN](https://github.com/teamswyg/laya-tools/wiki/Public-Behavior-Results-57-EN)
 - [공개 동작 검증57 사용법](https://github.com/teamswyg/laya-tools/wiki/Public-Behavior-Usage-57-KO) · [EN](https://github.com/teamswyg/laya-tools/wiki/Public-Behavior-Usage-57-EN)
 - [Laya 원본 회고57](https://github.com/teamswyg/laya-tools/wiki/Laya-Retrospective-57-KO) · [EN](https://github.com/teamswyg/laya-tools/wiki/Laya-Retrospective-57-EN)
+- [실제 주장 검사66–69](Claim-Checks-66-69-KO) · [Actual claim checks66–69](Claim-Checks-66-69-EN)

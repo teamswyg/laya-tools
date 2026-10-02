@@ -1,0 +1,23 @@
+package main
+
+import (
+	"strings"
+	"testing"
+)
+
+func TestMetadataWordCapDoesNotTruncate(t *testing.T) {
+	if wordCount("StrictNewVersion")!=3 || wordCount("NewVersion")!=2 {t.Fatal("identifier splitting changed")}
+	full:=strings.Repeat("word ",33)
+	if wordCount(full)!=33 || len(full)!=165 {t.Fatal("word overflow must remain whole")}
+}
+func TestExactUTF8ByteAndLineSpans(t *testing.T){
+	b:=[]byte("a\n한글 x\nlast")
+	s:=textSpan("x","source.go",b,"한글 x")
+	if s.Start!=2||s.End!=10||s.LineStart!=2||s.LineEnd!=2||s.Raw!="한글 x" {t.Fatalf("bad exact span: %+v",s)}
+	l:=lineSpan("line","source.go",b,2,2)
+	if l.Start!=2||l.End!=11||l.Raw!="한글 x\n" {t.Fatalf("bad line span: %+v",l)}
+}
+func TestRawJSONPointerPreservesNumberLexeme(t *testing.T){
+	raw:=[]byte(`{"rows":[{"n":18446744073709551615,"t":"x"}]}`)
+	if string(rawPointer(raw,"/rows/0/n"))!="18446744073709551615" {t.Fatal("number rounded")}
+}

@@ -1,0 +1,188 @@
+// SPDX-License-Identifier: Apache-2.0
+// This native package MUST NOT be executed before the external controller has
+// frozen inputs/source/binary/plan and reserved the one attempt. Imported package
+// init runs before main, including on --help or malformed arguments.
+package main
+
+import (
+	"encoding/json"
+	"flag"
+	"fmt"
+	"io"
+	"os"
+	"runtime"
+	"runtime/debug"
+
+	semver "github.com/Masterminds/semver/v3"
+	"github.com/bmatcuk/doublestar/v4"
+	"riido68-native-worker-prep/observation"
+)
+
+type NativeCounts struct {
+	Entries [3]observation.Counter `json:"direct_API_adapter_counts"`
+	Strings observation.Counter    `json:"String_adapter_counts"`
+}
+
+// Counters increment immediately before each direct public API call. Internal
+// helpers, package init and getters other than the specified String are not
+// instrumented. These counts are not hardware measurements.
+func nativeCallbacks(n *NativeCounts) observation.Callbacks {
+	n.Entries = [3]observation.Counter{{API: "StrictNewVersion"}, {API: "NewVersion"}, {API: "Match"}}
+	n.Strings.API = "NewVersion.String"
+	return observation.Callbacks{
+		Flags: func() observation.Flags {
+			return observation.Flags{CoerceNewVersion: semver.CoerceNewVersion, DetailedNewVersionErrors: semver.DetailedNewVersionErrors}
+		},
+		Strict: func(s string) observation.Parsed {
+			k := &n.Entries[0]
+			k.Attempts++
+			ret := false
+			defer func() {
+				if !ret {
+					k.Panicked++
+				}
+			}()
+			v, err := semver.StrictNewVersion(s)
+			ret = true
+			k.Returned++
+			return observation.Parsed{VersionPresent: v != nil, ErrorPresent: err != nil}
+		},
+		New: func(s string) observation.Parsed {
+			k := &n.Entries[1]
+			k.Attempts++
+			ret := false
+			defer func() {
+				if !ret {
+					k.Panicked++
+				}
+			}()
+			v, err := semver.NewVersion(s)
+			ret = true
+			k.Returned++
+			p := observation.Parsed{VersionPresent: v != nil, ErrorPresent: err != nil}
+			if v != nil {
+				p.String = func() string {
+					n.Strings.Attempts++
+					ret := false
+					defer func() {
+						if !ret {
+							n.Strings.Panicked++
+						}
+					}()
+					s := v.String()
+					ret = true
+					n.Strings.Returned++
+					return s
+				}
+			}
+			return p
+		},
+		Match: func(p, s string) (bool, bool) {
+			k := &n.Entries[2]
+			k.Attempts++
+			ret := false
+			defer func() {
+				if !ret {
+					k.Panicked++
+				}
+			}()
+			matched, err := doublestar.Match(p, s)
+			ret = true
+			k.Returned++
+			return matched, err != nil
+		},
+	}
+}
+
+type Result struct {
+	Schema                                string             `json:"schema"`
+	State                                 string             `json:"state"`
+	Failure                               string             `json:"failure"`
+	AttemptID                             string             `json:"attempt_id"`
+	ExecutionPlanSHA256                   string             `json:"execution_plan_sha256"`
+	SourcePlanSHA256                      string             `json:"source_plan_sha256"`
+	ContractSHA256                        string             `json:"contract_sha256"`
+	BinarySHA256                          string             `json:"binary_sha256"`
+	RuntimeGo                             string             `json:"runtime_go"`
+	GOOS                                  string             `json:"goos"`
+	GOARCH                                string             `json:"goarch"`
+	MainReached                           bool               `json:"main_reached"`
+	CPUThreadsSetting                     int                `json:"cpu_threads_setting"`
+	GoHeapSoftLimitBytes                  int64              `json:"go_heap_soft_limit_bytes_setting"`
+	RelatedRequests                       int                `json:"related_requests"`
+	WholeSourceFamilies                   int                `json:"whole_source_families"`
+	PlannedEntries                        int                `json:"planned_entrypoint_calls"`
+	PlannedStrings                        int                `json:"planned_String_observer_calls"`
+	PlannedStrictStrings                  int                `json:"planned_Strict_String_calls"`
+	Observations                          observation.Report `json:"observations"`
+	Native                                NativeCounts       `json:"native_counts"`
+	ResourceMeasurementsPerformedByWorker bool               `json:"resource_measurements_performed_by_worker"`
+	SourceFidelityApproved                bool               `json:"source_fidelity_approved"`
+	TargetCoverageApproved                bool               `json:"target_coverage_approved"`
+	NewSupervision                        bool               `json:"new_supervision"`
+	TrainingReady                         bool               `json:"training_ready"`
+	Scope                                 []string           `json:"scope"`
+}
+
+func run(args []string, stdout, stderr io.Writer) int {
+	fs := flag.NewFlagSet("native68", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	execute := fs.Bool("execute", false, "")
+	planPath := fs.String("plan", "", "")
+	planSHA := fs.String("plan-sha256", "", "")
+	contractPath := fs.String("contract", "", "")
+	root := fs.String("source-root", "", "")
+	out := fs.String("out", "", "")
+	if fs.Parse(args) != nil || fs.NArg() != 0 || !(*execute) || *planPath == "" || !validHash(*planSHA) || *contractPath == "" || *root == "" || *out == "" {
+		fmt.Fprintln(stderr, "arguments_failed_main_reached_no_entrypoint_calls")
+		return 2
+	}
+	// The root controller reserves the directory/ledger BEFORE exec. This worker
+	// reserves the results file, including on a preflight refusal, before calls.
+	f, err := os.OpenFile(*out, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	if err != nil {
+		fmt.Fprintln(stderr, "exclusive_result_failed_main_reached_no_entrypoint_calls")
+		return 2
+	}
+	r := Result{Schema: "riido-source-caption-native-result-68-v1", State: "preflight_refused", AttemptID: "native68-attempt-1", ExecutionPlanSHA256: *planSHA, SourcePlanSHA256: sourcePlanSHA, ContractSHA256: contractSHA, RuntimeGo: runtime.Version(), GOOS: runtime.GOOS, GOARCH: runtime.GOARCH, MainReached: true, RelatedRequests: 4, WholeSourceFamilies: 2, PlannedEntries: 12, PlannedStrings: 3,
+		Scope: []string{"Package init precedes main, arguments and all guards; controller reserves the attempt before exec and measures process lifetime including init.", "Direct entrypoint adapter counters cover Strict3/New3/Match6; New.String3 is separate, Strict.String0; internal helpers/init are not individually instrumented.", "Want is frozen and Got is retained without relabeling. Leading-v and glob targets are separate from auxiliary String/missing-patch observations.", "Resource settings are not CPU/RSS measurements or a hard RSS cap; OS controller reports wall/CPU/RSS separately.", "Independent source/text fidelity and narrow target coverage review remain pending; no features, roles, fits, models, paid trials or protected-final reads."}}
+	b, err := readBounded(*planPath)
+	var p ExecutionPlan
+	var c frozenContract
+	if err == nil {
+		p, c, err = preflight(b, *planSHA, *contractPath, *root)
+	}
+	status := 2
+	if err != nil {
+		r.Failure = err.Error()
+	} else {
+		r.BinarySHA256 = p.BinarySHA256
+		runtime.GOMAXPROCS(p.CPUThreads)
+		r.CPUThreadsSetting = p.CPUThreads
+		debug.SetMemoryLimit(p.GoHeapSoftLimitBytes)
+		r.GoHeapSoftLimitBytes = p.GoHeapSoftLimitBytes
+		r.Observations = observation.Run(c.Aux, observation.Flags{CoerceNewVersion: c.ExpectedCoerce, DetailedNewVersionErrors: c.ExpectedDetailed}, nativeCallbacks(&r.Native))
+		r.State = r.Observations.State
+		status = 0
+		if r.State != "observed_Want_matches_pending_independent_reader" {
+			status = 1
+		}
+	}
+	encoded, encodeErr := json.MarshalIndent(r, "", "  ")
+	encoded = append(encoded, '\n')
+	if encodeErr != nil || len(encoded) > artifactCap {
+		f.Close()
+		fmt.Fprintf(stderr, "result_encoding_failed entries=%d entry_returns=%d entry_panics=%d strings=%d string_returns=%d string_panics=%d\n", r.Native.Entries[0].Attempts+r.Native.Entries[1].Attempts+r.Native.Entries[2].Attempts, r.Native.Entries[0].Returned+r.Native.Entries[1].Returned+r.Native.Entries[2].Returned, r.Native.Entries[0].Panicked+r.Native.Entries[1].Panicked+r.Native.Entries[2].Panicked, r.Native.Strings.Attempts, r.Native.Strings.Returned, r.Native.Strings.Panicked)
+		return 3
+	}
+	n, writeErr := f.Write(encoded)
+	closeErr := f.Close()
+	if writeErr != nil || n != len(encoded) || closeErr != nil {
+		fmt.Fprintf(stderr, "result_write_failed entries=%d entry_returns=%d entry_panics=%d strings=%d string_returns=%d string_panics=%d\n", r.Native.Entries[0].Attempts+r.Native.Entries[1].Attempts+r.Native.Entries[2].Attempts, r.Native.Entries[0].Returned+r.Native.Entries[1].Returned+r.Native.Entries[2].Returned, r.Native.Entries[0].Panicked+r.Native.Entries[1].Panicked+r.Native.Entries[2].Panicked, r.Native.Strings.Attempts, r.Native.Strings.Returned, r.Native.Strings.Panicked)
+		return 3
+	}
+	fmt.Fprintf(stdout, "state=%s entries=%d strings=%d Want_mismatches=%d Want_uncompared=%d\n", r.State, r.Native.Entries[0].Attempts+r.Native.Entries[1].Attempts+r.Native.Entries[2].Attempts, r.Native.Strings.Attempts, r.Observations.Mismatches, r.Observations.Uncompared)
+	return status
+}
+
+func main() { os.Exit(run(os.Args[1:], os.Stdout, os.Stderr)) }

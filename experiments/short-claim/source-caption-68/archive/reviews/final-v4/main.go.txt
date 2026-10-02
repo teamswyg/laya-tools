@@ -1,0 +1,191 @@
+package main
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"flag"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"unicode"
+)
+
+type M = map[string]any
+type Artifact struct {
+	Repository string `json:"repository"`
+	Revision string `json:"revision"`
+	Original string `json:"original_path"`
+	Path string `json:"packaged_path"`
+	Bytes int `json:"bytes"`
+	SHA string `json:"sha256"`
+}
+type Span struct {
+	Start int `json:"byte_start"`
+	End int `json:"byte_end"`
+	First int `json:"line_start"`
+	Last int `json:"line_end"`
+	SHA string `json:"sha256"`
+}
+type Caption struct {
+	ID string `json:"id"`
+	Repository string `json:"repository"`
+	Revision string `json:"revision"`
+	Original string `json:"original_path"`
+	Path string `json:"retained_path"`
+	FileSHA string `json:"file_sha256"`
+	FileBytes int `json:"file_bytes"`
+	Span Span `json:"raw_quote_span"`
+	Text string `json:"raw_text"`
+	Words int `json:"normalized_words"`
+	License string `json:"license"`
+	LicenseSHA string `json:"license_sha256"`
+	Human bool `json:"human_only_authorship_verified"`
+}
+type Candidate struct {
+	ID string `json:"id"`
+	Entrypoint string `json:"entrypoint"`
+	Pattern string `json:"fixed_pattern"`
+	Caption Caption `json:"caption"`
+	Binding string `json:"source_binding"`
+}
+type Parent struct {
+	ID string `json:"id"`
+	Family string `json:"whole_source_family"`
+	Request string `json:"request"`
+	RequestSHA string `json:"request_sha256"`
+	Target string `json:"semantic_target"`
+	Candidates []Candidate `json:"candidates"`
+	Inputs []string `json:"target_inputs"`
+	Want [][]bool `json:"target_Want_not_Got"`
+	Acceptable []int `json:"proposed_acceptable_not_observed_truth"`
+}
+type Pin struct { Path string `json:"path"`; Bytes int `json:"bytes"`; SHA string `json:"sha256"` }
+type Evidence struct {
+	ID string `json:"id"`
+	Path string `json:"path"`
+	FileSHA string `json:"file_sha256"`
+	Start int `json:"byte_start"`
+	End int `json:"byte_end"`
+	First int `json:"line_start"`
+	Last int `json:"line_end"`
+	SHA string `json:"sha256"`
+	Text string `json:"raw_text"`
+}
+func must(ok bool, label string) { if !ok { panic(label) } }
+func hash(b []byte) string { s:=sha256.Sum256(b); return hex.EncodeToString(s[:]) }
+func read(p string) []byte { b,e:=os.ReadFile(p); must(e==nil,"read:"+filepath.Base(p)); return b }
+func decode(b []byte, dst any) { must(json.Unmarshal(b,dst)==nil,"decode_metadata") }
+func equal(a,b any) bool { x,e:=json.Marshal(a); must(e==nil,"encode_a");y,e:=json.Marshal(b);must(e==nil,"encode_b");return bytes.Equal(x,y) }
+func words(t string) int {
+	r:=[]rune(t);var b strings.Builder
+	for i,c:=range r {
+		if unicode.IsUpper(c)&&i>0&&(unicode.IsLower(r[i-1])||unicode.IsDigit(r[i-1])||(i+1<len(r)&&unicode.IsLower(r[i+1])&&unicode.IsUpper(r[i-1]))) { b.WriteByte(' ') }
+		if unicode.IsLetter(c)||unicode.IsDigit(c) { b.WriteRune(unicode.ToLower(c)) } else { b.WriteByte(' ') }
+	}
+	return len(strings.Fields(b.String()))
+}
+func validSpan(b []byte,s Span,text string) bool {
+	return s.Start>=0&&s.End>s.Start&&s.End<=len(b)&&string(b[s.Start:s.End])==text&&hash(b[s.Start:s.End])==s.SHA&&bytes.Count(b[:s.Start],[]byte{'\n'})+1==s.First&&bytes.Count(b[:s.End-1],[]byte{'\n'})+1==s.Last
+}
+func pin(label string,b []byte) Pin { return Pin{label,len(b),hash(b)} }
+func checkPin(p Pin,b []byte) { must(p.Bytes==len(b)&&p.SHA==hash(b),"pin:"+p.Path) }
+func family(a Artifact) string { if a.Repository=="Masterminds/semver" { return "semver" };must(a.Repository=="bmatcuk/doublestar","source_repository");return "doublestar" }
+func checkParent(p Parent,i int) {
+	requests:=[]string{
+		"For v1.2.3, reject the leading v prefix when parsing a semantic version.",
+		"For v1.2.3, allow the optional leading v prefix when parsing a semantic version.",
+		"Using whole-name slash matching with src/ and .go fixed, match both src/main.go and src/lib/main.go, allowing zero or nested directories.",
+		"Using whole-name slash matching with src/ and .go fixed, match src/main.go but reject src/lib/main.go; wildcard matching must stay within one path segment.",
+	}
+	ids:=[]string{"source68-prefix-reject","source68-prefix-allow","source68-nested-allow","source68-nested-reject"}
+	must(i>=0&&i<4&&p.ID==ids[i]&&p.Request==requests[i]&&p.RequestSHA==hash([]byte(p.Request)),"request_order_or_sha")
+	must(len(p.Request)<=512&&words(p.Request)<=32,"request_cap")
+	accept:=[][]int{{0},{1},{1},{0,2}}
+	must(equal(p.Acceptable,accept[i]),"proposed_acceptable_order")
+	if i<2 {
+		must(p.Family=="semver"&&equal(p.Inputs,[]string{"v1.2.3"})&&equal(p.Want,[][]bool{{false},{true}})&&len(p.Candidates)==2,"semver_fixed_scope")
+		must(p.Candidates[0].ID=="strict"&&p.Candidates[0].Entrypoint=="StrictNewVersion"&&p.Candidates[0].Caption.ID=="s-doc-strict"&&p.Candidates[0].Pattern=="","strict_binding")
+		must(p.Candidates[1].ID=="optional-v"&&p.Candidates[1].Entrypoint=="NewVersion"&&p.Candidates[1].Caption.ID=="s-package-optional-v"&&p.Candidates[1].Pattern=="","optional_v_binding")
+		must(p.Candidates[1].Binding=="Upstream package capability instantiated as pinned NewVersion(v1.2.3); doc.go parsing context [328,852) and optional-v coercing regex. Not a function-specific comment.","whole_bullet_attribution")
+	} else {
+		must(p.Family=="doublestar"&&equal(p.Inputs,[]string{"src/main.go","src/lib/main.go"})&&equal(p.Want,[][]bool{{true,false},{true,true},{true,false}})&&len(p.Candidates)==3,"glob_fixed_scope")
+		ids:=[]string{"plain-star","whole-globstar","midcomponent-star"};caps:=[]string{"g-star","g-globstar","g-mid-component"};patterns:=[]string{"src/*.go","src/**/*.go","src/**.go"}
+		for j,c:=range p.Candidates { must(c.ID==ids[j]&&c.Entrypoint=="Match"&&c.Pattern==patterns[j]&&c.Caption.ID==caps[j],"glob_candidate_order") }
+	}
+}
+func main() {
+	repo:=flag.String("repo","","retained input repository");native:=flag.String("native","","worker preparation root (read only)");plan:=flag.String("plan","","root final plan");prior:=flag.String("prior","","immutable v3 review");prefix:=flag.String("prefix","","immutable narrow proposal review");out:=flag.String("out","","new own private output");flag.Parse()
+	must(*repo!=""&&*native!=""&&*plan!=""&&*prior!=""&&*prefix!=""&&*out!="","required_paths")
+	contractBytes:=read(filepath.Join(*native,"inputs/contract-68.v4.json"));must(len(contractBytes)==27415&&hash(contractBytes)=="818eed54f6b14b1f512025804cf7782d4a59d94ed30eeeaa46c56a270afbd0eb","frozen_contract")
+	planBytes:=read(*plan);must(len(planBytes)==6995&&hash(planBytes)=="1493d14e9228cb147f8941c98d828bc221e0abdfe0be907e27b3799ae875cdb6"&&bytes.Equal(planBytes,read(filepath.Join(*native,"inputs/PLAN-68.v4.ko.md"))),"frozen_plan_and_copy")
+	var contract struct {
+		Schema string `json:"schema"`;State string `json:"state"`;PlanSHA string `json:"plan_sha256"`
+		Parents []Parent `json:"parents"`;Artifacts []Artifact `json:"upstream_source_artifacts"`;Pins []Pin `json:"metadata_input_pins"`
+		APICalls int `json:"actual_entrypoint_calls"`;Observers int `json:"actual_observer_calls"`;Truth bool `json:"new_observed_truth_created"`;Ready bool `json:"training_ready"`;Diversity bool `json:"authoring_diversity_cleared"`
+		Coerce bool `json:"expected_CoerceNewVersion"`;Detailed bool `json:"expected_DetailedNewVersionErrors"`;Aux json.RawMessage `json:"auxiliary_observation_contract"`
+	}
+	decode(contractBytes,&contract)
+	must(contract.Schema=="riido-finite-source-caption-contract-68-v4"&&contract.State=="frozen_proposal_before_native_execution"&&contract.PlanSHA==hash(planBytes)&&contract.APICalls==0&&contract.Observers==0&&!contract.Truth&&!contract.Ready&&!contract.Diversity&&contract.Coerce&&contract.Detailed,"proposal_not_observation")
+	aux:=M{"version_inputs":[]string{"1.2.3","v1.2.3","1.2"},"strict_accepted_Want":[]bool{true,false,false},"new_accepted_Want":[]bool{true,true,true},"new_String_Want":[]string{"1.2.3","1.2.3","1.2.0"},"glob_names":[]string{"src/main.go","src/lib/main.go"},"glob_patterns":[]string{"src/*.go","src/**/*.go","src/**.go"},"glob_matched_Want":[][]bool{{true,false},{true,true},{true,false}},"planned_entrypoint_calls":12,"planned_String_observer_calls":3}
+	var auxActual M;decode(contract.Aux,&auxActual);must(equal(auxActual,aux),"auxiliary_scope_and_planned_counts")
+	must(len(contract.Pins)==3&&len(contract.Artifacts)==15&&len(contract.Parents)==4,"fixed_counts")
+	for i,p:=range contract.Pins { var b []byte;if i==0 { must(p.Path=="PLAN-68.v4.ko.md","plan_pin_label");b=planBytes } else { b=read(filepath.Join(*repo,p.Path)) };checkPin(p,b) }
+	manifestPath:="internal/publicbehavior/upstream-manifest.json";var manifest struct { Artifacts []Artifact `json:"artifacts"`;Bytes int `json:"original_bytes"`;Count int `json:"original_artifact_count"` };decode(read(filepath.Join(*repo,manifestPath)),&manifest)
+	must(equal(contract.Artifacts,manifest.Artifacts)&&manifest.Bytes==99035&&manifest.Count==15,"source_manifest_exact_order")
+	total:=0;licenses:=[]M{}
+	for i,a:=range contract.Artifacts {
+		b:=read(filepath.Join(*repo,a.Path));checkPin(Pin{a.Path,a.Bytes,a.SHA},b);copyPath:=filepath.Join(*native,"upstream",family(a),a.Original);must(bytes.Equal(b,read(copyPath)),"full_native_source_copy")
+		total+=len(b)
+		if strings.HasPrefix(a.Original,"LICENSE") { licenses=append(licenses,M{"contract_pointer":fmt.Sprintf("/upstream_source_artifacts/%d",i),"repository":a.Repository,"revision":a.Revision,"pin":pin(a.Path,b),"raw_text":string(b)}) }
+	}
+	must(total==99035&&len(licenses)==2,"full_source_and_MIT_counts")
+	var catalog struct { Quotes []Caption `json:"quotes"`;Licenses []struct{Repository string `json:"repository"`;Text string `json:"raw_text"`;SHA string `json:"sha256"`;Bytes int `json:"bytes"`} `json:"original_full_mit_licenses"` }
+	decode(read(filepath.Join(*repo,"experiments/short-claim/upstream-wording/quote-catalog-63.json")),&catalog)
+	for _,l:=range licenses { found:=false;for _,old:=range catalog.Licenses { if old.Repository==l["repository"] { p:=l["pin"].(Pin);must(old.Text==l["raw_text"]&&old.SHA==p.SHA&&old.Bytes==p.Bytes,"MIT_catalog_full_bytes");found=true } };must(found,"MIT_catalog_link") }
+	priorBytes:=read(filepath.Join(*prior,"INDEPENDENT-REVIEW-68.v1.json"));must(hash(priorBytes)=="e1b2eb0e247fd22d98734d14dce535b4d85bf261f1d3eb75344a05d2bf65b814","prior_v3_unchanged")
+	prefixBytes:=read(filepath.Join(*prefix,"PREFIX-ONLY-CRITICAL-REVIEW-68.v1.json"));must(hash(prefixBytes)=="6d703f624b8782879fa45cb6a77f07f7577a6a4914337c673ca30880425a7bcc","prior_prefix_unchanged")
+	var old struct { Evidence []Evidence `json:"source_evidence"` };decode(priorBytes,&old);must(len(old.Evidence)==23,"prior_evidence_count")
+	checkedEvidence:=[]M{}
+	for i,e:=range old.Evidence { b:=read(filepath.Join(*repo,e.Path));must(hash(b)==e.FileSHA&&validSpan(b,Span{e.Start,e.End,e.First,e.Last,e.SHA},e.Text),"prior_source_span");checkedEvidence=append(checkedEvidence,M{"artifact":"INDEPENDENT-REVIEW-68.v1.json","artifact_sha256":hash(priorBytes),"pointer":fmt.Sprintf("/source_evidence/%d",i),"id":e.ID,"path":e.Path,"file_sha256":e.FileSHA,"byte_start":e.Start,"byte_end":e.End,"line_start":e.First,"line_end":e.Last,"sha256":e.SHA}) }
+	var prefixOld struct { Context []Evidence `json:"attribution_context_evidence"` };decode(prefixBytes,&prefixOld);must(len(prefixOld.Context)==2,"prefix_context_count")
+	for _,e:=range prefixOld.Context { b:=read(filepath.Join(*repo,e.Path));must(hash(b)==e.FileSHA&&validSpan(b,Span{e.Start,e.End,e.First,e.Last,e.SHA},e.Text),"prefix_context_span") }
+	captions:=[]M{};parents:=[]M{};positions:=0;seen:=[]string{}
+	for i,p:=range contract.Parents {
+		checkParent(p,i);positions+=len(p.Candidates)
+		refs:=[]string{}
+		for j,c:=range p.Candidates {
+			q:=c.Caption;b:=read(filepath.Join(*repo,q.Path));must(len(b)==q.FileBytes&&hash(b)==q.FileSHA&&validSpan(b,q.Span,q.Text)&&words(q.Text)==q.Words&&len(q.Text)<=512&&q.Words<=32&&!q.Human&&q.License=="MIT","full_caption_span_cap")
+			match:=false
+			if q.ID=="s-package-optional-v" { must(q.Text=="  - Optionally work with a `v` prefix\n"&&q.Span.Start==260&&q.Span.End==298&&q.Span.SHA=="5780602667a40d7af64f4f879c65194d0e046d78ff78c614f73c7dd6a012453b","whole_optional_bullet");match=true } else { for _,oldQ:=range catalog.Quotes { if q.ID==oldQ.ID { must(equal(q,oldQ),"existing_full_caption_catalog_fields");match=true } } }
+			must(match&&c.Binding!="","caption_origin_and_binding")
+			refs=append(refs,fmt.Sprintf("/parents/%d/candidates/%d/caption",i,j));already:=false;for _,id:=range seen { if id==q.ID { already=true } }
+			if !already { seen=append(seen,q.ID);captions=append(captions,M{"contract_pointer":fmt.Sprintf("/parents/%d/candidates/%d/caption",i,j),"caption":q,"checked_raw_bytes":len(q.Text),"checked_normalized_words":q.Words}) }
+		}
+		goals:=[]any{false,true,[]bool{true,true},[]bool{true,false}}
+		basis:=[]string{
+			"For the exact input, Strict checks all numeric parts against digit-only num and rejects the v character. The opposite package capability is explicitly instantiated as NewVersion; it accepts the fixed prefix on the default coercing path. Thus candidate behavior Want is [[false],[true]], while this request's goal is false and its acceptable proposal is [0].",
+			"The complete upstream library bullet says optional v prefix. The following doc parsing context specifically associates leading-v coercion with NewVersion, whose pinned default calls coerceNewVersion and optional-v loose regex. This supports the fixed input capability attribution. Candidate behavior Want remains [[false],[true]], but this request's goal is true and its acceptable proposal is [1].",
+			"The shared prefix/suffix and slash whole-name premises are explicit. A normal star cannot cross the slash; the standalone globstar directory component permits zero directories and a nested directory. The unmodified mid-component example equates that placement to a normal star, and the pinned branch confirms the same structure for fixed .go patterns. Only candidate position 1 supports both fixed names.",
+			"Under the same explicit shared premises, the normal star and mid-component doublestar support the direct name and reject the nested name; the standalone globstar also permits nested directories and therefore conflicts with this request. Positions 0 and 2 remain proposed acceptable, rather than selecting one by rank.",
+		}
+		parents=append(parents,M{"contract_pointer":fmt.Sprintf("/parents/%d",i),"id":p.ID,"whole_source_family":p.Family,"request":p.Request,"request_sha256":p.RequestSHA,"request_bytes":len(p.Request),"normalized_words":words(p.Request),"candidate_caption_pointers":refs,"candidate_behavior_Want_not_Got":p.Want,"request_goal_semantics_not_a_contract_field":goals[i],"proposed_acceptable_not_observed_truth":p.Acceptable,"source_text_conclusion":"bounded_contextual_target_supported_by_static_source_reading; no_observed_truth_or_readiness_approval","reasoning":basis[i]})
+	}
+	must(positions==10&&len(captions)==5,"candidate_positions_and_unique_captions")
+	probesPath:="experiments/public-behavior/probes-57.json";probes:=read(filepath.Join(*repo,probesPath));must(hash(probes)=="c4deb9d9e33dca8ff4498531d898ea82ee05559727cbc4f00d99455910722574","old57_unchanged")
+	result:=M{
+		"schema":"riido-final-v4-source-contract-review-68-v1","state":"completed_static_source_text_review_before_original_execution",
+		"reviewer":"semantic_review60_prep","independence":"Independent of root's final assembly, pre-existing upstream wording and native worker author. Author of prior68 source/text reviews and proposed English request drafts selected by root; therefore not an independent author-review of those request drafts. Nonblind metadata exposure.",
+		"input_pins":[]Pin{pin("PLAN-68.v4.ko.md",planBytes),pin("contract-68.v4.json",contractBytes),pin("INDEPENDENT-REVIEW-68.v1.json",priorBytes),pin("PREFIX-ONLY-CRITICAL-REVIEW-68.v1.json",prefixBytes),pin(probesPath,probes)},
+		"mechanical_checks":M{"metadata_pins":3,"whole_source_artifacts_and_exact_native_copies":15,"whole_source_bytes":99035,"full_MIT_notices":2,"parents":4,"candidate_positions":10,"distinct_full_captions":5,"prior_raw_source_evidence_spans":23,"prefix_context_spans":2,"actual_original_entrypoints":0,"actual_String_observers":0,"planned_original_entrypoints":12,"planned_String_observers":3,"new_observed_truth":false},
+		"parent_reviews":parents,"distinct_caption_evidence":captions,"verified_prior_source_evidence_references":checkedEvidence,"exact_prefix_context_evidence":prefixOld.Context,"full_MIT_notices":licenses,
+		"semantic_scope":M{"optional_v":"Complete package-level bullet with explicit NewVersion(v1.2.3) source attribution supports only the declared prefix capability. It is not a function-specific comment or caption-alone all-API promise.","strict":"The valid-v2 sentence and pinned digit-only parser support the exact v-prefixed rejection property. The source name inside the unmodified quote remains a possible lexical shortcut; binding metadata is excluded from features.","glob":"Contextual structural mapping of complete star/globstar/mid-component quotes to fixed patterns under explicit whole-name slash/prefix/suffix premises. The txt source example remains unmodified; no arbitrary-pattern or filesystem guarantee.","Want_versus_goal":"target_Want_not_Got contains each candidate's expected behavior, not the requested goal. Both semver parents deliberately share false/true candidate expectations while their opposite request goals and proposed acceptable sets differ.","auxiliary":"Other two semver acceptance inputs, all NewVersion.String values, error/panic/object/returned fields, flags and costs are observation/provenance metadata, not added caption promises or model targets.","previous_v3":"Generic attempts-coercion fullfinitecoverage remains held/unsupported. No earlier review/status/source/truth is retroactively cleared.","whole_groups":"Two whole source families shared across four related requests. Semver API/init/regex/flags/Version/String/helpers and glob Match/validation/recursive helpers/sentinel remain connected; no original membership union, seed/order or role assignment here."},
+		"residual_limits":[]string{"This source-text contract has no native Got yet. Existing plan requires first frozen native observation and separate source/text confirmation before any new supervision proposal; this report adds no gate.","Different pre-existing upstream wording origin is bounded evidence, not individual or human-only authorship authentication, generalization, authoring-diversity clearance or training readiness.","Four related requests in two connected Go source families, reused literals and names/pattern shortcuts do not establish broad source-independent learning, protected-final2400 performance or token/memory savings.","Original72/216/unknown21/17 groups and all old labels/masks remain unchanged. No actual feature projection/Assign/fit/model execution occurs."},
+		"minimal_outcome":"No material source-text blocker found for the explicitly narrowed v4 contract as frozen. This is a bounded static interpretation, not a hypothetical runtime pass or aggregate candidate/training approval.",
+		"human_only_authorship_verified":false,"authoring_diversity_cleared":false,"training_ready":false,"new_supervision_labels_created":0,
+		"cost_counter_scope":"AI-assisted Codex source/text reading. Separate original API/model/judge/paid benchmark processes are zero; ordinary collaborative AI use and cost are not zero or measured.",
+	}
+	b,e:=json.MarshalIndent(result,"","  ");must(e==nil,"result_encode");b=append(b,'\n');f,e:=os.OpenFile(filepath.Join(*out,"FINAL-V4-REVIEW-68.v1.json"),os.O_WRONLY|os.O_CREATE|os.O_EXCL,0600);must(e==nil,"exclusive_output");_,e=f.Write(b);must(e==nil,"result_write");must(f.Close()==nil,"result_close");fmt.Printf("Readonly metadata checks and bounded source-text report serialized: %d bytes SHA256 %s; 4 parents / 10 positions / 5 full captions / 15 source artifacts; no original execution.\n",len(b),hash(b))
+}

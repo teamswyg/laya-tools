@@ -1,0 +1,295 @@
+// SPDX-License-Identifier: Apache-2.0
+// Package observation contains callback-only observation mechanics. It imports
+// neither native library. Its tests cannot execute either upstream package init.
+package observation
+
+type Wants struct {
+	VersionInputs  [3]string  `json:"version_inputs"`
+	StrictAccepted [3]bool    `json:"strict_accepted_Want"`
+	NewAccepted    [3]bool    `json:"new_accepted_Want"`
+	NewString      [3]string  `json:"new_String_Want"`
+	GlobNames      [2]string  `json:"glob_names"`
+	GlobPatterns   [3]string  `json:"glob_patterns"`
+	GlobMatched    [3][2]bool `json:"glob_matched_Want"`
+	PlannedEntries int        `json:"planned_entrypoint_calls"`
+	PlannedStrings int        `json:"planned_String_observer_calls"`
+}
+
+type Flags struct {
+	CoerceNewVersion         bool `json:"CoerceNewVersion"`
+	DetailedNewVersionErrors bool `json:"DetailedNewVersionErrors"`
+}
+
+// Parsed retains only presence bits. String is called for New only, and only
+// when returned, without panic or error, with a non-nil version. No error or
+// panic text, stack, reader stderr, arguments, or private paths are retained.
+type Parsed struct {
+	VersionPresent bool
+	ErrorPresent   bool
+	String         func() string
+}
+
+type Callbacks struct {
+	Strict func(string) Parsed
+	New    func(string) Parsed
+	Match  func(string, string) (bool, bool) // matched, error present
+	Flags  func() Flags
+}
+
+type Counter struct {
+	API      string `json:"api"`
+	Attempts int    `json:"attempts"`
+	Returned int    `json:"returned"`
+	Panicked int    `json:"panicked"`
+}
+
+type StringObservation struct {
+	Want      string `json:"Want"`
+	Attempted bool   `json:"attempted"`
+	Returned  bool   `json:"returned"`
+	Panicked  bool   `json:"panicked"`
+	Got       string `json:"Got"`
+	Compared  bool   `json:"compared"`
+	Matches   bool   `json:"matches"`
+}
+
+type VersionObservation struct {
+	API               string            `json:"api"`
+	Input             string            `json:"input"`
+	ContractPointer   string            `json:"contract_pointer"`
+	TargetOrAuxiliary string            `json:"target_or_auxiliary"`
+	Want              bool              `json:"Want"`
+	Attempted         bool              `json:"attempted"`
+	Returned          bool              `json:"returned"`
+	Panicked          bool              `json:"panicked"`
+	ErrorPresent      bool              `json:"error_present"`
+	VersionPresent    bool              `json:"version_present"`
+	GotDefined        bool              `json:"Got_defined"`
+	Got               bool              `json:"Got"`
+	Compared          bool              `json:"compared"`
+	Matches           bool              `json:"matches"`
+	String            StringObservation `json:"String_auxiliary"`
+}
+
+type GlobObservation struct {
+	Pattern         string `json:"pattern"`
+	Name            string `json:"name"`
+	ContractPointer string `json:"contract_pointer"`
+	Want            bool   `json:"Want"`
+	Attempted       bool   `json:"attempted"`
+	Returned        bool   `json:"returned"`
+	Panicked        bool   `json:"panicked"`
+	ErrorPresent    bool   `json:"error_present"`
+	GotDefined      bool   `json:"Got_defined"`
+	Got             bool   `json:"Got"`
+	Compared        bool   `json:"compared"`
+	Matches         bool   `json:"matches"`
+}
+
+type Report struct {
+	State                     string                `json:"state"`
+	FlagsBefore               Flags                 `json:"flags_before"`
+	FlagsAfter                Flags                 `json:"flags_after"`
+	FlagReadAttempts          int                   `json:"flag_read_attempts"`
+	FlagReadReturns           int                   `json:"flag_read_returns"`
+	FlagReadPanics            int                   `json:"flag_read_panics"`
+	FlagsExpectedAndUnchanged bool                  `json:"flags_expected_and_unchanged"`
+	PlannedEntries            int                   `json:"planned_entrypoint_calls"`
+	PlannedStrings            int                   `json:"planned_String_observer_calls"`
+	Entries                   [3]Counter            `json:"entrypoint_callback_counts"`
+	Strings                   Counter               `json:"String_callback_counts"`
+	Versions                  [6]VersionObservation `json:"version_observations"`
+	Glob                      [6]GlobObservation    `json:"glob_observations"`
+	Compared                  int                   `json:"Want_comparisons"`
+	Matches                   int                   `json:"Want_matches"`
+	Mismatches                int                   `json:"Want_mismatches"`
+	Uncompared                int                   `json:"Want_uncompared"`
+	NewObservedSupervision    bool                  `json:"new_observed_supervision"`
+	TrainingReady             bool                  `json:"training_ready"`
+}
+
+func parseCall(f func(string) Parsed, in string) (got Parsed, returned, panicked bool) {
+	panicked = true
+	defer func() {
+		if panicked {
+			_ = recover()
+		}
+	}()
+	got = f(in)
+	returned, panicked = true, false
+	return
+}
+
+func matchCall(f func(string, string) (bool, bool), p, n string) (matched, errPresent, returned, panicked bool) {
+	panicked = true
+	defer func() {
+		if panicked {
+			_ = recover()
+		}
+	}()
+	matched, errPresent = f(p, n)
+	returned, panicked = true, false
+	return
+}
+
+func stringCall(f func() string) (got string, returned, panicked bool) {
+	panicked = true
+	defer func() {
+		if panicked {
+			_ = recover()
+		}
+	}()
+	got = f()
+	returned, panicked = true, false
+	return
+}
+
+func flagsCall(f func() Flags) (got Flags, returned, panicked bool) {
+	panicked = true
+	defer func() {
+		if panicked {
+			_ = recover()
+		}
+	}()
+	got = f()
+	returned, panicked = true, false
+	return
+}
+
+func boolCompare(r *Report, defined, got, want bool) (compared, matches bool) {
+	if !defined {
+		r.Uncompared++
+		return false, false
+	}
+	r.Compared++
+	if got == want {
+		r.Matches++
+		return true, true
+	}
+	r.Mismatches++
+	return true, false
+}
+
+// Run records all fixed rows even when calls panic, error, or return nil. It
+// never changes Wants, emits acceptable sets, or promotes observations to labels.
+// A panic is not silently interpreted as a successful "reject" result.
+func Run(w Wants, expected Flags, c Callbacks) Report {
+	r := Report{State: "not_started", PlannedEntries: w.PlannedEntries, PlannedStrings: w.PlannedStrings,
+		Entries: [3]Counter{{API: "StrictNewVersion"}, {API: "NewVersion"}, {API: "Match"}}, Strings: Counter{API: "NewVersion.String"}}
+	// Fixed pointer vocabulary and input ordering, never learned features.
+	strictPointers := [3]string{"/auxiliary_observation_contract/strict_accepted_Want/0", "/auxiliary_observation_contract/strict_accepted_Want/1", "/auxiliary_observation_contract/strict_accepted_Want/2"}
+	newPointers := [3]string{"/auxiliary_observation_contract/new_accepted_Want/0", "/auxiliary_observation_contract/new_accepted_Want/1", "/auxiliary_observation_contract/new_accepted_Want/2"}
+	globPointers := [6]string{"/auxiliary_observation_contract/glob_matched_Want/0/0", "/auxiliary_observation_contract/glob_matched_Want/0/1", "/auxiliary_observation_contract/glob_matched_Want/1/0", "/auxiliary_observation_contract/glob_matched_Want/1/1", "/auxiliary_observation_contract/glob_matched_Want/2/0", "/auxiliary_observation_contract/glob_matched_Want/2/1"}
+	for a := 0; a < 2; a++ {
+		for i := 0; i < 3; i++ {
+			v := &r.Versions[a*3+i]
+			v.API = r.Entries[a].API
+			v.Input = w.VersionInputs[i]
+			v.TargetOrAuxiliary = "auxiliary"
+			if i == 1 {
+				v.TargetOrAuxiliary = "fixed_leading_v_target"
+			}
+			if a == 0 {
+				v.Want = w.StrictAccepted[i]
+				v.ContractPointer = strictPointers[i]
+			} else {
+				v.Want = w.NewAccepted[i]
+				v.ContractPointer = newPointers[i]
+				v.String.Want = w.NewString[i]
+			}
+		}
+	}
+	for p := 0; p < 3; p++ {
+		for n := 0; n < 2; n++ {
+			i := p*2 + n
+			r.Glob[i] = GlobObservation{Pattern: w.GlobPatterns[p], Name: w.GlobNames[n], Want: w.GlobMatched[p][n], ContractPointer: globPointers[i]}
+		}
+	}
+	// Expected flags are the explicit frozen precondition, not a new science gate.
+	r.FlagReadAttempts++
+	before, ok, panicFlag := flagsCall(c.Flags)
+	r.FlagsBefore = before
+	if ok {
+		r.FlagReadReturns++
+	}
+	if panicFlag {
+		r.FlagReadPanics++
+	}
+	if !ok || before != expected || c.Strict == nil || c.New == nil || c.Match == nil {
+		r.State = "precondition_failed"
+		r.Uncompared = 15
+		return r
+	}
+	for a := 0; a < 2; a++ {
+		f := c.Strict
+		if a == 1 {
+			f = c.New
+		}
+		for i := 0; i < 3; i++ {
+			v := &r.Versions[a*3+i]
+			k := &r.Entries[a]
+			v.Attempted = true
+			k.Attempts++
+			p, ret, pan := parseCall(f, v.Input)
+			v.Returned = ret
+			v.Panicked = pan
+			if ret {
+				k.Returned++
+			}
+			if pan {
+				k.Panicked++
+			}
+			v.ErrorPresent = p.ErrorPresent
+			v.VersionPresent = p.VersionPresent
+			v.GotDefined = ret && !pan
+			v.Got = v.GotDefined && !p.ErrorPresent && p.VersionPresent
+			v.Compared, v.Matches = boolCompare(&r, v.GotDefined, v.Got, v.Want)
+			if a == 1 {
+				s := &v.String
+				if v.Got {
+					s.Attempted = true
+					r.Strings.Attempts++
+					s.Got, s.Returned, s.Panicked = stringCall(p.String)
+					if s.Returned {
+						r.Strings.Returned++
+					}
+					if s.Panicked {
+						r.Strings.Panicked++
+					}
+				}
+				s.Compared, s.Matches = boolCompare(&r, s.Returned && !s.Panicked, s.Got == s.Want, true)
+			}
+		}
+	}
+	for i := range r.Glob {
+		g := &r.Glob[i]
+		g.Attempted = true
+		r.Entries[2].Attempts++
+		g.Got, g.ErrorPresent, g.Returned, g.Panicked = matchCall(c.Match, g.Pattern, g.Name)
+		if g.Returned {
+			r.Entries[2].Returned++
+		}
+		if g.Panicked {
+			r.Entries[2].Panicked++
+		}
+		g.GotDefined = g.Returned && !g.Panicked && !g.ErrorPresent
+		g.Compared, g.Matches = boolCompare(&r, g.GotDefined, g.Got, g.Want)
+	}
+	r.FlagReadAttempts++
+	after, ok, panicFlag := flagsCall(c.Flags)
+	r.FlagsAfter = after
+	if ok {
+		r.FlagReadReturns++
+	}
+	if panicFlag {
+		r.FlagReadPanics++
+	}
+	r.FlagsExpectedAndUnchanged = ok && after == expected && before == after
+	r.State = "observed_Want_matches_pending_independent_reader"
+	if !r.FlagsExpectedAndUnchanged || r.Uncompared > 0 {
+		r.State = "completed_observation_failure"
+	} else if r.Mismatches > 0 {
+		r.State = "completed_Want_mismatch"
+	}
+	return r
+}

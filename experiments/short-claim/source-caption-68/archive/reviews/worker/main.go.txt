@@ -1,0 +1,66 @@
+package main
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"debug/buildinfo"
+	"encoding/hex"
+	"encoding/json"
+	"flag"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+)
+
+type M = map[string]any
+type Pin struct { Path string `json:"path"`; Bytes int `json:"bytes"`; SHA string `json:"sha256"` }
+func must(ok bool,code string){if !ok {panic(code)}}
+func hash(b []byte)string{h:=sha256.Sum256(b);return hex.EncodeToString(h[:])}
+func read(p string)[]byte{b,e:=os.ReadFile(p);must(e==nil,"read:"+filepath.Base(p));return b}
+func pin(p string,b []byte)Pin{return Pin{p,len(b),hash(b)}}
+func decode(b []byte,d any){must(json.Unmarshal(b,d)==nil,"metadata_json")}
+func equal(a,b any)bool{x,e:=json.Marshal(a);must(e==nil,"json_a");y,e:=json.Marshal(b);must(e==nil,"json_b");return bytes.Equal(x,y)}
+func span(path string,b []byte,text string)M{s:=bytes.Index(b,[]byte(text));must(s>=0&&bytes.Count(b,[]byte(text))==1,"unique_code_span");end:=s+len(text);return M{"path":path,"file_sha256":hash(b),"byte_start":s,"byte_end":end,"line_start":bytes.Count(b[:s],[]byte{'\n'})+1,"line_end":bytes.Count(b[:end-1],[]byte{'\n'})+1,"raw_text":text,"sha256":hash([]byte(text))}}
+func main(){root:=flag.String("root","","native preparation, read only");out:=flag.String("out","","new private own output");flag.Parse();must(*root!=""&&*out!="","paths")
+	planPath:="artifacts/execution-plan-68.draft.json";closurePath:="artifacts/compile-closure-68.json";pb:=read(filepath.Join(*root,planPath));cb:=read(filepath.Join(*root,closurePath))
+	var p struct{Schema string `json:"schema"`;State string `json:"state"`;Authorized bool `json:"execution_authorized"`;Attempt string `json:"attempt_id"`;Contract string `json:"contract_sha256"`;SourcePlan string `json:"source_plan_sha256"`;Binary string `json:"binary_sha256"`;Sources []Pin `json:"source_files"`;Inputs []Pin `json:"metadata_files"`;Calls int `json:"planned_entrypoint_calls"`;Strings int `json:"planned_String_observer_calls"`;StrictStrings int `json:"planned_Strict_String_calls"`;Retries int `json:"retries"`;Attempts int `json:"planned_attempts"`;CPU int `json:"cpu_threads"`;Heap int64 `json:"go_heap_soft_limit_bytes"`;Wall int `json:"controller_wall_limit_seconds"`;RSS int64 `json:"controller_peak_rss_observation_cap_bytes"`};decode(pb,&p)
+	var c struct{Schema string `json:"schema"`;Sources []Pin `json:"sources"`;Inputs []Pin `json:"inputs"`;Binary string `json:"binary_sha256"`;BinaryBytes int `json:"binary_bytes"`;Executed bool `json:"native_worker_executed"`};decode(cb,&c)
+	must(p.Schema=="riido-source-caption-native-execution-plan-68-v1"&&p.State=="private_pre_execution_draft"&&!p.Authorized&&p.Attempt=="native68-attempt-1"&&p.Contract=="818eed54f6b14b1f512025804cf7782d4a59d94ed30eeeaa46c56a270afbd0eb"&&p.SourcePlan=="1493d14e9228cb147f8941c98d828bc221e0abdfe0be907e27b3799ae875cdb6","draft_scope")
+	must(c.Schema=="riido-native-compile-closure-68-v1"&&!c.Executed&&equal(p.Sources,c.Sources)&&equal(p.Inputs,c.Inputs)&&c.Binary==p.Binary&&len(c.Sources)==19&&len(c.Inputs)==4,"closure_plan_join")
+	must(p.Calls==12&&p.Strings==3&&p.StrictStrings==0&&p.Attempts==1&&p.Retries==0&&p.CPU==1&&p.Heap==256<<20&&p.Wall==300&&p.RSS==256<<20,"fixed_execution_scope")
+	totalSource,totalMetadata:=0,0
+	for _,set:=range [][]Pin{c.Sources,c.Inputs}{for _,q:=range set{must(q.Path!=""&&!filepath.IsAbs(q.Path)&&filepath.Clean(q.Path)==q.Path&&!strings.Contains(q.Path,".."),"relative_pin");st,e:=os.Lstat(filepath.Join(*root,q.Path));must(e==nil&&st.Mode().IsRegular(),"regular_pin");b:=read(filepath.Join(*root,q.Path));must(q.Bytes==len(b)&&q.SHA==hash(b),"source_or_metadata_pin");if strings.HasPrefix(q.Path,"inputs/"){totalMetadata+=len(b)}else{totalSource+=len(b)}}}
+	contractBytes:=read(filepath.Join(*root,"inputs/contract-68.v4.json"));var contract struct{Artifacts []struct{Repo string `json:"repository"`;Original string `json:"original_path"`;Bytes int `json:"bytes"`;SHA string `json:"sha256"`} `json:"upstream_source_artifacts"`};decode(contractBytes,&contract);must(len(contract.Artifacts)==15,"contract15")
+	for i,a:=range contract.Artifacts {f:="semver";if a.Repo=="bmatcuk/doublestar"{f="doublestar"}else{must(a.Repo=="Masterminds/semver","repo")} ;must(c.Sources[i]==(Pin{"upstream/"+f+"/"+a.Original,a.Bytes,a.SHA}),"upstream_exact_order")}
+	for i,s:=range []string{"main.go","gate.go","observation/observation.go","go.mod"}{must(c.Sources[15+i].Path==s,"maintainer_source_order")}
+	binary:=read(filepath.Join(*root,"bin/native-worker"));must(hash(binary)==p.Binary&&len(binary)==c.BinaryBytes,"binary_pin")
+	info,e:=buildinfo.ReadFile(filepath.Join(*root,"bin/native-worker"));must(e==nil&&info.GoVersion=="go1.27.1"&&info.Path=="riido68-native-worker-prep","binary_metadata")
+	settings:=[]M{};trim,cgo,goos,goarch:=false,false,false,false
+	for _,s:=range info.Settings{switch s.Key{case "-trimpath":trim=s.Value=="true";case "CGO_ENABLED":cgo=s.Value=="0";case "GOOS":goos=s.Value=="darwin";case "GOARCH":goarch=s.Value=="arm64"};settings=append(settings,M{"key":s.Key,"value":s.Value})}
+	must(trim&&cgo&&goos&&goarch,"binary_recipe_metadata")
+	deps:=[]M{};for _,d:=range info.Deps{must(d.Replace!=nil&&(d.Path=="github.com/Masterminds/semver/v3"||d.Path=="github.com/bmatcuk/doublestar/v4"),"native_dependency_binding");expected:="./upstream/semver";if d.Path=="github.com/bmatcuk/doublestar/v4"{expected="./upstream/doublestar"};must(d.Replace.Path==expected,"native_replace");deps=append(deps,M{"path":d.Path,"version":d.Version,"replace_path":d.Replace.Path,"replace_version":d.Replace.Version})};must(len(deps)==2,"two_native_deps")
+	mainBytes:=read(filepath.Join(*root,"main.go"));gateBytes:=read(filepath.Join(*root,"gate.go"));obsBytes:=read(filepath.Join(*root,"observation/observation.go"))
+	codeRefs:=[]M{
+		span("main.go",mainBytes,"// This native package MUST NOT be executed before the external controller has\n// frozen inputs/source/binary/plan and reserved the one attempt. Imported package\n// init runs before main, including on --help or malformed arguments.\n"),
+		span("main.go",mainBytes,"\t\t\tv, err := semver.StrictNewVersion(s)\n\t\t\tret = true\n\t\t\tk.Returned++\n\t\t\treturn observation.Parsed{VersionPresent: v != nil, ErrorPresent: err != nil}\n"),
+		span("main.go",mainBytes,"\t\t\tv, err := semver.NewVersion(s)\n\t\t\tret = true\n\t\t\tk.Returned++\n"),
+		span("main.go",mainBytes,"\t\t\tmatched, err := doublestar.Match(p, s)\n\t\t\tret = true\n\t\t\tk.Returned++\n\t\t\treturn matched, err != nil\n"),
+		span("main.go",mainBytes,"\tn, writeErr := f.Write(encoded)\n\tcloseErr := f.Close()\n\tif writeErr != nil || n != len(encoded) || closeErr != nil {\n"),
+		span("gate.go",gateBytes,"//go:embed main.go gate.go observation/observation.go go.mod inputs/contract-68.v4.json inputs/PLAN-68.v4.ko.md\nvar compiled embed.FS\n"),
+		span("observation/observation.go",obsBytes,"\t\t\tv.GotDefined = ret && !pan\n\t\t\tv.Got = v.GotDefined && !p.ErrorPresent && p.VersionPresent\n\t\t\tv.Compared, v.Matches = boolCompare(&r, v.GotDefined, v.Got, v.Want)\n"),
+		span("observation/observation.go",obsBytes,"\t\tg.GotDefined = g.Returned && !g.Panicked && !g.ErrorPresent\n\t\tg.Compared, g.Matches = boolCompare(&r, g.GotDefined, g.Got, g.Want)\n"),
+		span("observation/observation.go",obsBytes,"\tr.FlagsExpectedAndUnchanged = ok && after == expected && before == after\n"),
+	}
+	result:=M{"schema":"riido-independent-native-worker-static-review-68-v1","state":"static_review_complete_before_reviewer_native_execution","reviewer":"semantic_review60_prep","independence":"Independent of native code author task_expansion_52 and root execution controller; prior source-caption reader and author of root-selected request drafts; nonblind. Source-caption/request independence is not re-claimed.","input_pins":[]Pin{pin(planPath,pb),pin(closurePath,cb),pin("bin/native-worker",binary)},"source_pins":c.Sources,"metadata_pins":c.Inputs,"mechanical_counts":M{"source_assets":19,"source_bytes":totalSource,"metadata_inputs":4,"metadata_bytes":totalMetadata,"binary_bytes":len(binary),"native_processes_executed_by_reviewer":0,"metadata_helper_attempts":1,"code_quote_spans":len(codeRefs)},"binary_build_metadata":M{"go_version":info.GoVersion,"main_path":info.Path,"dependencies":deps,"settings":settings},"source_code_evidence":codeRefs,
+		"findings":[]M{
+			{"topic":"entrypoint_and_observer_counts","assessment":"No material blocker found by static reading. Each native adapter increments its own attempts directly before Strict/New/Match, marks return only after the public call, and increments panic on non-return via defer. Observation callback counters are separate; fixed6 version and6 glob rows permit Strict3/New3/Match6. Only successfully accepted New objects expose/call String; planned3 may be fewer on failure, and Strict.String is not called."},
+			{"topic":"panic_error_nil_and_Got","assessment":"Panic paths retain attempted/unreturned/panicked and produce undefined comparisons. Match error also makes Got undefined. Parse acceptance is explicitly returned&&!panicked&&!error_present&&version_present: a returned nil version with nil error is a defined false acceptance bit, not proof of an error-based rejection reason. Version object+error is also false acceptance. Raw panic/error strings are not retained; Want stays unchanged; rows remain present."},
+			{"topic":"flags","assessment":"Flags are read before and after observations; an unexpected or failed first read stops direct calls while preserving fixed row metadata. Mutation or failed final read marks observation failure without rewriting already observed rows. Adapters only read flags; no source flag writes are introduced."},
+			{"topic":"result_refusal_and_write_failure","assessment":"A regular invocation reserves an O_EXCL results file before preflight/API calls and serializes a refusal. Argument/result-reservation failures return before that file exists; the external attempt ledger must preserve them. Encoding/shortwrite/write/close failure returns status3 and emits actual adapter attempt/return/panic counts to stderr. Partial/empty files are retained rather than retried or removed. Process/init/OS fatal failures cannot guarantee JSON output."},
+			{"topic":"source_and_binary_binding","assessment":"The19source/4metadata lists match closure and draft plan and current exact regular-file bytes. Contract binds15upstream assets;4maintainer source files plus contract/source plan are embedded. Runtime validates local bytes, closed package file names and binary hash/build metadata. Upstream bytes across module boundaries are not embedded; external controller verification before init remains necessary. This is exact declared asset/binary provenance, not a full hermetic compiler/stdlib/environment proof."},
+			{"topic":"execution_authority_and_resources","assessment":"Current draft execution_authorized=false and private_pre_execution_draft are refused by worker preflight; root must freeze its authorized plan separately. Worker guards cannot prevent package init or enforce global first-attempt uniqueness. GOMAXPROCS/Go heap soft limit are set after init/preflight; OS controller owns full process-lifetime wall/CPU/RSS measurement and caps. Settings and plan thresholds are not measurements or hard RSS guarantees."},
+			{"topic":"schema_and_semantic_boundary","assessment":"Result and nested reports keep Want and Got separate with comparison/defined flags. State observed_Want_matches_pending_independent_reader is only finite observation mechanics; source_fidelity_approved/target_coverage_approved/new_supervision/training_ready remain false. No feature/role/fit/model or original corpus-label API is invoked by this native observation code. Auxiliary accepted/String comparisons do not become caption targets."},
+		},"minimal_outcome":"No material code blocker found for this bounded planned first invocation; static only and external reservation/execution/resource enforcement remains root responsibility.","limits":[]string{"No native binary, --help, package main tests, initializer or original source API was executed by this reviewer.","Source names and existing semantic/proposal metadata were visible; no blind or independently authored-request claim.","Current artifacts are a draft, not the root final execution ledger. No first-execution outcome or future counter is assumed.","Byte/buildinfo checks do not prove every compiled instruction, toolchain hermeticity or complete external behavior.","AI-assisted source/code reading uses this Codex agent; separate model/judge/paid benchmark processes0 does not mean agent usage or ordinary collaboration cost0."},"original_APIs_init_roles_features_fit_model_paid_protected_reads_by_reviewer":0,"shared_edits_Git_publication":0,"training_ready":false,"new_labels":0}
+	b,e:=json.MarshalIndent(result,"","  ");must(e==nil,"report_encode");b=append(b,'\n');f,e:=os.OpenFile(filepath.Join(*out,"INDEPENDENT-WORKER-REVIEW-68.v1.json"),os.O_CREATE|os.O_EXCL|os.O_WRONLY,0600);must(e==nil,"exclusive_report");n,e:=f.Write(b);must(e==nil&&n==len(b)&&f.Close()==nil,"report_write");fmt.Printf("Independent worker static report: %d bytes SHA256 %s;19source/4metadata/binary verified; native execution0.\n",len(b),hash(b))
+}
