@@ -52,14 +52,15 @@ func digest(p shortclaim.Prepared) string {
 }
 
 func emit(in io.Reader, out io.Writer, kind string) error {
-	p, err := shortclaim.Load(in)
+	validated, err := shortclaim.LoadValidated(in)
 	if err != nil {
 		return err
 	}
-	ranking, err := shortclaim.Rank(p, kind)
+	ranking, err := validated.Rank(kind)
 	if err != nil {
 		return err
 	}
+	p := validated.Prepared()
 	r := output{Schema: "riido-shortclaim-order-v1", Status: "unverified_heuristic", Baseline: kind, InputSHA256: digest(p), FallbackReason: ranking.FallbackReason}
 	r.Candidates = make([]candidateOutput, p.Count)
 	for i := 0; i < ranking.Count; i++ {

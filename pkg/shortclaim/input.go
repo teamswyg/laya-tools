@@ -72,6 +72,39 @@ type Prepared struct {
 	Count                                          int
 }
 
+// ValidatedInput owns the immutable result of LoadValidated or ValidateInput.
+// Its fields are private: callers cannot forge normalization or change the
+// fixed candidate array. Its zero value is invalid. It is not a wire format.
+// Validation covers shape and normalization, not semantic truth or authority.
+type ValidatedInput struct {
+	prepared Prepared
+	ready    bool
+}
+
+// Prepared returns an independent value copy for inspection or input digests.
+// Editing this copy cannot change the validated input or enable its fast path.
+func (v ValidatedInput) Prepared() Prepared { return v.prepared }
+
+// LoadValidated applies all Load wire/field/normalization checks once, retaining
+// their exact errors. The returned input can be ranked without re-normalizing.
+func LoadValidated(r io.Reader) (ValidatedInput, error) {
+	p, err := Load(r)
+	if err != nil {
+		return ValidatedInput{}, err
+	}
+	return ValidatedInput{prepared: p, ready: true}, nil
+}
+
+// ValidateInput applies the decoded-field Validate contract once. Like Validate,
+// it has no JSON wire to bound and owns its candidate array after construction.
+func ValidateInput(in Input) (ValidatedInput, error) {
+	p, err := Validate(in)
+	if err != nil {
+		return ValidatedInput{}, err
+	}
+	return ValidatedInput{prepared: p, ready: true}, nil
+}
+
 // Load accepts one JSON object with exact, case-sensitive fields. Duplicate
 // decoded keys (including escaped spellings) and unknown fields are rejected.
 // JSON wire size is independently bounded; Validate has no JSON wire to bound.

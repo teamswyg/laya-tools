@@ -83,6 +83,27 @@ func Rank(p Prepared, kind string) (Ranking, error) {
 	if err := ValidatePrepared(p); err != nil {
 		return Ranking{}, err
 	}
+	return rankValidated(p, kind)
+}
+
+// Rank orders every original candidate using the same scores, stable ties and
+// fallback as Rank(Prepared). Only constructor-validated immutable input can
+// take this path; public Prepared consumers retain full revalidation.
+func (v ValidatedInput) Rank(kind string) (Ranking, error) {
+	switch kind {
+	case FixedOrderKind, BM25Kind, LexicalOrderedKind, NarrowRuleKind:
+	default:
+		return Ranking{}, ErrBaselineKind
+	}
+	if !v.ready {
+		return Ranking{}, ErrPrepared
+	}
+	return rankValidated(v.prepared, kind)
+}
+
+// rankValidated receives a known kind and input already checked by either
+// ValidatePrepared or the opaque constructor. All scratch remains local.
+func rankValidated(p Prepared, kind string) (Ranking, error) {
 	if kind == FixedOrderKind {
 		return baselineRanking(kind, [MaxCandidates]float64{}, p.Count), nil
 	}
