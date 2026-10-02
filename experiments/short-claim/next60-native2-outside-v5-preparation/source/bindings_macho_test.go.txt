@@ -1,0 +1,263 @@
+package main
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"debug/macho"
+	"encoding/binary"
+	"encoding/hex"
+	"io"
+	"math"
+	"os"
+	"path/filepath"
+	"riido.local/native2-outside/pure"
+	"strconv"
+	"strings"
+	"testing"
+)
+
+// Fully synthetic thin Mach-O fixture. No copied original bytes or executable
+// instructions. All inspection reads are metadata-only; no binary is started.
+func syntheticMachO() ([]byte, [3]string) {
+	b := make([]byte, 2048)
+	le := binary.LittleEndian
+	put := func(off int, v uint32) { le.PutUint32(b[off:off+4], v) }
+	put(0, macho.Magic64)
+	put(4, uint32(macho.CpuArm64))
+	put(12, uint32(macho.TypeExec))
+	put(16, 3)
+	put(20, 328)
+	segment := func(off int, seg, name string, addr uint64, fileoff uint32) {
+		put(off, uint32(macho.LoadCmdSegment64))
+		put(off+4, 152)
+		copy(b[off+8:off+24], seg)
+		le.PutUint64(b[off+24:off+32], addr)
+		le.PutUint64(b[off+32:off+40], 256)
+		le.PutUint64(b[off+40:off+48], uint64(fileoff))
+		le.PutUint64(b[off+48:off+56], 256)
+		put(off+64, 1)
+		s := off + 72
+		copy(b[s:s+16], name)
+		copy(b[s+16:s+32], seg)
+		le.PutUint64(b[s+32:s+40], addr)
+		le.PutUint64(b[s+40:s+48], 256)
+		put(s+48, fileoff)
+		put(s+52, 3)
+	}
+	segment(32, "__DATA", "__data", 0x1000, 512)
+	segment(184, "__TEXT", "__rodata", 0x2000, 768)
+	put(336, uint32(macho.LoadCmdSymtab))
+	put(340, 24)
+	put(344, 1088)
+	put(348, 6)
+	put(352, 1200)
+	want := [3]string{strings.Repeat("a", 64), strings.Repeat("b", 64), strings.Repeat("c", 64)}
+	pos := 1201
+	for i, name := range bindingSymbols {
+		le.PutUint64(b[512+16*i:520+16*i], uint64(0x2000+64*i))
+		le.PutUint64(b[520+16*i:528+16*i], 64)
+		copy(b[768+64*i:832+64*i], want[i])
+		for j, suffix := range []string{"", ".str"} {
+			sym := 1088 + 16*(2*i+j)
+			put(sym, uint32(pos-1200))
+			b[sym+4] = 0x0e
+			b[sym+5] = byte(j + 1)
+			va := uint64(0x1000 + 16*i)
+			if j == 1 {
+				va = uint64(0x2000 + 64*i)
+			}
+			le.PutUint64(b[sym+8:sym+16], va)
+			text := name + suffix
+			copy(b[pos:], text)
+			pos += len(text) + 1
+		}
+	}
+	put(356, uint32(pos-1200))
+	return b, want
+}
+func TestMachOActualHeadersAndExactValues(t *testing.T) {
+	b, w := syntheticMachO()
+	if e := inspectReader(bytes.NewReader(b), uint64(len(b)), w); e != nil {
+		t.Fatal(e)
+	}
+	w[1] = strings.Repeat("d", 64)
+	if inspectReader(bytes.NewReader(b), uint64(len(b)), w) == nil {
+		t.Fatal("wrong expected value accepted")
+	}
+}
+func TestMachOBoundedMalformedHeaders(t *testing.T) {
+	mutations := []func([]byte){func(b []byte) { b[0] = 0 }, func(b []byte) { binary.LittleEndian.PutUint32(b[4:8], uint32(macho.CpuAmd64)) }, func(b []byte) { binary.LittleEndian.PutUint32(b[16:20], math.MaxUint32) }, func(b []byte) { binary.LittleEndian.PutUint32(b[20:24], math.MaxUint32) }, func(b []byte) { binary.LittleEndian.PutUint32(b[36:40], 0) }, func(b []byte) { binary.LittleEndian.PutUint32(b[348:352], math.MaxUint32) }, func(b []byte) { binary.LittleEndian.PutUint32(b[352:356], math.MaxUint32) }, func(b []byte) { binary.LittleEndian.PutUint32(b[356:360], math.MaxUint32) }, func(b []byte) { binary.LittleEndian.PutUint32(b[164:168], math.MaxUint32) }, func(b []byte) { binary.LittleEndian.PutUint32(b[32:36], uint32(macho.LoadCmdSegment)) }}
+	for i, mut := range mutations {
+		b, w := syntheticMachO()
+		mut(b)
+		if inspectReader(bytes.NewReader(b), uint64(len(b)), w) == nil {
+			t.Fatal("malformed header accepted", i)
+		}
+	}
+	b, w := syntheticMachO()
+	if inspectReader(bytes.NewReader(b[:31]), 31, w) == nil {
+		t.Fatal("truncated header")
+	}
+}
+func TestMachOMissingDuplicateAndWrongSymbols(t *testing.T) {
+	mutations := []func([]byte){func(b []byte) { binary.LittleEndian.PutUint32(b[1088:1092], 0) }, func(b []byte) { binary.LittleEndian.PutUint32(b[1120:1124], binary.LittleEndian.Uint32(b[1088:1092])) }, func(b []byte) { b[1093] = 0 }, func(b []byte) { b[1093] = 3 }, func(b []byte) { b[1092] = 0x02 }, func(b []byte) { b[1092] = 0xee }, func(b []byte) { binary.LittleEndian.PutUint64(b[1096:1104], math.MaxUint64) }}
+	for i, mut := range mutations {
+		b, w := syntheticMachO()
+		mut(b)
+		if inspectReader(bytes.NewReader(b), uint64(len(b)), w) == nil {
+			t.Fatal("bad symbol accepted", i)
+		}
+	}
+}
+func TestMachOStringLengthPointerAndHex(t *testing.T) {
+	mutations := []func([]byte){func(b []byte) { binary.LittleEndian.PutUint64(b[520:528], 63) }, func(b []byte) { binary.LittleEndian.PutUint64(b[520:528], math.MaxUint64) }, func(b []byte) { binary.LittleEndian.PutUint64(b[512:520], math.MaxUint64) }, func(b []byte) { binary.LittleEndian.PutUint64(b[512:520], 0x2001) }, func(b []byte) { b[768] = 'A' }, func(b []byte) { b[768] = 'g' }, func(b []byte) { b[768] = 0 }}
+	for i, mut := range mutations {
+		b, w := syntheticMachO()
+		mut(b)
+		if inspectReader(bytes.NewReader(b), uint64(len(b)), w) == nil {
+			t.Fatal("bad Go string accepted", i)
+		}
+	}
+}
+func TestMachOSectionRangeAndAmbiguity(t *testing.T) {
+	mutations := []func([]byte){func(b []byte) { binary.LittleEndian.PutUint32(b[168:172], 1) }, func(b []byte) { binary.LittleEndian.PutUint64(b[136:144], math.MaxUint64) }, func(b []byte) { binary.LittleEndian.PutUint32(b[152:156], math.MaxUint32) }, func(b []byte) { binary.LittleEndian.PutUint64(b[288:296], 0x1000) }, func(b []byte) {
+		copy(b[256:272], "__data\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00")
+		copy(b[272:288], "__DATA\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00")
+	}}
+	for i, mut := range mutations {
+		b, w := syntheticMachO()
+		mut(b)
+		if inspectReader(bytes.NewReader(b), uint64(len(b)), w) == nil {
+			t.Fatal("bad section accepted", i)
+		}
+	}
+}
+func TestMachODuplicateSymtabCommand(t *testing.T) {
+	b, w := syntheticMachO()
+	binary.LittleEndian.PutUint32(b[16:20], 4)
+	binary.LittleEndian.PutUint32(b[20:24], 352)
+	copy(b[360:384], b[336:360])
+	if inspectReader(bytes.NewReader(b), uint64(len(b)), w) == nil {
+		t.Fatal("duplicate LC_SYMTAB accepted")
+	}
+}
+
+func TestMachOBoundedSymbolNameCopies(t *testing.T) {
+	b, w := syntheticMachO()
+	// A symbol name referencing more than1024 bytes without a NUL is rejected
+	// before debug/macho can scan/copy it, even though strtable/file fit caps.
+	large := make([]byte, 4096)
+	copy(large, b)
+	copy(large[1201:2301], strings.Repeat("x", 1100))
+	large[2301] = 0
+	binary.LittleEndian.PutUint32(large[356:360], 1102)
+	if inspectReader(bytes.NewReader(large), uint64(len(large)), w) == nil {
+		t.Fatal("long repeated symbol name accepted")
+	}
+	b, w = syntheticMachO()
+	binary.LittleEndian.PutUint32(b[1088:1092], math.MaxUint32)
+	if inspectReader(bytes.NewReader(b), uint64(len(b)), w) == nil {
+		t.Fatal("name offset outside table")
+	}
+	// Every individual name fits1024 bytes, but repeated references would
+	// multiply copied names past8MiB. Reject before standard-library parsing.
+	const symbols = 8200
+	const symoff = 2048
+	const stroff = symoff + 16*symbols
+	repeated := make([]byte, stroff+1026)
+	copy(repeated, b)
+	binary.LittleEndian.PutUint32(repeated[344:348], symoff)
+	binary.LittleEndian.PutUint32(repeated[348:352], symbols)
+	binary.LittleEndian.PutUint32(repeated[352:356], stroff)
+	binary.LittleEndian.PutUint32(repeated[356:360], 1026)
+	copy(repeated[stroff+1:], strings.Repeat("x", 1024))
+	for i := 0; i < symbols; i++ {
+		binary.LittleEndian.PutUint32(repeated[symoff+16*i:symoff+16*i+4], 1)
+	}
+	if _, e := boundedMachO(bytes.NewReader(repeated), uint64(len(repeated))); e == nil {
+		t.Fatal("aggregate symbol name copies accepted")
+	}
+}
+
+func TestMachOBoundedDynamicSymbolTables(t *testing.T) {
+	add := func(b []byte) {
+		binary.LittleEndian.PutUint32(b[16:20], 4)
+		binary.LittleEndian.PutUint32(b[20:24], 408)
+		binary.LittleEndian.PutUint32(b[360:364], uint32(macho.LoadCmdDysymtab))
+		binary.LittleEndian.PutUint32(b[364:368], 80)
+	}
+	b, w := syntheticMachO()
+	add(b)
+	if inspectReader(bytes.NewReader(b), uint64(len(b)), w) != nil {
+		t.Fatal("bounded empty dynamic table rejected")
+	}
+	mutations := []func([]byte){
+		func(b []byte) {
+			binary.LittleEndian.PutUint32(b[384:388], math.MaxUint32)
+			binary.LittleEndian.PutUint32(b[388:392], 2)
+		},
+		func(b []byte) {
+			binary.LittleEndian.PutUint32(b[384:388], 5)
+			binary.LittleEndian.PutUint32(b[388:392], 2)
+		},
+		func(b []byte) { binary.LittleEndian.PutUint32(b[420:424], math.MaxUint32) },
+		func(b []byte) {
+			binary.LittleEndian.PutUint32(b[416:420], math.MaxUint32)
+			binary.LittleEndian.PutUint32(b[420:424], 1)
+		},
+	}
+	for i, mut := range mutations {
+		b, w := syntheticMachO()
+		add(b)
+		mut(b)
+		if inspectReader(bytes.NewReader(b), uint64(len(b)), w) == nil {
+			t.Fatal("invalid dynamic symbol range accepted", i)
+		}
+	}
+}
+
+func TestBoundedGateBeforeBuildInfoParser(t *testing.T) {
+	b, _ := syntheticMachO()
+	binary.LittleEndian.PutUint32(b[16:20], math.MaxUint32)
+	path := filepath.Join(t.TempDir(), "synthetic-malformed-macho")
+	if e := os.WriteFile(path, b, 0600); e != nil {
+		t.Fatal(e)
+	}
+	if e := buildSettings(path, "unused", nil); e == nil || e.Error() != "binary_macho" {
+		t.Fatal("self bounds not before buildinfo", e)
+	}
+	if e := buildSettings(path, "unused", &pure.Plan{}); e == nil || e.Error() != "worker_static_bindings" {
+		t.Fatal("worker bounds not before buildinfo", e)
+	}
+}
+
+// Optional read-only real-binary fixture explicitly selected by Root prep.
+// SHA/bytes and static values are checked; never exec, help, init or model APIs.
+func TestExistingRootWorkerStaticOnly(t *testing.T) {
+	path := os.Getenv("RIIDO_V5_STATIC_WORKER")
+	if path == "" {
+		t.Skip("no Root static fixture selected")
+	}
+	f, e := os.Open(path)
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer f.Close()
+	h := sha256.New()
+	n, e := io.Copy(h, io.LimitReader(f, binaryCap+1))
+	wantBytes, parseErr := strconv.ParseInt(os.Getenv("RIIDO_V5_STATIC_BYTES"), 10, 64)
+	if e != nil || parseErr != nil || wantBytes <= 0 || wantBytes > binaryCap || n != wantBytes || hex.EncodeToString(h.Sum(nil)) != os.Getenv("RIIDO_V5_STATIC_SHA256") {
+		t.Fatal("Root fixture pin")
+	}
+	want := [3]string{os.Getenv("RIIDO_V5_CLOSURE_SHA256"), os.Getenv("RIIDO_V5_VECTOR_SHA256"), os.Getenv("RIIDO_V5_READINESS_SHA256")}
+	if inspectWorkerBindings(path, want) != nil {
+		t.Fatal("actual Root string-header inspection")
+	}
+	if e := buildSettings(path, "riido.local/next60native2", nil); e != nil {
+		t.Fatal("bounded static buildinfo", e)
+	}
+	want[2] = strings.Repeat("d", 64)
+	if inspectWorkerBindings(path, want) == nil {
+		t.Fatal("actual Root wrong expected binding accepted")
+	}
+}
