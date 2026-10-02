@@ -1,0 +1,197 @@
+// SPDX-License-Identifier: Apache-2.0
+// Project-authored finite literal expectations; no upstream imports or calls.
+package pure
+
+import (
+	"encoding/json"
+	"errors"
+	"reflect"
+	"strconv"
+)
+
+const MaxProbes = 32
+const OutputLimit = (1 << 20) - 1
+
+type Ref struct {
+	ID     string `json:"id"`
+	Bytes  int    `json:"bytes"`
+	SHA256 string `json:"sha256"`
+}
+type Goal struct {
+	ID, API, Repository, Revision, SourceSHA256, Derivation, ExcludedScope string
+}
+type Entry struct {
+	Key    string
+	Values []string
+}
+type Error struct{ Kind, Text, Function, Input, Cause string }
+type Observation struct {
+	Value          uint64
+	Error          Error
+	Tokens         []string
+	TokensNil      bool
+	QueryValues    []Entry
+	QueryValuesNil bool
+	Panicked       bool
+}
+type Probe struct {
+	ID, Goal, Input, Fixture string
+	InitialReceiver          uint64
+	Want                     Observation
+}
+type Specification struct {
+	Schema                                                                    string
+	Goals                                                                     []Goal
+	Probes                                                                    []Probe
+	BroadTruthProven, CaptionsQualified, ParentLabelsQualified, TrainingReady bool
+	NewParents, NewLabels, Models, Fits, ProtectedFinalReads                  int
+}
+
+func LiteralSpecification() Specification {
+	max := ^uint64(0)
+	noerr := func(v uint64) Observation { return Observation{Value: v} }
+	numerr := func(v uint64, input, kind string, cause error) Observation {
+		return Observation{Value: v, Error: Error{Kind: kind, Text: (&strconv.NumError{Func: "UnmarshalText", Num: input, Err: cause}).Error(), Function: "UnmarshalText", Input: input, Cause: kind}}
+	}
+	bits := errors.New("unit with capital unit prefix and lower case unit (b) - bits, not bytes ")
+	s := Specification{Schema: "riido-first-three-finite-want-v1", Goals: []Goal{
+		{ID: "datasize-unit-parse-state", API: "(*datasize.ByteSize).UnmarshalText", Repository: "c2h5oh/datasize", Revision: "aa82cc1e65004e2b59a6e44d26f774ca961b24d8", SourceSHA256: "512932730df3f5b92b025ccb03cb534670b9f9d77edc201f58ffbee711a583d9", Derivation: "Read pinned decimal parsing, binary unit multiplier and terminal receiver assignments. Expected integers are fixed independently before calls; pure big.Int toy checks verify literal boundaries.", ExcludedScope: "No nil receiver, arbitrary input, all units, fractional grammar or stronger atomic-state promise."},
+		{ID: "query-tagged-multivalue", API: "query.Values", Repository: "google/go-querystring", Revision: "965d79f2113ea0ff039d29828a08a616a0223d48", SourceSHA256: "644ee90c8857903116e74980705bc54a2bd671afbbfcba3f08f7993b6e083ff7", Derivation: "Read Values documentation, nil return path, struct validation, omitempty, repeated slice order and nested bracket names. Only six trusted primitive fixtures; sorted keys preserve value order and map nil state.", ExcludedScope: "No callbacks, Encoder/IsZero/Stringer, time, cyclic/recursive actor input or arbitrary structs."},
+		{ID: "shlex-quoted-argv", API: "shlex.Split", Repository: "google/shlex", Revision: "e7afc7fbc51079733e9468cdfd1efcd7d196cd1d", SourceSHA256: "f34d676ee244f328c7cb43ff9cb285562df0afde0dc49a7d4f9705fe2703220b", Derivation: "Read quoted/escaping/comment state transitions and Split append-after-success loop. Eight fixed literals preserve empty words, completed prefix on malformed EOF, and nonnil empty slice.", ExcludedScope: "No POSIX-shell equivalence, expansion/substitution/execution, arbitrary Reader or general no-panic promise."},
+	}}
+	add := func(id, input string, w Observation) {
+		s.Probes = append(s.Probes, Probe{ID: id, Goal: s.Goals[0].ID, Input: input, InitialReceiver: 7, Want: w})
+	}
+	add("ds-empty", "", noerr(0))
+	add("ds-two-kb", "2KB", noerr(2048))
+	add("ds-trimmed-unit", "2 kb ", noerr(2048))
+	add("ds-max-byte", "18446744073709551615", noerr(max))
+	add("ds-max-kb-floor", "18014398509481983KB", noerr(18446744073709550592))
+	add("ds-numeric-overflow", "18446744073709551616", numerr(max, "18446744073709551616", "range", strconv.ErrRange))
+	add("ds-unit-overflow", "18014398509481984KB", numerr(max, "18014398509481984KB", "range", strconv.ErrRange))
+	add("ds-bits", "1Mb", numerr(0, "1Mb", "bits", bits))
+	add("ds-syntax", "x", numerr(0, "x", "syntax", strconv.ErrSyntax))
+	add("ds-leading-space", " 2KB", numerr(0, " 2KB", "syntax", strconv.ErrSyntax))
+	q := func(id, fixture string, values []Entry, nilMap bool, e Error) {
+		s.Probes = append(s.Probes, Probe{ID: id, Goal: s.Goals[1].ID, Fixture: fixture, Want: Observation{QueryValues: values, QueryValuesNil: nilMap, Error: e}})
+	}
+	q("query-zero", "zero", []Entry{{"empty", []string{""}}, {"flag", []string{"0"}}, {"user[addr][city]", []string{""}}, {"user[name]", []string{""}}}, false, Error{})
+	q("query-repeated", "repeated", []Entry{{"count", []string{"2"}}, {"empty", []string{""}}, {"flag", []string{"1"}}, {"q", []string{"two words"}}, {"tag", []string{"a", "b", "a"}}, {"user[addr][city]", []string{""}}, {"user[name]", []string{""}}}, false, Error{})
+	q("query-nested", "nested", []Entry{{"empty", []string{""}}, {"flag", []string{"0"}}, {"user[addr][city]", []string{"SFO"}}, {"user[name]", []string{"acme"}}}, false, Error{})
+	q("query-nil", "nil", []Entry{}, false, Error{})
+	q("query-nil-pointer", "nil-pointer", []Entry{}, false, Error{})
+	q("query-int-error", "int", nil, true, Error{Kind: "input_kind", Text: "query: Values() expects struct input. Got int", Cause: "input_kind"})
+	sh := func(id, input string, words []string, err string) {
+		e := Error{}
+		if err != "" {
+			e = Error{Kind: "malformed_eof", Text: err, Cause: "malformed_eof"}
+		}
+		s.Probes = append(s.Probes, Probe{ID: id, Goal: s.Goals[2].ID, Input: input, Want: Observation{Tokens: words, Error: e}})
+	}
+	sh("sh-basic", `one "two three" four`, []string{"one", "two three", "four"}, "")
+	sh("sh-empty-words", `'' "" end`, []string{"", "", "end"}, "")
+	sh("sh-escaped-space", `one\ two three`, []string{"one two", "three"}, "")
+	sh("sh-comment", "one # tail\n two", []string{"one", "two"}, "")
+	sh("sh-hash-word", `a#b '#c'`, []string{"a#b", "#c"}, "")
+	sh("sh-unclosed-later", `ok "broken`, []string{"ok"}, "EOF found when expecting closing quote")
+	sh("sh-escape-eof", `ok tail\`, []string{"ok"}, "EOF found after escape character")
+	sh("sh-empty-input", "", []string{}, "")
+	return s
+}
+
+type Record struct {
+	Probe   Probe
+	Got     Observation
+	Matches bool
+}
+type Result struct {
+	Schema, State, WantSHA256, PlanSHA256, Failure, ActiveProbeID                                                  string
+	DistinctBehaviorGoals, PlannedAPICalls, DispatchReserved, OriginalReturns, WrapperPanics, Matches, Differences int
+	Records                                                                                                        []Record
+	PackageInitializationScope                                                                                     string
+	OriginalInitializationDynamicallyInstrumented                                                                  bool
+	CaptionsQualified, ParentLabelsQualified, BroadTruthProven, TrainingReady                                      bool
+	NewParents, NewLabels, ModelCalls, Fits, ProtectedFinalReads                                                   int
+}
+
+func clone(v Observation) Observation {
+	if v.Tokens != nil {
+		v.Tokens = append([]string{}, v.Tokens...)
+	}
+	if v.QueryValues != nil {
+		entries := make([]Entry, len(v.QueryValues))
+		for i, e := range v.QueryValues {
+			entries[i] = Entry{Key: e.Key}
+			if e.Values != nil {
+				entries[i].Values = append([]string{}, e.Values...)
+			}
+		}
+		v.QueryValues = entries
+	}
+	return v
+}
+func invoke(p Probe, observer func(Probe) Observation) (v Observation) {
+	defer func() {
+		if recover() != nil {
+			v = Observation{Panicked: true, Error: Error{Kind: "upstream_panic_redacted", Text: "upstream_panic_redacted", Cause: "upstream_panic_redacted"}}
+		}
+	}()
+	return clone(observer(p))
+}
+
+// Checkpoints are persisted before every dispatch and after each return. A failed
+// checkpoint stops further calls. Neither mismatches nor panics rewrite Want.
+func Observe(s Specification, wantSHA, planSHA string, observer func(Probe) Observation, checkpoint func(Result) error) (Result, error) {
+	r := Result{Schema: "riido-first-three-finite-observation-v1", State: "running_finite_observations", WantSHA256: wantSHA, PlanSHA256: planSHA, DistinctBehaviorGoals: len(s.Goals), PlannedAPICalls: len(s.Probes), Records: []Record{}, PackageInitializationScope: "Executing the original-import child initializes imported Go packages before main. Source-read initializers include datasize errors.New and query reflect.TypeOf. Types/counts are not dynamically instrumented; these are separate from 24 direct API dispatches."}
+	if len(s.Goals) != 3 || len(s.Probes) == 0 || len(s.Probes) > MaxProbes {
+		return r, errors.New("invalid_finite_spec")
+	}
+	for _, p := range s.Probes {
+		r.ActiveProbeID = p.ID
+		r.DispatchReserved++
+		if err := checkpoint(r); err != nil {
+			r.Failure = "checkpoint_failed_before_dispatch"
+			return r, err
+		}
+		v := invoke(p, observer)
+		if v.Panicked {
+			r.WrapperPanics++
+		} else {
+			r.OriginalReturns++
+		}
+		match := reflect.DeepEqual(v, p.Want)
+		if match {
+			r.Matches++
+		} else {
+			r.Differences++
+		}
+		owned := p
+		owned.Want = clone(p.Want)
+		r.Records = append(r.Records, Record{Probe: owned, Got: v, Matches: match})
+		r.ActiveProbeID = ""
+		if err := checkpoint(r); err != nil {
+			r.Failure = "checkpoint_failed_after_dispatch"
+			return r, err
+		}
+	}
+	r.State = "completed_finite_observations_all_match"
+	if r.Differences != 0 {
+		r.State = "completed_finite_observations_with_differences"
+	}
+	if err := checkpoint(r); err != nil {
+		r.Failure = "checkpoint_failed_final"
+		return r, err
+	}
+	return r, nil
+}
+func Encode(v any) ([]byte, error) {
+	b, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		return nil, err
+	}
+	b = append(b, '\n')
+	if len(b) > OutputLimit {
+		return nil, errors.New("output_limit")
+	}
+	return b, nil
+}

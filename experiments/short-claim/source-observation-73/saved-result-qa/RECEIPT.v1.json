@@ -1,0 +1,137 @@
+{
+  "schema": "riido-first-three-saved-observation-result-qa-v1",
+  "state": "saved_24_records_exactly_match_immutable_finite_want",
+  "bindings": [
+    {
+      "id": "child-attempt/results.json",
+      "bytes": 28646,
+      "sha256": "59e84510ea539a21b4a3f8c887eb78aca1a4513f91f047ca93c0d37c7544a79c"
+    },
+    {
+      "id": "child-attempt/results.partial.json",
+      "bytes": 28646,
+      "sha256": "59e84510ea539a21b4a3f8c887eb78aca1a4513f91f047ca93c0d37c7544a79c"
+    },
+    {
+      "id": "ROOT-ACTUAL-LEDGER.v1.json",
+      "bytes": 3211,
+      "sha256": "2189d1116fc870a2b1b8ca7cc76a8398155c238c43580bb68fbe235b69857612"
+    },
+    {
+      "id": "execution-plan.v1.frozen.json",
+      "bytes": 5597,
+      "sha256": "c9213dafd34f55447baa6813e6ad35c62cc5c670232c61a49fb2d3b164182279"
+    },
+    {
+      "id": "wants.v1.json",
+      "bytes": 16691,
+      "sha256": "25ba0b259965a429a2198938e2238677985a5f7fa9714a62ce5a4339741beb25"
+    },
+    {
+      "id": "execution-plan.v1.draft.json",
+      "bytes": 5598,
+      "sha256": "e8d53652d0023b61d6a0c6ec0bec72d3f016c3760cc2c1c6de1330aac0b881b2"
+    },
+    {
+      "id": "FIRST-THREE-OBSERVER-HANDOFF.v1.json",
+      "bytes": 24791,
+      "sha256": "39e426eac4f87d98e05fa02b0d82d19f1a930ee39ecec88063a24146177b55a1"
+    },
+    {
+      "id": "private-time-and-stderr",
+      "bytes": 777,
+      "sha256": "dde1b5f72bb882c3af843588c10c2c4a0940df1c3395a28d80b3bad85602bb66"
+    },
+    {
+      "id": "private-stdout",
+      "bytes": 62,
+      "sha256": "e47d6e81510fb07c794552033f676a35f873412750033e82a48e28db75894b52"
+    }
+  ],
+  "runtime_go": "go1.27.1",
+  "checker_source": {
+    "id": "main.go",
+    "bytes": 23934,
+    "sha256": "efb93877955f7b22cd849b571f2b4d83501055d67f8fbba674110343e625878b"
+  },
+  "record_count": 24,
+  "families": [
+    {
+      "id": "datasize-unit-parse-state",
+      "Probes": 10,
+      "ProbeBindings": 10,
+      "GotWantEqual": 10,
+      "MatchFlags": 10
+    },
+    {
+      "id": "query-tagged-multivalue",
+      "Probes": 6,
+      "ProbeBindings": 6,
+      "GotWantEqual": 6,
+      "MatchFlags": 6
+    },
+    {
+      "id": "shlex-quoted-argv",
+      "Probes": 8,
+      "ProbeBindings": 8,
+      "GotWantEqual": 8,
+      "MatchFlags": 8
+    }
+  ],
+  "saved_counters": {
+    "DistinctBehaviorGoals": 3,
+    "PlannedAPICalls": 24,
+    "DispatchReserved": 24,
+    "OriginalReturns": 24,
+    "WrapperPanics": 0,
+    "Matches": 24,
+    "Differences": 0
+  },
+  "FullProbeBindings": 24,
+  "FullGotWantEqual": 24,
+  "MatchFlagsConsistent": 24,
+  "Uint64MaxValues": 3,
+  "ClassifiedErrors": 8,
+  "QueryNilMaps": 1,
+  "QueryAllocatedEmptyMaps": 2,
+  "QueryNonemptyMaps": 3,
+  "ShlexAllocatedEmptySlices": 1,
+  "FinalPartialByteEqual": true,
+  "FreezeOnlyOneToken": true,
+  "ResultPlanWantLedgerPinsJoined": true,
+  "RawOSFieldsMatched": true,
+  "ControllerElapsedSeconds": 0.854884,
+  "SavedWholeChildOS": {
+    "RealSeconds": 0.85,
+    "UserSeconds": 0.01,
+    "SystemSeconds": 0.04,
+    "MaximumRSSBytes": 18743296,
+    "PeakFootprintBytes": 16122360,
+    "Source": "Darwin /usr/bin/time -l whole-child measurement; RSS unit bytes; includes imported-package initialization, preflight, original API/wrapper work and checkpoint I/O; excludes parent controller. Missing or ambiguous fields are null."
+  },
+  "CheckerInvocations": 1,
+  "CheckerFailures": 0,
+  "AdditionalOriginalAPICalls": 0,
+  "AdditionalPackageInitializations": 0,
+  "ObserverReruns": 0,
+  "ControllerReruns": 0,
+  "UpstreamTests": 0,
+  "NewParents": 0,
+  "NewLabels": 0,
+  "ModelCalls": 0,
+  "Fits": 0,
+  "ProtectedFinalReads": 0,
+  "SharedEdits": 0,
+  "RemoteMutations": 0,
+  "CaptionsQualified": false,
+  "ParentLabelsQualified": false,
+  "BroadTruthProven": false,
+  "TrainingReady": false,
+  "scope": [
+    "Saved typed-file/hash/arithmetic verification only. Checker author also authored the controller; this is not independent runtime execution or broad semantic approval.",
+    "Probe/Want equality uses the pre-execution immutable finite Want. No original APIs, observer/controller reruns, imports, upstream tests, labels or roles are created.",
+    "24 probes are finite inputs for three behavior goals, not 24 new parent requests. Whole-child OS values are replayed from the saved time log, not new resource measurements.",
+    "Classified errors, nil versus allocated-empty arrays and repeated value order are compared exactly. Package initialization was not dynamically instrumented in the original attempt.",
+    "Source/binary pins are provenance, not formal trusted-compiler proof. Captions, parent labels, broad truth and training qualification remain false."
+  ]
+}

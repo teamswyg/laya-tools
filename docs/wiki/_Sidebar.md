@@ -1,5 +1,8 @@
 **[Home / 홈](https://github.com/teamswyg/laya-tools/wiki)**
 
+- [새 자료 실제 관찰73](Source-Observation-73-KO) / [New-source observations73](Source-Observation-73-EN)
+- [FP64 저장 형식73](Compact-Storage-73-KO) / [FP64 storage73](Compact-Storage-73-EN)
+
 - [두 번째 주장 모델 결과](Second-Claim-Fit-72-KO) / [Second claim fit](Second-Claim-Fit-72-EN)
 - [Go 입력 재사용](Validated-Input-71-KO) / [Go input reuse](Validated-Input-71-EN)
 

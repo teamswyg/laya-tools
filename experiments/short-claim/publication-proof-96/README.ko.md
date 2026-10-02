@@ -10,4 +10,6 @@ Issue19 댓글의 첫 읽기 비교도 CLI가 붙인 마지막 줄바꿈 때문�
 
 두 번째 scratch 형제 모델도 별도 [실패 연구 보관소](https://huggingface.co/JooYoon/riidolaya-shortclaim-rank-bce-failed-72/tree/d090b00e9a5dab00d5372dfd6412c9aee0c60b7b)에 공개했다. 프로젝트 파일9개157,923B를 새로 내려받아 모두 대조했고 `failed-rank-bce-72-v1` 태그는 같은 commit으로 해석됐다. 컬렉션의 앞선16항목을 그대로 보존해17개가 됐다. [게시 검증](HF-PUBLICATION-72.v1.json)과 [PR95 최종 CI·병합 기록](CI-PR95.v1.json)을 연결한다. 실제 fit의 source는d506이고 이후851의 Go 소스는 같으며, 원격 공개는851 CI·자동 병합을 확인한 뒤 진행했다. 27→33 악화와 미승인 상태는 그대로다.
 
+PR96의 Go 입력 재사용 리팩토링은 정확한 head `945e938e1a0e66aae964f99464eb936c0c8ec63a`에서 Linux·macOS·secrets·quality를 모두 통과했고 `66e985a320ac616b0d8693219bbbb84cd93fd0a1`로 자동 병합됐다. [CI 기록](CI-PR96.v1.json)을 보존한다. 이후 [두 번째 학습 한국어](https://github.com/teamswyg/laya-tools/wiki/Second-Claim-Fit-72-KO)·[영어](https://github.com/teamswyg/laya-tools/wiki/Second-Claim-Fit-72-EN), [입력 재사용 한국어](https://github.com/teamswyg/laya-tools/wiki/Validated-Input-71-KO)·[영어](https://github.com/teamswyg/laya-tools/wiki/Validated-Input-71-EN)와 Home·Sidebar 총6파일59,599B를 게시했다. 한 번 push한 원격 Wiki commit `6d9119301f1f5bae6106f21ddc29185272855c74`을 새로 fetch하여 CI head 문서와 바이트가 정확히 같음을 확인했다. [Wiki 기록](WIKI-PUBLICATION-96.v1.json)은 새 게시를 증명하며 앞선 PR94 기록을 대체하지 않는다. 학습·benchmark·HF 게시를 반복하지 않았다.
+
 [English](README.en.md)

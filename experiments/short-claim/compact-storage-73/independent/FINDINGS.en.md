@@ -1,0 +1,17 @@
+# Independent source review of the compact-storage prototype
+
+I found no source-reading defect that overturns the successful fixed-file roundtrip, and no new evidence that its stored arrays differ from the source JSON values. This is a static conclusion. I did not author the codec; I previously participated in projection/training preparation and am a nonblind, AI-assisted reviewer. I did not rerun the dataset roundtrip, decoder, tests, or helper.
+
+Binary Decode checks all four datasets' lengths, counts, nil flags, reserved bytes, arithmetic, and the 64MiB bounds before allocating arrays. It preserves column order, uint16 indices, signed64 offsets/groups, FP64 bits, and nil versus empty arrays. The source also rejects inconsistent CSR shape/offsets and NaN/Inf. These storage checks do not replace the original model/training eligibility checks.
+
+ImportJSON moves only the six arrays into typed DTOs. Split/Excluded and the remaining envelope/parent/ref/null/false metadata remain RawMessage values rather than being recomputed through a float64 map. Whitespace and key order may change; original-byte reconstruction is not claimed. The source SHA identifies the source and is not a compact-content checksum: a future reader must verify the separate compact asset SHA and source pin. I did not independently decode the binary metadata here.
+
+Preserve the successful observation and distinguish these limits before a v2 or public loader:
+
+- `codec/json.go:77–83,113–114`: ImportJSON allocates typed arrays before checking aggregate owned payload. The file cap and final payload check do not cap peak JSON-import allocations at64MiB. A general-input adapter may need a bounded element-count pass first. This differs from the binary decoder's preflight and does not invalidate this fixed successful observation.
+- `codec/json.go:20–33`: Reading objects into maps collapses duplicate keys to the last value. This is not a contract to preserve every original property of arbitrary JSON. There is no new evidence of duplicate keys or value loss in the pinned input. A future general-input contract should state whether duplicates are rejected.
+- `cmd/roundtrip/main.go:87–105`: The existing equality compares ImportJSON's Snapshot with the same codec's decoded Snapshot. A shared importer mistake could escape this comparison. Retain success1/retry0 unchanged and separate a future standalone reader experiment that compares source JSON paths/order/integers/FP64 bits/null states and metadata directly. That experiment was not run in this review.
+
+Stored sizes are clear: pretty JSON8,390,462B, minified JSON4,697,570B, compact1,978,694B. The76.4173% pretty-relative reduction includes formatting; reduction against minified JSON is57.8783%. Gzip sizes are594,236/400,256/328,206B. Compact gzip saves72,050B against minified JSON gzip, while JSON+gzip can reuse existing tools/schema and avoids maintaining a custom binary codec. Compact could support direct typed-array restoration, but that advantage remains a hypothesis until independent reading, loader integration, and speed/memory comparison. The gzip control measures compressed bytes only; it did not decode or measure speed/RSS.
+
+New fitting/models/features/roles/labels/protected-final reads/shared edits/publication are all zero. Original files and prior attempt records were unchanged. AI-assisted conversation/review cost was not measured; zero separate model/paid trials does not mean this collaboration had zero cost.

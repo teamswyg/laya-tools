@@ -1,0 +1,17 @@
+package pure
+
+type ClosureRef struct {
+	Base, Path string
+	Ref
+}
+type ExecutionPlan struct {
+	Schema                                                                                                        string
+	Frozen                                                                                                        bool
+	ObserverRoot, OriginalSourceRoot                                                                              string
+	Want, Binary                                                                                                  Ref
+	Closure                                                                                                       []ClosureRef
+	Toolchain, GOOS, GOARCH                                                                                       string
+	CPU, SoftGoHeapBytes, OutsideTimeoutSeconds, OutputLimitBytes, PlannedOriginalAPICalls, DistinctBehaviorGoals int
+	OutsideReservationRequired, NoAutomaticRetry                                                                  bool
+	TrainingReady, BroadTruthProven, CaptionsQualified, ParentLabelsQualified                                     bool
+}

@@ -1,0 +1,97 @@
+{
+  "schema": "riido-compact-storage-independent-static-review-v1",
+  "state": "completed_static_reading_no_fixed_roundtrip_blocker_no_independent_reader_execution",
+  "reader": "semantic_review60_prep",
+  "independence": {
+    "codec_author": false,
+    "roundtrip_executor": false,
+    "previous_projection_and_fit_preparation_exposure": true,
+    "blind": false,
+    "ai_assisted_source_reading": true,
+    "collaboration_cost_measured": false
+  },
+  "scope": "Frozen codec source/tests, plans, existing handoff/control records, reservation metadata, read-only file SHA and byte checks. No original source APIs or codec dataset reruns. No independent array decoding.",
+  "source_pins": [
+    {"id":"codec/codec.go","bytes":7592,"sha256":"08cb5050f022a7491bc145dde7f3ff22a1f59b8640d1ce58fcd0409857b1af99"},
+    {"id":"codec/json.go","bytes":2693,"sha256":"c719868bf7f9c906979edad9c4f717deb588a70f900dde2ee3a672617caf9a73"},
+    {"id":"codec/codec_test.go","bytes":2772,"sha256":"747b5de02164356f9f206f6f4d679def52c9a370f6ea4825916adaa0ceec9094"},
+    {"id":"codec/json_test.go","bytes":1339,"sha256":"501f475d602425ca2ce6df6d1a8ba1bba98f1d10601b3627ff992e0fb87a99c5"},
+    {"id":"go.mod","bytes":52,"sha256":"7e6fe3ffe04f3d457606b72860e1f62d7fcaa5af213932bdd0ef65f6876d656e"},
+    {"id":"cmd/roundtrip/main.go","bytes":12228,"sha256":"5febe81dbc4e4417e23fa33f4d954d1dd02004e9723352b7c5d0a51c12c4b54a"},
+    {"id":"PLAN.ko.md","bytes":2461,"sha256":"2ca791c5ba875eab64bbdbbd91a26d16c6a7eaffed4e859d6c58182aaa75cacf"},
+    {"id":"PLAN.en.md","bytes":2190,"sha256":"9be60bf035060ef071d699001b80b385aff254d7a8b5b54dafcad5bef71f40a1"},
+    {"id":"saved-bytes-control-prep/PLAN.ko.md","bytes":1634,"sha256":"8cbf33d22a37b7dd836cca701b2d36326564b8aabde1269aedd534c1188e13d7"},
+    {"id":"saved-bytes-control-prep/PLAN.en.md","bytes":1395,"sha256":"b4a43a6aee2d12848bb6272c9991dde87ecced6f32a4f0fc42f87f9ef55fce86"},
+    {"id":"saved-bytes-control-prep/main.go","bytes":9576,"sha256":"7b1d0746e414fb074304f597d2ff49f5fb415e2ab00f659b45780666bda93279"}
+  ],
+  "record_pins": [
+    {"id":"ROUNDTRIP-HANDOFF.v1.json","bytes":5219,"sha256":"b2ab24dd8562b0bb93dd8d1e538264f582109f92eb25e588014178522cba46de"},
+    {"id":"ROUNDTRIP-HANDOFF.v1.ko.md","bytes":1078,"sha256":"a6cdcf5adedecd6355c9bb61dc50fd239f86af09d347fa059b4aa82f9f2fce20"},
+    {"id":"ROUNDTRIP-HANDOFF.v1.en.md","bytes":1060,"sha256":"b26dd68491d6a6338a5a07bf88c492671f102692e4ee34799a79c9368511fa01"},
+    {"id":"saved-bytes-control-prep/SAVED-BYTES-CONTROL.v1.json","bytes":3169,"sha256":"5a4bc3b9ddc95cb87c28ffec18473ae188f99f89e9a0209a8abea0ea8ec0654b"}
+  ],
+  "stored_assets_checked_by_file_sha_and_bytes_only": [
+    {"id":"private-projection76.csrbin","bytes":1978694,"sha256":"43736823fa4dfa1206eaa9e939b7ab042e97be5950bc3a73b6196668db33a627"},
+    {"id":"private-projection76.minified.json","bytes":4697570,"sha256":"fd8d48e76d809c91614cea8ea652c01350bbb27cc7898c39ed238833fbfc2685"},
+    {"id":"private-pretty-json.gz","bytes":594236,"sha256":"793b6ddafd0e864843c9d3a04374f0ebc96b40a210c19f0ce0e706a3a452bee4"},
+    {"id":"private-minified-json.gz","bytes":400256,"sha256":"2199e6be888b541a93bfe23c03d4017cba78571096d91b1cc9bc02d79bb53be4"},
+    {"id":"private-compact-binary.gz","bytes":328206,"sha256":"b3d33f3c9d4d8dda7831812d8d87182cabe500060beccd11dfcbf43a8256e0c9"}
+  ],
+  "source_json_pin_from_frozen_record_not_reread": {"id":"original-projection76-json","bytes":8390462,"sha256":"f68bff5f48747a66f038c17262568c1bd91251a8c81b3f46f7ae5090c8fe4b99"},
+  "metadata_pin_from_frozen_record_not_independently_decoded": {"id":"compact-metadata","bytes":163758,"sha256":"c9b56cea372707068f48369f8a19f8d1a3f3d6aaefe47bea6517cbc4d77686c5"},
+  "conclusions": {
+    "fixed_observation_source_reading_blockers": [],
+    "new_evidence_of_array_value_difference": false,
+    "binary_preallocation_count_and_payload_guard_supported_by_source": true,
+    "fp64_bits_integer_order_and_nil_empty_preservation_supported_by_source": true,
+    "rawmessage_metadata_path_supported_by_source": true,
+    "independent_source_json_to_compact_array_comparison_performed": false,
+    "general_input_allocation_or_duplicate_key_preservation_approval": false,
+    "training_ready": false,
+    "performance_approved": false,
+    "final2400_complete": false
+  },
+  "limits_and_followup": [
+    {"id":"json-import-allocation-timing","source":"codec/json.go","lines":[77,83,113,114],"finding":"Typed arrays are allocated before final OwnedPayloadBytes check. File/retained-payload caps do not bound peak JSON-import allocation. This does not invalidate the pinned successful roundtrip.","followup":"If accepting general input, separate a bounded element-count/preflight adapter in a later version; preserve original result."},
+    {"id":"duplicate-key-normalization","source":"codec/json.go","lines":[20,33],"finding":"Object maps collapse duplicate keys. No evidence that the pinned source contains duplicates or lost values.","followup":"State or enforce duplicate-key policy for future general input, not retroactive failure."},
+    {"id":"same-codec-equality-scope","source":"cmd/roundtrip/main.go","lines":[87,105],"finding":"Equal compares ImportJSON's Snapshot with same-codec decoded Snapshot, not an independent raw-source oracle.","followup":"Separate future standalone-reader source-array/metadata comparison; no rerun performed here."},
+    {"id":"source-pin-not-payload-checksum","source":"codec/codec.go","lines":[121,173],"finding":"Header source SHA is retained ancestry metadata. Decoder does not independently authenticate compact payload.","followup":"Future caller verifies immutable compact file hash plus source pin."}
+  ],
+  "saved_byte_interpretation": {
+    "pretty_json_bytes":8390462,
+    "minified_json_bytes":4697570,
+    "compact_bytes":1978694,
+    "pretty_gzip_bytes":594236,
+    "minified_gzip_bytes":400256,
+    "compact_gzip_bytes":328206,
+    "compact_gzip_saves_bytes_against_minified_gzip":72050,
+    "tradeoff":"JSON+gzip reuses existing tools/schema; custom binary adds format maintenance but may permit direct typed-array restoration. Saved bytes alone do not prove decode speed or lower RSS.",
+    "original_published_projection_payload_bytes":1928154,
+    "codec_owned_array_metadata_payload_bytes":1978406,
+    "accounting_recipes_equal":false,
+    "codec_owned_payload_includes_headers_allocator_input_encoded_buffers_or_rss":false,
+    "soft_go_heap_is_hard_rss_limit":false
+  },
+  "ledger": {
+    "reading_and_hash_shell_invocations_before_artifact_creation":14,
+    "reading_command_failures":1,
+    "failure_detail":"First ancestor AGENTS lookup was absent; repository AGENTS was then read successfully. No codec or dataset execution occurred.",
+    "aggregate_output_truncations":1,
+    "truncation_followup":"Roundtrip report source segment reread in a smaller output.",
+    "new_original_helper_invocations":0,
+    "new_codec_original_dataset_roundtrips":0,
+    "codec_decoder_invocations":0,
+    "gzip_decoder_invocations":0,
+    "new_test_invocations":0,
+    "models_or_paid_trials":0,
+    "fits":0,
+    "original_api_feature_projection_role_calls":0,
+    "new_labels":0,
+    "protected_final_reads":0,
+    "shared_edits_git_or_hf_operations":0,
+    "prior_roundtrip_attempts_successes_retries_from_immutable_record":[1,1,0],
+    "prior_saved_bytes_helper_successes_failures_from_immutable_record":[1,1,0],
+    "prior_roundtrip_or_control_artifacts_rewritten":0,
+    "cost_boundary":"Separate model/paid trial count0; AI-assisted collaboration cost not measured."
+  }
+}

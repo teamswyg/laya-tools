@@ -1,0 +1,92 @@
+{
+  "schema": "riido-first-three-independent-source-oracle-review-v1",
+  "state": "source_derived_predictions_frozen_before_observer_spec_exposure",
+  "reader": "semantic_review60_prep",
+  "independence": {
+    "observer_execution_code_author": false,
+    "original_upstream_author": false,
+    "source_build_handoff_broad_contract_draft_exposed": true,
+    "observer_spec_want_execution_code_read": false,
+    "blind_review_claim": false,
+    "human_only_authorship_claim": false
+  },
+  "source_build_handoff": {
+    "id": "FIRST-THREE-SOURCE-BUILD-HANDOFF.v1.json",
+    "sha256": "913107f468311cada7f001fa46ea841b8adf4437e2bb3808b3c68de1046617dc"
+  },
+  "source_pin_manifest": {
+    "id": "source-pins.json",
+    "bytes": 3467,
+    "sha256": "06921c6814b0d8a7933acfe082421814252ed1d6805849dc128c7d86410d2178"
+  },
+  "source_scope": [
+    {
+      "repository": "c2h5oh/datasize",
+      "revision": "aa82cc1e65004e2b59a6e44d26f774ca961b24d8",
+      "path": "datasize.go",
+      "bytes": 4397,
+      "sha256": "512932730df3f5b92b025ccb03cb534670b9f9d77edc201f58ffbee711a583d9",
+      "api": "(*ByteSize).UnmarshalText",
+      "evidence_lines": ["13-26", "116-158", "159-204", "206-216"],
+      "oracle_fields": ["input_raw_bytes", "receiver_before_uint64", "receiver_after_uint64", "error_nil", "NumError_type", "NumError_Func", "NumError_Num", "NumError_Err_identity", "input_bytes_after"],
+      "material_boundary": "Syntax and bits set receiver0; range sets maxUint64; empty input succeeds0. No preserve-on-all-error promise.",
+      "exclusions": ["nil destination", "unsafe aliases", "fractional success", "extra original helper APIs", "full-source contract proven by finite probes"]
+    },
+    {
+      "repository": "google/go-querystring",
+      "revision": "965d79f2113ea0ff039d29828a08a616a0223d48",
+      "path": "query/encode.go",
+      "bytes": 10416,
+      "sha256": "644ee90c8857903116e74980705bc54a2bd671afbbfcba3f08f7993b6e083ff7",
+      "api": "Values",
+      "evidence_lines": ["42-124", "125-145", "151-187", "201-220", "235-277", "283-345"],
+      "oracle_fields": ["fixed_primitive_fixture_snapshot", "returned_map_nil", "sorted_keys_for_reporting_only", "key_presence", "per_key_ordered_values", "error_nil", "nonstruct_error_kind", "fixture_after"],
+      "material_boundary": "Empty scalar string survives without omitempty; empty slice/array does not. Callback-free fixtures do not observe partial map+callback error.",
+      "exclusions": ["custom Encoder", "custom IsZero", "custom Stringer", "cycles", "arbitrary reflection types", "time options", "encoded URL order as primary Values oracle", "unobserved callback error prefix"]
+    },
+    {
+      "repository": "google/shlex",
+      "revision": "e7afc7fbc51079733e9468cdfd1efcd7d196cd1d",
+      "path": "shlex.go",
+      "bytes": 9957,
+      "sha256": "f34d676ee244f328c7cb43ff9cb285562df0afde0dc49a7d4f9705fe2703220b",
+      "api": "Split",
+      "evidence_lines": ["18-23", "77-84", "150-166", "205-278", "279-360", "361-399", "403-415"],
+      "oracle_fields": ["input_string", "returned_slice_nil", "ordered_complete_tokens", "empty_tokens", "error_nil", "fixed_error_category", "error_message", "input_string_after"],
+      "material_boundary": "Split retains completed tokens only; Lexer.Next discards partial token on error. EOF completion is success; no exported malformed-input error sentinel exists.",
+      "exclusions": ["POSIX conformance", "execution", "substitution", "injected Reader errors", "direct Tokenizer API", "nil Reader", "broader Unicode separators", "partial token treated as completed", "whole-source proof"]
+    }
+  ],
+  "classification": {
+    "illustrative_source_derived_predictions_only": true,
+    "official_finite_Want_created": false,
+    "observed_Got_created": false,
+    "training_labels_created": false,
+    "source_family_count": 3,
+    "new_parent_count": 0,
+    "whole_source_fidelity_approval": false,
+    "diversity_approval": false,
+    "training_ready": false
+  },
+  "operations": {
+    "original_api_calls": 0,
+    "original_package_initialization_executions": 0,
+    "upstream_tests": 0,
+    "original_binary_executions": 0,
+    "original_source_parser_or_AST_calls": 0,
+    "model_API_calls": 0,
+    "fits": 0,
+    "feature_calls": 0,
+    "role_calls": 0,
+    "protected_final_reads": 0,
+    "shared_code_edits": 0,
+    "Git_writes": 0,
+    "GitHub_or_HF_publication": 0,
+    "source_read_batches": 4,
+    "source_read_or_metadata_shell_commands_before_document_generation": 13,
+    "source_read_command_failures": 0,
+    "combined_output_budget_truncations": 1,
+    "truncated_source_reread_completed": true,
+    "cost_scope": "AI-assisted source/text reading; ordinary collaboration cost is not measured. Zero model API means no additional inference/API process, not zero AI involvement or zero cost."
+  }
+}

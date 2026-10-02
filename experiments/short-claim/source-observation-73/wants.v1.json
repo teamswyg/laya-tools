@@ -1,0 +1,687 @@
+{
+  "Schema": "riido-first-three-finite-want-v1",
+  "Goals": [
+    {
+      "ID": "datasize-unit-parse-state",
+      "API": "(*datasize.ByteSize).UnmarshalText",
+      "Repository": "c2h5oh/datasize",
+      "Revision": "aa82cc1e65004e2b59a6e44d26f774ca961b24d8",
+      "SourceSHA256": "512932730df3f5b92b025ccb03cb534670b9f9d77edc201f58ffbee711a583d9",
+      "Derivation": "Read pinned decimal parsing, binary unit multiplier and terminal receiver assignments. Expected integers are fixed independently before calls; pure big.Int toy checks verify literal boundaries.",
+      "ExcludedScope": "No nil receiver, arbitrary input, all units, fractional grammar or stronger atomic-state promise."
+    },
+    {
+      "ID": "query-tagged-multivalue",
+      "API": "query.Values",
+      "Repository": "google/go-querystring",
+      "Revision": "965d79f2113ea0ff039d29828a08a616a0223d48",
+      "SourceSHA256": "644ee90c8857903116e74980705bc54a2bd671afbbfcba3f08f7993b6e083ff7",
+      "Derivation": "Read Values documentation, nil return path, struct validation, omitempty, repeated slice order and nested bracket names. Only six trusted primitive fixtures; sorted keys preserve value order and map nil state.",
+      "ExcludedScope": "No callbacks, Encoder/IsZero/Stringer, time, cyclic/recursive actor input or arbitrary structs."
+    },
+    {
+      "ID": "shlex-quoted-argv",
+      "API": "shlex.Split",
+      "Repository": "google/shlex",
+      "Revision": "e7afc7fbc51079733e9468cdfd1efcd7d196cd1d",
+      "SourceSHA256": "f34d676ee244f328c7cb43ff9cb285562df0afde0dc49a7d4f9705fe2703220b",
+      "Derivation": "Read quoted/escaping/comment state transitions and Split append-after-success loop. Eight fixed literals preserve empty words, completed prefix on malformed EOF, and nonnil empty slice.",
+      "ExcludedScope": "No POSIX-shell equivalence, expansion/substitution/execution, arbitrary Reader or general no-panic promise."
+    }
+  ],
+  "Probes": [
+    {
+      "ID": "ds-empty",
+      "Goal": "datasize-unit-parse-state",
+      "Input": "",
+      "Fixture": "",
+      "InitialReceiver": 7,
+      "Want": {
+        "Value": 0,
+        "Error": {
+          "Kind": "",
+          "Text": "",
+          "Function": "",
+          "Input": "",
+          "Cause": ""
+        },
+        "Tokens": null,
+        "TokensNil": false,
+        "QueryValues": null,
+        "QueryValuesNil": false,
+        "Panicked": false
+      }
+    },
+    {
+      "ID": "ds-two-kb",
+      "Goal": "datasize-unit-parse-state",
+      "Input": "2KB",
+      "Fixture": "",
+      "InitialReceiver": 7,
+      "Want": {
+        "Value": 2048,
+        "Error": {
+          "Kind": "",
+          "Text": "",
+          "Function": "",
+          "Input": "",
+          "Cause": ""
+        },
+        "Tokens": null,
+        "TokensNil": false,
+        "QueryValues": null,
+        "QueryValuesNil": false,
+        "Panicked": false
+      }
+    },
+    {
+      "ID": "ds-trimmed-unit",
+      "Goal": "datasize-unit-parse-state",
+      "Input": "2 kb ",
+      "Fixture": "",
+      "InitialReceiver": 7,
+      "Want": {
+        "Value": 2048,
+        "Error": {
+          "Kind": "",
+          "Text": "",
+          "Function": "",
+          "Input": "",
+          "Cause": ""
+        },
+        "Tokens": null,
+        "TokensNil": false,
+        "QueryValues": null,
+        "QueryValuesNil": false,
+        "Panicked": false
+      }
+    },
+    {
+      "ID": "ds-max-byte",
+      "Goal": "datasize-unit-parse-state",
+      "Input": "18446744073709551615",
+      "Fixture": "",
+      "InitialReceiver": 7,
+      "Want": {
+        "Value": 18446744073709551615,
+        "Error": {
+          "Kind": "",
+          "Text": "",
+          "Function": "",
+          "Input": "",
+          "Cause": ""
+        },
+        "Tokens": null,
+        "TokensNil": false,
+        "QueryValues": null,
+        "QueryValuesNil": false,
+        "Panicked": false
+      }
+    },
+    {
+      "ID": "ds-max-kb-floor",
+      "Goal": "datasize-unit-parse-state",
+      "Input": "18014398509481983KB",
+      "Fixture": "",
+      "InitialReceiver": 7,
+      "Want": {
+        "Value": 18446744073709550592,
+        "Error": {
+          "Kind": "",
+          "Text": "",
+          "Function": "",
+          "Input": "",
+          "Cause": ""
+        },
+        "Tokens": null,
+        "TokensNil": false,
+        "QueryValues": null,
+        "QueryValuesNil": false,
+        "Panicked": false
+      }
+    },
+    {
+      "ID": "ds-numeric-overflow",
+      "Goal": "datasize-unit-parse-state",
+      "Input": "18446744073709551616",
+      "Fixture": "",
+      "InitialReceiver": 7,
+      "Want": {
+        "Value": 18446744073709551615,
+        "Error": {
+          "Kind": "range",
+          "Text": "strconv.UnmarshalText: parsing \"18446744073709551616\": value out of range",
+          "Function": "UnmarshalText",
+          "Input": "18446744073709551616",
+          "Cause": "range"
+        },
+        "Tokens": null,
+        "TokensNil": false,
+        "QueryValues": null,
+        "QueryValuesNil": false,
+        "Panicked": false
+      }
+    },
+    {
+      "ID": "ds-unit-overflow",
+      "Goal": "datasize-unit-parse-state",
+      "Input": "18014398509481984KB",
+      "Fixture": "",
+      "InitialReceiver": 7,
+      "Want": {
+        "Value": 18446744073709551615,
+        "Error": {
+          "Kind": "range",
+          "Text": "strconv.UnmarshalText: parsing \"18014398509481984KB\": value out of range",
+          "Function": "UnmarshalText",
+          "Input": "18014398509481984KB",
+          "Cause": "range"
+        },
+        "Tokens": null,
+        "TokensNil": false,
+        "QueryValues": null,
+        "QueryValuesNil": false,
+        "Panicked": false
+      }
+    },
+    {
+      "ID": "ds-bits",
+      "Goal": "datasize-unit-parse-state",
+      "Input": "1Mb",
+      "Fixture": "",
+      "InitialReceiver": 7,
+      "Want": {
+        "Value": 0,
+        "Error": {
+          "Kind": "bits",
+          "Text": "strconv.UnmarshalText: parsing \"1Mb\": unit with capital unit prefix and lower case unit (b) - bits, not bytes ",
+          "Function": "UnmarshalText",
+          "Input": "1Mb",
+          "Cause": "bits"
+        },
+        "Tokens": null,
+        "TokensNil": false,
+        "QueryValues": null,
+        "QueryValuesNil": false,
+        "Panicked": false
+      }
+    },
+    {
+      "ID": "ds-syntax",
+      "Goal": "datasize-unit-parse-state",
+      "Input": "x",
+      "Fixture": "",
+      "InitialReceiver": 7,
+      "Want": {
+        "Value": 0,
+        "Error": {
+          "Kind": "syntax",
+          "Text": "strconv.UnmarshalText: parsing \"x\": invalid syntax",
+          "Function": "UnmarshalText",
+          "Input": "x",
+          "Cause": "syntax"
+        },
+        "Tokens": null,
+        "TokensNil": false,
+        "QueryValues": null,
+        "QueryValuesNil": false,
+        "Panicked": false
+      }
+    },
+    {
+      "ID": "ds-leading-space",
+      "Goal": "datasize-unit-parse-state",
+      "Input": " 2KB",
+      "Fixture": "",
+      "InitialReceiver": 7,
+      "Want": {
+        "Value": 0,
+        "Error": {
+          "Kind": "syntax",
+          "Text": "strconv.UnmarshalText: parsing \" 2KB\": invalid syntax",
+          "Function": "UnmarshalText",
+          "Input": " 2KB",
+          "Cause": "syntax"
+        },
+        "Tokens": null,
+        "TokensNil": false,
+        "QueryValues": null,
+        "QueryValuesNil": false,
+        "Panicked": false
+      }
+    },
+    {
+      "ID": "query-zero",
+      "Goal": "query-tagged-multivalue",
+      "Input": "",
+      "Fixture": "zero",
+      "InitialReceiver": 0,
+      "Want": {
+        "Value": 0,
+        "Error": {
+          "Kind": "",
+          "Text": "",
+          "Function": "",
+          "Input": "",
+          "Cause": ""
+        },
+        "Tokens": null,
+        "TokensNil": false,
+        "QueryValues": [
+          {
+            "Key": "empty",
+            "Values": [
+              ""
+            ]
+          },
+          {
+            "Key": "flag",
+            "Values": [
+              "0"
+            ]
+          },
+          {
+            "Key": "user[addr][city]",
+            "Values": [
+              ""
+            ]
+          },
+          {
+            "Key": "user[name]",
+            "Values": [
+              ""
+            ]
+          }
+        ],
+        "QueryValuesNil": false,
+        "Panicked": false
+      }
+    },
+    {
+      "ID": "query-repeated",
+      "Goal": "query-tagged-multivalue",
+      "Input": "",
+      "Fixture": "repeated",
+      "InitialReceiver": 0,
+      "Want": {
+        "Value": 0,
+        "Error": {
+          "Kind": "",
+          "Text": "",
+          "Function": "",
+          "Input": "",
+          "Cause": ""
+        },
+        "Tokens": null,
+        "TokensNil": false,
+        "QueryValues": [
+          {
+            "Key": "count",
+            "Values": [
+              "2"
+            ]
+          },
+          {
+            "Key": "empty",
+            "Values": [
+              ""
+            ]
+          },
+          {
+            "Key": "flag",
+            "Values": [
+              "1"
+            ]
+          },
+          {
+            "Key": "q",
+            "Values": [
+              "two words"
+            ]
+          },
+          {
+            "Key": "tag",
+            "Values": [
+              "a",
+              "b",
+              "a"
+            ]
+          },
+          {
+            "Key": "user[addr][city]",
+            "Values": [
+              ""
+            ]
+          },
+          {
+            "Key": "user[name]",
+            "Values": [
+              ""
+            ]
+          }
+        ],
+        "QueryValuesNil": false,
+        "Panicked": false
+      }
+    },
+    {
+      "ID": "query-nested",
+      "Goal": "query-tagged-multivalue",
+      "Input": "",
+      "Fixture": "nested",
+      "InitialReceiver": 0,
+      "Want": {
+        "Value": 0,
+        "Error": {
+          "Kind": "",
+          "Text": "",
+          "Function": "",
+          "Input": "",
+          "Cause": ""
+        },
+        "Tokens": null,
+        "TokensNil": false,
+        "QueryValues": [
+          {
+            "Key": "empty",
+            "Values": [
+              ""
+            ]
+          },
+          {
+            "Key": "flag",
+            "Values": [
+              "0"
+            ]
+          },
+          {
+            "Key": "user[addr][city]",
+            "Values": [
+              "SFO"
+            ]
+          },
+          {
+            "Key": "user[name]",
+            "Values": [
+              "acme"
+            ]
+          }
+        ],
+        "QueryValuesNil": false,
+        "Panicked": false
+      }
+    },
+    {
+      "ID": "query-nil",
+      "Goal": "query-tagged-multivalue",
+      "Input": "",
+      "Fixture": "nil",
+      "InitialReceiver": 0,
+      "Want": {
+        "Value": 0,
+        "Error": {
+          "Kind": "",
+          "Text": "",
+          "Function": "",
+          "Input": "",
+          "Cause": ""
+        },
+        "Tokens": null,
+        "TokensNil": false,
+        "QueryValues": [],
+        "QueryValuesNil": false,
+        "Panicked": false
+      }
+    },
+    {
+      "ID": "query-nil-pointer",
+      "Goal": "query-tagged-multivalue",
+      "Input": "",
+      "Fixture": "nil-pointer",
+      "InitialReceiver": 0,
+      "Want": {
+        "Value": 0,
+        "Error": {
+          "Kind": "",
+          "Text": "",
+          "Function": "",
+          "Input": "",
+          "Cause": ""
+        },
+        "Tokens": null,
+        "TokensNil": false,
+        "QueryValues": [],
+        "QueryValuesNil": false,
+        "Panicked": false
+      }
+    },
+    {
+      "ID": "query-int-error",
+      "Goal": "query-tagged-multivalue",
+      "Input": "",
+      "Fixture": "int",
+      "InitialReceiver": 0,
+      "Want": {
+        "Value": 0,
+        "Error": {
+          "Kind": "input_kind",
+          "Text": "query: Values() expects struct input. Got int",
+          "Function": "",
+          "Input": "",
+          "Cause": "input_kind"
+        },
+        "Tokens": null,
+        "TokensNil": false,
+        "QueryValues": null,
+        "QueryValuesNil": true,
+        "Panicked": false
+      }
+    },
+    {
+      "ID": "sh-basic",
+      "Goal": "shlex-quoted-argv",
+      "Input": "one \"two three\" four",
+      "Fixture": "",
+      "InitialReceiver": 0,
+      "Want": {
+        "Value": 0,
+        "Error": {
+          "Kind": "",
+          "Text": "",
+          "Function": "",
+          "Input": "",
+          "Cause": ""
+        },
+        "Tokens": [
+          "one",
+          "two three",
+          "four"
+        ],
+        "TokensNil": false,
+        "QueryValues": null,
+        "QueryValuesNil": false,
+        "Panicked": false
+      }
+    },
+    {
+      "ID": "sh-empty-words",
+      "Goal": "shlex-quoted-argv",
+      "Input": "'' \"\" end",
+      "Fixture": "",
+      "InitialReceiver": 0,
+      "Want": {
+        "Value": 0,
+        "Error": {
+          "Kind": "",
+          "Text": "",
+          "Function": "",
+          "Input": "",
+          "Cause": ""
+        },
+        "Tokens": [
+          "",
+          "",
+          "end"
+        ],
+        "TokensNil": false,
+        "QueryValues": null,
+        "QueryValuesNil": false,
+        "Panicked": false
+      }
+    },
+    {
+      "ID": "sh-escaped-space",
+      "Goal": "shlex-quoted-argv",
+      "Input": "one\\ two three",
+      "Fixture": "",
+      "InitialReceiver": 0,
+      "Want": {
+        "Value": 0,
+        "Error": {
+          "Kind": "",
+          "Text": "",
+          "Function": "",
+          "Input": "",
+          "Cause": ""
+        },
+        "Tokens": [
+          "one two",
+          "three"
+        ],
+        "TokensNil": false,
+        "QueryValues": null,
+        "QueryValuesNil": false,
+        "Panicked": false
+      }
+    },
+    {
+      "ID": "sh-comment",
+      "Goal": "shlex-quoted-argv",
+      "Input": "one # tail\n two",
+      "Fixture": "",
+      "InitialReceiver": 0,
+      "Want": {
+        "Value": 0,
+        "Error": {
+          "Kind": "",
+          "Text": "",
+          "Function": "",
+          "Input": "",
+          "Cause": ""
+        },
+        "Tokens": [
+          "one",
+          "two"
+        ],
+        "TokensNil": false,
+        "QueryValues": null,
+        "QueryValuesNil": false,
+        "Panicked": false
+      }
+    },
+    {
+      "ID": "sh-hash-word",
+      "Goal": "shlex-quoted-argv",
+      "Input": "a#b '#c'",
+      "Fixture": "",
+      "InitialReceiver": 0,
+      "Want": {
+        "Value": 0,
+        "Error": {
+          "Kind": "",
+          "Text": "",
+          "Function": "",
+          "Input": "",
+          "Cause": ""
+        },
+        "Tokens": [
+          "a#b",
+          "#c"
+        ],
+        "TokensNil": false,
+        "QueryValues": null,
+        "QueryValuesNil": false,
+        "Panicked": false
+      }
+    },
+    {
+      "ID": "sh-unclosed-later",
+      "Goal": "shlex-quoted-argv",
+      "Input": "ok \"broken",
+      "Fixture": "",
+      "InitialReceiver": 0,
+      "Want": {
+        "Value": 0,
+        "Error": {
+          "Kind": "malformed_eof",
+          "Text": "EOF found when expecting closing quote",
+          "Function": "",
+          "Input": "",
+          "Cause": "malformed_eof"
+        },
+        "Tokens": [
+          "ok"
+        ],
+        "TokensNil": false,
+        "QueryValues": null,
+        "QueryValuesNil": false,
+        "Panicked": false
+      }
+    },
+    {
+      "ID": "sh-escape-eof",
+      "Goal": "shlex-quoted-argv",
+      "Input": "ok tail\\",
+      "Fixture": "",
+      "InitialReceiver": 0,
+      "Want": {
+        "Value": 0,
+        "Error": {
+          "Kind": "malformed_eof",
+          "Text": "EOF found after escape character",
+          "Function": "",
+          "Input": "",
+          "Cause": "malformed_eof"
+        },
+        "Tokens": [
+          "ok"
+        ],
+        "TokensNil": false,
+        "QueryValues": null,
+        "QueryValuesNil": false,
+        "Panicked": false
+      }
+    },
+    {
+      "ID": "sh-empty-input",
+      "Goal": "shlex-quoted-argv",
+      "Input": "",
+      "Fixture": "",
+      "InitialReceiver": 0,
+      "Want": {
+        "Value": 0,
+        "Error": {
+          "Kind": "",
+          "Text": "",
+          "Function": "",
+          "Input": "",
+          "Cause": ""
+        },
+        "Tokens": [],
+        "TokensNil": false,
+        "QueryValues": null,
+        "QueryValuesNil": false,
+        "Panicked": false
+      }
+    }
+  ],
+  "BroadTruthProven": false,
+  "CaptionsQualified": false,
+  "ParentLabelsQualified": false,
+  "TrainingReady": false,
+  "NewParents": 0,
+  "NewLabels": 0,
+  "Models": 0,
+  "Fits": 0,
+  "ProtectedFinalReads": 0
+}

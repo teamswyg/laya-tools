@@ -1,0 +1,376 @@
+// SPDX-License-Identifier: Apache-2.0
+// This main package is compiled only during preparation. Executing it would
+// initialize the original imports before main; preparation never executes it.
+package main
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"debug/buildinfo"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"flag"
+	"fmt"
+	"io"
+	"net/url"
+	"os"
+	"path/filepath"
+	"runtime"
+	"runtime/debug"
+	"slices"
+	"strconv"
+	"strings"
+
+	"github.com/c2h5oh/datasize"
+	"github.com/google/go-querystring/query"
+	"github.com/google/shlex"
+	"riido.local/first-three-observer/pure"
+)
+
+func digest(b []byte) string { s := sha256.Sum256(b); return hex.EncodeToString(s[:]) }
+func read(p string, limit int) ([]byte, error) {
+	s, e := os.Lstat(p)
+	if e != nil || !s.Mode().IsRegular() || s.Size() > int64(limit) {
+		return nil, errors.New("file_bound")
+	}
+	f, e := os.Open(p)
+	if e != nil {
+		return nil, errors.New("file_read")
+	}
+	defer f.Close()
+	b, e := io.ReadAll(io.LimitReader(f, int64(limit)+1))
+	if e != nil || len(b) > limit {
+		return nil, errors.New("file_bound")
+	}
+	return b, nil
+}
+func confined(root, rel string) (string, error) {
+	if !filepath.IsAbs(root) || filepath.Clean(root) != root || filepath.IsAbs(rel) || filepath.Clean(rel) != rel || rel == "." || strings.HasPrefix(rel, "../") {
+		return "", errors.New("path_bound")
+	}
+	p := root
+	for _, part := range strings.Split(filepath.ToSlash(rel), "/") {
+		p = filepath.Join(p, part)
+		s, e := os.Lstat(p)
+		if e != nil || s.Mode()&os.ModeSymlink != 0 {
+			return "", errors.New("path_bound")
+		}
+	}
+	return p, nil
+}
+func verifyBinary(p string, ref pure.Ref, plan pure.ExecutionPlan) error {
+	b, e := read(p, 64<<20)
+	if e != nil || len(b) != ref.Bytes || digest(b) != ref.SHA256 {
+		return errors.New("binary_pin")
+	}
+	bi, e := buildinfo.ReadFile(p)
+	if e != nil || bi.GoVersion != plan.Toolchain || bi.Path != "riido.local/first-three-observer/cmd/observe" {
+		return errors.New("build_identity")
+	}
+	var cpuArch, osName, cgo, trim string
+	for _, s := range bi.Settings {
+		switch s.Key {
+		case "GOARCH":
+			cpuArch = s.Value
+		case "GOOS":
+			osName = s.Value
+		case "CGO_ENABLED":
+			cgo = s.Value
+		case "-trimpath":
+			trim = s.Value
+		case "vcs.revision":
+			return errors.New("build_vcs")
+		}
+	}
+	if cpuArch != plan.GOARCH || osName != plan.GOOS || cgo != "0" || trim != "true" || len(bi.Deps) != 3 {
+		return errors.New("build_identity")
+	}
+	names := make([]string, 0, 3)
+	for _, d := range bi.Deps {
+		if d.Replace == nil {
+			return errors.New("build_modules")
+		}
+		names = append(names, d.Path)
+	}
+	slices.Sort(names)
+	if !slices.Equal(names, []string{"github.com/c2h5oh/datasize", "github.com/google/go-querystring", "github.com/google/shlex"}) {
+		return errors.New("build_modules")
+	}
+	return nil
+}
+
+type Address struct {
+	City string `url:"city"`
+}
+type User struct {
+	Name string  `url:"name"`
+	Addr Address `url:"addr"`
+}
+type Options struct {
+	Name  string   `url:"q,omitempty"`
+	Tags  []string `url:"tag"`
+	Empty string   `url:"empty"`
+	Skip  string   `url:"-"`
+	Count int      `url:"count,omitempty"`
+	Flag  bool     `url:"flag,int"`
+	Ptr   *string  `url:"ptr,omitempty"`
+	User  User     `url:"user"`
+}
+
+func queryFixture(kind string) any {
+	switch kind {
+	case "zero":
+		return Options{}
+	case "repeated":
+		return Options{Name: "two words", Tags: []string{"a", "b", "a"}, Skip: "ignored", Count: 2, Flag: true}
+	case "nested":
+		return Options{User: User{Name: "acme", Addr: Address{City: "SFO"}}}
+	case "nil":
+		return nil
+	case "nil-pointer":
+		return (*Options)(nil)
+	case "int":
+		return 7
+	default:
+		panic("fixed_fixture_invalid")
+	}
+}
+func queryEntries(v url.Values) []pure.Entry {
+	if v == nil {
+		return nil
+	}
+	keys := make([]string, 0, len(v))
+	for k := range v {
+		keys = append(keys, k)
+	}
+	slices.Sort(keys)
+	entries := make([]pure.Entry, 0, len(keys))
+	for _, k := range keys {
+		var values []string
+		if v[k] != nil {
+			values = append([]string{}, v[k]...)
+		}
+		entries = append(entries, pure.Entry{Key: k, Values: values})
+	}
+	return entries
+}
+func original(p pure.Probe) pure.Observation {
+	switch p.Goal {
+	case "datasize-unit-parse-state":
+		v := datasize.ByteSize(p.InitialReceiver)
+		err := v.UnmarshalText([]byte(p.Input))
+		got := pure.Observation{Value: uint64(v)}
+		if err == nil {
+			return got
+		}
+		var n *strconv.NumError
+		if !errors.As(err, &n) || n.Func != "UnmarshalText" || n.Num != p.Input {
+			got.Error = pure.Error{Kind: "unclassified_error_redacted", Text: "unclassified_error_redacted"}
+			return got
+		}
+		kind := ""
+		switch {
+		case errors.Is(n.Err, strconv.ErrRange):
+			kind = "range"
+		case errors.Is(n.Err, strconv.ErrSyntax):
+			kind = "syntax"
+		case errors.Is(n.Err, datasize.ErrBits):
+			kind = "bits"
+		}
+		if kind == "" {
+			got.Error = pure.Error{Kind: "unclassified_error_redacted", Text: "unclassified_error_redacted"}
+			return got
+		}
+		got.Error = pure.Error{Kind: kind, Text: err.Error(), Function: n.Func, Input: n.Num, Cause: kind}
+		return got
+	case "query-tagged-multivalue":
+		v, err := query.Values(queryFixture(p.Fixture))
+		got := pure.Observation{QueryValues: queryEntries(v), QueryValuesNil: v == nil}
+		if err != nil {
+			if err.Error() == "query: Values() expects struct input. Got int" {
+				got.Error = pure.Error{Kind: "input_kind", Text: err.Error(), Cause: "input_kind"}
+			} else {
+				got.Error = pure.Error{Kind: "unclassified_error_redacted", Text: "unclassified_error_redacted"}
+			}
+		}
+		return got
+	case "shlex-quoted-argv":
+		v, err := shlex.Split(p.Input)
+		got := pure.Observation{Tokens: v, TokensNil: v == nil}
+		if err != nil {
+			switch err.Error() {
+			case "EOF found when expecting closing quote", "EOF found after escape character":
+				got.Error = pure.Error{Kind: "malformed_eof", Text: err.Error(), Cause: "malformed_eof"}
+			default:
+				got.Error = pure.Error{Kind: "unclassified_error_redacted", Text: "unclassified_error_redacted"}
+			}
+		}
+		return got
+	default:
+		panic("fixed_goal_invalid")
+	}
+}
+func writeExclusive(p string, b []byte) error {
+	f, e := os.OpenFile(p, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	if e != nil {
+		return errors.New("exclusive_output")
+	}
+	n, e := f.Write(b)
+	if e != nil || n != len(b) {
+		f.Close()
+		return errors.New("output_write")
+	}
+	if e = f.Sync(); e != nil {
+		f.Close()
+		return errors.New("output_sync")
+	}
+	return f.Close()
+}
+func run(args []string) error {
+	fs := flag.NewFlagSet("finite-observer", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	planPath := fs.String("plan", "", "")
+	planSHA := fs.String("plan-sha256", "", "")
+	attempt := fs.String("attempt-dir", "", "")
+	if fs.Parse(args) != nil || len(fs.Args()) != 0 || *planPath == "" || len(*planSHA) != 64 || !filepath.IsAbs(*attempt) || filepath.Clean(*attempt) != *attempt {
+		return errors.New("fixed_arguments")
+	}
+	b, e := read(*planPath, 128<<10)
+	if e != nil || digest(b) != *planSHA {
+		return errors.New("plan_pin")
+	}
+	var plan pure.ExecutionPlan
+	d := json.NewDecoder(bytes.NewReader(b))
+	d.DisallowUnknownFields()
+	if d.Decode(&plan) != nil {
+		return errors.New("plan_schema")
+	}
+	var trailing any
+	if d.Decode(&trailing) != io.EOF {
+		return errors.New("plan_schema")
+	}
+	if plan.Schema != "riido-first-three-observer-execution-plan-v1" || !plan.Frozen || plan.Toolchain != "go1.27.1" || plan.GOOS != "darwin" || plan.GOARCH != "arm64" || plan.CPU != 1 || plan.SoftGoHeapBytes != 268435456 || plan.OutsideTimeoutSeconds != 60 || plan.OutputLimitBytes != pure.OutputLimit || plan.PlannedOriginalAPICalls != 24 || plan.DistinctBehaviorGoals != 3 || !plan.NoAutomaticRetry || !plan.OutsideReservationRequired || plan.TrainingReady || plan.BroadTruthProven || plan.CaptionsQualified || plan.ParentLabelsQualified {
+		return errors.New("fixed_plan")
+	}
+	if runtime.Version() != plan.Toolchain || runtime.GOMAXPROCS(0) != 1 || debug.SetMemoryLimit(-1) != int64(plan.SoftGoHeapBytes) {
+		return errors.New("runtime_budget")
+	}
+	if len(plan.Closure) < 14 || len(plan.Closure) > 32 {
+		return errors.New("closure_bound")
+	}
+	total := 0
+	for i, ref := range plan.Closure {
+		for _, prior := range plan.Closure[:i] {
+			if prior.Base == ref.Base && prior.Path == ref.Path {
+				return errors.New("duplicate_pin")
+			}
+		}
+		root := plan.ObserverRoot
+		if ref.Base == "original" {
+			root = plan.OriginalSourceRoot
+		} else if ref.Base != "observer" {
+			return errors.New("closure_base")
+		}
+		p, e := confined(root, ref.Path)
+		if e != nil {
+			return e
+		}
+		raw, e := read(p, 128<<10)
+		if e != nil || len(raw) != ref.Bytes || digest(raw) != ref.SHA256 {
+			return errors.New("closure_pin")
+		}
+		total += len(raw)
+		if total >= 1<<20 {
+			return errors.New("closure_bound")
+		}
+	}
+	spec := pure.LiteralSpecification()
+	want, e := pure.Encode(spec)
+	if e != nil {
+		return e
+	}
+	wantPath, e := confined(plan.ObserverRoot, "wants.v1.json")
+	if e != nil {
+		return e
+	}
+	saved, e := read(wantPath, 128<<10)
+	if e != nil || len(saved) != plan.Want.Bytes || digest(saved) != plan.Want.SHA256 || !bytes.Equal(saved, want) {
+		return errors.New("literal_want_pin")
+	}
+	self, e := os.Executable()
+	if e != nil {
+		return errors.New("binary_identity")
+	}
+	if e = verifyBinary(self, plan.Binary, plan); e != nil {
+		return e
+	}
+	// Exclusive child output reservation is before every original API dispatch.
+	// The root controller separately reserves its outside attempt before Start.
+	if e = os.Mkdir(*attempt, 0700); e != nil {
+		return errors.New("attempt_exists_or_unavailable")
+	}
+	dir, e := os.Open(*attempt)
+	if e != nil {
+		return errors.New("attempt_open")
+	}
+	defer dir.Close()
+	reservation, e := pure.Encode(struct {
+		Schema, WantSHA256, PlanSHA256 string
+		PlannedAPICalls                int
+	}{"riido-first-three-dispatch-reservation-v1", plan.Want.SHA256, *planSHA, 24})
+	if e != nil {
+		return e
+	}
+	if e = writeExclusive(filepath.Join(*attempt, "reservation.json"), reservation); e != nil {
+		return e
+	}
+	final, e := os.OpenFile(filepath.Join(*attempt, "results.json"), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	if e != nil {
+		return errors.New("result_reservation")
+	}
+	defer final.Close()
+	if e = dir.Sync(); e != nil {
+		return errors.New("reservation_sync")
+	}
+	checkpoint := func(r pure.Result) error {
+		raw, e := pure.Encode(r)
+		if e != nil {
+			return e
+		}
+		tmp := filepath.Join(*attempt, "results.partial.next")
+		if e = writeExclusive(tmp, raw); e != nil {
+			return e
+		}
+		if e = os.Rename(tmp, filepath.Join(*attempt, "results.partial.json")); e != nil {
+			return errors.New("partial_commit")
+		}
+		return dir.Sync()
+	}
+	r, e := pure.Observe(spec, plan.Want.SHA256, *planSHA, original, checkpoint)
+	if e != nil {
+		return errors.New("observation_checkpoint_failed")
+	}
+	result, e := pure.Encode(r)
+	if e != nil {
+		return e
+	}
+	n, e := final.Write(result)
+	if e != nil || n != len(result) {
+		return errors.New("final_write")
+	}
+	if e = final.Sync(); e != nil {
+		return errors.New("final_sync")
+	}
+	if e = dir.Sync(); e != nil {
+		return errors.New("final_directory_sync")
+	}
+	fmt.Println("finite_observation_complete_result_preserved_no_labels_or_fit")
+	return nil
+}
+func main() {
+	if run(os.Args[1:]) != nil {
+		fmt.Fprintln(os.Stderr, "finite_observer_refused_or_failed")
+		os.Exit(1)
+	}
+}

@@ -1,0 +1,55 @@
+{
+  "schema": "riido-first-three-observer-controller-preparation-handoff-v1",
+  "state": "stdlib_controller_compiled_and_pure_metadata_checks_passed_never_launched",
+  "files": [
+    {"id": "main.go", "bytes": 29909, "sha256": "5db640fc6dacfb696bafdbec00672377d3b032f0ee70ff87195ade9fbc11b8c3"},
+    {"id": "main_test.go", "bytes": 13270, "sha256": "3070cb3cc88e4231b244e467fb3f2f555e75da3a968c0d7c6780dcb553b1022a"},
+    {"id": "go.mod", "bytes": 62, "sha256": "599ef39a2d5e0870634436243cce7bc0b51677190f5184753092828818ac7144"},
+    {"id": "first-three-controller", "bytes": 4996834, "sha256": "a0d2019b4c48a6c1bef5ecf4e524b99a3f8a0d6161cc437821aeb1514e3ed785"}
+  ],
+  "expected_observer": {
+    "handoff": {"id": "FIRST-THREE-OBSERVER-HANDOFF.v1.json", "bytes": 24791, "sha256": "39e426eac4f87d98e05fa02b0d82d19f1a930ee39ecec88063a24146177b55a1"},
+    "draft": {"id": "execution-plan.v1.draft.json", "bytes": 5598, "sha256": "e8d53652d0023b61d6a0c6ec0bec72d3f016c3760cc2c1c6de1330aac0b881b2"},
+    "want": {"id": "wants.v1.json", "bytes": 16691, "sha256": "25ba0b259965a429a2198938e2238677985a5f7fa9714a62ce5a4339741beb25"},
+    "binary": {"id": "bin/first-three-observer", "bytes": 5015202, "sha256": "5f230c59b1849e23f32cf57c94f3d1b165c4d23d61421f721a96093398268210"},
+    "closed_asset_bindings": 21
+  },
+  "build": {
+    "go": "go1.27.1", "goos": "darwin", "goarch": "arm64", "cgo_enabled": "0",
+    "arguments": ["build", "-mod=readonly", "-trimpath", "-buildvcs=false", "-p=1", "-o", "first-three-controller", "."],
+    "original_module_dependencies": 0,
+    "binary_execution": 0
+  },
+  "runtime_contract": {
+    "planned_child_attempts": 1,
+    "planned_direct_original_api_dispatches": 24,
+    "distinct_behavior_goals": 3,
+    "outside_timeout_seconds": 60,
+    "cpu_threads_setting": 1,
+    "soft_go_heap_bytes_setting": 268435456,
+    "child_environment_keys": ["GOMAXPROCS", "GOMEMLIMIT", "PATH", "LC_ALL"],
+    "private_log_limit_bytes_each": 1048575,
+    "automatic_retries": 0,
+    "actual_controller_invocations": 0,
+    "actual_child_starts": 0,
+    "actual_original_api_calls": 0,
+    "actual_original_initialization_executions": 0,
+    "fixed_flag_names": ["draft", "draft-sha256", "handoff", "handoff-sha256", "control-dir"],
+    "reservation": "Fresh controller directory and O_EXCL invocation/before-start ledger are fsynced before Start; child attempt directory must be absent. Root supplies exact expected input hashes and chooses the new outside directory.",
+    "freeze": "One exact Frozen false-to-true token only. Every other draft byte is preserved; output plan receives its new SHA.",
+    "termination": "Process-group SIGKILL at 60 seconds then exactly one joined Wait. Kill/reap latency is retained; a strict total wall-time bound is not claimed.",
+    "result": "Final and partial hashes and nullable validated counter prefix are retained. A damaged final does not erase a valid partial. Finite differences are preserved and are not a worker execution failure or a training label.",
+    "resources": "Darwin time-l fields are nullable, whole child only and RSS bytes. Imported-package initialization/preflight/wrappers/checkpoint I/O are included. Go heap is soft, not a hard total RSS cap; parent controller is excluded. Raw logs are private."
+  },
+  "quality_claims": {
+    "controller_author_pure_checks_only": true,
+    "independent_observer_mechanics_review_separate": true,
+    "independent_want_review_separate": true,
+    "trusted_compiler_formally_proven": false,
+    "new_parents": 0, "new_labels": 0, "model_calls": 0, "fits": 0,
+    "protected_final_reads": 0, "paid_calls": 0, "hf_operations": 0,
+    "shared_edits": 0, "publication_operations": 0,
+    "captions_qualified": false, "parent_labels_qualified": false,
+    "broad_truth_proven": false, "training_ready": false
+  }
+}
