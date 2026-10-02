@@ -1,5 +1,7 @@
 # laya-tools
 
+[실제 작은 힌트 준비69–70](docs/wiki/Claim-Projection-69-70-KO.md): 원래72개 요청의 첫 Go 배열 준비와 별도 검증을 완료했습니다. 반환 payload 약1.69MiB, 전체 준비 peak RSS 약53.95MiB이며 모델 추론 수치는 아닙니다. 새 사례를 합친76개는 전체로 다시 분할했고 첫 학습을 준비합니다. [English](docs/wiki/Claim-Projection-69-70-EN.md).
+
 최근 [작은 주장 힌트의 연결66–69](docs/wiki/Claim-Checks-66-69-KO.md)에서는 원래72요청의 역할을 실제 배정하고, MIT upstream 설명으로 만든4요청·10후보의 유한 동작을 관측했습니다. 원래216후보의 학습 적격 양성35·음성95를 보존하며, 요청·설명 모두 기존 입력 한도 안에 있습니다. [같은 역할의 검사 비용](experiments/short-claim/stored-role-utility-69/STORED-ROLE-UTILITY.ko.md)은 검증 구간의 단일 최선 기준22회/oracle17회로 개선 여지를 확인했습니다. 이는 학습 성과나 Codex 절감이 아니며, 첫 실제 Go 투영을 별도 고정 계획으로 진행합니다. [English](docs/wiki/Claim-Checks-66-69-EN.md).
 
 [설명 참조59](experiments/short-claim/RESULTS-REFERENCES-59.ko.md)는 Go 공식1회로 원문288곳과 정답표 표현식18곳을 연결했습니다. 다음 문장 검토에 사용할 근거이며, 설명 승인·새 정답·학습 성과는 아닙니다. [사용법](experiments/short-claim/USAGE-REFERENCES-59.ko.md), [공개 원천 전이 준비](experiments/short-claim/SOURCE-TRANSFER-59.ko.md), [그룹 전체의 역할 recipe](experiments/short-claim/role-recipe-59.json)를 공개합니다. unknown21·역할 미배정·fit0을 유지합니다.

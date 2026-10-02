@@ -1,0 +1,15 @@
+# Original72 first actual projection — author array audit
+
+The first actual projection completed once, exit0, retries0. It creates existing Go features and training inputs; it is neither model fitting nor Laya model inference. A separate standard-library-only Go checker compared immutable saved JSON with the actual arrays read-only. The reviewer authored the69/71 drivers, so this is author QA; parent and independent review remain separate.
+
+Parents72/candidates216, known34/no_answer17/unknown21 and17 whole groups are preserved. Original request/caption bytes and order, acceptable order, whole-group roles, nullable labels, masks and audit records match their original pins. Stored normalized lengths/word counts were checked; normalization was not rerun.
+
+Datasets contain train90 and validation36 rows, retaining all18/1 zero-weight rows and their original labels. Unknown candidates42/12/9 by role produce no fit rows. Calibration's27 known candidates also produce no fit rows. Diagnostic views retain only positive-weight rows72/35 with `Excluded=0` and unknown counts in separate denominators. Sparse shape, index bounds/duplicates and finite values passed; diagnostic columns exactly match their source subsets. Feature semantics/values were not re-extracted.
+
+Recorded original calls are direct Validate72, Project1 and252 returned feature scans. Project-internal normalization was not individually instrumented. This audit calls original Validate/Project/Features/Assign/Fit/AUC/BM25/model APIs zero times. The audit checker ran once without failure; no original execution was repeated.
+
+Owned prepared payload **1,774,364B** matches the existing formula checked from stored arrays/strings and Go ABI sizes. The indented raw JSON with repeated diagnostic columns is **7,699,810B**. External lifetime child metrics are peak RSS **56,573,952B**, peak memory footprint **49,857,016B**, controller wall **0.465949875s**. Displayed real0.46/user0.07/sys0.01s are rounded OS measurements, not feature-only timings. Owned payload, JSON size and OS RSS are different quantities.
+
+The safe compact derivative is **97,255B**. It preserves raw SHA `348af320a8bdcbee433f3102cc72aba06404ddc568a9ae9ddf6ff8f8d2980a4f` and byte size, original text hashes/supervision, row references, feature counts and row canonical `{Indices,Values}` hashes. Canonicalization means Go1.27.1 `encoding/json.Marshal` plus LF, not RFC8785. Full feature arrays are omitted, so the summary alone cannot reproduce fitting and does not replace the raw result. There are no model coefficients.
+
+Raw result and compact/audit documents contain no local absolute paths. The frozen execution plan intentionally uses approved private input/source/output namespaces and is excluded from publication. Zero separate model/paid API/benchmark processes does not mean no AI agent was used in this review or cost0; collaboration cost is unmeasured. This result adds no training readiness, source-diversity, utility or generalization approval.
