@@ -14,6 +14,16 @@ import (
 
 // All tests below exercise protocol/provenance gates or tiny metadata only.
 // None calls evaluate, shortclaim ranking, storedaudit.Bind or original APIs.
+func TestCheckedInBuildRecipeIsCanonical(t *testing.T) {
+	raw, err := os.ReadFile("../../experiments/short-claim/build-recipe-58.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := validateRecipe(raw); err != nil {
+		t.Fatal("checked-in recipe failed its runtime contract", err)
+	}
+}
+
 func TestCanonicalJSONRejectsAmbiguousOrLossyValues(t *testing.T) {
 	type value struct {
 		Number uint64 `json:"number"`
