@@ -1,0 +1,58 @@
+{
+  "schema": "riido-private-claimfit-projection-preparation-ledger-64-v1",
+  "state": "synthetic_tests_pass_private_draft_only",
+  "author": "semantic_review60_prep",
+  "review_method": "AI-assisted code/API reading and original private Go prototype authoring with synthetic tests; this is author-side validation, not independent review",
+  "preparatory_and_posttest_read_search_shell_commands": 11,
+  "read_counter_scope": "Source/API/design reads plus the post-test source/artifact hash reads through successful race/vet checks. Later private report packaging reads are not counted in this preparatory scope.",
+  "read_search_shell_exit_failures": 1,
+  "inner_missing_path_query_errors": 2,
+  "read_failure_detail": "Two initial rg queries used nonexistent internal/shortclaim rather than pkg/shortclaim. One containing shell returned exit2; the other subsequent cat go.mod returned exit0. Both errors were read-only and corrected by reading pkg/shortclaim/input.go.",
+  "private_gofmt_invocations": 1,
+  "private_gofmt_failures": 0,
+  "race_test_attempts": [
+    {
+      "attempt": 1,
+      "command": "go test -race -count=1 -json ./...",
+      "go_version": "1.27.1",
+      "package": "github.com/teamswyg/laya-tools/privateclaimfit64",
+      "exit_code": 0,
+      "top_level_tests_passed": 7,
+      "test_pass_events_including_subtests": 22,
+      "test_failure_events": 0,
+      "package_elapsed_seconds": 1.515,
+      "saved_output": "TEST-ATTEMPT-1.jsonl",
+      "saved_output_sha256": "6f8cf2f6b6efc8837fac81e5e9126ef2852a0e25e1c2ab76b1e1ddb47c23b711"
+    }
+  ],
+  "vet_attempts": 1,
+  "vet_successes": 1,
+  "vet_failures": 0,
+  "build_or_test_execution_failures": 0,
+  "existing_Go_utility_APIs_exercised_on_synthetic_text": ["shortclaim.Validate", "shortclaim.ValidatePrepared", "hintlearn.Features"],
+  "private_function_injection": "Unexported project helper permits synthetic feature contract/limit tests only; exported Project always uses the unchanged hintlearn.Features and 64MiB cap.",
+  "dependency_source_observations": [
+    {"path": "pkg/shortclaim/input.go", "before_sha256": "3b296ca0835c4397af7444a2f956aeae59638dd350cbc861bf36dd81bc210ecb", "after_sha256": "3b296ca0835c4397af7444a2f956aeae59638dd350cbc861bf36dd81bc210ecb"},
+    {"path": "internal/hintlearn/learn.go", "before_sha256": "fd3c93b516ad5f3a84dd8e221aa38b5d6d9b6fb26345bd2dfda937b889ce6899", "after_sha256": "fd3c93b516ad5f3a84dd8e221aa38b5d6d9b6fb26345bd2dfda937b889ce6899"},
+    {"path": "internal/pairlearn/learn.go", "before_sha256": "81da43b9d2c8cfe6983b8ab8ccc5b7a097fdb7c5a2074a534a7378b44db415a0", "after_sha256": "81da43b9d2c8cfe6983b8ab8ccc5b7a097fdb7c5a2074a534a7378b44db415a0"},
+    {"path": "internal/roleplan/role.go", "before_sha256": "df8d53d0600e80c331c4912d90ff199aef753704f34c87e085fa738fe920ba0b", "after_sha256": "df8d53d0600e80c331c4912d90ff199aef753704f34c87e085fa738fe920ba0b", "scope": "Role enum only; mutable public implementation not copied or frozen by this draft"},
+    {"path": "internal/lexicalhint/features.go", "before_sha256": "20224bcab1ea2d6e5203a2efb7772adef0786eea67f43a003a5b2db896804557", "after_sha256": "20224bcab1ea2d6e5203a2efb7772adef0786eea67f43a003a5b2db896804557"}
+  ],
+  "prototype_artifacts": [
+    {"path": "go.mod", "bytes": 195, "sha256": "8b8cf2502e934d926bba41f21338cf8f967a1442d72addf9ccc9aa483fb94aab"},
+    {"path": "projection.go", "bytes": 12922, "sha256": "572e33a815b9a123c0e521d92567d6f254526250ab4d82e202487ddbe1d517e5"},
+    {"path": "projection_test.go", "bytes": 12123, "sha256": "c312a1ba1aab690ff613510a572d4604b74cedc4e243b10c7a666d8ed6ef82c8"},
+    {"path": "TEST-ATTEMPT-1.jsonl", "bytes": 22279, "sha256": "6f8cf2f6b6efc8837fac81e5e9126ef2852a0e25e1c2ab76b1e1ddb47c23b711"}
+  ],
+  "actual_live61_corpus_read_or_projection": 0,
+  "actual_live_corpus_eligibility_decisions": 0,
+  "retained_original_source_API_AST_parser_formatter_behavior_calls": 0,
+  "roleplan_assignment_order_coverage_procedure_calls": 0,
+  "new_corpus_labels_roles_seeds": 0,
+  "fit_AUC_scoring_model_weights_benchmark_calls": 0,
+  "new_separate_judge_API_or_paid_model_processes": 0,
+  "shared_edits_Git_publication": 0,
+  "new_readiness_gates": 0,
+  "training_ready": false,
+  "ordinary_Codex_collaboration_cost": "not_measured; zero process counters do not claim zero AI collaboration usage or cost"
+}

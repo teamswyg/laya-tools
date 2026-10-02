@@ -1,0 +1,287 @@
+// SPDX-License-Identifier: Apache-2.0
+package claimfit
+
+import (
+	"math"
+	"reflect"
+	"slices"
+	"strings"
+	"testing"
+
+	"github.com/teamswyg/laya-tools/internal/hintlearn"
+	"github.com/teamswyg/laya-tools/internal/pairlearn"
+	"github.com/teamswyg/laya-tools/internal/roleplan"
+	"github.com/teamswyg/laya-tools/pkg/shortclaim"
+)
+
+// All inputs in this file are newly written synthetic API fixtures. No frozen
+// corpus, historical source declarations, candidate APIs or fit are invoked.
+func prepared(t *testing.T, count int) shortclaim.Prepared {
+	t.Helper()
+	candidates := []shortclaim.Candidate{
+		{ID: "synthetic-first", Text: "Keep equal entries in the original order."},
+		{ID: "synthetic-second", Text: "Reverse equal entries before returning the list."},
+		{ID: "synthetic-third", Text: "Return the input without changing equal entries."},
+	}
+	p, err := shortclaim.Validate(shortclaim.Input{Schema: shortclaim.Schema, Request: "KeepEqual entries in originalOrder", Candidates: candidates[:count], Provenance: "synthetic64"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return p
+}
+
+func parent(t *testing.T, truth TruthState, role roleplan.Role, group int) Parent {
+	t.Helper()
+	p := Parent{Text: prepared(t, 3), Truth: truth, Role: role, WholeGroup: group}
+	if truth == Known {
+		p.Acceptable = []int{2, 0}
+	}
+	for c := 0; c < p.Text.Count; c++ {
+		p.LossEligible[c] = true
+	}
+	return p
+}
+
+func assertFeatures(t *testing.T, d pairlearn.Dataset, refs []RowRef, inputs []Parent) {
+	t.Helper()
+	for row, ref := range refs {
+		p := inputs[ref.ParentIndex]
+		want := hintlearn.Features(p.Text.Request, p.Text.Candidates[ref.CandidateIndex].Text)
+		start, end := d.Offsets[row], d.Offsets[row+1]
+		if len(want) != end-start {
+			t.Fatalf("row %d feature count differs", row)
+		}
+		for i, f := range want {
+			if d.Indices[start+i] != uint16(f.Index) || d.Values[start+i] != f.Value {
+				t.Fatalf("row %d differs from raw-text runtime Features", row)
+			}
+		}
+	}
+}
+
+func TestProjectionPreservesTruthFullRuntimeAndMasks(t *testing.T) {
+	inputs := []Parent{
+		parent(t, Known, roleplan.DevelopmentTrain, 1),
+		parent(t, NoAnswer, roleplan.DevelopmentTrain, 2),
+		parent(t, Unknown, roleplan.DevelopmentTrain, 3),
+		parent(t, Known, roleplan.DevelopmentValidation, 4),
+		parent(t, Known, roleplan.DevelopmentCalibration, 5),
+	}
+	inputs[0].LossEligible[0] = false // positive truth stays one at weight zero
+	out, err := Project(inputs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(out.Development.Labels, []float64{1, 0, 1, 0, 0, 0}) || !reflect.DeepEqual(out.Development.SampleWeights, []float64{0, 1, 1, 1, 1, 1}) {
+		t.Fatal("multi-positive/no-answer/mask semantics changed")
+	}
+	if len(out.DevelopmentRefs) != 6 || len(out.ValidationRefs) != 3 || len(out.Parents) != 5 {
+		t.Fatal("lost known rows or full runtime parents")
+	}
+	if out.Development.Excluded != 3 || out.Validation.Excluded != 0 {
+		t.Fatal("unknown denominator missing")
+	}
+	if out.FeatureScans != 18 {
+		t.Fatalf("want two scans of 9 known fit rows, got %d", out.FeatureScans)
+	}
+	for i, p := range inputs {
+		got := out.Parents[i]
+		if got.Text != p.Text || got.Truth != p.Truth || got.Role != p.Role || got.WholeGroup != p.WholeGroup || got.LossEligible != p.LossEligible || !slices.Equal(got.Acceptable[:got.AcceptableCount], p.Acceptable) {
+			t.Fatalf("parent %d original view changed", i)
+		}
+		for c := 0; c < p.Text.Count; c++ {
+			if got.Labels[c].Known != (p.Truth != Unknown) || got.Labels[c].Positive != slices.Contains(p.Acceptable, c) {
+				t.Fatalf("parent %d candidate %d truth changed", i, c)
+			}
+		}
+	}
+	if out.Counts[2].FitRows != 0 || out.Counts[2].Parents != 1 || out.Parents[4].Labels[0] != (NullableLabel{true, true}) {
+		t.Fatal("calibration truth lost or calibration leaked into fit")
+	}
+	d := out.DevelopmentAUC.Denominators
+	if d != (Denominators{OriginalFitRows: 6, PositiveWeightRows: 5, ZeroWeightRows: 1, UnknownAuditCandidates: 3, PositiveLabels: 1, NegativeLabels: 4}) {
+		t.Fatalf("wrong AUC view denominators: %+v", d)
+	}
+	if !reflect.DeepEqual(out.DevelopmentAUC.Data.Labels, []float64{0, 1, 0, 0, 0}) || out.DevelopmentAUC.Refs[0] != (RowRef{0, 1}) {
+		t.Fatal("masked row entered diagnostic view")
+	}
+	if out.Counts[0].WholeGroups != 3 || out.Counts[0].PositiveWeightGroups != 2 {
+		t.Fatal("unknown-only group counted as positive-weight group")
+	}
+	assertFeatures(t, out.Development, out.DevelopmentRefs, inputs)
+	assertFeatures(t, out.Validation, out.ValidationRefs, inputs)
+	assertFeatures(t, out.DevelopmentAUC.Data, out.DevelopmentAUC.Refs, inputs)
+	if out.PayloadBytes > MaxPreparedPayloadBytes {
+		t.Fatal("payload overflow")
+	}
+}
+
+func TestProjectionOwnsArraysAndMetadataNeverEntersFeatures(t *testing.T) {
+	inputs := []Parent{parent(t, Known, roleplan.DevelopmentTrain, 1)}
+	first, err := Project(inputs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mutated := append([]Parent(nil), inputs...)
+	mutated[0].Acceptable = []int{1}
+	mutated[0].Truth = Known
+	mutated[0].WholeGroup = 99
+	mutated[0].Text.Provenance = "different-metadata"
+	mutated[0].Text.Candidates[0].ID = "different-id"
+	second, err := Project(mutated)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(first.Development.Offsets, second.Development.Offsets) || !reflect.DeepEqual(first.Development.Indices, second.Development.Indices) || !reflect.DeepEqual(first.Development.Values, second.Development.Values) {
+		t.Fatal("metadata/truth entered features")
+	}
+	if reflect.DeepEqual(first.Development.Labels, second.Development.Labels) || first.Development.Groups[0] == second.Development.Groups[0] {
+		t.Fatal("synthetic metadata control ineffective")
+	}
+	oldText := first.Parents[0].Text
+	inputs[0].Acceptable[0] = 1
+	inputs[0].Text.Candidates[0].Text = "changed caller text"
+	inputs[0].LossEligible[0] = false
+	if first.Parents[0].Text != oldText || first.Parents[0].Acceptable[0] != 2 || !first.Parents[0].LossEligible[0] {
+		t.Fatal("caller mutation changed owned output")
+	}
+	v := first.DevelopmentAUC.Data.Values[0]
+	first.Development.Values[0] += 1
+	if first.DevelopmentAUC.Data.Values[0] != v {
+		t.Fatal("fit and diagnostic arrays alias")
+	}
+}
+
+func TestAllMaskedKnownIsRetainedAndUnknownStaysNullable(t *testing.T) {
+	a := parent(t, Known, roleplan.DevelopmentTrain, 1)
+	a.LossEligible = [8]bool{}
+	b := parent(t, Unknown, roleplan.DevelopmentValidation, 2)
+	out, err := Project([]Parent{a, b})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(out.Development.Labels, []float64{1, 0, 1}) || len(out.Development.SampleWeights) != 3 || len(out.Development.Indices) == 0 {
+		t.Fatal("masked known rows were dropped")
+	}
+	if len(out.DevelopmentAUC.Data.Labels) != 0 || out.Counts[0].PositiveWeightGroups != 0 || len(out.Validation.Labels) != 0 || out.Validation.Excluded != 3 {
+		t.Fatal("all-zero/unknown counted as valid fit supervision")
+	}
+	for _, y := range out.Parents[1].Labels {
+		if y.Known || y.Positive {
+			t.Fatal("unknown became negative")
+		}
+	}
+	if out.Parents[1].Text.Count != 3 || !out.Parents[1].LossEligible[0] {
+		t.Fatal("unknown runtime/mask not retained")
+	}
+}
+
+func TestRejectsMalformedBindingsBeforeFeatureExtraction(t *testing.T) {
+	tests := []struct {
+		name   string
+		change func(*Parent)
+		want   error
+	}{
+		{"truth", func(p *Parent) { p.Truth = TruthState(99) }, ErrTruth},
+		{"duplicate", func(p *Parent) { p.Acceptable = []int{1, 1} }, ErrAcceptable},
+		{"negative", func(p *Parent) { p.Acceptable = []int{-1} }, ErrAcceptable},
+		{"out-of-range", func(p *Parent) { p.Acceptable = []int{3} }, ErrAcceptable},
+		{"known-empty", func(p *Parent) { p.Acceptable = nil }, ErrAcceptable},
+		{"unknown-positive", func(p *Parent) { p.Truth = Unknown }, ErrAcceptable},
+		{"no-answer-positive", func(p *Parent) { p.Truth = NoAnswer }, ErrAcceptable},
+		{"role", func(p *Parent) { p.Role = roleplan.Role(99) }, ErrRole},
+		{"group", func(p *Parent) { p.WholeGroup = -1 }, ErrGroup},
+		{"forged-normalized", func(p *Parent) { p.Text.NormalizedRequest = "forged" }, shortclaim.ErrPrepared},
+		{"forged-unused", func(p *Parent) { p.Text.Candidates[7].ID = "extra" }, shortclaim.ErrPrepared},
+		{"invalid-utf8", func(p *Parent) { p.Text.Request = string([]byte{0xff}) }, shortclaim.ErrUnicode},
+		{"text-bound", func(p *Parent) { p.Text.Request = strings.Repeat("a", 513) }, shortclaim.ErrTextBounds},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := parent(t, Known, roleplan.DevelopmentTrain, 1)
+			tt.change(&p)
+			calls := 0
+			out, err := project([]Parent{p}, func(q, d string) []hintlearn.Feature { calls++; return hintlearn.Features(q, d) }, MaxPreparedPayloadBytes)
+			if err != tt.want || calls != 0 || !reflect.DeepEqual(out, Projection{}) {
+				t.Fatalf("err=%v calls=%d", err, calls)
+			}
+		})
+	}
+}
+
+func TestGroupLeakageCannotBeHiddenByMasksOrUnknown(t *testing.T) {
+	for _, truth := range []TruthState{Known, Unknown} {
+		t.Run(string(rune('0'+truth)), func(t *testing.T) {
+			a := parent(t, truth, roleplan.DevelopmentTrain, 7)
+			a.LossEligible = [8]bool{}
+			b := parent(t, Unknown, roleplan.DevelopmentCalibration, 7)
+			calls := 0
+			out, err := project([]Parent{a, b}, func(q, d string) []hintlearn.Feature { calls++; return hintlearn.Features(q, d) }, MaxPreparedPayloadBytes)
+			if err != ErrLeakage || calls != 0 || !reflect.DeepEqual(out, Projection{}) {
+				t.Fatalf("leakage err=%v calls=%d", err, calls)
+			}
+		})
+	}
+	a := parent(t, Known, roleplan.DevelopmentTrain, 7)
+	b := parent(t, Unknown, roleplan.DevelopmentTrain, 7)
+	out, err := Project([]Parent{a, b})
+	if err != nil || out.Counts[0].WholeGroups != 1 || out.Counts[0].PositiveWeightGroups != 1 {
+		t.Fatal("same-role shared group rejected or duplicated")
+	}
+}
+
+func TestNonfiniteAndInvalidFeatureContractFailEvenWhenMasked(t *testing.T) {
+	a := parent(t, Known, roleplan.DevelopmentTrain, 1)
+	a.LossEligible = [8]bool{}
+	for _, v := range []float64{math.NaN(), math.Inf(1), math.Inf(-1)} {
+		out, err := project([]Parent{a}, func(string, string) []hintlearn.Feature { return []hintlearn.Feature{{Index: 0, Value: v}} }, MaxPreparedPayloadBytes)
+		if err != ErrFeatures || !reflect.DeepEqual(out, Projection{}) {
+			t.Fatal("nonfinite masked feature accepted")
+		}
+	}
+	for _, fs := range [][]hintlearn.Feature{{{Index: -1, Value: 1}}, {{Index: hintlearn.Dimension, Value: 1}}, {{Index: 0, Value: 1}, {Index: 0, Value: 2}}} {
+		if _, err := project([]Parent{a}, func(string, string) []hintlearn.Feature { return fs }, MaxPreparedPayloadBytes); err != ErrFeatures {
+			t.Fatal("invalid index/duplicate accepted")
+		}
+	}
+	calls := 0
+	if _, err := project([]Parent{a}, func(string, string) []hintlearn.Feature {
+		calls++
+		if calls <= 3 {
+			return []hintlearn.Feature{{Index: 0, Value: 1}}
+		}
+		return nil
+	}, MaxPreparedPayloadBytes); err != ErrFeatures {
+		t.Fatal("changing feature count passed two-pass contract")
+	}
+}
+
+func TestPayloadPreflightUsesInclusiveLimitAndRejectsOverflow(t *testing.T) {
+	a := parent(t, Known, roleplan.DevelopmentTrain, 1)
+	one := func(string, string) []hintlearn.Feature { return []hintlearn.Feature{{Index: 0, Value: 1}} }
+	out, err := project([]Parent{a}, one, MaxPreparedPayloadBytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = project([]Parent{a}, one, out.PayloadBytes); err != nil {
+		t.Fatalf("exact payload boundary rejected: %v", err)
+	}
+	if got, err := project([]Parent{a}, one, out.PayloadBytes-1); err != ErrPayload || !reflect.DeepEqual(got, Projection{}) {
+		t.Fatal("payload limit not atomic")
+	}
+	calls := 0
+	if _, err = project([]Parent{a}, func(q, d string) []hintlearn.Feature { calls++; return one(q, d) }, 1); err != ErrPayload || calls != 0 {
+		t.Fatal("base allocation was not preflighted")
+	}
+	total := MaxPreparedPayloadBytes - 10
+	if err = addPayload(&total, 1, 10, MaxPreparedPayloadBytes); err != nil || total != MaxPreparedPayloadBytes {
+		t.Fatal("inclusive 64MiB boundary rejected")
+	}
+	before := total
+	if err = addPayload(&total, math.MaxUint64, 10, MaxPreparedPayloadBytes); err != ErrPayload || total != before {
+		t.Fatal("overflow arithmetic wrapped")
+	}
+	if _, err = Project(nil); err != nil {
+		t.Fatal("empty projection invented a readiness gate")
+	}
+}

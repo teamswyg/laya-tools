@@ -1,0 +1,39 @@
+{
+  "schema": "riido-claimfit-projection-API-limits-draft-64-v1",
+  "state": "private_synthetic_projection_prototype_not_loader_or_fit",
+  "caller_responsibilities": [
+    "Freeze and verify source/text/truth/review byte SHA and exact bindings before supplying Parent values.",
+    "Freeze semantic supervision eligibility, complete original membership, roles and whole-group identities externally.",
+    "Bind final roleplan source and the enum bridge at public integration; current observed enum alone does not freeze membership.",
+    "Keep full-candidate runtime evaluation, original truth, acceptable sets, fallback and evaluation support scope separately.",
+    "Freeze a separate fitting driver/config/seed and handle the existing Fit rejection of empty or zero-total-weight data.",
+    "Prevent concurrent input mutation and validate/freeze mutable output before fitting."
+  ],
+  "invariants": {
+    "features": "same hintlearn.Features on original request and candidate text only",
+    "known_labels": "all acceptable indices one; all other candidates zero",
+    "no_answer_labels": "all existing candidates zero",
+    "masked_known": "same original label and physical row; explicit weight zero",
+    "unknown": "nullable audit only; no fit row; full runtime retained",
+    "calibration": "full audit retained; no fit or training diagnostic row",
+    "weights": "unit one or mask zero; no new balancing/objective",
+    "AUC": "positive-weight-only copied view plus denominators; existing AUC unchanged and unweighted",
+    "ownership": "fixed Prepared/acceptable arrays and independent fit/AUC slices; immutable Go string bytes shared",
+    "group_check": "cross-role leakage detected only within the supplied batch, including unknown/masked/calibration"
+  },
+  "resource_cap": {
+    "max_prepared_payload_bytes": 67108864,
+    "includes": ["Projection struct and slice headers", "RuntimeParent backing array", "conservatively counted immutable string bytes", "both fit and both diagnostic dataset arrays", "all RowRef arrays"],
+    "not_a_peak_RSS_cap": true,
+    "not_measured": ["peak RSS", "CPU", "GPU", "pprof"],
+    "feature_passes": 2,
+    "bounded_scratch_separate_from_output_accounting": true
+  },
+  "role_enum_bridge": "riido-claimfit-role-bridge-v1:train=0,validation=1,calibration=2",
+  "training_ready": false,
+  "semantic_eligibility_approved": false,
+  "actual_corpus_projection": false,
+  "new_corpus_truth_labels": 0,
+  "models_or_weights_created": 0,
+  "new_readiness_gates": 0
+}
