@@ -1,0 +1,181 @@
+{
+  "axes": [
+    {
+      "id": "source_fidelity",
+      "question": "Does the candidate caption faithfully describe its scoped implementation, including incorrect behavior?"
+    },
+    {
+      "id": "request_contract_coverage",
+      "question": "Does the request state its intended supported scope, and which parts does the candidate description cover, omit or contradict?"
+    },
+    {
+      "id": "observation_fields",
+      "question": "Are the required return, error, state, ownership, ordering and no-panic observations expressed with their finite scope?"
+    },
+    {
+      "id": "explicit_negative_boundaries",
+      "question": "Are relevant negation, inclusion/exclusion, malformed inputs, unsupported inputs and scope limitations explicit?"
+    }
+  ],
+  "boundary_checklist_artifact": {
+    "path": "boundary-checklists-61.json",
+    "sha256": "2b8d3b98e45e4f7059f9860062848948fda847a16aa6686055cf804c70709ec3",
+    "bytes": 14278
+  },
+  "closure_completeness_review": "pending",
+  "content_review": "pending",
+  "counts": {
+    "families": 15,
+    "parents": 60,
+    "candidate_positions": 180,
+    "candidate_count_histogram": [
+      0,
+      0,
+      11,
+      38,
+      11,
+      0,
+      0,
+      0,
+      0
+    ],
+    "known": 28,
+    "no_answer": 14,
+    "unknown": 18,
+    "source_ids": 49,
+    "distinct_caption_sha256": 60,
+    "contracts": 15,
+    "literal_cases": 114,
+    "existing59_review_slots": 615,
+    "selected_unique_source_component_relations": 172
+  },
+  "distinguish_unknowns": {
+    "content_uncertain": "Future claim/axis assessment uncertainty, separate from source truth. No assessment state is assigned here.",
+    "source_truth_unknown": "Original frozen behavioral/intent state; 18 selected and 21 globally remain unchanged."
+  },
+  "existing_ci_merge_gate_preserved": true,
+  "fits": 0,
+  "future_review_record_schema": {
+    "accepted_states": [
+      "pending",
+      "consistent_with_scoped_evidence",
+      "omits_required_scope",
+      "contradicts_scoped_evidence",
+      "unsupported_or_uncertain"
+    ],
+    "mandatory_fields": [
+      "protocol_artifact_sha256",
+      "official60_binding_artifact_sha256_and_source_refs",
+      "parent_id",
+      "original_parent_index",
+      "candidate_index_and_id_when_applicable",
+      "request_and_caption_pointer_sha_bytes",
+      "claim_id",
+      "exact_text_byte_range",
+      "verbatim_claim",
+      "axis",
+      "state",
+      "source_expression_or_declaration_references",
+      "authored_helper_type_sentinel_and_observer_references",
+      "input_scope_and_observation_fields",
+      "evidence_kind_source_reading_or_existing_literal_only",
+      "missing_or_contradictory_boundaries",
+      "competing_interpretations",
+      "remaining_uncertainty",
+      "reviewer_identity_and_independence_scope",
+      "review_record_sha256"
+    ],
+    "records_generated": 0,
+    "schema": "riido-caption-content-review-record-60-v1",
+    "source_oracle_outcome_feature_fields_forbidden": [
+      "correct",
+      "acceptable_candidate_indices",
+      "candidate_outcome",
+      "failed_vectors_as_fidelity",
+      "ranking_score_as_fidelity"
+    ]
+  },
+  "human_approval_required": false,
+  "independent_content_read": "pending",
+  "input_artifacts": [
+    {
+      "path": "experiments/short-claim/caption-coverage-59.json",
+      "sha256": "7c1bd449d533d3d46a9211dea0a436ce338fe8f16ee3197d554744c3c24b0a29",
+      "bytes": 360591
+    },
+    {
+      "path": "experiments/short-claim/source-inventory-60.json",
+      "sha256": "d99d635929555d4123bbaa84aac99d0fb29db345f8b813ed70074dd3e09cdbd4",
+      "bytes": 174651
+    },
+    {
+      "path": "experiments/short-claim/content-review-protocol-60.json",
+      "sha256": "6f4504ba04e0b5813e4dc58ec0f6dbe5101a1127e09a379172dd57d7ed11ff19",
+      "bytes": 26067
+    },
+    {
+      "path": "experiments/short-claim/content-review-recipe-59.json",
+      "sha256": "17f0abc9843e082d53e78f0eff79842d592db89f2532c0ece0e3a44814065cff",
+      "bytes": 3474
+    }
+  ],
+  "known_limits": [
+    "Prior development rankings and outcomes are observed; this is not blind validation.",
+    "synthetic_single_pipeline and no_roles_plan remain unresolved.",
+    "English scoped Go claims are the target; Korean explanatory documents are not a language test.",
+    "Maintainer metadata size carries no hint-runtime memory or speed claim.",
+    "Four axes remain separate; faithful wrong implementation is not an acceptable answer.",
+    "Same raw enum declaration can have multiple component IDs; preserve all stored relations and bundle identity."
+  ],
+  "later_clearing_policy": {
+    "claim_to_axis_row_rollup": "An axis-level row cannot become consistent_with_scoped_evidence if any material claim for that axis is pending, unsupported, omitted or contradictory. Keep axes separate: a faithful incorrect implementation can have consistent source_fidelity and contradictory request_contract_coverage. Preserve per-claim states/reasons; never produce one all-purpose approved-candidate scalar.",
+    "closure_entry": "Only consistent_with_scoped_evidence after the successful60 binding plus independent code reading accounts for every authored dependency in the selected scoped implementation and explicitly records stdlib/infrastructure assumptions. No general object binding or whole-program closure proof is claimed.",
+    "coverage_entry": "Assess request and each description against the finite literal contract and observer fields. Missing required scope is omits_required_scope; explicit disagreement is contradicts_scoped_evidence; unresolved reading or unobserved broad promise is unsupported_or_uncertain. No automatic task-acceptable promotion.",
+    "fidelity_entry": "Only consistent_with_scoped_evidence when each supported implementation claim has text/source evidence and no material unsupported or contradictory clause remains within the declared finite scope; rejected task outcome is irrelevant to fidelity.",
+    "partial_scope": "Only supported finite clauses may clear. Unobserved or ambiguous clauses retain unsupported_or_uncertain, and untouched rows/axes remain pending. This does not clear all216 captions or make training_ready true.",
+    "unknown_parent": "Fidelity of a candidate may later be scoped independently, but request_contract_coverage for ambiguous intent cannot become consistent under a fabricated oracle; original unknown stays unknown."
+  },
+  "new_independent_parents": 0,
+  "new_labels": 0,
+  "official_content_assessment_allowed_now": false,
+  "permitted_review_states": [
+    "pending",
+    "consistent_with_scoped_evidence",
+    "omits_required_scope",
+    "contradicts_scoped_evidence",
+    "unsupported_or_uncertain"
+  ],
+  "preparation_only": true,
+  "preservation": {
+    "caption_rewrites": 0,
+    "connected_groups": 17,
+    "every_development_fit_requires2400": false,
+    "known_containing_groups": 16,
+    "new15repository_gate": false,
+    "new_families_or_groups": 0,
+    "original_candidate_positions": 216,
+    "original_parents": 72,
+    "protected_final_distinct2400_per_domain_target_preserved": true,
+    "unknown": 21
+  },
+  "protocol_publication_freeze": "pending_parent",
+  "purpose": "Finish scoped content validation of remaining existing59 families; this metadata assembly is not an assessment or a training eligibility approval.",
+  "required_before_first_assessment": [
+    "Parent freezes protocol/scope/reader independence after private QA; no automatic activation by CI.",
+    "Read original pinned request/caption, root plus every scoped authored helper/type/method/sentinel and observer; no source-truth fields as fidelity features.",
+    "Account for exact literal Input/Want and observer fields without manufacturing per-vector Got; existing aggregate outcome is not source fidelity.",
+    "Keep candidate order/count, original truth/group/positions/unknown untouched. Record material alternative interpretations per claim and axis.",
+    "Missing observation, unsupported implementation scope or unresolved ambiguity remains unsupported_or_uncertain. Original truth unknown remains unknown even if a limited candidate claim becomes clear."
+  ],
+  "review_input_policy": "Pointer-addressed metadata; original English text must be read from pinned inputs, never truncation or rewrite to pass.",
+  "roles": 0,
+  "schema": "riido-caption-content-review-protocol-preparation-61-v1",
+  "scope_references": {
+    "path": "content-review-scope-references-61.json",
+    "sha256": "c1d7d97b1837dcd60bc742477d26c4a3f3ab5f2e3af9c2898510d55f395d45fe",
+    "bytes": 359157
+  },
+  "source_inventory_evidence_scope": "Stored60 syntax/physical source references, not object binding, independent closure completeness or content fidelity.",
+  "state": "private_protocol_preparation_all_content_pending",
+  "training_ready": false
+}

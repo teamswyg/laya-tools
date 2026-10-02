@@ -1,0 +1,108 @@
+{
+  "schema": "riido-independent-assessment-mechanics-QA-ledger-61-v1",
+  "state": "completed_mechanics_only",
+  "reviewer": "task_expansion_52",
+  "assessment_writer": "semantic_review60_prep",
+  "authored_preparation61_generator": true,
+  "authored_actual61_assessments": false,
+  "blind": false,
+  "independent_data_origin_claim": false,
+  "actual_original_artifact_QA_invocations": 2,
+  "actual_original_artifact_QA_failures": 1,
+  "actual_original_artifact_QA_successes": 1,
+  "original_artifact_QA_attempts": [
+    {
+      "attempt": 1,
+      "exit_code": 1,
+      "failure_code": "array_shape",
+      "cause": "Verifier assumed legacy Components was always an array; immutable source-inventory60 serializes legacy absence as null. No subject artifact defect was established.",
+      "plan_sha256": "8ae8ca76def82ce6195dc55baac64ae8094a3533f36a6734e0c38e8aefd99721",
+      "failed_report_sha256": "5bf264360b1c980d7aa87d2384af6f8e9ad2c1ce7e7a2d7d9561304b8c8a963e"
+    },
+    {
+      "attempt": 2,
+      "exit_code": 0,
+      "failure_code": "",
+      "correction": "Allow null only for immutable60 stored Components absence. Scope/record/index arrays still reject null.",
+      "plan_sha256": "7dd82aff9e35382a7066d7314e6f86cbc16850508d05973c95a1bb23c50d66f4",
+      "report_sha256": "1f8ee9bcf1f62cc18a575c86e413fd50384634bc213dd0e0dd215fc1890ab5d8"
+    }
+  ],
+  "private_verifier_preparation": {
+    "gofmt_invocations": 3,
+    "gofmt_failures": 0,
+    "synthetic_race_invocations": 3,
+    "synthetic_race_failures": 0,
+    "vet_invocations": 3,
+    "vet_failures": 0,
+    "separate_build_invocations": 0,
+    "Go_run_compilations_with_metadata_QA": 2,
+    "build_failures": 0,
+    "synthetic_runs": [
+      {
+        "attempt": 1,
+        "race": true,
+        "scope": "synthetic metadata only; no original artifact QA",
+        "exit_code": 0,
+        "named_test_and_subtest_passes": 30,
+        "test_failures": 0,
+        "package_elapsed_seconds": 1.666,
+        "private_log_sha256": "b6ce3fbff93a9eb70b8065fe8d33f334d3adae0845bc84bd4906e93f866eb608"
+      },
+      {
+        "attempt": 2,
+        "race": true,
+        "scope": "synthetic metadata only; no original artifact QA",
+        "exit_code": 0,
+        "named_test_and_subtest_passes": 31,
+        "test_failures": 0,
+        "package_elapsed_seconds": 1.396,
+        "private_log_sha256": "e3605f77498ad727eb772687d80397eb5e6bfb39f07a96e42f1d169d7ae14add"
+      },
+      {
+        "attempt": 3,
+        "race": true,
+        "scope": "synthetic metadata only; no original artifact QA",
+        "exit_code": 0,
+        "named_test_and_subtest_passes": 32,
+        "test_failures": 0,
+        "package_elapsed_seconds": 1.393,
+        "private_log_sha256": "215f48847b4da242af64493ad95a567be1ddaba11bc0c60cf79fe9c499aef3c6"
+      }
+    ]
+  },
+  "verifier_source_sha256": "245a5ac3a4afe379853aab7b549fa7e94b36b02a9164a85cef7b9bf19a8e9a25",
+  "verifier_tests_sha256": "e63c47bdc21b313a0b445a262b3c0cd200074c989730aeccac583ef79c8e051c",
+  "go_mod_sha256": "1ead4c194b540f9b077cd4be025a46c2fa4f33101593cc20803c467df526ca88",
+  "subject_manifest_sha256": "f8f0b2320bb214f102575384cace477067a0f075b98ee09c071e778d9285224b",
+  "assessment_writer_ledgers_are_separate": {
+    "actual_assessment_generation_invocations": 1,
+    "actual_assessment_generation_failures": 0,
+    "preparation_build_attempts": 2,
+    "preparation_build_failures": 1,
+    "writer_byte_QA_attempts": 2,
+    "writer_byte_QA_failures": 1
+  },
+  "subject_artifact_writes": 0,
+  "subject_artifact_regenerations": 0,
+  "semantic_assessments_added": 0,
+  "new_labels": 0,
+  "original_graph_generations": 0,
+  "original_seed_or_role_assignments": 0,
+  "fits": 0,
+  "weights": 0,
+  "candidate_or_source_API_calls": 0,
+  "source_AST_formatter_Rebind_SourcePins_Bind_Generate_calls": 0,
+  "protected_final_reads": 0,
+  "separate_model_judge_or_paid_API_processes": 0,
+  "ordinary_AI_collaboration_usage_or_cost": "not_measured",
+  "shared_repo_writes": 0,
+  "git_mutations": 0,
+  "publications": 0,
+  "role62_private_prototype_changes_in_this_task": 0,
+  "training_ready": false,
+  "limits": [
+    "No renewed natural-language semantic approval, independence-of-data-origin claim, blind review, model quality or training eligibility is established.",
+    "Metadata failure corrected above is reported separately from writer generation/build/byte-QA histories."
+  ]
+}
