@@ -1,0 +1,313 @@
+package pure
+
+import (
+	"encoding/json"
+	"errors"
+	"fmt"
+	"os"
+	"reflect"
+	"strings"
+	"testing"
+	"time"
+)
+
+// No upstream production imports. Every behavioral callback below is a stub.
+func frozenMetadata(t *testing.T) WantFile {
+	t.Helper()
+	b, e := os.ReadFile("../WANTS.v1.json")
+	if e != nil {
+		t.Fatal(e)
+	}
+	w, e := LoadWant(b)
+	if e != nil {
+		t.Fatal(e)
+	}
+	return w
+}
+
+type stubFlag struct {
+	values  []string
+	changed bool
+}
+
+func (s *stubFlag) Register(v []string)    { s.values = CopyStrings(v) }
+func (s *stubFlag) Lookup() (bool, string) { return false, "items" }
+func (s *stubFlag) GetSlice() []string     { return s.values }
+func (s *stubFlag) Changed() bool          { return s.changed }
+func (s *stubFlag) Operate(op Operation) error {
+	switch op.Name {
+	case "SliceValue.Replace":
+		_ = json.Unmarshal(op.Argument, &s.values)
+	case "SliceValue.Append":
+		var v string
+		_ = json.Unmarshal(op.Argument, &v)
+		s.values = append(s.values, v)
+	case "FlagSet.Set":
+		s.values = []string{"stub-only"}
+		s.changed = true
+	}
+	return nil
+}
+func stubAdapter() Adapter {
+	return Adapter{Factory: func(int) any { return "stub-factory" }, HookExec: func(any, reflect.Value, reflect.Value) (any, error) { return "stub-only", nil }, NewFlagSet: func() FlagSession { return &stubFlag{} }, Date: func(time.Time) [3]int { return [3]int{7, 8, 9} }, Clock: func(time.Time) [3]int { return [3]int{1, 2, 3} }, Nanosecond: func(time.Time) int { return 4 }, Zone: func(time.Time) (string, int) { return "stub-zone", 5 }}
+}
+
+func TestSealedMetadataNullAndOrder(t *testing.T) {
+	w := frozenMetadata(t)
+	if len(w.Records) != 32 || len(w.Sources) != 57 || len(w.CachedSources) != 8 {
+		t.Fatal("metadata counts")
+	}
+	for i, l := range w.Records {
+		if l.Ordinal != i || !Null(l.Got) || !Null(l.Truth) || !Null(l.Role) || !Null(l.Weight) || !Null(l.Acceptable) {
+			t.Fatal("frozen null/order")
+		}
+	}
+	b, e := os.ReadFile("../WANTS.v1.json")
+	if e != nil {
+		t.Fatal(e)
+	}
+	b[100] ^= 1
+	if _, e = LoadWant(b); e == nil {
+		t.Fatal("changed raw Want accepted")
+	}
+}
+func TestTrueDefinedTypesAndValidZeroTargets(t *testing.T) {
+	for _, pair := range []struct {
+		target string
+		not    reflect.Type
+	}{{"defined Time", reflect.TypeOf(time.Time{})}, {"defined []string", reflect.TypeOf([]string(nil))}} {
+		b, _ := json.Marshal(HookInput{Expected: json.RawMessage("null"), Literal: "7", SourceType: "int", TargetType: pair.target})
+		f, to, e := HookValues(b)
+		if e != nil || !to.IsValid() || to.Type() == pair.not || f.Type() != reflect.TypeOf(int(7)) || f.Int() != 7 {
+			t.Fatal("defined target or literal int lost")
+		}
+	}
+	if _, _, e := HookValues([]byte(`{"expected":null,"input_literal":"7","source_type":"named string","target_type":"time.Time"}`)); e == nil {
+		t.Fatal("outside source scope accepted")
+	}
+}
+func TestStubOnlyFullFlowKeepsDifferencesAndLabelsNull(t *testing.T) {
+	w := frozenMetadata(t)
+	var r Result
+	saves := 0
+	if e := Run(w, stubAdapter(), &r, func(Result) error { saves++; return nil }); e != nil {
+		t.Fatal(e)
+	}
+	if r.Counts.CompletedFixtures != 32 || r.Counts.Attempted != 148 || r.Counts.Reserved != 148 || r.State != "completed_with_differences" || r.Counts.Differences == 0 || saves < 180 {
+		t.Fatalf("stub flow %+v saves%d", r.Counts, saves)
+	}
+	if r.Counts.PerAPI[5].Attempted != 42 || r.Counts.PerAPI[6].Attempted != 18 || r.Counts.PerAPI[7].Attempted != 6 || r.Counts.PerAPI[8].Attempted != 2 {
+		t.Fatal("snapshot/operation route lost")
+	}
+	for _, row := range r.Records {
+		if row.Got == nil || !row.Completed || !Null(row.Frozen.Truth) || !Null(row.Frozen.Role) || !Null(row.Frozen.Weight) {
+			t.Fatal("nullable original lost")
+		}
+	}
+	if r.Models != 0 || r.Fits != 0 || r.Labels != 0 || r.ActualInitCallbacks != nil || r.ActualInitReturns != nil || r.TrainingReady || r.Qualification {
+		t.Fatal("false qualification lost")
+	}
+}
+func TestBeforeDispatchCheckpointFailure(t *testing.T) {
+	w := frozenMetadata(t)
+	a := stubAdapter()
+	calls := 0
+	a.Factory = func(int) any { calls++; return nil }
+	var r Result
+	e := Run(w, a, &r, func(Result) error { return errors.New("toy disk failure") })
+	if e != ErrCheckpoint || calls != 0 || r.Counts.Reserved != 1 || r.Counts.Attempted != 0 || len(r.Records) != 1 || r.Records[0].Got.Hook.FactoryReturned != nil {
+		t.Fatal("checkpoint did not refuse dispatch")
+	}
+}
+func TestSecondCheckpointFailurePreservesValidPrefix(t *testing.T) {
+	w := frozenMetadata(t)
+	a := stubAdapter()
+	calls := 0
+	a.Factory = func(int) any { calls++; return nil }
+	a.HookExec = func(any, reflect.Value, reflect.Value) (any, error) { calls++; return nil, nil }
+	var r Result
+	saves := 0
+	e := Run(w, a, &r, func(Result) error {
+		saves++
+		if saves == 2 {
+			return errors.New("toy")
+		}
+		return nil
+	})
+	if e != ErrCheckpoint || calls != 1 || r.Counts.Reserved != 2 || r.Counts.Attempted != 1 || r.Records[0].Got.Hook.FactoryReturned == nil || !*r.Records[0].Got.Hook.FactoryReturned || r.Records[0].Got.Hook.ExecReturned != nil {
+		t.Fatal("valid prefix erased")
+	}
+}
+func TestSliceSnapshotsOwnValuesAndNilness(t *testing.T) {
+	var r Result
+	x := runner{r: &r, save: func(Result) error { return nil }}
+	backing := []string{"before"}
+	f := &stubFlag{values: backing}
+	var s Snapshot
+	if e := x.snapshot(f, &s); e != nil {
+		t.Fatal(e)
+	}
+	backing[0] = "after"
+	if s.Slice[0] != "before" {
+		t.Fatal("borrowed slice escaped")
+	}
+	for _, values := range [][]string{nil, make([]string, 0)} {
+		f.values = values
+		var next Snapshot
+		if e := x.snapshot(f, &next); e != nil {
+			t.Fatal(e)
+		}
+		if *next.SliceNil != (values == nil) || (next.Slice == nil) != (values == nil) {
+			t.Fatal("nil/empty collapsed")
+		}
+	}
+}
+
+type causeStub struct{ calls *int }
+
+func (c causeStub) Error() string { *c.calls++; return "cause-literal" }
+
+type wrapperStub struct {
+	calls   *int
+	unwraps *int
+	cause   error
+}
+
+func (c wrapperStub) Error() string { *c.calls++; return "outer-literal" }
+func (c wrapperStub) Unwrap() error { *c.unwraps++; return c.cause }
+func TestOuterUnwrapCauseMessagesAndCounts(t *testing.T) {
+	outer, unwrap, cause := 0, 0, 0
+	var r Result
+	x := runner{r: &r, save: func(Result) error { return nil }}
+	var out ErrorObservation
+	if e := x.errorObservation(wrapperStub{&outer, &unwrap, causeStub{&cause}}, &out); e != nil {
+		t.Fatal(e)
+	}
+	if *out.OuterMessage != "outer-literal" || *out.CauseMessage != "cause-literal" || outer != 1 || unwrap != 1 || cause != 1 || r.Counts.Attempted != 3 || out.TimeFields != nil || out.CSVFields != nil || out.UnsupportedCause == nil {
+		t.Fatal("message ownership/count/classification")
+	}
+}
+func TestOwnedFullStubPayloadWithinOutputCap(t *testing.T) {
+	w := frozenMetadata(t)
+	var r Result
+	if e := Run(w, stubAdapter(), &r, func(Result) error { return nil }); e != nil {
+		t.Fatal(e)
+	}
+	b, e := json.MarshalIndent(r, "", "  ")
+	if e != nil || len(b)+1 > Limit {
+		t.Fatal("full finite records exceed output budget")
+	}
+	// A returned slice owns its observation values, independently of callbacks.
+	s := []string{"original"}
+	v := returned(s)
+	s[0] = "mutated"
+	if v.Slice[0] != "original" {
+		t.Fatal("returned slice alias")
+	}
+}
+
+type panicPayload struct{ calls *int }
+
+func (p panicPayload) Error() string { *p.calls++; return "must not be formatted" }
+func TestNonstringPanicNeverCallsPayloadError(t *testing.T) {
+	n := 0
+	p := invoke(func() { panic(panicPayload{&n}) })
+	if !p.Present || p.Text != nil || p.UnsupportedText == nil || !*p.UnsupportedText || n != 0 {
+		t.Fatal("panic formatted")
+	}
+	p = invoke(func() { panic("literal") })
+	if *p.Text != "literal" || *p.UnsupportedText {
+		t.Fatal("primitive panic lost")
+	}
+}
+func TestPrimaryPanicPreservesUnobservedAndContinuesFixtures(t *testing.T) {
+	w := frozenMetadata(t)
+	a := stubAdapter()
+	calls := 0
+	a.Factory = func(int) any {
+		calls++
+		if calls == 1 {
+			panic("toy-primary")
+		}
+		return nil
+	}
+	var r Result
+	if e := Run(w, a, &r, func(Result) error { return nil }); e != nil {
+		t.Fatal(e)
+	}
+	first := r.Records[0].Got.Hook
+	if first.ExecReturned != nil || first.Value != nil || !first.Panic.Present || len(first.Unobserved) == 0 || len(r.PanicEvents) != 1 || r.Counts.CompletedFixtures != 32 || r.Counts.Panics != 1 {
+		t.Fatal("panic/null/prefix")
+	}
+}
+
+type outerPanicStub struct{}
+
+func (outerPanicStub) Error() string { panic("toy-error-method") }
+func TestErrorMethodPanicLeavesCauseUnobserved(t *testing.T) {
+	var r Result
+	x := runner{r: &r, save: func(Result) error { return nil }}
+	var out ErrorObservation
+	if e := x.errorObservation(outerPanicStub{}, &out); e != nil {
+		t.Fatal(e)
+	}
+	if !out.Panic.Present || out.OuterMessage != nil || out.UnwrapSupported != nil || out.CauseReturned != nil || r.Counts.Attempted != 1 {
+		t.Fatal("error panic forced fields")
+	}
+}
+func TestTimeGettersUseOnlyInjectedStubs(t *testing.T) {
+	var r Result
+	x := runner{r: &r, save: func(Result) error { return nil }}
+	a := stubAdapter()
+	a.Clock = func(time.Time) [3]int { panic("toy-getter") }
+	var out TimeGetters
+	if e := x.timeObservation(time.Time{}, a, &out); e != nil {
+		t.Fatal(e)
+	}
+	if r.Counts.Attempted != 4 || r.Counts.Panics != 1 || out.Clock != nil || *out.ClockReturned || out.Date == nil || out.Nanosecond == nil || out.ZoneName == nil || !out.Panic.Present {
+		t.Fatal("getter stubs/null/panic")
+	}
+}
+func TestMaximumRefusesExtraDispatch(t *testing.T) {
+	var r Result
+	r.Counts.Reserved = 338
+	x := runner{r: &r, save: func(Result) error { t.Fatal("should not checkpoint extra"); return nil }}
+	called := false
+	if _, e := x.call(0, func() { called = true }); e != ErrProtocol || called || r.Counts.Attempted != 0 {
+		t.Fatal("extra dispatch")
+	}
+}
+func TestStrictJSONBoundaries(t *testing.T) {
+	for _, b := range []string{`{"x":1,"x":2}`, `{"x":1,"X":2}`, `[] []`, strings.Repeat("[", 50) + "0" + strings.Repeat("]", 50), string([]byte{0xff})} {
+		if UniqueJSON([]byte(b)) == nil {
+			t.Fatal("bad JSON accepted")
+		}
+	}
+	if UniqueJSON([]byte(`{"a":[{"x":"x"}],"b":[]}`)) != nil {
+		t.Fatal("valid nested JSON")
+	}
+	if UniqueJSON(make([]byte, Limit+1)) == nil {
+		t.Fatal("oversize accepted")
+	}
+}
+func toyPlan() Plan {
+	f := make([]FilePin, 70)
+	for i := range f {
+		f[i] = FilePin{ID: fmt.Sprintf("toy%d", i), Path: fmt.Sprintf("toy%d", i), Bytes: 1, SHA256: strings.Repeat("a", 64)}
+	}
+	b, _ := json.Marshal(f)
+	return Plan{Schema: "riido-source81-native-observer-plan-v1", Frozen: true, ObserverRoot: "/toy", Manifest: FilePin{ID: "PIN-MANIFEST.v1.json", Path: "PIN-MANIFEST.v1.json", Bytes: 1, SHA256: strings.Repeat("a", 64)}, Closure: f, ClosureSHA256: Digest(b), Binary: FilePin{Path: "bin/source81-observer", Bytes: 1, SHA256: strings.Repeat("b", 64)}, GoVersion: "go1.27.1", GOOS: "darwin", GOARCH: "arm64", CPU: 1, SoftHeapBytes: 268435456, OutsideSeconds: 60, OutputBytes: Limit, Goals: 4, Fixtures: 32, ExpectedDispatches: 182, MaximumDispatches: 338, Retry: 0, Policy: "finite_observations_only_no_labels_no_retry"}
+}
+func TestFrozenPlanAndClosureLimits(t *testing.T) {
+	p := toyPlan()
+	if ValidatePlan(p) != nil {
+		t.Fatal("toy plan invalid")
+	}
+	for _, mut := range []func(*Plan){func(p *Plan) { p.Frozen = false }, func(p *Plan) { p.GoVersion = "go1.26.0" }, func(p *Plan) { p.MaximumDispatches = 339 }, func(p *Plan) { p.Retry = 1 }, func(p *Plan) { p.Closure[0].Bytes++ }, func(p *Plan) { p.Closure[0].Path = "../escape" }} {
+		p = toyPlan()
+		mut(&p)
+		if ValidatePlan(p) == nil {
+			t.Fatal("changed frozen plan accepted")
+		}
+	}
+}

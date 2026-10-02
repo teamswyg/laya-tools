@@ -1,0 +1,159 @@
+package pure
+
+import (
+	"bytes"
+	"encoding/json"
+	"io"
+	"os"
+	"path/filepath"
+)
+
+func Encode(v any) ([]byte, error) {
+	b, e := json.MarshalIndent(v, "", "  ")
+	if e != nil || len(b)+1 >= OutputLimit {
+		return nil, ErrProtocol
+	}
+	return append(b, '\n'), nil
+}
+func ReadFile(path string, limit int) ([]byte, error) {
+	s, e := os.Lstat(path)
+	if e != nil || !s.Mode().IsRegular() || s.Size() <= 0 || s.Size() > int64(limit) {
+		return nil, ErrProtocol
+	}
+	f, e := os.Open(path)
+	if e != nil {
+		return nil, ErrProtocol
+	}
+	defer f.Close()
+	b, e := io.ReadAll(io.LimitReader(f, int64(limit)+1))
+	if e != nil || len(b) > limit {
+		return nil, ErrProtocol
+	}
+	return b, nil
+}
+func PinFile(root string, p FilePin, limit int) ([]byte, error) {
+	if !SafePath(p.Path) {
+		return nil, ErrProtocol
+	}
+	cur := root
+	// The root is a parent-fixed private location; descendant symlinks cannot
+	// substitute a file outside its declared relative closure.
+	for _, part := range bytes.Split([]byte(filepath.ToSlash(p.Path)), []byte("/")) {
+		cur = filepath.Join(cur, string(part))
+		s, e := os.Lstat(cur)
+		if e != nil || s.Mode()&os.ModeSymlink != 0 {
+			return nil, ErrProtocol
+		}
+	}
+	b, e := ReadFile(cur, limit)
+	if e != nil || len(b) != p.Bytes || Digest(b) != p.SHA256 {
+		return nil, ErrProtocol
+	}
+	return b, nil
+}
+func VerifySources(p Plan, w WantFile) error {
+	for _, f := range p.Closure {
+		root := p.ObserverRoot
+		if f.Base == "original" {
+			root = p.OriginalSourceRoot
+		}
+		if _, e := PinFile(root, f, OutputLimit-1); e != nil {
+			return ErrProtocol
+		}
+	}
+	if len(w.Sources) != 20 {
+		return ErrProtocol
+	}
+	for _, s := range w.Sources {
+		sub := "uuid"
+		if s.Family == "dustin/go-humanize" {
+			sub = "humanize"
+		} else if s.Family != "google/uuid" {
+			return ErrProtocol
+		}
+		path := sub + "/" + filepath.Base(s.OriginalPath)
+		n := 0
+		for _, c := range p.Closure {
+			if c.Base == "original" && c.Path == path && c.Bytes == s.Bytes && c.SHA256 == s.SHA256 {
+				n++
+			}
+		}
+		if n != 1 {
+			return ErrProtocol
+		}
+	}
+	for _, base := range []struct{ root, kind string }{{p.OriginalSourceRoot, "original"}, {filepath.Join(p.ObserverRoot, "pure"), "observer"}, {filepath.Join(p.ObserverRoot, "cmd"), "observer"}, {filepath.Join(p.ObserverRoot, "conversion80"), "observer"}} {
+		if filepath.WalkDir(base.root, func(path string, d os.DirEntry, e error) error {
+			if e != nil || d.Type()&os.ModeSymlink != 0 {
+				return ErrProtocol
+			}
+			if d.IsDir() || filepath.Ext(path) != ".go" {
+				return nil
+			}
+			root := p.ObserverRoot
+			if base.kind == "original" {
+				root = p.OriginalSourceRoot
+			}
+			rel, e := filepath.Rel(root, path)
+			if e != nil {
+				return ErrProtocol
+			}
+			n := 0
+			for _, c := range p.Closure {
+				if c.Base == base.kind && c.Path == filepath.ToSlash(rel) {
+					n++
+				}
+			}
+			if n != 1 {
+				return ErrProtocol
+			}
+			return nil
+		}) != nil {
+			return ErrProtocol
+		}
+	}
+	return nil
+}
+func SyncDir(dir string) error {
+	f, e := os.Open(dir)
+	if e != nil {
+		return ErrCheckpoint
+	}
+	defer f.Close()
+	if f.Sync() != nil {
+		return ErrCheckpoint
+	}
+	return nil
+}
+func WriteExclusive(path string, b []byte) error {
+	if len(b) == 0 || len(b) >= OutputLimit {
+		return ErrCheckpoint
+	}
+	f, e := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	if e != nil {
+		return ErrCheckpoint
+	}
+	n, e := f.Write(b)
+	if e != nil || n != len(b) {
+		f.Close()
+		return ErrCheckpoint
+	}
+	if f.Sync() != nil {
+		f.Close()
+		return ErrCheckpoint
+	}
+	if f.Close() != nil {
+		return ErrCheckpoint
+	}
+	return SyncDir(filepath.Dir(path))
+}
+func WritePartial(dir string, b []byte) error {
+	tmp := filepath.Join(dir, ".results.partial.tmp")
+	if WriteExclusive(tmp, b) != nil {
+		return ErrCheckpoint
+	}
+	if os.Rename(tmp, filepath.Join(dir, "results.partial.json")) != nil {
+		return ErrCheckpoint
+	}
+	return SyncDir(dir)
+}

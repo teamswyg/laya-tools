@@ -1,0 +1,33 @@
+{
+  "schema":"riido-source80-conversion-observer-preparation-ledger-v2",
+  "state":"adapter_compile_only_ready_frozen_false",
+  "Root_peer_sha256":"34951cd46b7d8c12eff9b4ff43f0dbcb8cf102543423a165aae9a3c856d884ed",
+  "history_skeleton_handoff_sha256":"fe6fa62223bf8b3c09e7a2ce2a908df88f3d1dd094338532970fb970ec3a5e31",
+  "events":[
+    {"id":"read-old-handoff-1","kind":"metadata_read","success":false,"reason":"requested_v2_filename_absent; actual rg-listed v1 handoff then read; old file never changed"},
+    {"id":"copy-originals-1","kind":"stdlib_metadata_copy_helper","success":true,"files":20,"bytes":41784,"original_execution":0},
+    {"id":"copy-candidate-1","kind":"exact_copy","success":true,"bytes":1620,"sha256":"a90b7d87f889319a3b9b6601eb0d654db8973a58ca0c46798620a9f8d3dedde2"},
+    {"id":"format-adapter-1","kind":"gofmt","success":true,"files":6},
+    {"id":"format-spec-tests-1","kind":"gofmt","success":true,"files":1},
+    {"id":"pure-race-v2-1","kind":"synthetic_pure_package_race","state":"completed","success":true,"exit_code":0,"top_test_passes":15,"subtest_passes":5,"package_elapsed_seconds":1.689,"original_imports":false},
+    {"id":"pure-vet-v2-1","kind":"pure_package_vet","success":true,"exit_code":0},
+    {"id":"compiler-selection-1","kind":"go_list_compile_metadata_only","success":true,"original_Go_files":16,"owned_non_test_Go_files":7,"native_execution":0},
+    {"id":"native-build-1","kind":"compile_only","success":true,"native_execution":0},
+    {"id":"binary-buildinfo-read-1","kind":"read_binary_metadata_not_execution","success":true,"Go":"go1.27.1","CGO":"0","trimpath":true},
+    {"id":"format-seal-helper-1","kind":"gofmt","success":true,"files":1},
+    {"id":"metadata-seal-1","kind":"stdlib_only_exact_byte_binding","success":true,"closure_files":37,"plan":"PLAN.v2.draft.json","frozen":false,"native_execution":0},
+    {"id":"reservation-static-binding-fix","kind":"author_pre_execution_refinement","success":true,"reason":"Initial reserved Run now carries the already-known static inner mapping56 rather than zero; actual inner/init counters remain null. Prior source/binary/draft preserved.","Want_or_source_change":false},
+    {"id":"patch-reservation-static-binding-1","kind":"authoring_patch","success":false,"reason":"exact helper context did not match; no file changed by failed patch; narrower subsequent patch succeeded"},
+    {"id":"format-final-main-helper-1","kind":"gofmt","success":true,"files":2},
+    {"id":"native-build-2","kind":"compile_only_after_static_reservation_binding","success":true,"native_execution":0},
+    {"id":"metadata-seal-2","kind":"stdlib_only_exact_byte_binding","success":true,"closure_files":37,"plan":"PLAN.v3.draft.json","frozen":false,"native_execution":0},
+    {"id":"controller-path-discovery-1","kind":"readonly_file_listing","success":true,"unrelated_directory_permission_warning":1,"controller_executed":false}
+  ],
+  "totals":{"pure_race_attempts":1,"pure_race_failures":0,"pure_vet_attempts":1,"pure_vet_failures":0,"compiler_selection_attempts":1,"compiler_selection_failures":0,"native_build_attempts":2,"native_build_failures":0,"metadata_seal_attempts":2,"metadata_seal_failures":0,"gofmt_attempts":4,"gofmt_failures":0,"authoring_patch_context_failures":1,"absent_old_filename_reads":1},
+  "original_init_API_tests":0,
+  "native_binary_invocations":0,
+  "old80_observer_runs":0,
+  "model_Features_Project_Fit":0,
+  "new_labels_roles_weights":0,
+  "shared_edits_external_writes":0
+}

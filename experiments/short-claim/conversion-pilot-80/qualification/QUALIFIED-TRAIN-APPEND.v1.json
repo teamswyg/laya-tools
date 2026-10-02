@@ -1,0 +1,182 @@
+{
+  "candidate_Got_sha256": "ee6b993dd5495e901ea9b516f96278eee76821bdb1e41ffaaac0ba0f2433ab8c",
+  "candidate_Want_sha256": "798f0e8cbe99534599aac4c2c89a8bf25caaf97121d039600f0629d45afe76c2",
+  "family_review_sha256": "79048419dcd6653edfcab1d234e6198ee0671e5f1eaef7277da9e7a570d26db0",
+  "group_number_meaning": "New caller group75 for UUID and76 for Ordinal; distinct from parent indices76..78; not modified historical group/parent IDs or roleplan.Assign output.",
+  "independent_heldout": false,
+  "models_Features_Project_Fit_calls": 0,
+  "new_candidate_count": 9,
+  "new_group_count": 2,
+  "new_parent_count": 3,
+  "new_roles_are_caller_bound_train_only": true,
+  "new_slice_is_train_origin_diagnostic": true,
+  "old76_roles_truth_masks_weights_untouched": true,
+  "original70_role_sha256": "24de7b745747966107b00c6748a61dc920d97ed9cc9f98a8f22fd367cd8b6b70",
+  "original76_prefix_unchanged": true,
+  "original76_projection_sha256": "f68bff5f48747a66f038c17262568c1bd91251a8c81b3f46f7ae5090c8fe4b99",
+  "original_candidate_count": 226,
+  "original_group_count": 19,
+  "original_group_max": 74,
+  "original_parent_count": 76,
+  "original_validation_is_previously_exposed_development_regression": true,
+  "parents": [
+    {
+      "acceptable_candidate_indices": [
+        1
+      ],
+      "candidates": [
+        {
+          "candidate_index": 0,
+          "caption": "Decode UUID text; return parser errors with a zero UUID on failure, and decoded bytes on success.",
+          "caption_fidelity": true,
+          "channel_complete": true,
+          "code_satisfaction": false,
+          "id": "parse-zero-on-error",
+          "label": false,
+          "loss_eligible": true,
+          "sample_weight": 1
+        },
+        {
+          "candidate_index": 1,
+          "caption": "Decode UUID text; preserve parser bytes and return its errors on failure, or decoded bytes on success, without adding a panic.",
+          "caption_fidelity": true,
+          "channel_complete": true,
+          "code_satisfaction": true,
+          "id": "parse-preserve",
+          "label": true,
+          "loss_eligible": true,
+          "sample_weight": 1
+        },
+        {
+          "candidate_index": 2,
+          "caption": "Decode UUID text; panic with the parser error on failure, and return decoded bytes with no error on success.",
+          "caption_fidelity": true,
+          "channel_complete": true,
+          "code_satisfaction": false,
+          "id": "parse-panic-on-error",
+          "label": false,
+          "loss_eligible": true,
+          "sample_weight": 1
+        }
+      ],
+      "id": "conversion80-parse-partial-errors",
+      "parent_index": 76,
+      "request": "Decode these raw, hyphenated, URN and outer38 UUID literals. Return parser errors and preserve parser bytes on failure; return decoded bytes on success without panic.",
+      "role": "development_train",
+      "role_enum": 0,
+      "source_family": "google/uuid",
+      "source_revision": "2d3c2a9cc518326daf99a383f07c4d3c44317e4d",
+      "truth": "known",
+      "whole_group": 75
+    },
+    {
+      "acceptable_candidate_indices": [
+        0
+      ],
+      "candidates": [
+        {
+          "candidate_index": 0,
+          "caption": "Scan into an existing UUID; nil, empty and erroneous inputs preserve it, successful inputs replace it, and scanning errors are returned.",
+          "caption_fidelity": true,
+          "channel_complete": true,
+          "code_satisfaction": true,
+          "id": "scan-preserve",
+          "label": true,
+          "loss_eligible": true,
+          "sample_weight": 1
+        },
+        {
+          "candidate_index": 1,
+          "caption": "Clear the UUID before scanning; nil, empty or erroneous inputs leave it cleared, successful inputs replace it, and scanning errors are returned.",
+          "caption_fidelity": true,
+          "channel_complete": true,
+          "code_satisfaction": false,
+          "id": "scan-clear-before",
+          "label": false,
+          "loss_eligible": true,
+          "sample_weight": 1
+        },
+        {
+          "candidate_index": 2,
+          "caption": "Scan into an existing UUID; nil, empty and erroneous inputs preserve it, successful inputs replace it, but scanning errors are discarded.",
+          "caption_fidelity": true,
+          "channel_complete": true,
+          "code_satisfaction": false,
+          "id": "scan-suppress-error",
+          "label": false,
+          "loss_eligible": true,
+          "sample_weight": 1
+        }
+      ],
+      "id": "conversion80-scan-state-errors",
+      "parent_index": 77,
+      "request": "For these database inputs, keep the existing nonnil UUID receiver on nil, empty or error; commit successful decodes and return scanning errors without panic.",
+      "role": "development_train",
+      "role_enum": 0,
+      "source_family": "google/uuid",
+      "source_revision": "2d3c2a9cc518326daf99a383f07c4d3c44317e4d",
+      "truth": "known",
+      "whole_group": 75
+    },
+    {
+      "acceptable_candidate_indices": [
+        2
+      ],
+      "candidates": [
+        {
+          "candidate_index": 0,
+          "caption": "Append st, nd or rd according to the last digit, otherwise th; preserve decimal digits without checking teen exceptions.",
+          "caption_fidelity": true,
+          "channel_complete": true,
+          "code_satisfaction": false,
+          "id": "ordinal-last-digit",
+          "label": false,
+          "loss_eligible": true,
+          "sample_weight": 1
+        },
+        {
+          "candidate_index": 1,
+          "caption": "Append th to every selected number, preserving its decimal digits without selecting st, nd or rd.",
+          "caption_fidelity": true,
+          "channel_complete": true,
+          "code_satisfaction": false,
+          "id": "ordinal-constant-th",
+          "label": false,
+          "loss_eligible": true,
+          "sample_weight": 1
+        },
+        {
+          "candidate_index": 2,
+          "caption": "Preserve decimal digits; choose st, nd or rd by the final digit, except endings 11, 12 and 13 use th.",
+          "caption_fidelity": true,
+          "channel_complete": true,
+          "code_satisfaction": true,
+          "id": "ordinal-preserve",
+          "label": true,
+          "loss_eligible": true,
+          "sample_weight": 1
+        }
+      ],
+      "id": "conversion80-ordinal-teen-suffix",
+      "parent_index": 78,
+      "request": "Format these small nonnegative ranks with decimal digits and English suffixes: use th for endings 11, 12 or 13, and st, nd, rd when appropriate.",
+      "role": "development_train",
+      "role_enum": 0,
+      "source_family": "dustin/go-humanize Ordinal source slice",
+      "source_revision": "a1b4e66b9a6d890e9e15e7091cf16c8032367d6e",
+      "truth": "known",
+      "whole_group": 76
+    }
+  ],
+  "production_ready": false,
+  "protected_final": false,
+  "qualification": false,
+  "roleplan_Assign_calls": 0,
+  "root_eligibility_sha256": "82bbb9328d5fbaa110a157f70bf1347846d6c3b48c30b555f200075e715ae101",
+  "root_saved_review_sha256": "3a113747c3894b3515010262f4cd2ba2d468adcfccf0e2a1b419060accd0e2e7",
+  "runtime_public_input_validation_pending": true,
+  "schema": "riido-qualified-original76-plus-source80-train-append-v1",
+  "source_proposal_sha256": "36414f5b02b8a4c9439e270ff9feacf514254ff3b472d532a7da7ce2761b7a0b",
+  "state": "typed_supervision_and_train_membership_frozen_projection_not_run",
+  "training_ready": false
+}

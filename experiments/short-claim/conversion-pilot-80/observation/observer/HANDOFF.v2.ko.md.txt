@@ -1,0 +1,31 @@
+# Source80 후보 관찰기: 실행 전 빌드 인계
+
+원래 요청 3개·코드 후보 9개를 기존 fixture 24개에 연결한 관찰기를 빌드했습니다. 후보 관찰 예정 수는 72개이며 독립 부모 요청 72개나 학습 정답 72개가 아닙니다. 실제 후보·원 API·init·관찰기 실행은 0입니다. 결과·정답·역할·가중치를 생성하지 않았습니다.
+
+별도 저자가 원문에서 작성한 Want72와 Root의 source-only 검토를 exact SHA로 묶었습니다. UUID 원문 15 Go파일·원 go.mod·BSD-3-Clause LICENSE 및 Ordinal 원문 1 Go파일·원 go.mod·MIT LICENSE를 그대로 복사했습니다. 총 원본 20파일은 41,784 B, 후보 소스는 1,620 B입니다. 초기 골격·초안·바이너리는 역사 기록으로 보존합니다.
+
+## 관찰과 실패 보존
+
+고정 순서는 목표 0..2 → 후보 0..2 → 원 fixture 0..7입니다. Want의 원 입력 객체와 네 원문 참조, 코드 구간, 원 입력 해시, null 감독 정보는 그대로 보존합니다. Parse/Scan/Ordinal을 실제 호출하는 곳은 닫힌 adapter입니다. Scan receiver-before는 wrapper에 전달하는 명시적 16-byte 인자입니다. ClearBefore 내부 초기화와 혼동하지 않습니다. nil interface, typed-nil bytes, 비nil 빈 bytes도 분리합니다.
+
+각 후보 호출과 명시적 Error 호출 전에 예약 카운터를 디스크에 동기화합니다. 후보의 오류값 panic은 present/type만 읽고 Error/String/Format을 호출하지 않습니다. 미반환 UUID·오류는 null입니다. 반환된 비nil error만 별도 예약 후 Error를 한 번 관찰합니다. 예상 밖의 Error panic, 불일치, 부분 카운터도 보존하며 Want를 고치거나 재시도하지 않습니다.
+
+예상은 후보 72회 중 정상 반환 69회·panic 3회, 명시적 Error 10회입니다. 예상 tracked는 82회이며 최대는 후보 72 + Error 48 = 120회입니다. 후보 내부 원 API 56회는 정적 소스 매핑이고 actual은 null입니다. 원문 startup 4구간 역시 실제 init 카운터가 아니며 actual은 null입니다. 예상된 후보 panic 3회가 Want와 같다면 harness 실패로 처리하지 않습니다.
+
+## 실제 준비 검사와 한계
+
+이번 단계에서 순수 race 1회가 테스트 15개·하위 사례 5개, 1.689초로 통과했고 순수 vet 1회도 통과했습니다. 실제 원문을 import하지 않는 합성 callback과 임시 파일로 좌표·예산·호출 전 checkpoint·panic·typed nil·닫힌 소스·독점 출력·파일 동기화를 검증했습니다. 파일시스템 자체의 모든 장애나 강제 종료 뒤 in-flight 반환까지 보장하지는 않습니다. 마지막 성공한 snapshot만 내구성 증거입니다.
+
+원본 compiler selection 메타데이터 1회와 compile-only 빌드 2회, 정확한 문서·소스 접합 2회가 통과했습니다. 첫 바이너리 이후 최초 reservation에 정적 매핑 56을 명시하는 한 줄을 보강하여 별도 v3 초안을 만들었습니다. 원문·Want·후보·예산은 바뀌지 않았습니다. 작성 중 patch 문맥 실패 1건과 존재하지 않는 옛 handoff 파일명 읽기 1건도 장부에 보존했습니다. 원 테스트·native init/API·실행파일/도움말은 실행하지 않았습니다.
+
+최종 바이너리는 Go 1.27.1, Darwin arm64, CGO 0, trimpath, buildvcs false의 compile-only 산출물입니다. 원 모듈은 UUID의 암묵적 언어 범위와 Humanize의 go 1.21 원문을 유지합니다. 전체 폐쇄 목록은 원본 20개와 observer/source/Want/검토/recipe 17개, 합계 37개입니다. 동결 초안은 `frozen:false`이며 Root가 다른 바이트를 보존한 채 그 토큰 하나만 확정해야 실행될 수 있습니다.
+
+바깥 실행기는 1 Start, 자동 재시도 0, CPU 1, Go soft heap 256 MiB, 60초 및 결과·checkpoint 1 MiB 미만을 결속합니다. init는 main 전에 실행될 수 있으므로 바깥 예약이 먼저 필요합니다. heap 설정은 총 RSS hard cap이 아니고 이 준비에서 CPU/RSS를 측정하지 않았습니다. 기존 generic controller의 역사 스키마를 재사용하는 것이며 새 모델·학습 또는 생성 LLM/GPU 실행이 아닙니다.
+
+## 인계 파일
+
+- [최종 메타데이터](METADATA-BINDINGS.v3.json), [빌드 recipe](BUILD-RECIPE.v2.json), [실제 준비 장부](PREPARATION-LEDGER.v2.json).
+- [정확한 후보 코드](conversion80/candidates.go), [닫힌 adapter](cmd/observe/adapter.go), [호출·checkpoint](pure/run.go), [파일 동기화](pure/files.go).
+- [원문·라이선스 안내](SOURCE-NOTICE.v2.md), [Want 본체](WANTS.v1.json), [Root source-only 검토](proof/ROOT-Want-PEER.v1.json).
+
+호스트 경로를 포함하는 계획·metadata helper와 바이너리·원 테스트 로그는 공개용 exact-copy 대상이 아닙니다. Handoff는 그 SHA와 제외 사유만 담습니다. 유한 fixture 관찰의 일치는 미래의 코드 만족도·caption 충실성·학습 자격과 별도입니다. 현재 qualification, training-ready, production-ready, source-diversity-cleared는 false입니다.

@@ -1,0 +1,224 @@
+package pure
+
+import (
+	"bytes"
+	"encoding/json"
+	"errors"
+	"reflect"
+	"strings"
+	"testing"
+)
+
+func toy() Case {
+	return Case{Literal: Literal{GoalIndex: 0, Input: json.RawMessage(`{"toy":"only"}`)}}
+}
+func uuidReturn() Return { u := [16]byte{1}; return Return{UUID: &u, ErrorChannel: true} }
+func TestSyntheticCoordinatesAndRegistryOwnership(t *testing.T) {
+	cs, parents, goals := Candidates(), Parents(), Goals()
+	rows := make([]Literal, 72)
+	for g := 0; g < 3; g++ {
+		for c := 0; c < 3; c++ {
+			for f := 0; f < 8; f++ {
+				idx := g*24 + c*8 + f
+				rows[idx] = Literal{Ordinal: idx, GoalIndex: g, CandidateIndex: c, FixtureIndex: f, OriginalFixtureOrdinal: g*8 + f, ParentID: parents[g], GoalID: goals[g], CandidateID: cs[g][c].ID, FunctionName: cs[g][c].Function}
+			}
+		}
+	}
+	if e := Check72Coordinates(rows); e != nil {
+		t.Fatal(e)
+	}
+	for _, mutate := range []func([]Literal){func(v []Literal) { v[1], v[8] = v[8], v[1] }, func(v []Literal) { v[0].FunctionName = "AnyOther" }, func(v []Literal) { v[7].OriginalFixtureOrdinal = 8 }, func(v []Literal) { v[30].ParentID = "other" }} {
+		v := append([]Literal(nil), rows...)
+		mutate(v)
+		if Check72Coordinates(v) == nil {
+			t.Fatal("changed binding accepted")
+		}
+	}
+	if Check72Coordinates(rows[:71]) == nil {
+		t.Fatal("cardinality accepted")
+	}
+	cs[0][0].ID = "mutated"
+	parents[0] = "mutated"
+	if Candidates()[0][0].ID == "mutated" || Parents()[0] == "mutated" {
+		t.Fatal("registry ownership lost")
+	}
+}
+func TestSyntheticCandidateAndErrorReservations(t *testing.T) {
+	c := toy()
+	u := [16]byte{1}
+	c.Literal.Want = Channels{ReturnedNormally: true, UUIDHex: hexValue(&u), ErrorNil: ptr(true)}
+	var snapshots []RunState
+	calls := 0
+	s, e := Run([]Case{c}, Budget{1, 0}, func(Literal) Return { calls++; return uuidReturn() }, func(s RunState) error { snapshots = append(snapshots, s); return nil })
+	if e != nil || calls != 1 || s.Counters.CandidateReserved != 1 || s.Counters.CandidateDispatched != 1 || s.Counters.CandidateReturned != 1 || s.Counters.ErrorDispatched != 0 || s.Counters.Matches != 1 {
+		t.Fatalf("bad result %+v %v", s.Counters, e)
+	}
+	if len(snapshots) != 4 || snapshots[0].Phase != "before_candidate" || snapshots[0].Counters.CandidateDispatched != 0 || snapshots[0].Records[0].Got != nil {
+		t.Fatal("reservation not before candidate")
+	}
+	if s.ActualInnerOriginalAPIDispatches != nil || s.ActualInitCallbacks != nil || s.ActualInitReturns != nil || s.InternalDynamicallyInstrumented || s.StaticInnerOriginalAPIMapping != 56 {
+		t.Fatal("static metadata became actual measurement")
+	}
+}
+
+type methodTrap struct{ ErrorCalls, StringCalls int }
+
+func (e *methodTrap) Error() string  { e.ErrorCalls++; return "trap error" }
+func (e *methodTrap) String() string { e.StringCalls++; return "trap string" }
+func TestSyntheticPrimaryPanicNeverFormatsPayload(t *testing.T) {
+	trap := &methodTrap{}
+	before := [16]byte{255, 238}
+	c := toy()
+	c.Literal.GoalIndex = 1
+	c.ReceiverBefore = &before
+	c.Literal.Want = Channels{ReceiverBeforeHex: hexValue(&before), PanicPresent: true, PanicType: ptr("*pure.methodTrap")}
+	c.Literal.WantObserved.NonStringPanicTextUnobserved = true
+	s, e := Run([]Case{c}, Budget{1, 48}, func(Literal) Return { panic(trap) }, func(RunState) error { return nil })
+	got := s.Records[0].Got
+	if e != nil || trap.ErrorCalls != 0 || trap.StringCalls != 0 || s.Counters.CandidatePanicked != 1 || s.Counters.CandidateReturned != 0 || s.Counters.ErrorDispatched != 0 || s.Counters.Matches != 1 {
+		t.Fatal("panic payload dispatched methods or counters lost")
+	}
+	if got.UUIDHex != nil || got.ReceiverAfterHex != nil || got.ExactOutputString != nil || got.ErrorNil != nil || got.ErrorType != nil || got.ErrorMessage != nil || got.PanicText != nil || got.ReturnedNormally || !s.Records[0].NonStringPanicTextUnobserved {
+		t.Fatal("unreturned channels forged")
+	}
+}
+func TestSyntheticReturnedErrorInvokesOnlyOneError(t *testing.T) {
+	trap := &methodTrap{}
+	c := toy()
+	u := [16]byte{1}
+	c.Literal.Want = Channels{ReturnedNormally: true, UUIDHex: hexValue(&u), ErrorNil: ptr(false), ErrorType: ptr("*pure.methodTrap"), ErrorMessage: ptr("trap error")}
+	var snaps []RunState
+	s, e := Run([]Case{c}, Budget{1, 1}, func(Literal) Return { return Return{UUID: &u, ErrorChannel: true, Err: trap} }, func(s RunState) error { snaps = append(snaps, s); return nil })
+	if e != nil || trap.ErrorCalls != 1 || trap.StringCalls != 0 || s.Counters.ErrorReserved != 1 || s.Counters.ErrorDispatched != 1 || s.Counters.ErrorReturned != 1 || s.Counters.UnclassifiedErrorDispatched != 1 || s.Counters.Matches != 1 {
+		t.Fatal("error observation not exact")
+	}
+	found := false
+	for _, x := range snaps {
+		if x.Phase == "before_Error" {
+			found = true
+			if x.Counters.CandidateReturned != 1 || x.Counters.ErrorReserved != 1 || x.Counters.ErrorDispatched != 0 || x.Records[0].Got.ErrorMessage != nil {
+				t.Fatal("Error not reserved before call")
+			}
+		}
+	}
+	if !found {
+		t.Fatal("no Error intent")
+	}
+}
+
+type nilTrap struct{}
+
+func (*nilTrap) Error() string { panic("error method panic") }
+func TestSyntheticTypedNilAndErrorPanicPreserved(t *testing.T) {
+	var trap *nilTrap
+	var er error = trap
+	c := toy()
+	u := [16]byte{3}
+	s, e := Run([]Case{c}, Budget{1, 1}, func(Literal) Return { return Return{UUID: &u, ErrorChannel: true, Err: er} }, func(RunState) error { return nil })
+	got := s.Records[0].Got
+	if e != nil || got.ErrorNil == nil || *got.ErrorNil || got.ErrorType == nil || *got.ErrorType != "*pure.nilTrap" || got.ErrorMessage != nil || got.UUIDHex == nil || !got.ReturnedNormally || got.PanicPresent || !s.Records[0].ErrorMethodPanicked || s.Records[0].ErrorMethodPanicText != nil || s.Counters.ErrorPanicked != 1 || s.Counters.Differences != 1 {
+		t.Fatal("typed nil/panic converted into nil/primary panic/success")
+	}
+}
+func TestSyntheticCheckpointFailureStopsBeforeCalls(t *testing.T) {
+	for _, phase := range []string{"before_candidate", "after_candidate", "before_Error", "after_record", "completed"} {
+		t.Run(phase, func(t *testing.T) {
+			c := toy()
+			trap := &methodTrap{}
+			candidateCalls := 0
+			s, e := Run([]Case{c}, Budget{1, 1}, func(Literal) Return { candidateCalls++; return Return{ErrorChannel: true, Err: trap} }, func(s RunState) error {
+				if s.Phase == phase {
+					return errors.New("private-path-and-token-must-not-escape")
+				}
+				return nil
+			})
+			if e == nil || strings.Contains(e.Error(), "private") || strings.Contains(s.Failure, "private") || s.Failure == "" {
+				t.Fatal("fixed failure missing")
+			}
+			if phase == "before_candidate" {
+				if candidateCalls != 0 || s.Counters.CandidateDispatched != 0 || s.Counters.CandidateReserved != 1 || len(s.Records) != 1 || s.Records[0].Got != nil {
+					t.Fatal("candidate dispatched before sync")
+				}
+			} else if candidateCalls != 1 {
+				t.Fatal("candidate re-run or lost")
+			}
+			if phase == "before_Error" || phase == "after_candidate" {
+				if trap.ErrorCalls != 0 || s.Counters.ErrorDispatched != 0 || s.Records[0].Got.ErrorNil == nil || *s.Records[0].Got.ErrorNil {
+					t.Fatal("Error dispatched or primary return lost")
+				}
+			}
+		})
+	}
+}
+func TestSyntheticNilEmptyAuditAndMetadataOwnership(t *testing.T) {
+	a, b, c := toy(), toy(), toy()
+	a.InputAudit = InputAudit{DynamicType: "<nil>"}
+	b.InputAudit = InputAudit{DynamicType: "[]uint8", BytesNil: ptr(true), BytesHex: ptr("")}
+	c.InputAudit = InputAudit{DynamicType: "[]uint8", BytesNil: ptr(false), BytesHex: ptr("")}
+	cases := []Case{a, b, c}
+	calls := 0
+	s, e := Run(cases, Budget{3, 0}, func(l Literal) Return { calls++; l.Input[0] = 'x'; return Return{ErrorChannel: true} }, func(snapshot RunState) error {
+		if len(snapshot.Records) > 0 {
+			snapshot.Records[0].Literal.Input[0] = 'z'
+			if snapshot.Records[0].Got != nil {
+				snapshot.Records[0].Got.ReturnedNormally = false
+			}
+		}
+		return nil
+	})
+	if e != nil || calls != 3 || s.Counters.CandidateDispatched != 3 || !bytes.Equal(cases[0].Literal.Input, json.RawMessage(`{"toy":"only"}`)) || !bytes.Equal(s.Records[0].Literal.Input, cases[0].Literal.Input) {
+		t.Fatal("callback/snapshot alias modified frozen metadata")
+	}
+	if s.Records[0].InputObservation.BytesNil != nil || !*s.Records[1].InputObservation.BytesNil || *s.Records[2].InputObservation.BytesNil {
+		t.Fatal("nil representations merged")
+	}
+	if !s.Records[0].Got.ReturnedNormally {
+		t.Fatal("checkpoint mutation affected state")
+	}
+}
+func TestSyntheticBudgetRefusalAndDifferences(t *testing.T) {
+	c := toy()
+	calls := 0
+	trap := &methodTrap{}
+	s, e := Run([]Case{c}, Budget{1, 0}, func(Literal) Return { calls++; return Return{ErrorChannel: true, Err: trap} }, func(RunState) error { return nil })
+	if e == nil || s.Failure != "Error_budget_exhausted" || calls != 1 || trap.ErrorCalls != 0 || s.Counters.CandidateReturned != 1 || s.Records[0].Got.ErrorType == nil {
+		t.Fatal("budget failure discarded return or called error")
+	}
+	s, e = Run([]Case{c, c}, Budget{2, 0}, func(Literal) Return { return Return{ErrorChannel: true} }, func(RunState) error { return nil })
+	if e != nil || s.Counters.CompletedRecords != 2 || s.Counters.Differences != 2 || s.Counters.Matches != 0 {
+		t.Fatal("differences repaired/filtered")
+	}
+}
+func TestSyntheticMalformedSnapshotAndFixedBounds(t *testing.T) {
+	c := toy()
+	c.Literal.Input = json.RawMessage("invalid")
+	calls := 0
+	s, e := Run([]Case{c}, Budget{1, 0}, func(Literal) Return { calls++; return Return{} }, func(RunState) error { return nil })
+	if e == nil || calls != 0 || s.Counters.CandidateDispatched != 0 {
+		t.Fatal("malformed metadata invoked callback")
+	}
+	for _, b := range []Budget{{0, 0}, {73, 0}, {1, 49}, {1, -1}} {
+		_, e = Run([]Case{toy()}, b, func(Literal) Return { calls++; return Return{} }, func(RunState) error { return nil })
+		if e == nil {
+			t.Fatal("bound accepted")
+		}
+	}
+	if calls != 0 || ExpectedTracked != CandidateDispatches+ExpectedErrorDispatches || MaximumTracked != CandidateDispatches+MaximumErrorDispatches {
+		t.Fatal("budget definitions/actual calls wrong")
+	}
+}
+func TestSyntheticChannelsElevenNullFields(t *testing.T) {
+	b, e := json.Marshal(Channels{})
+	if e != nil {
+		t.Fatal(e)
+	}
+	var obj map[string]json.RawMessage
+	if json.Unmarshal(b, &obj) != nil || len(obj) != 11 {
+		t.Fatal("schema field count changed")
+	}
+	for _, name := range []string{"uuid_hex", "receiver_before_hex", "receiver_after_hex", "exact_output_string", "error_nil", "error_type", "error_message", "panic_type", "panic_text"} {
+		if !reflect.DeepEqual(obj[name], json.RawMessage("null")) {
+			t.Fatalf("%s null lost", name)
+		}
+	}
+}

@@ -1,0 +1,171 @@
+package pure
+
+import (
+	"bytes"
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"reflect"
+	"strings"
+	"testing"
+)
+
+func toyPlan() Plan {
+	p := Plan{Schema: PlanSchema, Frozen: true, ObserverRoot: "/synthetic-observer", OriginalSourceRoot: "/synthetic-observer/upstream", GoVersion: "go1.27.1", GOOS: "darwin", GOARCH: "arm64", CGOEnabled: "0", CPU: 1, SoftHeapBytes: 268435456, OutsideSeconds: 60, OutputBytes: OutputLimit, Goals: 3, OriginalFixtures: 24, CandidateDispatches: 72, ExpectedReturns: 69, ExpectedPanics: 3, ExpectedErrors: 10, MaximumErrors: 48, PlannedTracked: 82, MaximumTracked: 120, StaticInnerOriginalAPI: 56, StaticStartupSites: 4, PeerSHA: PeerSHA, Policy: Policy, Want: FilePin{Base: "observer", Path: "WANTS.v1.json", Bytes: WantBytes, SHA256: WantSHA}, Binary: FilePin{Base: "observer", Path: "bin/conversion80-observer", Bytes: 200, SHA256: strings.Repeat("a", 64)}}
+	for i := 0; i < 20; i++ {
+		name := string(rune('a' + i))
+		p.Closure = append(p.Closure, FilePin{ID: "o" + name, Base: "original", Path: "uuid/" + name + ".go", Bytes: 1, SHA256: strings.Repeat("a", 64)})
+	}
+	p.Closure = append(p.Closure, FilePin{ID: "want", Base: "observer", Path: "WANTS.v1.json", Bytes: WantBytes, SHA256: WantSHA}, FilePin{ID: "candidates", Base: "observer", Path: "conversion80/candidates.go", Bytes: 1620, SHA256: CandidateSHA}, FilePin{ID: "peer", Base: "observer", Path: "proof/ROOT-Want-PEER.v1.json", Bytes: 1, SHA256: PeerSHA})
+	for i := 0; i < 7; i++ {
+		name := string(rune('a' + i))
+		p.Closure = append(p.Closure, FilePin{ID: "m" + name, Base: "observer", Path: "pure/" + name + ".go", Bytes: 1, SHA256: strings.Repeat("a", 64)})
+	}
+	return p
+}
+func TestSyntheticPlanClosedPolicyAndDiagnostics(t *testing.T) {
+	p := toyPlan()
+	if ValidatePlan(p) != nil {
+		t.Fatal("positive plan rejected")
+	}
+	for _, change := range []func(*Plan){func(p *Plan) { p.Frozen = false }, func(p *Plan) { p.CandidateDispatches = 71 }, func(p *Plan) { p.MaximumErrors = 49 }, func(p *Plan) { p.PlannedTracked = 81 }, func(p *Plan) { p.Retry = 1 }, func(p *Plan) { p.OriginalSourceRoot = "/another-private-path" }, func(p *Plan) { p.PeerSHA = strings.Repeat("a", 64) }, func(p *Plan) { p.Closure[1] = p.Closure[0] }, func(p *Plan) { p.Closure[0].Path = "../secret" }, func(p *Plan) { p.Binary.Bytes = 17 << 20 }, func(p *Plan) { p.Closure[21].SHA256 = strings.Repeat("b", 64) }} {
+		q := p
+		q.Closure = append([]FilePin(nil), p.Closure...)
+		change(&q)
+		e := ValidatePlan(q)
+		if e == nil || e.Error() != "conversion80_protocol_invalid" {
+			t.Fatal("changed plan or value-dependent diagnostic accepted")
+		}
+	}
+	b, e := json.Marshal(p)
+	if e != nil {
+		t.Fatal(e)
+	}
+	q, e := DecodePlan(b)
+	if e != nil || !reflect.DeepEqual(p, q) {
+		t.Fatal("canonical plan projection changed")
+	}
+	for _, bad := range [][]byte{bytes.Replace(b, []byte(`"schema":`), []byte(`"SCHEMA":`), 1), []byte(`{"schema":"a","SCHEMA":"b"}`), append(b, []byte(` null`)...), []byte("null"), []byte("{\"schema\":\"\xff\"}"), bytes.Replace(b, []byte(`"schema":`), []byte(`"unknown":0,"schema":`), 1)} {
+		if _, e := DecodePlan(bad); e == nil {
+			t.Fatal("malformed/casefold/extra plan accepted")
+		}
+	}
+}
+func TestSyntheticFixtureNullEmptyAndGoalBoundary(t *testing.T) {
+	rows := []struct {
+		raw      string
+		kind     string
+		nilBytes *bool
+	}{
+		{`{"id":"toy","input_kind":"nil_interface","input":null,"selection_reason":"toy"}`, "<nil>", nil},
+		{`{"id":"toy","input_kind":"bytes","bytes_nil":true,"bytes_hex":null,"selection_reason":"toy"}`, "[]uint8", ptr(true)},
+		{`{"id":"toy","input_kind":"bytes","bytes_nil":false,"bytes_hex":"","selection_reason":"toy"}`, "[]uint8", ptr(false)},
+		{`{"id":"toy","input_kind":"bytes_text","input":"a","bytes_nil":false,"selection_reason":"toy"}`, "[]uint8", ptr(false)},
+	}
+	for _, r := range rows {
+		l := Literal{GoalIndex: 1, FixtureID: "toy", Input: json.RawMessage(r.raw)}
+		x, a, e := Fixture(l)
+		if e != nil || a.DynamicType != r.kind || !reflect.DeepEqual(a.BytesNil, r.nilBytes) {
+			t.Fatal("input shape changed")
+		}
+		if r.nilBytes != nil {
+			b := x.([]byte)
+			if (b == nil) != *r.nilBytes {
+				t.Fatal("nil bytes collapsed")
+			}
+		}
+	}
+	for _, raw := range []string{`{"id":"toy","input_kind":"int","input":113}`, `{"id":"other","input_kind":"string","input":"a"}`, `{"id":"toy","input_kind":"bytes","bytes_nil":true,"bytes_hex":""}`, `{"id":"toy","input_kind":"string","input":"` + strings.Repeat("a", 513) + `"}`, `{"id":"toy","input_kind":"bytes","bytes_nil":false,"bytes_hex":"x"}`} {
+		if _, _, e := Fixture(Literal{GoalIndex: 1, FixtureID: "toy", Input: json.RawMessage(raw)}); e == nil {
+			t.Fatal("invalid fixture accepted")
+		}
+	}
+	if _, _, e := Fixture(Literal{GoalIndex: 0, FixtureID: "toy", Input: json.RawMessage(rows[0].raw)}); e == nil {
+		t.Fatal("parse accepted nonstring")
+	}
+}
+func TestSyntheticDiskCheckpointExclusiveAndBounded(t *testing.T) {
+	dir := t.TempDir()
+	old := []byte("{\"toy\":1}\n")
+	new := []byte("{\"toy\":2}\n")
+	if WriteExclusive(filepath.Join(dir, "reserved.json"), old) != nil || WriteExclusive(filepath.Join(dir, "reserved.json"), new) == nil {
+		t.Fatal("exclusive reservation failed")
+	}
+	if WritePartial(dir, old) != nil || WritePartial(dir, new) != nil {
+		t.Fatal("partial replacement failed")
+	}
+	b, e := ReadFile(filepath.Join(dir, "results.partial.json"), 100)
+	if e != nil || !bytes.Equal(b, new) {
+		t.Fatal("latest partial not preserved")
+	}
+	if WriteExclusive(filepath.Join(dir, "too-large"), make([]byte, OutputLimit)) == nil {
+		t.Fatal("size cap bypassed")
+	}
+	if _, e := os.Stat(filepath.Join(dir, "too-large")); !os.IsNotExist(e) {
+		t.Fatal("invalid output reserved")
+	}
+	if os.WriteFile(filepath.Join(dir, ".results.partial.tmp"), old, 0600) != nil {
+		t.Fatal("setup failed")
+	}
+	if WritePartial(dir, new) == nil {
+		t.Fatal("abandoned temp did not fail closed")
+	}
+	p := FilePin{Path: "reserved.json", Bytes: len(old), SHA256: Digest(old)}
+	if _, e := PinFile(dir, p, 100); e != nil {
+		t.Fatal("positive pin failed")
+	}
+	p.SHA256 = strings.Repeat("a", 64)
+	if _, e := PinFile(dir, p, 100); e == nil {
+		t.Fatal("modified pin accepted")
+	}
+	if os.Symlink(filepath.Join(dir, "reserved.json"), filepath.Join(dir, "link.json")) != nil {
+		t.Fatal("setup failed")
+	}
+	p.Path = "link.json"
+	p.SHA256 = Digest(old)
+	if _, e := PinFile(dir, p, 100); e == nil {
+		t.Fatal("symlink accepted")
+	}
+}
+func TestSyntheticSourceClosureNoExtraGoOrMutation(t *testing.T) {
+	dir := t.TempDir()
+	p := Plan{ObserverRoot: dir, OriginalSourceRoot: filepath.Join(dir, "upstream")}
+	var w WantFile
+	for _, d := range []string{"upstream/uuid", "upstream/humanize", "pure", "cmd", "conversion80"} {
+		if os.MkdirAll(filepath.Join(dir, d), 0700) != nil {
+			t.Fatal("setup failed")
+		}
+	}
+	for i := 0; i < 20; i++ {
+		sub, family := "uuid", "google/uuid"
+		if i >= 17 {
+			sub, family = "humanize", "dustin/go-humanize"
+		}
+		name := string(rune('a'+i)) + ".go"
+		rel := sub + "/" + name
+		b := []byte("// synthetic" + name)
+		if os.WriteFile(filepath.Join(p.OriginalSourceRoot, rel), b, 0600) != nil {
+			t.Fatal("setup failed")
+		}
+		p.Closure = append(p.Closure, FilePin{Base: "original", Path: rel, Bytes: len(b), SHA256: Digest(b)})
+		w.Sources = append(w.Sources, OriginalPin{Family: family, OriginalPath: name, Bytes: len(b), SHA256: Digest(b)})
+	}
+	if VerifySources(p, w) != nil {
+		t.Fatal("positive synthetic closure rejected")
+	}
+	if os.WriteFile(filepath.Join(dir, "pure", "extra.go"), []byte("// extra"), 0600) != nil {
+		t.Fatal("setup failed")
+	}
+	if VerifySources(p, w) == nil {
+		t.Fatal("extra Go accepted")
+	}
+	if os.Remove(filepath.Join(dir, "pure", "extra.go")) != nil {
+		t.Fatal("setup failed")
+	}
+	if os.WriteFile(filepath.Join(p.OriginalSourceRoot, p.Closure[0].Path), []byte("// altered"), 0600) != nil {
+		t.Fatal("setup failed")
+	}
+	if VerifySources(p, w) == nil {
+		t.Fatal("altered source accepted")
+	}
+}

@@ -8,6 +8,7 @@
 - [Go 압축 가중치78](Packed-Weights-78-KO) · [Packed Go weights78](Packed-Weights-78-EN)
 - [공개 함수 동작 검증](Source-Behavior-80-KO) · [Public function verification](Source-Behavior-80-EN)
 - [다음 학습 자료 준비](Claim-Data-Preparation-KO) · [Training data preparation](Claim-Data-Preparation-EN)
+- [동작에서 학습 정답 만들기](Claim-Behavior-Validation-KO) · [Grounding training labels](Claim-Behavior-Validation-EN)
 - [소스 동작 관찰](Source-Observation-73-KO) · [Source observations](Source-Observation-73-EN)
 - [저장 크기와 RAM](Compact-Storage-73-KO) · [Storage and RAM](Compact-Storage-73-EN)
 - [라이선스](Licensing-and-Project-KO) · [Licensing](Licensing-and-Project-EN)

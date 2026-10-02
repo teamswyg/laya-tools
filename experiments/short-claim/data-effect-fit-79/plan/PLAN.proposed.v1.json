@@ -1,0 +1,134 @@
+{
+  "schema": "riido-source80-one-fp32-data-effect-fit-proposal-v1",
+  "state": "preparation_only_conditional_append_no_actual_supervision_roles_projection_or_fit",
+  "author": {
+    "agent": "semantic_review60_prep",
+    "reading": "AI-assisted source and saved-metadata reading",
+    "independence": "Not independent of Source80 source-first or Wanted72 authorship, prior71 driver/trainer implementation or prior result exposure. Not the conversion candidate or family-review author.",
+    "blind": false,
+    "ordinary_collaboration_cost": "unmeasured; zero extra model/API calls does not mean zero AI collaboration cost"
+  },
+  "frozen": false,
+  "execution_authorized": false,
+  "qualification": false,
+  "training_ready": false,
+  "production_ready": false,
+  "protected_final": false,
+  "independent_heldout": false,
+  "question": "With the original weighted-BCE objective and all original validation inputs fixed, does adding these three qualified finite source requests to development training change development-regression utility?",
+  "one_factor": {
+    "changed": "Training data only: append three requests and their nine candidates after qualification.",
+    "reference": "First71 weighted-BCE fit, not the lambda1 second72 fit.",
+    "new_model": "Fresh sibling with the same initialization recipe and seed; no inherited weights, warm start, quantization or selected71 model decoding.",
+    "unchanged": ["original76 request/caption bytes, IDs and candidate order", "original76 truth and acceptable sets", "original76 loss masks and sample weights", "original70 roles and connected groups", "original validation and calibration", "raw request+caption feature semantics", "seed/configuration", "BCE objective", "earliest minimum validation-BCE epoch selector", "four controls and tie policy", "utility thresholds"],
+    "not_searched": ["seed", "lambda", "feature family", "mask", "threshold", "caption wording", "model selection by utility"],
+    "data_effect_limit": "Adding rows also changes vocabulary, class/source proportions, shuffle order and the original weighted batch normalization. These are consequences of the data change; this is not an isolated causal test of one linguistic property."
+  },
+  "evidence": [
+    {"id":"original56-budget-and-utility-policy","logical_ref":"experiments/short-claim/PLAN-56.en.md","sha256":"97d6af0009402be46ab43d32bc1ec1ec683511123c91b2df68d73530d11b1aaa","text_sections":["Proposed development-utility and resource gates","Proposed tiny model comparison"]},
+    {"id":"actual70-original76-roles","bytes":29864,"sha256":"24de7b745747966107b00c6748a61dc920d97ed9cc9f98a8f22fd367cd8b6b70","pointers":["/parent_roles","/whole_groups","/role_counts"]},
+    {"id":"original76-projection","bytes":8390462,"sha256":"f68bff5f48747a66f038c17262568c1bd91251a8c81b3f46f7ae5090c8fe4b99","pointers":["/projection/Parents","/projection/Counts","/projection/Development","/projection/Validation","/projection/DevelopmentRefs","/projection/ValidationRefs","/input_pins","/source_pins"]},
+    {"id":"first71-frozen-execution-plan","bytes":15812,"sha256":"87ed7c3aa0ffd7e2afe8024610b0ac4bc7d1702ead97f9aa342a3e0dbd43cc44","pointers":["/config","/original_max_fits","/original_max_artifacts","/new_assets_bytes_max","/OS_peak_process_RSS_bytes_max"]},
+    {"id":"first71-actual-result","logical_ref":"experiments/short-claim/first-primary-fit-71/actual/results.json","bytes":71849,"sha256":"060eaa602f27f7fd9a67306e2fa2a530f0ef4c5c4548858a7818d9dfdb4bb28a","pointers":["/Fit","/Artifact","/Utility/Controls","/Utility/Primary","/Counts"]},
+    {"id":"second72-historical-failure","logical_ref":"experiments/short-claim/second-ranking-fit-72/results.json","bytes":89329,"sha256":"e01d7daf8a5f26cd5578674e87f996a578d747f6622221308da4624a71995220","pointers":["/Artifact","/Counts","/Utility"]},
+    {"id":"source80-conversion-proposal","bytes":81239,"sha256":"36414f5b02b8a4c9439e270ff9feacf514254ff3b472d532a7da7ce2761b7a0b","pointers":["/parents/0","/parents/1","/parents/2","/candidate_source","/original_upstream_pins"]},
+    {"id":"source80-conversion-family-review","bytes":17428,"sha256":"79048419dcd6653edfcab1d234e6198ee0671e5f1eaef7277da9e7a570d26db0","pointers":["/counts","/proposed_links","/actual_existing76_group_roles","/global_provenance_policy","/role_policy"]},
+    {"id":"source80-Wanted72","bytes":244161,"sha256":"798f0e8cbe99534599aac4c2c89a8bf25caaf97121d039600f0629d45afe76c2","use":"Frozen pre-execution expectations, not candidate Got, truth or model features."},
+    {"id":"source80-Wanted72-handoff","bytes":3716,"sha256":"e45af5a37ba083e2d074bbbed5f44a31b00f9499777899c190a940f282ce4833"}
+  ],
+  "original76": {
+    "parents":76,"candidates":226,"whole_groups":19,"known_containing_groups":18,
+    "answerable":38,"no_answer":17,"unknown":21,"unknown_candidate_audit":63,
+    "roles": [
+      {"role":"development_train","parents":44,"candidates":130,"whole_groups":12,"known_groups":11,"unknown_parents":13,"unknown_candidates":39,"fit_rows":91,"zero_weight_fit_rows":18},
+      {"role":"development_validation","parents":20,"candidates":60,"whole_groups":4,"known_groups":4,"unknown_parents":5,"unknown_candidates":15,"fit_rows":45,"zero_weight_fit_rows":1},
+      {"role":"development_calibration","parents":12,"candidates":36,"whole_groups":3,"known_groups":3,"unknown_parents":3,"unknown_candidates":9,"fit_rows":0}
+    ],
+    "projection_owned_payload_bytes":1928154,"historical_projection_feature_scans":272,
+    "preservation": "Keep original76 as an exact ordered prefix. No reordering historical JSON role rows or changing truth, masks, groups, roles or calibration. Unknown truth remains nullable audit, calibration remains no-fit and no epoch choice."
+  },
+  "append_proposal": {
+    "actual_new_parents":0,"actual_new_labels":0,"actual_new_masks":0,"actual_new_weights":0,"actual_new_roles":0,"actual_new_groups":0,
+    "planned_role":"development_train",
+    "actual_role":null,
+    "families": [
+      {"family":"google/uuid","revision":"2d3c2a9cc518326daf99a383f07c4d3c44317e4d","draft_parent_ids":["conversion80-parse-partial-errors","conversion80-scan-state-errors"],"group_id":null,"actual_role":null,"license":"BSD-3-Clause","group_rule":"Parse and Scan, shared helpers/errors/UUID state/package sources/static startup sites and all wrappers/postprocessors/aliases/fixtures belong together."},
+      {"family":"dustin/go-humanize Ordinal source slice","revision":"a1b4e66b9a6d890e9e15e7091cf16c8032367d6e","draft_parent_ids":["conversion80-ordinal-teen-suffix"],"group_id":null,"actual_role":null,"license":"MIT for selected Ordinal slice, not the entire upstream package","group_rule":"Original Ordinal and all suffix/wrapper/postprocessor variants belong together."}
+    ],
+    "parents": [
+      {"draft_parent_id":"conversion80-parse-partial-errors","proposal_pointer":"/parents/0","candidate_ids":["parse-zero-on-error","parse-preserve","parse-panic-on-error"],"author_proposed_acceptable_indices":[1],"truth":null,"acceptable_candidate_indices":null,"mask":null,"weight":null,"role":null},
+      {"draft_parent_id":"conversion80-scan-state-errors","proposal_pointer":"/parents/1","candidate_ids":["scan-preserve","scan-clear-before","scan-suppress-error"],"author_proposed_acceptable_indices":[0],"truth":null,"acceptable_candidate_indices":null,"mask":null,"weight":null,"role":null},
+      {"draft_parent_id":"conversion80-ordinal-teen-suffix","proposal_pointer":"/parents/2","candidate_ids":["ordinal-last-digit","ordinal-constant-th","ordinal-preserve"],"author_proposed_acceptable_indices":[2],"truth":null,"acceptable_candidate_indices":null,"mask":null,"weight":null,"role":null}
+    ],
+    "eligibility_pending": ["72 candidate observations and finite-channel result review", "request contract and complete candidate-source/postprocessing binding", "caption fidelity and model-visible coverage separately from candidate task satisfaction", "explicit typed truth/acceptable-set and per-candidate loss eligibility", "connected-family binding and train-only append manifest"],
+    "unsupported_is_not_negative":true,
+    "faithful_incorrect_candidate_can_be_negative":true,
+    "broadness_limit":"Finite fixture agreement does not prove arbitrary-input caption/task satisfaction. Any materially unsupported clause remains unresolved or loss-masked under existing policy; a revised request/caption needs a separate version, never retrospective replacement.",
+    "exposure":"Both libraries were already exposed through source53/prior55 work. The current declared76 graph contains neither family; this is absence of a declared connection, not independent source-origin or heldout proof.",
+    "role_binding_rule":"Propose appending both whole-families to training only, preserving actual70 roles. Do not rerun Assign over all21 groups or copy a source68 role. Concrete linkage to an existing component inherits that role; cross-role connection stops the affected plan without splitting/moving roles or searching a seed."
+  },
+  "conditional_size_scenario": {
+    "condition":"Only if all three requests qualify as answerable and all nine candidate loss masks qualify, and the two families do not merge with existing components.",
+    "actual":false,
+    "parents":79,"candidates":235,"whole_groups":21,"known_containing_groups":20,
+    "answerable":41,"no_answer":17,"unknown":21,"unknown_candidates":63,
+    "train_parents":47,"validation_parents":20,"calibration_parents":12,
+    "train_candidates":139,"validation_candidates":60,"calibration_candidates":36,
+    "train_whole_groups":14,"validation_whole_groups":4,"calibration_whole_groups":3,
+    "train_fit_rows":100,"validation_fit_rows":45,"calibration_fit_rows":0,
+    "train_zero_weight_rows":18,"validation_zero_weight_rows":1,
+    "new_known_fit_rows":9,"new_positive_labels":3,"new_negative_labels":6,
+    "planned_direct_input_validations":79,"planned_project_entries":1,"planned_project_feature_scans":290,
+    "not_assumed":"Masks/truth/group IDs are still null. If fewer entries qualify or new masks are zero, seal a distinct actual manifest/counts before execution; do not silently coerce this scenario or promote unknown to negative."
+  },
+  "training": {
+    "backend":"existing pairlearn.FitWithTrace weighted-BCE path with no ranking configuration",
+    "rank_lambda":0,
+    "config":{"Seed":1729,"Mode":"fp32","LearningRate":0.1,"L2":0.0001,"Epochs":50,"Batch":128,"Dimension":8192},
+    "epoch_choice":"Train up to the fixed50 epochs within the same budgets; choose earliest strict minimum validation BCE as original71. Do not select by new-train utility or replace BCE with pair-NLL.",
+    "numeric_contract":"FP32 coefficient rounding with original FP64 shadow/gradient/loss/scoring arithmetic. Raw requests and candidate captions alone enter the unchanged sparse feature contract; source/code/IDs/truth/roles/masks/observed answers remain metadata or supervision.",
+    "supervision_rule":"Known: acceptable candidates1, others0; no_answer: all0. Retain known loss-masked rows with original labels and weight0. Unknown has no fit rows and nullable audit; calibration has no fit rows. Existing row weight normalization is unchanged.",
+    "fit_budget":{"original_max_fits":8,"previous_corpus_fit_attempts":2,"new_fit_attempts_planned":1,"retries":0,"fits_if_completed":3,"original_max_model_artifacts":16,"observed_previous_primary_artifacts":2,"actual_registry_count_for_execution":null,"planned_new_primary_artifacts":1,"new_derived_quantizations":0},
+    "artifact_observation":"Two saved results each name one32792-byte FP32 primary artifact. The complete pre-existing artifact registry is not inferred from two results; reuse the original16 ceiling with root's frozen consumption record.",
+    "before_fit":"After qualification, exact CI/source/binary/data/role/mask pins and existing control headroom are frozen, root reserves a fresh once-only attempt durably before dispatch. No actual fit is authorized by this proposed plan."
+  },
+  "utility": {
+    "primary_scope":"Original validation A: all15 known/no_answer parents and all45 candidates, including the original masked candidate; unknown5 stays nullable audit. Preserve role20 total. The same exposed development validation also selects epochs, so utility is regression evidence, not unbiased generalization.",
+    "controls":["fixed_order","bm25","lexical_ordered","narrow_rule"],
+    "comparator_tie":"Minimum total checks over one complete control; ties keep fixed array order. Stable candidate-score ties keep original candidate position. No per-request stitched best control.",
+    "historical_controls_checks":[31,28,27,28],"historical_strongest_control":"lexical_ordered",
+    "historical_control_checks":27,"historical_oracle_checks":21,"historical_headroom":0.2222222222222222,
+    "historical_control_top1_correct":5,"historical_control_top3_correct":10,
+    "oracle_explanation":"Ten answerable requests contribute1 each; five no_answer requests require all2+2+2+2+3 candidates, contributing11. Do not assume every request has three candidates.",
+    "original_thresholds":{"before_fit_control_oracle_headroom_min":0.05,"relative_mean_checks_reduction_min":0.05,"top1_nondegradation":true,"top3_nondegradation":true},
+    "fixed_denominator_integer_implication":"If the unchanged strongest control is27 checks, a5% reduction requires at most25 checks, with Top1 at least5 and Top3 at least10. This is arithmetic, not a new threshold.",
+    "first71_history":{"checks":31,"top1_correct":2,"top3_correct":10,"development_utility_passed":false},
+    "second72_history":{"checks":33,"top1_correct":1,"top3_correct":10,"development_utility_passed":false,"use":"Preserve historical failure, not the data-only comparator."},
+    "new_train_origin_diagnostic":"Report the added3 requests/9 candidates separately under the same four controls and new model, including every candidate regardless of loss mask. If all are answerable with three candidates, Top3=3/3 is trivial and oracle checks=3. These are training-origin diagnostics, not heldout validation, added evaluation truth counts or a pooled gate. No isolated3-request fit.",
+    "no_headroom_claim":"The new slice's control counts are unmeasured. If a control already reaches its oracle, report zero available headroom on that slice; do not claim learned gain or use it to lower/replace the fixed original-validation gate.",
+    "checks_meaning":"Simulated independent checks from acceptable rank+1, or all candidates for no_answer. Not actual verifier executions, LLM calls, CPU instructions or measured Codex cost."
+  },
+  "minimal_integration_proposal": {
+    "input_schema":"Separate proposed riido-qualified-original76-plus-source80-train-append-v1; caller-frozen metadata, not a claimfit eligibility loader.",
+    "fields":["original76 projection and original source/truth/mask/role pins", "ordered new3 request/candidate IDs and exact request+caption bytes", "qualified candidate-source/fidelity/coverage/channel evidence pins", "typed truth and acceptable indices", "per-candidate loss masks/explicit sample weights", "whole-family train-only append manifest preserving actual70 roles", "exact future source/CI/binary pins"],
+    "join_algorithm":"Bounded arrays, original_parent_index to stored role-row lookup initialized to-1; reject out-of-range/duplicate/missing indices. Keep the original role array untouched. Verify the original76 ordered prefix against its saved snapshots and bindings before preparing only caller-qualified fields. New runtime IDs/groups remain unset here.",
+    "projection_adaptation":"Reuse the corrected76 join/prepare DTO conversion and public claimfit.Project once for the qualified79 scope, with direct input validation and original own-payload preflight. Verify original76 request/caption/order/truth/mask/role/group preservation and sparse per-row index/value-bit/label/weight equality; validation arrays/refs and calibration remain unchanged. Expected290 feature scans is conditional on145 known train+validation rows and current two-pass implementation, not an invocation now.",
+    "fit_driver_adaptation":"Version the first71 driver and plan. Replace exact76/226/38/17/21/19/18 guards with frozen actual79-scope values and sized arrays, change historical prior-fit0 to recorded2, and bind fresh output directory/source/CI/binary/qualified projection. Preserve checkProjection/checkFit, durable attempt reservation, counter checkpoints, four controls, utility denominators and failure retention. Use FitWithTrace without ranking configuration.",
+    "controller_adaptation":"Reuse the bounded outside controller; replace historical CI91/path assumptions with root's chosen successful exact source head and compile closure. Keep source-byte checks, timeout+process-group wait/reap and OS metrics. No large new controller or extra judge layer.",
+    "pending_freeze":{"qualified_new_inputs_sha256":null,"new_candidate_observations_sha256":null,"new_caption_peer_sha256":null,"typed_supervision_sha256":null,"train_append_membership_sha256":null,"qualified_projection_sha256":null,"source_commit":null,"source_ci_run":null,"driver_binary_sha256":null},
+    "limits_of_module":"claimfit.Project owns snapshots and sparse columns, validates shape/group leakage and masks, and extracts raw-text features. It does not certify metadata SHA, source/caption eligibility, source independence, readiness, roles or performance."
+  },
+  "resources": {
+    "runtime_go":"go1.27.1","cpu_threads":1,"gpu_used":false,"simultaneous_actual_fits":1,
+    "go_heap_soft_limit_bytes":268435456,"whole_process_peak_RSS_budget_bytes":268435456,"OS_RSS_hard_cap":false,
+    "outside_wall_timeout_seconds":300,"timeout_policy":"Kill the process group and wait/reap; preserve partial durable counters/results and report uncertain in-flight calls rather than success or zero.",
+    "prepared_sparse_owned_payload_max_bytes":67108864,"raw_projection_file_cap_bytes":67108864,
+    "total_new_data_models_numeric_records_max_bytes":67108864,
+    "storage_enforcement_note":"PLAN56 defines a total new-data/models/numeric-record budget. First71 validates AssetsMax and caps individual pinned input reads but its execute writer has no visible cumulative new-file byte accounting. For the next run, root must sum newly written governed assets against the same64MiB ceiling; do not call a per-file cap aggregate enforcement or silently raise the budget.",
+    "observed_reference_only":{"old76_sparse_owned_payload_bytes":1928154,"old76_verbose_JSON_bytes":8390462,"first71_model_file_bytes":32792,"second72_model_file_bytes":32792},
+    "distinctions":"File bytes, owned sparse payload, temporary JSON allocations, Go heap/allocations and OS RSS are different.256MiB GOMEMLIMIT is soft; the old outside controller measures RSS and reports budget status after exit, not an enforced RSS kill. Whole lifetime wall/user/system/RSS includes startup, validation, controls, checkpoints and model I/O. No per-score latency, GPU savings or LLM cost claim.",
+    "models_policy":"Weights and binary assets remain private and outside Git. Preserve failed71/72 originals. New HF publication, default activation, quantization and production readiness are separate later actions after the original utility/reproducibility/license/resource conditions; this plan does none."
+  },
+  "future_final":"At least2400 genuinely fresh semantic requests in the separate final plan remains unacquired/unread/unscored here.79 development requests,72 candidate fixtures, translations, aliases, wrappers and different seeds do not satisfy it. Existing protected final data is untouched.",
+  "actual_operations": {"new_original_candidate_calls":0,"new_native_calls":0,"new_labels":0,"new_masks":0,"new_weights":0,"new_roles":0,"Assign":0,"Validate":0,"Normalize":0,"Project":0,"Features":0,"Score":0,"Decode":0,"Fit":0,"baselines":0,"benchmarks":0,"new_models":0,"HF_operations":0,"protected_final_reads":0,"shared_Git_writes":0}
+}
