@@ -1,0 +1,29 @@
+{
+  "schema": "riido-private-pair-loss-code-qa-ledger-v1",
+  "state": "complete_synthetic_code_review",
+  "qa_plan_sha256": "43a76b6d330479cc20bcac2dd381e05fc98b000aeba28431b370748df1227794",
+  "receipt_sha256": "1e84fb573e13e20f6dfbbbc41506e1698be7a17d05a7569f4467843b4e376881",
+  "events": [
+    {"kind":"private_source_copy_and_package_name_only_legacy_copy", "attempts":1, "successes":1, "failures":0},
+    {"kind":"independent_synthetic_test_format", "attempts":1, "successes":1, "failures":0},
+    {"kind":"targeted_race", "attempts":1, "successes":1, "failures":0, "exit_code":0, "top_tests":18, "subtests":21, "package_terminal_passes":1, "skips":0},
+    {"kind":"vet_private_frozen_packages", "attempts":1, "successes":1, "failures":0, "exit_code":0},
+    {"kind":"receipt_metadata_helper_format", "attempts":1, "successes":1, "failures":0},
+    {"kind":"receipt_metadata_helper", "attempts":1, "successes":1, "failures":0, "exit_code":0},
+    {"kind":"auxiliary_read_with_git_status_wrong_private_workdir", "attempts":1, "successes":0, "failures":1, "exit_code":128, "scope":"Read of receipt and numbered source completed; trailing Git-status query failed because the private QA directory is not a repository. No tests or code changed; no actual corpus calls; no automatic test retry."}
+  ],
+  "independent_synthetic_fit_calls":36,
+  "independent_synthetic_fit_call_accounting":"12 configurations, each historical HEAD FitWithTrace plus current nil plus current lambda-zero; author synthetic tests also execute toy fits and were not instrumented as individual callbacks.",
+  "author_reported_preparation_history":{"targeted_race_attempts":5,"race_passes":4,"race_failures":1,"failure_scope":"An earlier author JSON assertion confused supervision pair weights with model coefficients; this was corrected before the frozen code supplied for review."},
+  "actual_corpus_fit_calls":0,
+  "actual_features_calls":0,
+  "actual_baselines_calls":0,
+  "actual_projection_calls":0,
+  "new_labels":0,
+  "new_roles":0,
+  "paid_model_trials":0,
+  "shared_code_edits":0,
+  "remote_mutations":0,
+  "protected_final_reads":0,
+  "new_performance_measurements":0
+}
