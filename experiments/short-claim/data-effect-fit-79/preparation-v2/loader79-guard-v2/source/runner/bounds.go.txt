@@ -1,0 +1,120 @@
+package main
+
+import (
+	"encoding/json"
+	"errors"
+)
+
+const (
+	resultCap        = int64(12 << 20)
+	ledgerCap        = int64(64 << 10)
+	retainedCap      = uint64(512 << 20)
+	stageCap         = uint64(64 << 20)
+	fitOutputReserve = uint64((16 << 20) + 32792)
+)
+
+// Storage is a caller-frozen reservation. Input pins identify the amendment and
+// complete registry; this runner does not establish registry completeness.
+// Root preserves one worker result and no raw result/stdout mirrors. A phase
+// checkpoint and the terminal result share that path, not separate copies.
+type Storage struct {
+	Frozen          bool   `json:"frozen"`
+	Amendment       Pin    `json:"resource_amendment"`
+	Registry        Pin    `json:"complete_retained_registry"`
+	RetainedBytes   uint64 `json:"already_retained_logical_bytes"`
+	RetainedMax     uint64 `json:"retained_logical_max_bytes"`
+	StageMax        uint64 `json:"new_Project_and_Fit_stage_max_bytes"`
+	ResultCopies    int    `json:"worker_result_copies"`
+	LedgerCopies    int    `json:"worker_ledger_copies"`
+	RawMirrorCopies int    `json:"outside_raw_result_or_partial_copies"`
+	StdoutCopies    int    `json:"outside_stdout_result_copies"`
+	StdoutKillCap   uint64 `json:"outside_stdout_kill_cap_bytes"`
+	OutsideMax      uint64 `json:"outside_summary_and_retained_logs_max_bytes"`
+	ProjectReserve  uint64 `json:"Project_reserved_bytes"`
+	FitReserve      uint64 `json:"Fit_reserved_bytes"`
+	OtherReserve    uint64 `json:"other_stage_reserved_bytes"`
+	StageReserve    uint64 `json:"total_stage_reserved_bytes"`
+}
+
+func pinReady(p Pin) bool {
+	return p.ID != "" && p.Path != "" && p.Bytes > 0 && p.Bytes <= 1<<20 && len(p.SHA) == 64
+}
+
+// Output reservation proof deliberately excludes physical source/registry paths.
+type StorageRecord struct {
+	AmendmentSHA    string `json:"resource_amendment_sha256"`
+	RegistrySHA     string `json:"complete_retained_registry_sha256"`
+	RetainedBytes   uint64 `json:"already_retained_logical_bytes"`
+	RetainedMax     uint64 `json:"retained_logical_max_bytes"`
+	StageMax        uint64 `json:"new_Project_and_Fit_stage_max_bytes"`
+	ResultCopies    int    `json:"worker_result_copies"`
+	LedgerCopies    int    `json:"worker_ledger_copies"`
+	RawMirrorCopies int    `json:"outside_raw_result_or_partial_copies"`
+	StdoutCopies    int    `json:"outside_stdout_result_copies"`
+	StdoutKillCap   uint64 `json:"outside_stdout_kill_cap_bytes"`
+	OutsideMax      uint64 `json:"outside_summary_and_retained_logs_max_bytes"`
+	ProjectReserve  uint64 `json:"Project_reserved_bytes"`
+	FitReserve      uint64 `json:"Fit_reserved_bytes"`
+	OtherReserve    uint64 `json:"other_stage_reserved_bytes"`
+	StageReserve    uint64 `json:"total_stage_reserved_bytes"`
+}
+
+func storageRecord(s Storage) StorageRecord {
+	return StorageRecord{s.Amendment.SHA, s.Registry.SHA, s.RetainedBytes, s.RetainedMax, s.StageMax, s.ResultCopies, s.LedgerCopies, s.RawMirrorCopies, s.StdoutCopies, s.StdoutKillCap, s.OutsideMax, s.ProjectReserve, s.FitReserve, s.OtherReserve, s.StageReserve}
+}
+
+func validStorage(s Storage) bool {
+	if !s.Frozen || !pinReady(s.Amendment) || !pinReady(s.Registry) || s.RetainedMax != retainedCap || s.StageMax != stageCap || s.ResultCopies != 1 || s.LedgerCopies != 1 || s.RawMirrorCopies != 0 || s.StdoutCopies != 0 || s.StdoutKillCap != uint64(resultCap) || s.OutsideMax > 1<<20 || s.FitReserve < fitOutputReserve || s.RetainedBytes > retainedCap {
+		return false
+	}
+	base := uint64(resultCap + ledgerCap)
+	if s.ProjectReserve != base+s.OutsideMax || s.ProjectReserve > stageCap || s.FitReserve > stageCap-s.ProjectReserve || s.OtherReserve > stageCap-s.ProjectReserve-s.FitReserve {
+		return false
+	}
+	want := s.ProjectReserve + s.FitReserve + s.OtherReserve
+	return s.StageReserve == want && want <= retainedCap-s.RetainedBytes
+}
+
+// Encode into an owned capped buffer before touching the output file. The
+// standard encoder can allocate a temporary full representation internally;
+// this is a persistent-byte bound, not a hard heap or streaming-JSON claim.
+type cappedBuffer struct {
+	data []byte
+	max  int64
+}
+
+var errEncodedBound = errors.New("projection79_encoded_bound")
+
+func (b *cappedBuffer) Write(p []byte) (int, error) {
+	if int64(len(p)) > b.max-int64(len(b.data)) {
+		return 0, errEncodedBound
+	}
+	b.data = append(b.data, p...)
+	return len(p), nil
+}
+func encodeBounded(v any, cap int64) ([]byte, error) {
+	if cap < 1 || cap > resultCap {
+		return nil, errEncodedBound
+	}
+	b := cappedBuffer{max: cap}
+	e := json.NewEncoder(&b)
+	if err := e.Encode(v); err != nil {
+		return nil, err
+	}
+	return b.data, nil
+}
+
+func encodeResult(r *Result, cap int64) ([]byte, bool, error) {
+	b, e := encodeBounded(r, cap)
+	if e == nil {
+		return b, false, nil
+	}
+	// Retain actual counters/payload and reservation while dropping only the
+	// oversized numerical projection from a durable terminal failure record.
+	r.State = "failed_projection79_output_bound"
+	r.Failure = "projection79_result_bound"
+	r.Projection = nil
+	r.Proof = nil
+	b, e = encodeBounded(r, cap)
+	return b, true, e
+}

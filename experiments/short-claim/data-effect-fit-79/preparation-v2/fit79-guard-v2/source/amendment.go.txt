@@ -1,0 +1,46 @@
+package main
+
+import "encoding/json"
+
+type ResourceAmendment struct {
+	Schema                    string `json:"schema"`
+	Frozen                    bool   `json:"frozen"`
+	State                     string `json:"state"`
+	HistoricalLimit           int64  `json:"historical_plan56_original_limit_bytes"`
+	HistoricalExcessPreserved bool   `json:"historical_excess_preserved"`
+	RetainedMax               int64  `json:"retained_per_path_logical_bytes_max"`
+	NewStageMax               int64  `json:"new_stage_data_models_numeric_bytes_max"`
+	CountingBasis             string `json:"counting_basis"`
+	ScientificRecipeChanged   bool   `json:"scientific_recipe_changed"`
+	CurrentRegistrySHA        string `json:"current_registry_sha256"`
+	CurrentRegistryBytes      int64  `json:"current_registry_bytes"`
+	ProjectionMax             int64  `json:"projection_file_bytes_max"`
+	ResultMax                 int64  `json:"result_file_bytes_max"`
+	LedgerMax                 int64  `json:"ledger_file_bytes_max"`
+	ModelBytes                int64  `json:"model_file_exact_bytes"`
+	OriginalCaps              struct {
+		Fits   int   `json:"fits"`
+		Models int   `json:"model_assets"`
+		Sparse int64 `json:"sparse_payload"`
+		CPU    int   `json:"cpu_threads"`
+		Heap   int64 `json:"go_soft_heap"`
+		RSS    int64 `json:"observed_rss"`
+		Time   int   `json:"whole_process_timeout_seconds"`
+	} `json:"original_caps"`
+}
+
+func verifyAmendment(raw []byte, p Plan) error {
+	audit, e := retainedAuditPin(p)
+	if e != nil {
+		return e
+	}
+	var a ResourceAmendment
+	if json.Unmarshal(raw, &a) != nil || a.Schema != "riido-source80-data-effect79-resource-amendment-v1" || !a.Frozen || a.State != "frozen_resource_policy_for_one_data_effect79_stage" || a.HistoricalLimit != maxPayload || !a.HistoricalExcessPreserved || a.RetainedMax != amendedRetainedMax || a.NewStageMax != maxPayload || a.CountingBasis != "sum current regular-file bytes per distinct governed path; identical SHA/inode remains counted" || a.ScientificRecipeChanged || a.CurrentRegistrySHA != audit.SHA256 || a.CurrentRegistryBytes != audit.Bytes || a.ProjectionMax != 12<<20 || a.ResultMax != maxNumericAsset || a.LedgerMax != maxNumericAsset || a.ModelBytes != modelBytes || a.OriginalCaps.Fits != 8 || a.OriginalCaps.Models != 16 || a.OriginalCaps.Sparse != maxPayload || a.OriginalCaps.CPU != 1 || a.OriginalCaps.Heap != 256<<20 || a.OriginalCaps.RSS != 256<<20 || a.OriginalCaps.Time != 300 || p.RetainedMax == nil || *p.RetainedMax != a.RetainedMax || p.Projection.Bytes > a.ProjectionMax {
+		return fail("resource_amendment_contract")
+	}
+	// CurrentRegistrySHA names Root's preceding audit registry, not this
+	// consumption file: the latter binds this amendment's SHA, avoiding a
+	// mutually recursive hash recipe. Its bytes/SHA must match the unique audit
+	// evidence pin; consumption also reads that exact audit and checks coverage.
+	return nil
+}

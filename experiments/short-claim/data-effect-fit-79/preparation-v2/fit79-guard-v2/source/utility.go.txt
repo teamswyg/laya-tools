@@ -1,0 +1,251 @@
+package main
+
+import (
+	"github.com/teamswyg/laya-tools/internal/claimfit"
+	"github.com/teamswyg/laya-tools/internal/pairlearn"
+	"github.com/teamswyg/laya-tools/pkg/shortclaim"
+)
+
+func rankScores(scores [8]float64, n int) ([8]int, error) {
+	var order [8]int
+	if n < 1 || n > 8 {
+		return order, fail("rank_count")
+	}
+	for c := 0; c < n; c++ {
+		if !finite(scores[c]) {
+			return order, fail("rank_nonfinite")
+		}
+		order[c] = c
+	}
+	// Stable insertion order: ties retain the original candidate order.
+	for i := 1; i < n; i++ {
+		x := order[i]
+		j := i
+		for j > 0 && scores[x] > scores[order[j-1]] {
+			order[j] = order[j-1]
+			j--
+		}
+		order[j] = x
+	}
+	return order, nil
+}
+func rankedParent(i int, p claimfit.RuntimeParent, order [8]int, scores [8]float64) (RankedParent, error) {
+	out := RankedParent{ParentIndex: i, Role: uint8(p.Role), Truth: p.Truth, CandidateCount: p.Text.Count, Order: order, Scores: scores}
+	if p.Truth == claimfit.Unknown {
+		return out, fail("unknown_ranking_excluded")
+	}
+	var seen [8]bool
+	for c := 0; c < p.Text.Count; c++ {
+		x := order[c]
+		if x < 0 || x >= p.Text.Count || seen[x] {
+			return out, fail("candidate_permutation")
+		}
+		seen[x] = true
+	}
+	out.Checks = p.Text.Count
+	if p.Truth == claimfit.Known {
+		for k := 0; k < p.Text.Count; k++ {
+			if p.Labels[order[k]].Positive {
+				out.Checks = k + 1
+				out.Top1 = k == 0
+				out.Top3 = k < 3
+				break
+			}
+		}
+	}
+	out.FirstLossMasked = !p.LossEligible[order[0]]
+	return out, nil
+}
+func addMetric(m *Metric, p claimfit.RuntimeParent, r RankedParent) {
+	m.Parents++
+	m.TotalChecks += r.Checks
+	if p.Truth == claimfit.Known {
+		m.Answerable++
+		m.OracleChecks++
+		if r.Top1 {
+			m.Top1Correct++
+		}
+		if r.Top3 {
+			m.Top3Correct++
+		}
+	} else {
+		m.NoAnswer++
+		m.OracleChecks += p.Text.Count
+	}
+}
+func finishMetric(m *Metric) {
+	if m.Parents > 0 {
+		v := float64(m.TotalChecks) / float64(m.Parents)
+		o := float64(m.OracleChecks) / float64(m.Parents)
+		m.MeanChecks = &v
+		m.OracleMean = &o
+	}
+}
+func addEvaluation(e *Evaluation, i int, p claimfit.RuntimeParent, r RankedParent, tags []ParentStratum) {
+	e.Parents = append(e.Parents, r)
+	addMetric(&e.Metric, p, r)
+	allEligible := true
+	for c := 0; c < p.Text.Count; c++ {
+		allEligible = allEligible && p.LossEligible[c]
+	}
+	if allEligible {
+		addMetric(&e.SubsetBFullyEligible, p, r)
+	}
+	matches := 0
+	for _, t := range tags {
+		if t.ParentIndex != i {
+			continue
+		}
+		for _, tag := range t.Tags {
+			matches++
+			found := -1
+			for j, x := range e.Strata {
+				if x.Tag == tag {
+					found = j
+					break
+				}
+			}
+			if found < 0 {
+				e.Strata = append(e.Strata, StratumMetric{Tag: tag})
+				found = len(e.Strata) - 1
+			}
+			addMetric(&e.Strata[found].Metric, p, r)
+		}
+	}
+	if matches == 0 {
+		e.MissingStrataParents++
+	}
+}
+func finishEvaluation(e *Evaluation, unknown int) {
+	e.Metric.UnknownExcluded = unknown
+	finishMetric(&e.Metric)
+	finishMetric(&e.SubsetBFullyEligible)
+	for i := range e.Strata {
+		finishMetric(&e.Strata[i].Metric)
+	}
+}
+func controlsBeforeFit(p claimfit.Projection, tags []ParentStratum, c *Counts, call func(shortclaim.Prepared) ([4]shortclaim.Ranking, error)) (Utility, error) {
+	return controlsBeforeFitCheckpoint(p, tags, c, call, nil)
+}
+func controlsBeforeFitCheckpoint(p claimfit.Projection, tags []ParentStratum, c *Counts, call func(shortclaim.Prepared) ([4]shortclaim.Ranking, error), progress func(string, *Utility) error) (Utility, error) {
+	u := Utility{StrongestControlIndex: -1, ComparatorTiePolicy: "minimum total checks on identical validation A; ties fixed_order then bm25 then lexical_ordered then narrow_rule"}
+	for k := range u.Controls {
+		u.Controls[k].Kind = controls[k]
+	}
+	for i, x := range p.Parents {
+		if uint8(x.Role) != 1 || x.Truth == claimfit.Unknown {
+			continue
+		}
+		c.ControlParentAttempts++
+		if progress != nil && progress("control_dispatch_reserved_before_call", &u) != nil {
+			return u, fail("control_checkpoint_failed_before_dispatch")
+		}
+		rs, e := call(x.Text)
+		c.ControlParentReturned++
+		if e != nil {
+			return u, fail("control_failed")
+		}
+		for k, r := range rs {
+			if r.Kind != controls[k] || r.Count != x.Text.Count {
+				return u, fail("control_kind_or_count")
+			}
+			for j := 0; j < r.Count; j++ {
+				if !finite(r.Scores[j]) {
+					return u, fail("control_nonfinite")
+				}
+			}
+			row, e := rankedParent(i, x, r.Order, r.Scores)
+			if e != nil {
+				return u, e
+			}
+			addEvaluation(&u.Controls[k], i, x, row, tags)
+		}
+		if progress != nil && progress("control_returned_validated", &u) != nil {
+			return u, fail("control_checkpoint_failed_after_return")
+		}
+	}
+	for k := range u.Controls {
+		finishEvaluation(&u.Controls[k], p.Counts[1].UnknownParents)
+		m := u.Controls[k].Metric
+		if m.Parents == 0 {
+			return u, fail("empty_validation_A")
+		}
+		best := u.StrongestControlIndex
+		if best < 0 || m.TotalChecks < u.Controls[best].Metric.TotalChecks {
+			u.StrongestControlIndex = k
+		}
+	}
+	m := u.Controls[u.StrongestControlIndex].Metric
+	u.OracleHeadroom = float64(m.TotalChecks-m.OracleChecks) / float64(m.TotalChecks)
+	u.HeadroomPass = u.OracleHeadroom >= .05
+	return u, nil
+}
+func cachedScores(d pairlearn.Dataset, refs []claimfit.RowRef, weights []float64, parents int, c *Counts) ([][8]float64, [][8]bool, error) {
+	if len(d.Labels) != len(refs) || len(weights) != 8192 {
+		return nil, nil, fail("cached_score_shape")
+	}
+	scores := make([][8]float64, parents)
+	seen := make([][8]bool, parents)
+	for row, ref := range refs {
+		if ref.ParentIndex < 0 || ref.ParentIndex >= parents || ref.CandidateIndex < 0 || ref.CandidateIndex >= 8 || seen[ref.ParentIndex][ref.CandidateIndex] {
+			return nil, nil, fail("cached_score_ref")
+		}
+		c.CachedScoreRows++
+		value := 0.
+		for j := d.Offsets[row]; j < d.Offsets[row+1]; j++ {
+			value += weights[d.Indices[j]] * d.Values[j]
+		}
+		if !finite(value) {
+			return nil, nil, fail("cached_score_nonfinite")
+		}
+		scores[ref.ParentIndex][ref.CandidateIndex] = value
+		seen[ref.ParentIndex][ref.CandidateIndex] = true
+	}
+	return scores, seen, nil
+}
+func learnedEvaluation(p claimfit.Projection, weights []float64, tags []ParentStratum, c *Counts) (Evaluation, error) {
+	e := Evaluation{Kind: "primary8192_fp32_seed1729"}
+	scores, seen, err := cachedScores(p.Validation, p.ValidationRefs, weights, len(p.Parents), c)
+	if err != nil {
+		return e, err
+	}
+	for i, x := range p.Parents {
+		if uint8(x.Role) != 1 || x.Truth == claimfit.Unknown {
+			continue
+		}
+		for j := 0; j < x.Text.Count; j++ {
+			if !seen[i][j] {
+				return e, fail("missing_masked_or_known_candidate_score")
+			}
+		}
+		order, err := rankScores(scores[i], x.Text.Count)
+		if err != nil {
+			return e, err
+		}
+		r, err := rankedParent(i, x, order, scores[i])
+		if err != nil {
+			return e, err
+		}
+		addEvaluation(&e, i, x, r, tags)
+	}
+	finishEvaluation(&e, p.Counts[1].UnknownParents)
+	return e, nil
+}
+func compareUtility(u *Utility, e Evaluation) error {
+	if u.StrongestControlIndex < 0 || u.StrongestControlIndex >= 4 {
+		return fail("strongest_control_missing")
+	}
+	base := u.Controls[u.StrongestControlIndex].Metric
+	m := e.Metric
+	if m.Parents != base.Parents || m.Answerable != base.Answerable || m.NoAnswer != base.NoAnswer || m.UnknownExcluded != base.UnknownExcluded || m.OracleChecks != base.OracleChecks {
+		return fail("utility_denominator_changed")
+	}
+	gain := float64(base.TotalChecks-m.TotalChecks) / float64(base.TotalChecks)
+	u.Primary = &e
+	u.RelativeGain = &gain
+	u.CheckReductionPass = gain >= .05
+	u.Top1Pass = m.Top1Correct >= base.Top1Correct
+	u.Top3Pass = m.Top3Correct >= base.Top3Correct
+	u.DevelopmentUtilityPassed = u.HeadroomPass && u.CheckReductionPass && u.Top1Pass && u.Top3Pass
+	return nil
+}

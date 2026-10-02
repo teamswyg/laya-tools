@@ -1,0 +1,103 @@
+{
+  "schema": "riido-loader79-independent-source-peer-review-v2",
+  "state": "source_review_complete_no_remaining_reviewed_P1_final_root_handoff_binding_pending",
+  "review_kind": "Independent complete source and test review of a separate guarded v2; saved synthetic results were inspected without rerunning the worker or any scientific API",
+  "immutable_v1_review": {
+    "id": "REVIEW.v1.json",
+    "bytes": 10734,
+    "sha256": "eefbf1f1b58330af5a22d6fab2f357f19b0bd57d20bd997f50a9d2fdfd9c2ef4"
+  },
+  "source_snapshot": {
+    "runtime_Go_files": 7,
+    "go_mod_files": 1,
+    "test_files": 4,
+    "total_files": 12,
+    "total_bytes": 78231,
+    "final_Handoff_not_yet_received": true,
+    "binary_not_read_or_executed_by_reviewer": true,
+    "unchanged_from_v1": ["loader79/types.go", "loader79/join.go", "loader79/read.go", "go.mod"],
+    "files": [
+      {"id": "loader79/types.go", "bytes": 6358, "sha256": "7f1883e8eef4430f789bb6b3841c9ac2dc742ef5c078e3e1f60e0e05747c54dd"},
+      {"id": "loader79/join.go", "bytes": 11325, "sha256": "de6ac4517ddfb3d6d23e7aca8b1b86c3daafe510654b37e4118906b3408b2499"},
+      {"id": "loader79/read.go", "bytes": 1180, "sha256": "eabdf9a923d09cba95bcbe7a2d0a878cbc9d70158ee712d7ccc9cd8255c04551"},
+      {"id": "loader79/prefix.go", "bytes": 11039, "sha256": "f5314f0586a62a5ab63a90c2770b7753ba7166e47473aaa0a0d2bab8ea1a8984"},
+      {"id": "loader79/loader_test.go", "bytes": 17767, "sha256": "0c0305153a60a29a9896a9b1a81db477189d841bec20e784a8c3e6f0873c339a"},
+      {"id": "loader79/diagnostic_weights_test.go", "bytes": 949, "sha256": "cb84a403ecc90b5c24ee0e3b74a9313e5a053000e4d3d4c9b7a99deb89d58507"},
+      {"id": "runner/main.go", "bytes": 12527, "sha256": "6809e82aa61156f4e38b38633d23b0571b37b36028b41934998c038721311a46"},
+      {"id": "runner/bounds.go", "bytes": 5039, "sha256": "d6fafa283e10130f54dc73df9b0f3c267b7b1f180ed1ca98d28301c0d4f18698"},
+      {"id": "runner/bounds_test.go", "bytes": 4353, "sha256": "32d26f0d23e4c68dfdf79af5fa1fcaec5a697030f31ef26d07eef794a393d278"},
+      {"id": "runner/storage_metadata.go", "bytes": 4691, "sha256": "38e28239f64d2d0f45b07a0ee1e1fa965252fc946b380bbb4c58d02c8ff48000"},
+      {"id": "runner/storage_metadata_test.go", "bytes": 2772, "sha256": "a4c656fa797c3b15865996a1bf96a0062a9a88307bf55767629196e37e9053e1"},
+      {"id": "go.mod", "bytes": 231, "sha256": "13080ad88accd6e69b17fe4f1582fb81845f93294902fa3baf36343c1af2e21c"}
+    ]
+  },
+  "previous_findings": [
+    {
+      "id": "L1",
+      "previous_severity": "P1",
+      "status": "RESOLVED_STATIC_AND_AUTHOR_SYNTHETIC_REGRESSION",
+      "locations": ["loader79/prefix.go:79", "loader79/prefix.go:97", "loader79/join.go:73", "loader79/prefix.go:168", "loader79/diagnostic_weights_test.go:10"],
+      "evidence": "Every dataset now requires an explicit SampleWeights column of the correct row count. All weights are finite and binary; a positive-only AUC view additionally requires unit weights. Both JoinMetadata and CheckProjectedPrefix reuse this corrected shape contract. The synthetic loader fixture was updated to append unit AUC weights as the unchanged public makeDataset constructor does. The new regression accepts explicit unit weights and rejects a missing column or a masked row. The unchanged finite/nonbinary guards also reject negative and nonfinite weights.",
+      "limits": "No original corpus shape or actual Project was read or executed by this reviewer. Compatibility is established from the unchanged public constructor, reviewed fixtures and the saved synthetic log, not from an observed actual79 run."
+    },
+    {
+      "id": "L2",
+      "previous_severity": "P1",
+      "status": "RESOLVED_STATIC_AND_AUTHOR_SYNTHETIC_REGRESSION",
+      "locations": ["runner/main.go:198", "runner/storage_metadata.go:56", "runner/storage_metadata.go:69", "runner/storage_metadata.go:72", "runner/storage_metadata.go:91"],
+      "evidence": "Before creating any attempt directory, verifyStorageMetadata decodes the exact byte/SHA-pinned amendment and retained audit. It requires the frozen executable state, original caps and unchanged recipe, links amendment registry SHA/bytes and retained sum to the selected audit, requires complete per-path counting, validates every ID/SHA/byte entry, refuses duplicate IDs and verifies the sum. The selected snapshot is explicitly fixed to2776paths and206707066B. Pending state/frozen=false, mismatched registry SHA/bytes, wrong sum, incomplete scope and duplicate assets are covered by the saved regression results.",
+      "limits": "Audit completeness is limited to the fixed selector and snapshot. The worker still cannot discover omitted physical files or independently derive all retained path bindings. Root's exact private bindings and source/binary/plan preflight remain mandatory. Any changed audit snapshot requires a separate reviewed source and plan revision."
+    },
+    {
+      "id": "L3",
+      "previous_severity": "P2",
+      "status": "RESOLVED_STATIC_AND_AUTHOR_SYNTHETIC_REGRESSION",
+      "locations": ["runner/bounds.go:13", "runner/bounds.go:67", "runner/storage_metadata.go:69", "runner/bounds_test.go"],
+      "evidence": "fitOutputReserve is exactly2*8MiB+32792B=16810008B. validStorage rejects smaller future Fit reservations and checkStoredStorage verifies that exact core output reservation and model byte count in the pinned amendment. The synthetic minimum was updated and a short reservation is rejected. OtherReserve remains available for governed support files and distinct outside copies."
+    },
+    {
+      "id": "L4",
+      "previous_severity": "P2",
+      "status": "RESOLVED_STATIC_RUNTIME_OBSERVATION_PENDING",
+      "locations": ["runner/main.go:198"],
+      "evidence": "Before attempt creation the worker requires GOMAXPROCS=1, GOMEMLIMIT=256MiB, runtime.GOMAXPROCS(0)=1 and the existing runtime memory limit equal to the plan's256MiB. debug.SetMemoryLimit(-1) reads the current setting. Go version and plan declarations are also checked.",
+      "limits": "This is not an observed runtime resource result. Go's memory setting is soft; whole OS RSS and the300second process timeout still belong to Root's outside controller. There is no GPU inference or GPU memory benchmark in this review."
+    }
+  ],
+  "passes": [
+    "All7runtimeGo files, go.mod and all4test files were read, including the complete loader ownership, mask, retry, panic, source-read and bit-preservation fixtures. The earlier v1 receipt's narrower loader-test scope is preserved unchanged.",
+    "The corrected AUC contract retains original train/validation CSR, group/role and nullable mask semantics. The old prefix uses float bit comparisons and preserves nil/empty distinctions; the three appended parents remain train-only groups75/75/76. No feature extractor, model API, role assignment or original parent content was changed.",
+    "Storage arithmetic reserves Project plus future Fit while separately tracking the retained512MiB and new-stage64MiB. Equal SHA or inode paths are charged separately by the fixed audit contract. The8fits/16model ceiling is preserved, not replenished by creating v2.",
+    "The worker checkpoints each intent before actual entry, records returned prefixes, refuses retries, preserves counters on output-bound failure, fsyncs each file and performs bounded same-inode content readback. Returned FeatureScans comes from the unchanged public module and is not independently recomputed by this source review."
+  ],
+  "saved_author_synthetic_log": {
+    "id": "riido79-v2-synthetic-race.private.jsonl",
+    "sha256": "1f723abbffd89c1203944199baa85c55bd94978cf4270e7bf1461af12afce72d",
+    "top_tests_passed": 15,
+    "subtests_passed": 43,
+    "packages_passed": 2,
+    "failures": 0,
+    "skips": 0,
+    "rerun_by_this_reviewer": false,
+    "vet_and_build": "Root reported success; not rerun by this reviewer and not represented as public CI testing this private derivative CLI"
+  },
+  "remaining_boundaries": [
+    "Final Root Handoff/source/binary/plan binding is pending. The twelve observed source pins above are an independent snapshot, not proof of a later changed file or declared compiled binary.",
+    "Public source CI and a private compiled derivative CLI are separate evidence. The worker's source-commit and CI strings are frozen Root assertions; source hashing does not independently prove build linkage or CI coverage of this driver.",
+    "The fsynced result and ledger checkpoints are separate in-place rewrites. A forced kill can leave a partial file or unknown in-flight intent; file readback does not provide two-file atomicity or power-loss directory-entry persistence. Root's outside intent and failure evidence remain necessary.",
+    "Persistent serialized output caps do not bound temporary JSON encoder allocations or guarantee OS RSS. The current audit snapshot does not establish whole-host completeness or absence of earlier deleted bytes.",
+    "No actual79 input join, Validate, Project, FeatureScans290 observation, new model fit, utility improvement, independent final2400 evaluation, Hugging Face publication or production readiness was produced by this review."
+  ],
+  "recommended_path": "Keep both v1 receipts and source history immutable. Compare the final Root seal against these source pins, verify the exact compiled binary and once-only controller, freeze the complete per-path audit/consumption and resource amendment, and proceed only within the already authorized guarded experiment when all Root-owned gates pass.",
+  "review_execution_counts_v2_increment": {
+    "standard_Go_helper_compiles_or_runs": 0,
+    "original_or_synthetic_test_reruns": 0,
+    "main_help_JoinMetadata_Prepare_CheckProjectedPrefix": 0,
+    "Fit_Score_Features_Project_RoleAssign_Encode_Decode": 0,
+    "model_or_original_corpus_body_reads": 0,
+    "native_external_calls_shared_Git_mutations": 0
+  },
+  "source_review_no_remaining_P1": true,
+  "scientific_execution_approved": false,
+  "publication_or_production_approved": false
+}

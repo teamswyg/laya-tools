@@ -1,6 +1,8 @@
 # laya-tools
 
-Recent research: [both small learned models](experiments/short-claim/second-ranking-fit-72/README.en.md) needed more candidate checks than the existing ordering and remain inactive. [Go feature computation](experiments/short-claim/feature-prefix-74/README.en.md) was approximately20–24% faster on two public fixtures, with unchanged allocations.
+Recent [data-addition fit79](experiments/short-claim/data-effect-fit-79/README.en.md) added three verified requests and actually trained under the same recipe. It required31 candidate checks, identical to the previous model and above the lexical control's27, failing the improvement gate. The whole CPU-one fit worker took1.244s with35.08MiB OS peak RSS; the new model remains inactive.
+
+The [two earlier small learned models](experiments/short-claim/second-ranking-fit-72/README.en.md) also failed utility gates. [Go feature computation](experiments/short-claim/feature-prefix-74/README.en.md) was approximately20–24% faster on two public fixtures, with unchanged allocations.
 
 [Public function verification](experiments/short-claim/native-observation-80/ACTUAL-RESULTS.en.md) matched predeclared expectations on24 UUID Parse, Scan and Ordinal inputs. Whole-program RSS17.27 MiB/wall1.21s describe neither model inference nor24 independent requests. [Research and failure history](RESEARCH-HISTORY.en.md) and [detailed documentation](docs/README.md) retain the scope and evidence.
 

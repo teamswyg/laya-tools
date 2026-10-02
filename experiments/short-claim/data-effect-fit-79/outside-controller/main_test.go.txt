@@ -1,0 +1,162 @@
+package main
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"testing"
+)
+
+// Pure controller mechanics only. No test calls run, exec, Start, a worker,
+// original adapter, Project, Fit, model encode/decode, or private corpus.
+func TestStreamPrefixAndOverflow(t *testing.T) {
+	events := make(chan string, 2)
+	f, err := os.CreateTemp(t.TempDir(), "toy-log")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	w := newStream(false, f, events)
+	b := bytes.Repeat([]byte("x"), int(stderrLogCap)+127)
+	if n, e := w.Write(b); e != nil || n != len(b) {
+		t.Fatal(n, e)
+	}
+	s := w.summary()
+	if s.ObservedBytes != int64(len(b)) || s.RawRetainedBytes != stderrLogCap || !s.PrefixTruncated || !readbackLog(f, s) {
+		t.Fatalf("bad stderr summary: %+v", s)
+	}
+	want := sha256.Sum256(b)
+	if s.ObservedSHA != hex.EncodeToString(want[:]) {
+		t.Fatal("full stream hash")
+	}
+	o := newStream(true, nil, events)
+	chunk := bytes.Repeat([]byte("y"), 32<<10)
+	for n := int64(0); n <= stdoutCap; n += int64(len(chunk)) {
+		if _, e := o.Write(chunk); e != nil {
+			t.Fatal(e)
+		}
+	}
+	if !o.summary().CapExceeded || o.summary().RawRetainedBytes != 0 {
+		t.Fatal("stdout cap/raw retention")
+	}
+	select {
+	case e := <-events:
+		if e != "stdout_cap_exceeded" {
+			t.Fatal(e)
+		}
+	default:
+		t.Fatal("overflow event absent")
+	}
+}
+func TestPinsRejectSymlinkAndMismatch(t *testing.T) {
+	d := t.TempDir()
+	p := filepath.Join(d, "toy")
+	b := []byte("unit-test-only\n")
+	if e := os.WriteFile(p, b, 0600); e != nil {
+		t.Fatal(e)
+	}
+	s := sha256.Sum256(b)
+	x := fileInput{p, pin{"synthetic", int64(len(b)), hex.EncodeToString(s[:])}}
+	if _, e := verifyFile(x, false); e != nil {
+		t.Fatal(e)
+	}
+	x.pin.Bytes++
+	if _, e := verifyFile(x, false); e == nil {
+		t.Fatal("wrong size accepted")
+	}
+	x.pin.Bytes--
+	link := filepath.Join(d, "link")
+	if e := os.Symlink(p, link); e != nil {
+		t.Fatal(e)
+	}
+	x.path = link
+	if _, e := verifyFile(x, false); e == nil {
+		t.Fatal("symlink accepted")
+	}
+}
+func TestPlanHeaderAndDirectories(t *testing.T) {
+	d := t.TempDir()
+	outside := filepath.Join(d, "outside")
+	p := planHeader{Schema: "riido-source80-appended79-projection-plan-v1", Frozen: true, Attempt: 1, OutputDirectory: filepath.Join(d, "worker"), CPU: 1, HeapSoft: 256 << 20, WallSeconds: 300, RSSBudget: rssBudget}
+	check := func(want bool) {
+		t.Helper()
+		b, e := json.Marshal(p)
+		if e != nil {
+			t.Fatal(e)
+		}
+		if (validatePlan(b, config{outside: outside}) == nil) != want {
+			t.Fatalf("plan acceptance != %v", want)
+		}
+	}
+	check(true)
+	p.Frozen = false
+	check(false)
+	p.Frozen = true
+	p.CPU = 2
+	check(false)
+	p.CPU = 1
+	p.OutputDirectory = filepath.Join(outside, "worker")
+	check(false)
+	for _, v := range [][3]string{{"/a", "/a", "false"}, {"/a", "/a/b", "false"}, {"/a/b", "/a", "false"}, {"/a", "/ab", "true"}} {
+		if disjointDirectories(v[0], v[1]) != (v[2] == "true") {
+			t.Fatal(v)
+		}
+	}
+}
+func TestFitPlanOptionalBothArgs(t *testing.T) {
+	d := t.TempDir()
+	c := config{outside: filepath.Join(d, "outside"), sourceRoot: d, workerOutput: filepath.Join(d, "fit-worker")}
+	p := planHeader{Schema: "riido-source80-data-effect-primary-fit-plan-79-v1", Frozen: true, Attempt: 1, CPU: 1, HeapSoft: 256 << 20, FitWallSeconds: 300, FitRSSBudget: rssBudget, PrerequisitesFrozen: true, RuntimeGo: "go1.27.1", AttemptDirectory: c.workerOutput}
+	check := func(want bool) {
+		t.Helper()
+		b, e := json.Marshal(p)
+		if e != nil {
+			t.Fatal(e)
+		}
+		if (validatePlan(b, c) == nil) != want {
+			t.Fatalf("Fit plan acceptance != %v", want)
+		}
+	}
+	check(true)
+	p.AttemptDirectory = filepath.Join(d, "other")
+	check(false)
+	p.AttemptDirectory = c.workerOutput
+	p.PublicationPermitted = true
+	check(false)
+}
+func TestMetadataOnlyDirectorySync(t *testing.T) {
+	d := t.TempDir()
+	if _, e := writeJSONExclusive(d, "synthetic-intent.json", struct {
+		Schema string `json:"schema"`
+	}{"synthetic-directory-sync-only"}); e != nil {
+		t.Fatal(e)
+	}
+	if e := syncDirectory(d); e != nil {
+		t.Fatal(e)
+	}
+}
+func TestExclusiveMetadataFinishByteCount(t *testing.T) {
+	d := t.TempDir()
+	c := config{outside: d}
+	r := result{Schema: "synthetic-controller-result", State: "completed", ExitCode: 0}
+	if code := finish(c, &r, 0); code != 0 {
+		t.Fatal(code)
+	}
+	b, e := os.ReadFile(filepath.Join(d, "result.json"))
+	if e != nil {
+		t.Fatal(e)
+	}
+	var got result
+	if e = json.Unmarshal(b, &got); e != nil {
+		t.Fatal(e)
+	}
+	if got.OutsideBytes != int64(len(b)) || !got.OutsideWithinBudget {
+		t.Fatal("final byte count")
+	}
+	if _, e = writeJSONExclusive(d, "result.json", r); e == nil {
+		t.Fatal("overwrite permitted")
+	}
+}

@@ -1,0 +1,341 @@
+// This private projection runner must not be executed before root freezes its
+// source/binary/plan. Preparation tests never call the original runtime adapter.
+package main
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"flag"
+	"io"
+	"os"
+	"path/filepath"
+	"runtime"
+	"runtime/debug"
+
+	"github.com/teamswyg/laya-tools/experiments/short-claim/loader79-prep/loader79"
+	"github.com/teamswyg/laya-tools/internal/claimfit"
+	"github.com/teamswyg/laya-tools/pkg/shortclaim"
+)
+
+const planSchema = "riido-source80-appended79-projection-plan-v1"
+const resultSchema = "riido-source80-appended79-projection-result-v1"
+
+type Pin struct {
+	ID    string `json:"id"`
+	Path  string `json:"path"`
+	Bytes int64  `json:"bytes"`
+	SHA   string `json:"sha256"`
+}
+type Plan struct {
+	Schema          string            `json:"schema"`
+	Frozen          bool              `json:"frozen"`
+	Attempt         int               `json:"attempt"`
+	OutputDirectory string            `json:"output_directory"`
+	CPU             int               `json:"cpu"`
+	HeapSoft        int64             `json:"go_heap_soft_limit_bytes"`
+	WallSeconds     int               `json:"outside_wall_seconds_max"`
+	RSSBudget       int64             `json:"observed_RSS_budget_bytes"`
+	Payload         uint64            `json:"owned_payload_max_bytes"`
+	JSONCap         int64             `json:"serialized_output_max_bytes"`
+	LedgerCap       int64             `json:"serialized_ledger_max_bytes"`
+	Storage         Storage           `json:"storage_reservation"`
+	Original        Pin               `json:"original76_projection"`
+	Roles           Pin               `json:"original70_roles"`
+	Draft           Pin               `json:"source80_proposal"`
+	Append          Pin               `json:"qualified_append"`
+	Consumption     Pin               `json:"frozen_consumption"`
+	Bindings        loader79.Bindings `json:"bindings"`
+	SourceCommit    string            `json:"source_commit"`
+	SuccessfulCI    string            `json:"successful_source_CI"`
+	Sources         []Pin             `json:"source_and_driver_pins"`
+	FitPermitted    bool              `json:"fit_permitted"`
+	Production      bool              `json:"production_ready"`
+	ProtectedFinal  bool              `json:"protected_final"`
+}
+type Envelope struct {
+	Schema     string               `json:"schema"`
+	State      string               `json:"state"`
+	Failure    string               `json:"failure_code"`
+	Projection *claimfit.Projection `json:"projection"`
+}
+type RoleFrame struct {
+	Schema  string             `json:"schema"`
+	State   string             `json:"state"`
+	Failure string             `json:"failure"`
+	Rows    []loader79.RoleRow `json:"parent_roles"`
+}
+type Counts struct {
+	LoaderValidate  loader79.Counters `json:"Validate"`
+	ProjectIntents  int               `json:"project_intents"`
+	ProjectReturned int               `json:"project_returned"`
+	FeatureScans    int               `json:"feature_scans_from_module"`
+	Assign          int               `json:"Assign"`
+	Score           int               `json:"Score"`
+	Fit             int               `json:"Fit"`
+	Model           int               `json:"model_calls"`
+}
+type Result struct {
+	Schema         string                `json:"schema"`
+	State          string                `json:"state"`
+	Failure        string                `json:"failure_code"`
+	PlanSHA        string                `json:"plan_sha256"`
+	RuntimeGo      string                `json:"runtime_go"`
+	Counters       Counts                `json:"counters"`
+	Projection     *claimfit.Projection  `json:"projection"`
+	Proof          *loader79.PrefixProof `json:"preservation_proof"`
+	PayloadBytes   uint64                `json:"payload_bytes"`
+	HeapBytes      uint64                `json:"Go_heap_alloc_bytes_at_final_checkpoint"`
+	TotalAlloc     uint64                `json:"Go_cumulative_alloc_bytes"`
+	TrainingReady  bool                  `json:"training_ready"`
+	Qualification  bool                  `json:"qualification"`
+	Production     bool                  `json:"production_ready"`
+	ProtectedFinal bool                  `json:"protected_final"`
+	Limit          string                `json:"measurement_limit"`
+	Storage        StorageRecord         `json:"storage_reservation"`
+}
+
+func safe(s string) error { return loader79.Error("projection79_" + s) }
+func read(pin Pin, max int64, dst any) error {
+	f, e := os.Open(pin.Path)
+	if e != nil {
+		return safe("input_open")
+	}
+	defer f.Close()
+	info, e := f.Stat()
+	if e != nil || !info.Mode().IsRegular() || info.Size() != pin.Bytes {
+		return safe("input_file")
+	}
+	return loader79.ReadPinned(f, pin.Bytes, pin.SHA, max, dst)
+}
+func source(pin Pin) error {
+	f, e := os.Open(pin.Path)
+	if e != nil {
+		return safe("source_open")
+	}
+	defer f.Close()
+	st, e := f.Stat()
+	if e != nil || !st.Mode().IsRegular() || st.Size() != pin.Bytes || pin.Bytes < 1 || pin.Bytes > 1<<20 {
+		return safe("source_bound")
+	}
+	h := sha256.New()
+	n, e := io.Copy(h, io.LimitReader(f, pin.Bytes+1))
+	if e != nil || n != pin.Bytes || hex.EncodeToString(h.Sum(nil)) != pin.SHA {
+		return safe("source_pin")
+	}
+	return nil
+}
+func writeSync(f *os.File, b []byte) error {
+	if f.Truncate(0) != nil {
+		return safe("checkpoint")
+	}
+	if _, e := f.Seek(0, 0); e != nil {
+		return safe("checkpoint")
+	}
+	n, e := f.Write(b)
+	if e != nil || n != len(b) || f.Sync() != nil {
+		return safe("checkpoint")
+	}
+	// Read the same regular inode, byte-for-byte, with bounded scratch only.
+	r, e := os.Open(f.Name())
+	if e != nil {
+		return safe("checkpoint_readback")
+	}
+	defer r.Close()
+	a, e := f.Stat()
+	if e != nil {
+		return safe("checkpoint_readback")
+	}
+	z, e := r.Stat()
+	if e != nil || !z.Mode().IsRegular() || !os.SameFile(a, z) || z.Size() != int64(len(b)) {
+		return safe("checkpoint_readback")
+	}
+	var scratch [4096]byte
+	for offset := 0; offset < len(b); {
+		want := len(b) - offset
+		if want > len(scratch) {
+			want = len(scratch)
+		}
+		n, e := io.ReadFull(r, scratch[:want])
+		if e != nil || n != want || !bytes.Equal(scratch[:want], b[offset:offset+want]) {
+			return safe("checkpoint_readback")
+		}
+		offset += want
+	}
+	var tail [1]byte
+	n, e = r.Read(tail[:])
+	if n != 0 || e != io.EOF {
+		return safe("checkpoint_readback")
+	}
+	return nil
+}
+
+// run dispatches only in an independently frozen root invocation. No --help or
+// invalid-argument execution is part of preparation; parse errors are redacted.
+func run(args []string) int {
+	fs := flag.NewFlagSet("projection79", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	planPath := fs.String("plan", "", "")
+	planSHA := fs.String("plan-sha256", "", "")
+	if fs.Parse(args) != nil || fs.NArg() != 0 || *planPath == "" || len(*planSHA) != 64 {
+		return 2
+	}
+	f, e := os.Open(*planPath)
+	if e != nil {
+		return 2
+	}
+	st, e := f.Stat()
+	if e != nil || !st.Mode().IsRegular() || st.Size() < 1 || st.Size() > 1<<20 {
+		f.Close()
+		return 2
+	}
+	var p Plan
+	e = loader79.ReadPinned(f, st.Size(), *planSHA, 1<<20, &p)
+	f.Close()
+	if e != nil || p.Schema != planSchema || !p.Frozen || p.Attempt != 1 || !filepath.IsAbs(p.OutputDirectory) || p.CPU != 1 || p.HeapSoft != 256<<20 || p.WallSeconds != 300 || p.RSSBudget != 256<<20 || p.Payload != 64<<20 || p.JSONCap != resultCap || p.LedgerCap != ledgerCap || !validStorage(p.Storage) || p.FitPermitted || p.Production || p.ProtectedFinal || len(p.SourceCommit) != 40 || p.SuccessfulCI == "" || len(p.Sources) == 0 || runtime.Version() != "go1.27.1" {
+		return 2
+	}
+	if os.Getenv("GOMAXPROCS") != "1" || os.Getenv("GOMEMLIMIT") != "256MiB" || runtime.GOMAXPROCS(0) != 1 || debug.SetMemoryLimit(-1) != p.HeapSoft || verifyStorageMetadata(p.Storage) != nil {
+		return 2
+	}
+	if os.Mkdir(p.OutputDirectory, 0700) != nil {
+		return 2
+	}
+	result, e := os.OpenFile(filepath.Join(p.OutputDirectory, "results.json"), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if e != nil {
+		return 2
+	}
+	defer result.Close()
+	ledger, e := os.OpenFile(filepath.Join(p.OutputDirectory, "attempt-ledger.json"), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if e != nil {
+		return 2
+	}
+	defer ledger.Close()
+	r := Result{Schema: resultSchema, State: "reserved_before_input_join", PlanSHA: *planSHA, RuntimeGo: runtime.Version(), Storage: storageRecord(p.Storage), Limit: "Projection only; no model readiness. Input SHA/source bytes are verified; compiler linkage/CI/registry completeness are caller-frozen root responsibilities. FeatureScans is the unchanged module's returned counter. Go heap differs from whole OS RSS; timeout/RSS/storage accounting are outside root responsibilities. Counters reserve intent; forced-kill in-flight entry may be unknown. One result path is checkpoint/final, no worker stdout or separate partial copy. Encoder persistent-byte cap is not a hard allocation bound."}
+	checkpoint := func() error {
+		var m runtime.MemStats
+		runtime.ReadMemStats(&m)
+		r.HeapBytes = m.HeapAlloc
+		r.TotalAlloc = m.TotalAlloc
+		b, boundFailure, e := encodeResult(&r, p.JSONCap)
+		if e != nil {
+			return safe("result_bound")
+		}
+		if e = writeSync(result, b); e != nil {
+			return e
+		}
+		l := struct {
+			Schema, State, Failure, PlanSHA string
+			Counters                        Counts
+			TrainingReady                   bool
+			Storage                         StorageRecord
+		}{"riido-source80-appended79-projection-attempt-ledger-v1", r.State, r.Failure, r.PlanSHA, r.Counters, false, r.Storage}
+		b, e = encodeBounded(l, p.LedgerCap)
+		if e != nil {
+			return safe("ledger")
+		}
+		if e = writeSync(ledger, b); e != nil {
+			return e
+		}
+		if boundFailure {
+			return safe("result_bound")
+		}
+		return nil
+	}
+	if checkpoint() != nil {
+		return 1
+	}
+	if e = execute(p, &r, checkpoint); e != nil {
+		r.State = "failed_projection79_no_fit"
+		r.Failure = "projection79_execution_failed"
+		if x, ok := e.(loader79.Error); ok {
+			r.Failure = string(x)
+		}
+	} else {
+		r.State = "completed_projection_only_no_fit_or_model_readiness_approval"
+	}
+	if checkpoint() != nil || e != nil {
+		return 1
+	}
+	return 0
+}
+
+func execute(p Plan, r *Result, checkpoint func() error) error {
+	// Metadata byte pins only. No authority or complete-registry derivation here.
+	for _, pin := range []Pin{p.Storage.Amendment, p.Storage.Registry} {
+		if e := source(pin); e != nil {
+			return e
+		}
+	}
+	for _, pin := range p.Sources {
+		if e := source(pin); e != nil {
+			return e
+		}
+	}
+	var original Envelope
+	var roles RoleFrame
+	var draft loader79.Proposal
+	var appendInput loader79.Append
+	var consumed loader79.Consumption
+	for _, x := range []struct {
+		p   Pin
+		max int64
+		dst any
+	}{{p.Original, 64 << 20, &original}, {p.Roles, 1 << 20, &roles}, {p.Draft, 1 << 20, &draft}, {p.Append, 1 << 20, &appendInput}, {p.Consumption, 1 << 20, &consumed}} {
+		if e := read(x.p, x.max, x.dst); e != nil {
+			return e
+		}
+	}
+	if p.Original.SHA != p.Bindings.OriginalProjectionSHA || p.Roles.SHA != p.Bindings.OriginalRoleSHA || p.Draft.SHA != p.Bindings.SourceProposalSHA || original.Schema != "riido-full76-projection-result-v1" || original.State != "completed_projection_only_no_fit_or_readiness_approval" || original.Failure != "" || original.Projection == nil || roles.Schema != "riido-combined-whole-group-role-result-70-v1" || roles.State != "whole_component_roles_returned_not_training_ready" || roles.Failure != "" {
+		return safe("base_envelope")
+	}
+	joined, e := loader79.JoinMetadata(*original.Projection, roles.Rows, draft, appendInput, p.Bindings, consumed)
+	if e != nil {
+		return e
+	}
+	r.State = "input_join_completed_before_public_validation"
+	if e = checkpoint(); e != nil {
+		return e
+	}
+	parents, e := joined.Prepare(&r.Counters.LoaderValidate, shortclaim.Validate, func(loader79.Counters) error {
+		r.State = "public_input_validation_reserved_or_returned"
+		return checkpoint()
+	})
+	if e != nil {
+		return e
+	}
+	if r.Counters.ProjectIntents != 0 {
+		return safe("project_retry")
+	}
+	r.Counters.ProjectIntents++
+	r.State = "Project_dispatch_reserved_before_entry"
+	if e = checkpoint(); e != nil {
+		return e
+	}
+	var projection claimfit.Projection
+	returned := false
+	func() {
+		defer func() {
+			if !returned {
+				_ = recover()
+				e = safe("Project_panic")
+			}
+		}()
+		projection, e = claimfit.Project(parents)
+		returned = true
+		r.Counters.ProjectReturned++
+	}()
+	if e != nil {
+		return e
+	}
+	r.Counters.FeatureScans = projection.FeatureScans
+	proof, e := joined.CheckProjectedPrefix(projection)
+	if e != nil {
+		return e
+	}
+	r.Projection = &projection
+	r.Proof = &proof
+	r.PayloadBytes = projection.PayloadBytes
+	return nil
+}
+func main() { os.Exit(run(os.Args[1:])) }

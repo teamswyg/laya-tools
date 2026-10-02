@@ -2,7 +2,7 @@
 
 **필요한 기능부터 선택해 사용하세요. / Start with the feature you need.**
 
-[코드 동작에서 학습 정답 만들기](Claim-Behavior-Validation-KO) · [Turning behavior into training labels](Claim-Behavior-Validation-EN): 실제 후보 72건을 확인하고 요청 3개·정답 3개·오답 6개를 학습 자료로 확정했습니다. / Verified72 candidate observations and qualified3 requests with3 positive and6 negative candidates.
+[코드 동작에서 학습 정답 만들기](Claim-Behavior-Validation-KO) · [Turning behavior into training labels](Claim-Behavior-Validation-EN): 요청3개 추가 후 같은 조건으로 실제 학습했지만 확인31회로 단순 정렬27회를 넘겨 실패했습니다. 새 모델은 비활성입니다. / Adding3 verified requests under the same recipe yielded31 checks versus the lexical control's27; utility failed and the model remains inactive.
 
 [공개 함수 동작 검증과 학습 자료 확장](Source-Behavior-80-KO) · [Public behavior verification and training data](Source-Behavior-80-EN): 사전 기대값24개 일치, 새 학습 정답0 /24 matching fixed expectations, zero new training labels.
 
@@ -17,7 +17,7 @@
 
 Codex 연동은 선택 사항입니다. 현재 도구의 추천은 실험이며 실제 사용량·비용 절감을 입증하지 않았습니다. / Codex integration is optional. Recommendations are experimental; actual usage or cost savings have not been established.
 
-작은 주장 모델 연구에서는 확인 순서를 제안하고 독립 검증을 남기는 방식을 시험합니다. 두 학습 모델은 앞선 효용 검사를 실패해 기본값으로 켜지 않습니다. 최근 설명 보강 비교에서도 단순 검색은 개선됐지만 기존 모델은 악화됐습니다. / Tiny claim research proposes a verification order while retaining independent checks. Both learned models failed earlier utility tests and remain inactive. In the latest caption diagnostic, cheap retrieval improved while the existing models worsened.
+작은 주장 모델 연구에서는 확인 순서를 제안하고 독립 검증을 남기는 방식을 시험합니다. 새 데이터 추가 모델과 기존 두 모델은 효용 검사를 실패해 비활성입니다. / Tiny claim research proposes a verification order while retaining independent checks. The new data-addition model and the two earlier models failed utility gates and remain inactive.
 
 - [최근 실제 비교76](Claim-Diagnostic-76-KO) · [Latest actual diagnostic76](Claim-Diagnostic-76-EN)
 - [선택형 Go 압축 가중치: 저장 공간과 CPU 비용](Packed-Weights-78-KO) · [Optional packed Go weights: storage and CPU tradeoff](Packed-Weights-78-EN)

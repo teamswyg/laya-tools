@@ -1,0 +1,312 @@
+package main
+
+import (
+	"bytes"
+	"encoding/json"
+	"errors"
+	"github.com/teamswyg/laya-tools/internal/claimfit"
+	"github.com/teamswyg/laya-tools/internal/pairlearn"
+	"github.com/teamswyg/laya-tools/pkg/shortclaim"
+	"math"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
+
+// Pure toy DTOs and a synthetic callback result; no Fit/Prepare/Features or
+// Encode/Decode API is executed by these tests.
+func toyData() pairlearn.Dataset {
+	return pairlearn.Dataset{Split: "development", Offsets: []int{0, 1, 2}, Indices: []uint16{1, 2}, Values: []float64{1, 1}, Labels: []float64{1, 0}, Groups: []int{0, 0}, SampleWeights: []float64{0, 1}}
+}
+func toyFit(train, val pairlearn.Dataset, c pairlearn.Config) (pairlearn.Result, pairlearn.Trace, error) {
+	r := pairlearn.Result{Config: c, Epoch: 3, TrainingNLL: .5, ValidationNLL: .4, Weights: make([]float64, 8192)}
+	t := pairlearn.Trace{Schema: pairlearn.TraceSchema, Mode: "fp32", Complete: true, SelectedEpoch: 3, Epochs: make([]pairlearn.EpochTrace, 50)}
+	best := math.Inf(1)
+	epoch := 0
+	for i := range t.Epochs {
+		loss := .8
+		if i == 1 {
+			loss = .6
+		}
+		if i >= 2 {
+			loss = .4
+		}
+		newbest := loss < best
+		if newbest {
+			best = loss
+			epoch = i + 1
+		}
+		t.Epochs[i] = pairlearn.EpochTrace{Epoch: i + 1, TrainingNLL: .5, ValidationNLL: loss, IsNewBest: newbest, BestEpochSoFar: epoch}
+	}
+	summary := func(d pairlearn.Dataset) pairlearn.WeightSummary {
+		s := pairlearn.WeightSummary{Rows: len(d.Labels)}
+		for _, w := range d.SampleWeights {
+			s.SampleWeightSum += w
+			if w == 0 {
+				s.ZeroWeightRows++
+			}
+		}
+		return s
+	}
+	t.Training = summary(train)
+	t.Validation = summary(val)
+	return r, t, nil
+}
+func TestToyTraceFirstMinimumFixedConfigAndZeroWeightSummary(t *testing.T) {
+	train := toyData()
+	val := toyData()
+	val.Split = "validation"
+	val.Groups = []int{1, 1}
+	p := claimfit.Projection{Development: train, Validation: val}
+	var c Counts
+	r, tr, e := oneFit(p, &c, toyFit)
+	if e != nil || r.Epoch != 3 || tr.SelectedEpoch != 3 || c.FitAttempts != 1 || c.FitReturned != 1 || c.FitSuccessful != 1 || tr.Training.ZeroWeightRows != 1 {
+		t.Fatal("toy trace")
+	}
+	if _, _, e = oneFit(p, &c, toyFit); e == nil || c.FitAttempts != 1 {
+		t.Fatal("retry")
+	}
+}
+func TestToyTraceCorruptionRejected(t *testing.T) {
+	cases := []struct {
+		Name string
+		F    func(*pairlearn.Result, *pairlearn.Trace)
+	}{{"wrong_epoch", func(r *pairlearn.Result, t *pairlearn.Trace) { r.Epoch = 4 }}, {"incomplete", func(r *pairlearn.Result, t *pairlearn.Trace) { t.Complete = false }}, {"tie_reselected", func(r *pairlearn.Result, t *pairlearn.Trace) { t.Epochs[3].IsNewBest = true }}, {"nonfinite", func(r *pairlearn.Result, t *pairlearn.Trace) { t.Epochs[0].ValidationNLL = math.NaN() }}, {"not_FP32", func(r *pairlearn.Result, t *pairlearn.Trace) { r.Weights[0] = .1 }}, {"silent_mask_drop", func(r *pairlearn.Result, t *pairlearn.Trace) { t.Training.Rows = 1 }}}
+	for _, x := range cases {
+		t.Run(x.Name, func(t *testing.T) {
+			d := toyData()
+			r, tr, _ := toyFit(d, d, primaryConfig)
+			x.F(&r, &tr)
+			if checkFit(r, tr, d, d) == nil {
+				t.Fatal("corrupt result")
+			}
+		})
+	}
+}
+func TestToyFitErrorAndPanicCounters(t *testing.T) {
+	for _, x := range []struct {
+		Name     string
+		F        fitFunc
+		Returned int
+	}{{"error", func(pairlearn.Dataset, pairlearn.Dataset, pairlearn.Config) (pairlearn.Result, pairlearn.Trace, error) {
+		return pairlearn.Result{}, pairlearn.Trace{}, errors.New("private-text-placeholder")
+	}, 1}, {"panic_nil", func(pairlearn.Dataset, pairlearn.Dataset, pairlearn.Config) (pairlearn.Result, pairlearn.Trace, error) {
+		panic(nil)
+	}, 0}} {
+		t.Run(x.Name, func(t *testing.T) {
+			var c Counts
+			_, _, e := oneFit(claimfit.Projection{}, &c, x.F)
+			if e == nil || c.FitAttempts != 1 || c.FitReturned != x.Returned || c.FitSuccessful != 0 {
+				t.Fatal("counter truth")
+			}
+		})
+	}
+}
+func utilityToy() claimfit.Projection {
+	parent := func(n int, truth claimfit.TruthState) claimfit.RuntimeParent {
+		x := claimfit.RuntimeParent{Text: shortclaim.Prepared{Request: "toy", Count: n}, Truth: truth, Role: 1}
+		for i := 0; i < n; i++ {
+			x.Text.Candidates[i] = shortclaim.PreparedCandidate{ID: string(rune('a' + i)), Text: "toy"}
+			x.Labels[i].Known = truth != claimfit.Unknown
+			x.LossEligible[i] = true
+		}
+		return x
+	}
+	p := claimfit.Projection{Parents: []claimfit.RuntimeParent{parent(3, claimfit.Known), parent(2, claimfit.NoAnswer), parent(1, claimfit.Unknown), parent(1, claimfit.Known)}}
+	p.Parents[0].Labels[1].Positive = true
+	p.Parents[0].LossEligible[1] = false
+	p.Parents[3].Role = 2
+	p.Parents[3].Labels[0].Positive = true
+	p.Counts[1].UnknownParents = 1
+	p.Validation = pairlearn.Dataset{Split: "validation", Offsets: []int{0, 1, 2, 3, 4, 5}, Indices: []uint16{1, 1, 1, 1, 1}, Values: []float64{.1, .9, .2, .3, .4}, Labels: []float64{0, 1, 0, 0, 0}, Groups: []int{0, 0, 0, 1, 1}, SampleWeights: []float64{1, 0, 1, 1, 1}}
+	p.ValidationRefs = []claimfit.RowRef{{ParentIndex: 0, CandidateIndex: 0}, {ParentIndex: 0, CandidateIndex: 1}, {ParentIndex: 0, CandidateIndex: 2}, {ParentIndex: 1, CandidateIndex: 0}, {ParentIndex: 1, CandidateIndex: 1}}
+	return p
+}
+func fixedToyControls(in shortclaim.Prepared) ([4]shortclaim.Ranking, error) {
+	var out [4]shortclaim.Ranking
+	for k := range out {
+		out[k].Kind = controls[k]
+		out[k].Count = in.Count
+		for c := 0; c < in.Count; c++ {
+			out[k].Order[c] = c
+		}
+	}
+	return out, nil
+}
+func TestToyUtilityAIncludesMaskedCandidatesNoAnswerUnknownAndCalibration(t *testing.T) {
+	p := utilityToy()
+	var c Counts
+	u, e := controlsBeforeFit(p, nil, &c, fixedToyControls)
+	if e != nil || !u.HeadroomPass || u.OracleHeadroom != .25 || u.Controls[0].Metric.Parents != 2 || u.Controls[0].Metric.UnknownExcluded != 1 || u.Controls[0].Metric.NoAnswer != 1 || u.Controls[0].SubsetBFullyEligible.Parents != 1 {
+		t.Fatal("bound or denominator")
+	}
+	w := make([]float64, 8192)
+	w[1] = 1
+	r, e := learnedEvaluation(p, w, nil, &c)
+	if e != nil || r.Metric.TotalChecks != 3 || r.Metric.Answerable != 1 || !r.Parents[0].FirstLossMasked || c.CachedScoreRows != 5 {
+		t.Fatal("masked score lost")
+	}
+	if compareUtility(&u, r) != nil || !u.DevelopmentUtilityPassed || *u.RelativeGain != .25 || r.SubsetBFullyEligible.TotalChecks != 2 {
+		t.Fatal("utility")
+	}
+}
+func TestToyOracleOptimalStopsWithoutFitAndStableTie(t *testing.T) {
+	p := utilityToy()
+	for i := range p.Parents[0].Labels {
+		p.Parents[0].Labels[i].Positive = i == 0
+	}
+	var c Counts
+	u, e := controlsBeforeFit(p, nil, &c, fixedToyControls)
+	if e != nil || u.HeadroomPass || c.FitAttempts != 0 {
+		t.Fatal("optimal rule fit")
+	}
+	o, e := rankScores([8]float64{1, 1, 1}, 3)
+	if e != nil || o[0] != 0 || o[1] != 1 || o[2] != 2 {
+		t.Fatal("tie order")
+	}
+}
+func TestToyUtilityCandidateDeletionRejected(t *testing.T) {
+	p := utilityToy()
+	_, e := rankedParent(0, p.Parents[0], [8]int{0, 0, 2}, [8]float64{})
+	if e == nil {
+		t.Fatal("deletion accepted")
+	}
+}
+
+func TestToyControlTieKeepsOriginalArrayOrderWithoutQualityTiebreak(t *testing.T) {
+	p := utilityToy()
+	p.Parents = p.Parents[:1]
+	other := p.Parents[0]
+	p.Parents = append(p.Parents, other)
+	p.Parents[0].Text.Request = "toy1"
+	p.Parents[1].Text.Request = "toy2"
+	p.Counts[1].UnknownParents = 0
+	call := func(in shortclaim.Prepared) ([4]shortclaim.Ranking, error) {
+		out, _ := fixedToyControls(in)
+		if in.Request == "toy1" {
+			out[1].Order = [8]int{1, 0, 2}
+		} else {
+			out[1].Order = [8]int{0, 2, 1}
+		}
+		return out, nil
+	}
+	var c Counts
+	u, e := controlsBeforeFit(p, nil, &c, call)
+	if e != nil || u.Controls[0].Metric.TotalChecks != 4 || u.Controls[1].Metric.TotalChecks != 4 || u.Controls[1].Metric.Top1Correct <= u.Controls[0].Metric.Top1Correct || u.StrongestControlIndex != 0 {
+		t.Fatal("control tie changed")
+	}
+}
+
+func TestToyFrozenPinsAndExclusivePersistence(t *testing.T) {
+	base := t.TempDir()
+	data := []byte("synthetic metadata only\n")
+	path := filepath.Join(base, "fixture.json")
+	if e := exclusive(path, data); e != nil {
+		t.Fatal(e)
+	}
+	if exclusive(path, []byte("overwrite refused")) == nil {
+		t.Fatal("existing attempt overwritten")
+	}
+	got, e := os.ReadFile(path)
+	if e != nil || string(got) != string(data) {
+		t.Fatal("original bytes changed")
+	}
+	p := Pin{ID: "toy", Path: "fixture.json", Bytes: int64(len(data)), SHA256: sha(data)}
+	if _, e := readPin(p, base, 64); e != nil {
+		t.Fatal(e)
+	}
+	p.SHA256 = sha([]byte("different"))
+	if _, e := readPin(p, base, 64); e == nil {
+		t.Fatal("forged hash accepted")
+	}
+	if evidenceBase(Pin{ID: "original-plan56"}, "plan-dir", "repo-dir") != "repo-dir" || evidenceBase(Pin{ID: "projection"}, "plan-dir", "repo-dir") != "plan-dir" {
+		t.Fatal("evidence roots mixed")
+	}
+}
+
+func TestSafeArgumentsAndBoundedPlanWithoutCorpusCalls(t *testing.T) {
+	var stderr bytes.Buffer
+	if _, e := arguments([]string{"--unknown-private-value", "private-placeholder-path"}); e == nil || strings.Contains(stderr.String(), "private-placeholder") || strings.Contains(stderr.String(), "unknown-private") {
+		t.Fatal("unsafe argument diagnostics")
+	}
+	root := t.TempDir()
+	path := filepath.Join(root, "large-plan.json")
+	f, e := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_EXCL, 0600)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if f.Truncate((1<<20)+1) != nil || f.Close() != nil {
+		t.Fatal("synthetic sparse file")
+	}
+	if _, e = readPlan(path); e == nil {
+		t.Fatal("oversized plan accepted")
+	}
+	if _, e = readPlan(root); e == nil {
+		t.Fatal("nonregular plan accepted")
+	}
+	if e = os.WriteFile(filepath.Join(root, "small.json"), []byte("{}\n"), 0600); e != nil {
+		t.Fatal(e)
+	}
+	if b, e := readPlan(filepath.Join(root, "small.json")); e != nil || string(b) != "{}\n" {
+		t.Fatal("bounded plan")
+	}
+}
+
+func TestToyDurableReservationBeforeFitAndControls(t *testing.T) {
+	root := t.TempDir()
+	result, e := os.OpenFile(filepath.Join(root, "result.json"), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer result.Close()
+	ledger, e := os.OpenFile(filepath.Join(root, "ledger.json"), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer ledger.Close()
+	r := Result{Schema: resultSchema, State: "synthetic_reserved"}
+	checkpoint := func() error { return checkpointResult(result, ledger, r) }
+	d := toyData()
+	_, _, e = oneFitCheckpoint(claimfit.Projection{Development: d, Validation: d}, &r.Counts, toyFit, func() error {
+		if r.Counts.FitAttempts != 1 || r.Counts.FitReturned != 0 {
+			return errors.New("incorrect reservation")
+		}
+		if e := checkpoint(); e != nil {
+			return e
+		}
+		b, e := os.ReadFile(filepath.Join(root, "result.json"))
+		if e != nil {
+			return e
+		}
+		var saved Result
+		if json.Unmarshal(b, &saved) != nil || saved.Counts.FitAttempts != 1 || saved.Counts.FitReturned != 0 {
+			return errors.New("counter not durable")
+		}
+		return nil
+	})
+	if e != nil || r.Counts.FitReturned != 1 || r.Counts.FitSuccessful != 1 {
+		t.Fatal("toy fit checkpoint")
+	}
+	var phases []string
+	u, e := controlsBeforeFitCheckpoint(utilityToy(), nil, &r.Counts, fixedToyControls, func(phase string, u *Utility) error {
+		phases = append(phases, phase)
+		r.Utility = u
+		return checkpoint()
+	})
+	if e != nil || len(phases) != 4 || r.Counts.ControlParentAttempts != 2 || r.Counts.ControlParentReturned != 2 || !u.HeadroomPass {
+		t.Fatal("control progress")
+	}
+	if ledger.Close() != nil {
+		t.Fatal("close ledger")
+	}
+	var c Counts
+	called := 0
+	_, _, e = oneFitCheckpoint(claimfit.Projection{}, &c, func(pairlearn.Dataset, pairlearn.Dataset, pairlearn.Config) (pairlearn.Result, pairlearn.Trace, error) {
+		called++
+		return pairlearn.Result{}, pairlearn.Trace{}, nil
+	}, checkpoint)
+	if e == nil || called != 0 || c.FitAttempts != 1 || c.FitReturned != 0 {
+		t.Fatal("checkpoint failure dispatched fit")
+	}
+}

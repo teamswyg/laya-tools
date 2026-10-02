@@ -1,6 +1,8 @@
 # laya-tools
 
-최근 연구: [작은 학습 모델 두 방식](experiments/short-claim/second-ranking-fit-72/README.ko.md)은 기존 정렬보다 후보 확인이 많아져 기본값으로 쓰지 않습니다. [Go 특징 계산](experiments/short-claim/feature-prefix-74/README.ko.md)은 두 공개 예제에서 시간을 약20~24% 줄였지만 할당량은 같았습니다.
+최근 [데이터 추가 학습79](experiments/short-claim/data-effect-fit-79/README.ko.md)는 검증된 요청3개를 추가해 같은 조건으로 실제 학습했습니다. 후보 확인은 기존 모델과 같은31회로, 단순 정렬27회를 넘겨 개선 기준을 실패했습니다. 전체 학습 작업자는 CPU1개·1.244초·OS 최고 메모리35.08MiB였으며 새 모델도 비활성으로 보관합니다.
+
+이전 [작은 학습 모델 두 방식](experiments/short-claim/second-ranking-fit-72/README.ko.md)도 효용 검사를 실패했습니다. [Go 특징 계산](experiments/short-claim/feature-prefix-74/README.ko.md)은 두 공개 예제에서 시간을 약20~24% 줄였지만 할당량은 같았습니다.
 
 [공개 함수 동작 검증](experiments/short-claim/native-observation-80/ACTUAL-RESULTS.ko.md)은 UUID Parse·Scan·Ordinal의24개 입력이 사전 기대값과 일치했습니다. 전체 프로그램 RSS17.27 MiB·wall1.21초이며 모델 추론이나24개 독립 요청은 아닙니다. [시점별 연구·실패 기록](RESEARCH-HISTORY.ko.md)과 [상세 문서](docs/README.md)에 측정 범위와 근거를 보존합니다.
 

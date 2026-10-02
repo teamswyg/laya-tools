@@ -1,0 +1,151 @@
+// Package loader79 is a private caller-bound metadata adapter. It does not
+// qualify sources, assign roles, invoke features or fit. Production callbacks
+// and immutable input byte pins must be supplied by the separately frozen driver.
+package loader79
+
+import (
+	"github.com/teamswyg/laya-tools/internal/claimfit"
+	"github.com/teamswyg/laya-tools/internal/roleplan"
+	"github.com/teamswyg/laya-tools/pkg/shortclaim"
+)
+
+const (
+	AppendSchema    = "riido-qualified-original76-plus-source80-train-append-v1"
+	OriginalParents = 76
+	AddedParents    = 3
+	TotalParents    = 79
+	MaxPayloadBytes = 64 << 20
+)
+
+type Error string
+
+func (e Error) Error() string { return string(e) }
+
+const (
+	ErrPin     Error = "loader79_pin_binding"
+	ErrSchema  Error = "loader79_schema"
+	ErrBudget  Error = "loader79_consumption"
+	ErrBase    Error = "loader79_original76"
+	ErrRole    Error = "loader79_role_binding"
+	ErrAppend  Error = "loader79_append_binding"
+	ErrTruth   Error = "loader79_supervision"
+	ErrPrepare Error = "loader79_preparation"
+	ErrRetry   Error = "loader79_retry_refused"
+	ErrPrefix  Error = "loader79_projected_prefix_changed"
+	ErrRead    Error = "loader79_bounded_read"
+)
+
+type Candidate struct {
+	Index            int      `json:"candidate_index"`
+	ID               string   `json:"id"`
+	Caption          string   `json:"caption"`
+	CodeSatisfaction *bool    `json:"code_satisfaction"`
+	CaptionFidelity  *bool    `json:"caption_fidelity"`
+	ChannelComplete  *bool    `json:"channel_complete"`
+	LossEligible     *bool    `json:"loss_eligible"`
+	Label            *bool    `json:"label"`
+	SampleWeight     *float64 `json:"sample_weight"`
+}
+type AddedParent struct {
+	Index        int         `json:"parent_index"`
+	ID           string      `json:"id"`
+	Request      string      `json:"request"`
+	Candidates   []Candidate `json:"candidates"`
+	Truth        string      `json:"truth"`
+	Acceptable   []int       `json:"acceptable_candidate_indices"`
+	Role         string      `json:"role"`
+	RoleEnum     *int        `json:"role_enum"`
+	Group        *int        `json:"whole_group"`
+	SourceFamily string      `json:"source_family"`
+	Revision     string      `json:"source_revision"`
+}
+type Append struct {
+	Schema                string        `json:"schema"`
+	SourceProposalSHA     string        `json:"source_proposal_sha256"`
+	CandidateWantSHA      string        `json:"candidate_Want_sha256"`
+	CandidateGotSHA       string        `json:"candidate_Got_sha256"`
+	RootSavedReviewSHA    string        `json:"root_saved_review_sha256"`
+	RootEligibilitySHA    string        `json:"root_eligibility_sha256"`
+	FamilyReviewSHA       string        `json:"family_review_sha256"`
+	OriginalProjectionSHA string        `json:"original76_projection_sha256"`
+	OriginalRoleSHA       string        `json:"original70_role_sha256"`
+	IndependentHeldout    *bool         `json:"independent_heldout"`
+	Qualification         *bool         `json:"qualification"`
+	TrainingReady         *bool         `json:"training_ready"`
+	ProductionReady       *bool         `json:"production_ready"`
+	ProtectedFinal        *bool         `json:"protected_final"`
+	Parents               []AddedParent `json:"parents"`
+}
+
+// Bindings are caller-frozen expected identities. Their presence is not source
+// independence, eligibility or authority. ReadPinned verifies actual input bytes.
+type Bindings struct {
+	SourceProposalSHA, CandidateWantSHA, CandidateGotSHA    string
+	RootSavedReviewSHA, RootEligibilitySHA, FamilyReviewSHA string
+	OriginalProjectionSHA, OriginalRoleSHA                  string
+}
+type Consumption struct {
+	OriginalMaxFits      int  `json:"original_max_fits"`
+	OriginalMaxArtifacts int  `json:"original_max_artifacts"`
+	UsedFits             int  `json:"prior_corpus_fit_attempts"`
+	UsedArtifacts        int  `json:"prior_model_artifacts"`
+	Frozen               bool `json:"frozen"`
+}
+type RoleRow struct {
+	Index int    `json:"parent_index"`
+	ID    string `json:"parent_id"`
+	Group int    `json:"whole_group_id"`
+	Role  string `json:"whole_component_role"`
+	Truth string `json:"scope_truth_state"`
+	Count int    `json:"candidate_positions"`
+}
+type DraftCandidate struct {
+	ID      string `json:"candidate_id"`
+	Caption string `json:"caption"`
+}
+type DraftParent struct {
+	ID         string           `json:"draft_parent_id"`
+	Request    string           `json:"request"`
+	Candidates []DraftCandidate `json:"candidates"`
+}
+type Proposal struct {
+	Parents []DraftParent `json:"parents"`
+}
+
+type ParentPlan struct {
+	Input            shortclaim.Input
+	Truth            claimfit.TruthState
+	Acceptable       []int
+	Role             roleplan.Role
+	Group            int
+	Masks            [shortclaim.MaxCandidates]bool
+	OriginalPrepared shortclaim.Prepared
+	Existing         bool
+}
+type Joined struct {
+	Parents                 []ParentPlan
+	Base                    claimfit.Projection
+	NewZeroWeightRows       int
+	NewPositiveWeightGroups int
+}
+type Counters struct{ ValidateIntents, ValidateReturned, PreparedPrefix int }
+type ValidateFunc func(shortclaim.Input) (shortclaim.Prepared, error)
+type Checkpoint func(Counters) error
+
+// PrefixProof hashes only metadata and arrays already supplied by the caller;
+// it does not rerun projection, compute features or establish model quality.
+type PrefixProof struct {
+	OriginalParentCount               int    `json:"original_parent_count"`
+	OriginalTrainingRows              int    `json:"original_training_rows"`
+	ValidationRows                    int    `json:"validation_rows"`
+	CanonicalOriginalMetadataSHA      string `json:"canonical_original_metadata_sha256"`
+	CanonicalPreservedMetadataSHA     string `json:"canonical_preserved_metadata_sha256"`
+	OriginalTrainingCSRBitsSHA        string `json:"original_training_CSR_bits_sha256"`
+	PreservedTrainingCSRBitsSHA       string `json:"preserved_training_CSR_bits_sha256"`
+	OriginalValidationCSRBitsSHA      string `json:"original_validation_CSR_bits_sha256"`
+	PreservedValidationCSRBitsSHA     string `json:"preserved_validation_CSR_bits_sha256"`
+	OriginalCalibrationMetadataSHA    string `json:"original_calibration_metadata_sha256"`
+	PreservedCalibrationMetadataSHA   string `json:"preserved_calibration_metadata_sha256"`
+	NilAndEmptyPreserved              bool   `json:"nil_and_empty_preserved"`
+	ValidationAndCalibrationUnchanged bool   `json:"validation_and_calibration_unchanged"`
+}

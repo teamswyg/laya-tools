@@ -1,0 +1,299 @@
+package main
+
+import (
+	"encoding/json"
+	"math"
+	"os"
+	"path/filepath"
+	"slices"
+	"strings"
+	"testing"
+
+	"github.com/teamswyg/laya-tools/internal/claimfit"
+	"github.com/teamswyg/laya-tools/internal/pairlearn"
+	"github.com/teamswyg/laya-tools/pkg/shortclaim"
+)
+
+// Synthetic DTOs and injected callbacks only: no original corpus, Fit,
+// Features, Project, Baselines, model Encode/Decode or native library calls.
+func TestDataOnlyPlanCannotRunPendingProjectionRegistryOrChangedConfig(t *testing.T) {
+	p := Plan{Schema: planSchema, Frozen: true, PrerequisitesFrozen: true, ReadinessScope: "bounded_development_primary_only_no_generalization_or_production_claim", Attempt: 1, AttemptDirectory: "toy-attempt", RuntimeGo: "go1.27.1", CPU: 1, HeapSoft: 256 << 20, WallSeconds: 300, RSSMax: 256 << 20, AssetsMax: 64 << 20, NumericFileMax: maxNumericAsset, Config: primaryConfig, SourceCommit: sourceCommit, SourceCIRun: 37015530233, MaxFits: 8, MaxArtifacts: 16, PriorFitAttempts: 2, ParentCount: 79, CandidateCount: 235, Known: 41, NoAnswer: 17, Unknown: 21, WholeGroups: 21, KnownGroups: 20, ProjectionSchema: "riido-source80-appended79-projection-result-v1", ProjectionState: "completed_projection_only_no_fit_or_model_readiness_approval"}
+	n := 2
+	p.PriorArtifacts = &n
+	fake := Pin{ID: "toy", Path: "toy.json", Bytes: 1, SHA256: strings.Repeat("0", 64)}
+	p.Projection = fake
+	p.ConsumptionRegistry = fake
+	p.QualifiedAppend = fake
+	p.QualifiedAppend.SHA256 = appendSHA
+	p.OriginalProjection = fake
+	p.OriginalProjection.SHA256 = oldProjectionSHA
+	p.FirstFitResult = fake
+	p.FirstFitResult.SHA256 = firstResultSHA
+	p.AdoptedProposal = fake
+	p.AdoptedProposal.SHA256 = proposalSHA
+	p.Sources = slices.Clone(expectedSources)
+	for i := range p.Sources {
+		p.Sources[i].Path = p.Sources[i].ID
+	}
+	for _, id := range []string{"main.go", "types.go", "projectioncheck.go", "fit.go", "utility.go", "pins.go", "appendguard.go", "assets.go", "origin.go", "amendment.go", "go.mod"} {
+		x := fake
+		x.ID = id
+		p.DriverSources = append(p.DriverSources, x)
+	}
+	p.Evidence = []Pin{fake}
+	p.Binary = fake
+	p.Binary.ID = "riido79fit"
+	if checkPlan(p) != nil {
+		t.Fatal("synthetic contract fixture")
+	}
+	for _, x := range []struct {
+		name   string
+		mutate func(*Plan)
+	}{{"projection_pending", func(p *Plan) { p.Projection.SHA256 = "" }}, {"registry_pending", func(p *Plan) { p.PriorArtifacts = nil }}, {"consumption_pending", func(p *Plan) { p.ConsumptionRegistry.Bytes = 0 }}, {"no_new_rank_term", func(p *Plan) { p.RankLambda = 1 }}, {"no_warm_seed_search", func(p *Plan) { p.Config.Seed++ }}, {"old_prior_zero_refused", func(p *Plan) { p.PriorFitAttempts = 0 }}, {"artifact_ceiling", func(p *Plan) { x := 16; p.PriorArtifacts = &x }}, {"global_promotion_refused", func(p *Plan) { p.ProductionPermitted = true }}} {
+		t.Run(x.name, func(t *testing.T) {
+			q := p
+			x.mutate(&q)
+			if checkPlan(q) == nil {
+				t.Fatal("altered frozen contract accepted")
+			}
+		})
+	}
+}
+func TestStorageAccountingUsesDistinctFileBytesAndPreservesRefusedFile(t *testing.T) {
+	b := &assetBudget{prior: 5, max: 20}
+	dir := t.TempDir()
+	path := filepath.Join(dir, "numeric.json")
+	if b.create(path, []byte("12345")) != nil {
+		t.Fatal("create")
+	}
+	f, e := os.OpenFile(path, os.O_WRONLY, 0600)
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer f.Close()
+	if b.update(f, []byte("1234567")) != nil || b.current != 7 || b.written != 12 {
+		t.Fatal("logical bytes vs repeated I/O")
+	}
+	if b.update(f, make([]byte, 16)) == nil {
+		t.Fatal("aggregate cap bypass")
+	}
+	got, e := os.ReadFile(path)
+	if e != nil || string(got) != "1234567" || b.current != 7 {
+		t.Fatal("cap refusal mutated durable prefix")
+	}
+	if b.create(path, []byte("overwrite")) == nil {
+		t.Fatal("exclusive existing output")
+	}
+	s := b.snapshot()
+	s.Files[0].ID = "mutated-copy"
+	if b.files[0].ID == s.Files[0].ID {
+		t.Fatal("snapshot ownership")
+	}
+}
+func TestBudgetCheckpointPreflightsBothFilesBeforeTruncate(t *testing.T) {
+	dir := t.TempDir()
+	f, e := os.OpenFile(filepath.Join(dir, "results.json"), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer f.Close()
+	l, e := os.OpenFile(filepath.Join(dir, "attempt-ledger.json"), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer l.Close()
+	if updateSync(f, []byte("prior-result")) != nil || updateSync(l, []byte("prior-ledger")) != nil {
+		t.Fatal("toy durable prefix")
+	}
+	b := &assetBudget{max: 1}
+	if checkpointBudget(f, l, Result{Schema: resultSchema}, b) == nil {
+		t.Fatal("tiny budget")
+	}
+	raw, _ := os.ReadFile(f.Name())
+	if string(raw) != "prior-result" {
+		t.Fatal("refusal destroyed saved result")
+	}
+}
+func TestPrimaryModelIsReservedBeforeFitWithoutDispatchingAnyCallback(t *testing.T) {
+	b := &assetBudget{prior: 10, max: 10 + modelBytes - 1}
+	if b.reservePrimaryBeforeFit() == nil || b.used != 0 {
+		t.Fatal("fixed model must fit before dispatch")
+	}
+	b.max++
+	if b.reservePrimaryBeforeFit() != nil || b.current != modelBytes || b.written != 0 || b.files[0].DurableBytes != 0 {
+		t.Fatal("reservation must not claim a created model")
+	}
+}
+func TestRegistryRequiresFrozenCompleteRootRecordNotTwoNames(t *testing.T) {
+	root := t.TempDir()
+	x := Consumption{Schema: "riido-fit79-root-frozen-consumption-v1", Frozen: true, RegistryComplete: false, PriorFitAttempts: 2}
+	raw, _ := json.Marshal(x)
+	path := filepath.Join(root, "registry.json")
+	if os.WriteFile(path, raw, 0600) != nil {
+		t.Fatal("toy")
+	}
+	n := 0
+	p := Plan{PriorArtifacts: &n, AssetsMax: maxPayload, NumericFileMax: maxNumericAsset, ConsumptionRegistry: Pin{ID: "registry", Path: "registry.json", Bytes: int64(len(raw)), SHA256: sha(raw)}}
+	if _, e := consumption(p, root); e == nil {
+		t.Fatal("incomplete registry accepted")
+	}
+	if uniqueConsumptionPins([]Pin{{ID: "same", Path: "a"}, {ID: "same", Path: "b"}}, root) || uniqueConsumptionPins([]Pin{{ID: "a", Path: "same"}, {ID: "b", Path: "same"}}, root) || uniqueConsumptionPins([]Pin{{ID: strings.Repeat("a", 513), Path: "a"}}, root) {
+		t.Fatal("ambiguous or unbounded registry keys")
+	}
+}
+func TestRegistryAccountsForBothAlreadyCreatedNewInputs(t *testing.T) {
+	root := t.TempDir()
+	projection := []byte("toy-projection")
+	appendInput := []byte("toy-qualified-input")
+	for _, x := range []struct {
+		name string
+		data []byte
+	}{{"projection.json", projection}, {"append.json", appendInput}} {
+		if os.WriteFile(filepath.Join(root, x.name), x.data, 0600) != nil {
+			t.Fatal("toy file")
+		}
+	}
+	projectionPin := Pin{ID: "projection", Path: "projection.json", Bytes: int64(len(projection)), SHA256: sha(projection)}
+	appendPin := Pin{ID: "append", Path: "append.json", Bytes: int64(len(appendInput)), SHA256: sha(appendInput)}
+	n := 0 // Toy-only complete empty model registry; never an actual count.
+	p := Plan{PriorArtifacts: &n, AssetsMax: maxPayload, NumericFileMax: maxNumericAsset, Projection: projectionPin, QualifiedAppend: appendPin}
+	x := Consumption{Schema: "riido-fit79-root-frozen-consumption-v1", Frozen: true, RegistryComplete: true, PriorFitAttempts: 2, Models: []Pin{}, Assets: []Pin{projectionPin}, AssetsBytes: projectionPin.Bytes, RetainedMax: maxPayload, NewStageAssets: []Pin{projectionPin}, NewStageBytes: projectionPin.Bytes}
+	writeRegistry := func() {
+		raw, e := json.Marshal(x)
+		if e != nil {
+			t.Fatal("toy encode")
+		}
+		if os.WriteFile(filepath.Join(root, "registry.json"), raw, 0600) != nil {
+			t.Fatal("toy registry")
+		}
+		p.ConsumptionRegistry = Pin{ID: "registry", Path: "registry.json", Bytes: int64(len(raw)), SHA256: sha(raw)}
+	}
+	writeRegistry()
+	if _, e := consumption(p, root); e == nil || e.Error() != "fit79_new_input_asset_missing_from_consumption" {
+		t.Fatal("omitted append must be refused")
+	}
+	x.Assets = append(x.Assets, appendPin)
+	x.AssetsBytes += appendPin.Bytes
+	x.NewStageAssets = append(x.NewStageAssets, appendPin)
+	x.NewStageBytes += appendPin.Bytes
+	writeRegistry()
+	b, e := consumption(p, root)
+	if e != nil || b.prior != projectionPin.Bytes+appendPin.Bytes {
+		t.Fatal("new-data bytes not included")
+	}
+	x.Assets[0].SHA256 = strings.Repeat("0", 64)
+	writeRegistry()
+	if _, e := consumption(p, root); e == nil {
+		t.Fatal("listed asset must still match bytes")
+	}
+}
+func TestRetainedAmendmentNeverRaisesNewStageOrSparseLimits(t *testing.T) {
+	p := Plan{AssetsMax: maxPayload, NumericFileMax: maxNumericAsset}
+	if x, e := retainedLimit(p); e != nil || x != maxPayload {
+		t.Fatal("legacy64MiB default")
+	}
+	x := int64(amendedRetainedMax)
+	p.RetainedMax = &x
+	if _, e := retainedLimit(p); e == nil {
+		t.Fatal("512 without amendment")
+	}
+	p.ResourceAmendment = &Pin{ID: "resource", Path: "resource.json", Bytes: 1, SHA256: strings.Repeat("0", 64)}
+	if x, e := retainedLimit(p); e != nil || x != amendedRetainedMax {
+		t.Fatal("pinned conditional branch")
+	}
+	a := ResourceAmendment{Schema: "riido-source80-data-effect79-resource-amendment-v1", HistoricalLimit: maxPayload, HistoricalExcessPreserved: true, RetainedMax: amendedRetainedMax, NewStageMax: maxPayload, CountingBasis: "sum current regular-file bytes per distinct governed path; identical SHA/inode remains counted", CurrentRegistrySHA: strings.Repeat("0", 64), ProjectionMax: 12 << 20, ResultMax: maxNumericAsset, LedgerMax: maxNumericAsset, ModelBytes: modelBytes}
+	a.OriginalCaps.Fits = 8
+	a.OriginalCaps.Models = 16
+	a.OriginalCaps.Sparse = maxPayload
+	a.OriginalCaps.CPU = 1
+	a.OriginalCaps.Heap = 256 << 20
+	a.OriginalCaps.RSS = 256 << 20
+	a.OriginalCaps.Time = 300
+	raw, _ := json.Marshal(a)
+	if verifyAmendment(raw, p) != nil {
+		t.Fatal("toy policy")
+	}
+	a.ScientificRecipeChanged = true
+	raw, _ = json.Marshal(a)
+	if verifyAmendment(raw, p) == nil {
+		t.Fatal("science change disguised as storage amendment")
+	}
+	a.ScientificRecipeChanged = false
+	a.NewStageMax = amendedRetainedMax
+	raw, _ = json.Marshal(a)
+	if verifyAmendment(raw, p) == nil {
+		t.Fatal("new-stage64 altered")
+	}
+	b := &assetBudget{prior: 200 << 20, max: amendedRetainedMax, stagePrior: maxPayload - modelBytes + 1, stageMax: maxPayload}
+	if b.reservePrimaryBeforeFit() == nil {
+		t.Fatal("ample total budget cannot override new-stage cap")
+	}
+}
+func TestNumericResultFileCapAndIdenticalCopyPaths(t *testing.T) {
+	if _, e := encode(strings.Repeat("x", maxNumericAsset)); e == nil {
+		t.Fatal("encoded file includes quotes and LF above8MiB")
+	}
+	if _, e := encode("toy"); e != nil {
+		t.Fatal("toy")
+	}
+	pins := []Pin{{ID: "copy-a", Path: "a", Bytes: 10, SHA256: strings.Repeat("0", 64)}, {ID: "copy-b", Path: "b", Bytes: 10, SHA256: strings.Repeat("0", 64)}}
+	if !uniqueConsumptionPins(pins, t.TempDir()) {
+		t.Fatal("same SHA on distinct paths must be retained separately")
+	}
+	b := &assetBudget{prior: 20, max: 25, stagePrior: 20, stageMax: 25}
+	if _, e := b.reserve("numeric.json", 6); e == nil {
+		t.Fatal("both copies are part of total")
+	}
+}
+func TestOriginalFloatBitPrefixAndValidationAreNotCoerced(t *testing.T) {
+	z := math.Copysign(0, -1)
+	old := pairlearn.Dataset{Split: "development", Offsets: []int{0, 1}, Indices: []uint16{2}, Values: []float64{z}, Labels: []float64{1}, Groups: []int{4}, SampleWeights: []float64{0}, Excluded: 39}
+	now := pairlearn.Dataset{Split: "development", Offsets: []int{0, 1, 2}, Indices: []uint16{2, 3}, Values: []float64{z, 1}, Labels: []float64{1, 0}, Groups: []int{4, 75}, SampleWeights: []float64{0, 1}, Excluded: 39}
+	if !sameDatasetPrefix(old, now, false) || sameDatasetPrefix(old, now, true) {
+		t.Fatal("prefix/exact scopes")
+	}
+	now.Values[0] = 0
+	if sameDatasetPrefix(old, now, false) {
+		t.Fatal("negative zero erased")
+	}
+	if floatBitsEqual(nil, []float64{}) {
+		t.Fatal("nullable slice coerced")
+	}
+}
+func TestTrainingOriginUsesAllNineRowsWithoutChangingUtilityGate(t *testing.T) {
+	p := claimfit.Projection{Parents: make([]claimfit.RuntimeParent, 79)}
+	positive := [3]int{1, 0, 2}
+	for i := 0; i < 3; i++ {
+		x := claimfit.RuntimeParent{Text: shortclaim.Prepared{Request: "toy", Count: 3}, Role: 0, Truth: claimfit.Known}
+		for c := 0; c < 3; c++ {
+			x.Text.Candidates[c] = shortclaim.PreparedCandidate{ID: "toy", Text: "toy"}
+			x.Labels[c] = claimfit.NullableLabel{Known: true, Positive: c == positive[i]}
+			x.LossEligible[c] = true
+			p.DevelopmentRefs = append(p.DevelopmentRefs, claimfit.RowRef{ParentIndex: 76 + i, CandidateIndex: c})
+			p.Development.Offsets = append(p.Development.Offsets, len(p.Development.Values))
+			p.Development.Indices = append(p.Development.Indices, 1)
+			p.Development.Values = append(p.Development.Values, float64(c))
+			label := 0.
+			if c == positive[i] {
+				label = 1
+			}
+			p.Development.Labels = append(p.Development.Labels, label)
+		}
+		p.Parents[76+i] = x
+	}
+	p.Development.Offsets = append(p.Development.Offsets, 9)
+	weights := make([]float64, 8192)
+	weights[1] = 1
+	var counts Counts
+	progressCalls := 0
+	d, e := originDiagnostic(p, weights, &counts, fixedToyControls, func(out *OriginDiagnostic) error {
+		progressCalls++
+		if !out.NotUtilityGate {
+			t.Fatal("diagnostic promoted")
+		}
+		return nil
+	})
+	if e != nil || !d.NotUtilityGate || d.Primary == nil || d.Primary.Metric.Parents != 3 || d.Primary.Metric.OracleChecks != 3 || d.Primary.Metric.Top3Correct != 3 || counts.NewTrainControlAttempts != 3 || counts.NewTrainControlReturned != 3 || counts.NewTrainCachedScoreRows != 9 || progressCalls != 6 || counts.ControlParentAttempts != 0 || counts.FitAttempts != 0 {
+		t.Fatal("training-origin scope")
+	}
+}
