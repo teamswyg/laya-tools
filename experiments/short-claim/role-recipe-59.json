@@ -1,0 +1,57 @@
+{
+  "schema": "riido-whole-component-role-recipe-59-v1",
+  "state": "unassigned",
+  "runtime_execution_support": false,
+  "scope": "Future deterministic development roles for complete immutable provenance components; no assignment, split, fit or blinded-validation claim",
+  "whole_groups": 17,
+  "groups_containing_known_parents": 16,
+  "unknown_only_group_id": 64,
+  "graph_membership_freeze": "pending",
+  "seed_freeze": "pending",
+  "seed_assigned": false,
+  "roles_assigned": 0,
+  "existing_labeled_group_floors": {
+    "development_train": 9,
+    "development_validation": 3,
+    "development_calibration": 3
+  },
+  "transfer_development_groups_required": 0,
+  "transfer_zero_permitted": true,
+  "future_algorithm": {
+    "version": "whole-component-sha256-order-weighted-3-1-1-v1",
+    "membership": "Preserve original connected membership and source relationships; derive a stable digest from sorted complete membership and relationships using declared length-prefixed encoding",
+    "ordering": "After future graph and seed freezes, sort known-containing components by SHA256 of length-prefixed domain, fixed seed and component-membership digest; break a hash tie by membership digest then original group ID",
+    "domain": "riido-whole-component-role-order-v1",
+    "allocation": "For N known-containing groups, start with integer floors of 3N/5, N/5, N/5. Distribute remaining groups by descending fractional remainder, with train/validation/calibration tie order. Refuse if existing 9/3/3 floors or predeclared coverage are not satisfied",
+    "role_segments": [
+      "development_train",
+      "development_validation",
+      "development_calibration"
+    ],
+    "unknown_only_components": "Keep complete unknown-only components in development_train provenance accounting, with every unknown excluded from labels and cost/Top metrics; never count them toward labeled-group floors",
+    "known_component_unknown_members": "Every member follows its complete component role; unknown members remain unknown and label-ineligible",
+    "transfer": "No current assignments. Allow zero transfer-development groups; future scoped source proposals require their own relationship/input freezes"
+  },
+  "encoding_and_exact_membership_sha": "To be frozen in a separate assignment execution plan before assigning any seed or group",
+  "coverage_requirements": "Pending independent content/source review and a future predeclared role-coverage plan; do not require every one of the 18 prototypes in every role or add a new numeric gate",
+  "insufficient_coverage_policy": "Stop assignment or fitting without splitting components, lowering existing floors or reselecting favorable seeds/groups",
+  "observed_58_scores_may_select_assignments": false,
+  "previously_observed_data_becomes_unseen_or_protected_final": false,
+  "seed_proves_statistical_independence": false,
+  "graph_or_roles_are_scorer_features": false,
+  "new_labels": 0,
+  "new_independent_parents": 0,
+  "fits": 0,
+  "ranking_calls": 0,
+  "source_api_calls": 0,
+  "model_calls": 0,
+  "paid_calls": 0,
+  "protected_final_reads": 0,
+  "new_weights": 0,
+  "training_ready": false,
+  "human_approval_required": false,
+  "preserve_stop_reasons": [
+    "no_roles_plan",
+    "synthetic_single_pipeline"
+  ]
+}
