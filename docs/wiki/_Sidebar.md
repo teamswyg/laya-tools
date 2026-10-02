@@ -154,3 +154,6 @@
 - [실제 시도 두 건·비교 중단 51](https://github.com/teamswyg/laya-tools/blob/main/experiments/task-outcomes/RESULTS-51.ko.md) · [Two owned attempts and stopped comparison 51](https://github.com/teamswyg/laya-tools/blob/main/experiments/task-outcomes/RESULTS-51.en.md)
 - [실행 전 중단 기록 50](https://github.com/teamswyg/laya-tools/blob/main/experiments/task-outcomes/RESULTS-50.ko.md) · [Preserved prelaunch refusal 50](https://github.com/teamswyg/laya-tools/blob/main/experiments/task-outcomes/RESULTS-50.en.md)
 - [학습용 4,456개 검색 비교·중단 판단](https://github.com/teamswyg/laya-tools/blob/main/experiments/path-helper-headroom/RESULTS-48.ko.md) · [4,456-request helper screen and stop decision](https://github.com/teamswyg/laya-tools/blob/main/experiments/path-helper-headroom/RESULTS-48.en.md)
+- [공개 동작 검증57 결과](https://github.com/teamswyg/laya-tools/wiki/Public-Behavior-Results-57-KO) · [EN](https://github.com/teamswyg/laya-tools/wiki/Public-Behavior-Results-57-EN)
+- [공개 동작 검증57 사용법](https://github.com/teamswyg/laya-tools/wiki/Public-Behavior-Usage-57-KO) · [EN](https://github.com/teamswyg/laya-tools/wiki/Public-Behavior-Usage-57-EN)
+- [Laya 원본 회고57](https://github.com/teamswyg/laya-tools/wiki/Laya-Retrospective-57-KO) · [EN](https://github.com/teamswyg/laya-tools/wiki/Laya-Retrospective-57-EN)

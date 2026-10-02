@@ -1,5 +1,7 @@
 # laya-tools
 
+[Public behavior verification57](experiments/public-behavior/RESULTS-57.en.md) observes62 original Go APIs for version/path patterns. Preserve59 matches and3 disagreements, distinguishing large-number comparison from stronger pattern-validation policy. [Usage](experiments/public-behavior/USAGE-57.en.md) replays published observations. Two source families and six finite contracts are neither model performance nor2400 independent tasks. The [Laya retrospective](docs/laya-source-retrospective-57.en.md) explains checkpoint selection versus Codex cost prediction and subsequent caching, abstention and license boundaries.
+
 Separate research: [semantic hints](experiments/semantic-hints/PLAN.en.md) explores cheap suggestions for expensive search. Try the model-free [opt-in search helper](experiments/baseline-first/README.en.md) with `riido-hints --identifier-hints`. Results and limitations cover 2,948 documentation queries; difficulty routing and defaults remain independent.
 
 Use [`--limit 20` pagination](experiments/hint-pagination/README.en.md) to let agents read a small candidate batch first. Remaining candidates are recoverable through the next cursor; actual token savings remain unverified.
