@@ -1,0 +1,543 @@
+{
+  "axes": [
+    {
+      "id": "source_fidelity",
+      "question": "Does the candidate caption faithfully describe its scoped implementation, including incorrect behavior?"
+    },
+    {
+      "id": "request_contract_coverage",
+      "question": "Does the request state its intended supported scope, and which parts does the candidate description cover, omit or contradict?"
+    },
+    {
+      "id": "observation_fields",
+      "question": "Are the required return, error, state, ownership, ordering and no-panic observations expressed with their finite scope?"
+    },
+    {
+      "id": "explicit_negative_boundaries",
+      "question": "Are relevant negation, inclusion/exclusion, malformed inputs, unsupported inputs and scope limitations explicit?"
+    }
+  ],
+  "canonical59_recipe": {
+    "bytes": 3474,
+    "path": "experiments/short-claim/content-review-recipe-59.json",
+    "sha256": "17f0abc9843e082d53e78f0eff79842d592db89f2532c0ece0e3a44814065cff"
+  },
+  "closure_completeness_review": "pending",
+  "content_review": "pending",
+  "contract_references": [
+    {
+      "historical_contract": {
+        "core_template": "stable-filter",
+        "input_semantics": "integer sequence; output retained integer sequence; five literal sequences only",
+        "literal_vectors": 5,
+        "prototype": "stable-odd",
+        "truth_table_sha256": "a969d8f0ba9f6ffcd6bce511eb8e154ae2e709708a89e006a090a69384d524cb"
+      },
+      "literal_payload_reified": false,
+      "literal_source_reference_from59": {
+        "end_byte": 14193,
+        "end_line": 400,
+        "expression_kind": "legacy_contract_element",
+        "file": "internal/behaviorprobe/data.go",
+        "literal_vector_expressions": 5,
+        "raw_expression_sha256": "fc7bc48d5a9fa18389393fa31568916935fa24880fcc26fc4d15470daf232628",
+        "start_byte": 13986,
+        "start_line": 400,
+        "top_level_symbol": "contracts"
+      },
+      "observation_fields_review": "pending",
+      "per_vector_got_available": false,
+      "reference59_json_pointer": "/references/contracts/4"
+    },
+    {
+      "historical_contract": {
+        "core_template": "staged-commit",
+        "input_semantics": "Exact ASCII DD,F: two digits, comma, flag 0/1; fresh non-nil destination. Success returns/commits parsed Config. Invalid input returns zero/exact ErrSyntax and preserves destination; no candidate panic.",
+        "literal_vectors": 18,
+        "prototype": "atomic-commit",
+        "truth_table_sha256": "1db8a7b5c077fd02f734b5c9e89739cd1c83d718c71c3cf8b4a1395d75b8075d"
+      },
+      "literal_payload_reified": false,
+      "literal_source_reference_from59": {
+        "end_byte": 3528,
+        "end_line": 73,
+        "expression_kind": "typed_vector_initializer",
+        "file": "internal/typedbehavior/state.go",
+        "literal_vector_expressions": 18,
+        "raw_expression_sha256": "4dc910622c72d6c24f11d16b3a710bd2cb8e2ced1bd18dcf338cf9215d47cfc3",
+        "start_byte": 1217,
+        "start_line": 54,
+        "top_level_symbol": "atomicVectors"
+      },
+      "observation_fields_review": "pending",
+      "per_vector_got_available": false,
+      "reference59_json_pointer": "/references/contracts/12"
+    },
+    {
+      "historical_contract": {
+        "core_template": "error-cause-identity",
+        "input_semantics": "Fresh A/B sentinels with equal text and fresh non-nil Cause values. Direct, multiple wrapping, joining, same-message unrelated, and nil error cases; report errors.Is(A/B), errors.As(Cause)/code without changing causes; no candidate panic.",
+        "literal_vectors": 11,
+        "prototype": "error-identity",
+        "truth_table_sha256": "a3f82cc54e5ed58840fff8938107ce5c5636f96eb268141c8d96ca191fa0c230"
+      },
+      "literal_payload_reified": false,
+      "literal_source_reference_from59": {
+        "end_byte": 7415,
+        "end_line": 210,
+        "expression_kind": "typed_vector_initializer",
+        "file": "internal/typedbehavior/state.go",
+        "literal_vector_expressions": 11,
+        "raw_expression_sha256": "4c9ec6036dbb67f307188f004940f36b492d522f48bd5c74a73ecd28c84e2a12",
+        "start_byte": 6693,
+        "start_line": 198,
+        "top_level_symbol": "identityVectors"
+      },
+      "observation_fields_review": "pending",
+      "per_vector_got_available": false,
+      "reference59_json_pointer": "/references/contracts/13"
+    }
+  ],
+  "existing_ci_merge_gate_preserved": true,
+  "family_boundary_checklists": [
+    {
+      "counts": {
+        "candidate_positions": 12,
+        "distinct_caption_texts": 4,
+        "literal_cases": 5,
+        "parents": 4,
+        "source_ids": 3
+      },
+      "negative_boundaries_not_to_infer": [
+        "nil versus nonnil empty is not distinguished by slices.Equal",
+        "Capacity, result/input aliasing, allocation count, runtime, memory and unbounded inputs were not observed",
+        "Legacy panic/input-mutation unknown semantics must not be replaced by typed mismatch semantics"
+      ],
+      "observation_fields": [
+        "v.Input integer sequence",
+        "v.Want integer output sequence",
+        "post-call input sequence",
+        "aggregate checked/failed/unknown only"
+      ],
+      "prototype": "stable-odd",
+      "required_evidence_for_later_reading": [
+        "Root predicates x%2!=0 versus x\u003e0\u0026\u0026x%2!=0; loop direction; append order; returned slice contents; no authored input writes",
+        "Literal table contains empty input, repeated odds, mixed parity, negative odds, reversed-order counterexamples and all-even input",
+        "Observer clones input, compares input/value sequence with slices.Equal, and returns unknown on candidate panic or input mutation"
+      ],
+      "state": "pending",
+      "text_navigation": [
+        {
+          "end_line": 400,
+          "official60_raw_declaration_reference": "pending",
+          "path": "internal/behaviorprobe/data.go",
+          "raw_file_sha256": "b377343a64c019c205f69865286a21ce5d91dda3051c31aa5c69b75a40300559",
+          "reference_kind": "text_navigation_anchor_only",
+          "start_line": 400,
+          "symbol": "contracts stable-odd element"
+        },
+        {
+          "end_line": 507,
+          "official60_raw_declaration_reference": "pending",
+          "path": "internal/behaviorprobe/data.go",
+          "raw_file_sha256": "b377343a64c019c205f69865286a21ce5d91dda3051c31aa5c69b75a40300559",
+          "reference_kind": "text_navigation_anchor_only",
+          "start_line": 489,
+          "symbol": "check"
+        },
+        {
+          "end_line": 665,
+          "official60_raw_declaration_reference": "pending",
+          "path": "internal/behaviorprobe/data.go",
+          "raw_file_sha256": "b377343a64c019c205f69865286a21ce5d91dda3051c31aa5c69b75a40300559",
+          "reference_kind": "text_navigation_anchor_only",
+          "start_line": 657,
+          "symbol": "oddCorrect"
+        },
+        {
+          "end_line": 674,
+          "official60_raw_declaration_reference": "pending",
+          "path": "internal/behaviorprobe/data.go",
+          "raw_file_sha256": "b377343a64c019c205f69865286a21ce5d91dda3051c31aa5c69b75a40300559",
+          "reference_kind": "text_navigation_anchor_only",
+          "start_line": 666,
+          "symbol": "oddReversed"
+        },
+        {
+          "end_line": 683,
+          "official60_raw_declaration_reference": "pending",
+          "path": "internal/behaviorprobe/data.go",
+          "raw_file_sha256": "b377343a64c019c205f69865286a21ce5d91dda3051c31aa5c69b75a40300559",
+          "reference_kind": "text_navigation_anchor_only",
+          "start_line": 675,
+          "symbol": "oddPositive"
+        }
+      ]
+    },
+    {
+      "counts": {
+        "candidate_positions": 12,
+        "distinct_caption_texts": 4,
+        "literal_cases": 18,
+        "parents": 4,
+        "source_ids": 4
+      },
+      "negative_boundaries_not_to_infer": [
+        "Partial returned Config and partial destination mutation are separate observations",
+        "Nonnil destination scope does not promise nil-destination safety",
+        "Exact ErrSyntax is not same-text error equality or errors.Is through wrapping",
+        "Aggregate failures do not identify per-vector Got values",
+        "Ambiguous invalid clause remains unsupported until a future claim-by-claim reading records both interpretations"
+      ],
+      "observation_fields": [
+        "atomicVector.Raw",
+        "atomicVector.Before",
+        "atomicVector.Want.Returned.Count/Enabled",
+        "atomicVector.Want.After.Count/Enabled",
+        "atomicVector.Want.Error exact nil/sentinel/other enum",
+        "atomicVector.Want.Panicked"
+      ],
+      "prototype": "atomic-commit",
+      "required_evidence_for_later_reading": [
+        "Root-specific order of destination writes versus decodeAtomic validation; success-return and success-commit separated",
+        "decodeAtomic grammar is exactly 4 ASCII bytes, 2 digits, comma, flag0/1; Count and Enabled conversion",
+        "atomicConfig fields and exact ErrSyntax identity, including atomicError sentinel classification",
+        "invokeAtomic capture separates candidate panic from observer faults; observeAtomic passes a fresh nonnil destination and checkAtomic compares complete observation"
+      ],
+      "state": "pending",
+      "text_navigation": [
+        {
+          "end_line": 29,
+          "official60_raw_declaration_reference": "pending",
+          "path": "internal/typedbehavior/state.go",
+          "raw_file_sha256": "35324ed595bcf384c484f33d98c6866164bebb2b636986ee8ea51bb979bdad7c",
+          "reference_kind": "text_navigation_anchor_only",
+          "start_line": 20,
+          "symbol": "atomicConfig/atomicFn/ErrSyntax"
+        },
+        {
+          "end_line": 50,
+          "official60_raw_declaration_reference": "pending",
+          "path": "internal/typedbehavior/state.go",
+          "raw_file_sha256": "35324ed595bcf384c484f33d98c6866164bebb2b636986ee8ea51bb979bdad7c",
+          "reference_kind": "text_navigation_anchor_only",
+          "start_line": 31,
+          "symbol": "atomicError/atomicObservation/atomicVector"
+        },
+        {
+          "end_line": 73,
+          "official60_raw_declaration_reference": "pending",
+          "path": "internal/typedbehavior/state.go",
+          "raw_file_sha256": "35324ed595bcf384c484f33d98c6866164bebb2b636986ee8ea51bb979bdad7c",
+          "reference_kind": "text_navigation_anchor_only",
+          "start_line": 54,
+          "symbol": "atomicVectors"
+        },
+        {
+          "end_line": 80,
+          "official60_raw_declaration_reference": "pending",
+          "path": "internal/typedbehavior/state.go",
+          "raw_file_sha256": "35324ed595bcf384c484f33d98c6866164bebb2b636986ee8ea51bb979bdad7c",
+          "reference_kind": "text_navigation_anchor_only",
+          "start_line": 75,
+          "symbol": "decodeAtomic"
+        },
+        {
+          "end_line": 123,
+          "official60_raw_declaration_reference": "pending",
+          "path": "internal/typedbehavior/state.go",
+          "raw_file_sha256": "35324ed595bcf384c484f33d98c6866164bebb2b636986ee8ea51bb979bdad7c",
+          "reference_kind": "text_navigation_anchor_only",
+          "start_line": 82,
+          "symbol": "atomic roots"
+        },
+        {
+          "end_line": 159,
+          "official60_raw_declaration_reference": "pending",
+          "path": "internal/typedbehavior/state.go",
+          "raw_file_sha256": "35324ed595bcf384c484f33d98c6866164bebb2b636986ee8ea51bb979bdad7c",
+          "reference_kind": "text_navigation_anchor_only",
+          "start_line": 126,
+          "symbol": "invokeAtomic/observeAtomic/checkAtomic"
+        }
+      ]
+    },
+    {
+      "counts": {
+        "candidate_positions": 12,
+        "distinct_caption_texts": 4,
+        "literal_cases": 11,
+        "parents": 4,
+        "source_ids": 4
+      },
+      "negative_boundaries_not_to_infer": [
+        "A/B equal text does not establish target identity",
+        "Cause can be absent; Targets-and-Cause-nonnil request clause has unresolved scope",
+        "Cause.Code preservation is not an observed whole error-chain immutability guarantee",
+        "Typed nil and custom Is/As/Unwrap behavior are outside the fixtures",
+        "errors.As output-address nonnil is distinct from contained cause pointer nonnil",
+        "Returned original code and mutation-after-capture are separate observations"
+      ],
+      "observation_fields": [
+        "identityVector.Case and fixture Input/TargetA/TargetB/Cause",
+        "identityVector.Want.HasA/HasB/HasCause/CauseCode",
+        "identityVector.WantCauseAfter compared only when fixture.Cause!=nil",
+        "candidate panicked boolean through invokeIdentity",
+        "aggregate checked/failed/unknown only"
+      ],
+      "prototype": "error-identity",
+      "required_evidence_for_later_reading": [
+        "Root calls errors.Is/As versus message containment/direct equality/direct assertion; CauseCode read-before-write order",
+        "identityCause.Code, (*identityCause).Error, identityFacts fields and all source-specific retained components",
+        "buildIdentityFixture uses distinct same-text A/B sentinels, wrapping, joining, absent causes and nil Input; cases never contain ambiguous typed nil",
+        "invokeIdentity captures candidate panic; checkIdentity separately compares returned facts and post-call Cause.Code"
+      ],
+      "state": "pending",
+      "text_navigation": [
+        {
+          "end_line": 170,
+          "official60_raw_declaration_reference": "pending",
+          "path": "internal/typedbehavior/state.go",
+          "raw_file_sha256": "35324ed595bcf384c484f33d98c6866164bebb2b636986ee8ea51bb979bdad7c",
+          "reference_kind": "text_navigation_anchor_only",
+          "start_line": 161,
+          "symbol": "identityCause/Error/identityFacts"
+        },
+        {
+          "end_line": 194,
+          "official60_raw_declaration_reference": "pending",
+          "path": "internal/typedbehavior/state.go",
+          "raw_file_sha256": "35324ed595bcf384c484f33d98c6866164bebb2b636986ee8ea51bb979bdad7c",
+          "reference_kind": "text_navigation_anchor_only",
+          "start_line": 172,
+          "symbol": "identityFn/identityCase/identityVector"
+        },
+        {
+          "end_line": 210,
+          "official60_raw_declaration_reference": "pending",
+          "path": "internal/typedbehavior/state.go",
+          "raw_file_sha256": "35324ed595bcf384c484f33d98c6866164bebb2b636986ee8ea51bb979bdad7c",
+          "reference_kind": "text_navigation_anchor_only",
+          "start_line": 198,
+          "symbol": "identityVectors"
+        },
+        {
+          "end_line": 251,
+          "official60_raw_declaration_reference": "pending",
+          "path": "internal/typedbehavior/state.go",
+          "raw_file_sha256": "35324ed595bcf384c484f33d98c6866164bebb2b636986ee8ea51bb979bdad7c",
+          "reference_kind": "text_navigation_anchor_only",
+          "start_line": 212,
+          "symbol": "identityFixture/buildIdentityFixture"
+        },
+        {
+          "end_line": 296,
+          "official60_raw_declaration_reference": "pending",
+          "path": "internal/typedbehavior/state.go",
+          "raw_file_sha256": "35324ed595bcf384c484f33d98c6866164bebb2b636986ee8ea51bb979bdad7c",
+          "reference_kind": "text_navigation_anchor_only",
+          "start_line": 253,
+          "symbol": "identity roots"
+        },
+        {
+          "end_line": 325,
+          "official60_raw_declaration_reference": "pending",
+          "path": "internal/typedbehavior/state.go",
+          "raw_file_sha256": "35324ed595bcf384c484f33d98c6866164bebb2b636986ee8ea51bb979bdad7c",
+          "reference_kind": "text_navigation_anchor_only",
+          "start_line": 298,
+          "symbol": "invokeIdentity/checkIdentity"
+        }
+      ]
+    }
+  ],
+  "future_review_record_schema": {
+    "accepted_states": [
+      "pending",
+      "consistent_with_scoped_evidence",
+      "omits_required_scope",
+      "contradicts_scoped_evidence",
+      "unsupported_or_uncertain"
+    ],
+    "mandatory_fields": [
+      "protocol_artifact_sha256",
+      "official60_binding_artifact_sha256_and_source_refs",
+      "parent_id",
+      "original_parent_index",
+      "candidate_index_and_id_when_applicable",
+      "request_and_caption_pointer_sha_bytes",
+      "claim_id",
+      "exact_text_byte_range",
+      "verbatim_claim",
+      "axis",
+      "state",
+      "source_expression_or_declaration_references",
+      "authored_helper_type_sentinel_and_observer_references",
+      "input_scope_and_observation_fields",
+      "evidence_kind_source_reading_or_existing_literal_only",
+      "missing_or_contradictory_boundaries",
+      "competing_interpretations",
+      "remaining_uncertainty",
+      "reviewer_identity_and_independence_scope",
+      "review_record_sha256"
+    ],
+    "records_generated": 0,
+    "schema": "riido-caption-content-review-record-60-v1",
+    "source_oracle_outcome_feature_fields_forbidden": [
+      "correct",
+      "acceptable_candidate_indices",
+      "candidate_outcome",
+      "failed_vectors_as_fidelity",
+      "ranking_score_as_fidelity"
+    ]
+  },
+  "human_approval_required": false,
+  "initial_axis_state": "pending",
+  "interpretive_work_not_automatically_checkable": [
+    "Trace authored control flow, reads, writes and data dependencies separately for each implementation and scoped claim",
+    "Assess whether the original caption is faithful even when the implementation intentionally fails the requested task",
+    "Assess whether the request/caption expresses each relevant finite input condition and observable field; a keyword is insufficient",
+    "Distinguish absence of observed violation from proof over untested input, nil/aliasing/capacity/custom-error behavior or complete error-chain mutation",
+    "Record competing readings and unsupported clauses without rewriting prose or laundering uncertainty into consistent status"
+  ],
+  "later_clearing_policy": {
+    "claim_to_axis_row_rollup": "An axis-level row cannot become consistent_with_scoped_evidence if any material claim for that axis is pending, unsupported, omitted or contradictory. Keep axes separate: a faithful incorrect implementation can have consistent source_fidelity and contradictory request_contract_coverage. Preserve per-claim states/reasons; never produce one all-purpose approved-candidate scalar.",
+    "closure_entry": "Only consistent_with_scoped_evidence after the successful60 binding plus independent code reading accounts for every authored dependency in the selected scoped implementation and explicitly records stdlib/infrastructure assumptions. No general object binding or whole-program closure proof is claimed.",
+    "coverage_entry": "Assess request and each description against the finite literal contract and observer fields. Missing required scope is omits_required_scope; explicit disagreement is contradicts_scoped_evidence; unresolved reading or unobserved broad promise is unsupported_or_uncertain. No automatic task-acceptable promotion.",
+    "fidelity_entry": "Only consistent_with_scoped_evidence when each supported implementation claim has text/source evidence and no material unsupported or contradictory clause remains within the declared finite scope; rejected task outcome is irrelevant to fidelity.",
+    "partial_scope": "Only supported finite clauses may clear. Unobserved or ambiguous clauses retain unsupported_or_uncertain, and untouched rows/axes remain pending. This does not clear all216 captions or make training_ready true.",
+    "unknown_parent": "Fidelity of a candidate may later be scoped independently, but request_contract_coverage for ambiguous intent cannot become consistent under a fabricated oracle; original unknown stays unknown."
+  },
+  "mechanically_checkable_preconditions": [
+    "12 parent IDs/36 candidate positions/11 source IDs/12 unique caption SHAs/34 retained literal cases; exact original order and pointer joins",
+    "Original file pins, UTF8 decoded text SHA/byte ranges, literal-expression references and historical root/component/bundle pins agree",
+    "Review states use the unchanged59 vocabulary; omitted axes and missing evidence fail completeness",
+    "Every actual later assertion supplies exact text clause ranges, source/declaration/raw pin references, input scope, observation fields, exclusions, uncertainty, reviewer and immutable record SHA",
+    "Unknown3 in this subset and unknown21/global groups17/known-containing16 are preserved; no roles, labels or protected-final changes"
+  ],
+  "official_content_assessment_allowed_now": false,
+  "permitted_review_states": [
+    "pending",
+    "consistent_with_scoped_evidence",
+    "omits_required_scope",
+    "contradicts_scoped_evidence",
+    "unsupported_or_uncertain"
+  ],
+  "predeclared_ambiguous_clause_targets_not_assessments": [
+    {
+      "decoded_text_sha256": "f4a7d6fc689128eed49eb1b9e9ec72158a2fc6f8a456335d3ef5b189ce98f83e",
+      "end_byte": 113,
+      "future_review_question": "Does invalid refer to the leading digit pair or complete DD,F syntax? Retain both readings; do not silently rewrite the caption.",
+      "start_byte": 95,
+      "state": "pending",
+      "text_json_pointer": "/parents/0/candidates/2/text",
+      "verbatim_clause": "or zero if invalid"
+    },
+    {
+      "decoded_text_sha256": "0fa482689bf12303de2ecf7c698d13cdada3e2c1b64ba6f32f6e221ab2f5e587",
+      "end_byte": 113,
+      "future_review_question": "Which authored mutable locations and stdlib calls are actually reviewed? Cause.Code observation is not a whole-chain mutation observation.",
+      "start_byte": 81,
+      "state": "pending",
+      "text_json_pointer": "/parents/4/candidates/0/text",
+      "verbatim_clause": "without changing the error chain"
+    },
+    {
+      "decoded_text_sha256": "73325195f54db01de82c68b71eef8636033e25046db37fcf3f47436fba4c0feb",
+      "end_byte": 120,
+      "future_review_question": "Does this restrict existing causes, or refer to the nonnil errors.As output-address argument? Cases with nil Input and absent Cause remain in the original table.",
+      "start_byte": 83,
+      "state": "pending",
+      "text_json_pointer": "/parents/4/request",
+      "verbatim_clause": "Targets and Cause pointers are nonnil"
+    }
+  ],
+  "preparation60_recipe": {
+    "bytes": 7189,
+    "path": "experiments/short-claim/source-inventory-recipe-60.json",
+    "sha256": "5e3d053b2da774f716fda8e4e54390302375d35a64ceb77cd350830c9671ed19"
+  },
+  "preparation_execution": {
+    "actual_review_records": 0,
+    "ast_formatter": 0,
+    "ast_parse": 0,
+    "bind": 0,
+    "candidate_api": 0,
+    "fit": 0,
+    "generate": 0,
+    "model": 0,
+    "new_labels": 0,
+    "new_weights": 0,
+    "original_inventory": 0,
+    "paid": 0,
+    "protected_final_reads": 0,
+    "read_saved_metadata_and_public_text_only": true,
+    "roles": 0,
+    "source_pin_api": 0,
+    "terminal_content_decisions": 0
+  },
+  "preservation": {
+    "caption_rewrites": 0,
+    "connected_groups": 17,
+    "every_development_fit_requires2400": false,
+    "known_containing_groups": 16,
+    "new15repositories_condition": false,
+    "original_candidates": 216,
+    "original_parents": 72,
+    "protected_final_distinct2400_per_domain_target_preserved": true,
+    "source_truth_correct_and_acceptable_remain_provenance_only": true,
+    "unknown": 21
+  },
+  "protocol_freeze": "pending_parent_publication",
+  "purpose": "Predeclare independent claim-by-claim review of three existing public development families after a separately frozen successful60 declaration rebinding; not terminal assessments or truth.",
+  "reference59_artifact": {
+    "bytes": 360591,
+    "path": "experiments/short-claim/caption-coverage-59.json",
+    "sha256": "7c1bd449d533d3d46a9211dea0a436ce338fe8f16ee3197d554744c3c24b0a29"
+  },
+  "required_before_first_official_assessment": [
+    "Freeze protocol bytes/SHA and actual reader/source-input/independence scope before assigning any nonpending assessment",
+    "Successful separately frozen60 runner report pins compiled Go closure, actual toolchain/platform/binary/input/plan and retains every root/component relation, partial counters and failures",
+    "Bind each selected source ID/root/component against the exact historical descriptor; preserve raw, formatted, normalized and bundle SHA recipes",
+    "Keep source text/caption bytes, original positions, groups, truth and ambiguity unchanged; no feature/ranking/acceptable-label-guided selection",
+    "Reader reviews original captions and authored roots/helpers/types/sentinel plus observers/literal fields. Missing declaration, uncertain stdlib assumption or absent observation blocks that claim",
+    "Do not substitute inventory success, a green CI, keyword checks or an independent reviewer for semantic or independent-origin evidence"
+  ],
+  "schema": "riido-caption-content-review-protocol-preparation-60-v1",
+  "scope": {
+    "all_existing59_entries_pending": 738,
+    "ambiguous_parents_preserved": 3,
+    "distinct_caption_texts": 12,
+    "families": [
+      "stable-odd",
+      "atomic-commit",
+      "error-identity"
+    ],
+    "literal_cases": 34,
+    "new_independent_requests": 0,
+    "original_candidate_positions": 36,
+    "original_parents": 12,
+    "planned_subset_breakdown": {
+      "candidate_closure": 36,
+      "candidate_coverage": 36,
+      "candidate_fidelity": 36,
+      "contract_observation": 3,
+      "request_contract": 12
+    },
+    "planned_subset_of_existing59_entries": 123,
+    "source_ids": 11
+  },
+  "scope_reference_scaffolding": {
+    "bytes": 96306,
+    "path": "experiments/short-claim/content-review-scope-references-60.json",
+    "sha256": "0f3f0b7742bd74a45e5c263f501bcce63964e2432a3cafb3217156d694f6ffdd",
+    "state": "all_pending_not_actual_review_records"
+  },
+  "state": "protocol_preparation_only_all_content_pending",
+  "text_budget": {
+    "normalized_words_at_most": 32,
+    "raw_utf8_bytes_at_most": 512,
+    "truncate_to_pass": false
+  },
+  "training_ready": false
+}
