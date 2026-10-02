@@ -1,0 +1,96 @@
+// Source-only preparation. Root must freeze a compatible outside controller first.
+package main
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"flag"
+	"fmt"
+	"io"
+	"math"
+	"os"
+	"path/filepath"
+	"runtime"
+	"strconv"
+	"strings"
+	"time"
+
+	"riido.local/ftoaslice/internal/candidate"
+	"riido.local/ftoaslice/internal/oracle"
+	original "riido.local/ftoaslice/internal/original"
+)
+
+var compiledClosureSHA string
+var compiledVectorSHA string
+var compiledReadinessSHA string
+
+type Ref struct { ID string `json:"asset_id"`; Path string `json:"path"`; Bytes int64 `json:"bytes"`; SHA string `json:"sha256"` }
+type Plan struct {
+	Schema string `json:"schema"`; SourceRoot string `json:"source_root"`; AttemptDir string `json:"attempt_dir"`
+	Closure Ref `json:"closure"`; Vectors Ref `json:"vectors"`; Readiness Ref `json:"readiness"`
+	ReservationSHA string `json:"outside_reservation_sha256"`; Scheduled int `json:"scheduled_observations"`; Retry int `json:"retry"`
+	GoVersion string `json:"go_version"`; GoOS string `json:"goos"`; GoArch string `json:"goarch"`
+	CPU int `json:"cpu"`; SoftHeap int64 `json:"soft_heap_bytes"`; RSS int64 `json:"max_rss_bytes"`; Seconds int `json:"whole_seconds"`
+	OutputBytes int64 `json:"max_output_bytes"`; OutsideBytes int64 `json:"max_outside_bytes"`; Mode string `json:"mode"`
+}
+type Closure struct { Schema string `json:"schema"`; Boundary string `json:"boundary"`; Files []Ref `json:"files"`; CompilerSelectionPending bool `json:"compiler_selection_pending"` }
+type Ready struct {
+	Schema string `json:"schema"`; ClosureSHA string `json:"closure_sha256"`; VectorsSHA string `json:"vectors_sha256"`; ReservationSHA string `json:"outside_reservation_sha256"`
+	WantReview bool `json:"independent_want_review_passed"`; Fidelity bool `json:"candidate_fidelity_review_passed"`; SourceReview bool `json:"source_selection_review_passed"`
+	Rights bool `json:"local_observation_rights_review_passed"`; CI bool `json:"root_source_review_and_ci_passed"`; Reserved bool `json:"root_outside_attempt_reserved"`; Once bool `json:"allow_original_observation_once"`
+	Model bool `json:"allow_model_operations"`; Protected bool `json:"allow_protected_final"`; Public bool `json:"allow_public_writes"`
+}
+type Input struct { Decimal string `json:"float_decimal"`; Bits string `json:"float_bits"`; Digits int `json:"digits"` }
+type Want struct { Text *string `json:"text"`; ErrorKind string `json:"error_kind"` }
+type Vector struct { ID string `json:"case_id"`; Input Input `json:"input"`; Want Want `json:"want"` }
+type Vectors struct { Schema string `json:"schema"`; Rows []Vector `json:"rows"` }
+type Got struct { Text string `json:"text"`; ErrorChannel bool `json:"error_channel_available"`; ErrorPresent *bool `json:"error_present"`; ErrorKind string `json:"error_kind"`; ErrorMessage string `json:"error_message"`; Panic bool `json:"panic"` }
+type Row struct { Ordinal int `json:"ordinal"`; Goal string `json:"goal_id"`; Candidate string `json:"candidate_id"`; Case string `json:"case_id"`; Bits string `json:"input_float64_bits"`; Want Want `json:"frozen_Want_unverified"`; Got Got `json:"Got"`; Truth any `json:"truth"`; Role any `json:"role"`; Weight any `json:"weight"` }
+type OracleCheck struct { Case string `json:"case_id"`; Bits string `json:"input_float64_bits"`; WantConsistent bool `json:"frozen_Want_consistent_with_independent_oracle"` }
+type Result struct {
+	Schema string `json:"schema"`; PlanSHA string `json:"plan_sha256"`; ClosureSHA string `json:"closure_sha256"`; VectorsSHA string `json:"vectors_sha256"`; ReadinessSHA string `json:"readiness_sha256"`
+	Rows []Row `json:"rows"`; OracleChecks []OracleCheck `json:"oracle_checks"`; Scheduled int `json:"scheduled_observations"`; Completed int `json:"completed_observations"`
+	OriginalCalls int `json:"original_FtoaWithDigits_calls"`; PreciseCalls int `json:"authored_FtoaPrecise_calls"`; FlawedCalls int `json:"authored_FlawedDoubleRound_calls"`; OracleCalls int `json:"independent_oracle_calls"`
+	Heap uint64 `json:"go_heap_alloc_bytes_snapshot"`; Seconds float64 `json:"observation_seconds_excludes_startup_and_pins"`; Model int `json:"model_calls"`; Protected int `json:"protected_reads"`; Labels any `json:"labels"`; Production bool `json:"production_ready"`; Failure string `json:"failure_code"`; Scope string `json:"counter_scope"`
+}
+func lowerSHA(s string) bool { if len(s)!=64{return false}; for _,c:=range s { if !(c>='0'&&c<='9') && !(c>='a'&&c<='f'){return false} }; return true }
+func decode(data []byte, dst any) error { d:=json.NewDecoder(bytes.NewReader(data)); d.DisallowUnknownFields(); if e:=d.Decode(dst);e!=nil{return e}; if d.Decode(new(any))!=io.EOF{return errors.New("json_tail")};return nil }
+func safeRelative(s string) bool { return s!="" && !filepath.IsAbs(s) && filepath.Clean(s)==s && s!=".." && !strings.HasPrefix(s,".."+string(os.PathSeparator)) }
+func noLinks(path string) error { for p:=filepath.Clean(path);;p=filepath.Dir(p){s,e:=os.Lstat(p);if e!=nil||s.Mode()&os.ModeSymlink!=0{return errors.New("path")};if filepath.Dir(p)==p{return nil}} }
+func readFile(path string, cap int64) ([]byte,error) {
+	if !filepath.IsAbs(path)||noLinks(path)!=nil{return nil,errors.New("path")};s,e:=os.Lstat(path);if e!=nil||!s.Mode().IsRegular()||s.Size()<=0||s.Size()>cap{return nil,errors.New("file")}
+	f,e:=os.Open(path);if e!=nil{return nil,e};defer f.Close();a,e:=f.Stat();if e!=nil||!os.SameFile(s,a){return nil,errors.New("identity")}
+	b,e:=io.ReadAll(io.LimitReader(f,cap+1));if e!=nil||int64(len(b))!=s.Size(){return nil,errors.New("read")};z,e:=os.Lstat(path);if e!=nil||!os.SameFile(s,z)||z.Size()!=s.Size()||!z.ModTime().Equal(s.ModTime()){return nil,errors.New("changed")};return b,nil
+}
+func readRef(root string,r Ref,cap int64)([]byte,error){if !safeRelative(r.Path)||r.Bytes<=0||r.Bytes>cap||!lowerSHA(r.SHA){return nil,errors.New("ref")};b,e:=readFile(filepath.Join(root,r.Path),cap);if e!=nil{return nil,e};h:=sha256.Sum256(b);if int64(len(b))!=r.Bytes||hex.EncodeToString(h[:])!=r.SHA{return nil,errors.New("pin")};return b,nil}
+func syncDir(path string) error {f,e:=os.Open(path);if e!=nil{return e};defer f.Close();return f.Sync()}
+func exclusive(path string,data []byte) error {f,e:=os.OpenFile(path,os.O_WRONLY|os.O_CREATE|os.O_EXCL,0600);if e!=nil{return e};_,e=f.Write(data);if e==nil{e=f.Sync()};c:=f.Close();if e==nil{e=c};if e==nil{e=syncDir(filepath.Dir(path))};return e}
+func inputValues(v Vectors)([6]float64,error){
+	x:=[6]float64{1.125,1.375,1.999,0.000000125,math.Float64frombits(0x8000000000000000),math.Inf(1)}
+	dec:=[6]string{"1.125","1.375","1.999","0.000000125","","+Inf"};bits:=[6]string{"","","","","8000000000000000",""};digits:=[6]int{2,2,2,9,2,2};want:=[6]string{"1.12","1.38","2","0.000000125","0",""}
+	if v.Schema!="riido-ftoa-six-frozen-vectors-v1"||len(v.Rows)!=6{return x,errors.New("vectors")}
+	for i,r:=range v.Rows {id:=fmt.Sprintf("next60-humanize-precise-ftoa-vector-%02d",i+1);if r.ID!=id||r.Input.Decimal!=dec[i]||r.Input.Bits!=bits[i]||r.Input.Digits!=digits[i]{return x,errors.New("input")};if i<5 {if r.Want.Text==nil||*r.Want.Text!=want[i]||r.Want.ErrorKind!=""{return x,errors.New("Want")}}else if r.Want.Text!=nil||r.Want.ErrorKind!="nonfinite"{return x,errors.New("Want")}}
+	return x,nil
+}
+func errorGot(text string,err error,precision,nonfinite error) Got {present:=err!=nil;g:=Got{Text:text,ErrorChannel:true,ErrorPresent:&present};if err!=nil{g.ErrorMessage=err.Error();if errors.Is(err,precision){g.ErrorKind="precision"}else if errors.Is(err,nonfinite){g.ErrorKind="nonfinite"}else{g.ErrorKind="other"}};return g}
+func observe(fn func()Got)(g Got){defer func(){if recover()!=nil{g=Got{Panic:true,ErrorKind:"panic"}}}();return fn()}
+func run(path string) error {
+	if runtime.Version()!="go1.27.1"||runtime.GOOS!="darwin"||runtime.GOARCH!="arm64"||os.Getenv("GOMAXPROCS")!="1"||os.Getenv("GOMEMLIMIT")!="256MiB"{return errors.New("runtime")}
+	b,e:=readFile(path,65536);if e!=nil{return e};var p Plan;if decode(b,&p)!=nil||p.Schema!="riido-next60-ftoa-slice-plan-v1"||p.Mode!="reserved_native_observation_only"||p.Scheduled!=18||p.Retry!=0||!lowerSHA(p.ReservationSHA){return errors.New("plan")}
+	if p.GoVersion!="go1.27.1"||p.GoOS!="darwin"||p.GoArch!="arm64"||p.CPU!=1||p.SoftHeap!=268435456||p.RSS!=268435456||p.Seconds!=300||p.OutputBytes!=12582912||p.OutsideBytes!=1048576{return errors.New("limits")}
+	if !filepath.IsAbs(p.SourceRoot)||!filepath.IsAbs(p.AttemptDir)||p.SourceRoot==p.AttemptDir||noLinks(p.SourceRoot)!=nil||noLinks(filepath.Dir(p.AttemptDir))!=nil{return errors.New("dirs")}
+	if p.Closure.ID!="ftoa/closure"||p.Vectors.ID!="ftoa/vectors"||p.Readiness.ID!="root/local-observation-readiness"||compiledClosureSHA!=p.Closure.SHA||compiledVectorSHA!=p.Vectors.SHA||compiledReadinessSHA!=p.Readiness.SHA{return errors.New("compiled_bindings")}
+	c,e:=readRef(p.SourceRoot,p.Closure,65536);if e!=nil{return e};var closure Closure;if decode(c,&closure)!=nil||closure.Schema!="riido-ftoa-slice-closure-v1"||closure.Boundary!="original-file-only-not-whole-humanize"||len(closure.Files)!=7{return errors.New("closure")};seen:=make([]string,0,7);for _,r:=range closure.Files{for _,s:=range seen{if s==r.Path{return errors.New("duplicate")}};if _,e=readRef(p.SourceRoot,r,65536);e!=nil{return e};seen=append(seen,r.Path)}
+	c,e=readRef(p.SourceRoot,p.Readiness,65536);if e!=nil{return e};var ready Ready;if decode(c,&ready)!=nil||ready.Schema!="riido-ftoa-slice-readiness-v1"||ready.ClosureSHA!=p.Closure.SHA||ready.VectorsSHA!=p.Vectors.SHA||ready.ReservationSHA!=p.ReservationSHA||!ready.WantReview||!ready.Fidelity||!ready.SourceReview||!ready.Rights||!ready.CI||!ready.Reserved||!ready.Once||ready.Model||ready.Protected||ready.Public{return errors.New("readiness")}
+	c,e=readRef(p.SourceRoot,p.Vectors,65536);if e!=nil{return e};var vectors Vectors;if decode(c,&vectors)!=nil{return errors.New("vectors_json")};values,e:=inputValues(vectors);if e!=nil{return e}
+	if e=os.Mkdir(p.AttemptDir,0700);e!=nil{return e};if e=exclusive(filepath.Join(p.AttemptDir,"native-dispatch.once"),[]byte(p.ReservationSHA+"\n"));e!=nil{return e}
+	f,e:=os.OpenFile(filepath.Join(p.AttemptDir,"results.json"),os.O_WRONLY|os.O_CREATE|os.O_EXCL,0600);if e!=nil{return e};defer f.Close();if e=f.Sync();e!=nil{return e};if e=syncDir(p.AttemptDir);e!=nil{return e}
+	h:=sha256.Sum256(b);result:=Result{Schema:"riido-ftoa-slice-original-observation-result-v1",PlanSHA:hex.EncodeToString(h[:]),ClosureSHA:p.Closure.SHA,VectorsSHA:p.Vectors.SHA,ReadinessSHA:p.Readiness.SHA,Scheduled:18,Rows:make([]Row,0,18),OracleChecks:make([]OracleCheck,0,6),Scope:"Explicit original/authored candidate/oracle entry calls only. Original source slice has no init declarations. Stdlib and authored package initialization are not exhaustively counted. Whole child wall/RSS require Root outside controller."};start:=time.Now()
+	for i,x:=range values {r:=vectors.Rows[i];text,err:=oracle.RenderBits(math.Float64bits(x),r.Input.Digits);result.OracleCalls++;ok:=err==nil&&r.Want.Text!=nil&&text==*r.Want.Text&&r.Want.ErrorKind=="";if r.Want.ErrorKind=="nonfinite"{ok=errors.Is(err,oracle.ErrNonfinite)&&r.Want.Text==nil};result.OracleChecks=append(result.OracleChecks,OracleCheck{r.ID,strconv.FormatUint(math.Float64bits(x),16),ok});if !ok{result.Failure="frozen_Want_oracle_disputed"}}
+	if result.Failure=="" {names:=[3]string{"original/FtoaWithDigits","authored/FtoaPrecise","authored/FlawedDoubleRound"};for k,name:=range names{for i,x:=range values{r:=vectors.Rows[i];g:=observe(func()Got{switch k{case 0:result.OriginalCalls++;return Got{Text:original.FtoaWithDigits(x,r.Input.Digits),ErrorChannel:false,ErrorKind:"unavailable"};case 1:result.PreciseCalls++;s,e:=candidate.FtoaPrecise(x,r.Input.Digits);return errorGot(s,e,candidate.ErrPrecision,candidate.ErrNonfinite);default:result.FlawedCalls++;s,e:=candidate.FlawedDoubleRound(x,r.Input.Digits);return errorGot(s,e,candidate.ErrPrecision,candidate.ErrNonfinite)}});result.Rows=append(result.Rows,Row{len(result.Rows),"next60-humanize-precise-ftoa",name,r.ID,strconv.FormatUint(math.Float64bits(x),16),r.Want,g,nil,nil,nil});result.Completed++}}}
+	result.Seconds=time.Since(start).Seconds();var ms runtime.MemStats;runtime.ReadMemStats(&ms);result.Heap=ms.HeapAlloc;out,e:=json.MarshalIndent(result,"","  ");if e!=nil{return e};out=append(out,'\n');if int64(len(out))>p.OutputBytes{return errors.New("output_cap")};if _,e=f.Write(out);e!=nil{return e};if e=f.Sync();e!=nil{return e};if e=f.Close();e!=nil{return e};if e=syncDir(p.AttemptDir);e!=nil{return e};if result.Failure!=""{return errors.New("oracle_disputed")};return nil
+}
+func main(){f:=flag.NewFlagSet("ftoa-observe",flag.ContinueOnError);f.SetOutput(io.Discard);path:=f.String("plan","","");if f.Parse(os.Args[1:])!=nil||f.NArg()!=0||*path==""{fmt.Fprintln(os.Stderr,"invalid_plan_argument");os.Exit(2)};if run(*path)!=nil{fmt.Fprintln(os.Stderr,"observation_failed_preserve_once");os.Exit(2)}}

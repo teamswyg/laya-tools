@@ -1,0 +1,62 @@
+{
+  "schema": "riido-ftoa-independent-static-oracle-Want-review-v1",
+  "date": "2026-10-03",
+  "state": "nonblind_source_only_review_no_observation_or_readiness_assignment",
+  "reviewer": "AI-assisted experiment_audit_45; author of none of the oracle, observer, candidate implementations or original Wants",
+  "oracle_author": "task_expansion_52",
+  "oracle_author_self_review_is_independent_review": false,
+  "blocking_numeric_findings": 0,
+  "reviewed_pins": [
+    {"asset_id": "ftoa/preparation-handoff", "bytes": 1999, "sha256": "c572052308702b2d63864f7c8a94bd351f3cb96f6dcdfbcc5f6ad40b44cd2a35"},
+    {"asset_id": "ftoa/vectors", "bytes": 1597, "sha256": "8c7dc8c5a337dba79eac29335b97d4283195c2c8307614d8bd34a0f6003b2455"},
+    {"asset_id": "ftoa/source/integer-oracle", "bytes": 2036, "sha256": "4611e6820da28ad24079bcb61dd91a5b7399b63cbff6018105fae87ba2e5ac31"},
+    {"asset_id": "ftoa/source/observer", "bytes": 12975, "sha256": "71745da49e778e94cbc4dd012da05186556316bb17d88427d1895f175b59ce49"},
+    {"asset_id": "ftoa/source/authored-candidates", "bytes": 1495, "sha256": "9e89227d9b897967bf77cd2832be5cf990de7aaf520a4376001a789b9fac1d09"},
+    {"asset_id": "ftoa/source/original-selected-file", "bytes": 986, "sha256": "03007fb6a59871f5531d033739c1c68364943357f044931046667bfd26f02389"},
+    {"asset_id": "Go1.27.1/src/strconv/number.go", "bytes": 11360, "sha256": "dda43e8c91d95f9dea0c46b2fec6637e5520cae099e40c5965dca0e41bbaab9e"},
+    {"asset_id": "Go1.27.1/src/internal/strconv/ftoa.go", "bytes": 13235, "sha256": "93b2dbb223f9c8928ab3c3b6f44a74de0378cf64f56e978c3431c9554de5d9be"},
+    {"asset_id": "Go1.27.1/src/internal/strconv/decimal.go", "bytes": 11299, "sha256": "23bd45989d0b5a7b441c45873bf43f210fdf8381132fc74424d381216ac3a8b4"},
+    {"asset_id": "Go1.27.1/src/internal/strconv/uscale.go", "bytes": 8371, "sha256": "bd6b0f22f08b35182c18103b1dad93590bb54f007da1eda908daf44f4331a8b8"},
+    {"asset_id": "Go1.27.1/src/cmd/compile/internal/types2/const.go", "bytes": 8121, "sha256": "ce85624497b9f414b3a02897b0149ebb58b97406c1307620550c1612f46df69e"},
+    {"asset_id": "Go1.27.1/src/go/constant/value.go", "bytes": 35404, "sha256": "9a4afa576639c98ec2be2602e4b6aecb24760a3dbd386cc8ce8bb5c1d5c4895e"}
+  ],
+  "arithmetic_review": {
+    "bits_to_rational": "oracle24-46: normal=(2^52+fraction)*2^(exponent-1075),subnormal=fraction*2^-1074. Exponent2047 rejects Inf/NaN; zero canonicalizes sign.",
+    "fixed_digits": "oracle47-56: exact N*10^digits/D,QuoRem; increment when2R>D or2R=D and Q odd. Nearest ties-even; no candidate/float string supplies expectations.",
+    "render": "oracle57-72: zero,padding,decimal point,fractional trim,then sign. digits0 retains integer zeros; rounded quotient handles carry.",
+    "policy": "digits0..18; precision precedes nonfinite, matching authored candidates. Six vectors cover digits2/9,+Inf only.",
+    "stdlib_primary_source": "number.go165-190:f means fractional places. ftoa.go:f rounds dp+prec; decimal.go335-360 halfway parity; uscale.go57,91-111 optimized parity/fixed precision. Compiler const.go162-170,239-243/value.go555-573 select nearest float64.",
+    "dependency_limit": "Distinct oracle algorithm; shared compiler/runtime input conversion. No compilation/execution/exhaustive library proof."
+  },
+  "six_Want_reviews": [
+    {"case_suffix": "01", "input": "literal1.125,digits2", "predicted_bits_not_observed": "3ff2000000000000", "derivation": "9/8*100=112.5; even112 cents.", "Want": {"text": "1.12", "error_kind": ""}},
+    {"case_suffix": "02", "input": "literal1.375,digits2", "predicted_bits_not_observed": "3ff6000000000000", "derivation": "11/8*100=137.5; odd137 rounds138.", "Want": {"text": "1.38", "error_kind": ""}},
+    {"case_suffix": "03", "input": "literal1.999,digits2", "predicted_bits_not_observed": "3ffffbe76c8b4396", "derivation": "0x1ffbe76c8b4396/2^52*100 in(199.5,200.5); round200,render2.00,trim2.", "Want": {"text": "2", "error_kind": ""}},
+    {"case_suffix": "04", "input": "literal0.000000125,digits9", "predicted_bits_not_observed": "3e80c6f7a0b5ed8d", "derivation": "0x10c6f7a0b5ed8d/2^75*1e9 in(124.5,125.5); round125,nine places.", "Want": {"text": "0.000000125", "error_kind": ""}},
+    {"case_suffix": "05", "input": "explicit negative-zero bits,digits2", "predicted_bits_not_observed": "8000000000000000", "derivation": "Sign1,exponent0,fraction0 -> canonical0.", "Want": {"text": "0", "error_kind": ""}},
+    {"case_suffix": "06", "input": "math.Inf(1),digits2", "predicted_bits_not_observed": "7ff0000000000000", "derivation": "Exponent2047,fraction0 -> ErrNonfinite.", "Want": {"text": null, "error_kind": "nonfinite"}}
+  ],
+  "input_and_error_channels": {
+    "input_binding": "main71-76 fixes typed literals and exact ID/order/digits/representation/Wants. No runtime ParseFloat for oracle input; actual bits unobserved, predictions not measurements.",
+    "original": "String-only FtoaWithDigits:six-place FormatFloat,truncate,trim. main93 preserves error_channel_available=false,error_present=null,error_kind=unavailable; no invented nil/nonfinite error.",
+    "authored": "Precise formats requested places; Flawed formats six,parses,formats requested places. Both trim/-0-normalize. Distinct authored APIs. Error return empty Go string is not null: nonfinite Want null means no accepted text.",
+    "interpretation": "Supported original text can be compared; unavailable required errors stay unavailable. Predictions are not labels. Six oracle checks and18 candidate observations remain one request."
+  },
+  "pending": [
+    "Root selected compiler/stdlib/source/license closure and binary proof",
+    "fresh compatible18-observation outside controller, pre-Start reservation, CI and resource proof",
+    "Root readiness/plan freeze and first original/candidate/oracle execution",
+    "coverage outside six vectors: digits0/18,-1/19,negative finite,NaN,-Inf,subnormals and adjacent ties"
+  ],
+  "limits": {
+    "root_actual_ready_changed": false,
+    "qualified_increment": 0,
+    "role": null,
+    "label": null,
+    "weight": null,
+    "model_or_training_clearance": false,
+    "whole_humanize_or_number_go_ancestry_clearance": false,
+    "partial_kill_calls": "Unknown absent a complete valid result. Empty/partial result files cannot prove zero entries after a future start.",
+    "current_original_candidate_oracle_calls": 0
+  }
+}

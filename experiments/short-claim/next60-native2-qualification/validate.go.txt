@@ -1,0 +1,75 @@
+package main
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"io"
+	"os"
+	"strings"
+
+	"github.com/teamswyg/laya-tools/pkg/shortclaim"
+)
+
+type field struct {
+	Bytes int `json:"bytes"`
+	Words int `json:"normalized_words"`
+}
+type row struct {
+	CandidateCount int     `json:"candidate_count"`
+	Request        field   `json:"request"`
+	Candidates     []field `json:"candidates"`
+}
+
+func stop() { fmt.Fprintln(os.Stderr, "bounded_input_validation_failed"); os.Exit(1) }
+func main() {
+	if len(os.Args) != 2 {
+		stop()
+	}
+	f, e := os.Open(os.Args[1])
+	if e != nil {
+		stop()
+	}
+	defer f.Close()
+	b, e := io.ReadAll(io.LimitReader(f, 32*1024+1))
+	if e != nil || len(b) > 32*1024 {
+		stop()
+	}
+	d := json.NewDecoder(bytes.NewReader(b))
+	d.DisallowUnknownFields()
+	var inputs []shortclaim.Input
+	if e = d.Decode(&inputs); e != nil {
+		stop()
+	}
+	var tail any
+	if d.Decode(&tail) != io.EOF || len(inputs) != 2 {
+		stop()
+	}
+	out := make([]row, 0, 2)
+	for _, in := range inputs {
+		wire, e := json.Marshal(in)
+		if e != nil {
+			stop()
+		}
+		validated, e := shortclaim.LoadValidated(bytes.NewReader(wire))
+		if e != nil {
+			stop()
+		}
+		p := validated.Prepared()
+		r := row{CandidateCount: p.Count, Request: field{len(p.Request), len(strings.Fields(p.NormalizedRequest))}}
+		for i := 0; i < p.Count; i++ {
+			c := p.Candidates[i]
+			r.Candidates = append(r.Candidates, field{len(c.Text), len(strings.Fields(c.NormalizedText))})
+		}
+		out = append(out, r)
+	}
+	if e := json.NewEncoder(os.Stdout).Encode(struct {
+		Schema             string `json:"schema"`
+		Rows               []row  `json:"rows"`
+		ValidateCalls      int    `json:"Validate_calls"`
+		LoadValidatedCalls int    `json:"LoadValidated_calls"`
+		FitCalls           int    `json:"Fit_calls"`
+	}{"riido-native2-owned-input-validation-v1", out, 2, 2, 0}); e != nil {
+		stop()
+	}
+}

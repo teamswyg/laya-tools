@@ -1,0 +1,17 @@
+# Native2 training eligibility: conditional preparation proposal
+
+2026-10-03; AI-assisted read-only review. A narrow artifact of own short descriptions, functional names and finite observations is a plausible preparation path. **Qualified additions remain 0; roles, labels and weights remain null; training-ready is false.** This review performs 0 Fits, separately from the project's existing 3 actual corpus Fits.
+
+The exact mapstructure MIT and pflag/Go BSD texts permit use/copying with their notice and nonendorsement conditions. No training-specific prohibition was identified in the texts read. This supports a conditional scope, not legal attestation or blanket clearance for every artifact, jurisdiction or model distribution. Preserve complete notices, pinned revisions and AI-assisted authoring provenance. Distinguish own expression/facts from copying upstream expression. [MIT](https://opensource.org/license/mit), [BSD-3-Clause](https://opensource.org/license/bsd-3-clause), [U.S. Copyright Office facts/expression distinction](https://www.copyright.gov/help/faq/faq-protect.html).
+
+Raw upstream bodies and binaries remain private and outside the proposal. The exact Go2022 copying ancestry of `join_go1_19.go` remains unresolved, with its notice retained. Its body was excluded from Go1.27.1 selected compilation and proposed training text. That exclusion does not clear the file's provenance or raw redistribution. The eventual model-weight license is also not automatically determined here.
+
+Five IPNet inputs check CIDR masking and prior-network preservation on error. Four OrCompose callback configurations check original-input retry, first-success termination and failure-message concatenation. The saved 23 candidate/input observations contain 9 finite satisfactions and 14 known mismatches. They are neither qualified training labels nor all-input function proofs. IP's empty-input and IPMask's hexadecimal clauses have source-reading support, rather than execution coverage in these five inputs.
+
+Both request IDs already existed in the first 20 drafts. No identical text was found among 79 exposed older requests, which does not prove globally new semantic contracts. IPNet connects to existing `upstream53-cobra-pflag-connected`; OrCompose to `upstream53-mapstructure`: **0 new source families**. Five candidates, nine vectors and 23 observations do not inflate independent-task counts.
+
+Conservative future scope is a `development_train-only` proposal. Freeze whole-family links and role compatibility, caption finite/general scope, supervision projection and unknown policy first. This review assigns no role or acceptable index and promotes nothing to validation or protected-final data. The existing 15-group and 5% utility gates remain unchanged; final2400 is not made a minimum for every development fit.
+
+New Go/helper/jq/original-API/model/paid/fit/upload calls are 0. Protected-final and individual validation/calibration label/score files were not read. A broad public metadata search in the subreview incidentally exposed historical validation aggregate fields once; these were not used for decisions. Do not claim all score-reading was 0 or strict blindness restored. Existing seals, rights snapshots and original observations remain unchanged.
+
+See the [conditional manifest](CONDITIONAL-ELIGIBILITY.v1.json). This is an own-description proposal, not a replacement for upstream notices.

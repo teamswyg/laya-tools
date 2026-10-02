@@ -1,0 +1,15 @@
+# Two qualified finite development-training requests
+
+Two requests from the existing 20-request draft are now **qualified for development training**. Five candidates have five finite labels: two positives and three negatives, with unit candidate weights. Nine inputs and 23 candidate/input observations do not become independent requests or multiply weights. Newly authored requests and new source families relative to the draft/catalog remain zero.
+
+The positives are `ipNetValue.Set` for the network request and `OrComposeDecodeHookFunc` for integer-hook alternatives. Other candidates fail these requests on the frozen inputs. This does not make them generally bad functions or prove correctness for every input. The model supplies cheap hints while retaining independent verification and fallback candidates.
+
+Behavior, caption fidelity and training eligibility were reviewed separately. Unexercised empty-IP/hex-mask clauses were removed. Nil-output success, empty-hook error and a trailing line feed after each failure message are explicit. Caption v3 was authored after development observation and has not been scored or fitted by any model. Two actual Go input validations passed without truncation; every text stays within 512 bytes and 32 normalized words. [Inputs](INPUTS.v3.json) · [Validation](INPUT-VALIDATION.v1.json).
+
+Both roles are `development_train`: the Cobra/pflag component is group 77 and mapstructure group 78. The existing 79-request, 21-group corpus remains unchanged. No combined 81-request corpus has been projected or validated; appending would yield 23 groups. Actual shared-source, alias, fork or template collisions across evaluation roles stop the affected fit. Mechanism similarity alone is not contract equivalence. Nothing is promoted to unseen-source or protected-final evaluation.
+
+Public materials are owned text, finite facts and [complete exact notices](notices/). Raw upstream bodies, executable/model payloads, host paths and raw logs are withheld. The unresolved Go2022 copying ancestry remains excluded and preserved without blanket clearance. The [rights proposal](rights-review/REVIEW.en.md), [group preparation](group-review/README.en.md) and [finite supervision proposal](FINITE-SUPERVISION-PROPOSAL.v1.json) preserve their **pre-qualification state**. Current assignments are in the [qualified subset](QUALIFIED-TRAIN-SUBSET.v1.json), under the [narrow material scope](MATERIAL-SCOPE.v1.json).
+
+New fitting, feature computation and model scoring remain zero. Actual corpus Fits remain 3/8 and logical models 3/16; utility-failed models remain inactive. The next round expands qualified data toward 30/60 before a separate fixed-recipe fit comparison. Protected evaluation of 2,400 requests per claimed domain, the existing 5% utility gate and answer preservation remain unchanged. Qualification alone proves neither model improvement nor LLM savings.
+
+[Earlier actual observation](../next60-native2-actual-observations/README.en.md) · [PR109 CI/Wiki publication proof](PR109-PUBLICATION.v1.json) · [한국어](README.ko.md).
