@@ -1,5 +1,7 @@
 # Documentation / 문서 안내
 
+Latest finite candidate verification / 최근 유한 후보 검증: [한국어](wiki/Claim-Behavior-Validation-KO.md) · [English](wiki/Claim-Behavior-Validation-EN.md). All72 fixed candidate observations matched; three source-scoped requests now have three positive and six negative candidates. The original76 roles remain unchanged; Go79 projection and the next data-only fit are pending. / 후보 관찰72건 일치 후 요청3개·정답후보3개·오답후보6개를 확정했습니다. 기존76개 역할은 그대로이며 Go79 투영과 다음 데이터 추가 학습은 아직 실행하지 않았습니다.
+
 Recent actual claim checks66–69 / 최근 실제 주장 검사66–69: [한국어](wiki/Claim-Checks-66-69-KO.md) · [English](wiki/Claim-Checks-66-69-EN.md). Actual roles, finite public-source behavior, unchanged input bounds and loss-mask bindings are recorded; fitting remains a separate next step. / 실제 역할·유한 공개 원천 동작·기존 입력 한도·학습 제외 연결을 기록하고, 학습은 다음 별도 단계로 진행합니다.
 
 Choose a language; both versions cover the same features, measurements, and limits.
@@ -15,6 +17,11 @@ Latest owned task evidence: [experiment55](../experiments/task-outcomes/RESULTS-
 |---|---|---|
 | Project overview / 프로젝트 개요 | [README](../README.en.md) | [README](../README.md) |
 | Training preparation review / 학습 준비 재검토 | [Data connections before another fit](../experiments/short-claim/training-resume-review/REVIEW.v1.en.md) | [다음 학습 전 자료 연결](../experiments/short-claim/training-resume-review/REVIEW.v1.ko.md) |
+| Actual time/slice observations / 실제 시간·슬라이스 관찰 | [32 matches and182 explicit dispatches](../experiments/short-claim/native-observation-81/README.en.md) | [32일치·명시적 호출182회](../experiments/short-claim/native-observation-81/README.ko.md) |
+| Actual candidate observations / 실제 후보 관찰 | [72 matches,69 returns/3 expected panics](../experiments/short-claim/conversion-pilot-80/observation/README.en.md) | [72일치·69반환/예상패닉3](../experiments/short-claim/conversion-pilot-80/observation/README.ko.md) |
+| Qualified finite training requests / 유한 학습 정답 확정 | [Three requests, nine candidates, separate SAT/fidelity/eligibility](../experiments/short-claim/conversion-pilot-80/qualification/README.en.md) | [요청3·후보9·만족도와 충실성·적격성 분리](../experiments/short-claim/conversion-pilot-80/qualification/README.ko.md) |
+| Fixed data-only FP32 fit plan / 데이터만 추가하는 고정 FP32 계획 | [Original76 preserved, one conditional sibling fit](../experiments/short-claim/data-effect-fit-79/plan/PLAN.v1.en.md) | [원76보존·조건부 형제 학습1회](../experiments/short-claim/data-effect-fit-79/plan/PLAN.v1.ko.md) |
+| Verified preparation publication / 준비 자료 실제 게시 | [PR103 CI, merge and remote Wiki readback](../experiments/short-claim/publication-proof-103/README.en.md) | [PR103필수CI·병합·원격Wiki확인](../experiments/short-claim/publication-proof-103/README.ko.md) |
 | Candidate conversion pilot / 비교 후보 변환 pilot | [Three request drafts and nine code candidates](../experiments/short-claim/conversion-pilot-80/README.en.md) | [요청 초안3개·후보 코드9개](../experiments/short-claim/conversion-pilot-80/README.ko.md) |
 | Next frozen expectations / 다음 봉인 기대값 | [32 literal Wants; source-only peer checked](../experiments/short-claim/source-observation-81/want-supplement/README.en.md) · [Peer review](../experiments/short-claim/source-observation-81/want-supplement/source-peer/REVIEW.v1.en.md) | [literal Want32개·별도 원문 검토](../experiments/short-claim/source-observation-81/want-supplement/README.ko.md) · [검토](../experiments/short-claim/source-observation-81/want-supplement/source-peer/REVIEW.v1.ko.md) |
 | Original source completion / 원문 누락 보완 | [57 retained files; compilation still separate](../experiments/short-claim/source-closure-82/ACTUAL-STATE.en.md) | [원문57파일·컴파일은 별도](../experiments/short-claim/source-closure-82/ACTUAL-STATE.ko.md) |

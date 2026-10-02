@@ -1,0 +1,279 @@
+// Package pure contains only stdlib scaffolding and injected callbacks.
+// Its tests never import or initialize the retained upstream packages.
+package pure
+
+import (
+	"encoding/json"
+	"reflect"
+	"time"
+)
+
+const Limit = 1 << 20
+const WantSHA = "f9db24e684fc7295d1c11f648784cdca53a17e8a08397a47e35bc7107a4ccf17"
+const RootScopeSHA = "f3424f17019ded9984e5a1a468d06f4ccc8bf39ca9981444c9cb3cff7683092a"
+const PeerSHA = "d924dc9a5c8a6d5ffb91d2eac049e7571315d8ef71be4cbf45860bc8ae30d2da"
+const Source82SHA = "bb0db6e02e4bbdb2511af3603e5d3172638cfbac05faebd67fc2400189bedcca"
+
+type FilePin struct {
+	ID     string `json:"artifact_id"`
+	Path   string `json:"path"`
+	Bytes  int    `json:"bytes"`
+	SHA256 string `json:"sha256"`
+}
+type Manifest struct {
+	Schema string    `json:"schema"`
+	Files  []FilePin `json:"files"`
+}
+type Plan struct {
+	Schema             string    `json:"schema"`
+	Frozen             bool      `json:"frozen"`
+	ObserverRoot       string    `json:"observer_root"`
+	Manifest           FilePin   `json:"manifest"`
+	Closure            []FilePin `json:"closure"`
+	ClosureSHA256      string    `json:"closure_sha256"`
+	Binary             FilePin   `json:"binary"`
+	GoVersion          string    `json:"go_version"`
+	GOOS               string    `json:"goos"`
+	GOARCH             string    `json:"goarch"`
+	CPU                int       `json:"cpu"`
+	SoftHeapBytes      int64     `json:"soft_heap_bytes"`
+	OutsideSeconds     int       `json:"outside_seconds"`
+	OutputBytes        int       `json:"output_bytes"`
+	Goals              int       `json:"behavior_goals"`
+	Fixtures           int       `json:"finite_fixtures"`
+	ExpectedDispatches int       `json:"expected_explicit_dispatches"`
+	MaximumDispatches  int       `json:"maximum_explicit_dispatches"`
+	Retry              int       `json:"retry"`
+	Policy             string    `json:"policy"`
+}
+
+type SourcePin struct {
+	ID     string `json:"artifact_id"`
+	Bytes  int    `json:"bytes"`
+	SHA256 string `json:"sha256"`
+}
+type Literal struct {
+	Ordinal            int             `json:"ordinal"`
+	GoalIndex          int             `json:"goal_index"`
+	GoalID             string          `json:"goal_id"`
+	FixtureIndex       int             `json:"fixture_index"`
+	Input              json.RawMessage `json:"input_full_object"`
+	InputReference     json.RawMessage `json:"input_reference"`
+	Want               Observation     `json:"Want"`
+	Got                json.RawMessage `json:"Got"`
+	Truth              json.RawMessage `json:"truth"`
+	Role               json.RawMessage `json:"role"`
+	Weight             json.RawMessage `json:"weight"`
+	Acceptable         json.RawMessage `json:"acceptable_indices"`
+	SourceClauseIDs    []string        `json:"source_clause_ids"`
+	ExpectedDispatches int             `json:"expected_explicit_dispatches"`
+}
+type WantFile struct {
+	Schema        string      `json:"schema"`
+	Records       []Literal   `json:"records"`
+	Sources       []SourcePin `json:"source_bindings"`
+	CachedSources []SourcePin `json:"cached_Go1_27_1_source_bindings"`
+}
+type HookInput struct {
+	Expected   json.RawMessage `json:"expected"`
+	Literal    string          `json:"input_literal"`
+	SourceType string          `json:"source_type"`
+	TargetType string          `json:"target_type"`
+}
+type Operation struct {
+	Name     string          `json:"operation"`
+	Argument json.RawMessage `json:"argument"`
+}
+type FlagInput struct {
+	Expected   json.RawMessage `json:"expected"`
+	Fresh      bool            `json:"fresh_FlagSet"`
+	Defaults   []string        `json:"default_strings"`
+	Operations []Operation     `json:"operations"`
+}
+
+type Panic struct {
+	Present         bool    `json:"present"`
+	Text            *string `json:"text"`
+	Type            *string `json:"type"`
+	UnsupportedText *bool   `json:"unsupported_nonprimitive_text"`
+}
+type TimeErrorFields struct {
+	Layout     string
+	LayoutElem string
+	Message    string
+	Value      string
+	ValueElem  string
+}
+type CSVErrorFields struct {
+	Column     int
+	BareQuote  bool   `json:"Err_is_ErrBareQuote"`
+	FieldCount bool   `json:"Err_is_ErrFieldCount"`
+	Quote      bool   `json:"Err_is_ErrQuote"`
+	ErrType    string `json:"Err_type"`
+	Line       int
+	StartLine  int
+}
+type ErrorObservation struct {
+	Nil              *bool            `json:"error_nil"`
+	OuterReturned    *bool            `json:"outer_Error_returned"`
+	OuterType        *string          `json:"outer_type"`
+	OuterMessage     *string          `json:"outer_message"`
+	UnwrapSupported  *bool            `json:"Unwrap_supported"`
+	UnwrapReturned   *bool            `json:"Unwrap_returned"`
+	CauseNil         *bool            `json:"cause_nil"`
+	CauseType        *string          `json:"cause_type"`
+	CauseReturned    *bool            `json:"cause_Error_returned"`
+	CauseMessage     *string          `json:"cause_message"`
+	TimeFields       *TimeErrorFields `json:"time_ParseError_fields"`
+	CSVFields        *CSVErrorFields  `json:"csv_ParseError_fields"`
+	UnsupportedCause *string          `json:"unsupported_cause_classification,omitempty"`
+	Panic            Panic            `json:"error_channel_panic"`
+	Unobserved       []string         `json:"unobserved,omitempty"`
+}
+type ReturnedValue struct {
+	Type        string   `json:"type"`
+	Nil         bool     `json:"nil"`
+	Int         *int     `json:"int_value"`
+	String      *string  `json:"string_value"`
+	SliceNil    *bool    `json:"string_slice_nil"`
+	Slice       []string `json:"string_slice_values"`
+	Unsupported *string  `json:"unsupported,omitempty"`
+}
+type TimeGetters struct {
+	Date               *[3]int  `json:"Date"`
+	DateReturned       *bool    `json:"Date_returned"`
+	Clock              *[3]int  `json:"Clock"`
+	ClockReturned      *bool    `json:"Clock_returned"`
+	Nanosecond         *int     `json:"Nanosecond"`
+	NanosecondReturned *bool    `json:"Nanosecond_returned"`
+	ZoneName           *string  `json:"Zone_name"`
+	ZoneOffset         *int     `json:"Zone_offset_seconds"`
+	ZoneReturned       *bool    `json:"Zone_returned"`
+	Panic              Panic    `json:"getter_panic"`
+	Unobserved         []string `json:"unobserved,omitempty"`
+}
+type HookObservation struct {
+	FactoryReturned *bool             `json:"factory_returned_normally"`
+	ExecReturned    *bool             `json:"DecodeHookExec_returned_normally"`
+	Value           *ReturnedValue    `json:"returned_value"`
+	Error           *ErrorObservation `json:"error"`
+	Time            *TimeGetters      `json:"time_getters"`
+	Panic           Panic             `json:"primary_panic"`
+	Unobserved      []string          `json:"unobserved,omitempty"`
+}
+type Snapshot struct {
+	Phase             string            `json:"phase"`
+	Index             *int              `json:"operation_index"`
+	OperationReturned *bool             `json:"operation_returned_normally"`
+	Error             *ErrorObservation `json:"operation_error"`
+	GetterReturned    *bool             `json:"GetSlice_returned_normally"`
+	Changed           *bool             `json:"Flag_Changed"`
+	SliceNil          *bool             `json:"slice_nil"`
+	Slice             []string          `json:"slice_values"`
+	PrimaryPanic      Panic             `json:"primary_panic"`
+	GetterPanic       Panic             `json:"getter_panic"`
+	Unobserved        []string          `json:"unobserved,omitempty"`
+}
+type FlagObservation struct {
+	NewReturned      *bool      `json:"NewFlagSet_returned_normally"`
+	NewNil           *bool      `json:"NewFlagSet_nil"`
+	RegisterReturned *bool      `json:"StringSliceVar_returned_normally"`
+	LookupReturned   *bool      `json:"Lookup_returned_normally"`
+	LookupNil        *bool      `json:"Lookup_nil"`
+	Name             *string    `json:"lookup_flag_name"`
+	Snapshots        []Snapshot `json:"snapshots"`
+	PrimaryPanic     *Panic     `json:"setup_panic,omitempty"`
+	Unobserved       []string   `json:"unobserved,omitempty"`
+}
+type Observation struct {
+	Hook *HookObservation `json:"hook"`
+	Flag *FlagObservation `json:"pflag"`
+}
+
+// This interface's methods are dispatch boundaries, not upstream guarantees.
+type FlagSession interface {
+	Register([]string)
+	Lookup() (bool, string)
+	GetSlice() []string
+	Changed() bool // reads a retained public field; not a budgeted method API.
+	Operate(Operation) error
+}
+type Adapter struct {
+	Factory    func(int) any
+	HookExec   func(any, reflect.Value, reflect.Value) (any, error)
+	NewFlagSet func() FlagSession
+	Date       func(time.Time) [3]int
+	Clock      func(time.Time) [3]int
+	Nanosecond func(time.Time) int
+	Zone       func(time.Time) (string, int)
+}
+
+const APIN = 16
+
+var APINames = [APIN]string{"hook_factory", "DecodeHookExec", "NewFlagSet", "StringSliceVar", "Lookup", "GetSlice", "FlagSet.Set", "SliceValue.Replace", "SliceValue.Append", "outer.Error", "outer.Unwrap", "cause.Error", "time.Date", "time.Clock", "time.Nanosecond", "time.Zone"}
+
+type APICount struct {
+	API       string `json:"api"`
+	Reserved  int    `json:"reserved"`
+	Attempted int    `json:"attempted"`
+	Returned  int    `json:"returned"`
+	Panics    int    `json:"panics"`
+}
+type Counts struct {
+	Reserved          int            `json:"reserved"`
+	Attempted         int            `json:"attempted"`
+	Returned          int            `json:"returned"`
+	Panics            int            `json:"panics"`
+	CompletedFixtures int            `json:"completed_fixtures"`
+	Matches           int            `json:"matches"`
+	Differences       int            `json:"differences"`
+	PerAPI            [APIN]APICount `json:"per_api"`
+}
+type Record struct {
+	Frozen           Literal      `json:"frozen_record"`
+	Got              *Observation `json:"Got"`
+	Matches          *bool        `json:"matches"`
+	Completed        bool         `json:"completed"`
+	ActualDispatches *int         `json:"actual_explicit_dispatches"`
+}
+type PanicEvent struct {
+	Ordinal int    `json:"ordinal"`
+	API     string `json:"api"`
+	Panic   Panic  `json:"panic"`
+}
+type Result struct {
+	Schema                 string       `json:"schema"`
+	State                  string       `json:"state"`
+	PlanSHA                string       `json:"plan_sha256"`
+	WantSHA                string       `json:"want_sha256"`
+	ManifestSHA            string       `json:"manifest_sha256"`
+	BinarySHA              string       `json:"binary_sha256"`
+	RuntimeGo              string       `json:"runtime_go"`
+	SourcePins             []FilePin    `json:"source_pins"`
+	ExpectedDispatches     int          `json:"expected_explicit_dispatches"`
+	MaximumDispatches      int          `json:"maximum_explicit_dispatches"`
+	CurrentOrdinal         *int         `json:"current_ordinal"`
+	BehaviorGoals          int          `json:"behavior_goals"`
+	FiniteFixtures         int          `json:"finite_fixtures"`
+	SourceFamilies         int          `json:"source_families"`
+	ExpectedOriginalPublic int          `json:"expected_original_public_dispatches"`
+	ExpectedStdlibExplicit int          `json:"expected_stdlib_explicit_dispatches"`
+	PendingAPI             *string      `json:"pending_api"`
+	Counts                 Counts       `json:"counts"`
+	Records                []Record     `json:"records"`
+	PanicEvents            []PanicEvent `json:"panic_events"`
+	Failure                *string      `json:"failure"`
+	ActualInitCallbacks    *int         `json:"actual_init_callbacks"`
+	ActualInitReturns      *int         `json:"actual_init_returns"`
+	InternalsInstrumented  bool         `json:"internal_registration_formatting_hook_calls_instrumented"`
+	ActualParents          int          `json:"actual_new_parents"`
+	Labels                 int          `json:"actual_new_labels"`
+	Roles                  int          `json:"actual_new_roles"`
+	Weights                int          `json:"actual_new_weights"`
+	Models                 int          `json:"model_calls"`
+	Fits                   int          `json:"fits"`
+	TrainingReady          bool         `json:"training_ready"`
+	Qualification          bool         `json:"qualification"`
+	ProductionReady        bool         `json:"production_ready"`
+	ProtectedFinal         bool         `json:"protected_final"`
+}

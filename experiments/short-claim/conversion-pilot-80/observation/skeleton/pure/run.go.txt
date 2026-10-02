@@ -1,0 +1,231 @@
+package pure
+
+import (
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"reflect"
+)
+
+func ptr[T any](v T) *T       { return &v }
+func fixed(code string) error { return errors.New(code) }
+func copyValue[T any](v T) (T, error) {
+	var out T
+	b, e := json.Marshal(v)
+	if e != nil || len(b) >= OutputLimit {
+		return out, fixed("snapshot_encode_failed")
+	}
+	if json.Unmarshal(b, &out) != nil {
+		return out, fixed("snapshot_decode_failed")
+	}
+	return out, nil
+}
+func Check72Coordinates(items []Literal) error {
+	if len(items) != 72 {
+		return fixed("literal_cardinality_invalid")
+	}
+	candidates, parents, goals := Candidates(), Parents(), Goals()
+	for g := 0; g < 3; g++ {
+		for c := 0; c < 3; c++ {
+			for f := 0; f < 8; f++ {
+				idx := g*24 + c*8 + f
+				r := items[idx]
+				if r.Ordinal != idx || r.GoalIndex != g || r.CandidateIndex != c || r.FixtureIndex != f || r.OriginalFixtureOrdinal != g*8+f || r.ParentID != parents[g] || r.GoalID != goals[g] || r.CandidateID != candidates[g][c].ID || r.FunctionName != candidates[g][c].Function {
+					return fixed("literal_coordinates_invalid")
+				}
+			}
+		}
+	}
+	return nil
+}
+func hexValue(v *[16]byte) *string {
+	if v == nil {
+		return nil
+	}
+	return ptr(hex.EncodeToString(v[:]))
+}
+func typeName(v any) *string {
+	if v == nil {
+		return nil
+	}
+	return ptr(reflect.TypeOf(v).String())
+}
+
+type captured struct {
+	Value     Return
+	Panicked  bool
+	PanicType *string
+	NonString bool
+}
+
+func callSafely(call Call, l Literal) (out captured) {
+	returned := false
+	defer func() {
+		if !returned {
+			p := recover()
+			out.Panicked = true
+			out.PanicType = typeName(p)
+			_, primitiveString := p.(string)
+			out.NonString = !primitiveString
+		}
+	}()
+	out.Value = call(l)
+	returned = true
+	return
+}
+
+type errorCaptured struct {
+	Message   *string
+	Panicked  bool
+	PanicType *string
+}
+
+func errorSafely(e error) (out errorCaptured) {
+	returned := false
+	defer func() {
+		if !returned {
+			p := recover()
+			out.Panicked = true
+			out.PanicType = typeName(p)
+		}
+	}()
+	m := e.Error()
+	out.Message = &m
+	returned = true
+	return
+}
+
+// Run uses only injected callbacks. The native adapter is not implemented yet.
+// Reserved means dispatch intent; dispatched is a callback boundary actually
+// entered. A failed checkpoint stops before the next candidate/Error callback.
+// The last durable external snapshot can still contain an in-flight intent.
+func Run(cases []Case, budget Budget, call Call, save Save) (state RunState, err error) {
+	state.Phase = "prepared"
+	state.StaticInnerOriginalAPIMapping = StaticInnerNativeMapping
+	if len(cases) == 0 || len(cases) > CandidateDispatches || budget.Candidate < len(cases) || budget.Candidate > CandidateDispatches || budget.Error < 0 || budget.Error > MaximumErrorDispatches || call == nil || save == nil {
+		state.Failure = "runner_arguments_invalid"
+		return state, fixed(state.Failure)
+	}
+	for _, c := range cases {
+		if c.Literal.GoalIndex < 0 || c.Literal.GoalIndex > 2 {
+			state.Failure = "runner_case_invalid"
+			return state, fixed(state.Failure)
+		}
+	}
+	// Make an owned snapshot before receiving a callback that could mutate it.
+	owned, e := copyValue(cases)
+	if e != nil {
+		state.Failure = "runner_input_snapshot_failed"
+		return state, fixed(state.Failure)
+	}
+	checkpoint := func() error {
+		snapshot, e := copyValue(state)
+		if e != nil {
+			return fixed("checkpoint_snapshot_failed")
+		}
+		if save(snapshot) != nil {
+			return fixed("checkpoint_save_failed")
+		}
+		return nil
+	}
+	stop := func(code string) (RunState, error) {
+		state.Failure = code
+		state.Phase = "stopped"
+		return state, fixed(code)
+	}
+	state.Records = make([]Observed, 0, len(cases))
+	for _, c := range owned {
+		literal, e := copyValue(c.Literal)
+		if e != nil {
+			return stop("candidate_input_snapshot_failed")
+		}
+		obs := Observed{Literal: c.Literal, InputObservation: c.InputAudit, Phase: "candidate_intent"}
+		state.Records = append(state.Records, obs)
+		idx := len(state.Records) - 1
+		state.Counters.CandidateReserved++
+		state.Phase = "before_candidate"
+		if e = checkpoint(); e != nil {
+			return stop("checkpoint_before_candidate_failed")
+		}
+		state.Counters.CandidateDispatched++
+		got := callSafely(call, literal)
+		channels := Channels{ReceiverBeforeHex: hexValue(c.ReceiverBefore)}
+		if got.Panicked {
+			state.Counters.CandidatePanicked++
+			channels.PanicPresent = true
+			channels.PanicType = got.PanicType
+			state.Records[idx].NonStringPanicTextUnobserved = got.NonString
+			// Return-value/error channels stay null. Never stringify panic payload.
+		} else {
+			state.Counters.CandidateReturned++
+			channels.ReturnedNormally = true
+			channels.UUIDHex = hexValue(got.Value.UUID)
+			channels.ReceiverAfterHex = hexValue(got.Value.ReceiverAfter)
+			if got.Value.String != nil {
+				channels.ExactOutputString = ptr(*got.Value.String)
+			}
+			if got.Value.ErrorChannel {
+				channels.ErrorNil = ptr(got.Value.Err == nil)
+				if got.Value.Err != nil {
+					channels.ErrorType = typeName(got.Value.Err)
+				}
+			} else if got.Value.Err != nil {
+				state.Records[idx].Got = &channels
+				return stop("adapter_error_channel_invalid")
+			}
+		}
+		state.Records[idx].Got = &channels
+		state.Records[idx].Phase = "candidate_finished"
+		state.Phase = "after_candidate"
+		if e = checkpoint(); e != nil {
+			return stop("checkpoint_after_candidate_failed")
+		}
+		if !got.Panicked && got.Value.ErrorChannel && got.Value.Err != nil {
+			if state.Counters.ErrorReserved >= budget.Error {
+				return stop("Error_budget_exhausted")
+			}
+			state.Counters.ErrorReserved++
+			state.Records[idx].Phase = "Error_intent"
+			state.Phase = "before_Error"
+			if e = checkpoint(); e != nil {
+				return stop("checkpoint_before_Error_failed")
+			}
+			state.Counters.ErrorDispatched++
+			switch *channels.ErrorType {
+			case "uuid.URNPrefixError":
+				state.Counters.URNErrorDispatched++
+			case "*errors.errorString":
+				state.Counters.StdlibErrorDispatched++
+			default:
+				state.Counters.UnclassifiedErrorDispatched++
+			}
+			errorResult := errorSafely(got.Value.Err)
+			if errorResult.Panicked {
+				state.Counters.ErrorPanicked++
+				state.Records[idx].ErrorMethodPanicked = true
+				state.Records[idx].ErrorMethodPanicType = errorResult.PanicType
+			} else {
+				state.Counters.ErrorReturned++
+				channels.ErrorMessage = errorResult.Message
+			}
+		}
+		matches := reflect.DeepEqual(channels, c.Literal.Want) && state.Records[idx].NonStringPanicTextUnobserved == c.Literal.WantObserved.NonStringPanicTextUnobserved && !state.Records[idx].ErrorMethodPanicked
+		state.Records[idx].Matches = &matches
+		state.Records[idx].Phase = "completed"
+		state.Counters.CompletedRecords++
+		if matches {
+			state.Counters.Matches++
+		} else {
+			state.Counters.Differences++
+		}
+		state.Phase = "after_record"
+		if e = checkpoint(); e != nil {
+			return stop("checkpoint_after_record_failed")
+		}
+	}
+	state.Phase = "completed"
+	if e = checkpoint(); e != nil {
+		return stop("checkpoint_final_failed")
+	}
+	return state, nil
+}

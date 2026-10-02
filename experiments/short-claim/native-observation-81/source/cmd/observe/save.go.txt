@@ -1,0 +1,58 @@
+package main
+
+import (
+	"encoding/json"
+	"os"
+	"path/filepath"
+
+	"riido.local/source81observer/pure"
+)
+
+func encode(v any) ([]byte, error) {
+	b, e := json.MarshalIndent(v, "", "  ")
+	if e != nil || len(b)+1 > pure.Limit {
+		return nil, pure.ErrProtocol
+	}
+	return append(b, '\n'), nil
+}
+func syncDir(path string) error {
+	f, e := os.Open(path)
+	if e != nil {
+		return pure.ErrCheckpoint
+	}
+	defer f.Close()
+	if f.Sync() != nil {
+		return pure.ErrCheckpoint
+	}
+	return nil
+}
+func exactWrite(f *os.File, b []byte) error {
+	n, e := f.Write(b)
+	if e != nil || n != len(b) || f.Sync() != nil {
+		return pure.ErrCheckpoint
+	}
+	return nil
+}
+func savePartial(dir string, r pure.Result) error {
+	b, e := encode(r)
+	if e != nil {
+		return e
+	}
+	temp := filepath.Join(dir, "partial.tmp")
+	f, e := os.OpenFile(temp, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	if e != nil {
+		return pure.ErrCheckpoint
+	}
+	defer os.Remove(temp)
+	if e = exactWrite(f, b); e != nil {
+		_ = f.Close()
+		return e
+	}
+	if f.Close() != nil {
+		return pure.ErrCheckpoint
+	}
+	if os.Rename(temp, filepath.Join(dir, "results.partial.json")) != nil {
+		return pure.ErrCheckpoint
+	}
+	return syncDir(dir)
+}

@@ -1,0 +1,169 @@
+// Package pure contains preparation protocol and synthetic callback mechanics.
+// It has no original package imports, implementations, or behavior oracle.
+package pure
+
+import "encoding/json"
+
+const WantSchema = "riido-source80-conversion-literal-Wants-v1"
+const ProposalSHA = "36414f5b02b8a4c9439e270ff9feacf514254ff3b472d532a7da7ce2761b7a0b"
+const CandidateSHA = "a90b7d87f889319a3b9b6601eb0d654db8973a58ca0c46798620a9f8d3dedde2"
+const OutputLimit = 1048576
+const CandidateDispatches = 72
+const ExpectedErrorDispatches = 10
+const MaximumErrorDispatches = 48
+const ExpectedTracked = 82
+const MaximumTracked = 120
+const StaticInnerNativeMapping = 56
+
+// Channels is the original80 eleven-field observation shape. Pointer fields
+// preserve null versus an actual empty string/false. No twelfth field is added.
+type Channels struct {
+	ReturnedNormally  bool    `json:"returned_normally"`
+	UUIDHex           *string `json:"uuid_hex"`
+	ReceiverBeforeHex *string `json:"receiver_before_hex"`
+	ReceiverAfterHex  *string `json:"receiver_after_hex"`
+	ExactOutputString *string `json:"exact_output_string"`
+	ErrorNil          *bool   `json:"error_nil"`
+	ErrorType         *string `json:"error_type"`
+	ErrorMessage      *string `json:"error_message"`
+	PanicPresent      bool    `json:"panic_present"`
+	PanicType         *string `json:"panic_type"`
+	PanicText         *string `json:"panic_text"`
+}
+type ObservationMetadata struct {
+	NonStringPanicTextUnobserved bool `json:"nonstring_panic_text_unobserved"`
+}
+type Reference struct {
+	ArtifactID  string `json:"artifact_id"`
+	ArtifactSHA string `json:"artifact_sha256,omitempty"`
+	Pointer     string `json:"json_pointer"`
+}
+
+// CandidateSourceReference is provenance copied from the frozen Want row. Its
+// compiled/executed fields describe Want preparation, not this observer's run.
+type CandidateSourceReference struct {
+	ArtifactID       string `json:"artifact_id"`
+	ArtifactSHA      string `json:"artifact_sha256"`
+	ByteEnd          int    `json:"byte_end_exclusive"`
+	ByteStart        int    `json:"byte_start"`
+	Compiled         bool   `json:"compiled"`
+	Entrypoint       string `json:"entrypoint"`
+	Executed         bool   `json:"executed"`
+	LineEndInclusive int    `json:"line_end_inclusive"`
+	LineStart        int    `json:"line_start"`
+}
+type Literal struct {
+	Ordinal                           int                      `json:"ordinal"`
+	GoalIndex                         int                      `json:"goal_index"`
+	CandidateIndex                    int                      `json:"candidate_index"`
+	FixtureIndex                      int                      `json:"fixture_index"`
+	OriginalFixtureOrdinal            int                      `json:"original_fixture_ordinal"`
+	ParentID                          string                   `json:"parent_id"`
+	GoalID                            string                   `json:"goal_id"`
+	FixtureID                         string                   `json:"fixture_id"`
+	CandidateID                       string                   `json:"candidate_id"`
+	FunctionName                      string                   `json:"function_name"`
+	CandidateSource                   CandidateSourceReference `json:"candidate_source_reference"`
+	ActualCandidateRun                bool                     `json:"actual_candidate_run"`
+	ActualParentCreated               bool                     `json:"actual_parent_created"`
+	InputReference                    Reference                `json:"input_reference"`
+	OriginalInputReference            Reference                `json:"original_input_reference"`
+	OriginalWantReference             Reference                `json:"original_Want_reference"`
+	OriginalGotReference              Reference                `json:"original_Got_reference"`
+	OriginalInputObservationReference Reference                `json:"original_input_observation_reference"`
+	OriginalInputRawSHA               string                   `json:"original_input_raw_sha256"`
+	OriginalInputCanonicalSHA         string                   `json:"original_input_canonical_sha256"`
+	Input                             json.RawMessage          `json:"input"`
+	SourceClauses                     []string                 `json:"source_clause_ids"`
+	Want                              Channels                 `json:"Want"`
+	WantObserved                      ObservationMetadata      `json:"Want_observed"`
+	Got                               json.RawMessage          `json:"Got"`
+	Truth                             json.RawMessage          `json:"truth"`
+	Role                              json.RawMessage          `json:"role"`
+	Weight                            json.RawMessage          `json:"weight"`
+	Acceptable                        json.RawMessage          `json:"acceptable_candidate_indices"`
+	Label                             json.RawMessage          `json:"label"`
+	Mask                              json.RawMessage          `json:"mask"`
+}
+type CandidateSpec struct{ ID, Function string }
+
+func Candidates() [3][3]CandidateSpec {
+	return [3][3]CandidateSpec{
+		{{"parse-zero-on-error", "ParseZeroOnError"}, {"parse-preserve", "ParsePreserve"}, {"parse-panic-on-error", "ParsePanicOnError"}},
+		{{"scan-preserve", "ScanPreserve"}, {"scan-clear-before", "ScanClearBefore"}, {"scan-suppress-error", "ScanSuppressError"}},
+		{{"ordinal-last-digit", "OrdinalLastDigit"}, {"ordinal-constant-th", "OrdinalConstantTH"}, {"ordinal-preserve", "OrdinalPreserve"}},
+	}
+}
+func Parents() [3]string {
+	return [3]string{"conversion80-parse-partial-errors", "conversion80-scan-state-errors", "conversion80-ordinal-teen-suffix"}
+}
+func Goals() [3]string {
+	return [3]string{"scope80-uuid-parse", "scope80-uuid-scan", "scope80-humanize-ordinal"}
+}
+
+// InputAudit preserves the input's dynamic representation. For Scan, nil
+// interface, typed-nil bytes, and nonnil empty bytes must remain different.
+// ReceiverBeforeHex denotes the wrapper argument, not ClearBefore's local u.
+type InputAudit struct {
+	DynamicType string  `json:"dynamic_type"`
+	BytesNil    *bool   `json:"bytes_nil"`
+	BytesHex    *string `json:"bytes_hex"`
+	Text        *string `json:"text"`
+	Int         *int    `json:"int"`
+}
+type Observed struct {
+	Literal                      Literal    `json:"literal"`
+	InputObservation             InputAudit `json:"input_observation"`
+	Got                          *Channels  `json:"Got"`
+	Matches                      *bool      `json:"Matches"`
+	Phase                        string     `json:"phase"`
+	NonStringPanicTextUnobserved bool       `json:"nonstring_panic_text_unobserved"`
+	ErrorMethodPanicked          bool       `json:"error_method_panicked"`
+	ErrorMethodPanicType         *string    `json:"error_method_panic_type"`
+	ErrorMethodPanicText         *string    `json:"error_method_panic_text"`
+}
+type Counters struct {
+	CandidateReserved           int `json:"candidate_reserved"`
+	CandidateDispatched         int `json:"candidate_dispatched"`
+	CandidateReturned           int `json:"candidate_returned"`
+	CandidatePanicked           int `json:"candidate_panicked"`
+	ErrorReserved               int `json:"Error_reserved"`
+	ErrorDispatched             int `json:"Error_dispatched"`
+	ErrorReturned               int `json:"Error_returned"`
+	ErrorPanicked               int `json:"Error_panicked"`
+	URNErrorDispatched          int `json:"upstream_URN_Error_dispatched"`
+	StdlibErrorDispatched       int `json:"stdlib_errorString_Error_dispatched"`
+	UnclassifiedErrorDispatched int `json:"unclassified_Error_dispatched"`
+	CompletedRecords            int `json:"completed_records"`
+	Matches                     int `json:"matches"`
+	Differences                 int `json:"differences"`
+}
+type RunState struct {
+	Phase                            string     `json:"phase"`
+	Failure                          string     `json:"failure"`
+	Counters                         Counters   `json:"counters"`
+	Records                          []Observed `json:"records"`
+	StaticInnerOriginalAPIMapping    int        `json:"static_inner_original_API_mapping"`
+	ActualInnerOriginalAPIDispatches *int       `json:"actual_inner_original_API_dispatches"`
+	ActualInitCallbacks              *int       `json:"actual_init_callbacks"`
+	ActualInitReturns                *int       `json:"actual_init_returns"`
+	InternalDynamicallyInstrumented  bool       `json:"internal_dynamically_instrumented"`
+}
+
+// Return is populated by a future closed native adapter, or toy callbacks now.
+// ErrorChannel distinguishes Parse/Scan error returns from Ordinal's absence.
+type Return struct {
+	UUID          *[16]byte
+	ReceiverAfter *[16]byte
+	String        *string
+	ErrorChannel  bool
+	Err           error
+}
+type Case struct {
+	Literal        Literal
+	InputAudit     InputAudit
+	ReceiverBefore *[16]byte
+}
+type Call func(Literal) Return
+type Save func(RunState) error
+type Budget struct{ Candidate, Error int }

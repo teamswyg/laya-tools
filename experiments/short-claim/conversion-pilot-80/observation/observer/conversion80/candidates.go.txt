@@ -1,0 +1,73 @@
+// Preparation-only candidate source archive. This file is inert .go.txt.
+// No candidate or upstream call has been compiled or executed in this pilot.
+// UUID wrappers retain BSD-3-Clause provenance; the Ordinal comparison retains
+// MIT provenance. See NOTICE.md and the two unchanged full upstream licenses.
+package conversion80
+
+import (
+	"strconv"
+
+	uuid "github.com/google/uuid"
+	humanize "github.com/dustin/go-humanize"
+)
+
+func ParseZeroOnError(s string) (uuid.UUID, error) {
+	u, err := uuid.Parse(s)
+	if err != nil {
+		return uuid.UUID{}, err
+	}
+	return u, nil
+}
+
+func ParsePreserve(s string) (uuid.UUID, error) {
+	return uuid.Parse(s)
+}
+
+func ParsePanicOnError(s string) (uuid.UUID, error) {
+	u, err := uuid.Parse(s)
+	if err != nil {
+		panic(err)
+	}
+	return u, nil
+}
+
+func ScanPreserve(before uuid.UUID, src any) (uuid.UUID, error) {
+	u := before
+	err := u.Scan(src)
+	return u, err
+}
+
+func ScanClearBefore(before uuid.UUID, src any) (uuid.UUID, error) {
+	u := uuid.UUID{}
+	err := u.Scan(src)
+	return u, err
+}
+
+func ScanSuppressError(before uuid.UUID, src any) (uuid.UUID, error) {
+	u := before
+	_ = u.Scan(src)
+	return u, nil
+}
+
+// OrdinalLastDigit is an explicit comparison derivative of the retained MIT
+// Ordinal source. It omits that source's modulo-100 teen exception on purpose.
+func OrdinalLastDigit(n int) string {
+	suffix := "th"
+	switch n % 10 {
+	case 1:
+		suffix = "st"
+	case 2:
+		suffix = "nd"
+	case 3:
+		suffix = "rd"
+	}
+	return strconv.Itoa(n) + suffix
+}
+
+func OrdinalConstantTH(n int) string {
+	return strconv.Itoa(n) + "th"
+}
+
+func OrdinalPreserve(n int) string {
+	return humanize.Ordinal(n)
+}

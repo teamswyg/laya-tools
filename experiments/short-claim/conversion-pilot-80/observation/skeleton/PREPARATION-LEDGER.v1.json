@@ -1,0 +1,115 @@
+{
+  "schema": "riido-source80-conversion-observer-preparation-ledger-v1",
+  "state": "pure_skeleton_ready_native_adapter_pending",
+  "scope": "private_stdlib_protocol_and_synthetic_callbacks_only",
+  "events": [
+    {
+      "id": "format-pure-1",
+      "kind": "gofmt",
+      "state": "completed",
+      "success": true,
+      "files": 3
+    },
+    {
+      "id": "pure-race-1",
+      "kind": "synthetic_pure_package_race",
+      "state": "completed",
+      "success": true,
+      "exit_code": 0,
+      "top_level_test_passes": 10,
+      "subtest_passes": 5,
+      "package_elapsed_seconds": 1.633,
+      "scope_note": "Only injected synthetic callbacks ran; no original package is imported by ./pure.",
+      "package": "./pure",
+      "upstream_imports": false,
+      "expected_top_level_tests": 10
+    },
+    {
+      "id": "pure-vet-1",
+      "kind": "pure_package_vet",
+      "state": "completed",
+      "success": true,
+      "exit_code": 0,
+      "package": "./pure",
+      "upstream_imports": false
+    },
+    {
+      "id": "schema-provenance-addition",
+      "kind": "schema_alignment",
+      "state": "completed",
+      "reason": "Frozen Want72 includes candidate source-span provenance and two false preparation flags. Preserve these fields without turning them into run counters.",
+      "prior_pure_sources_preserved_inert": true,
+      "original_behavior_change": false
+    },
+    {
+      "id": "format-pure-2",
+      "kind": "gofmt",
+      "state": "completed",
+      "success": true,
+      "files": 2
+    },
+    {
+      "id": "pure-race-2",
+      "kind": "synthetic_pure_package_race",
+      "state": "completed",
+      "success": true,
+      "exit_code": 0,
+      "top_level_test_passes": 11,
+      "subtest_passes": 5,
+      "package_elapsed_seconds": 1.66,
+      "tool_display_truncated": true,
+      "package": "./pure",
+      "upstream_imports": false,
+      "expected_top_level_tests": 11
+    },
+    {
+      "id": "pure-vet-2",
+      "kind": "pure_package_vet",
+      "state": "completed",
+      "success": true,
+      "exit_code": 0,
+      "package": "./pure",
+      "upstream_imports": false
+    },
+    {
+      "id": "Want-record-metadata-read-1",
+      "kind": "readonly_json_key_and_first_last_record_inspection",
+      "state": "completed",
+      "success": true,
+      "scope": "schema and provenance alignment only; not a source-derived Want review"
+    },
+    {
+      "id": "Want-record-metadata-check-1",
+      "kind": "readonly_json_72_record_null_and_provenance_check",
+      "state": "completed",
+      "success": true,
+      "exit_code": 0,
+      "records": 72,
+      "scope": "null supervision and false preparation flags, candidate source digest and entrypoint only; no candidate evaluation"
+    }
+  ],
+  "totals": {
+    "pure_race_attempts": 2,
+    "pure_race_successes": 2,
+    "pure_race_failures": 0,
+    "pure_vet_attempts": 2,
+    "pure_vet_successes": 2,
+    "pure_vet_failures": 0,
+    "gofmt_attempts": 2,
+    "gofmt_failures": 0,
+    "tool_test_output_display_truncations": 1
+  },
+  "original_compile": 0,
+  "original_import_execution": 0,
+  "original_init": 0,
+  "candidate_dispatches": 0,
+  "original_API_dispatches": 0,
+  "observer_native_invocations": 0,
+  "model_calls": 0,
+  "Features": 0,
+  "Project": 0,
+  "Fit": 0,
+  "shared_repo_edits": 0,
+  "external_writes": 0,
+  "truth_roles_weights_promoted": false
+}

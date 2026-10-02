@@ -1,0 +1,250 @@
+package pure
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"io"
+	"path/filepath"
+	"reflect"
+	"strings"
+	"time"
+	"unicode/utf8"
+)
+
+var ErrProtocol = errors.New("source81_protocol_invalid")
+var ErrCheckpoint = errors.New("source81_checkpoint_failed")
+
+func Digest(b []byte) string      { s := sha256.Sum256(b); return hex.EncodeToString(s[:]) }
+func Null(b json.RawMessage) bool { return bytes.Equal(bytes.TrimSpace(b), []byte("null")) }
+func SHAValid(s string) bool {
+	b, e := hex.DecodeString(s)
+	return e == nil && len(b) == 32 && s == strings.ToLower(s)
+}
+func SafePath(s string) bool {
+	return s != "" && !filepath.IsAbs(s) && filepath.Clean(s) == s && s != ".." && !strings.HasPrefix(s, "../") && !strings.Contains(s, "\\")
+}
+
+// Object-key checks are bounded by the file cap and depth/key caps; no map/lock.
+func UniqueJSON(b []byte) error {
+	if len(b) == 0 || len(b) > Limit || !utf8.Valid(b) {
+		return ErrProtocol
+	}
+	d := json.NewDecoder(bytes.NewReader(b))
+	d.UseNumber()
+	var walk func(int) error
+	walk = func(depth int) error {
+		if depth > 48 {
+			return ErrProtocol
+		}
+		t, e := d.Token()
+		if e != nil {
+			return ErrProtocol
+		}
+		p, ok := t.(json.Delim)
+		if !ok {
+			return nil
+		}
+		switch p {
+		case '{':
+			var seen []string
+			for d.More() {
+				k, e := d.Token()
+				s, ok := k.(string)
+				if e != nil || !ok || len(seen) >= 128 {
+					return ErrProtocol
+				}
+				for _, prior := range seen {
+					if strings.EqualFold(prior, s) {
+						return ErrProtocol
+					}
+				}
+				seen = append(seen, s)
+				if e := walk(depth + 1); e != nil {
+					return e
+				}
+			}
+			t, e = d.Token()
+			if e != nil || t != json.Delim('}') {
+				return ErrProtocol
+			}
+		case '[':
+			for d.More() {
+				if e := walk(depth + 1); e != nil {
+					return e
+				}
+			}
+			t, e = d.Token()
+			if e != nil || t != json.Delim(']') {
+				return ErrProtocol
+			}
+		default:
+			return ErrProtocol
+		}
+		return nil
+	}
+	if e := walk(0); e != nil {
+		return e
+	}
+	if _, e := d.Token(); e != io.EOF {
+		return ErrProtocol
+	}
+	return nil
+}
+func Decode(b []byte, v any) error {
+	if UniqueJSON(b) != nil {
+		return ErrProtocol
+	}
+	d := json.NewDecoder(bytes.NewReader(b))
+	d.DisallowUnknownFields()
+	if d.Decode(v) != nil || d.Decode(new(any)) != io.EOF {
+		return ErrProtocol
+	}
+	return nil
+}
+
+func LoadWant(b []byte) (WantFile, error) {
+	var w WantFile
+	if len(b) != 159701 || Digest(b) != WantSHA || UniqueJSON(b) != nil || json.Unmarshal(b, &w) != nil || len(w.Records) != 32 || len(w.Sources) != 57 || len(w.CachedSources) != 8 {
+		return w, ErrProtocol
+	}
+	if e := ValidateLiterals(w.Records); e != nil {
+		return w, e
+	}
+	return w, nil
+}
+
+var goalIDs = [4]string{"growth79-mapstructure-time-type-guard", "growth79-mapstructure-empty-slice", "growth79-pflag-set-state", "growth79-pflag-replace-versus-append"}
+
+func ValidateLiterals(rows []Literal) error {
+	if len(rows) != 32 {
+		return ErrProtocol
+	}
+	total := 0
+	for i, l := range rows {
+		if l.Ordinal != i || l.GoalIndex != i/8 || l.FixtureIndex != i%8 || l.GoalID != goalIDs[i/8] || !Null(l.Got) || !Null(l.Truth) || !Null(l.Role) || !Null(l.Weight) || !Null(l.Acceptable) || len(l.InputReference) == 0 || len(l.SourceClauseIDs) == 0 {
+			return ErrProtocol
+		}
+		if l.GoalIndex < 2 {
+			if l.Want.Hook == nil || l.Want.Flag != nil {
+				return ErrProtocol
+			}
+			if _, _, e := HookValues(l.Input); e != nil {
+				return e
+			}
+		} else {
+			if l.Want.Flag == nil || l.Want.Hook != nil {
+				return ErrProtocol
+			}
+			if _, e := FlagValues(l.Input); e != nil {
+				return e
+			}
+		}
+		if l.ExpectedDispatches < 2 || l.ExpectedDispatches > 24 {
+			return ErrProtocol
+		}
+		total += l.ExpectedDispatches
+	}
+	if total != 182 {
+		return ErrProtocol
+	}
+	return nil
+}
+
+type DefinedTime time.Time
+type DefinedStrings []string
+
+func HookValues(b []byte) (reflect.Value, reflect.Value, error) {
+	var x HookInput
+	if Decode(b, &x) != nil || !Null(x.Expected) {
+		return reflect.Value{}, reflect.Value{}, ErrProtocol
+	}
+	var v any
+	switch x.SourceType {
+	case "string":
+		v = x.Literal
+	case "int":
+		if x.Literal != "7" {
+			return reflect.Value{}, reflect.Value{}, ErrProtocol
+		}
+		v = int(7)
+	default:
+		return reflect.Value{}, reflect.Value{}, ErrProtocol
+	}
+	var t reflect.Type
+	switch x.TargetType {
+	case "time.Time":
+		t = reflect.TypeOf(time.Time{})
+	case "string":
+		t = reflect.TypeOf("")
+	case "*time.Time":
+		t = reflect.TypeOf((*time.Time)(nil))
+	case "defined Time":
+		t = reflect.TypeOf(DefinedTime{})
+	case "[]string":
+		t = reflect.TypeOf([]string(nil))
+	case "[]int":
+		t = reflect.TypeOf([]int(nil))
+	case "defined []string":
+		t = reflect.TypeOf(DefinedStrings(nil))
+	default:
+		return reflect.Value{}, reflect.Value{}, ErrProtocol
+	}
+	return reflect.ValueOf(v), reflect.Zero(t), nil
+}
+func FlagValues(b []byte) (FlagInput, error) {
+	var x FlagInput
+	if Decode(b, &x) != nil || !Null(x.Expected) || !x.Fresh || len(x.Defaults) != 1 || x.Defaults[0] != "default" || len(x.Operations) < 1 || len(x.Operations) > 3 {
+		return x, ErrProtocol
+	}
+	for _, op := range x.Operations {
+		switch op.Name {
+		case "FlagSet.Set", "SliceValue.Append":
+			var s string
+			if Decode(op.Argument, &s) != nil {
+				return x, ErrProtocol
+			}
+		case "SliceValue.Replace":
+			var s []string
+			if Decode(op.Argument, &s) != nil || len(s) > 8 {
+				return x, ErrProtocol
+			}
+		default:
+			return x, ErrProtocol
+		}
+	}
+	return x, nil
+}
+func ValidatePlan(p Plan) error {
+	if p.Schema != "riido-source81-native-observer-plan-v1" || !p.Frozen || !filepath.IsAbs(p.ObserverRoot) || p.GoVersion != "go1.27.1" || p.GOOS != "darwin" || p.GOARCH != "arm64" || p.CPU != 1 || p.SoftHeapBytes != 268435456 || p.OutsideSeconds != 60 || p.OutputBytes != Limit || p.Goals != 4 || p.Fixtures != 32 || p.ExpectedDispatches != 182 || p.MaximumDispatches != 338 || p.Retry != 0 || p.Policy != "finite_observations_only_no_labels_no_retry" {
+		return ErrProtocol
+	}
+	if p.Manifest.ID != "PIN-MANIFEST.v1.json" || p.Manifest.Path != p.Manifest.ID || p.Manifest.Bytes <= 0 || p.Manifest.Bytes >= Limit || !SHAValid(p.Manifest.SHA256) || !SHAValid(p.ClosureSHA256) || p.Binary.Path != "bin/source81-observer" || p.Binary.Bytes <= 0 || p.Binary.Bytes > 16<<20 || !SHAValid(p.Binary.SHA256) || len(p.Closure) < 70 || len(p.Closure) > 96 {
+		return ErrProtocol
+	}
+	for i, f := range p.Closure {
+		if f.ID == "" || !SafePath(f.Path) || f.Bytes <= 0 || f.Bytes >= Limit || !SHAValid(f.SHA256) {
+			return ErrProtocol
+		}
+		for _, prior := range p.Closure[:i] {
+			if prior.ID == f.ID || prior.Path == f.Path {
+				return ErrProtocol
+			}
+		}
+	}
+	b, e := json.Marshal(p.Closure)
+	if e != nil || Digest(b) != p.ClosureSHA256 {
+		return ErrProtocol
+	}
+	return nil
+}
+func CopyStrings(s []string) []string {
+	if s == nil {
+		return nil
+	}
+	o := make([]string, len(s))
+	copy(o, s)
+	return o
+}

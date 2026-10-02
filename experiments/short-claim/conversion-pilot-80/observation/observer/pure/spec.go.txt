@@ -1,0 +1,385 @@
+package pure
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"io"
+	"path/filepath"
+	"reflect"
+	"strings"
+	"unicode/utf8"
+)
+
+const WantSHA = "798f0e8cbe99534599aac4c2c89a8bf25caaf97121d039600f0629d45afe76c2"
+const WantBytes = 244161
+const PeerSHA = "34951cd46b7d8c12eff9b4ff43f0dbcb8cf102543423a165aae9a3c856d884ed"
+const InputSHA = "a6110ab85d52fa4b8c62af6aab26bd13a988f04a0a5e38ce1e24e26542fa165b"
+const PlanSchema = "riido-source80-conversion-native-observer-plan-v1"
+const Policy = "finite_candidate_observations_only_no_labels_no_retry"
+
+var ErrProtocol = errors.New("conversion80_protocol_invalid")
+var ErrCheckpoint = errors.New("conversion80_checkpoint_failed")
+
+type FilePin struct {
+	ID     string `json:"id"`
+	Base   string `json:"base"`
+	Path   string `json:"path"`
+	Bytes  int    `json:"bytes"`
+	SHA256 string `json:"sha256"`
+}
+type OriginalPin struct {
+	ArtifactID     string `json:"artifact_id"`
+	Bytes          int    `json:"bytes"`
+	Family         string `json:"family"`
+	License        string `json:"license"`
+	OriginalPath   string `json:"original_repository_path"`
+	RepositoryPath string `json:"repository_path"`
+	Revision       string `json:"revision"`
+	SHA256         string `json:"sha256"`
+}
+type WantFile struct {
+	Schema  string        `json:"schema"`
+	Records []Literal     `json:"records"`
+	Sources []OriginalPin `json:"original_upstream_pins"`
+}
+type Plan struct {
+	Schema                 string    `json:"schema"`
+	Frozen                 bool      `json:"frozen"`
+	ObserverRoot           string    `json:"observer_root"`
+	OriginalSourceRoot     string    `json:"original_source_root"`
+	Closure                []FilePin `json:"closure"`
+	Want                   FilePin   `json:"Want"`
+	Binary                 FilePin   `json:"binary"`
+	GoVersion              string    `json:"go_version"`
+	GOOS                   string    `json:"goos"`
+	GOARCH                 string    `json:"goarch"`
+	CGOEnabled             string    `json:"cgo_enabled"`
+	CPU                    int       `json:"cpu_threads"`
+	SoftHeapBytes          int       `json:"go_soft_heap_bytes"`
+	OutsideSeconds         int       `json:"outside_timeout_seconds"`
+	OutputBytes            int       `json:"output_bytes"`
+	Goals                  int       `json:"behavior_goals"`
+	OriginalFixtures       int       `json:"original_finite_fixtures"`
+	CandidateDispatches    int       `json:"planned_candidate_dispatches"`
+	ExpectedReturns        int       `json:"expected_candidate_returns"`
+	ExpectedPanics         int       `json:"expected_candidate_panics"`
+	ExpectedErrors         int       `json:"expected_explicit_Error_calls"`
+	MaximumErrors          int       `json:"maximum_explicit_Error_calls_preserving_mismatches"`
+	PlannedTracked         int       `json:"planned_tracked_dispatches"`
+	MaximumTracked         int       `json:"maximum_tracked_dispatches"`
+	StaticInnerOriginalAPI int       `json:"static_inner_original_API_mapping"`
+	StaticStartupSites     int       `json:"static_startup_sites_reserved"`
+	PeerSHA                string    `json:"Root_Want_peer_sha256"`
+	Retry                  int       `json:"automatic_retries"`
+	Policy                 string    `json:"policy"`
+}
+type Result struct {
+	Schema                 string        `json:"schema"`
+	State                  string        `json:"state"`
+	Failure                string        `json:"failure"`
+	PlanSHA256             string        `json:"plan_sha256"`
+	WantSHA256             string        `json:"Want_sha256"`
+	InputSHA256            string        `json:"input_sha256"`
+	CandidateSHA256        string        `json:"candidate_source_sha256"`
+	RootPeerSHA256         string        `json:"Root_Want_peer_sha256"`
+	BinarySHA256           string        `json:"binary_sha256"`
+	RuntimeGo              string        `json:"runtime_go"`
+	SourcePins             []FilePin     `json:"source_pins"`
+	SourceBindings         []OriginalPin `json:"source_bindings"`
+	BehaviorGoals          int           `json:"behavior_goals"`
+	OriginalFixtures       int           `json:"original_finite_fixtures"`
+	CandidateObservations  int           `json:"candidate_fixture_observations"`
+	SourceFamilies         int           `json:"source_families"`
+	ExpectedErrors         int           `json:"expected_explicit_Error_calls"`
+	MaximumErrors          int           `json:"maximum_explicit_Error_calls"`
+	ExpectedTracked        int           `json:"expected_tracked_dispatches"`
+	MaximumTracked         int           `json:"maximum_tracked_dispatches"`
+	StaticStartupSites     int           `json:"static_startup_sites_reserved"`
+	InitCallbacks          *int          `json:"actual_init_callbacks"`
+	InitReturns            *int          `json:"actual_init_returns"`
+	ActualNewParents       int           `json:"actual_new_parent_created"`
+	All72WantMatched       bool          `json:"all72Want_matched"`
+	Qualification          bool          `json:"qualification"`
+	TrainingReady          bool          `json:"training_ready"`
+	ProductionReady        bool          `json:"production_ready"`
+	PublicationApproved    bool          `json:"publication_approved"`
+	SourceDiversityCleared bool          `json:"source_diversity_cleared"`
+	Run                    RunState      `json:"run"`
+}
+
+func Digest(b []byte) string      { h := sha256.Sum256(b); return hex.EncodeToString(h[:]) }
+func Null(b json.RawMessage) bool { return bytes.Equal(bytes.TrimSpace(b), []byte("null")) }
+func SHAValid(s string) bool {
+	b, e := hex.DecodeString(s)
+	return e == nil && len(b) == 32 && s == strings.ToLower(s)
+}
+func SafePath(s string) bool {
+	return s != "" && !filepath.IsAbs(s) && filepath.Clean(s) == s && s != ".." && !strings.HasPrefix(s, "../") && !strings.Contains(s, "\\")
+}
+
+// Duplicate and case-fold-equivalent keys are rejected before struct decoding.
+func Decode(b []byte, v any) error {
+	if len(b) == 0 || len(b) >= OutputLimit || !utf8.Valid(b) {
+		return ErrProtocol
+	}
+	d := json.NewDecoder(bytes.NewReader(b))
+	d.UseNumber()
+	var walk func(int) error
+	walk = func(depth int) error {
+		if depth > 32 {
+			return ErrProtocol
+		}
+		t, e := d.Token()
+		if e != nil {
+			return ErrProtocol
+		}
+		x, ok := t.(json.Delim)
+		if !ok {
+			return nil
+		}
+		switch x {
+		case '{':
+			var keys []string
+			for d.More() {
+				t, e := d.Token()
+				k, ok := t.(string)
+				if e != nil || !ok || len(k) > 256 {
+					return ErrProtocol
+				}
+				for _, s := range keys {
+					if strings.EqualFold(s, k) {
+						return ErrProtocol
+					}
+				}
+				keys = append(keys, k)
+				if len(keys) > 128 {
+					return ErrProtocol
+				}
+				if walk(depth+1) != nil {
+					return ErrProtocol
+				}
+			}
+			t, e = d.Token()
+			if e != nil || t != json.Delim('}') {
+				return ErrProtocol
+			}
+		case '[':
+			for d.More() {
+				if walk(depth+1) != nil {
+					return ErrProtocol
+				}
+			}
+			t, e = d.Token()
+			if e != nil || t != json.Delim(']') {
+				return ErrProtocol
+			}
+		default:
+			return ErrProtocol
+		}
+		return nil
+	}
+	if walk(0) != nil {
+		return ErrProtocol
+	}
+	if _, e := d.Token(); e != io.EOF {
+		return ErrProtocol
+	}
+	d = json.NewDecoder(bytes.NewReader(b))
+	d.DisallowUnknownFields()
+	if d.Decode(v) != nil {
+		return ErrProtocol
+	}
+	if d.Decode(new(any)) != io.EOF {
+		return ErrProtocol
+	}
+	return nil
+}
+func DecodePlan(b []byte) (Plan, error) {
+	var p Plan
+	if Decode(b, &p) != nil {
+		return p, ErrProtocol
+	}
+	var keys map[string]json.RawMessage
+	if json.Unmarshal(b, &keys) != nil {
+		return p, ErrProtocol
+	}
+	t := reflect.TypeOf(p)
+	if len(keys) != t.NumField() {
+		return p, ErrProtocol
+	}
+	for k := range keys {
+		found := false
+		for i := 0; i < t.NumField(); i++ {
+			if t.Field(i).Tag.Get("json") == k {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return p, ErrProtocol
+		}
+	}
+	return p, nil
+}
+func ValidatePlan(p Plan) error {
+	if p.Schema != PlanSchema || !p.Frozen || !filepath.IsAbs(p.ObserverRoot) || filepath.Clean(p.ObserverRoot) != p.ObserverRoot || p.OriginalSourceRoot != filepath.Join(p.ObserverRoot, "upstream") || p.GoVersion != "go1.27.1" || p.GOOS != "darwin" || p.GOARCH != "arm64" || p.CGOEnabled != "0" || p.CPU != 1 || p.SoftHeapBytes != 268435456 || p.OutsideSeconds != 60 || p.OutputBytes != OutputLimit || p.Goals != 3 || p.OriginalFixtures != 24 || p.CandidateDispatches != 72 || p.ExpectedReturns != 69 || p.ExpectedPanics != 3 || p.ExpectedErrors != 10 || p.MaximumErrors != 48 || p.PlannedTracked != 82 || p.MaximumTracked != 120 || p.StaticInnerOriginalAPI != 56 || p.StaticStartupSites != 4 || p.PeerSHA != PeerSHA || p.Retry != 0 || p.Policy != Policy || len(p.Closure) < 30 || len(p.Closure) > 64 {
+		return ErrProtocol
+	}
+	if p.Want.Base != "observer" || p.Want.Path != "WANTS.v1.json" || p.Want.SHA256 != WantSHA || p.Want.Bytes != WantBytes || p.Binary.Base != "observer" || p.Binary.Path != "bin/conversion80-observer" || p.Binary.Bytes <= 0 || p.Binary.Bytes > 16<<20 || !SHAValid(p.Binary.SHA256) {
+		return ErrProtocol
+	}
+	original := 0
+	required := [3]bool{}
+	for i, f := range p.Closure {
+		if (f.Base != "original" && f.Base != "observer") || !SafePath(f.Path) || f.Bytes <= 0 || f.Bytes >= OutputLimit || !SHAValid(f.SHA256) || f.ID == "" {
+			return ErrProtocol
+		}
+		if f.Base == "original" {
+			original++
+		}
+		for _, prior := range p.Closure[:i] {
+			if prior.ID == f.ID || (prior.Base == f.Base && prior.Path == f.Path) {
+				return ErrProtocol
+			}
+		}
+		if f.Base == "observer" {
+			switch f.Path {
+			case "WANTS.v1.json":
+				required[0] = f.SHA256 == WantSHA && f.Bytes == WantBytes
+			case "conversion80/candidates.go":
+				required[1] = f.SHA256 == CandidateSHA && f.Bytes == 1620
+			case "proof/ROOT-Want-PEER.v1.json":
+				required[2] = f.SHA256 == PeerSHA
+			}
+		}
+	}
+	if original != 20 || required != [3]bool{true, true, true} {
+		return ErrProtocol
+	}
+	return nil
+}
+
+func LoadWant(b []byte) (WantFile, error) {
+	var w WantFile
+	// All document metadata is immutable by the compiled SHA; only runtime fields
+	// are projected. Individual rows are also decoded strictly in full.
+	if len(b) != WantBytes || Digest(b) != WantSHA || json.Unmarshal(b, &w) != nil || w.Schema != WantSchema || Check72Coordinates(w.Records) != nil || len(w.Sources) != 20 {
+		return w, ErrProtocol
+	}
+	var raw struct {
+		Records []json.RawMessage `json:"records"`
+	}
+	if json.Unmarshal(b, &raw) != nil {
+		return w, ErrProtocol
+	}
+	for i, l := range w.Records {
+		var r Literal
+		if Decode(raw.Records[i], &r) != nil || !reflect.DeepEqual(l, r) {
+			return w, ErrProtocol
+		}
+		if l.FixtureID == "" || len(l.SourceClauses) == 0 || l.ActualCandidateRun || l.ActualParentCreated || l.CandidateSource.Compiled || l.CandidateSource.Executed || l.CandidateSource.ArtifactSHA != CandidateSHA || l.CandidateSource.Entrypoint != l.FunctionName || !SHAValid(l.OriginalInputRawSHA) || !SHAValid(l.OriginalInputCanonicalSHA) {
+			return w, ErrProtocol
+		}
+		for _, v := range []json.RawMessage{l.Got, l.Truth, l.Role, l.Weight, l.Acceptable, l.Label, l.Mask} {
+			if !Null(v) {
+				return w, ErrProtocol
+			}
+		}
+		for _, r := range []Reference{l.OriginalInputReference, l.OriginalWantReference, l.OriginalGotReference, l.OriginalInputObservationReference} {
+			if r.ArtifactID == "" || !SHAValid(r.ArtifactSHA) || !strings.HasPrefix(r.Pointer, "/") {
+				return w, ErrProtocol
+			}
+		}
+		if _, _, e := Fixture(l); e != nil {
+			return w, ErrProtocol
+		}
+	}
+	return w, nil
+}
+
+type fixtureInput struct {
+	ID              string          `json:"id"`
+	Kind            string          `json:"input_kind"`
+	Input           json.RawMessage `json:"input"`
+	BytesNil        *bool           `json:"bytes_nil"`
+	BytesHex        *string         `json:"bytes_hex"`
+	SelectionReason string          `json:"selection_reason"`
+}
+
+func Fixture(l Literal) (any, InputAudit, error) {
+	var f fixtureInput
+	var a InputAudit
+	if Decode(l.Input, &f) != nil || f.ID != l.FixtureID {
+		return nil, a, ErrProtocol
+	}
+	var x any
+	switch f.Kind {
+	case "nil_interface":
+		if !Null(f.Input) || f.BytesNil != nil || f.BytesHex != nil {
+			return nil, a, ErrProtocol
+		}
+	case "string", "bytes_text":
+		var s string
+		if json.Unmarshal(f.Input, &s) != nil || len(s) > 512 || !utf8.ValidString(s) {
+			return nil, a, ErrProtocol
+		}
+		if f.Kind == "string" {
+			x = s
+			a.Text = ptr(s)
+		} else {
+			if f.BytesNil == nil || *f.BytesNil || f.BytesHex != nil {
+				return nil, a, ErrProtocol
+			}
+			x = []byte(s)
+			a.BytesNil = ptr(false)
+			a.BytesHex = ptr(hex.EncodeToString([]byte(s)))
+		}
+	case "bytes":
+		if f.BytesNil == nil {
+			return nil, a, ErrProtocol
+		}
+		if *f.BytesNil {
+			if f.BytesHex != nil {
+				return nil, a, ErrProtocol
+			}
+			x = []byte(nil)
+		} else {
+			if f.BytesHex == nil {
+				return nil, a, ErrProtocol
+			}
+			b, e := hex.DecodeString(*f.BytesHex)
+			if e != nil || len(b) > 512 {
+				return nil, a, ErrProtocol
+			}
+			if b == nil {
+				b = make([]byte, 0)
+			}
+			x = b
+		}
+		a.BytesNil = ptr(*f.BytesNil)
+		if f.BytesHex != nil {
+			a.BytesHex = ptr(*f.BytesHex)
+		}
+	case "int":
+		var n int
+		if json.Unmarshal(f.Input, &n) != nil || n < 0 || n > 112 {
+			return nil, a, ErrProtocol
+		}
+		x = n
+		a.Int = ptr(n)
+	default:
+		return nil, a, ErrProtocol
+	}
+	if x == nil {
+		a.DynamicType = "<nil>"
+	} else {
+		a.DynamicType = reflect.TypeOf(x).String()
+	}
+	if (l.GoalIndex == 0 && f.Kind != "string") || (l.GoalIndex == 2 && f.Kind != "int") {
+		return nil, a, ErrProtocol
+	}
+	return x, a, nil
+}

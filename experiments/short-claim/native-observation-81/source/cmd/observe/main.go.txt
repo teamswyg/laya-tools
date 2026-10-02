@@ -1,0 +1,348 @@
+// Native one-attempt observer: compile-only until root outside reservation.
+package main
+
+import (
+	"flag"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"reflect"
+	"runtime"
+	"runtime/debug"
+	"strings"
+	"time"
+
+	mapstructure "github.com/go-viper/mapstructure/v2"
+	"github.com/spf13/pflag"
+	"riido.local/source81observer/pure"
+)
+
+// The seal helper supplies this declared closure digest via -ldflags.
+// It is a build binding, not a compiler attestation of every transitive stdlib.
+var compiledClosureSHA string
+
+func readFile(path string, limit int) ([]byte, error) {
+	s, e := os.Lstat(path)
+	if e != nil || !s.Mode().IsRegular() || s.Size() <= 0 || s.Size() > int64(limit) {
+		return nil, pure.ErrProtocol
+	}
+	f, e := os.Open(path)
+	if e != nil {
+		return nil, pure.ErrProtocol
+	}
+	defer f.Close()
+	b, e := io.ReadAll(io.LimitReader(f, int64(limit)+1))
+	if e != nil || len(b) > limit {
+		return nil, pure.ErrProtocol
+	}
+	return b, nil
+}
+func pinned(root string, p pure.FilePin) ([]byte, error) {
+	if !pure.SafePath(p.Path) {
+		return nil, pure.ErrProtocol
+	}
+	cur := root
+	for _, part := range strings.Split(p.Path, "/") {
+		cur = filepath.Join(cur, part)
+		s, e := os.Lstat(cur)
+		if e != nil || s.Mode()&os.ModeSymlink != 0 {
+			return nil, pure.ErrProtocol
+		}
+	}
+	b, e := readFile(cur, pure.Limit-1)
+	if e != nil || len(b) != p.Bytes || pure.Digest(b) != p.SHA256 {
+		return nil, pure.ErrProtocol
+	}
+	return b, nil
+}
+func verifySources(p pure.Plan, w pure.WantFile) error {
+	for _, f := range p.Closure {
+		if _, e := pinned(p.ObserverRoot, f); e != nil {
+			return e
+		}
+	}
+	mb, e := pinned(p.ObserverRoot, p.Manifest)
+	if e != nil {
+		return e
+	}
+	var m pure.Manifest
+	if pure.Decode(mb, &m) != nil || m.Schema != "riido-source81-exact-copy-manifest-v1" || len(m.Files) != 69 {
+		return pure.ErrProtocol
+	}
+	for _, f := range m.Files {
+		found := 0
+		for _, c := range p.Closure {
+			if c == f {
+				found++
+			}
+		}
+		if found != 1 {
+			return pure.ErrProtocol
+		}
+	}
+	for _, f := range []pure.FilePin{{ID: "WANTS.v1.json", Path: "WANTS.v1.json", Bytes: 159701, SHA256: pure.WantSHA}, {ID: "source81-root-scope-confirmation.v1.json", Path: "source81-root-scope-confirmation.v1.json", Bytes: 3303, SHA256: pure.RootScopeSHA}, {ID: "RECEIPT.v1.json", Path: "RECEIPT.v1.json", Bytes: 4166, SHA256: pure.PeerSHA}, {ID: "SOURCE82-HANDOFF.v1.json", Path: "SOURCE82-HANDOFF.v1.json", Bytes: 43143, SHA256: pure.Source82SHA}} {
+		n := 0
+		for _, c := range m.Files {
+			if c == f {
+				n++
+			}
+		}
+		if n != 1 {
+			return pure.ErrProtocol
+		}
+	}
+	for _, g := range []struct {
+		Pins   []pure.SourcePin
+		Cached bool
+	}{{w.Sources, false}, {w.CachedSources, true}} {
+		for _, f := range g.Pins {
+			id, path := f.ID, f.ID
+			if g.Cached {
+				id = "cached-stdlib/" + id
+				path = id
+			} else if strings.HasPrefix(path, "upstream/mapstructure/") || strings.HasPrefix(path, "upstream/pflag/") {
+				if strings.HasSuffix(path, ".go.txt") || strings.HasSuffix(path, ".mod.txt") {
+					path = strings.TrimSuffix(path, ".txt")
+				}
+			}
+			count := 0
+			for _, c := range m.Files {
+				if c.ID == id && c.Path == path && c.Bytes == f.Bytes && c.SHA256 == f.SHA256 {
+					count++
+				}
+			}
+			if count != 1 {
+				return pure.ErrProtocol
+			}
+		}
+	}
+	for _, root := range []string{"upstream/mapstructure", "upstream/pflag", "pure", "cmd"} {
+		e := filepath.WalkDir(filepath.Join(p.ObserverRoot, root), func(path string, d os.DirEntry, e error) error {
+			if e != nil || d.Type()&os.ModeSymlink != 0 {
+				return pure.ErrProtocol
+			}
+			if d.IsDir() {
+				return nil
+			}
+			if filepath.Ext(path) != ".go" && filepath.Base(path) != "go.mod" {
+				return nil
+			}
+			rel, e := filepath.Rel(p.ObserverRoot, path)
+			if e != nil {
+				return pure.ErrProtocol
+			}
+			n := 0
+			for _, c := range p.Closure {
+				if c.Path == filepath.ToSlash(rel) {
+					n++
+				}
+			}
+			if n != 1 {
+				return pure.ErrProtocol
+			}
+			return nil
+		})
+		if e != nil {
+			return pure.ErrProtocol
+		}
+	}
+	return nil
+}
+func verifyBuild(p pure.Plan) error {
+	if compiledClosureSHA != p.ClosureSHA256 {
+		return pure.ErrProtocol
+	}
+	b, ok := debug.ReadBuildInfo()
+	if !ok || b.GoVersion != p.GoVersion {
+		return pure.ErrProtocol
+	}
+	var cgo, trim, goos, goarch string
+	for _, s := range b.Settings {
+		switch s.Key {
+		case "CGO_ENABLED":
+			cgo = s.Value
+		case "-trimpath":
+			trim = s.Value
+		case "GOOS":
+			goos = s.Value
+		case "GOARCH":
+			goarch = s.Value
+		case "vcs", "vcs.revision", "vcs.time", "vcs.modified":
+			return pure.ErrProtocol
+		}
+	}
+	if cgo != "0" || trim != "true" || goos != p.GOOS || goarch != p.GOARCH {
+		return pure.ErrProtocol
+	}
+	return nil
+}
+
+type nativeFlag struct {
+	fs    *pflag.FlagSet
+	flag  *pflag.Flag
+	slice pflag.SliceValue
+	value []string
+}
+
+func (n *nativeFlag) Register(defaults []string) {
+	n.fs.StringSliceVar(&n.value, "items", defaults, "")
+}
+func (n *nativeFlag) Lookup() (bool, string) {
+	n.flag = n.fs.Lookup("items")
+	if n.flag == nil {
+		return true, ""
+	}
+	n.slice = n.flag.Value.(pflag.SliceValue)
+	return false, n.flag.Name
+}
+func (n *nativeFlag) GetSlice() []string { return n.slice.GetSlice() }
+func (n *nativeFlag) Changed() bool      { return n.flag.Changed }
+func (n *nativeFlag) Operate(op pure.Operation) error {
+	switch op.Name {
+	case "FlagSet.Set":
+		var s string
+		if pure.Decode(op.Argument, &s) != nil {
+			panic("source81_operation_invalid")
+		}
+		return n.fs.Set("items", s)
+	case "SliceValue.Append":
+		var s string
+		if pure.Decode(op.Argument, &s) != nil {
+			panic("source81_operation_invalid")
+		}
+		return n.slice.Append(s)
+	case "SliceValue.Replace":
+		var s []string
+		if pure.Decode(op.Argument, &s) != nil {
+			panic("source81_operation_invalid")
+		}
+		return n.slice.Replace(s)
+	default:
+		panic("source81_operation_invalid")
+	}
+}
+func nativeAdapter() pure.Adapter {
+	return pure.Adapter{
+		Factory: func(goal int) any {
+			if goal == 0 {
+				return mapstructure.StringToTimeHookFunc("2006-01-02")
+			}
+			if goal == 1 {
+				return mapstructure.StringToSliceHookFunc(",")
+			}
+			panic("source81_hook_invalid")
+		},
+		HookExec:   func(h any, from, to reflect.Value) (any, error) { return mapstructure.DecodeHookExec(h, from, to) },
+		NewFlagSet: func() pure.FlagSession { return &nativeFlag{fs: pflag.NewFlagSet("scope81", pflag.ContinueOnError)} },
+		Date:       func(t time.Time) [3]int { y, m, d := t.Date(); return [3]int{y, int(m), d} },
+		Clock:      func(t time.Time) [3]int { h, m, s := t.Clock(); return [3]int{h, m, s} },
+		Nanosecond: func(t time.Time) int { return t.Nanosecond() },
+		Zone:       func(t time.Time) (string, int) { return t.Zone() },
+	}
+}
+func execute(args []string) error {
+	f := flag.NewFlagSet("source81observer", flag.ContinueOnError)
+	f.SetOutput(io.Discard)
+	planPath := f.String("plan", "", "")
+	planSHA := f.String("plan-sha256", "", "")
+	attempt := f.String("attempt-dir", "", "")
+	if f.Parse(args) != nil || f.NArg() != 0 || *planPath == "" || !filepath.IsAbs(*attempt) || !pure.SHAValid(*planSHA) {
+		return pure.ErrProtocol
+	}
+	b, e := readFile(*planPath, pure.Limit-1)
+	if e != nil || pure.Digest(b) != *planSHA {
+		return pure.ErrProtocol
+	}
+	var p pure.Plan
+	if pure.Decode(b, &p) != nil || pure.ValidatePlan(p) != nil || runtime.Version() != p.GoVersion || runtime.GOOS != p.GOOS || runtime.GOARCH != p.GOARCH || runtime.GOMAXPROCS(0) != 1 || os.Getenv("GOMEMLIMIT") != "268435456" || verifyBuild(p) != nil {
+		return pure.ErrProtocol
+	}
+	var wp pure.FilePin
+	for _, c := range p.Closure {
+		if c.Path == "WANTS.v1.json" {
+			wp = c
+		}
+	}
+	wb, e := pinned(p.ObserverRoot, wp)
+	if e != nil {
+		return e
+	}
+	w, e := pure.LoadWant(wb)
+	if e != nil || verifySources(p, w) != nil {
+		return pure.ErrProtocol
+	}
+	exe, e := os.Executable()
+	if e != nil {
+		return pure.ErrProtocol
+	}
+	bin, e := readFile(exe, 16<<20)
+	if e != nil || len(bin) != p.Binary.Bytes || pure.Digest(bin) != p.Binary.SHA256 {
+		return pure.ErrProtocol
+	}
+	// Native imports/init have already happened before main. Root must reserve
+	// the entire child lifetime outside Start; this reserves only direct calls.
+	if os.Mkdir(*attempt, 0700) != nil {
+		return pure.ErrProtocol
+	}
+	final, e := os.OpenFile(filepath.Join(*attempt, "results.json"), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	if e != nil {
+		return pure.ErrProtocol
+	}
+	defer final.Close()
+	if final.Sync() != nil || syncDir(*attempt) != nil {
+		return pure.ErrCheckpoint
+	}
+	r := pure.Result{Schema: "riido-source81-finite-native-observation-result-v1", State: "reserved_before_explicit_dispatch", PlanSHA: *planSHA, WantSHA: pure.WantSHA, ManifestSHA: p.Manifest.SHA256, BinarySHA: p.Binary.SHA256, RuntimeGo: runtime.Version(), SourcePins: p.Closure, ExpectedDispatches: 182, MaximumDispatches: 338, BehaviorGoals: 4, FiniteFixtures: 32, SourceFamilies: 2, ExpectedOriginalPublic: 160, ExpectedStdlibExplicit: 22}
+	for i := range r.Counts.PerAPI {
+		r.Counts.PerAPI[i].API = pure.APINames[i]
+	}
+	reserve, e := encode(r)
+	if e != nil {
+		return e
+	}
+	rf, e := os.OpenFile(filepath.Join(*attempt, "reservation.json"), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	if e != nil {
+		return pure.ErrProtocol
+	}
+	if e = exactWrite(rf, reserve); e != nil {
+		_ = rf.Close()
+		return e
+	}
+	if rf.Close() != nil || syncDir(*attempt) != nil {
+		return pure.ErrCheckpoint
+	}
+	save := func(r pure.Result) error { return savePartial(*attempt, r) }
+	if save(r) != nil {
+		return pure.ErrCheckpoint
+	}
+	runErr := pure.Run(w, nativeAdapter(), &r, save)
+	if runErr != nil {
+		r.State = "failed_partial_finite_observation"
+		s := runErr.Error()
+		r.Failure = &s
+		_ = save(r)
+	}
+	result, e := encode(r)
+	if e != nil {
+		return e
+	}
+	if e = exactWrite(final, result); e != nil {
+		return e
+	}
+	if syncDir(*attempt) != nil {
+		return pure.ErrCheckpoint
+	}
+	if _, e = os.Stdout.Write(result); e != nil {
+		return pure.ErrCheckpoint
+	}
+	return runErr
+}
+func main() {
+	runtime.GOMAXPROCS(1)
+	debug.SetMemoryLimit(268435456)
+	if e := execute(os.Args[1:]); e != nil {
+		fmt.Fprintln(os.Stderr, "source81_observer_failed")
+		os.Exit(1)
+	}
+}

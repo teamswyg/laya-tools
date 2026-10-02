@@ -1,0 +1,120 @@
+// Private one-attempt conversion observer. Original init precedes main. Never
+// run this binary or its help before Root's separate outside reservation.
+package main
+
+import (
+	"flag"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"riido-conversion80-observer-preparation/pure"
+	"runtime"
+)
+
+func execute(args []string) error {
+	f := flag.NewFlagSet("conversion80", flag.ContinueOnError)
+	f.SetOutput(io.Discard)
+	planPath := f.String("plan", "", "")
+	planSHA := f.String("plan-sha256", "", "")
+	attempt := f.String("attempt-dir", "", "")
+	if f.Parse(args) != nil || f.NArg() != 0 || *planPath == "" || *attempt == "" || !pure.SHAValid(*planSHA) {
+		return pure.ErrProtocol
+	}
+	b, e := pure.ReadFile(*planPath, pure.OutputLimit-1)
+	if e != nil || pure.Digest(b) != *planSHA {
+		return pure.ErrProtocol
+	}
+	p, e := pure.DecodePlan(b)
+	if e != nil || pure.ValidatePlan(p) != nil || runtime.Version() != p.GoVersion || runtime.GOOS != p.GOOS || runtime.GOARCH != p.GOARCH || runtime.GOMAXPROCS(0) != 1 || os.Getenv("GOMEMLIMIT") != "268435456" {
+		return pure.ErrProtocol
+	}
+	wb, e := pure.PinFile(p.ObserverRoot, p.Want, pure.OutputLimit-1)
+	if e != nil {
+		return pure.ErrProtocol
+	}
+	w, e := pure.LoadWant(wb)
+	if e != nil || pure.VerifySources(p, w) != nil {
+		return pure.ErrProtocol
+	}
+	exe, e := os.Executable()
+	if e != nil {
+		return pure.ErrProtocol
+	}
+	bb, e := pure.ReadFile(exe, 16<<20)
+	if e != nil || len(bb) != p.Binary.Bytes || pure.Digest(bb) != p.Binary.SHA256 {
+		return pure.ErrProtocol
+	}
+	cases, inputs, e := prepareCases(w.Records)
+	if e != nil {
+		return pure.ErrProtocol
+	}
+	if os.Mkdir(*attempt, 0700) != nil {
+		return pure.ErrProtocol
+	}
+	resultFile, e := os.OpenFile(filepath.Join(*attempt, "results.json"), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	if e != nil {
+		return pure.ErrProtocol
+	}
+	defer resultFile.Close()
+	if resultFile.Sync() != nil || pure.SyncDir(*attempt) != nil {
+		return pure.ErrCheckpoint
+	}
+	r := pure.Result{Schema: "riido-source80-conversion-finite-observation-result-v1", State: "reserved_before_candidate_dispatch", PlanSHA256: *planSHA, WantSHA256: pure.WantSHA, InputSHA256: pure.InputSHA, CandidateSHA256: pure.CandidateSHA, RootPeerSHA256: pure.PeerSHA, BinarySHA256: p.Binary.SHA256, RuntimeGo: runtime.Version(), SourcePins: p.Closure, SourceBindings: w.Sources, BehaviorGoals: 3, OriginalFixtures: 24, CandidateObservations: 72, SourceFamilies: 2, ExpectedErrors: 10, MaximumErrors: 48, ExpectedTracked: 82, MaximumTracked: 120, StaticStartupSites: 4}
+	r.Run = pure.RunState{Phase: "reserved_before_candidate_dispatch", StaticInnerOriginalAPIMapping: 56}
+	reservation, e := pure.Encode(r)
+	if e != nil {
+		return pure.ErrProtocol
+	}
+	if pure.WriteExclusive(filepath.Join(*attempt, "reservation.json"), reservation) != nil || pure.WritePartial(*attempt, reservation) != nil {
+		return pure.ErrCheckpoint
+	}
+	state, runErr := pure.Run(cases, pure.Budget{Candidate: 72, Error: 48}, nativeCall(inputs), func(s pure.RunState) error {
+		r.Run = s
+		r.State = "finite_observations_in_progress"
+		raw, e := pure.Encode(r)
+		if e != nil {
+			return pure.ErrCheckpoint
+		}
+		return pure.WritePartial(*attempt, raw)
+	})
+	r.Run = state
+	if runErr != nil {
+		r.State = "incomplete_finite_observations"
+		r.Failure = "conversion80_checkpoint_or_protocol_failure"
+	} else if state.Counters.CompletedRecords == 72 && state.Counters.Matches == 72 && state.Counters.Differences == 0 {
+		r.State = "completed_finite_observations_all_match"
+		r.All72WantMatched = true
+	} else {
+		r.State = "completed_finite_observations_with_differences"
+	}
+	final, e := pure.Encode(r)
+	if e != nil {
+		return pure.ErrProtocol
+	}
+	partialErr := pure.WritePartial(*attempt, final)
+	n, saveErr := resultFile.Write(final)
+	if saveErr == nil && n != len(final) {
+		saveErr = io.ErrShortWrite
+	}
+	if saveErr == nil {
+		saveErr = resultFile.Sync()
+	}
+	if saveErr == nil {
+		saveErr = pure.SyncDir(*attempt)
+	}
+	n, outErr := os.Stdout.Write(final)
+	if outErr == nil && n != len(final) {
+		outErr = io.ErrShortWrite
+	}
+	if runErr != nil || partialErr != nil || saveErr != nil || outErr != nil {
+		return pure.ErrCheckpoint
+	}
+	return nil
+}
+func main() {
+	if execute(os.Args[1:]) != nil {
+		fmt.Fprintln(os.Stderr, "conversion80_failed")
+		os.Exit(1)
+	}
+}

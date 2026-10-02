@@ -1,0 +1,83 @@
+package main
+
+import (
+	"github.com/google/uuid"
+	conversion "riido-conversion80-observer-preparation/conversion80"
+	"riido-conversion80-observer-preparation/pure"
+)
+
+// Build inputs before reserving any dispatch. Only the closed candidate call is
+// inside Call, and receiver initialization is a literal value copy, not an API.
+func prepareCases(rows []pure.Literal) ([]pure.Case, [72]any, error) {
+	var inputs [72]any
+	out := make([]pure.Case, len(rows))
+	if pure.Check72Coordinates(rows) != nil {
+		return nil, inputs, pure.ErrProtocol
+	}
+	for i, l := range rows {
+		x, a, e := pure.Fixture(l)
+		if e != nil {
+			return nil, inputs, pure.ErrProtocol
+		}
+		inputs[i] = x
+		out[i] = pure.Case{Literal: l, InputAudit: a}
+		if l.GoalIndex == 1 {
+			before := [16]byte{0xff, 0xee, 0xdd, 0xcc, 0xbb, 0xaa, 0x99, 0x88, 0x77, 0x66, 0x55, 0x44, 0x33, 0x22, 0x11, 0}
+			out[i].ReceiverBefore = &before
+		}
+	}
+	return out, inputs, nil
+}
+func nativeCall(inputs [72]any) pure.Call {
+	return func(l pure.Literal) pure.Return {
+		x := inputs[l.Ordinal]
+		switch l.GoalIndex {
+		case 0:
+			var u uuid.UUID
+			var e error
+			switch l.CandidateIndex {
+			case 0:
+				u, e = conversion.ParseZeroOnError(x.(string))
+			case 1:
+				u, e = conversion.ParsePreserve(x.(string))
+			case 2:
+				u, e = conversion.ParsePanicOnError(x.(string))
+			default:
+				panic(pure.ErrProtocol)
+			}
+			v := [16]byte(u)
+			return pure.Return{UUID: &v, ErrorChannel: true, Err: e}
+		case 1:
+			before := uuid.UUID{0xff, 0xee, 0xdd, 0xcc, 0xbb, 0xaa, 0x99, 0x88, 0x77, 0x66, 0x55, 0x44, 0x33, 0x22, 0x11, 0}
+			var u uuid.UUID
+			var e error
+			switch l.CandidateIndex {
+			case 0:
+				u, e = conversion.ScanPreserve(before, x)
+			case 1:
+				u, e = conversion.ScanClearBefore(before, x)
+			case 2:
+				u, e = conversion.ScanSuppressError(before, x)
+			default:
+				panic(pure.ErrProtocol)
+			}
+			v := [16]byte(u)
+			return pure.Return{ReceiverAfter: &v, ErrorChannel: true, Err: e}
+		case 2:
+			var s string
+			switch l.CandidateIndex {
+			case 0:
+				s = conversion.OrdinalLastDigit(x.(int))
+			case 1:
+				s = conversion.OrdinalConstantTH(x.(int))
+			case 2:
+				s = conversion.OrdinalPreserve(x.(int))
+			default:
+				panic(pure.ErrProtocol)
+			}
+			return pure.Return{String: &s}
+		default:
+			panic(pure.ErrProtocol)
+		}
+	}
+}

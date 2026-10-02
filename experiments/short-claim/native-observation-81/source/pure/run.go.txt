@@ -1,0 +1,401 @@
+package pure
+
+import (
+	"encoding/csv"
+	"encoding/json"
+	"reflect"
+	"time"
+)
+
+func ptr[T any](v T) *T { return &v }
+func typename(v any) string {
+	if v == nil {
+		return "<nil>"
+	}
+	return reflect.TypeOf(v).String()
+}
+func panicValue(v any) Panic {
+	p := Panic{Present: true, Type: ptr(typename(v))}
+	if s, ok := v.(string); ok {
+		p.Text = &s
+		p.UnsupportedText = ptr(false)
+	} else {
+		p.UnsupportedText = ptr(true)
+	}
+	return p
+}
+func invoke(fn func()) (p Panic) {
+	normal := false
+	defer func() {
+		if !normal {
+			p = panicValue(recover())
+		}
+	}()
+	fn()
+	normal = true
+	return
+}
+
+type runner struct {
+	r    *Result
+	save func(Result) error
+}
+
+func (x *runner) call(api int, fn func()) (Panic, error) {
+	if api < 0 || api >= APIN || x.r.Counts.Reserved >= 338 {
+		return Panic{}, ErrProtocol
+	}
+	x.r.Counts.Reserved++
+	x.r.Counts.PerAPI[api].Reserved++
+	x.r.PendingAPI = ptr(APINames[api])
+	if x.save(*x.r) != nil {
+		return Panic{}, ErrCheckpoint
+	}
+	x.r.Counts.Attempted++
+	x.r.Counts.PerAPI[api].Attempted++
+	p := invoke(fn)
+	if p.Present {
+		x.r.Counts.Panics++
+		x.r.Counts.PerAPI[api].Panics++
+		ord := -1
+		if x.r.CurrentOrdinal != nil {
+			ord = *x.r.CurrentOrdinal
+		}
+		x.r.PanicEvents = append(x.r.PanicEvents, PanicEvent{Ordinal: ord, API: APINames[api], Panic: p})
+	} else {
+		x.r.Counts.Returned++
+		x.r.Counts.PerAPI[api].Returned++
+	}
+	x.r.PendingAPI = nil
+	return p, nil
+}
+func (x *runner) errorObservation(err error, out *ErrorObservation) error {
+	out.Nil = ptr(err == nil)
+	if err == nil {
+		return nil
+	}
+	out.OuterType = ptr(typename(err))
+	var msg string
+	p, e := x.call(9, func() { msg = err.Error() })
+	if e != nil {
+		return e
+	}
+	out.OuterReturned = ptr(!p.Present)
+	if p.Present {
+		out.Panic = p
+		out.Unobserved = []string{"outer_message", "Unwrap", "cause"}
+		return nil
+	}
+	out.OuterMessage = ptr(msg)
+	u, ok := err.(interface{ Unwrap() error })
+	out.UnwrapSupported = &ok
+	if !ok {
+		return nil
+	}
+	var cause error
+	p, e = x.call(10, func() { cause = u.Unwrap() })
+	if e != nil {
+		return e
+	}
+	out.UnwrapReturned = ptr(!p.Present)
+	if p.Present {
+		out.Panic = p
+		out.Unobserved = []string{"cause"}
+		return nil
+	}
+	out.CauseNil = ptr(cause == nil)
+	if cause == nil {
+		return nil
+	}
+	out.CauseType = ptr(typename(cause))
+	// Direct public fields/sentinel identity. No Err.Error or whole-chain walk.
+	switch c := cause.(type) {
+	case *time.ParseError:
+		out.TimeFields = &TimeErrorFields{Layout: c.Layout, LayoutElem: c.LayoutElem, Message: c.Message, Value: c.Value, ValueElem: c.ValueElem}
+	case *csv.ParseError:
+		out.CSVFields = &CSVErrorFields{Column: c.Column, Line: c.Line, StartLine: c.StartLine, ErrType: typename(c.Err), BareQuote: c.Err == csv.ErrBareQuote, FieldCount: c.Err == csv.ErrFieldCount, Quote: c.Err == csv.ErrQuote}
+	default:
+		out.UnsupportedCause = ptr("No parsed public-field classification for this actual cause type; type and one Error return retained.")
+	}
+	p, e = x.call(11, func() { msg = cause.Error() })
+	if e != nil {
+		return e
+	}
+	out.CauseReturned = ptr(!p.Present)
+	if p.Present {
+		out.Panic = p
+		out.Unobserved = []string{"cause_message"}
+		return nil
+	}
+	out.CauseMessage = ptr(msg)
+	return nil
+}
+func returned(v any) *ReturnedValue {
+	o := &ReturnedValue{Type: typename(v), Nil: v == nil}
+	switch t := v.(type) {
+	case nil:
+	case string:
+		o.String = ptr(t)
+	case int:
+		o.Int = ptr(t)
+	case []string:
+		o.SliceNil = ptr(t == nil)
+		o.Slice = CopyStrings(t)
+	case time.Time:
+	default:
+		o.Unsupported = ptr("value channels not covered by this finite observation schema")
+	}
+	return o
+}
+func (x *runner) timeObservation(t time.Time, a Adapter, out *TimeGetters) error {
+	var trio [3]int
+	p, e := x.call(12, func() { trio = a.Date(t) })
+	if e != nil {
+		return e
+	}
+	out.DateReturned = ptr(!p.Present)
+	if p.Present {
+		out.Panic = p
+	} else {
+		out.Date = ptr(trio)
+	}
+	p, e = x.call(13, func() { trio = a.Clock(t) })
+	if e != nil {
+		return e
+	}
+	out.ClockReturned = ptr(!p.Present)
+	if p.Present {
+		out.Panic = p
+	} else {
+		out.Clock = ptr(trio)
+	}
+	var n int
+	p, e = x.call(14, func() { n = a.Nanosecond(t) })
+	if e != nil {
+		return e
+	}
+	out.NanosecondReturned = ptr(!p.Present)
+	if p.Present {
+		out.Panic = p
+	} else {
+		out.Nanosecond = &n
+	}
+	var name string
+	var offset int
+	p, e = x.call(15, func() { name, offset = a.Zone(t) })
+	if e != nil {
+		return e
+	}
+	out.ZoneReturned = ptr(!p.Present)
+	if p.Present {
+		out.Panic = p
+	} else {
+		out.ZoneName = &name
+		out.ZoneOffset = &offset
+	}
+	return nil
+}
+func (x *runner) hook(l Literal, a Adapter, out *HookObservation) error {
+	from, to, e := HookValues(l.Input)
+	if e != nil {
+		return e
+	}
+	var hook any
+	p, e := x.call(0, func() { hook = a.Factory(l.GoalIndex) })
+	if e != nil {
+		return e
+	}
+	out.FactoryReturned = ptr(!p.Present)
+	if p.Present {
+		out.Panic = p
+		out.Unobserved = []string{"DecodeHookExec", "returned_value", "error", "time_getters"}
+		return nil
+	}
+	var value any
+	var err error
+	p, e = x.call(1, func() { value, err = a.HookExec(hook, from, to) })
+	if e != nil {
+		return e
+	}
+	out.ExecReturned = ptr(!p.Present)
+	if p.Present {
+		out.Panic = p
+		out.Unobserved = []string{"returned_value", "error", "time_getters"}
+		return nil
+	}
+	out.Value = returned(value)
+	out.Error = &ErrorObservation{}
+	if e = x.errorObservation(err, out.Error); e != nil {
+		return e
+	}
+	if t, ok := value.(time.Time); ok {
+		out.Time = &TimeGetters{}
+		return x.timeObservation(t, a, out.Time)
+	}
+	return nil
+}
+func (x *runner) snapshot(session FlagSession, out *Snapshot) error {
+	var values []string
+	p, e := x.call(5, func() { values = session.GetSlice() })
+	if e != nil {
+		return e
+	}
+	out.GetterReturned = ptr(!p.Present)
+	if p.Present {
+		out.GetterPanic = p
+		out.Unobserved = append(out.Unobserved, "slice_values", "slice_nil")
+	} else {
+		out.SliceNil = ptr(values == nil)
+		out.Slice = CopyStrings(values)
+	}
+	// Native adapter reads the already retained public Flag.Changed field only.
+	out.Changed = ptr(session.Changed())
+	return nil
+}
+func (x *runner) flags(l Literal, a Adapter, out *FlagObservation) error {
+	f, e := FlagValues(l.Input)
+	if e != nil {
+		return e
+	}
+	var session FlagSession
+	p, e := x.call(2, func() { session = a.NewFlagSet() })
+	if e != nil {
+		return e
+	}
+	out.NewReturned = ptr(!p.Present)
+	if p.Present {
+		out.PrimaryPanic = &p
+		out.Unobserved = []string{"registration", "lookup", "snapshots"}
+		return nil
+	}
+	out.NewNil = ptr(session == nil)
+	if session == nil {
+		out.Unobserved = []string{"registration", "lookup", "snapshots"}
+		return nil
+	}
+	p, e = x.call(3, func() { session.Register(CopyStrings(f.Defaults)) })
+	if e != nil {
+		return e
+	}
+	out.RegisterReturned = ptr(!p.Present)
+	if p.Present {
+		out.PrimaryPanic = &p
+		out.Unobserved = []string{"lookup", "snapshots"}
+		return nil
+	}
+	var nilFlag bool
+	var name string
+	p, e = x.call(4, func() { nilFlag, name = session.Lookup() })
+	if e != nil {
+		return e
+	}
+	out.LookupReturned = ptr(!p.Present)
+	if p.Present {
+		out.PrimaryPanic = &p
+		out.Unobserved = []string{"lookup_details", "snapshots"}
+		return nil
+	}
+	out.LookupNil = &nilFlag
+	if nilFlag {
+		out.Unobserved = []string{"snapshots"}
+		return nil
+	}
+	out.Name = &name
+	out.Snapshots = make([]Snapshot, 0, len(f.Operations)+1)
+	out.Snapshots = append(out.Snapshots, Snapshot{Phase: "after_registration"})
+	if e = x.snapshot(session, &out.Snapshots[0]); e != nil {
+		return e
+	}
+	for i, op := range f.Operations {
+		out.Snapshots = append(out.Snapshots, Snapshot{Phase: "after_operation", Index: ptr(i)})
+		s := &out.Snapshots[len(out.Snapshots)-1]
+		api := 6
+		if op.Name == "SliceValue.Replace" {
+			api = 7
+		} else if op.Name == "SliceValue.Append" {
+			api = 8
+		}
+		var err error
+		p, e = x.call(api, func() { err = session.Operate(op) })
+		if e != nil {
+			return e
+		}
+		s.OperationReturned = ptr(!p.Present)
+		if p.Present {
+			s.PrimaryPanic = p
+			s.Unobserved = []string{"operation_error"}
+		} else {
+			s.Error = &ErrorObservation{}
+			if e = x.errorObservation(err, s.Error); e != nil {
+				return e
+			}
+		}
+		if e = x.snapshot(session, s); e != nil {
+			return e
+		}
+	}
+	return nil
+}
+
+// Run is used by the native main only after outside reservation and pins.
+// Tests inject independent stubs, never production upstream adapters.
+func Run(w WantFile, a Adapter, r *Result, save func(Result) error) error {
+	if save == nil || r == nil || a.Factory == nil || a.HookExec == nil || a.NewFlagSet == nil || a.Date == nil || a.Clock == nil || a.Nanosecond == nil || a.Zone == nil || ValidateLiterals(w.Records) != nil || r.Counts.Attempted != 0 || len(r.Records) != 0 {
+		return ErrProtocol
+	}
+	for i := range r.Counts.PerAPI {
+		r.Counts.PerAPI[i].API = APINames[i]
+	}
+	x := runner{r: r, save: save}
+	r.State = "observing_finite_source_channels"
+	for _, l := range w.Records {
+		r.CurrentOrdinal = ptr(l.Ordinal)
+		before := r.Counts.Attempted
+		r.Records = append(r.Records, Record{Frozen: l, Got: &Observation{}})
+		rec := &r.Records[len(r.Records)-1]
+		var e error
+		if l.GoalIndex < 2 {
+			rec.Got.Hook = &HookObservation{}
+			e = x.hook(l, a, rec.Got.Hook)
+		} else {
+			rec.Got.Flag = &FlagObservation{}
+			e = x.flags(l, a, rec.Got.Flag)
+		}
+		if e != nil {
+			r.State = "failed_partial_finite_observation"
+			r.Failure = ptr(e.Error())
+			_ = save(*r)
+			return e
+		}
+		rec.Completed = true
+		rec.ActualDispatches = ptr(r.Counts.Attempted - before)
+		got, eg := json.Marshal(rec.Got)
+		want, ew := json.Marshal(l.Want)
+		if eg != nil || ew != nil {
+			return ErrProtocol
+		}
+		match := string(got) == string(want) && *rec.ActualDispatches == l.ExpectedDispatches
+		rec.Matches = &match
+		r.Counts.CompletedFixtures++
+		if match {
+			r.Counts.Matches++
+		} else {
+			r.Counts.Differences++
+		}
+		if save(*r) != nil {
+			r.State = "failed_checkpoint"
+			r.Failure = ptr(ErrCheckpoint.Error())
+			return ErrCheckpoint
+		}
+	}
+	r.CurrentOrdinal = nil
+	r.PendingAPI = nil
+	r.State = "completed_with_differences"
+	if r.Counts.Differences == 0 {
+		r.State = "completed_all_finite_wants_matched"
+	}
+	if save(*r) != nil {
+		return ErrCheckpoint
+	}
+	return nil
+}
