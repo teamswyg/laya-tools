@@ -1,0 +1,1124 @@
+// Source-only ftoa18 outside controller. Production compile and any original
+// worker start belong to Root after exact source/CI/rights/resource review.
+// This ports bounded file/stream/wait mechanics from the immutable loader79
+// outside controller. Only the authored pure protocol is imported, never an
+// original upstream package or any model API.
+package main
+
+import (
+	"crypto/sha256"
+	"debug/buildinfo"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"flag"
+	"hash"
+	"io"
+	"os"
+	"os/exec"
+	"os/signal"
+	"path/filepath"
+	"runtime"
+	"strings"
+	"syscall"
+	"time"
+
+	"riido.local/ftoa-outside/pure"
+)
+
+const (
+	metadataCap = int64(128 << 10)
+	stderrCap   = int64(64 << 10)
+	binaryCap   = int64(64 << 20)
+)
+
+// FileRef paths are private input only. Receipts keep ID/bytes/SHA, never paths.
+type FileRef struct {
+	ID    string `json:"asset_id"`
+	Path  string `json:"path_private"`
+	Bytes int64  `json:"bytes"`
+	SHA   string `json:"sha256"`
+}
+type FilePin struct {
+	ID    string `json:"asset_id"`
+	Bytes int64  `json:"bytes"`
+	SHA   string `json:"sha256"`
+}
+
+func (f FileRef) pin() FilePin { return FilePin{f.ID, f.Bytes, f.SHA} }
+
+type Limits struct {
+	CPU       int   `json:"cpu"`
+	SoftHeap  int64 `json:"soft_heap_bytes"`
+	RSS       int64 `json:"observed_RSS_budget_bytes"`
+	Seconds   int   `json:"whole_child_seconds"`
+	Result    int64 `json:"result_bytes"`
+	Outside   int64 `json:"outside_bytes"`
+	Stderr    int64 `json:"private_stderr_prefix_bytes"`
+	StdoutRaw int64 `json:"raw_stdout_retained_bytes"`
+}
+
+func fixedLimits() Limits {
+	return Limits{1, pure.HeapLimit, pure.HeapLimit, pure.Seconds, pure.OutputLimit, pure.OutsideLimit, stderrCap, 0}
+}
+
+// No worker, NativePlan, Readiness or executable hash belongs in Reservation.
+// Strict decoding rejects such fields. Root seals this static object first.
+type Reservation struct {
+	Schema      string   `json:"schema"`
+	Frozen      bool     `json:"frozen"`
+	Attempt     int      `json:"attempt"`
+	SourceRoot  string   `json:"source_root"`
+	AttemptDir  string   `json:"attempt_dir"`
+	OutsideDir  string   `json:"outside_dir"`
+	Closure     pure.Pin `json:"closure"`
+	Vectors     pure.Pin `json:"vectors"`
+	SourceProof FileRef  `json:"root_source_and_local_rights_review"`
+	CIProof     FileRef  `json:"root_CI_pass_receipt"`
+	Resource    FileRef  `json:"root_resource_freeze_receipt"`
+	CompilerProof FileRef `json:"root_full_compiler_selection_review"`
+	ControlProof FileRef `json:"root_control_storage_review"`
+	Limits      Limits   `json:"limits"`
+	Scheduled   int      `json:"scheduled_observations"`
+	Retry       int      `json:"retry"`
+	Model       bool     `json:"allow_model_operations"`
+	Protected   bool     `json:"allow_protected_final"`
+	Public      bool     `json:"allow_public_writes"`
+}
+
+// This later object may bind actual binaries/plan/readiness without feeding its
+// hash back into Readiness or the static Reservation.
+type Binding struct {
+	Schema               string    `json:"schema"`
+	Reservation          FileRef   `json:"reservation"`
+	NativePlan           FileRef   `json:"native_plan"`
+	Worker               FileRef   `json:"worker_executable"`
+	Self                 FileRef   `json:"controller_executable"`
+	ControllerSourceRoot string    `json:"controller_source_root"`
+	ControllerSources    []FileRef `json:"controller_compiled_source_files"`
+}
+type verified struct {
+	binding Binding
+	reserve Reservation
+	plan    pure.Plan
+	pins    []FilePin
+}
+
+func absoluteClean(p string) bool { return filepath.IsAbs(p) && filepath.Clean(p) == p }
+func validRef(f FileRef, cap int64) bool {
+	return f.ID != "" && absoluteClean(f.Path) && f.Bytes > 0 && f.Bytes <= cap && pure.SHA(f.SHA)
+}
+
+// Inspect every absolute ancestor, not just the final leaf. The final component
+// alone may be absent when reserving a fresh directory. Parent ancestry must
+// exist and be directories. This remains a pathname check, not kernel exec
+// attestation against a concurrent hostile filesystem mutation.
+func noSymlinkAncestors(p string, finalMayBeAbsent bool) error {
+	if !absoluteClean(p) {
+		return errors.New("unclean_absolute_path")
+	}
+	parts := strings.Split(strings.TrimPrefix(p, string(filepath.Separator)), string(filepath.Separator))
+	cur := string(filepath.Separator)
+	for i, part := range parts {
+		if part == "" {
+			continue
+		}
+		cur = filepath.Join(cur, part)
+		st, err := os.Lstat(cur)
+		last := i == len(parts)-1
+		if last && finalMayBeAbsent && errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+		if err != nil || st.Mode()&os.ModeSymlink != 0 || (!last && !st.IsDir()) {
+			return errors.New("path_ancestor")
+		}
+	}
+	return nil
+}
+func contains(a, b string) bool {
+	r, e := filepath.Rel(a, b)
+	return e == nil && r != ".." && !strings.HasPrefix(r, ".."+string(filepath.Separator))
+}
+func disjoint(a, b string) bool { return !contains(a, b) && !contains(b, a) }
+
+// Existing ancestor identities catch aliases on case-insensitive volumes and
+// physical aliases that pathname Rel cannot detect. For a not-yet-existing
+// output leaf, lowercase ASCII names exclude case/Unicode-normalization aliases.
+func safeOutputLeaf(p string) bool {
+	s := filepath.Base(p)
+	if len(s) < 1 || len(s) > 128 {
+		return false
+	}
+	for _, c := range s {
+		if !(c >= 'a' && c <= 'z') && !(c >= '0' && c <= '9') && c != '-' && c != '_' {
+			return false
+		}
+	}
+	return true
+}
+func existingDirectoryAncestors(p string) ([]os.FileInfo, error) {
+	var out []os.FileInfo
+	cur := p
+	for {
+		st, e := os.Lstat(cur)
+		if e == nil {
+			if !st.IsDir() || st.Mode()&os.ModeSymlink != 0 {
+				return nil, errors.New("physical_ancestor")
+			}
+			out = append(out, st)
+		} else if !errors.Is(e, os.ErrNotExist) {
+			return nil, errors.New("physical_ancestor")
+		}
+		parent := filepath.Dir(cur)
+		if parent == cur {
+			break
+		}
+		cur = parent
+	}
+	return out, nil
+}
+func physicallyDisjoint(a, b string) bool {
+	if !disjoint(a, b) {
+		return false
+	}
+	aa, e := existingDirectoryAncestors(a)
+	if e != nil {
+		return false
+	}
+	bb, e := existingDirectoryAncestors(b)
+	if e != nil {
+		return false
+	}
+	aInfo, ae := os.Lstat(a)
+	bInfo, be := os.Lstat(b)
+	if ae == nil {
+		for _, st := range bb {
+			if os.SameFile(aInfo, st) {
+				return false
+			}
+		}
+	}
+	if be == nil {
+		for _, st := range aa {
+			if os.SameFile(bInfo, st) {
+				return false
+			}
+		}
+	}
+	if errors.Is(ae, os.ErrNotExist) && errors.Is(be, os.ErrNotExist) {
+		ap, ape := os.Lstat(filepath.Dir(a))
+		bp, bpe := os.Lstat(filepath.Dir(b))
+		if ape != nil || bpe != nil {
+			return false
+		}
+		if os.SameFile(ap, bp) && strings.EqualFold(filepath.Base(a), filepath.Base(b)) {
+			return false
+		}
+	}
+	return true
+}
+// The ftoa worker owns creation of AttemptDir; the controller owns OutsideDir.
+// An attempt path that already exists before Start consumes no new worker Start.
+func directories(r Reservation, outsideExists bool) error {
+	if !safeOutputLeaf(r.AttemptDir) || !safeOutputLeaf(r.OutsideDir) {
+		return errors.New("output_leaf_name")
+	}
+	for _, p := range []string{r.SourceRoot, r.AttemptDir, r.OutsideDir} {
+		mayBeAbsent := p == r.AttemptDir || (p == r.OutsideDir && !outsideExists)
+		if noSymlinkAncestors(p, mayBeAbsent) != nil {
+			return errors.New("directory_ancestors")
+		}
+	}
+	if !physicallyDisjoint(r.SourceRoot, r.AttemptDir) || !physicallyDisjoint(r.SourceRoot, r.OutsideDir) || !physicallyDisjoint(r.AttemptDir, r.OutsideDir) {
+		return errors.New("directories_overlap")
+	}
+	st, e := os.Lstat(r.SourceRoot)
+	if e != nil || !st.IsDir() {
+		return errors.New("source_root")
+	}
+	for _, p := range []string{r.AttemptDir, r.OutsideDir} {
+		st, e := os.Lstat(p)
+		if p == r.OutsideDir && outsideExists {
+			if e != nil || !st.IsDir() || st.Mode()&os.ModeSymlink != 0 {
+				return errors.New("output_directory")
+			}
+		} else if !errors.Is(e, os.ErrNotExist) {
+			return errors.New("output_directory_not_fresh")
+		}
+	}
+	return nil
+}
+
+// Metadata can be returned only when explicitly requested and <=1MiB; binaries
+// are streamed to a hash. Path and opened inode/size/mtime are rechecked.
+func readRef(f FileRef, cap int64, executable, retain bool) ([]byte, error) {
+	return readRefBounded(f, cap, executable, retain, pure.OutsideLimit)
+}
+// Read only the already observed, byte-pinned result into bounded memory. This
+// does not create an outside copy, partial checkpoint, or public raw payload.
+func readResult(f FileRef) ([]byte, error) {
+	return readRefBounded(f, pure.OutputLimit, false, true, pure.OutputLimit)
+}
+func readRefBounded(f FileRef, cap int64, executable, retain bool, retainedCap int64) ([]byte, error) {
+	if !validRef(f, cap) || noSymlinkAncestors(f.Path, false) != nil {
+		return nil, errors.New("file_ref")
+	}
+	a, e := os.Lstat(f.Path)
+	if e != nil || !a.Mode().IsRegular() || a.Size() != f.Bytes || (executable && a.Mode().Perm()&0111 == 0) {
+		return nil, errors.New("file_metadata")
+	}
+	file, e := os.Open(f.Path)
+	if e != nil {
+		return nil, errors.New("file_open")
+	}
+	defer file.Close()
+	b, e := file.Stat()
+	if e != nil || !os.SameFile(a, b) || b.Size() != a.Size() {
+		return nil, errors.New("file_identity")
+	}
+	h := sha256.New()
+	var data []byte
+	var n int64
+	if retain {
+		if f.Bytes > retainedCap {
+			return nil, errors.New("metadata_input_cap")
+		}
+		data, e = io.ReadAll(io.LimitReader(file, f.Bytes+1))
+		n = int64(len(data))
+		_, _ = h.Write(data)
+	} else {
+		n, e = io.Copy(h, io.LimitReader(file, f.Bytes+1))
+	}
+	if e != nil || n != f.Bytes || hex.EncodeToString(h.Sum(nil)) != f.SHA {
+		return nil, errors.New("file_hash")
+	}
+	z, e := os.Lstat(f.Path)
+	q, qe := file.Stat()
+	if e != nil || qe != nil || !z.Mode().IsRegular() || !os.SameFile(a, z) || !os.SameFile(a, q) || z.Size() != a.Size() || q.Size() != a.Size() || !a.ModTime().Equal(z.ModTime()) || !a.ModTime().Equal(q.ModTime()) {
+		return nil, errors.New("file_changed")
+	}
+	return data, nil
+}
+func relativeRef(root string, p pure.Pin) (FileRef, error) {
+	if !pure.ValidPin(p) {
+		return FileRef{}, errors.New("relative_pin")
+	}
+	return FileRef{p.ID, filepath.Join(root, filepath.FromSlash(p.Path)), p.Bytes, p.SHA256}, nil
+}
+func relativeRead(root string, p pure.Pin, retain bool) ([]byte, error) {
+	f, e := relativeRef(root, p)
+	if e != nil {
+		return nil, e
+	}
+	return readRef(f, pure.OutputLimit, false, retain)
+}
+func reserveCheck(r Reservation) error {
+	if r.Schema != "riido-ftoa18-static-reservation-v1" || !r.Frozen || r.Attempt != 1 || r.Limits != fixedLimits() || r.Scheduled != pure.Scheduled || r.Retry != 0 || r.Model || r.Protected || r.Public || !pure.ValidPin(r.Closure) || !pure.ValidPin(r.Vectors) {
+		return errors.New("reservation_contract")
+	}
+	for i, f := range []FileRef{r.SourceProof, r.CIProof, r.Resource, r.CompilerProof, r.ControlProof} {
+		ids := [5]string{"root/source-and-local-rights-review", "root/ci-pass", "root/resource-freeze", "root/ftoa-full-compiler-review", "root/ftoa-control-storage-review"}
+		if f.ID != ids[i] || !validRef(f, pure.OutsideLimit) {
+			return errors.New("reservation_proof")
+		}
+	}
+	return nil
+}
+func verifySource(root string, c pure.Closure) error {
+	if pure.CheckClosure(c) != nil {
+		return errors.New("source_closure")
+	}
+	seen := make([]string, 0, len(c.Files))
+	for _, p := range c.Files {
+		for _, s := range seen {
+			if p.Path == s {
+				return errors.New("source_duplicate")
+			}
+		}
+		seen = append(seen, p.Path)
+		if _, e := relativeRead(root, p, false); e != nil {
+			return e
+		}
+	}
+	// The seven files are a selected slice inventory, not the dependency or
+	// compiler closure. Reject additional local compiler inputs, including files
+	// the current compiler might ignore; Root reviews stdlib/toolchain separately.
+	return filepath.WalkDir(root, func(p string, d os.DirEntry, e error) error {
+		if e != nil || d.Type()&os.ModeSymlink != 0 {
+			return errors.New("source_walk")
+		}
+		if d.IsDir() {
+			return nil
+		}
+		ext := filepath.Ext(p)
+		if ext != ".go" && ext != ".s" && ext != ".S" && ext != ".c" && ext != ".h" && ext != ".syso" && filepath.Base(p) != "go.mod" && filepath.Base(p) != "go.sum" && filepath.Base(p) != "go.work" {
+			return nil
+		}
+		rel, e := filepath.Rel(root, p)
+		if e != nil {
+			return errors.New("source_relative")
+		}
+		for _, s := range seen {
+			if s == filepath.ToSlash(rel) {
+				return nil
+			}
+		}
+		return errors.New("source_extra")
+	})
+}
+
+// Root must produce these new receipts before static Reservation. They must
+// not refer to future reservation/readiness/plan/binary/binding hashes. Their
+// positive statements are Root's source/control review, not independent proof
+// of compiler execution, legal rights, correct Wants, or all-machine memory.
+type CompilerReview struct {
+	Schema string `json:"schema"`
+	Complete bool `json:"review_complete"`
+	Boundary string `json:"source_boundary"`
+	ClosureSHA string `json:"selected_closure_sha256"`
+	VectorsSHA string `json:"vectors_sha256"`
+	GoVersion string `json:"go_version"`
+	GOOS string `json:"goos"`
+	GOARCH string `json:"goarch"`
+	CGO int `json:"cgo_enabled"`
+	Trimpath bool `json:"trimpath"`
+	BuildVCS bool `json:"buildvcs"`
+	Selected []pure.Pin `json:"selected_module_compiler_inputs"`
+	SelectionMetadata FileRef `json:"actual_full_compiler_selection_metadata"`
+	DependencySource FileRef `json:"full_dependency_source_toolchain_pins"`
+	SelectionReviewed bool `json:"root_full_compiler_selection_reviewed"`
+	DependencyReviewed bool `json:"root_full_dependency_source_and_notices_reviewed"`
+	ExtraExcluded bool `json:"unlisted_module_compiler_inputs_excluded"`
+}
+type ControlReview struct {
+	Schema string `json:"schema"`
+	Complete bool `json:"review_complete"`
+	ClosureSHA string `json:"selected_closure_sha256"`
+	VectorsSHA string `json:"vectors_sha256"`
+	Inventory FileRef `json:"full_control_inventory_receipt"`
+	Existing int64 `json:"existing_control_regular_file_bytes"`
+	Additional int64 `json:"reserved_additional_control_bytes"`
+	Budget int64 `json:"control_storage_budget_bytes"`
+	InventoryReviewed bool `json:"root_full_inventory_reviewed"`
+	PreStartReconciled bool `json:"pre_start_reconciliation_passed"`
+	Model bool `json:"allow_model_operations"`
+	Protected bool `json:"allow_protected_final"`
+	Public bool `json:"allow_public_writes"`
+}
+func rootReviews(r Reservation, c pure.Closure) ([]FilePin, error) {
+	var pins []FilePin
+	data, e := readRef(r.CompilerProof, pure.OutsideLimit, false, true)
+	var q CompilerReview
+	if e != nil || pure.Decode(data, &q) != nil || q.Schema != "riido-ftoa-full-compiler-review-v1" || !q.Complete || q.Boundary != "original-file-only-not-whole-humanize" || q.ClosureSHA != r.Closure.SHA256 || q.VectorsSHA != r.Vectors.SHA256 || q.GoVersion != "go1.27.1" || q.GOOS != "darwin" || q.GOARCH != "arm64" || q.CGO != 0 || !q.Trimpath || q.BuildVCS || !q.SelectionReviewed || !q.DependencyReviewed || !q.ExtraExcluded || len(q.Selected) != 5 {
+		return nil, errors.New("root_full_compiler_review")
+	}
+	paths := [5]string{"go.mod", "cmd/observe/main.go", "internal/candidate/ftoa.go", "internal/oracle/oracle.go", "internal/original/ftoa.go"}
+	for i, p := range q.Selected {
+		if !pure.ValidPin(p) || p.Path != paths[i] {
+			return nil, errors.New("root_compiler_selected_inputs")
+		}
+		found := false
+		for _, original := range c.Files {
+			if p == original { found = true }
+		}
+		if !found { return nil, errors.New("root_compiler_selected_inputs") }
+	}
+	var control ControlReview
+	data, e = readRef(r.ControlProof, pure.OutsideLimit, false, true)
+	if e != nil || pure.Decode(data, &control) != nil || control.Schema != "riido-ftoa-control-storage-review-v1" || !control.Complete || control.ClosureSHA != r.Closure.SHA256 || control.VectorsSHA != r.Vectors.SHA256 || !control.InventoryReviewed || !control.PreStartReconciled || control.Existing <= 0 || control.Additional < 0 || control.Budget <= 0 || control.Existing > control.Budget || control.Additional > control.Budget-control.Existing || control.Model || control.Protected || control.Public {
+		return nil, errors.New("root_control_storage_review")
+	}
+	refs := []FileRef{q.SelectionMetadata, q.DependencySource, control.Inventory}
+	ids := [3]string{"root/ftoa-full-compiler-selection-metadata", "root/ftoa-full-dependency-source-toolchain-pins", "root/ftoa-full-control-inventory"}
+	for i, ref := range refs {
+		if ref.ID != ids[i] || contains(r.AttemptDir, ref.Path) || contains(r.OutsideDir, ref.Path) {
+			return nil, errors.New("root_review_input_boundary")
+		}
+		if _, e = readRef(ref, pure.OutputLimit, false, false); e != nil {
+			return nil, errors.New("root_review_metadata_pin")
+		}
+		pins = append(pins, ref.pin())
+	}
+	return pins, nil
+}
+
+func buildSettings(path, module string, worker *pure.Plan) error {
+	// debug/buildinfo itself parses Mach-O. Bound its input before that parser.
+	if worker == nil {
+		if inspectMachOFile(path, nil) != nil {
+			return errors.New("binary_macho")
+		}
+	} else if inspectWorkerBindings(path, [3]string{worker.Closure.SHA256, worker.Vectors.SHA256, worker.Readiness.SHA256}) != nil {
+		return errors.New("worker_static_bindings")
+	}
+	b, e := buildinfo.ReadFile(path)
+	if e != nil || b.GoVersion != "go1.27.1" || b.Main.Path != module {
+		return errors.New("binary_buildinfo")
+	}
+	var goos, goarch, cgo, trim string
+	for _, s := range b.Settings {
+		if strings.HasPrefix(s.Key, "vcs") {
+			return errors.New("binary_vcs")
+		}
+		switch s.Key {
+		case "GOOS":
+			goos = s.Value
+		case "GOARCH":
+			goarch = s.Value
+		case "CGO_ENABLED":
+			cgo = s.Value
+		case "-trimpath":
+			trim = s.Value
+		}
+	}
+	if goos != "darwin" || goarch != "arm64" || cgo != "0" || trim != "true" {
+		return errors.New("binary_settings")
+	}
+	return nil
+}
+
+func loadBinding(ref FileRef) (Binding, Reservation, error) {
+	var b Binding
+	var r Reservation
+	data, e := readRef(ref, pure.OutsideLimit, false, true)
+	if e != nil || pure.Decode(data, &b) != nil || b.Schema != "riido-ftoa18-execution-binding-v1" {
+		return b, r, errors.New("execution_binding")
+	}
+	for _, f := range []FileRef{b.Reservation, b.NativePlan} {
+		if !validRef(f, pure.OutsideLimit) {
+			return b, r, errors.New("binding_metadata_ref")
+		}
+	}
+	if b.NativePlan.Bytes > 65536 {
+		return b, r, errors.New("worker_plan_input_cap")
+	}
+	for _, f := range []FileRef{b.Worker, b.Self} {
+		if !validRef(f, binaryCap) {
+			return b, r, errors.New("binding_binary_ref")
+		}
+	}
+	if b.Reservation.ID != "root/static-reservation" || b.NativePlan.ID != "root/native-plan" || b.Worker.ID != "ftoa18/worker-executable" || b.Self.ID != "ftoa18/controller-executable" {
+		return b, r, errors.New("binding_ids")
+	}
+	data, e = readRef(b.Reservation, pure.OutsideLimit, false, true)
+	if e != nil || pure.Decode(data, &r) != nil || reserveCheck(r) != nil {
+		return b, r, errors.New("static_reservation")
+	}
+	return b, r, nil
+}
+func preflight(ref FileRef, outputsExist bool) (verified, error) {
+	v := verified{}
+	b, r, e := loadBinding(ref)
+	if e != nil {
+		return v, e
+	}
+	v.binding, v.reserve = b, r
+	if directories(r, outputsExist) != nil {
+		return v, errors.New("directories")
+	}
+	if noSymlinkAncestors(b.ControllerSourceRoot, false) != nil || !physicallyDisjoint(b.ControllerSourceRoot, r.AttemptDir) || !physicallyDisjoint(b.ControllerSourceRoot, r.OutsideDir) {
+		return v, errors.New("controller_source_root")
+	}
+	if len(b.ControllerSources) != 4 {
+		return v, errors.New("controller_source_inventory")
+	}
+	paths := [4]string{"main.go", "pure/protocol.go", "go.mod", "bindings_macho.go"}
+	for i, f := range b.ControllerSources {
+		if f.ID != "controller/source/"+paths[i] || f.Path != filepath.Join(b.ControllerSourceRoot, filepath.FromSlash(paths[i])) {
+			return v, errors.New("controller_source_inventory")
+		}
+		if _, e = readRef(f, pure.OutsideLimit, false, false); e != nil {
+			return v, e
+		}
+		v.pins = append(v.pins, f.pin())
+	}
+	self, e := os.Executable()
+	if e != nil || filepath.Clean(self) != b.Self.Path {
+		return v, errors.New("controller_self_path")
+	}
+	for _, f := range []FileRef{ref, b.Reservation, b.NativePlan, b.Worker, b.Self, r.SourceProof, r.CIProof, r.Resource, r.CompilerProof, r.ControlProof} {
+		if contains(r.AttemptDir, f.Path) || contains(r.OutsideDir, f.Path) {
+			return v, errors.New("input_output_overlap")
+		}
+		executable := f.ID == b.Worker.ID || f.ID == b.Self.ID
+		cap := int64(pure.OutsideLimit)
+		if executable {
+			cap = binaryCap
+		}
+		if _, e = readRef(f, cap, executable, false); e != nil {
+			return v, e
+		}
+		v.pins = append(v.pins, f.pin())
+	}
+	data, e := readRef(b.NativePlan, pure.OutsideLimit, false, true)
+	if e != nil || pure.Decode(data, &v.plan) != nil {
+		return v, errors.New("native_plan")
+	}
+	p := v.plan
+	if p.SourceRoot != r.SourceRoot || p.AttemptDir != r.AttemptDir || p.Closure != r.Closure || p.Vectors != r.Vectors || p.OutsideReservation != b.Reservation.SHA {
+		return v, errors.New("reservation_plan_binding")
+	}
+	data, e = relativeRead(p.SourceRoot, p.Readiness, true)
+	var ready pure.Readiness
+	if e != nil || pure.Decode(data, &ready) != nil || pure.CheckPlan(p, ready) != nil {
+		return v, errors.New("native_readiness")
+	}
+	for _, pin := range []pure.Pin{p.Closure, p.Vectors, p.Readiness} {
+		v.pins = append(v.pins, FilePin{pin.ID, pin.Bytes, pin.SHA256})
+	}
+	data, e = relativeRead(p.SourceRoot, p.Closure, true)
+	var closure pure.Closure
+	if e != nil || pure.Decode(data, &closure) != nil || verifySource(p.SourceRoot, closure) != nil {
+		return v, errors.New("source_inventory")
+	}
+	additional, e := rootReviews(r, closure)
+	if e != nil {
+		return v, e
+	}
+	v.pins = append(v.pins, additional...)
+	data, e = relativeRead(p.SourceRoot, p.Vectors, true)
+	var vectors pure.VectorFile
+	if e != nil || pure.Decode(data, &vectors) != nil {
+		return v, errors.New("vectors")
+	}
+	if _, e = pure.Schedule(vectors); e != nil {
+		return v, errors.New("finite_schedule")
+	}
+	if buildSettings(b.Worker.Path, "riido.local/ftoaslice", &p) != nil || buildSettings(b.Self.Path, "riido.local/ftoa-outside", nil) != nil {
+		return v, errors.New("binary_metadata")
+	}
+	return v, nil
+}
+
+func writeExclusive(dir, name string, value any) (int64, error) {
+	b, e := json.MarshalIndent(value, "", "  ")
+	if e != nil {
+		return 0, errors.New("metadata_encode")
+	}
+	b = append(b, '\n')
+	if int64(len(b)) > metadataCap {
+		return 0, errors.New("metadata_cap")
+	}
+	f, e := os.OpenFile(filepath.Join(dir, name), os.O_CREATE|os.O_EXCL|os.O_RDWR, 0600)
+	if e != nil {
+		return 0, errors.New("metadata_create")
+	}
+	n, we := f.Write(b)
+	se := f.Sync()
+	if we != nil || n != len(b) || se != nil {
+		f.Close()
+		return int64(n), errors.New("metadata_sync")
+	}
+	if _, e = f.Seek(0, io.SeekStart); e != nil {
+		f.Close()
+		return int64(n), errors.New("metadata_readback")
+	}
+	h := sha256.New()
+	nr, re := io.Copy(h, io.LimitReader(f, int64(len(b))+1))
+	st, ste := f.Stat()
+	ce := f.Close()
+	want := sha256.Sum256(b)
+	if re != nil || ste != nil || ce != nil || nr != int64(n) || st.Size() != int64(n) || hex.EncodeToString(h.Sum(nil)) != hex.EncodeToString(want[:]) {
+		return int64(n), errors.New("metadata_readback")
+	}
+	return int64(n), nil
+}
+func syncDir(dir string) error {
+	f, e := os.Open(dir)
+	if e != nil {
+		return errors.New("directory_open")
+	}
+	e = f.Sync()
+	ce := f.Close()
+	if e != nil || ce != nil {
+		return errors.New("directory_sync")
+	}
+	return nil
+}
+
+type Intent struct {
+	Schema         string    `json:"schema"`
+	State          string    `json:"state"`
+	UTC            string    `json:"created_utc"`
+	Pins           []FilePin `json:"verified_pins"`
+	ReservationSHA string    `json:"static_reservation_sha256"`
+	NativePlanSHA  string    `json:"native_plan_sha256"`
+	ReadinessSHA   string    `json:"readiness_sha256"`
+	Limits         Limits    `json:"limits"`
+	Environment    []string  `json:"exact_child_environment"`
+	ArgumentsShape []string  `json:"child_arguments_shape"`
+	StartReserved  int       `json:"worker_start_reserved"`
+	Model          int       `json:"model_operations_permitted"`
+	Protected      int       `json:"protected_access_permitted"`
+	Publication    int       `json:"public_writes_permitted"`
+}
+type StreamSummary struct {
+	ObservedBytes int64  `json:"observed_pipe_bytes"`
+	ObservedSHA   string `json:"observed_pipe_sha256"`
+	RawBytes      int64  `json:"raw_retained_bytes"`
+	RawSHA        string `json:"raw_retained_sha256,omitempty"`
+	Truncated     bool   `json:"retained_prefix_truncated"`
+	CapExceeded   bool   `json:"cap_exceeded"`
+	LogFailure    bool   `json:"private_log_write_failure"`
+}
+
+// One exec copier owns each writer. Snapshots happen only after the single Wait
+// joins drainers, so neither the hash nor counters need a mutex.
+type streamWriter struct {
+	h          hash.Hash
+	n          int64
+	log        *os.File
+	kept       int64
+	keptHash   hash.Hash
+	logFailure bool
+	stdout     bool
+	cap        int64
+	over       bool
+	events     chan<- string
+}
+
+func newStream(stdout bool, log *os.File, events chan<- string, cap int64) *streamWriter {
+	return &streamWriter{h: sha256.New(), log: log, keptHash: sha256.New(), stdout: stdout, cap: cap, events: events}
+}
+func (s *streamWriter) event(reason string) {
+	select {
+	case s.events <- reason:
+	default:
+	}
+}
+func (s *streamWriter) Write(p []byte) (int, error) {
+	s.n += int64(len(p))
+	_, _ = s.h.Write(p)
+	if s.stdout && s.n > s.cap && !s.over {
+		s.over = true
+		s.event("stdout_cap")
+	}
+	if s.log != nil && !s.logFailure && s.kept < stderrCap {
+		keep := int64(len(p))
+		if keep > stderrCap-s.kept {
+			keep = stderrCap - s.kept
+		}
+		n, e := s.log.Write(p[:int(keep)])
+		if n > 0 {
+			s.kept += int64(n)
+			_, _ = s.keptHash.Write(p[:n])
+		}
+		if e != nil || int64(n) != keep {
+			s.logFailure = true
+			s.event("stderr_log_io")
+		}
+	}
+	return len(p), nil
+}
+func (s *streamWriter) summary() StreamSummary {
+	z := StreamSummary{ObservedBytes: s.n, ObservedSHA: hex.EncodeToString(s.h.Sum(nil)), RawBytes: s.kept, Truncated: s.log != nil && s.n > s.kept, CapExceeded: s.over, LogFailure: s.logFailure}
+	if s.log != nil {
+		z.RawSHA = hex.EncodeToString(s.keptHash.Sum(nil))
+	}
+	return z
+}
+func logReadback(file *os.File, s StreamSummary) bool {
+	st, e := file.Stat()
+	if e != nil || !st.Mode().IsRegular() || st.Size() != s.RawBytes || st.Size() > stderrCap {
+		return false
+	}
+	if _, e = file.Seek(0, io.SeekStart); e != nil {
+		return false
+	}
+	h := sha256.New()
+	n, e := io.Copy(h, io.LimitReader(file, stderrCap+1))
+	return e == nil && n == s.RawBytes && hex.EncodeToString(h.Sum(nil)) == s.RawSHA
+}
+func errno(e error) int {
+	var n syscall.Errno
+	if errors.As(e, &n) {
+		return int(n)
+	}
+	if e != nil {
+		return -1
+	}
+	return 0
+}
+func waitKind(e error) string {
+	if e == nil {
+		return "none"
+	}
+	var exit *exec.ExitError
+	if errors.As(e, &exit) {
+		return "child_exit_or_signal"
+	}
+	if errors.Is(e, exec.ErrWaitDelay) {
+		return "pipe_drain_wait_delay"
+	}
+	return "wait_or_pipe_io"
+}
+
+type ProcessResult struct {
+	StartAttempted int           `json:"start_attempted"`
+	StartReturned  int           `json:"start_returned"`
+	Started        int           `json:"process_started"`
+	WaitAttempted  int           `json:"wait_attempted"`
+	WaitReturned   int           `json:"wait_returned"`
+	PID            int           `json:"child_pid,omitempty"`
+	Group          int           `json:"process_group_id,omitempty"`
+	WholeSeconds   float64       `json:"whole_child_wall_seconds"`
+	UserSeconds    float64       `json:"child_user_cpu_seconds"`
+	SystemSeconds  float64       `json:"child_system_cpu_seconds"`
+	ExitCode       int           `json:"exit_code"`
+	Signaled       bool          `json:"signaled"`
+	Signal         int           `json:"signal_number"`
+	GroupKill      bool          `json:"process_group_SIGKILL_requested"`
+	KillErrno      int           `json:"process_group_SIGKILL_errno"`
+	Reason         string        `json:"termination_reason"`
+	WaitKind       string        `json:"wait_failure_kind"`
+	RSSAvailable   bool          `json:"Darwin_MaxRSS_available"`
+	RSSBytes       int64         `json:"Darwin_MaxRSS_bytes"`
+	RSSWithin      bool          `json:"Darwin_MaxRSS_within_observed_budget"`
+	Stdout         StreamSummary `json:"stdout"`
+	Stderr         StreamSummary `json:"stderr"`
+	StderrSynced   bool          `json:"stderr_private_log_synced"`
+	StderrReadback bool          `json:"stderr_private_log_readback"`
+	OutputPresent  bool          `json:"worker_result_present"`
+	OutputBytes    int64         `json:"worker_result_bytes"`
+	OutputSHA      string        `json:"worker_result_sha256,omitempty"`
+	OutputCopies   int           `json:"worker_result_or_partial_copies"`
+}
+type processPolicy struct {
+	wall        time.Duration
+	stdout      int64
+	output      int64
+	rss         int64
+	reservation string
+}
+
+func workerFiles(dir string, max int64, final bool, reservation string) (FilePin, error) {
+	if noSymlinkAncestors(dir, !final) != nil {
+		return FilePin{}, errors.New("worker_output_ancestors")
+	}
+	files, e := os.ReadDir(dir)
+	// The sealed ftoa worker creates its attempt directory itself. Before that
+	// creation, running output is pending; absence never means completed calls0.
+	if !final && errors.Is(e, os.ErrNotExist) {
+		return FilePin{}, nil
+	}
+	if e != nil {
+		return FilePin{}, errors.New("worker_output_read")
+	}
+	var result FilePin
+	for _, entry := range files {
+		if entry.Type()&os.ModeSymlink != 0 || entry.IsDir() {
+			return result, errors.New("worker_output_type")
+		}
+		name := entry.Name()
+		st, e := entry.Info()
+		if e != nil || !st.Mode().IsRegular() {
+			return result, errors.New("worker_output_type")
+		}
+		switch name {
+		case "native-dispatch.once":
+			if st.Size() > 1024 {
+				return result, errors.New("worker_dispatch_cap")
+			}
+		case "results.json":
+			// O_EXCL open and first Write are separate worker operations. A zero
+			// size is a normal in-progress window; final output must be nonempty.
+			if st.Size() < 0 || st.Size() > max || (final && st.Size() == 0) {
+				return result, errors.New("worker_result_cap")
+			}
+			result = FilePin{ID: "ftoa18/worker-result", Bytes: st.Size()}
+		default:
+			return result, errors.New("worker_output_extra")
+		}
+	}
+	if final {
+		if !pure.SHA(reservation) {
+			return result, errors.New("worker_dispatch_binding")
+		}
+		want := sha256.Sum256([]byte(reservation + "\n"))
+		fence := FileRef{ID: "ftoa18/worker-dispatch-fence", Path: filepath.Join(dir, "native-dispatch.once"), Bytes: 65, SHA: hex.EncodeToString(want[:])}
+		if _, e = readRef(fence, 1024, false, false); e != nil {
+			return result, errors.New("worker_dispatch_binding")
+		}
+		if result.Bytes == 0 {
+			return result, errors.New("worker_result_absent")
+		}
+		path := filepath.Join(dir, "results.json")
+		f, e := os.Open(path)
+		if e != nil {
+			return result, errors.New("worker_result_open")
+		}
+		defer f.Close()
+		a, e := f.Stat()
+		if e != nil || !a.Mode().IsRegular() || a.Size() != result.Bytes {
+			return result, errors.New("worker_result_changed")
+		}
+		h := sha256.New()
+		n, e := io.Copy(h, io.LimitReader(f, max+1))
+		z, ze := os.Lstat(path)
+		q, qe := f.Stat()
+		if e != nil || ze != nil || qe != nil || n != result.Bytes || !z.Mode().IsRegular() || !os.SameFile(a, z) || !os.SameFile(a, q) || z.Size() != a.Size() || q.Size() != a.Size() || !a.ModTime().Equal(z.ModTime()) || !a.ModTime().Equal(q.ModTime()) {
+			return result, errors.New("worker_result_changed")
+		}
+		result.SHA = hex.EncodeToString(h.Sum(nil))
+	}
+	return result, nil
+}
+
+// Only run invokes this with the exact worker and fixed production policy.
+// Tests may use a stdlib-only fake child and shorter synthetic policies.
+func execute(cmd *exec.Cmd, log *os.File, attempt string, p processPolicy) ProcessResult {
+	r := ProcessResult{ExitCode: -1}
+	events := make(chan string, 2)
+	out := newStream(true, nil, events, p.stdout)
+	serr := newStream(false, log, events, p.stdout)
+	cmd.Stdout, cmd.Stderr = out, serr
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	cmd.WaitDelay = 2 * time.Second
+	interrupts := make(chan os.Signal, 1)
+	signal.Notify(interrupts, os.Interrupt, syscall.SIGTERM)
+	defer signal.Stop(interrupts)
+	r.StartAttempted = 1
+	started := time.Now()
+	e := cmd.Start()
+	r.StartReturned = 1
+	if e == nil {
+		r.Started = 1
+		r.PID = cmd.Process.Pid
+		r.Group = cmd.Process.Pid
+		r.WaitAttempted = 1
+		done := make(chan error, 1)
+		go func() { done <- cmd.Wait() }()
+		timer := time.NewTimer(time.Until(started.Add(p.wall)))
+		defer timer.Stop()
+		ticker := time.NewTicker(20 * time.Millisecond)
+		defer ticker.Stop()
+		kill := func(reason string) {
+			r.Reason = reason
+			r.GroupKill = true
+			r.KillErrno = errno(syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL))
+		}
+		finished := false
+		for !finished {
+			select {
+			case e = <-done:
+				finished = true
+			case reason := <-events:
+				kill(reason)
+				e = <-done
+				finished = true
+			case <-timer.C:
+				kill("whole_child_wall_timeout")
+				e = <-done
+				finished = true
+			case <-interrupts:
+				kill("controller_interrupt_or_SIGTERM")
+				e = <-done
+				finished = true
+			case <-ticker.C:
+				if _, oe := workerFiles(attempt, p.output, false, p.reservation); oe != nil {
+					kill(oe.Error())
+					e = <-done
+					finished = true
+				}
+			}
+		}
+		r.WaitReturned = 1
+	}
+	r.WholeSeconds = time.Since(started).Seconds()
+	if r.Started == 1 {
+		r.WaitKind = waitKind(e)
+	} else {
+		r.WaitKind = "not_started_no_wait"
+	}
+	if cmd.ProcessState != nil {
+		r.ExitCode = cmd.ProcessState.ExitCode()
+		r.UserSeconds = cmd.ProcessState.UserTime().Seconds()
+		r.SystemSeconds = cmd.ProcessState.SystemTime().Seconds()
+		if w, ok := cmd.ProcessState.Sys().(syscall.WaitStatus); ok {
+			r.Signaled = w.Signaled()
+			if r.Signaled {
+				r.Signal = int(w.Signal())
+			}
+		}
+		if u, ok := cmd.ProcessState.SysUsage().(*syscall.Rusage); ok {
+			r.RSSAvailable = u.Maxrss > 0
+			r.RSSBytes = u.Maxrss
+			r.RSSWithin = u.Maxrss > 0 && u.Maxrss <= p.rss
+		}
+	}
+	if errors.Is(e, exec.ErrWaitDelay) && !r.GroupKill {
+		r.Reason = "pipe_drain_wait_delay"
+		r.GroupKill = true
+		r.KillErrno = errno(syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL))
+	}
+	r.Stdout, r.Stderr = out.summary(), serr.summary()
+	r.StderrSynced = log.Sync() == nil
+	r.StderrReadback = logReadback(log, r.Stderr)
+	if r.Started == 1 {
+		pin, oe := workerFiles(attempt, p.output, true, p.reservation)
+		if oe == nil {
+			r.OutputPresent = true
+			r.OutputBytes = pin.Bytes
+			r.OutputSHA = pin.SHA
+		} else if r.Reason == "" {
+			r.Reason = oe.Error()
+		}
+	}
+	if r.Started == 0 && r.Reason == "" {
+		r.Reason = "worker_start_failed"
+	}
+	if r.Reason == "" {
+		switch {
+		case r.WholeSeconds > p.wall.Seconds():
+			r.Reason = "observed_wall_budget"
+		case r.Stdout.CapExceeded:
+			r.Reason = "stdout_cap_after_exit"
+		case e != nil || r.ExitCode != 0:
+			r.Reason = "worker_exit_or_wait"
+		case !r.StderrSynced || !r.StderrReadback || r.Stderr.LogFailure:
+			r.Reason = "private_stderr_log"
+		case !r.RSSAvailable || !r.RSSWithin:
+			r.Reason = "observed_RSS_budget"
+		}
+	}
+	return r
+}
+
+type Receipt struct {
+	Schema                string        `json:"schema"`
+	State                 string        `json:"state"`
+	Failure               string        `json:"failure_code"`
+	UTC                   string        `json:"finished_utc"`
+	Pins                  []FilePin     `json:"verified_pins"`
+	IntentSynced          bool          `json:"exclusive_start_once_file_synced"`
+	IntentDirectorySynced bool          `json:"start_once_directory_synced"`
+	Process               ProcessResult `json:"process"`
+	Counts                pure.ResultCounts `json:"completed_protocol_counts"`
+	OutsideBytes          int64         `json:"outside_final_regular_file_bytes"`
+	OutsideWithin         bool          `json:"outside_bytes_within_cap"`
+	Limit                 string        `json:"measurement_limit"`
+}
+
+func finish(dir string, r *Receipt, prior int64) int {
+	r.UTC = time.Now().UTC().Format(time.RFC3339Nano)
+	for i := 0; i < 8; i++ {
+		b, e := json.MarshalIndent(r, "", "  ")
+		if e != nil {
+			return 3
+		}
+		want := prior + int64(len(b)+1)
+		if want == r.OutsideBytes {
+			break
+		}
+		r.OutsideBytes = want
+	}
+	r.OutsideWithin = r.OutsideBytes <= pure.OutsideLimit
+	if !r.OutsideWithin {
+		r.State = "failed"
+		r.Failure = "outside_bytes_cap"
+	}
+	for i := 0; i < 8; i++ {
+		b, e := json.MarshalIndent(r, "", "  ")
+		if e != nil {
+			return 3
+		}
+		want := prior + int64(len(b)+1)
+		if want == r.OutsideBytes {
+			break
+		}
+		r.OutsideBytes = want
+	}
+	n, e := writeExclusive(dir, "result.json", r)
+	if e != nil || prior+n != r.OutsideBytes || syncDir(dir) != nil {
+		return 3
+	}
+	if r.State != "completed" {
+		return 1
+	}
+	return 0
+}
+func parse(args []string) (FileRef, error) {
+	ref := FileRef{ID: "root/execution-binding"}
+	f := flag.NewFlagSet("ftoa18-outside", flag.ContinueOnError)
+	f.SetOutput(io.Discard)
+	f.StringVar(&ref.Path, "binding", "", "")
+	f.StringVar(&ref.SHA, "binding-sha256", "", "")
+	f.Int64Var(&ref.Bytes, "binding-bytes", 0, "")
+	if f.Parse(args) != nil || f.NArg() != 0 || !validRef(ref, pure.OutsideLimit) {
+		return ref, errors.New("arguments")
+	}
+	return ref, nil
+}
+func run(args []string) int {
+	ref, e := parse(args)
+	if e != nil || runtime.Version() != "go1.27.1" || runtime.GOOS != "darwin" || runtime.GOARCH != "arm64" {
+		return 2
+	}
+	b, r, e := loadBinding(ref)
+	if e != nil || directories(r, false) != nil {
+		return 2
+	}
+	if os.Mkdir(r.OutsideDir, 0700) != nil {
+		return 2
+	}
+	receipt := Receipt{Schema: "riido-ftoa18-outside-result-v1", State: "failed_before_start", Process: ProcessResult{ExitCode: -1}, Counts: pure.UnknownCounts("not_started"), Limit: "Selected original-file-only ftoa finite observation; no full humanize import or semantic/label authority. The seven-file inventory cannot approve full compiler closure: new Root full-dependency/control reviews are required. Darwin wait4 MaxRSS observes the direct child over startup/pin reads/observation/output; it is a post-wait gate, not hard RSS enforcement or exhaustive group/native/GPU attribution. GOMAXPROCS=1 limits Go execution concurrency, not OS CPU affinity. Go heap is a worker snapshot, not peak. Raw stdout/result copies are zero; result is only privately read into bounded memory for protocol counts, private stderr is a capped prefix. Pipe bytes never delivered after forced closure may be unknown. Incomplete/failed worker call prefixes are unknown, including empty reservation; counts never establish Want/Got semantics. Baseline has no error return channel. Exact pathname/source pins and declared build settings are not compiler-independent or kernel exec attestation. Controller SIGKILL may leave only synced start.once and unknown live-child completion; no automatic restart. Timeout cleanup can exceed 300s; successful whole-child wall must satisfy 300s."}
+	fail := func(code string, prior int64) int {
+		receipt.Failure = code
+		return finish(r.OutsideDir, &receipt, prior)
+	}
+	// AttemptDir must remain absent: creating it here conflicts with the sealed
+	// ftoa worker's own O_EXCL/Mkdir reservation protocol.
+	v, e := preflight(ref, true)
+	if e != nil {
+		return fail(e.Error(), 0)
+	}
+	receipt.Pins = v.pins
+	log, e := os.OpenFile(filepath.Join(r.OutsideDir, "stderr.private.log"), os.O_CREATE|os.O_EXCL|os.O_RDWR, 0600)
+	if e != nil {
+		return fail("stderr_log_create", 0)
+	}
+	defer log.Close()
+	i := Intent{Schema: "riido-ftoa18-outside-start-once-v1", State: "pins_frozen_before_one_worker_start", UTC: time.Now().UTC().Format(time.RFC3339Nano), Pins: v.pins, ReservationSHA: b.Reservation.SHA, NativePlanSHA: b.NativePlan.SHA, ReadinessSHA: v.plan.Readiness.SHA256, Limits: r.Limits, Environment: []string{"GOMAXPROCS=1", "GOMEMLIMIT=256MiB"}, ArgumentsShape: []string{"--plan", "<exact-Root-pinned-private-NativePlan>"}, StartReserved: 1}
+	intentBytes, e := writeExclusive(r.OutsideDir, "start.once", i)
+	if e != nil {
+		return fail(e.Error(), intentBytes)
+	}
+	receipt.IntentSynced = true
+	if syncDir(r.OutsideDir) != nil || syncDir(filepath.Dir(r.OutsideDir)) != nil || syncDir(filepath.Dir(r.AttemptDir)) != nil {
+		return fail("reservation_directory_sync", intentBytes)
+	}
+	receipt.IntentDirectorySynced = true
+	// Rehash all inputs and ancestor checks at the latest practical pre-start
+	// boundary. Worker-owned AttemptDir must still not exist.
+	if _, e = preflight(ref, true); e != nil {
+		return fail("prestart_"+e.Error(), intentBytes)
+	}
+	if _, e = os.Lstat(r.AttemptDir); !errors.Is(e, os.ErrNotExist) {
+		return fail("attempt_not_absent_before_start", intentBytes)
+	}
+	cmd := exec.Command(b.Worker.Path, "--plan", b.NativePlan.Path)
+	cmd.Env = []string{"GOMAXPROCS=1", "GOMEMLIMIT=256MiB"}
+	receipt.Process = execute(cmd, log, r.AttemptDir, processPolicy{300 * time.Second, pure.OutputLimit, pure.OutputLimit, pure.HeapLimit, b.Reservation.SHA})
+	receipt.State = "completed"
+	receipt.Failure = ""
+	if receipt.Process.Reason != "" {
+		receipt.State = "failed"
+		receipt.Failure = receipt.Process.Reason
+		receipt.Counts = pure.UnknownCounts("worker_failure")
+	} else {
+		ref := FileRef{ID: "ftoa18/worker-result", Path: filepath.Join(r.AttemptDir, "results.json"), Bytes: receipt.Process.OutputBytes, SHA: receipt.Process.OutputSHA}
+		data, re := readResult(ref)
+		if re != nil {
+			receipt.State, receipt.Failure = "failed", "worker_protocol_result_read"
+			receipt.Counts = pure.UnknownCounts("invalid")
+		} else {
+			counts, ce := pure.AssessResult(data, v.plan, b.NativePlan.SHA)
+			receipt.Counts = counts
+			if ce != nil || !counts.Known {
+				receipt.State, receipt.Failure = "failed", "worker_protocol_result_incomplete"
+			}
+		}
+	}
+	return finish(r.OutsideDir, &receipt, intentBytes+receipt.Process.Stderr.RawBytes)
+}
+func main() { os.Exit(run(os.Args[1:])) }

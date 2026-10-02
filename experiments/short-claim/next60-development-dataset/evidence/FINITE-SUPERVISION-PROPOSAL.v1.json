@@ -1,0 +1,125 @@
+{
+  "schema": "riido-native2-independent-finite-supervision-caption-proposal-v1",
+  "date": "2026-10-03",
+  "state": "nonblind_saved_source_QA_and_proposal_only",
+  "reviewer": {
+    "origin": "AI-assisted experiment_audit_45",
+    "authored_original_Wants": false,
+    "authored_native_observer": false,
+    "authored_comparison_v3": false,
+    "independent_native_reproduction": false,
+    "blind_review": false,
+    "prior_eligibility_disclosures_preserved": true
+  },
+  "evidence_pin_refs": [
+    {"asset_id": "native2/vectors", "bytes": 5353, "sha256": "70f2083e60cd72c910743fa687ec0d8f9e73cd5dae7e291d6db4d37f4059840b"},
+    {"asset_id": "native2/closure", "bytes": 14490, "sha256": "bd6331ee6bc1575de96e464cddda1d47bdbbb07519dbac3e6d92775b9a6cea09"},
+    {"asset_id": "frozen-draft-20", "bytes": 209341, "sha256": "c7bbf7bcc7912300fabdd6e671b0922df295299f00e5e7201df1ab5e824a2a9b", "body_read_this_review": false},
+    {"asset_id": "native2/actual-native-results", "bytes": 26102, "sha256": "f04b45acd8a4a616979b642e7bedd41d38a3b663e122e04fed039fe31df29622"},
+    {"asset_id": "native2/semantic-comparison-v3", "bytes": 9960, "sha256": "ca3b13c9609540be37e3fbb0cf7c86afb4e7d07f4ac695c7f25cd77c4b4748c4"},
+    {"asset_id": "root/native-plan", "bytes": 1239, "sha256": "2896c23bdaf3aed5ec7b5c484370e30e4b868a7b7aaf0546422d4928f982e3a2"},
+    {"asset_id": "native2/actual-outside-receipt", "bytes": 5259, "sha256": "643ee9b0810bd782b09bcc98df59be61730c2c46a47a0537c382309fa02f3efd"},
+    {"asset_id": "native2/prestart-once", "bytes": 3506, "sha256": "49ce3de783511768a594135c5c40c8c65e6c53e04aa2503f2f0b6ceb6a8ccd6e"},
+    {"asset_id": "root/execution-binding", "bytes": 2241, "sha256": "064ae3e3f0f1cbacef7fdf5ed913105ff242d34208a12b55636b4b2226de0345"},
+    {"asset_id": "root/local-observation-readiness", "bytes": 735, "sha256": "d50971822432ab64e57786ad66250441c67b13e82f24577acc8b4a28b88bae44"},
+    {"asset_id": "source/pflag/ipnet.go", "bytes": 3330, "sha256": "aa7d5258317c189fc2c1f75c10cc70eb05d9b2f7bc4a75518dd6b7216c2e845b"},
+    {"asset_id": "source/pflag/ip.go", "bytes": 3138, "sha256": "9062c2a9c65d772827c39f9bcd552e5e58b1e7ff646c9840a09c55dcdc93796a"},
+    {"asset_id": "source/pflag/ipmask.go", "bytes": 4052, "sha256": "839fe1d7759cfd72a0233ae5ce2e50336186e54ddde4726e0058ab9f42bb44ce"},
+    {"asset_id": "source/mapstructure/decode_hooks.go", "bytes": 19432, "sha256": "cb863229ef96129bc899a25852f9f21d506353224b01606538c375a1b392285a"}
+  ],
+  "prestart_binding_review": {
+    "recorded_intent_created_utc": "2026-10-02T19:19:28.504801Z",
+    "recorded_outside_finished_utc": "2026-10-02T19:19:28.905401Z",
+    "evidence_en": "Prepared null-Got Wants, plan, synced intent, receipt and result share vector/closure/readiness pins. Controller checks vector/draft binding before intent and again before Start. Worker copies original Wants. Reading all23 rows found unchanged Wants/order and agreement with comparison v3.",
+    "evidence_ko": "준비 Want·계획·시작 예약·영수증·결과의 핀이 연결된다. controller는 예약 전과 Start 전에 초안 연결을 검사하고 worker는 Want를 복사한다. 23행의 Want·순서는 그대로이며 비교 v3와 일치한다.",
+    "controller_source_anchor": "main.go:452-500,975-1019; SHA5475360689c2b7eaf98ed57a81a2d5952619bddfb49302fb5eabe75d10794633",
+    "owned_source_anchors": "Prepared worker main.go:147-220,native.go:83-212; unchanged closure pins.",
+    "limits": "Saved pins/static order support pre-Start freezing, not external timestamp/exec attestation. No reviewer reproduction. Wants are source-informed AI-assisted development expectations."
+  },
+  "supervision_rule_proposal": {
+    "positive": "All finite input observations are complete/supported and satisfy applicable original Wants; unknown=0.",
+    "negative": "A supported valid observation contradicts an original Want field at least once: finite-contract mismatch, not a globally bad function.",
+    "unknown": "Missing/corrupt binding, unsupported or malformed/incomplete observations and unprescribed fields never become pass/mismatch. Preserve unknown counts. Known mismatch may support negative despite other unknowns; whole-request qualification stays separate.",
+    "projection": "Network Wants map to IPNet address+mask. Known IP/IPMask types are observable mismatches, not unsupported unknowns. Hooks use prescribed return/error/message/calls/seen input only. Diagnostics excluded; Wants immutable.",
+    "excluded_from_supervision": [
+      "IP_empty_string_behavior",
+      "IPMask_hexadecimal_branch",
+      "errors_Is_E1_E2_or_error_type_identity",
+      "Flag_Changed_or_FlagSet_Set_wrapper_behavior",
+      "all_possible_IP_CIDR_hooks_signatures_or_inputs",
+      "model_accuracy_savings_generalization_or_resource_utility"
+    ],
+    "feature_boundary": "Own request/caption text only. Outcomes, Got/Want, IDs, hashes, family/role/weight and proposal categories excluded. API names need a declared shortcut control.",
+    "current_assignment": {"role": null, "label": null, "weight": null, "qualified_additions": 0}
+  },
+  "finite_evidence": [
+    {
+      "request_id": "next60-pflag-native-ipnet",
+      "finite_inputs": 5,
+      "direct_setter_setup": "Each case resets IPNet192.0.2.0/24, IP192.0.2.0 or mask255.255.255.0. Direct Value.Set; no getter/String reparsing.",
+      "source_anchor": "ipnet.go:17-23; ip.go:18-27; ipmask.go:18-24,33-56",
+      "cases": [
+        {"suffix": "01", "input": " 192.0.2.7/24 ", "Want": "nil error,192.0.2.0/24", "IPNet_evidence": "IP[192,0,2,0],mask[255,255,255,0],nil error", "IP_IPMask_mismatch": "Error,not requested network."},
+        {"suffix": "02", "input": "203.0.113.5/32", "Want": "nil error,203.0.113.5/32", "IPNet_evidence": "IP[203,0,113,5],mask[255,255,255,255],nil error", "IP_IPMask_mismatch": "Error instead of success."},
+        {"suffix": "03", "input": "0.0.0.0/0", "Want": "nil error,0.0.0.0/0", "IPNet_evidence": "IP[0,0,0,0],mask[0,0,0,0],nil error", "IP_IPMask_mismatch": "Error instead of success."},
+        {"suffix": "04", "input": "192.0.2.7/33", "Want": "nonnull error,prior192.0.2.0/24", "IPNet_evidence": "Error,unchanged IPNet address/mask.", "IP_IPMask_mismatch": "Error preserves own IP/mask,not an IPNet network."},
+        {"suffix": "05", "input": "192.0.2.7", "Want": "nonnull error,prior192.0.2.0/24", "IPNet_evidence": "Error,unchanged IPNet address/mask.", "IP_IPMask_mismatch": "Nil error; IP becomes IPv4-mapped192.0.2.7,mask[192,0,2,7]."}
+      ],
+      "candidate_proposals": [
+        {"id": "ipNetValue.Set", "satisfied": 5, "known_mismatch": 0, "unknown": 0, "category": "positive_proposal"},
+        {"id": "ipValue.Set", "satisfied": 0, "known_mismatch": 5, "unknown": 0, "category": "negative_proposal"},
+        {"id": "ipMaskValue.Set", "satisfied": 0, "known_mismatch": 5, "unknown": 0, "category": "negative_proposal"}
+      ]
+    },
+    {
+      "request_id": "next60-mapstructure-native-or",
+      "finite_inputs": 4,
+      "hook_setup": "Owned bounded callbacks; source int4,target int0; original constructors/DecodeHookExec.",
+      "source_anchor": "decode_hooks.go:49-71,109-160; adapter native.go:144-212",
+      "cases": [
+        {"suffix": "01", "hooks": ["error E1", "return 9 nil", "return 99 nil"], "OrCompose_evidence": "calls[1,1,0],seen[4,4],return9,nil error", "Compose_mismatch": "calls[1,0,0],returnnull,errorE1; stops before required success."},
+        {"suffix": "02", "hooks": ["return nil nil", "return 99 nil"], "OrCompose_evidence": "calls[1,0],returnnull,nil error", "Compose_mismatch": "calls[1,1],return99,nil error; second source is invalid/null instead of stopping at nil/nil success."},
+        {"suffix": "03", "hooks": ["error E1", "error E2"], "OrCompose_evidence": "calls[1,1],seen[4,4],returnnull,error_message E1\nE2\n", "Compose_mismatch": "calls[1,0],returnnull,error_message E1; second error and LF concatenation are absent."},
+        {"suffix": "04", "hooks": [], "OrCompose_evidence": "calls[],returnnull,nonnull error with empty message", "Compose_mismatch": "calls[],return4,nil error instead of the prescribed empty-failure result."}
+      ],
+      "candidate_proposals": [
+        {"id": "OrComposeDecodeHookFunc", "satisfied": 4, "known_mismatch": 0, "unknown": 0, "category": "positive_proposal"},
+        {"id": "ComposeDecodeHookFunc", "satisfied": 0, "known_mismatch": 4, "unknown": 0, "category": "negative_proposal"}
+      ]
+    }
+  ],
+  "own_caption_v2_proposals": [
+    {"candidate_id": "ipNetValue.Set", "en": "Trim a CIDR input; store its network after successful parsing and retain state on a parse error.", "ko": "CIDR 공백을 다듬고 성공 시 network를 저장하며 오류 시 기존 상태를 유지한다.", "coverage": "Five cases; no all-input guarantee."},
+    {"candidate_id": "ipValue.Set", "en": "Trim and parse a plain IP string; store an IP value after successful parsing.", "ko": "일반 IP 문자열 공백을 다듬어 파싱하고 성공하면 IP 값을 저장한다.", "coverage": "Five cases; empty-input clause removed."},
+    {"candidate_id": "ipMaskValue.Set", "en": "Parse a dotted IPv4 string into mask bytes; store a mask value after successful parsing.", "ko": "점으로 구분한 IPv4 문자열을 mask 바이트로 파싱하고 성공 시 저장한다.", "coverage": "Five cases; hexadecimal clause removed."},
+    {"candidate_id": "OrComposeDecodeHookFunc", "en": "Try hooks with the original input; stop at the first nil error, otherwise concatenate failure messages with line feeds.", "ko": "원래 입력으로 hook을 시도하고 첫 nil 오류에서 멈추며 실패 메시지는 줄바꿈으로 연결한다.", "coverage": "Four cases; no error identity/type criterion."},
+    {"candidate_id": "ComposeDecodeHookFunc", "en": "Run hooks in order, using each output as the next input; stop at the first error.", "ko": "이전 출력을 다음 hook 입력으로 사용하며 순서대로 실행하고 첫 오류에서 멈춘다.", "coverage": "Four cases; no full-function approval."}
+  ],
+  "review_summary": {
+    "en": "v3 agrees: IPNet5/5,OrCompose4/4 positive proposals; three finite negatives. No assignment/reproduction/all-input approval. Caption v2 drops empty-IP/hex-mask. Existing IDs2,new families0; Root contract pending.",
+    "ko": "비교 v3와 불일치 없음: IPNet5/5·OrCompose4/4는 유한 긍정, 다른 세 후보는 부정 제안이다. 정답 할당·재실행·모든 입력 승인이 아니다. caption v2는 빈 IP·hex-mask 주장을 뺐다. 기존 초안 ID2·새 가족0이며, 최종 가족·정답·역할 계약은 Root가 고정해야 한다."
+  },
+  "remaining": [
+    "Root_freeze_caption_v2_projection_and_unknown_contract_before_training_record_creation",
+    "whole_connected_family_and_existing_role_compatibility_from_separate_review",
+    "narrow_material_rights_manifest_with_complete_notices_before_any_new_training_or_public_dataset"
+  ],
+  "rights_reference": {
+    "asset_id": "native2/conditional-training-eligibility-proposal-v1",
+    "bytes": 4349,
+    "sha256": "35c84bc6e9eadb03778df58b8129e33ff110d8ad2f1058647370d69cfb2d1416",
+    "new_blanket_clearance": false,
+    "Go2022_ignored_join_ancestry": "unresolved_excluded_and_preserved"
+  },
+  "operations": {
+    "original_API_native_Go_jq_helper_model_paid_HF_download_fit_calls": 0,
+    "new_protected_label_score_aggregate_reads": 0,
+    "actual_role_label_weight_assignments": 0,
+    "qualified_additions": 0,
+    "existing_draft_Want_source_result_seal_mutations": 0,
+    "training_records_created": 0,
+    "metadata_thread_limit_failure_not_native_or_model_retry": 1,
+    "proposal_JSON_files_written": 1
+  },
+  "unchanged_limits": "Two requests, five candidates, nine vectors,23 observations; no independent sample inflation. Existing15-group/5-percent utility and separate ternary gates preserved; protectedfinal2400 is not every development-fit minimum. No model benefit claim."
+}

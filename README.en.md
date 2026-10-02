@@ -1,5 +1,7 @@
 # laya-tools
 
+[Next development round](docs/wiki/Next60-Development-EN.md) separates [rounding-controller synthetic checks](experiments/short-claim/next60-ftoa-outside-preparation/README.en.md) from [four next batch targets](experiments/short-claim/next60-source-batch-preparation/README.en.md). The qualified subset remains two requests/five labels, with zero new fits. PR111 CI and the HF development dataset release are pending.
+
 [Two finite development requests are qualified](experiments/short-claim/next60-native2-qualification/README.en.md) for the next training round. Five candidates from two existing draft IDs have two positive and three negative labels; every text passed the existing input limits. The old 79-request corpus is unchanged and no new fit has run. Qualified data will expand toward 30/60 before a separate fit comparison.
 
 The [first two requests have actual original observations](experiments/short-claim/next60-native2-actual-observations/README.en.md). One child executed five candidates across nine inputs for two requests: 23 observations, no panics or unknowns. Suitable candidates satisfied 5/5 and 4/4 inputs; other candidates mismatched in 14 observations. Child OS maximum RSS was about 9.11MiB and startup/pin-inclusive wall time about 0.37s. These are original-code observations, not model inference or demonstrated savings. Qualification and new fitting were zero at that observation; held records and the [v5 source fix](experiments/short-claim/next60-native2-outside-v5-preparation/README.en.md) are preserved.

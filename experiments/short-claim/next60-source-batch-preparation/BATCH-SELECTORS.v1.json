@@ -1,0 +1,1733 @@
+{
+  "schema": "riido-source-only-batch-selector-preparation-v1",
+  "state": "private_source_read_preparation_incomplete_target_count",
+  "target_selector_count": 10,
+  "selected_selector_count": 4,
+  "selected_original_ordinals": [
+    1,
+    4,
+    5,
+    9
+  ],
+  "all_original_draft_count": 20,
+  "held": 13,
+  "excluded_already_qualified": 2,
+  "excluded_in_progress_ftoa": 1,
+  "actual_new_round_qualified_requests_as_reported_by_Root": 2,
+  "qualified_by_this_preparation": 0,
+  "new_requests": 0,
+  "new_training_parents": 0,
+  "new_labels": 0,
+  "new_roles": 0,
+  "new_fits": 0,
+  "selected_public_draft_inputs": 19,
+  "selected_candidate_descriptions": 12,
+  "proposed_candidate_dispatches_if_three_candidates_written": 57,
+  "proposed_dispatches_are_not_actual_or_qualified_counts": true,
+  "target_shortfall": 6,
+  "shortfall_reason": "No exact-source/notice/finite-contract basis for ten selectors under current no-acquisition scope; rights/closure holds are excluded instead of substituted with a different cache revision.",
+  "source_boundary_not_legal_clearance": true,
+  "all_legacy_draft_flags_preserved": true,
+  "inputs_and_Want_proposals_not_rewritten": true,
+  "evidence_pins": [
+    {
+      "path": "experiments/short-claim/next60-acquisition-drafts/DRAFT-CONTRACTS.v1.json",
+      "sha256": "c7bbf7bcc7912300fabdd6e671b0922df295299f00e5e7201df1ab5e824a2a9b",
+      "bytes": 209341
+    },
+    {
+      "path": "experiments/short-claim/next60-acquisition-drafts/SOURCE-PINS.v1.json",
+      "sha256": "ccec349e457e4c801441d31265300e27fd4ee7f0e0c7830c646643d326c7a3d2",
+      "bytes": 22668
+    },
+    {
+      "path": "experiments/short-claim/next60-acquisition-drafts/LICENSE-REVIEW.v1.json",
+      "sha256": "d6513df40481eb112775b0f6a2cbe65e892dcde75b4d6f3cc744aea325d1e8da",
+      "bytes": 8740
+    },
+    {
+      "path": "experiments/short-claim/source-closure-82/PUBLIC-MANIFEST-82.v1.json",
+      "sha256": "56dd60820462ddd3a352dc4e62caffa1aca54fe08ce7f04cbb58a551cf31105f",
+      "bytes": 20590
+    },
+    {
+      "path": "experiments/short-claim/source-closure-82/NOTICE-82.md",
+      "sha256": "466e372e3a4cf57cda24074ee3873de36e0309dfe3f104b10fadef12c92ceaf0",
+      "bytes": 2572
+    },
+    {
+      "path": "experiments/short-claim/conversion-pilot-80/observation/observer/upstream/humanize/go.mod.txt",
+      "sha256": "73ef52590e41200a113c6f8fbffd10cc5eb90dc0dc11d79bc5d46d85bddf9c0d",
+      "bytes": 46
+    }
+  ],
+  "entries": [
+    {
+      "selection_index": 0,
+      "original_ordinal": 1,
+      "id": "next60-humanize-strict-comma",
+      "source53_catalog_id": "go53-humanize-strict-comma-parse",
+      "repo": "dustin/go-humanize",
+      "revision": "a1b4e66b9a6d890e9e15e7091cf16c8032367d6e",
+      "source_family": "upstream53-humanize",
+      "selector_status": "source_preparation_only_not_execution_eligibility",
+      "draft_reference": {
+        "path": "experiments/short-claim/next60-acquisition-drafts/DRAFT-CONTRACTS.v1.json",
+        "sha256": "c7bbf7bcc7912300fabdd6e671b0922df295299f00e5e7201df1ab5e824a2a9b",
+        "json_pointer": "/drafts/1"
+      },
+      "source_boundary": {
+        "kind": "proposed_original_file_slice",
+        "paths": [
+          "comma.go",
+          "ftoa.go",
+          "big.go"
+        ],
+        "reason": "Preserving complete comma.go requires stripTrailingDigits in ftoa.go and oom in big.go; ParseComma alone has a smaller semantic closure. Do not clip or rename original bytes.",
+        "symbols": [
+          "ParseComma",
+          "CommafWithDigits",
+          "stripTrailingDigits",
+          "BigComma",
+          "oom"
+        ],
+        "language": "1.21",
+        "api": "ParseCommaStrict(string) (int64, error)",
+        "observations": [
+          "int64_result",
+          "nil_or_typed_error_and_kind",
+          "no_error_method_unless_explicitly_budgeted"
+        ],
+        "prerequisites": [
+          "write_three_concrete_candidates",
+          "freeze_exact_grouping_range_error_channels_and_zero_on_failure",
+          "freeze_same_inputs_and_short_captions",
+          "Root_select_and_pin_original_slice_language_module_and_owned_adapter"
+        ]
+      },
+      "anchor_pins": [
+        {
+          "asset_id": "acquired-source/dustin/go-humanize/big.go",
+          "path": "big.go",
+          "bytes": 612,
+          "sha256": "26c2e7a009a1579f126853cbfb6c9ffc7cda00b4f5ca3faea4705c384cff5edf",
+          "revision": "a1b4e66b9a6d890e9e15e7091cf16c8032367d6e",
+          "url": "https://github.com/dustin/go-humanize/blob/a1b4e66b9a6d890e9e15e7091cf16c8032367d6e/big.go"
+        },
+        {
+          "asset_id": "acquired-source/dustin/go-humanize/comma.go",
+          "path": "comma.go",
+          "bytes": 3692,
+          "sha256": "0d9d21bda6a48d8ca3f21d7e80de7176a938918ce321fc8d27ce8acc0f2c15c0",
+          "revision": "a1b4e66b9a6d890e9e15e7091cf16c8032367d6e",
+          "url": "https://github.com/dustin/go-humanize/blob/a1b4e66b9a6d890e9e15e7091cf16c8032367d6e/comma.go"
+        },
+        {
+          "asset_id": "acquired-source/dustin/go-humanize/ftoa.go",
+          "path": "ftoa.go",
+          "bytes": 986,
+          "sha256": "03007fb6a59871f5531d033739c1c68364943357f044931046667bfd26f02389",
+          "revision": "a1b4e66b9a6d890e9e15e7091cf16c8032367d6e",
+          "url": "https://github.com/dustin/go-humanize/blob/a1b4e66b9a6d890e9e15e7091cf16c8032367d6e/ftoa.go"
+        }
+      ],
+      "retained_asset_boundary": [
+        {
+          "asset_id": "acquired-source/dustin/go-humanize/big.go",
+          "path": "big.go",
+          "bytes": 612,
+          "sha256": "26c2e7a009a1579f126853cbfb6c9ffc7cda00b4f5ca3faea4705c384cff5edf",
+          "revision": "a1b4e66b9a6d890e9e15e7091cf16c8032367d6e",
+          "url": "https://github.com/dustin/go-humanize/blob/a1b4e66b9a6d890e9e15e7091cf16c8032367d6e/big.go"
+        },
+        {
+          "asset_id": "acquired-source/dustin/go-humanize/comma.go",
+          "path": "comma.go",
+          "bytes": 3692,
+          "sha256": "0d9d21bda6a48d8ca3f21d7e80de7176a938918ce321fc8d27ce8acc0f2c15c0",
+          "revision": "a1b4e66b9a6d890e9e15e7091cf16c8032367d6e",
+          "url": "https://github.com/dustin/go-humanize/blob/a1b4e66b9a6d890e9e15e7091cf16c8032367d6e/comma.go"
+        },
+        {
+          "asset_id": "acquired-source/dustin/go-humanize/ftoa.go",
+          "path": "ftoa.go",
+          "bytes": 986,
+          "sha256": "03007fb6a59871f5531d033739c1c68364943357f044931046667bfd26f02389",
+          "revision": "a1b4e66b9a6d890e9e15e7091cf16c8032367d6e",
+          "url": "https://github.com/dustin/go-humanize/blob/a1b4e66b9a6d890e9e15e7091cf16c8032367d6e/ftoa.go"
+        },
+        {
+          "asset_id": "acquired-source/dustin/go-humanize/LICENSE",
+          "path": "LICENSE",
+          "bytes": 1136,
+          "sha256": "a973b4498c13eb74baa2a8e5c351426a6826f2fcdd909916dbe53ee2e755fd71",
+          "revision": "a1b4e66b9a6d890e9e15e7091cf16c8032367d6e",
+          "url": "https://github.com/dustin/go-humanize/blob/a1b4e66b9a6d890e9e15e7091cf16c8032367d6e/LICENSE"
+        },
+        {
+          "path": "go.mod",
+          "archived_reference": {
+            "path": "experiments/short-claim/conversion-pilot-80/observation/observer/upstream/humanize/go.mod.txt",
+            "sha256": "73ef52590e41200a113c6f8fbffd10cc5eb90dc0dc11d79bc5d46d85bddf9c0d",
+            "bytes": 46
+          }
+        }
+      ],
+      "source_spans": [
+        "comma.go:154-161"
+      ],
+      "scope_reference": "/drafts/1/scope",
+      "model_request_reference": "/drafts/1/request_en",
+      "source_license": {
+        "observed_root_license": "MIT",
+        "root_license_url": "https://github.com/dustin/go-humanize/blob/a1b4e66b9a6d890e9e15e7091cf16c8032367d6e/LICENSE",
+        "historical_clearance": false,
+        "notice_boundary": "proposed_original_file_slice_excludes_number_go_no_whole_package_clearance"
+      },
+      "cache": {
+        "cached_version": "v1.0.1",
+        "cached_revision": "9ec74ab2f7a7161664182fd4e5e292fccffbc75f",
+        "match_to_draft_revision": false,
+        "substitution_allowed": false,
+        "exact_retained_sources_used_for_preparation": true
+      },
+      "finite_inputs": [
+        {
+          "fixture_index": 0,
+          "case_id": "next60-humanize-strict-comma-vector-01",
+          "input_pointer": "/drafts/1/finite_cases/0/input",
+          "draft_Want_pointer": "/drafts/1/finite_cases/0/want",
+          "actual_Got_pointer": "/drafts/1/finite_cases/0/Got",
+          "case_reference": "/drafts/1/finite_cases/0"
+        },
+        {
+          "fixture_index": 1,
+          "case_id": "next60-humanize-strict-comma-vector-02",
+          "input_pointer": "/drafts/1/finite_cases/1/input",
+          "draft_Want_pointer": "/drafts/1/finite_cases/1/want",
+          "actual_Got_pointer": "/drafts/1/finite_cases/1/Got",
+          "case_reference": "/drafts/1/finite_cases/1"
+        },
+        {
+          "fixture_index": 2,
+          "case_id": "next60-humanize-strict-comma-vector-03",
+          "input_pointer": "/drafts/1/finite_cases/2/input",
+          "draft_Want_pointer": "/drafts/1/finite_cases/2/want",
+          "actual_Got_pointer": "/drafts/1/finite_cases/2/Got",
+          "case_reference": "/drafts/1/finite_cases/2"
+        },
+        {
+          "fixture_index": 3,
+          "case_id": "next60-humanize-strict-comma-vector-04",
+          "input_pointer": "/drafts/1/finite_cases/3/input",
+          "draft_Want_pointer": "/drafts/1/finite_cases/3/want",
+          "actual_Got_pointer": "/drafts/1/finite_cases/3/Got",
+          "case_reference": "/drafts/1/finite_cases/3"
+        },
+        {
+          "fixture_index": 4,
+          "case_id": "next60-humanize-strict-comma-vector-05",
+          "input_pointer": "/drafts/1/finite_cases/4/input",
+          "draft_Want_pointer": "/drafts/1/finite_cases/4/want",
+          "actual_Got_pointer": "/drafts/1/finite_cases/4/Got",
+          "case_reference": "/drafts/1/finite_cases/4"
+        },
+        {
+          "fixture_index": 5,
+          "case_id": "next60-humanize-strict-comma-vector-06",
+          "input_pointer": "/drafts/1/finite_cases/5/input",
+          "draft_Want_pointer": "/drafts/1/finite_cases/5/want",
+          "actual_Got_pointer": "/drafts/1/finite_cases/5/Got",
+          "case_reference": "/drafts/1/finite_cases/5"
+        }
+      ],
+      "candidate_order": [
+        {
+          "candidate_index": 0,
+          "id": "baseline-design",
+          "description_pointer": "/drafts/1/candidate_descriptions/0",
+          "concrete_source_pin": null,
+          "executable_prepared": false
+        },
+        {
+          "candidate_index": 1,
+          "id": "reference-design",
+          "description_pointer": "/drafts/1/candidate_descriptions/1",
+          "concrete_source_pin": null,
+          "executable_prepared": false
+        },
+        {
+          "candidate_index": 2,
+          "id": "wrong-seed-design",
+          "description_pointer": "/drafts/1/candidate_descriptions/2",
+          "concrete_source_pin": null,
+          "executable_prepared": false
+        }
+      ],
+      "stable_observation_order": "selector ordinal then candidate_index then fixture_index; each fixture starts fresh; preserve intra-fixture mutation sequence",
+      "draft_Want_status": "historical_source_read_proposals_not_new_literal_seal_or_qualification",
+      "full_literal_Want_newly_sealed": false,
+      "concrete_adapter_prepared": false,
+      "compile_or_import_or_init_performed": false,
+      "before_execution_prerequisites": [
+        "write_three_concrete_candidates",
+        "freeze_exact_grouping_range_error_channels_and_zero_on_failure",
+        "freeze_same_inputs_and_short_captions",
+        "Root_select_and_pin_original_slice_language_module_and_owned_adapter"
+      ],
+      "source_uncertainties": [
+        "Humanize group is already training-exposed through ordinal; cannot serve as unseen validation or protected final.",
+        "Full package includes separately attributed number.go; isolated vs whole-package closure needs explicit choice."
+      ],
+      "grouping": {
+        "whole_source_family": "upstream53-humanize",
+        "shared_semantic_helpers": [
+          "ParseComma",
+          "CommafWithDigits",
+          "stripTrailingDigits",
+          "BigComma",
+          "oom"
+        ],
+        "source_role": null,
+        "near_mechanism_is_not_automatic_union": true,
+        "caption_alias_baseline_wrong_seed_not_new_family": true,
+        "unseen_or_final_claim": false
+      },
+      "stop_conditions": [
+        "exact_pin_or_original_byte_mismatch",
+        "missing_complete_selected_compiler_or_notice_closure",
+        "draft_Want_or_caption_material_ambiguity",
+        "unexpected_or_unsupported_observation_channel",
+        "panic_is_unknown_unless_frozen_no_panic_contract_proves_known_mismatch",
+        "no_adaptive_Want_edit_or_retry"
+      ],
+      "labels": null,
+      "role": null,
+      "weight": null,
+      "qualified_count_increment": 0
+    },
+    {
+      "selection_index": 1,
+      "original_ordinal": 4,
+      "id": "next60-mapstructure-key-collision",
+      "source53_catalog_id": "go53-mapstructure-normalized-key-collision",
+      "repo": "go-viper/mapstructure",
+      "revision": "52aa5c6dc1d27226460807054ca2107b2d54fb2d",
+      "source_family": "upstream53-mapstructure",
+      "selector_status": "source_preparation_only_not_execution_eligibility",
+      "draft_reference": {
+        "path": "experiments/short-claim/next60-acquisition-drafts/DRAFT-CONTRACTS.v1.json",
+        "sha256": "c7bbf7bcc7912300fabdd6e671b0922df295299f00e5e7201df1ab5e824a2a9b",
+        "json_pointer": "/drafts/4"
+      },
+      "source_boundary": {
+        "kind": "retained_whole_package_with_proposed_Go127_build_selection",
+        "prefix": "upstream/mapstructure/",
+        "paths": [
+          "mapstructure.go",
+          "errors.go",
+          "decode_hooks.go",
+          "reflect_go1_20.go",
+          "internal/errors/errors.go",
+          "internal/errors/join.go"
+        ],
+        "inactive": [
+          "reflect_go1_19.go",
+          "internal/errors/join_go1_19.go"
+        ],
+        "symbols": [
+          "DecoderConfig",
+          "NewDecoder",
+          "Decoder.Decode",
+          "Decoder.decodeStructFromMap",
+          "MatchName",
+          "newDecodeError",
+          "cachedDecodeHook"
+        ],
+        "language": "1.18",
+        "api": "DecoderConfig.RejectAmbiguousMatch opt-in; Decoder.Decode",
+        "observations": [
+          "exact_Name_before_after",
+          "sorted_conflicting_key_names",
+          "error_identity_kind",
+          "option_on_and_saved_inputs_only"
+        ],
+        "prerequisites": [
+          "write_candidate_option_and_three_concrete_candidates",
+          "freeze_AmbiguousKeyError_fields_and_identity",
+          "keep_equal_value_and_exact_case_conflicts",
+          "Root_pin_actual_Go_build_selection"
+        ]
+      },
+      "anchor_pins": [
+        {
+          "asset_id": "source82/go-viper/mapstructure/decode_hooks.go",
+          "path": "decode_hooks.go",
+          "bytes": 19432,
+          "sha256": "cb863229ef96129bc899a25852f9f21d506353224b01606538c375a1b392285a",
+          "revision": "52aa5c6dc1d27226460807054ca2107b2d54fb2d",
+          "url": "https://github.com/go-viper/mapstructure/blob/52aa5c6dc1d27226460807054ca2107b2d54fb2d/decode_hooks.go"
+        },
+        {
+          "asset_id": "source82/go-viper/mapstructure/errors.go",
+          "path": "errors.go",
+          "bytes": 4720,
+          "sha256": "8adb1f168b962bc42bb3fb9e1aae1478ba224482975b7610bfe32d20353ca2e9",
+          "revision": "52aa5c6dc1d27226460807054ca2107b2d54fb2d",
+          "url": "https://github.com/go-viper/mapstructure/blob/52aa5c6dc1d27226460807054ca2107b2d54fb2d/errors.go"
+        },
+        {
+          "asset_id": "source82/go-viper/mapstructure/internal/errors/errors.go",
+          "path": "internal/errors/errors.go",
+          "bytes": 170,
+          "sha256": "dfae6fad7eb06f93bd2c1db6da8420f25549006a42877bbce8ab03ac477f8b35",
+          "revision": "52aa5c6dc1d27226460807054ca2107b2d54fb2d",
+          "url": "https://github.com/go-viper/mapstructure/blob/52aa5c6dc1d27226460807054ca2107b2d54fb2d/internal/errors/errors.go"
+        },
+        {
+          "asset_id": "source82/go-viper/mapstructure/internal/errors/join.go",
+          "path": "internal/errors/join.go",
+          "bytes": 116,
+          "sha256": "e4cf2222e38cbba025becb312afbe4bcfff0167bc3b789b901888383672dd3ea",
+          "revision": "52aa5c6dc1d27226460807054ca2107b2d54fb2d",
+          "url": "https://github.com/go-viper/mapstructure/blob/52aa5c6dc1d27226460807054ca2107b2d54fb2d/internal/errors/join.go"
+        },
+        {
+          "asset_id": "source82/go-viper/mapstructure/mapstructure.go",
+          "path": "mapstructure.go",
+          "bytes": 55732,
+          "sha256": "87d01b09fcb2ca148ef722ba52baf6851c35357c49d9f2e918d8551c7c03f1ee",
+          "revision": "52aa5c6dc1d27226460807054ca2107b2d54fb2d",
+          "url": "https://github.com/go-viper/mapstructure/blob/52aa5c6dc1d27226460807054ca2107b2d54fb2d/mapstructure.go"
+        },
+        {
+          "asset_id": "source82/go-viper/mapstructure/reflect_go1_20.go",
+          "path": "reflect_go1_20.go",
+          "bytes": 176,
+          "sha256": "6cf9fc76ef45eb54662c90a8b25eab94443363c9435a18fe17aaeb2e4e50d6b0",
+          "revision": "52aa5c6dc1d27226460807054ca2107b2d54fb2d",
+          "url": "https://github.com/go-viper/mapstructure/blob/52aa5c6dc1d27226460807054ca2107b2d54fb2d/reflect_go1_20.go"
+        }
+      ],
+      "retained_asset_boundary": [
+        {
+          "path": "experiments/short-claim/source-closure-82/upstream/mapstructure/LICENSE",
+          "bytes": 1085,
+          "sha256": "22adc4abdece712a737573672f082fd61ac2b21df878efb87ffcff4354a07f26"
+        },
+        {
+          "path": "experiments/short-claim/source-closure-82/upstream/mapstructure/decode_hooks.go.txt",
+          "bytes": 19432,
+          "sha256": "cb863229ef96129bc899a25852f9f21d506353224b01606538c375a1b392285a"
+        },
+        {
+          "path": "experiments/short-claim/source-closure-82/upstream/mapstructure/errors.go.txt",
+          "bytes": 4720,
+          "sha256": "8adb1f168b962bc42bb3fb9e1aae1478ba224482975b7610bfe32d20353ca2e9"
+        },
+        {
+          "path": "experiments/short-claim/source-closure-82/upstream/mapstructure/go.mod.txt",
+          "bytes": 52,
+          "sha256": "5393fe364f1a200c6a84ee2c7bf727f02c9e0b1f844ca13b188ca925f4718b08"
+        },
+        {
+          "path": "experiments/short-claim/source-closure-82/upstream/mapstructure/internal/errors/errors.go.txt",
+          "bytes": 170,
+          "sha256": "dfae6fad7eb06f93bd2c1db6da8420f25549006a42877bbce8ab03ac477f8b35"
+        },
+        {
+          "path": "experiments/short-claim/source-closure-82/upstream/mapstructure/internal/errors/join.go.txt",
+          "bytes": 116,
+          "sha256": "e4cf2222e38cbba025becb312afbe4bcfff0167bc3b789b901888383672dd3ea"
+        },
+        {
+          "path": "experiments/short-claim/source-closure-82/upstream/mapstructure/internal/errors/join_go1_19.go.txt",
+          "bytes": 1365,
+          "sha256": "c75fb6e5ddf6c6e17233a2e9df37f1ebd73c2b5c13aca48d4e3448cb92e5cf4c"
+        },
+        {
+          "path": "experiments/short-claim/source-closure-82/upstream/mapstructure/mapstructure.go.txt",
+          "bytes": 55732,
+          "sha256": "87d01b09fcb2ca148ef722ba52baf6851c35357c49d9f2e918d8551c7c03f1ee"
+        },
+        {
+          "path": "experiments/short-claim/source-closure-82/upstream/mapstructure/reflect_go1_19.go.txt",
+          "bytes": 799,
+          "sha256": "4d143a36e095f5dfa3ed0720a7f7fe2cf861a4caf3c6205e8e53832aafdac503"
+        },
+        {
+          "path": "experiments/short-claim/source-closure-82/upstream/mapstructure/reflect_go1_20.go.txt",
+          "bytes": 176,
+          "sha256": "6cf9fc76ef45eb54662c90a8b25eab94443363c9435a18fe17aaeb2e4e50d6b0"
+        }
+      ],
+      "source_spans": [
+        "mapstructure.go:1546-1571",
+        "mapstructure.go:MatchName search"
+      ],
+      "scope_reference": "/drafts/4/scope",
+      "model_request_reference": "/drafts/4/request_en",
+      "source_license": {
+        "observed_root_license": "MIT",
+        "root_license_url": "https://github.com/go-viper/mapstructure/blob/52aa5c6dc1d27226460807054ca2107b2d54fb2d/LICENSE",
+        "historical_clearance": false,
+        "notice_boundary": "Source82_notice_and_full_original_license_preserved_Root_actual_selection_pending"
+      },
+      "cache": {
+        "cached_version": "v2.5.0",
+        "cached_revision": "9aa3f77c68e2a56222ea436c1bfa631f1b1072d5",
+        "match_to_draft_revision": false,
+        "substitution_allowed": false,
+        "exact_retained_sources_used_for_preparation": true
+      },
+      "finite_inputs": [
+        {
+          "fixture_index": 0,
+          "case_id": "next60-mapstructure-key-collision-vector-01",
+          "input_pointer": "/drafts/4/finite_cases/0/input",
+          "draft_Want_pointer": "/drafts/4/finite_cases/0/want",
+          "actual_Got_pointer": "/drafts/4/finite_cases/0/Got",
+          "case_reference": "/drafts/4/finite_cases/0"
+        },
+        {
+          "fixture_index": 1,
+          "case_id": "next60-mapstructure-key-collision-vector-02",
+          "input_pointer": "/drafts/4/finite_cases/1/input",
+          "draft_Want_pointer": "/drafts/4/finite_cases/1/want",
+          "actual_Got_pointer": "/drafts/4/finite_cases/1/Got",
+          "case_reference": "/drafts/4/finite_cases/1"
+        },
+        {
+          "fixture_index": 2,
+          "case_id": "next60-mapstructure-key-collision-vector-03",
+          "input_pointer": "/drafts/4/finite_cases/2/input",
+          "draft_Want_pointer": "/drafts/4/finite_cases/2/want",
+          "actual_Got_pointer": "/drafts/4/finite_cases/2/Got",
+          "case_reference": "/drafts/4/finite_cases/2"
+        },
+        {
+          "fixture_index": 3,
+          "case_id": "next60-mapstructure-key-collision-vector-04",
+          "input_pointer": "/drafts/4/finite_cases/3/input",
+          "draft_Want_pointer": "/drafts/4/finite_cases/3/want",
+          "actual_Got_pointer": "/drafts/4/finite_cases/3/Got",
+          "case_reference": "/drafts/4/finite_cases/3"
+        }
+      ],
+      "candidate_order": [
+        {
+          "candidate_index": 0,
+          "id": "baseline-design",
+          "description_pointer": "/drafts/4/candidate_descriptions/0",
+          "concrete_source_pin": null,
+          "executable_prepared": false
+        },
+        {
+          "candidate_index": 1,
+          "id": "reference-design",
+          "description_pointer": "/drafts/4/candidate_descriptions/1",
+          "concrete_source_pin": null,
+          "executable_prepared": false
+        },
+        {
+          "candidate_index": 2,
+          "id": "wrong-seed-design",
+          "description_pointer": "/drafts/4/candidate_descriptions/2",
+          "concrete_source_pin": null,
+          "executable_prepared": false
+        }
+      ],
+      "stable_observation_order": "selector ordinal then candidate_index then fixture_index; each fixture starts fresh; preserve intra-fixture mutation sequence",
+      "draft_Want_status": "historical_source_read_proposals_not_new_literal_seal_or_qualification",
+      "full_literal_Want_newly_sealed": false,
+      "concrete_adapter_prepared": false,
+      "compile_or_import_or_init_performed": false,
+      "before_execution_prerequisites": [
+        "write_candidate_option_and_three_concrete_candidates",
+        "freeze_AmbiguousKeyError_fields_and_identity",
+        "keep_equal_value_and_exact_case_conflicts",
+        "Root_pin_actual_Go_build_selection"
+      ],
+      "source_uncertainties": [
+        "Source82 archived closure available but exact new observer/compiler selection and copied Go notices still require frozen review."
+      ],
+      "grouping": {
+        "whole_source_family": "upstream53-mapstructure",
+        "shared_semantic_helpers": [
+          "DecoderConfig",
+          "NewDecoder",
+          "Decoder.Decode",
+          "Decoder.decodeStructFromMap",
+          "MatchName",
+          "newDecodeError",
+          "cachedDecodeHook"
+        ],
+        "source_role": null,
+        "near_mechanism_is_not_automatic_union": true,
+        "caption_alias_baseline_wrong_seed_not_new_family": true,
+        "unseen_or_final_claim": false
+      },
+      "stop_conditions": [
+        "exact_pin_or_original_byte_mismatch",
+        "missing_complete_selected_compiler_or_notice_closure",
+        "draft_Want_or_caption_material_ambiguity",
+        "unexpected_or_unsupported_observation_channel",
+        "panic_is_unknown_unless_frozen_no_panic_contract_proves_known_mismatch",
+        "no_adaptive_Want_edit_or_retry"
+      ],
+      "labels": null,
+      "role": null,
+      "weight": null,
+      "qualified_count_increment": 0
+    },
+    {
+      "selection_index": 2,
+      "original_ordinal": 5,
+      "id": "next60-pflag-map-snapshot",
+      "source53_catalog_id": "go53-pflag-map-snapshot",
+      "repo": "spf13/pflag",
+      "revision": "c966cfef47379dcb01e7929504d66d94b540945b",
+      "source_family": "upstream53-cobra-pflag-connected",
+      "selector_status": "source_preparation_only_not_execution_eligibility",
+      "draft_reference": {
+        "path": "experiments/short-claim/next60-acquisition-drafts/DRAFT-CONTRACTS.v1.json",
+        "sha256": "c7bbf7bcc7912300fabdd6e671b0922df295299f00e5e7201df1ab5e824a2a9b",
+        "json_pointer": "/drafts/5"
+      },
+      "source_boundary": {
+        "kind": "retained_whole_package",
+        "prefix": "upstream/pflag/",
+        "paths": [
+          "string_to_string.go",
+          "flag.go",
+          "errors.go"
+        ],
+        "whole_package_reference": "Source82 pflag42 Go files plus original go.mod and LICENSE; three listed files are semantic anchors, not complete compiler closure.",
+        "symbols": [
+          "FlagSet.GetStringToString",
+          "FlagSet.getFlagType",
+          "stringToStringValue",
+          "newStringToStringValue",
+          "FlagSet.StringToStringVar",
+          "NotExistError"
+        ],
+        "language": "1.12",
+        "api": "new map snapshot getter; legacy GetStringToString remains shared",
+        "observations": [
+          "nil_vs_non_nil_empty_map",
+          "live_and_snapshot_entries_after_each_mutation",
+          "missing_flag_error_type",
+          "legacy_alias_behavior"
+        ],
+        "prerequisites": [
+          "write_snapshot_getter_and_three_concrete_candidates",
+          "freeze_fresh_FlagSet_and_owned_mutation_observer",
+          "count_setup_getter_and_Error_calls_explicitly",
+          "preserve_Source82_full_notices_and_Root_build_selection"
+        ]
+      },
+      "anchor_pins": [
+        {
+          "asset_id": "source82/spf13/pflag/errors.go",
+          "path": "errors.go",
+          "bytes": 4241,
+          "sha256": "65209c173f3330bc35a09c9b9a9379e39b07be03e8e15f79388782d2cf06b709",
+          "revision": "c966cfef47379dcb01e7929504d66d94b540945b",
+          "url": "https://github.com/spf13/pflag/blob/c966cfef47379dcb01e7929504d66d94b540945b/errors.go"
+        },
+        {
+          "asset_id": "source82/spf13/pflag/flag.go",
+          "path": "flag.go",
+          "bytes": 42152,
+          "sha256": "07c3af1500f870079899627f868978336a291fe615d6e85ff7f532d3b7f7107f",
+          "revision": "c966cfef47379dcb01e7929504d66d94b540945b",
+          "url": "https://github.com/spf13/pflag/blob/c966cfef47379dcb01e7929504d66d94b540945b/flag.go"
+        },
+        {
+          "asset_id": "source82/spf13/pflag/string_to_string.go",
+          "path": "string_to_string.go",
+          "bytes": 6161,
+          "sha256": "c71150d3090e3ea33e10adec9db3941dcfbcc18282e1651b86cf45062dc3238f",
+          "revision": "c966cfef47379dcb01e7929504d66d94b540945b",
+          "url": "https://github.com/spf13/pflag/blob/c966cfef47379dcb01e7929504d66d94b540945b/string_to_string.go"
+        }
+      ],
+      "retained_asset_boundary": [
+        {
+          "path": "experiments/short-claim/source-closure-82/upstream/pflag/LICENSE",
+          "bytes": 1531,
+          "sha256": "b8514c577c1c4b46cee454d5a882b15fa411e72c5bd7f801f241591789fce61a"
+        },
+        {
+          "path": "experiments/short-claim/source-closure-82/upstream/pflag/bool.go.txt",
+          "bytes": 3268,
+          "sha256": "2b2a8dd2139f771523105e404076407666a94c81279a685ab7da5bd028fef161"
+        },
+        {
+          "path": "experiments/short-claim/source-closure-82/upstream/pflag/bool_func.go.txt",
+          "bytes": 1555,
+          "sha256": "ed67c0e8c8f92537cf9a7310b2036f7438d0abf20969437988ce8711a54beb63"
+        },
+        {
+          "path": "experiments/short-claim/source-closure-82/upstream/pflag/bool_slice.go.txt",
+          "bytes": 5391,
+          "sha256": "f47e68c92a46a175d57cf651ebd946378c82475a2cd62da13355802014524140"
+        },
+        {
+          "path": "experiments/short-claim/source-closure-82/upstream/pflag/bytes.go.txt",
+          "bytes": 7179,
+          "sha256": "6c07854ee567d92c21dd5abf963096ed4aa845c64b5b462d695ae4d021cb18e6"
+        },
+        {
+          "path": "experiments/short-claim/source-closure-82/upstream/pflag/count.go.txt",
+          "bytes": 2952,
+          "sha256": "1b80ac030add1d69b2a426199c17f081dd7b7007196d58226f2c07e97f78109f"
+        },
+        {
+          "path": "experiments/short-claim/source-closure-82/upstream/pflag/duration.go.txt",
+          "bytes": 3408,
+          "sha256": "c8ce3023d0fed77d18e4b5690ef224424193a880ee35083c2d5880d925b8f1d6"
+        },
+        {
+          "path": "experiments/short-claim/source-closure-82/upstream/pflag/duration_slice.go.txt",
+          "bytes": 5104,
+          "sha256": "2a1822cbe89bccae19da693ac85d28e751e73ee1ceb4dfba1c17dd0d7efc71a5"
+        },
+        {
+          "path": "experiments/short-claim/source-closure-82/upstream/pflag/errors.go.txt",
+          "bytes": 4241,
+          "sha256": "65209c173f3330bc35a09c9b9a9379e39b07be03e8e15f79388782d2cf06b709"
+        },
+        {
+          "path": "experiments/short-claim/source-closure-82/upstream/pflag/flag.go.txt",
+          "bytes": 42152,
+          "sha256": "07c3af1500f870079899627f868978336a291fe615d6e85ff7f532d3b7f7107f"
+        },
+        {
+          "path": "experiments/short-claim/source-closure-82/upstream/pflag/float32.go.txt",
+          "bytes": 3243,
+          "sha256": "e8a5316067c5180e60a1ce759137050be13d5bdcbe759948be2d19ad4cdf5201"
+        },
+        {
+          "path": "experiments/short-claim/source-closure-82/upstream/pflag/float32_slice.go.txt",
+          "bytes": 5042,
+          "sha256": "aec2d01aeac6b1035901d89e7b418ed21f4ca89a58c30b3a7e8b183cfd138fef"
+        },
+        {
+          "path": "experiments/short-claim/source-closure-82/upstream/pflag/float64.go.txt",
+          "bytes": 3180,
+          "sha256": "7e1722a29d2f6823a69c175f5ffd6e0f2e27fae71351d0d2111d4a48a8714765"
+        },
+        {
+          "path": "experiments/short-claim/source-closure-82/upstream/pflag/float64_slice.go.txt",
+          "bytes": 4879,
+          "sha256": "0fe130703f3f3affdbcff7ddadb6e5490557e5af7aaeaac2340a29c60c45cb54"
+        },
+        {
+          "path": "experiments/short-claim/source-closure-82/upstream/pflag/func.go.txt",
+          "bytes": 1430,
+          "sha256": "83a0f492f6e3f28812e76007869063d552ab9190a326f89e1f7944a7626d74eb"
+        },
+        {
+          "path": "experiments/short-claim/source-closure-82/upstream/pflag/go.mod.txt",
+          "bytes": 39,
+          "sha256": "16c6dfc0eb58eb3c9113ce197d460c6725c647e4688ac26d31c8ed69f1ebbc68"
+        },
+        {
+          "path": "experiments/short-claim/source-closure-82/upstream/pflag/golangflag.go.txt",
+          "bytes": 4831,
+          "sha256": "8c4cab1919867f4fe0927a783e1291cde383da2130013d8f3e9b2be44ef5dccd"
+        },
+        {
+          "path": "experiments/short-claim/source-closure-82/upstream/pflag/int.go.txt",
+          "bytes": 2857,
+          "sha256": "d00ebabd888c063d657b0f591bdabcea4a85a33b2d7f2094a47d657f962360c9"
+        },
+        {
+          "path": "experiments/short-claim/source-closure-82/upstream/pflag/int16.go.txt",
+          "bytes": 3091,
+          "sha256": "8762a08dc3733355909411612d8d98284cd7aacf18228d82fa068fd4e0c642e8"
+        },
+        {
+          "path": "experiments/short-claim/source-closure-82/upstream/pflag/int32.go.txt",
+          "bytes": 3090,
+          "sha256": "4d940db7e27a88f09b5991942e5ceba9f4010829ece6de7162395f74542877a7"
+        },
+        {
+          "path": "experiments/short-claim/source-closure-82/upstream/pflag/int32_slice.go.txt",
+          "bytes": 4863,
+          "sha256": "804f751c996ce5ec0d4f2a9692d24eea57270f324314d52ab564f6739bb25cb1"
+        },
+        {
+          "path": "experiments/short-claim/source-closure-82/upstream/pflag/int64.go.txt",
+          "bytes": 3029,
+          "sha256": "50fef4262bfdc873f5da9f91115740be5397fb5754bb992dbbdae1c5d43e5c1d"
+        },
+        {
+          "path": "experiments/short-claim/source-closure-82/upstream/pflag/int64_slice.go.txt",
+          "bytes": 4710,
+          "sha256": "7cc5b40ad7803e2fb2960e94fbd98d08f783fbc89ecbe7ce7af74e0c8d52e021"
+        },
+        {
+          "path": "experiments/short-claim/source-closure-82/upstream/pflag/int8.go.txt",
+          "bytes": 3012,
+          "sha256": "4333e7b7f924150fcf4967b6a99f481f00abbedea33bbba8de4632149bdbf7bf"
+        },
+        {
+          "path": "experiments/short-claim/source-closure-82/upstream/pflag/int_slice.go.txt",
+          "bytes": 4331,
+          "sha256": "eb8434b8f00f6510d2699c5f2f5127a3b68533d936fa7c67258fbfec6d06baca"
+        },
+        {
+          "path": "experiments/short-claim/source-closure-82/upstream/pflag/ip.go.txt",
+          "bytes": 3138,
+          "sha256": "9062c2a9c65d772827c39f9bcd552e5e58b1e7ff646c9840a09c55dcdc93796a"
+        },
+        {
+          "path": "experiments/short-claim/source-closure-82/upstream/pflag/ip_slice.go.txt",
+          "bytes": 5590,
+          "sha256": "061b1443f6f1f259c744e35a0a5e6b1c452b247bfa83b60cb01168338cea272d"
+        },
+        {
+          "path": "experiments/short-claim/source-closure-82/upstream/pflag/ipmask.go.txt",
+          "bytes": 4052,
+          "sha256": "839fe1d7759cfd72a0233ae5ce2e50336186e54ddde4726e0058ab9f42bb44ce"
+        },
+        {
+          "path": "experiments/short-claim/source-closure-82/upstream/pflag/ipnet.go.txt",
+          "bytes": 3330,
+          "sha256": "aa7d5258317c189fc2c1f75c10cc70eb05d9b2f7bc4a75518dd6b7216c2e845b"
+        },
+        {
+          "path": "experiments/short-claim/source-closure-82/upstream/pflag/ipnet_slice.go.txt",
+          "bytes": 5024,
+          "sha256": "e1947dd8aecfb2fbbaa3a5b0f0b0930777a64e4bb091cd6b8cebb8580016f148"
+        },
+        {
+          "path": "experiments/short-claim/source-closure-82/upstream/pflag/string.go.txt",
+          "bytes": 2926,
+          "sha256": "15ca4dc0ddf5f2c508be07bf5a67effaea35f6e763dfce63a98105340c939612"
+        },
+        {
+          "path": "experiments/short-claim/source-closure-82/upstream/pflag/string_array.go.txt",
+          "bytes": 4304,
+          "sha256": "22e9d318e8e671d8bb6fca93727f6dc661196ea67fbe759f0de95e9fbf6f3dd2"
+        },
+        {
+          "path": "experiments/short-claim/source-closure-82/upstream/pflag/string_slice.go.txt",
+          "bytes": 5191,
+          "sha256": "605bb690f21710d1f79d71194dc7e9924e9db46346cdaa8280eb08b3440d0149"
+        },
+        {
+          "path": "experiments/short-claim/source-closure-82/upstream/pflag/string_to_int.go.txt",
+          "bytes": 4856,
+          "sha256": "d971157d3fccf57c14e11bf88f6754f47eb646baed73836371fafdd39112fa6c"
+        },
+        {
+          "path": "experiments/short-claim/source-closure-82/upstream/pflag/string_to_int64.go.txt",
+          "bytes": 5041,
+          "sha256": "8276bf7cdc6ec815fbf63f56746907cc08e4dbb04e98d9a40561afa47ad02655"
+        },
+        {
+          "path": "experiments/short-claim/source-closure-82/upstream/pflag/string_to_string.go.txt",
+          "bytes": 6161,
+          "sha256": "c71150d3090e3ea33e10adec9db3941dcfbcc18282e1651b86cf45062dc3238f"
+        },
+        {
+          "path": "experiments/short-claim/source-closure-82/upstream/pflag/text.go.txt",
+          "bytes": 3184,
+          "sha256": "8503607c058136326c8f3337c5350b98f785105bed1b2cd167fecdad243e4607"
+        },
+        {
+          "path": "experiments/short-claim/source-closure-82/upstream/pflag/time.go.txt",
+          "bytes": 3991,
+          "sha256": "77d336b7738c4e7e999c173414536f2caefb1b80ef76841b3b3a8f35f5d0d313"
+        },
+        {
+          "path": "experiments/short-claim/source-closure-82/upstream/pflag/uint.go.txt",
+          "bytes": 3024,
+          "sha256": "8dfb51e7544c70efa8fd397baf61ada90ecdbd4eb0582204d4c08ba6fa4aca37"
+        },
+        {
+          "path": "experiments/short-claim/source-closure-82/upstream/pflag/uint16.go.txt",
+          "bytes": 3161,
+          "sha256": "ce2b1267e99c4177827739a0058583480d823aa1d5acd218830274cc39e19d3d"
+        },
+        {
+          "path": "experiments/short-claim/source-closure-82/upstream/pflag/uint32.go.txt",
+          "bytes": 3177,
+          "sha256": "70251cbf933559eb72827d48b4f8009218a6d3cbbae8e881d3fcb73e58d1ebd2"
+        },
+        {
+          "path": "experiments/short-claim/source-closure-82/upstream/pflag/uint64.go.txt",
+          "bytes": 3166,
+          "sha256": "a902792aef80ab4d6cefdec5d4eabfcf67d734aad03cc05089e34d37f7d89152"
+        },
+        {
+          "path": "experiments/short-claim/source-closure-82/upstream/pflag/uint8.go.txt",
+          "bytes": 3096,
+          "sha256": "14b7c3428d9a0932c36b19532fb07b15c372d9cde8e3da72ad309e239f80a548"
+        },
+        {
+          "path": "experiments/short-claim/source-closure-82/upstream/pflag/uint_slice.go.txt",
+          "bytes": 4690,
+          "sha256": "87b8036d9d90bdd2fc82341874594a0fcfeac5538c8e9ffa7d97d4ab8708fbe0"
+        }
+      ],
+      "source_spans": [
+        "string_to_string.go:94-112"
+      ],
+      "scope_reference": "/drafts/5/scope",
+      "model_request_reference": "/drafts/5/request_en",
+      "source_license": {
+        "observed_root_license": "BSD-3-Clause",
+        "root_license_url": "https://github.com/spf13/pflag/blob/c966cfef47379dcb01e7929504d66d94b540945b/LICENSE",
+        "historical_clearance": false,
+        "notice_boundary": "Source82_notice_and_full_original_license_preserved_Root_actual_selection_pending"
+      },
+      "cache": {
+        "cached_version": "v1.0.10",
+        "cached_revision": "0491e5702ad2bb108bc519a5221bcc0f52aa9564",
+        "match_to_draft_revision": false,
+        "substitution_allowed": false,
+        "exact_retained_sources_used_for_preparation": true
+      },
+      "finite_inputs": [
+        {
+          "fixture_index": 0,
+          "case_id": "next60-pflag-map-snapshot-vector-01",
+          "input_pointer": "/drafts/5/finite_cases/0/input",
+          "draft_Want_pointer": "/drafts/5/finite_cases/0/want",
+          "actual_Got_pointer": "/drafts/5/finite_cases/0/Got",
+          "case_reference": "/drafts/5/finite_cases/0"
+        },
+        {
+          "fixture_index": 1,
+          "case_id": "next60-pflag-map-snapshot-vector-02",
+          "input_pointer": "/drafts/5/finite_cases/1/input",
+          "draft_Want_pointer": "/drafts/5/finite_cases/1/want",
+          "actual_Got_pointer": "/drafts/5/finite_cases/1/Got",
+          "case_reference": "/drafts/5/finite_cases/1"
+        },
+        {
+          "fixture_index": 2,
+          "case_id": "next60-pflag-map-snapshot-vector-03",
+          "input_pointer": "/drafts/5/finite_cases/2/input",
+          "draft_Want_pointer": "/drafts/5/finite_cases/2/want",
+          "actual_Got_pointer": "/drafts/5/finite_cases/2/Got",
+          "case_reference": "/drafts/5/finite_cases/2"
+        },
+        {
+          "fixture_index": 3,
+          "case_id": "next60-pflag-map-snapshot-vector-04",
+          "input_pointer": "/drafts/5/finite_cases/3/input",
+          "draft_Want_pointer": "/drafts/5/finite_cases/3/want",
+          "actual_Got_pointer": "/drafts/5/finite_cases/3/Got",
+          "case_reference": "/drafts/5/finite_cases/3"
+        }
+      ],
+      "candidate_order": [
+        {
+          "candidate_index": 0,
+          "id": "baseline-design",
+          "description_pointer": "/drafts/5/candidate_descriptions/0",
+          "concrete_source_pin": null,
+          "executable_prepared": false
+        },
+        {
+          "candidate_index": 1,
+          "id": "reference-design",
+          "description_pointer": "/drafts/5/candidate_descriptions/1",
+          "concrete_source_pin": null,
+          "executable_prepared": false
+        },
+        {
+          "candidate_index": 2,
+          "id": "wrong-seed-design",
+          "description_pointer": "/drafts/5/candidate_descriptions/2",
+          "concrete_source_pin": null,
+          "executable_prepared": false
+        }
+      ],
+      "stable_observation_order": "selector ordinal then candidate_index then fixture_index; each fixture starts fresh; preserve intra-fixture mutation sequence",
+      "draft_Want_status": "historical_source_read_proposals_not_new_literal_seal_or_qualification",
+      "full_literal_Want_newly_sealed": false,
+      "concrete_adapter_prepared": false,
+      "compile_or_import_or_init_performed": false,
+      "before_execution_prerequisites": [
+        "write_snapshot_getter_and_three_concrete_candidates",
+        "freeze_fresh_FlagSet_and_owned_mutation_observer",
+        "count_setup_getter_and_Error_calls_explicitly",
+        "preserve_Source82_full_notices_and_Root_build_selection"
+      ],
+      "source_uncertainties": [
+        "Old owned-snapshot is a slice contract, not this concrete map API; keep shared ownership-mechanism link.",
+        "Cobra and pflag remain one connected upstream group, not independent train/validation families."
+      ],
+      "grouping": {
+        "whole_source_family": "upstream53-cobra-pflag-connected",
+        "shared_semantic_helpers": [
+          "FlagSet.GetStringToString",
+          "FlagSet.getFlagType",
+          "stringToStringValue",
+          "newStringToStringValue",
+          "FlagSet.StringToStringVar",
+          "NotExistError"
+        ],
+        "source_role": null,
+        "near_mechanism_is_not_automatic_union": true,
+        "caption_alias_baseline_wrong_seed_not_new_family": true,
+        "unseen_or_final_claim": false
+      },
+      "stop_conditions": [
+        "exact_pin_or_original_byte_mismatch",
+        "missing_complete_selected_compiler_or_notice_closure",
+        "draft_Want_or_caption_material_ambiguity",
+        "unexpected_or_unsupported_observation_channel",
+        "panic_is_unknown_unless_frozen_no_panic_contract_proves_known_mismatch",
+        "no_adaptive_Want_edit_or_retry"
+      ],
+      "labels": null,
+      "role": null,
+      "weight": null,
+      "qualified_count_increment": 0
+    },
+    {
+      "selection_index": 3,
+      "original_ordinal": 9,
+      "id": "next60-humanize-fractional-bytes",
+      "source53_catalog_id": "go53-humanize-exact-fractional-bytes",
+      "repo": "dustin/go-humanize",
+      "revision": "a1b4e66b9a6d890e9e15e7091cf16c8032367d6e",
+      "source_family": "upstream53-humanize",
+      "selector_status": "source_preparation_only_not_execution_eligibility",
+      "draft_reference": {
+        "path": "experiments/short-claim/next60-acquisition-drafts/DRAFT-CONTRACTS.v1.json",
+        "sha256": "c7bbf7bcc7912300fabdd6e671b0922df295299f00e5e7201df1ab5e824a2a9b",
+        "json_pointer": "/drafts/9"
+      },
+      "source_boundary": {
+        "kind": "proposed_original_file_slice",
+        "paths": [
+          "bytes.go"
+        ],
+        "reason": "Complete bytes.go retains tables, helpers and exported functions; all directly read imports are stdlib. Whole humanize package is a different compiler and rights boundary.",
+        "symbols": [
+          "ParseBytes",
+          "bytesSizeTable",
+          "humanateBytes",
+          "logn",
+          "countDigits"
+        ],
+        "language": "1.21",
+        "api": "ParseBytes(string) (uint64,error) with exact fractional branch",
+        "observations": [
+          "uint64_exact_decimal_string_not_float_JSON_number",
+          "nil_or_typed_error_and_kind",
+          "range_before_truncate",
+          "whole_number_branch_preserved"
+        ],
+        "prerequisites": [
+          "write_exact_fractional_parser_and_three_concrete_candidates",
+          "freeze_range_error_type_and_zero_on_failure",
+          "retain_five_public_vectors_order",
+          "exclude_unreviewed_Unicode_and_decimal_grammar_claims",
+          "Root_select_and_pin_original_slice_language_module_and_owned_adapter"
+        ]
+      },
+      "anchor_pins": [
+        {
+          "asset_id": "acquired-source/dustin/go-humanize/bytes.go",
+          "path": "bytes.go",
+          "bytes": 5033,
+          "sha256": "0a152d19cf6af3aaa2f365cdbcf7cd073f14eff13a001920c098c08a6eb310f2",
+          "revision": "a1b4e66b9a6d890e9e15e7091cf16c8032367d6e",
+          "url": "https://github.com/dustin/go-humanize/blob/a1b4e66b9a6d890e9e15e7091cf16c8032367d6e/bytes.go"
+        }
+      ],
+      "retained_asset_boundary": [
+        {
+          "asset_id": "acquired-source/dustin/go-humanize/bytes.go",
+          "path": "bytes.go",
+          "bytes": 5033,
+          "sha256": "0a152d19cf6af3aaa2f365cdbcf7cd073f14eff13a001920c098c08a6eb310f2",
+          "revision": "a1b4e66b9a6d890e9e15e7091cf16c8032367d6e",
+          "url": "https://github.com/dustin/go-humanize/blob/a1b4e66b9a6d890e9e15e7091cf16c8032367d6e/bytes.go"
+        },
+        {
+          "asset_id": "acquired-source/dustin/go-humanize/LICENSE",
+          "path": "LICENSE",
+          "bytes": 1136,
+          "sha256": "a973b4498c13eb74baa2a8e5c351426a6826f2fcdd909916dbe53ee2e755fd71",
+          "revision": "a1b4e66b9a6d890e9e15e7091cf16c8032367d6e",
+          "url": "https://github.com/dustin/go-humanize/blob/a1b4e66b9a6d890e9e15e7091cf16c8032367d6e/LICENSE"
+        },
+        {
+          "path": "go.mod",
+          "archived_reference": {
+            "path": "experiments/short-claim/conversion-pilot-80/observation/observer/upstream/humanize/go.mod.txt",
+            "sha256": "73ef52590e41200a113c6f8fbffd10cc5eb90dc0dc11d79bc5d46d85bddf9c0d",
+            "bytes": 46
+          }
+        }
+      ],
+      "source_spans": [
+        "bytes.go:162-220"
+      ],
+      "scope_reference": "/drafts/9/scope",
+      "model_request_reference": "/drafts/9/request_en",
+      "source_license": {
+        "observed_root_license": "MIT",
+        "root_license_url": "https://github.com/dustin/go-humanize/blob/a1b4e66b9a6d890e9e15e7091cf16c8032367d6e/LICENSE",
+        "historical_clearance": false,
+        "notice_boundary": "proposed_original_file_slice_excludes_number_go_no_whole_package_clearance"
+      },
+      "cache": {
+        "cached_version": "v1.0.1",
+        "cached_revision": "9ec74ab2f7a7161664182fd4e5e292fccffbc75f",
+        "match_to_draft_revision": false,
+        "substitution_allowed": false,
+        "exact_retained_sources_used_for_preparation": true
+      },
+      "finite_inputs": [
+        {
+          "fixture_index": 0,
+          "case_id": "next60-humanize-fractional-bytes-vector-01",
+          "input_pointer": "/drafts/9/finite_cases/0/input",
+          "draft_Want_pointer": "/drafts/9/finite_cases/0/want",
+          "actual_Got_pointer": "/drafts/9/finite_cases/0/Got",
+          "case_reference": "/drafts/9/finite_cases/0"
+        },
+        {
+          "fixture_index": 1,
+          "case_id": "next60-humanize-fractional-bytes-vector-02",
+          "input_pointer": "/drafts/9/finite_cases/1/input",
+          "draft_Want_pointer": "/drafts/9/finite_cases/1/want",
+          "actual_Got_pointer": "/drafts/9/finite_cases/1/Got",
+          "case_reference": "/drafts/9/finite_cases/1"
+        },
+        {
+          "fixture_index": 2,
+          "case_id": "next60-humanize-fractional-bytes-vector-03",
+          "input_pointer": "/drafts/9/finite_cases/2/input",
+          "draft_Want_pointer": "/drafts/9/finite_cases/2/want",
+          "actual_Got_pointer": "/drafts/9/finite_cases/2/Got",
+          "case_reference": "/drafts/9/finite_cases/2"
+        },
+        {
+          "fixture_index": 3,
+          "case_id": "next60-humanize-fractional-bytes-vector-04",
+          "input_pointer": "/drafts/9/finite_cases/3/input",
+          "draft_Want_pointer": "/drafts/9/finite_cases/3/want",
+          "actual_Got_pointer": "/drafts/9/finite_cases/3/Got",
+          "case_reference": "/drafts/9/finite_cases/3"
+        },
+        {
+          "fixture_index": 4,
+          "case_id": "next60-humanize-fractional-bytes-vector-05",
+          "input_pointer": "/drafts/9/finite_cases/4/input",
+          "draft_Want_pointer": "/drafts/9/finite_cases/4/want",
+          "actual_Got_pointer": "/drafts/9/finite_cases/4/Got",
+          "case_reference": "/drafts/9/finite_cases/4"
+        }
+      ],
+      "candidate_order": [
+        {
+          "candidate_index": 0,
+          "id": "baseline-design",
+          "description_pointer": "/drafts/9/candidate_descriptions/0",
+          "concrete_source_pin": null,
+          "executable_prepared": false
+        },
+        {
+          "candidate_index": 1,
+          "id": "reference-design",
+          "description_pointer": "/drafts/9/candidate_descriptions/1",
+          "concrete_source_pin": null,
+          "executable_prepared": false
+        },
+        {
+          "candidate_index": 2,
+          "id": "wrong-seed-design",
+          "description_pointer": "/drafts/9/candidate_descriptions/2",
+          "concrete_source_pin": null,
+          "executable_prepared": false
+        }
+      ],
+      "stable_observation_order": "selector ordinal then candidate_index then fixture_index; each fixture starts fresh; preserve intra-fixture mutation sequence",
+      "draft_Want_status": "historical_source_read_proposals_not_new_literal_seal_or_qualification",
+      "full_literal_Want_newly_sealed": false,
+      "concrete_adapter_prepared": false,
+      "compile_or_import_or_init_performed": false,
+      "before_execution_prerequisites": [
+        "write_exact_fractional_parser_and_three_concrete_candidates",
+        "freeze_range_error_type_and_zero_on_failure",
+        "retain_five_public_vectors_order",
+        "exclude_unreviewed_Unicode_and_decimal_grammar_claims",
+        "Root_select_and_pin_original_slice_language_module_and_owned_adapter"
+      ],
+      "source_uncertainties": [
+        "Humanize source group is training-exposed; no unseen or final claim.",
+        "All decimal grammar/Unicode handling outside the frozen vectors remains excluded pending review."
+      ],
+      "grouping": {
+        "whole_source_family": "upstream53-humanize",
+        "shared_semantic_helpers": [
+          "ParseBytes",
+          "bytesSizeTable",
+          "humanateBytes",
+          "logn",
+          "countDigits"
+        ],
+        "source_role": null,
+        "near_mechanism_is_not_automatic_union": true,
+        "caption_alias_baseline_wrong_seed_not_new_family": true,
+        "unseen_or_final_claim": false
+      },
+      "stop_conditions": [
+        "exact_pin_or_original_byte_mismatch",
+        "missing_complete_selected_compiler_or_notice_closure",
+        "draft_Want_or_caption_material_ambiguity",
+        "unexpected_or_unsupported_observation_channel",
+        "panic_is_unknown_unless_frozen_no_panic_contract_proves_known_mismatch",
+        "no_adaptive_Want_edit_or_retry"
+      ],
+      "labels": null,
+      "role": null,
+      "weight": null,
+      "qualified_count_increment": 0
+    }
+  ],
+  "original_ordinal_decision_ledger": [
+    {
+      "original_ordinal": 0,
+      "id": "next60-afero-sub-validation",
+      "source_family": "upstream53-afero",
+      "repo": "spf13/afero",
+      "source_revision": "eb6a92826ea568e3f40ab91fcbda8d2b38b61d3e",
+      "draft_reference": {
+        "path": "experiments/short-claim/next60-acquisition-drafts/DRAFT-CONTRACTS.v1.json",
+        "sha256": "c7bbf7bcc7912300fabdd6e671b0922df295299f00e5e7201df1ab5e824a2a9b",
+        "json_pointer": "/drafts/0"
+      },
+      "disposition": "hold",
+      "reasons": [
+        "incomplete_exact_afero_package_and_internal_common",
+        "adapted_stdlib_and_multiple_notices_unresolved"
+      ],
+      "finite_input_vector_count": 5,
+      "candidate_description_count": 3,
+      "existing_truth_state_unchanged": true,
+      "actual_new_parent": 0,
+      "assigned_role": null,
+      "assigned_weight": null,
+      "qualified_by_this_preparation": false
+    },
+    {
+      "original_ordinal": 1,
+      "id": "next60-humanize-strict-comma",
+      "source_family": "upstream53-humanize",
+      "repo": "dustin/go-humanize",
+      "source_revision": "a1b4e66b9a6d890e9e15e7091cf16c8032367d6e",
+      "draft_reference": {
+        "path": "experiments/short-claim/next60-acquisition-drafts/DRAFT-CONTRACTS.v1.json",
+        "sha256": "c7bbf7bcc7912300fabdd6e671b0922df295299f00e5e7201df1ab5e824a2a9b",
+        "json_pointer": "/drafts/1"
+      },
+      "disposition": "selected_source_preparation_only",
+      "reasons": [
+        "retained_exact_source_boundary_proposed_no_execution_or_rights_clearance"
+      ],
+      "finite_input_vector_count": 6,
+      "candidate_description_count": 3,
+      "existing_truth_state_unchanged": true,
+      "actual_new_parent": 0,
+      "assigned_role": null,
+      "assigned_weight": null,
+      "qualified_by_this_preparation": false
+    },
+    {
+      "original_ordinal": 2,
+      "id": "next60-ini-quoted-comments",
+      "source_family": "upstream53-ini",
+      "repo": "go-ini/ini",
+      "source_revision": "e2db55b0e088fa4ee0c128aa4ade263cdc1d7f08",
+      "draft_reference": {
+        "path": "experiments/short-claim/next60-acquisition-drafts/DRAFT-CONTRACTS.v1.json",
+        "sha256": "c7bbf7bcc7912300fabdd6e671b0922df295299f00e5e7201df1ab5e824a2a9b",
+        "json_pointer": "/drafts/2"
+      },
+      "disposition": "hold",
+      "reasons": [
+        "incomplete_exact_ini_package",
+        "copied_encoding_json_notice_lineage_unresolved"
+      ],
+      "finite_input_vector_count": 5,
+      "candidate_description_count": 3,
+      "existing_truth_state_unchanged": true,
+      "actual_new_parent": 0,
+      "assigned_role": null,
+      "assigned_weight": null,
+      "qualified_by_this_preparation": false
+    },
+    {
+      "original_ordinal": 3,
+      "id": "next60-ini-delete-index",
+      "source_family": "upstream53-ini",
+      "repo": "go-ini/ini",
+      "source_revision": "e2db55b0e088fa4ee0c128aa4ade263cdc1d7f08",
+      "draft_reference": {
+        "path": "experiments/short-claim/next60-acquisition-drafts/DRAFT-CONTRACTS.v1.json",
+        "sha256": "c7bbf7bcc7912300fabdd6e671b0922df295299f00e5e7201df1ab5e824a2a9b",
+        "json_pointer": "/drafts/3"
+      },
+      "disposition": "hold",
+      "reasons": [
+        "incomplete_exact_ini_package",
+        "copied_encoding_json_notice_lineage_unresolved",
+        "typed_range_error_not_implemented"
+      ],
+      "finite_input_vector_count": 5,
+      "candidate_description_count": 3,
+      "existing_truth_state_unchanged": true,
+      "actual_new_parent": 0,
+      "assigned_role": null,
+      "assigned_weight": null,
+      "qualified_by_this_preparation": false
+    },
+    {
+      "original_ordinal": 4,
+      "id": "next60-mapstructure-key-collision",
+      "source_family": "upstream53-mapstructure",
+      "repo": "go-viper/mapstructure",
+      "source_revision": "52aa5c6dc1d27226460807054ca2107b2d54fb2d",
+      "draft_reference": {
+        "path": "experiments/short-claim/next60-acquisition-drafts/DRAFT-CONTRACTS.v1.json",
+        "sha256": "c7bbf7bcc7912300fabdd6e671b0922df295299f00e5e7201df1ab5e824a2a9b",
+        "json_pointer": "/drafts/4"
+      },
+      "disposition": "selected_source_preparation_only",
+      "reasons": [
+        "retained_exact_source_boundary_proposed_no_execution_or_rights_clearance"
+      ],
+      "finite_input_vector_count": 4,
+      "candidate_description_count": 3,
+      "existing_truth_state_unchanged": true,
+      "actual_new_parent": 0,
+      "assigned_role": null,
+      "assigned_weight": null,
+      "qualified_by_this_preparation": false
+    },
+    {
+      "original_ordinal": 5,
+      "id": "next60-pflag-map-snapshot",
+      "source_family": "upstream53-cobra-pflag-connected",
+      "repo": "spf13/pflag",
+      "source_revision": "c966cfef47379dcb01e7929504d66d94b540945b",
+      "draft_reference": {
+        "path": "experiments/short-claim/next60-acquisition-drafts/DRAFT-CONTRACTS.v1.json",
+        "sha256": "c7bbf7bcc7912300fabdd6e671b0922df295299f00e5e7201df1ab5e824a2a9b",
+        "json_pointer": "/drafts/5"
+      },
+      "disposition": "selected_source_preparation_only",
+      "reasons": [
+        "retained_exact_source_boundary_proposed_no_execution_or_rights_clearance"
+      ],
+      "finite_input_vector_count": 4,
+      "candidate_description_count": 3,
+      "existing_truth_state_unchanged": true,
+      "actual_new_parent": 0,
+      "assigned_role": null,
+      "assigned_weight": null,
+      "qualified_by_this_preparation": false
+    },
+    {
+      "original_ordinal": 6,
+      "id": "next60-mapstructure-nil-config",
+      "source_family": "upstream53-mapstructure",
+      "repo": "go-viper/mapstructure",
+      "source_revision": "52aa5c6dc1d27226460807054ca2107b2d54fb2d",
+      "draft_reference": {
+        "path": "experiments/short-claim/next60-acquisition-drafts/DRAFT-CONTRACTS.v1.json",
+        "sha256": "c7bbf7bcc7912300fabdd6e671b0922df295299f00e5e7201df1ab5e824a2a9b",
+        "json_pointer": "/drafts/6"
+      },
+      "disposition": "hold",
+      "reasons": [
+        "declared_error_identity_and_compatibility_not_sealed",
+        "wrong_seed_typed_nil_panic_description_contradicted_by_source"
+      ],
+      "finite_input_vector_count": 4,
+      "candidate_description_count": 3,
+      "existing_truth_state_unchanged": true,
+      "actual_new_parent": 0,
+      "assigned_role": null,
+      "assigned_weight": null,
+      "qualified_by_this_preparation": false
+    },
+    {
+      "original_ordinal": 7,
+      "id": "next60-ini-byte-budget",
+      "source_family": "upstream53-ini",
+      "repo": "go-ini/ini",
+      "source_revision": "e2db55b0e088fa4ee0c128aa4ade263cdc1d7f08",
+      "draft_reference": {
+        "path": "experiments/short-claim/next60-acquisition-drafts/DRAFT-CONTRACTS.v1.json",
+        "sha256": "c7bbf7bcc7912300fabdd6e671b0922df295299f00e5e7201df1ab5e824a2a9b",
+        "json_pointer": "/drafts/7"
+      },
+      "disposition": "hold",
+      "reasons": [
+        "incomplete_exact_ini_package",
+        "copied_encoding_json_notice_lineage_unresolved",
+        "reader_close_and_reload_scope_not_fixed"
+      ],
+      "finite_input_vector_count": 5,
+      "candidate_description_count": 3,
+      "existing_truth_state_unchanged": true,
+      "actual_new_parent": 0,
+      "assigned_role": null,
+      "assigned_weight": null,
+      "qualified_by_this_preparation": false
+    },
+    {
+      "original_ordinal": 8,
+      "id": "next60-cobra-required-annotation",
+      "source_family": "upstream53-cobra-pflag-connected",
+      "repo": "spf13/cobra",
+      "source_revision": "adbc8813901bba65827259daa8e22ff94ec1f30e",
+      "draft_reference": {
+        "path": "experiments/short-claim/next60-acquisition-drafts/DRAFT-CONTRACTS.v1.json",
+        "sha256": "c7bbf7bcc7912300fabdd6e671b0922df295299f00e5e7201df1ab5e824a2a9b",
+        "json_pointer": "/drafts/8"
+      },
+      "disposition": "hold",
+      "reasons": [
+        "incomplete_exact_cobra_package_and_dependency_closure",
+        "malformed_annotation_and_disable_flag_parsing_scope_pending"
+      ],
+      "finite_input_vector_count": 5,
+      "candidate_description_count": 3,
+      "existing_truth_state_unchanged": true,
+      "actual_new_parent": 0,
+      "assigned_role": null,
+      "assigned_weight": null,
+      "qualified_by_this_preparation": false
+    },
+    {
+      "original_ordinal": 9,
+      "id": "next60-humanize-fractional-bytes",
+      "source_family": "upstream53-humanize",
+      "repo": "dustin/go-humanize",
+      "source_revision": "a1b4e66b9a6d890e9e15e7091cf16c8032367d6e",
+      "draft_reference": {
+        "path": "experiments/short-claim/next60-acquisition-drafts/DRAFT-CONTRACTS.v1.json",
+        "sha256": "c7bbf7bcc7912300fabdd6e671b0922df295299f00e5e7201df1ab5e824a2a9b",
+        "json_pointer": "/drafts/9"
+      },
+      "disposition": "selected_source_preparation_only",
+      "reasons": [
+        "retained_exact_source_boundary_proposed_no_execution_or_rights_clearance"
+      ],
+      "finite_input_vector_count": 5,
+      "candidate_description_count": 3,
+      "existing_truth_state_unchanged": true,
+      "actual_new_parent": 0,
+      "assigned_role": null,
+      "assigned_weight": null,
+      "qualified_by_this_preparation": false
+    },
+    {
+      "original_ordinal": 10,
+      "id": "next60-humanize-bigbytes-precision",
+      "source_family": "upstream53-humanize",
+      "repo": "dustin/go-humanize",
+      "source_revision": "a1b4e66b9a6d890e9e15e7091cf16c8032367d6e",
+      "draft_reference": {
+        "path": "experiments/short-claim/next60-acquisition-drafts/DRAFT-CONTRACTS.v1.json",
+        "sha256": "c7bbf7bcc7912300fabdd6e671b0922df295299f00e5e7201df1ab5e824a2a9b",
+        "json_pointer": "/drafts/10"
+      },
+      "disposition": "hold",
+      "reasons": [
+        "rounding_prefix_promotion_and_above_QB_scope_not_fixed",
+        "whole_humanize_number_go_lineage_stays_outside_proposed_slice"
+      ],
+      "finite_input_vector_count": 6,
+      "candidate_description_count": 3,
+      "existing_truth_state_unchanged": true,
+      "actual_new_parent": 0,
+      "assigned_role": null,
+      "assigned_weight": null,
+      "qualified_by_this_preparation": false
+    },
+    {
+      "original_ordinal": 11,
+      "id": "next60-humanize-precise-ftoa",
+      "source_family": "upstream53-humanize",
+      "repo": "dustin/go-humanize",
+      "source_revision": "a1b4e66b9a6d890e9e15e7091cf16c8032367d6e",
+      "draft_reference": {
+        "path": "experiments/short-claim/next60-acquisition-drafts/DRAFT-CONTRACTS.v1.json",
+        "sha256": "c7bbf7bcc7912300fabdd6e671b0922df295299f00e5e7201df1ab5e824a2a9b",
+        "json_pointer": "/drafts/11"
+      },
+      "disposition": "excluded_in_progress_ftoa",
+      "reasons": [
+        "separate_in_progress_sealed_ftoa_work_must_not_repeat"
+      ],
+      "finite_input_vector_count": 6,
+      "candidate_description_count": 3,
+      "existing_truth_state_unchanged": true,
+      "actual_new_parent": 0,
+      "assigned_role": null,
+      "assigned_weight": null,
+      "qualified_by_this_preparation": false
+    },
+    {
+      "original_ordinal": 12,
+      "id": "next60-afero-bounded-read",
+      "source_family": "upstream53-afero",
+      "repo": "spf13/afero",
+      "source_revision": "eb6a92826ea568e3f40ab91fcbda8d2b38b61d3e",
+      "draft_reference": {
+        "path": "experiments/short-claim/next60-acquisition-drafts/DRAFT-CONTRACTS.v1.json",
+        "sha256": "c7bbf7bcc7912300fabdd6e671b0922df295299f00e5e7201df1ab5e824a2a9b",
+        "json_pointer": "/drafts/12"
+      },
+      "disposition": "hold",
+      "reasons": [
+        "incomplete_exact_afero_package",
+        "ioutil_go_authors_notice_lineage_pending",
+        "close_error_policy_unfixed"
+      ],
+      "finite_input_vector_count": 5,
+      "candidate_description_count": 3,
+      "existing_truth_state_unchanged": true,
+      "actual_new_parent": 0,
+      "assigned_role": null,
+      "assigned_weight": null,
+      "qualified_by_this_preparation": false
+    },
+    {
+      "original_ordinal": 13,
+      "id": "next60-afero-exclusive-write",
+      "source_family": "upstream53-afero",
+      "repo": "spf13/afero",
+      "source_revision": "eb6a92826ea568e3f40ab91fcbda8d2b38b61d3e",
+      "draft_reference": {
+        "path": "experiments/short-claim/next60-acquisition-drafts/DRAFT-CONTRACTS.v1.json",
+        "sha256": "c7bbf7bcc7912300fabdd6e671b0922df295299f00e5e7201df1ab5e824a2a9b",
+        "json_pointer": "/drafts/13"
+      },
+      "disposition": "hold",
+      "reasons": [
+        "incomplete_exact_afero_and_x_text_dependency_closure",
+        "multiple_notices_pending",
+        "exclusive_open_error_compatibility_pending"
+      ],
+      "finite_input_vector_count": 4,
+      "candidate_description_count": 3,
+      "existing_truth_state_unchanged": true,
+      "actual_new_parent": 0,
+      "assigned_role": null,
+      "assigned_weight": null,
+      "qualified_by_this_preparation": false
+    },
+    {
+      "original_ordinal": 14,
+      "id": "next60-cobra-error-writer",
+      "source_family": "upstream53-cobra-pflag-connected",
+      "repo": "spf13/cobra",
+      "source_revision": "adbc8813901bba65827259daa8e22ff94ec1f30e",
+      "draft_reference": {
+        "path": "experiments/short-claim/next60-acquisition-drafts/DRAFT-CONTRACTS.v1.json",
+        "sha256": "c7bbf7bcc7912300fabdd6e671b0922df295299f00e5e7201df1ab5e824a2a9b",
+        "json_pointer": "/drafts/14"
+      },
+      "disposition": "hold",
+      "reasons": [
+        "incomplete_exact_cobra_package_and_dependency_closure"
+      ],
+      "finite_input_vector_count": 4,
+      "candidate_description_count": 3,
+      "existing_truth_state_unchanged": true,
+      "actual_new_parent": 0,
+      "assigned_role": null,
+      "assigned_weight": null,
+      "qualified_by_this_preparation": false
+    },
+    {
+      "original_ordinal": 15,
+      "id": "next60-cobra-local-finalizers",
+      "source_family": "upstream53-cobra-pflag-connected",
+      "repo": "spf13/cobra",
+      "source_revision": "adbc8813901bba65827259daa8e22ff94ec1f30e",
+      "draft_reference": {
+        "path": "experiments/short-claim/next60-acquisition-drafts/DRAFT-CONTRACTS.v1.json",
+        "sha256": "c7bbf7bcc7912300fabdd6e671b0922df295299f00e5e7201df1ab5e824a2a9b",
+        "json_pointer": "/drafts/15"
+      },
+      "disposition": "hold",
+      "reasons": [
+        "incomplete_exact_cobra_package_and_dependency_closure",
+        "process_global_finalizer_state_requires_adapter_scope"
+      ],
+      "finite_input_vector_count": 5,
+      "candidate_description_count": 3,
+      "existing_truth_state_unchanged": true,
+      "actual_new_parent": 0,
+      "assigned_role": null,
+      "assigned_weight": null,
+      "qualified_by_this_preparation": false
+    },
+    {
+      "original_ordinal": 16,
+      "id": "next60-cobra-context-preflight",
+      "source_family": "upstream53-cobra-pflag-connected",
+      "repo": "spf13/cobra",
+      "source_revision": "adbc8813901bba65827259daa8e22ff94ec1f30e",
+      "draft_reference": {
+        "path": "experiments/short-claim/next60-acquisition-drafts/DRAFT-CONTRACTS.v1.json",
+        "sha256": "c7bbf7bcc7912300fabdd6e671b0922df295299f00e5e7201df1ab5e824a2a9b",
+        "json_pointer": "/drafts/16"
+      },
+      "disposition": "hold",
+      "reasons": [
+        "incomplete_exact_cobra_package_and_dependency_closure",
+        "help_and_execution_entry_boundary_pending"
+      ],
+      "finite_input_vector_count": 4,
+      "candidate_description_count": 3,
+      "existing_truth_state_unchanged": true,
+      "actual_new_parent": 0,
+      "assigned_role": null,
+      "assigned_weight": null,
+      "qualified_by_this_preparation": false
+    },
+    {
+      "original_ordinal": 17,
+      "id": "next60-retryhttp-deadline",
+      "source_family": "upstream53-retryablehttp",
+      "repo": "hashicorp/go-retryablehttp",
+      "source_revision": "fd004584a46724fae09e2f21d7c382e15c893f42",
+      "draft_reference": {
+        "path": "experiments/short-claim/next60-acquisition-drafts/DRAFT-CONTRACTS.v1.json",
+        "sha256": "c7bbf7bcc7912300fabdd6e671b0922df295299f00e5e7201df1ab5e824a2a9b",
+        "json_pointer": "/drafts/17"
+      },
+      "disposition": "hold",
+      "reasons": [
+        "incomplete_exact_retryablehttp_and_cleanhttp_closure",
+        "MPL_file_scoped_distribution_policy_deferred"
+      ],
+      "finite_input_vector_count": 5,
+      "candidate_description_count": 3,
+      "existing_truth_state_unchanged": true,
+      "actual_new_parent": 0,
+      "assigned_role": null,
+      "assigned_weight": null,
+      "qualified_by_this_preparation": false
+    },
+    {
+      "original_ordinal": 18,
+      "id": "next60-pflag-native-ipnet",
+      "source_family": "upstream53-cobra-pflag-connected",
+      "repo": "spf13/pflag",
+      "source_revision": "c966cfef47379dcb01e7929504d66d94b540945b",
+      "draft_reference": {
+        "path": "experiments/short-claim/next60-acquisition-drafts/DRAFT-CONTRACTS.v1.json",
+        "sha256": "c7bbf7bcc7912300fabdd6e671b0922df295299f00e5e7201df1ab5e824a2a9b",
+        "json_pointer": "/drafts/18"
+      },
+      "disposition": "excluded_already_qualified",
+      "reasons": [
+        "Root_reports_two_existing_qualified_requests_no_duplicate_acquisition"
+      ],
+      "finite_input_vector_count": 5,
+      "candidate_description_count": 3,
+      "existing_truth_state_unchanged": true,
+      "actual_new_parent": 0,
+      "assigned_role": null,
+      "assigned_weight": null,
+      "qualified_by_this_preparation": false
+    },
+    {
+      "original_ordinal": 19,
+      "id": "next60-mapstructure-native-or",
+      "source_family": "upstream53-mapstructure",
+      "repo": "go-viper/mapstructure",
+      "source_revision": "52aa5c6dc1d27226460807054ca2107b2d54fb2d",
+      "draft_reference": {
+        "path": "experiments/short-claim/next60-acquisition-drafts/DRAFT-CONTRACTS.v1.json",
+        "sha256": "c7bbf7bcc7912300fabdd6e671b0922df295299f00e5e7201df1ab5e824a2a9b",
+        "json_pointer": "/drafts/19"
+      },
+      "disposition": "excluded_already_qualified",
+      "reasons": [
+        "Root_reports_two_existing_qualified_requests_no_duplicate_acquisition"
+      ],
+      "finite_input_vector_count": 4,
+      "candidate_description_count": 2,
+      "existing_truth_state_unchanged": true,
+      "actual_new_parent": 0,
+      "assigned_role": null,
+      "assigned_weight": null,
+      "qualified_by_this_preparation": false
+    }
+  ],
+  "batch_mechanics_proposal": {
+    "catalog_reuse": "one path-free catalog; original input/Wants/candidate definitions referenced by exact SHA+JSON pointer, not copied prompt bodies",
+    "worker_boundaries": "one family-separated child per closed source-family adapter; preserve original per-request/candidate/fixture ordering. Humanize selectors share one family with in-progress ftoa but do not rerun that sealed observation.",
+    "registry_new_code_required": "closed bounded [max20] typed request schedule and []row-of-spans; current conversion80 hard-coded 3x3x8 validator cannot be used unchanged",
+    "interface_proposal": [
+      "RequestSpan{OriginalOrdinal,FirstFixture,FixtureCount,FirstCandidate,CandidateCount}",
+      "CandidateRef{ID,SourceSHA256}",
+      "Dispatch{RequestIndex,CandidateIndex,FixtureIndex}",
+      "TypedObservation union per adapter, not arbitrary callbacks or JSON interface values"
+    ],
+    "arrays_and_SoA_scope": "flat fixed-order descriptor arrays plus prefix offsets; IDs/provenance do not enter model features; no maps/locks/global cache required for scheduling",
+    "counters": "reserve/checkpoint before each candidate and explicit Error observation; returned/panicked/in-flight tracked separately. Inner original APIs and startup init are unknown/null unless explicitly instrumented.",
+    "once_only": "one newly frozen batch; family children fixed in advance; no retries. Stop on harness/unsupported unknown and preserve unstarted rows; known mismatches remain recorded, no hidden filtering.",
+    "model_features": "only separately reviewed request/caption text; never IDs, Want/Got, expected roles, source refs, counters or outcomes",
+    "qualification_then_training": "observation receipt separate from code satisfaction/caption fidelity/eligible masks/whole-family role qualification; no Fit authorization here",
+    "cost_reporting": "source read/acquisition, compile, private runtime, maintainer archives, CI and eventual Fit are distinct; no speed, RSS or savings measurement",
+    "planned_worker_limits_not_frozen": "Root may reuse CPU1/heap-soft256MiB/outside60s/oneStart/retry0/output1MiB mechanics after the actual source/adapter/Want plan is frozen; this preparation creates no worker plan/binary"
+  },
+  "future_checkpoints": {
+    "development": [
+      30,
+      60
+    ],
+    "protected_semantic_requests_per_domain": 2400,
+    "not_every_development_fit_minimum": true,
+    "no_timeline_or_final_diversity_claim": true
+  },
+  "prohibited_actions_performed": {
+    "Go": 0,
+    "build": 0,
+    "test": 0,
+    "standalone_helper": 0,
+    "native_init": 0,
+    "original_API": 0,
+    "observer": 0,
+    "model": 0,
+    "Features": 0,
+    "Project": 0,
+    "Fit": 0,
+    "protected_read": 0,
+    "HTTP": 0,
+    "download": 0,
+    "HF": 0,
+    "shared_write": 0,
+    "commit": 0,
+    "push": 0
+  },
+  "public_archive_reference": {
+    "repository": "teamswyg/laya-tools",
+    "commit": "acf514d3dd25db2e199e43da80ccf4477d8ff310",
+    "draft_git_blob_sha1": "5e6eb6c3ccdedb84d4b57e7e95864b3161d1c69e",
+    "notice_git_blob_sha1": "a3e7695b58868ff2e07993e2b8f7e4ef4c028f90",
+    "working_files_match_git_blob": true
+  }
+}

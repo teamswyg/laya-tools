@@ -1,0 +1,400 @@
+package main
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+
+	"riido.local/ftoa-outside/pure"
+)
+
+// Tests import only standard library and authored pure protocol. They never call
+// run/preflight, load original Go packages, compile a production controller or
+// original worker, or read models/private corpus/protected data. The subprocess
+// fixtures below re-execute this test binary, not the prepared native worker.
+func canonicalTemp(t *testing.T) string {
+	t.Helper()
+	d, e := filepath.EvalSymlinks(t.TempDir())
+	if e != nil {
+		t.Fatal(e)
+	}
+	return d
+}
+func syntheticRef(t *testing.T, dir, name, id string, b []byte) FileRef {
+	t.Helper()
+	p := filepath.Join(dir, name)
+	if e := os.WriteFile(p, b, 0600); e != nil {
+		t.Fatal(e)
+	}
+	h := sha256.Sum256(b)
+	return FileRef{id, p, int64(len(b)), hex.EncodeToString(h[:])}
+}
+func fakeReservation(t *testing.T) Reservation {
+	t.Helper()
+	d := canonicalTemp(t)
+	s := filepath.Join(d, "source")
+	if e := os.Mkdir(s, 0700); e != nil {
+		t.Fatal(e)
+	}
+	pin := pure.Pin{ID: "synthetic", Path: "synthetic.json", Bytes: 1, SHA256: strings.Repeat("a", 64)}
+	return Reservation{Schema: "riido-ftoa18-static-reservation-v1", Frozen: true, Attempt: 1, SourceRoot: s, AttemptDir: filepath.Join(d, "attempt"), OutsideDir: filepath.Join(d, "outside"), Closure: pin, Vectors: pin, SourceProof: syntheticRef(t, d, "source-review", "root/source-and-local-rights-review", []byte("synthetic-source-rights")), CIProof: syntheticRef(t, d, "ci-review", "root/ci-pass", []byte("synthetic-CI")), Resource: syntheticRef(t, d, "resource", "root/resource-freeze", []byte("synthetic-resources")), CompilerProof: syntheticRef(t, d, "compiler-review", "root/ftoa-full-compiler-review", []byte("synthetic-unapproved-compiler")), ControlProof: syntheticRef(t, d, "control-review", "root/ftoa-control-storage-review", []byte("synthetic-unapproved-control")), Limits: fixedLimits(), Scheduled: 18}
+}
+
+func TestStaticReservationNoCircularFields(t *testing.T) {
+	r := fakeReservation(t)
+	b, e := json.Marshal(r)
+	if e != nil {
+		t.Fatal(e)
+	}
+	var got Reservation
+	if pure.Decode(b, &got) != nil || reserveCheck(got) != nil {
+		t.Fatal("synthetic static reservation rejected")
+	}
+	for _, key := range []string{"worker_sha256", "native_plan_sha256", "readiness_sha256", "execution_binding_sha256"} {
+		bad := append([]byte(nil), b[:len(b)-1]...)
+		bad = append(bad, []byte(",\""+key+"\":\""+strings.Repeat("a", 64)+"\"}")...)
+		if pure.Decode(bad, &got) == nil {
+			t.Fatal("circular field accepted", key)
+		}
+	}
+	bad := []byte(`{"schema":"one","schema":"two"}`)
+	if pure.Decode(bad, &got) == nil {
+		t.Fatal("duplicate schema")
+	}
+}
+func TestFrozenResourceAndCapabilityGates(t *testing.T) {
+	r := fakeReservation(t)
+	mutations := []func(*Reservation){func(r *Reservation) { r.Frozen = false }, func(r *Reservation) { r.Attempt = 2 }, func(r *Reservation) { r.Retry = 1 }, func(r *Reservation) { r.Scheduled = 24 }, func(r *Reservation) { r.Model = true }, func(r *Reservation) { r.Protected = true }, func(r *Reservation) { r.Public = true }, func(r *Reservation) { r.Limits.CPU = 2 }, func(r *Reservation) { r.Limits.RSS++ }, func(r *Reservation) { r.Limits.SoftHeap++ }, func(r *Reservation) { r.Limits.Seconds++ }, func(r *Reservation) { r.Limits.Result++ }, func(r *Reservation) { r.Limits.Outside++ }, func(r *Reservation) { r.Limits.Stderr++ }, func(r *Reservation) { r.Limits.StdoutRaw = 1 }, func(r *Reservation) { r.CIProof.ID = "unreviewed" }}
+	for i, f := range mutations {
+		copy := r
+		f(&copy)
+		if reserveCheck(copy) == nil {
+			t.Fatal("gate mutation accepted", i)
+		}
+	}
+	for _, id := range []string{"compiler", "control"} {
+		copy := r
+		if id == "compiler" { copy.CompilerProof = FileRef{} } else { copy.ControlProof = FileRef{} }
+		if reserveCheck(copy) == nil { t.Fatal("legacy inventory without required Root proof", id) }
+	}
+}
+
+func TestWorkerOwnsAttemptDirectory(t *testing.T) {
+	r := fakeReservation(t)
+	if e := os.Mkdir(r.OutsideDir, 0700); e != nil { t.Fatal(e) }
+	if directories(r, true) != nil { t.Fatal("outside created with attempt absent") }
+	if _, e := workerFiles(r.AttemptDir, 1024, false, strings.Repeat("a", 64)); e != nil { t.Fatal("worker startup absence is pending", e) }
+	if _, e := workerFiles(r.AttemptDir, 1024, true, strings.Repeat("a", 64)); e == nil { t.Fatal("final absent attempt accepted") }
+	if e := os.Mkdir(r.AttemptDir, 0700); e != nil { t.Fatal(e) }
+	if directories(r, true) == nil { t.Fatal("worker-owned attempt reused before Start") }
+}
+func TestSevenFileInventoryCannotApproveRootCompiler(t *testing.T) {
+	r := fakeReservation(t)
+	if _, e := rootReviews(r, pure.Closure{}); e == nil { t.Fatal("unapproved Root compiler/control receipts") }
+}
+func TestIncompleteResultKeepsCountsUnknown(t *testing.T) {
+	for _, data := range [][]byte{nil, []byte(""), []byte(`{}`), []byte(`{"failure_code":"partial"}`)} {
+		counts, e := pure.AssessResult(data, pure.Plan{}, strings.Repeat("a", 64))
+		if counts.Known || counts.Completed != nil || counts.OriginalCalls != nil || counts.OracleCalls != nil { t.Fatal("incomplete result inferred a prefix", counts, e) }
+	}
+}
+func TestAncestorSymlinksAndDisjointFreshPaths(t *testing.T) {
+	r := fakeReservation(t)
+	if directories(r, false) != nil {
+		t.Fatal("fresh directories")
+	}
+	d := filepath.Dir(r.SourceRoot)
+	alias := filepath.Join(d, "source-alias")
+	if e := os.Symlink(r.SourceRoot, alias); e != nil {
+		t.Fatal(e)
+	}
+	if noSymlinkAncestors(filepath.Join(alias, "missing"), true) == nil {
+		t.Fatal("ancestor symlink accepted")
+	}
+	r.AttemptDir = filepath.Join(r.SourceRoot, "attempt")
+	if directories(r, false) == nil {
+		t.Fatal("source/output overlap")
+	}
+	for _, p := range [][2]string{{"/a", "/a"}, {"/a", "/a/b"}, {"/a/b", "/a"}} {
+		if disjoint(p[0], p[1]) {
+			t.Fatal("overlap", p)
+		}
+	}
+	if !disjoint("/a", "/ab") {
+		t.Fatal("prefix siblings")
+	}
+	r = fakeReservation(t)
+	if e := os.Mkdir(r.OutsideDir, 0700); e != nil {
+		t.Fatal(e)
+	}
+	if directories(r, false) == nil {
+		t.Fatal("output reuse allowed")
+	}
+}
+
+func TestPhysicalCaseAliasAndFreshLeafPolicy(t *testing.T) {
+	r := fakeReservation(t)
+	if !safeOutputLeaf(r.AttemptDir) || safeOutputLeaf(filepath.Join(filepath.Dir(r.AttemptDir), "ATTEMPT")) || safeOutputLeaf(filepath.Join(filepath.Dir(r.AttemptDir), "attémpt")) {
+		t.Fatal("fresh lowercase ASCII leaf policy")
+	}
+	if physicallyDisjoint(r.SourceRoot, r.SourceRoot) {
+		t.Fatal("same inode accepted")
+	}
+	alias := filepath.Join(filepath.Dir(r.SourceRoot), "SOURCE")
+	a, e := os.Lstat(r.SourceRoot)
+	if e != nil {
+		t.Fatal(e)
+	}
+	b, e := os.Lstat(alias)
+	if e == nil && os.SameFile(a, b) {
+		r.AttemptDir = filepath.Join(alias, "attempt")
+		if physicallyDisjoint(r.SourceRoot, r.AttemptDir) || directories(r, false) == nil {
+			t.Fatal("physical source alias accepted")
+		}
+	} else {
+		t.Log("volume has no observed uppercase source alias; same-inode and future-leaf tests still checked")
+	}
+}
+func TestFilePinsAndExclusiveIntent(t *testing.T) {
+	d := canonicalTemp(t)
+	f := syntheticRef(t, d, "toy", "synthetic", []byte("metadata-only\n"))
+	if _, e := readRef(f, 1024, false, true); e != nil {
+		t.Fatal(e)
+	}
+	f.Bytes++
+	if _, e := readRef(f, 1024, false, true); e == nil {
+		t.Fatal("wrong bytes accepted")
+	}
+	f.Bytes--
+	alias := filepath.Join(d, "alias")
+	if e := os.Symlink(f.Path, alias); e != nil {
+		t.Fatal(e)
+	}
+	f.Path = alias
+	if _, e := readRef(f, 1024, false, false); e == nil {
+		t.Fatal("symlink pin accepted")
+	}
+	if _, e := writeExclusive(d, "start.once", Intent{Schema: "synthetic-once"}); e != nil {
+		t.Fatal(e)
+	}
+	if e := syncDir(d); e != nil {
+		t.Fatal(e)
+	}
+	if _, e := writeExclusive(d, "start.once", Intent{Schema: "synthetic-retry"}); e == nil {
+		t.Fatal("intent overwrite accepted")
+	}
+}
+func TestStreamPrefixHashAndNoRawStdout(t *testing.T) {
+	d := canonicalTemp(t)
+	f, e := os.CreateTemp(d, "private-log")
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer f.Close()
+	events := make(chan string, 2)
+	w := newStream(false, f, events, 1024)
+	body := bytes.Repeat([]byte("x"), int(stderrCap)+17)
+	if _, e = w.Write(body); e != nil {
+		t.Fatal(e)
+	}
+	s := w.summary()
+	if s.ObservedBytes != int64(len(body)) || s.RawBytes != stderrCap || !s.Truncated || !logReadback(f, s) {
+		t.Fatal("prefix accounting")
+	}
+	w = newStream(true, nil, events, 1024)
+	if _, e = w.Write(bytes.Repeat([]byte("z"), 1025)); e != nil {
+		t.Fatal(e)
+	}
+	s = w.summary()
+	if s.RawBytes != 0 || !s.CapExceeded {
+		t.Fatal("stdout storage/cap")
+	}
+	select {
+	case reason := <-events:
+		if reason != "stdout_cap" {
+			t.Fatal(reason)
+		}
+	default:
+		t.Fatal("cap event absent")
+	}
+}
+func TestWorkerOutputCapAndReservationFence(t *testing.T) {
+	d := canonicalTemp(t)
+	sha := strings.Repeat("a", 64)
+	if _, e := workerFiles(d, 1024, true, sha); e == nil {
+		t.Fatal("missing fence/result")
+	}
+	if e := os.WriteFile(filepath.Join(d, "native-dispatch.once"), []byte(sha+"\n"), 0600); e != nil {
+		t.Fatal(e)
+	}
+	if e := os.WriteFile(filepath.Join(d, "results.json"), []byte("synthetic-output"), 0600); e != nil {
+		t.Fatal(e)
+	}
+	p, e := workerFiles(d, 1024, true, sha)
+	if e != nil || p.Bytes != 16 || p.SHA == "" {
+		t.Fatal(p, e)
+	}
+	if _, e = workerFiles(d, 1024, true, strings.Repeat("b", 64)); e == nil {
+		t.Fatal("wrong reservation fence")
+	}
+	if _, e = workerFiles(d, 8, false, sha); e == nil {
+		t.Fatal("result cap")
+	}
+	if e = os.WriteFile(filepath.Join(d, "unexpected"), []byte("x"), 0600); e != nil {
+		t.Fatal(e)
+	}
+	if _, e = workerFiles(d, 1024, false, sha); e == nil {
+		t.Fatal("extra output")
+	}
+}
+
+func TestRunningEmptyResultThenFinalNonemptyGate(t *testing.T) {
+	d := canonicalTemp(t)
+	sha := strings.Repeat("a", 64)
+	if e := os.WriteFile(filepath.Join(d, "native-dispatch.once"), []byte(sha+"\n"), 0600); e != nil {
+		t.Fatal(e)
+	}
+	f, e := os.OpenFile(filepath.Join(d, "results.json"), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer f.Close()
+	if _, e = workerFiles(d, 1024, false, sha); e != nil {
+		t.Fatal("normal open-before-write window rejected", e)
+	}
+	if _, e = workerFiles(d, 1024, true, sha); e == nil {
+		t.Fatal("final empty output accepted")
+	}
+	if _, e = f.Write([]byte("synthetic-after-first-write")); e != nil {
+		t.Fatal(e)
+	}
+	if _, e = workerFiles(d, 1024, true, sha); e != nil {
+		t.Fatal("final nonempty fixture rejected", e)
+	}
+}
+func TestExclusiveFinalAccounting(t *testing.T) {
+	d := canonicalTemp(t)
+	r := Receipt{Schema: "synthetic-result", State: "completed"}
+	if finish(d, &r, 0) != 0 {
+		t.Fatal("finish")
+	}
+	b, e := os.ReadFile(filepath.Join(d, "result.json"))
+	if e != nil {
+		t.Fatal(e)
+	}
+	var got Receipt
+	if e = json.Unmarshal(b, &got); e != nil {
+		t.Fatal(e)
+	}
+	if got.OutsideBytes != int64(len(b)) || !got.OutsideWithin {
+		t.Fatal("final byte accounting")
+	}
+	if finish(d, &r, 0) != 3 {
+		t.Fatal("overwrite final")
+	}
+}
+
+// Explicit test subprocess entry. No original packages or prepared worker are
+// invoked. The extra environment is test-only and absent from production argv.
+func TestFakeChild(t *testing.T) {
+	if os.Getenv("RIIDO_TEST_FAKE_CHILD") != "1" {
+		return
+	}
+	mode := os.Getenv("RIIDO_TEST_FAKE_MODE")
+	dir := os.Getenv("RIIDO_TEST_FAKE_DIR")
+	sha := strings.Repeat("a", 64)
+	if mode == "sleep" {
+		time.Sleep(10 * time.Second)
+		os.Exit(0)
+	}
+	if mode == "overflow" {
+		_, _ = os.Stdout.Write(bytes.Repeat([]byte("z"), 4096))
+		time.Sleep(time.Second)
+		os.Exit(0)
+	}
+	if mode == "stderr" {
+		_, _ = os.Stderr.Write(bytes.Repeat([]byte("p"), int(stderrCap)+17))
+	}
+	if mode == "owns-attempt" {
+		// Simulate only authored startup, including a polling interval before
+		// worker-owned Mkdir. No original or oracle function is dispatched.
+		time.Sleep(60 * time.Millisecond)
+		if e := os.Mkdir(dir, 0700); e != nil { os.Exit(9) }
+	}
+	if e := os.WriteFile(filepath.Join(dir, "native-dispatch.once"), []byte(sha+"\n"), 0600); e != nil {
+		os.Exit(9)
+	}
+	if e := os.WriteFile(filepath.Join(dir, "results.json"), []byte("fake-no-science"), 0600); e != nil {
+		os.Exit(9)
+	}
+	os.Exit(0)
+}
+func executeFake(t *testing.T, mode string, wall time.Duration, stdoutCap int64) ProcessResult {
+	t.Helper()
+	d := canonicalTemp(t)
+	attempt := filepath.Join(d, "fake-attempt")
+	if mode != "owns-attempt" {
+		if e := os.Mkdir(attempt, 0700); e != nil { t.Fatal(e) }
+	}
+	log, e := os.OpenFile(filepath.Join(d, "fake-stderr.private.log"), os.O_CREATE|os.O_EXCL|os.O_RDWR, 0600)
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer log.Close()
+	cmd := exec.Command(os.Args[0], "-test.run=^TestFakeChild$")
+	cmd.Env = []string{"RIIDO_TEST_FAKE_CHILD=1", "RIIDO_TEST_FAKE_MODE=" + mode, "RIIDO_TEST_FAKE_DIR=" + attempt, "GOMAXPROCS=1", "GOMEMLIMIT=256MiB"}
+	return execute(cmd, log, attempt, processPolicy{wall, stdoutCap, 1024, pure.HeapLimit, strings.Repeat("a", 64)})
+}
+func TestFakeWorkerCreatesAttemptAfterPendingPoll(t *testing.T) {
+	r := executeFake(t, "owns-attempt", 3*time.Second, 1024)
+	if r.StartAttempted != 1 || r.Started != 1 || r.WaitAttempted != 1 || r.WaitReturned != 1 || r.Reason != "" || !r.OutputPresent { t.Fatalf("fake worker-owned directory %+v", r) }
+}
+func TestFakeSubprocessSuccessOneStartOneWait(t *testing.T) {
+	r := executeFake(t, "success", 3*time.Second, 1024)
+	if r.StartAttempted != 1 || r.StartReturned != 1 || r.Started != 1 || r.WaitAttempted != 1 || r.WaitReturned != 1 || r.Reason != "" || !r.OutputPresent || r.OutputCopies != 0 || r.Stdout.RawBytes != 0 || !r.RSSAvailable || !r.RSSWithin {
+		t.Fatalf("fake process %+v", r)
+	}
+}
+func TestFakeSubprocessTimeoutGroupKillWaitOnce(t *testing.T) {
+	r := executeFake(t, "sleep", 100*time.Millisecond, 1024)
+	if r.Started != 1 || r.WaitAttempted != 1 || r.WaitReturned != 1 || !r.GroupKill || r.Reason != "whole_child_wall_timeout" || !r.Signaled || r.WholeSeconds > 3 {
+		t.Fatalf("fake timeout %+v", r)
+	}
+}
+func TestFakeSubprocessStdoutOverflow(t *testing.T) {
+	r := executeFake(t, "overflow", 3*time.Second, 1024)
+	if r.Started != 1 || r.WaitAttempted != 1 || r.WaitReturned != 1 || !r.Stdout.CapExceeded || r.Stdout.RawBytes != 0 || !r.GroupKill || r.Reason != "stdout_cap" {
+		t.Fatalf("fake overflow %+v", r)
+	}
+}
+func TestFakeSubprocessPrivateStderrPrefix(t *testing.T) {
+	r := executeFake(t, "stderr", 3*time.Second, 1024)
+	if r.Reason != "" || r.Stderr.RawBytes != stderrCap || !r.Stderr.Truncated || !r.StderrSynced || !r.StderrReadback || r.OutputCopies != 0 {
+		t.Fatalf("fake stderr %+v", r)
+	}
+}
+
+func TestFakeStartFailureDoesNotWait(t *testing.T) {
+	d := canonicalTemp(t)
+	attempt := filepath.Join(d, "fake-attempt")
+	if e := os.Mkdir(attempt, 0700); e != nil {
+		t.Fatal(e)
+	}
+	log, e := os.OpenFile(filepath.Join(d, "fake-stderr.private.log"), os.O_CREATE|os.O_EXCL|os.O_RDWR, 0600)
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer log.Close()
+	cmd := exec.Command(filepath.Join(d, "missing-fake-executable"))
+	r := execute(cmd, log, attempt, processPolicy{time.Second, 1024, 1024, pure.HeapLimit, strings.Repeat("a", 64)})
+	if r.StartAttempted != 1 || r.StartReturned != 1 || r.Started != 0 || r.WaitAttempted != 0 || r.WaitReturned != 0 || r.Reason != "worker_start_failed" || r.WaitKind != "not_started_no_wait" {
+		t.Fatalf("fake failed start %+v", r)
+	}
+}

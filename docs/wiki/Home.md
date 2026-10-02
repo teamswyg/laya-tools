@@ -1,5 +1,7 @@
 # laya-tools · User Guide / 사용자 안내
 
+[다음 개발 학습·배치 준비](Next60-Development-KO) · [Next development round and batch preparation](Next60-Development-EN)
+
 **필요한 기능부터 선택해 사용하세요. / Start with the feature you need.**
 
 [개발용 학습 자료 2개 확정](Native2-Training-KO) · [Two qualified development-training requests](Native2-Training-EN): 후보 정답 5개·기존 입력 제한 통과, 새 학습 0회 / Five candidate labels, existing input limits passed, zero new fits.

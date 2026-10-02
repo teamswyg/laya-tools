@@ -1,0 +1,118 @@
+// Inert Go1.27.1 source. Root owns first compile/run in a fresh directory.
+// Only the exact public two-request qualification is read; no model/upstream
+// package, feature extraction, auth, network, subprocess or training is used.
+package main
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"flag"
+	"io"
+	"os"
+	"path/filepath"
+	"strings"
+	"unicode/utf8"
+)
+
+const inputsSHA = "63e195e3d103a5725d61c298c57159fc77f216bd253879926fc4309c5415abfb"
+const qualifiedSHA = "5fea6e610fcbcd748430a5e1190f29f949624d123893fe5d0d5c4236876fd888"
+const rowSchema = "riido-finite-development-request-row-v1"
+
+type InputCandidate struct { ID string `json:"id"`; Text string `json:"text"` }
+type Input struct { Schema string `json:"schema"`; Request string `json:"request"`; Candidates []InputCandidate `json:"candidates"`; Provenance string `json:"provenance"` }
+type QualifiedCandidate struct {
+	Index int `json:"candidate_index"`; ID string `json:"id"`; Caption string `json:"caption"`
+	Fidelity bool `json:"caption_fidelity"`; Complete bool `json:"channel_complete"`
+	Satisfied bool `json:"code_satisfaction"`; Label *bool `json:"label"`
+	Eligible bool `json:"loss_eligible"`; Weight int `json:"sample_weight"`
+	Observations int `json:"finite_observations"`; FiniteSatisfied int `json:"finite_satisfied"`; Unknown int `json:"unknown"`
+}
+type Parent struct {
+	ID string `json:"id"`; Family string `json:"source_family"`; Revision string `json:"source_revision"`
+	Group int `json:"whole_group"`; Role string `json:"role"`; RoleEnum int `json:"role_enum"`
+	Truth string `json:"truth"`; Request string `json:"request"`; Acceptable []int `json:"acceptable_candidate_indices"`
+	Candidates []QualifiedCandidate `json:"candidates"`
+}
+type Qualified struct {
+	Schema string `json:"schema"`; State string `json:"state"`; InputSHA string `json:"input_sha256"`; Scope string `json:"scope"`
+	Parents []Parent `json:"parents"`; Requests int `json:"new_qualified_requests"`; Labels int `json:"new_qualified_candidate_labels"`
+	Positive int `json:"new_positive_labels"`; Negative int `json:"new_negative_labels"`
+	NewSemantic int `json:"new_semantic_requests_relative_to_existing_draft"`; NewFamilies int `json:"new_source_families_relative_to_existing_catalog"`
+	Heldout bool `json:"independent_heldout"`; Protected bool `json:"protected_final"`; Production bool `json:"production_ready"`
+	Activation bool `json:"model_activation"`; Operations int `json:"Project_Features_Score_Fit_calls"`
+}
+type Candidate struct { MetadataID string `json:"metadata_id"`; Text string `json:"text"`; Label bool `json:"label"`; SampleWeight int `json:"sample_weight"` }
+type FiniteScope struct {
+	InputCount int `json:"input_count"`; CandidateObservations int `json:"candidate_observations"`
+	Description string `json:"description"`; AllInputGuarantee bool `json:"all_input_guarantee"`; UnseenSourceGuarantee bool `json:"unseen_source_guarantee"`
+}
+type Row struct {
+	Schema string `json:"schema"`; StableID string `json:"stable_id"`; Request string `json:"request"`; Candidates []Candidate `json:"candidates"`
+	Role string `json:"role"`; WholeGroup int `json:"whole_group"`; SourceFamily string `json:"source_family"`; SourceRevision string `json:"source_revision"`
+	FiniteScope FiniteScope `json:"finite_scope"`; TextRevision string `json:"text_revision"`; FeaturePolicy string `json:"feature_policy"`
+}
+
+func absolute(p string) bool { return filepath.IsAbs(p) && filepath.Clean(p)==p }
+func textCap(s string) bool { return s!="" && utf8.ValidString(s) && len(s)<=512 && len(strings.Fields(s))<=32 }
+func noLinks(p string, absentLeaf bool) error {
+	parts:=strings.Split(strings.TrimPrefix(p,string(filepath.Separator)),string(filepath.Separator)); cur:=string(filepath.Separator)
+	for i, part:=range parts {
+		cur=filepath.Join(cur,part); st,e:=os.Lstat(cur)
+		if i==len(parts)-1 && absentLeaf && errors.Is(e,os.ErrNotExist) { return nil }
+		if e!=nil || st.Mode()&os.ModeSymlink!=0 || (i<len(parts)-1 && !st.IsDir()) { return errors.New("path") }
+	}
+	return nil
+}
+func readPinned(p string, n int64, want string) ([]byte,error) {
+	if !absolute(p) || noLinks(p,false)!=nil { return nil,errors.New("path") }
+	a,e:=os.Lstat(p); if e!=nil || !a.Mode().IsRegular() || a.Size()!=n { return nil,errors.New("size") }
+	f,e:=os.Open(p); if e!=nil { return nil,errors.New("open") }; defer f.Close()
+	b,e:=f.Stat(); if e!=nil || !os.SameFile(a,b) { return nil,errors.New("identity") }
+	data,e:=io.ReadAll(io.LimitReader(f,n+1)); h:=sha256.Sum256(data)
+	z,ze:=os.Lstat(p); q,qe:=f.Stat()
+	if e!=nil || ze!=nil || qe!=nil || int64(len(data))!=n || hex.EncodeToString(h[:])!=want || !os.SameFile(a,z) || !os.SameFile(a,q) || z.Size()!=a.Size() || q.Size()!=a.Size() || !a.ModTime().Equal(z.ModTime()) || !a.ModTime().Equal(q.ModTime()) { return nil,errors.New("pin") }
+	return data,nil
+}
+// SHA pins bind the complete existing JSON, including fields unused below.
+// Subset structs intentionally do not claim a general qualification validator.
+func convert(in []byte, qual []byte) ([]byte,error) {
+	var inputs []Input; var q Qualified
+	if json.Unmarshal(in,&inputs)!=nil || json.Unmarshal(qual,&q)!=nil || len(inputs)!=2 || len(q.Parents)!=2 || q.Schema!="riido-next60-qualified-finite-development-subset-v1" || q.State!="two_existing_draft_requests_finitely_qualified_for_development_train" || q.InputSHA!=inputsSHA || q.Requests!=2 || q.Labels!=5 || q.Positive!=2 || q.Negative!=3 || q.NewSemantic!=0 || q.NewFamilies!=0 || q.Heldout || q.Protected || q.Production || q.Activation || q.Operations!=0 { return nil,errors.New("qualification") }
+	ids:=[2]string{"next60-pflag-native-ipnet","next60-mapstructure-native-or"}
+	families:=[2]string{"upstream53-cobra-pflag-connected","upstream53-mapstructure"}
+	revisions:=[2]string{"c966cfef47379dcb01e7929504d66d94b540945b","52aa5c6dc1d27226460807054ca2107b2d54fb2d"}
+	groups:=[2]int{77,78}; counts:=[2]int{3,2}; vectors:=[2]int{5,4}
+	var out bytes.Buffer; encoder:=json.NewEncoder(&out); encoder.SetEscapeHTML(false)
+	for i, p:=range q.Parents {
+		x:=inputs[i]
+		if p.ID!=ids[i] || p.Family!=families[i] || p.Revision!=revisions[i] || p.Group!=groups[i] || p.Role!="development_train" || p.RoleEnum!=0 || p.Truth!="known" || x.Schema!="riido-short-behavior-claim-v1" || x.Provenance!="native2-finite-v3" || x.Request!=p.Request || !textCap(x.Request) || len(p.Candidates)!=counts[i] || len(x.Candidates)!=counts[i] || len(p.Acceptable)!=1 || p.Acceptable[0]!=0 { return nil,errors.New("parent") }
+		row:=Row{Schema:rowSchema,StableID:p.ID,Request:x.Request,Role:p.Role,WholeGroup:p.Group,SourceFamily:p.Family,SourceRevision:p.Revision,FiniteScope:FiniteScope{InputCount:vectors[i],CandidateObservations:vectors[i]*counts[i],Description:q.Scope},TextRevision:"native2-finite-v3",FeaturePolicy:"request_and_candidates_text_only"}
+		for j, c:=range p.Candidates {
+			if c.Index!=j || c.ID!=x.Candidates[j].ID || c.Caption!=x.Candidates[j].Text || !textCap(x.Candidates[j].Text) || !c.Fidelity || !c.Complete || c.Label==nil || *c.Label!=(j==0) || c.Satisfied!=*c.Label || !c.Eligible || c.Weight!=1 || c.Observations!=vectors[i] || c.Unknown!=0 || (j==0 && c.FiniteSatisfied!=vectors[i]) || (j!=0 && c.FiniteSatisfied!=0) || strings.Contains(x.Request,c.ID) || strings.Contains(x.Candidates[j].Text,c.ID) { return nil,errors.New("candidate") }
+			row.Candidates=append(row.Candidates,Candidate{c.ID,x.Candidates[j].Text,*c.Label,1})
+		}
+		if encoder.Encode(row)!=nil { return nil,errors.New("encode") }
+	}
+	if out.Len()>16384 { return nil,errors.New("output_cap") }
+	return out.Bytes(),nil
+}
+func run(args []string) int {
+	f:=flag.NewFlagSet("native2-dataset-convert",flag.ContinueOnError); f.SetOutput(io.Discard)
+	in:=f.String("inputs","",""); qual:=f.String("qualified","",""); out:=f.String("out","","")
+	if f.Parse(args)!=nil || f.NArg()!=0 || !absolute(*out) || *out==*in || *out==*qual || noLinks(*out,true)!=nil { return 2 }
+	a,e:=readPinned(*in,1483,inputsSHA); if e!=nil { return 2 }
+	b,e:=readPinned(*qual,6839,qualifiedSHA); if e!=nil { return 2 }
+	data,e:=convert(a,b); if e!=nil { return 2 }
+	file,e:=os.OpenFile(*out,os.O_CREATE|os.O_EXCL|os.O_RDWR,0600); if e!=nil { return 2 }
+	n,we:=file.Write(data); se:=file.Sync()
+	if we!=nil || n!=len(data) || se!=nil { file.Close(); return 3 }
+	if _,e=file.Seek(0,io.SeekStart); e!=nil { file.Close(); return 3 }
+	check,re:=io.ReadAll(io.LimitReader(file,int64(len(data))+1)); ce:=file.Close()
+	if re!=nil || ce!=nil || !bytes.Equal(data,check) { return 3 }
+	dir,e:=os.Open(filepath.Dir(*out)); if e!=nil { return 3 }; se=dir.Sync(); ce=dir.Close()
+	if se!=nil || ce!=nil { return 3 }; return 0
+}
+func main() { os.Exit(run(os.Args[1:])) }

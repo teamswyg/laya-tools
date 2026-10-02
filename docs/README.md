@@ -31,6 +31,8 @@ Latest owned task evidence: [experiment55](../experiments/task-outcomes/RESULTS-
 
 | Topic / 주제 | English | 한국어 |
 |---|---|---|
+| Rounding controller preparation / 반올림 제어기 준비 | [28 fake passes, one skip; actual originals zero](../experiments/short-claim/next60-ftoa-outside-preparation/README.en.md) | [합성28통과·1건너뜀; 실제원본0](../experiments/short-claim/next60-ftoa-outside-preparation/README.ko.md) |
+| Next source batch / 다음 원천 배치 | [Four targets, six short; execution pending](../experiments/short-claim/next60-source-batch-preparation/README.en.md) | [대상4·부족6; 실행대기](../experiments/short-claim/next60-source-batch-preparation/README.ko.md) |
 | Project overview / 프로젝트 개요 | [README](../README.en.md) | [README](../README.md) |
 | Actual fixed-recipe data addition79 / 같은 조건 데이터 추가 실제 학습79 | [No utility improvement; CPU/RSS and storage accounting](../experiments/short-claim/data-effect-fit-79/README.en.md) | [개선 없음·CPU/RSS·저장량 기록](../experiments/short-claim/data-effect-fit-79/README.ko.md) |
 | Training preparation review / 학습 준비 재검토 | [Data connections before another fit](../experiments/short-claim/training-resume-review/REVIEW.v1.en.md) | [다음 학습 전 자료 연결](../experiments/short-claim/training-resume-review/REVIEW.v1.ko.md) |
