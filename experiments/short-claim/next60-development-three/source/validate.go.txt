@@ -1,0 +1,149 @@
+// Validates public development rows without features, scoring, projection or fitting.
+package main
+
+import (
+	"bufio"
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"flag"
+	"fmt"
+	"os"
+
+	"github.com/teamswyg/laya-tools/pkg/shortclaim"
+	"github.com/teamswyg/laya-tools/pkg/shortclaimdata"
+)
+
+const trainSHA = "e2d4162b93e9f77b40de68731499b49d7d86ac401d3d28e8f3abbc4db7b7571b"
+const inputSHA = "8111cfe5ada2b06d0f85ecdd91e9ccc17198eaf909d05d845ffaf273beb9deaa"
+
+type Summary struct {
+	Schema         string `json:"schema"`
+	Requests       int    `json:"requests"`
+	Labels         int    `json:"candidate_labels"`
+	Positive       int    `json:"positive_labels"`
+	Negative       int    `json:"negative_labels"`
+	ReaderLoads    int    `json:"LoadDevelopmentRow_calls"`
+	LegacyValidate int    `json:"legacy_ValidateInput_calls"`
+	FiniteFixtures int    `json:"frozen_input_fixtures"`
+	Observations   int    `json:"candidate_observations"`
+	UnitWeights    bool   `json:"unit_weights"`
+	TextAgreement  bool   `json:"third_row_matches_pinned_finite_input"`
+	GroupAgreement bool   `json:"humanize_connected_group76_train_only"`
+	Fits           int    `json:"Fit_calls"`
+	Model          int    `json:"model_calls"`
+	Score          int    `json:"Score_calls"`
+	Project        int    `json:"Project_calls"`
+	Features       int    `json:"Features_calls"`
+	Scope          string `json:"scope"`
+}
+
+func pinned(path, digest string) ([]byte, error) {
+	f, e := os.Open(path)
+	if e != nil {
+		return nil, errors.New("public_input_open")
+	}
+	defer f.Close()
+	st, e := f.Stat()
+	if e != nil || st.Size() < 1 || st.Size() > 64<<10 {
+		return nil, errors.New("public_input_bounds")
+	}
+	raw := make([]byte, st.Size())
+	n, e := f.Read(raw)
+	if e != nil || n != len(raw) {
+		return nil, errors.New("public_input_read")
+	}
+	h := sha256.Sum256(raw)
+	if hex.EncodeToString(h[:]) != digest {
+		return nil, errors.New("public_input_pin")
+	}
+	return raw, nil
+}
+func run(data, input string) error {
+	raw, e := pinned(data, trainSHA)
+	if e != nil {
+		return e
+	}
+	inRaw, e := pinned(input, inputSHA)
+	if e != nil {
+		return e
+	}
+	var inputs []shortclaim.Input
+	if json.Unmarshal(inRaw, &inputs) != nil || len(inputs) != 1 {
+		return errors.New("finite_input_shape")
+	}
+	original, e := shortclaim.ValidateInput(inputs[0])
+	if e != nil {
+		return e
+	}
+	want := original.Prepared()
+	ids := [3]string{"next60-pflag-native-ipnet", "next60-mapstructure-native-or", "next60-humanize-precise-ftoa"}
+	groups := [3]int{77, 78, 76}
+	counts := [3]int{3, 2, 3}
+	positive := [3]int{0, 0, 1}
+	out := Summary{Schema: "riido-three-finite-development-row-validation-v1", UnitWeights: true, LegacyValidate: 1, Scope: "Pinned public finite development data shape and owned-input correspondence only. No semantic, license, qualification, heldout or training authority is granted by this validator."}
+	scan := bufio.NewScanner(bytes.NewReader(raw))
+	scan.Buffer(make([]byte, 4096), shortclaimdata.MaxRowBytes+1)
+	for scan.Scan() {
+		if out.Requests >= len(ids) {
+			return errors.New("request_count")
+		}
+		ex, e := shortclaimdata.LoadDevelopmentRow(bytes.NewReader(scan.Bytes()))
+		if e != nil {
+			return e
+		}
+		out.ReaderLoads++
+		i := out.Requests
+		meta := ex.Metadata()
+		sup := ex.Supervision()
+		p := ex.Input().Prepared()
+		if !ex.Valid() || meta.StableID != ids[i] || meta.WholeGroup != groups[i] || meta.Role != shortclaimdata.Role || sup.Count != counts[i] {
+			return errors.New("request_metadata")
+		}
+		for j := range sup.Count {
+			if sup.Weights[j] != 1 || sup.Labels[j] != (j == positive[i]) {
+				return errors.New("supervision_correspondence")
+			}
+			out.Labels++
+			if sup.Labels[j] {
+				out.Positive++
+			} else {
+				out.Negative++
+			}
+		}
+		if i == 2 {
+			if p.Request != want.Request || p.NormalizedRequest != want.NormalizedRequest || p.Count != want.Count {
+				return errors.New("finite_input_request")
+			}
+			for j := range p.Count {
+				if p.Candidates[j] != want.Candidates[j] {
+					return errors.New("finite_input_candidate")
+				}
+			}
+			out.TextAgreement = true
+			out.GroupAgreement = true
+		}
+		out.FiniteFixtures += meta.FiniteScope.InputCount
+		out.Observations += meta.FiniteScope.CandidateObservations
+		out.Requests++
+	}
+	if scan.Err() != nil || out.Requests != 3 || out.Labels != 8 || out.Positive != 3 || out.Negative != 5 || !out.TextAgreement {
+		return errors.New("final_counts")
+	}
+	return json.NewEncoder(os.Stdout).Encode(out)
+}
+func main() {
+	data := flag.String("data", "", "")
+	input := flag.String("input", "", "")
+	flag.Parse()
+	if flag.NArg() != 0 || *data == "" || *input == "" {
+		fmt.Fprintln(os.Stderr, "validation_arguments")
+		os.Exit(2)
+	}
+	if e := run(*data, *input); e != nil {
+		fmt.Fprintln(os.Stderr, e)
+		os.Exit(1)
+	}
+}

@@ -1,0 +1,26 @@
+{
+  "schema": "riido-ftoa-input-metadata-id-correction-v1",
+  "old_input_revision": "INPUTS.v1.json",
+  "old_input_sha256": "ca32e5d59fc3995e6754cc51ad33a1cdfdd83adb6deea12c9f5d6643638cfb46",
+  "corrected_input_revision": "INPUTS.v2.json",
+  "cause": "Legacy ValidateInput identifiers permit ASCII alnum and internal dot/underscore/hyphen, but reject slash. Source-only peer caught this before model input loading.",
+  "text_changed": false,
+  "actual_worker_ids_unchanged": true,
+  "mapping": [
+    {
+      "actual": "original/FtoaWithDigits",
+      "model_metadata_id": "original-FtoaWithDigits"
+    },
+    {
+      "actual": "authored/FtoaPrecise",
+      "model_metadata_id": "authored-FtoaPrecise"
+    },
+    {
+      "actual": "authored/FlawedDoubleRound",
+      "model_metadata_id": "authored-FlawedDoubleRound"
+    }
+  ],
+  "old_invalid_input_scored_projected_fitted": false,
+  "native_retry": 0,
+  "role_or_label_change": false
+}

@@ -1,0 +1,12 @@
+[
+  {
+    "schema":"riido-short-behavior-claim-v1",
+    "request":"For six frozen float inputs, round the represented value at the requested fractional precision using nearest, ties to even; trim trailing zeros, normalize negative zero, and reject nonfinite values.",
+    "candidates":[
+      {"id":"original/FtoaWithDigits","text":"Format frozen floats to six decimal places, truncate at the requested precision, then trim fractional zeros; retain negative zero and expose only a string result."},
+      {"id":"authored/FtoaPrecise","text":"Round the original frozen float directly at the requested precision, using nearest ties to even; trim fractional zeros, normalize negative zero, and return errors for nonfinite values."},
+      {"id":"authored/FlawedDoubleRound","text":"Round frozen floats to six decimal places, parse that intermediate, then round at the requested precision; trim fractional zeros, normalize negative zero, and return errors for nonfinite values."}
+    ],
+    "provenance":"ftoa-finite-v1"
+  }
+]

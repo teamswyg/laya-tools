@@ -1,12 +1,12 @@
 # laya-tools
 
-[다음 개발 학습 안내](docs/wiki/Next60-Development-KO.md): 요청 2개·라벨 5개의 [공개 개발 데이터](https://huggingface.co/datasets/JooYoon/riidolaya-shortclaim-next60-development/tree/next60-2-finite-v1)를 게시하고 38개 파일을 고정 버전에서 다시 내려받아 확인했습니다. [Go reader 사용법](pkg/shortclaimdata/README.ko.md)은 모델용 문장·정답·출처를 분리해 읽는 방법을 설명합니다. PR111 필수 CI 4개가 통과했으며 새 학습은 0회입니다. 다음 네 과제의 배치 실행을 준비하고 있습니다.
+[다음 개발 학습 안내](docs/wiki/Next60-Development-KO.md): [유한 개발 자료](experiments/short-claim/next60-development-three/README.ko.md)는 요청 3개·라벨 8개입니다. [직접 반올림 실제 실행](experiments/short-claim/next60-ftoa-actual-observation/README.ko.md)과 독립 검토를 거쳐 작업 1개를 추가했습니다. [Go reader](pkg/shortclaimdata/README.ko.md)에서 세 행을 검증했으며 새 학습은 0회입니다. 기존 [HF 고정 버전](https://huggingface.co/datasets/JooYoon/riidolaya-shortclaim-next60-development/tree/next60-2-finite-v1)은 요청 2개이며 게시·재다운로드·viewer를 확인했습니다. 다음 HF 버전은 별도 게시 기록과 연결합니다.
 
 다음 학습 라운드의 [개발용 유한 요청 2개를 적격화](experiments/short-claim/next60-native2-qualification/README.ko.md)했습니다. 기존 초안 ID 두 개의 후보 5개에 긍정 2개·부정 3개를 부여했고, 문장 모두 기존 입력 제한을 통과했습니다. 기존 79개 자료는 그대로이며 새 학습은 아직 0회입니다. 적격 자료를 30개·60개로 늘린 뒤 별도 학습 비교를 진행합니다.
 
 [첫 두 과제의 실제 원본 관측](experiments/short-claim/next60-native2-actual-observations/README.ko.md)을 완료했습니다. 요청2개·입력9개·후보5개를 한 번 실행해 관측23개를 얻었으며 패닉·확인 불가는0입니다. 적합 후보는 각각5/5·4/4입력을 만족했고 다른 후보의14개 관측은 불일치했습니다. 자식 OS 최대 RSS는약9.11MiB, 시작·검증을 포함한 시간은약0.37초입니다. 이는 모델 추론이나 절감 증명이 아닙니다. 관측 당시 새 학습 자격·추가 Fit은0이었으며 이전 보류 기록과 [v5 소스 수정](experiments/short-claim/next60-native2-outside-v5-preparation/README.ko.md)을 보존합니다.
 
-다음 PDCA는 [계약 초안20개](experiments/short-claim/next60-acquisition-drafts/README.ko.md)를 실제 검사로 적격화하며 30개·60개로 넓힙니다. 새 라운드의 현재 적격은 2개이며, 같은79개 자료의 반복 튜닝은 멈췄습니다. [판단 근거와 도메인·2,400개 최종 평가 계획](experiments/short-claim/next-pdca-after-79/REPORT.ko.md)을 보세요. 실패79 모델은 [고정 HF 커밋](https://huggingface.co/JooYoon/riidolaya-shortclaim-data-effect-failed-79/tree/5bef215895b69d3f2ef4b82bb3f1970279d67f46)에 비활성 보관했고 21개 파일을 다시 내려받아 지문을 확인했습니다.
+다음 PDCA는 [계약 초안20개](experiments/short-claim/next60-acquisition-drafts/README.ko.md)를 실제 검사로 적격화하며 30개·60개로 넓힙니다. 새 라운드의 현재 적격은 3개이며, 같은79개 자료의 반복 튜닝은 멈췄습니다. [판단 근거와 도메인·2,400개 최종 평가 계획](experiments/short-claim/next-pdca-after-79/REPORT.ko.md)을 보세요. 실패79 모델은 [고정 HF 커밋](https://huggingface.co/JooYoon/riidolaya-shortclaim-data-effect-failed-79/tree/5bef215895b69d3f2ef4b82bb3f1970279d67f46)에 비활성 보관했고 21개 파일을 다시 내려받아 지문을 확인했습니다.
 
 최근 [데이터 추가 학습79](experiments/short-claim/data-effect-fit-79/README.ko.md)는 검증된 요청3개를 추가해 같은 조건으로 실제 학습했습니다. 후보 확인은 기존 모델과 같은31회로, 단순 정렬27회를 넘겨 개선 기준을 실패했습니다. 전체 학습 작업자는 CPU1개·1.244초·OS 최고 메모리35.08MiB였으며 새 모델도 비활성으로 보관합니다.
 

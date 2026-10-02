@@ -22,6 +22,14 @@ case "$mode" in
       --out "$check_dir/train.jsonl"
     cmp "$check_dir/train.jsonl" "$dataset/data/train.jsonl"
     echo 'PASS: two finite development rows reproduced exactly; no fit or model execution.'
+    three="$repo_root/experiments/short-claim/next60-development-three"
+    cp "$three/source/validate.go.txt" "$check_dir/validate.go"
+    go run -p=1 "$check_dir/validate.go" \
+      --data "$three/data/train.jsonl" \
+      --input "$repo_root/experiments/short-claim/next60-ftoa-actual-observation/INPUTS.v2.json" \
+      > "$check_dir/validation.json"
+    cmp "$check_dir/validation.json" "$three/INPUT-VALIDATION.v1.json"
+    echo 'PASS: three finite rows/eight unit labels validated; no projection, score or fit.'
     ;;
   controller)
     # A separate Root command may select a real binary for static inspection.
