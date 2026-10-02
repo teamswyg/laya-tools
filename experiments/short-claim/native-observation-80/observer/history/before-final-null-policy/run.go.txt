@@ -1,0 +1,143 @@
+package pure
+
+import (
+	"encoding/hex"
+	"fmt"
+	"reflect"
+)
+
+type Callbacks struct {
+	Parse   func(string) ([16]byte, error)
+	Scan    func(*[16]byte, any) error
+	Ordinal func(int) string
+}
+
+// Every checkpoint is synchronous. A failed reserve checkpoint prevents dispatch.
+// Primary and explicit error methods have distinct durable intent/return counts.
+func Run(rows []Literal, cb Callbacks, checkpoint func(RunState) error) (RunState, error) {
+	s := RunState{Phase: "ready", Records: make([]Observed, 0, 24)}
+	if ValidateLiterals(rows) != nil || cb.Parse == nil || cb.Scan == nil || cb.Ordinal == nil || checkpoint == nil {
+		return s, ErrProtocol
+	}
+	for _, l := range rows {
+		x, a, e := Fixture(l)
+		if e != nil {
+			return s, e
+		}
+		g := Channels{}
+		var receiver = [16]byte{0xff, 0xee, 0xdd, 0xcc, 0xbb, 0xaa, 0x99, 0x88, 0x77, 0x66, 0x55, 0x44, 0x33, 0x22, 0x11, 0x00}
+		if l.GoalIndex == 1 {
+			g.ReceiverBeforeHex = strPtr(hex.EncodeToString(receiver[:]))
+			g.ReceiverAfterHex = strPtr(*g.ReceiverBeforeHex)
+		}
+		s.Records = append(s.Records, Observed{Literal: l, InputObservation: a, Got: &g, Phase: "before_primary"})
+		s.Counters.PrimaryReserved++
+		s.Phase = "before_primary"
+		if checkpoint(s) != nil {
+			return s, ErrCheckpoint
+		}
+		var err error
+		returned, panicType, panicText, nonString := capture(func() {
+			switch l.GoalIndex {
+			case 0:
+				u, e := cb.Parse(x.(string))
+				g.UUIDHex = strPtr(hex.EncodeToString(u[:]))
+				err = e
+			case 1:
+				err = cb.Scan(&receiver, x)
+			case 2:
+				g.ExactOutputString = strPtr(cb.Ordinal(x.(int)))
+			}
+		})
+		g.ReturnedNormally = returned
+		g.PanicPresent = !returned
+		g.PanicType = panicType
+		g.PanicText = panicText
+		if l.GoalIndex == 1 {
+			g.ReceiverAfterHex = strPtr(hex.EncodeToString(receiver[:]))
+		}
+		last := len(s.Records) - 1
+		s.Records[last].NonStringPanicTextUnobserved = nonString
+		if returned {
+			s.Counters.PrimaryReturned++
+			if l.GoalIndex != 2 {
+				g.ErrorNil = boolPtr(err == nil)
+				if err != nil {
+					g.ErrorType = strPtr(fmt.Sprintf("%T", err))
+				}
+			}
+		} else {
+			s.Counters.PrimaryPanicked++
+		}
+		s.Phase = "after_primary"
+		s.Records[last].Phase = s.Phase
+		if checkpoint(s) != nil {
+			return s, ErrCheckpoint
+		}
+		if returned && err != nil {
+			s.Counters.ErrorReserved++
+			switch *g.ErrorType {
+			case "uuid.URNPrefixError":
+				s.Counters.UpstreamURNErrorReserved++
+			case "*errors.errorString":
+				s.Counters.StdlibErrorReserved++
+			default:
+				s.Counters.UnclassifiedErrorReserved++
+			}
+			s.Phase = "before_Error"
+			s.Records[last].Phase = s.Phase
+			if checkpoint(s) != nil {
+				return s, ErrCheckpoint
+			}
+			ok, pt, px, ns := capture(func() { g.ErrorMessage = strPtr(err.Error()) })
+			if ok {
+				s.Counters.ErrorReturned++
+			} else {
+				s.Counters.ErrorPanicked++
+				s.Records[last].ErrorMethodPanicked = true
+				s.Records[last].ErrorMethodPanicType = pt
+				s.Records[last].ErrorMethodPanicText = px
+				s.Records[last].NonStringPanicTextUnobserved = ns
+			}
+			s.Phase = "after_Error"
+			s.Records[last].Phase = s.Phase
+			if checkpoint(s) != nil {
+				return s, ErrCheckpoint
+			}
+		}
+		match := reflect.DeepEqual(l.Want, g) && !s.Records[last].ErrorMethodPanicked
+		s.Records[last].Matches = boolPtr(match)
+		s.Records[last].Phase = "completed"
+		s.Counters.CompletedFixtures++
+		if match {
+			s.Counters.Matches++
+		} else {
+			s.Counters.Differences++
+		}
+		s.Phase = "after_fixture"
+		if checkpoint(s) != nil {
+			return s, ErrCheckpoint
+		}
+	}
+	s.Phase = "completed"
+	return s, nil
+}
+
+// No fmt.Sprint/Error/String invocation on a panic payload. Non-string text is
+// explicitly unobserved; its type and panic are still recorded as a mismatch.
+func capture(call func()) (returned bool, typ, text *string, nonString bool) {
+	defer func() {
+		if !returned {
+			v := recover()
+			typ = strPtr(fmt.Sprintf("%T", v))
+			if s, ok := v.(string); ok {
+				text = strPtr(s)
+			} else {
+				nonString = true
+			}
+		}
+	}()
+	call()
+	returned = true
+	return
+}

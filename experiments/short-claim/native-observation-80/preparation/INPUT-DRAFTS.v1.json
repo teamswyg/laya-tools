@@ -1,0 +1,68 @@
+{
+  "schema": "riido-source-first-input-drafts-80-v1",
+  "state": "proposed_inputs_only_no_Want_or_actual_observation",
+  "goals": [
+    {
+      "id": "scope80-uuid-parse",
+      "family": "google/uuid",
+      "entrypoint": "Parse",
+      "goal": "Distinguish finite parsing paths, partial returned UUID bytes and error categories; do not treat Parse as strict format validation.",
+      "source_alternatives_read_not_observed": ["MustParse", "Validate", "ParseBytes"],
+      "observation_fields_to_freeze_later": ["returned_normally", "returned_uuid_16_exact_bytes", "error_nil", "error_type", "error_message", "panic_present", "panic_type", "panic_text"],
+      "fixtures": [
+        {"id":"parse80-raw32-valid","input_kind":"string","input":"00112233445566778899aabbccddeeff","selection_reason":"Successful raw32 branch reference for the paired late hex case."},
+        {"id":"parse80-raw32-late-hex","input_kind":"string","input":"00112233445566778899aabbccddgeff","selection_reason":"Late invalid hex pair: raw32 writes xtob's calculated byte before checking ok; preserve all sixteen returned bytes."},
+        {"id":"parse80-standard36-valid","input_kind":"string","input":"00112233-4455-6677-8899-aabbccddeeff","selection_reason":"Successful hyphenated branch reference."},
+        {"id":"parse80-standard36-late-hex","input_kind":"string","input":"00112233-4455-6677-8899-aabbccddgeff","selection_reason":"Same logical late hex pair as raw32, but this path checks ok before assigning its calculated byte."},
+        {"id":"parse80-urn45-casefold","input_kind":"string","input":"UrN:UuId:00112233-4455-6677-8899-aabbccddeeff","selection_reason":"ASCII mixed-case URN prefix dispatches through EqualFold and the standard36 decoder."},
+        {"id":"parse80-urn45-wrong-prefix","input_kind":"string","input":"bad:uuid:00112233-4455-6677-8899-aabbccddeeff","selection_reason":"Wrong nine-byte prefix follows a separate pre-decode error path; do not merge with late-hex partial values."},
+        {"id":"parse80-braced38","input_kind":"string","input":"{00112233-4455-6677-8899-aabbccddeeff}","selection_reason":"The documented braced-size path drops the first byte and decodes its inner36 positions."},
+        {"id":"parse80-other-outer38","input_kind":"string","input":"[00112233-4455-6677-8899-aabbccddeeff]","selection_reason":"Non-brace outer bytes at length38 distinguish Parse's body from Validate's bracket checks; classify by each API, not a generic invalid-input label."}
+      ],
+      "not_in_finite_fixture_scope": ["Every other byte length", "Malformed hyphens", "Early hex failures", "Unicode or invalid UTF-8 inputs", "Version or variant validation", "Observed MustParse panic or Validate behavior", "Concurrent mutation of exported error sentinels"],
+      "material_request_boundary": "The existing79 generic invalid-input wording is not a universal RFC validator contract. Any later request must explicitly name the finite length/hex/prefix policy rather than treating all noncanonical forms as rejected. Historical79 text is unchanged."
+    },
+    {
+      "id": "scope80-uuid-scan",
+      "family": "google/uuid",
+      "entrypoint": "(*UUID).Scan",
+      "goal": "Preserve nil/empty input distinctions, before/after nonnil receiver bytes and source-visible assignment timing separately from Parse's returned partial UUID.",
+      "source_alternatives_read_not_observed": ["(*UUID).UnmarshalText", "(*UUID).UnmarshalBinary", "(*NullUUID).Scan"],
+      "initial_receiver_hex_draft": "ffeeddccbbaa99887766554433221100",
+      "receiver_setup_rule": "Fresh explicit sixteen-byte UUID value per fixture; do not call MustParse, FromBytes or another original API to initialize it.",
+      "observation_fields_to_freeze_later": ["input_dynamic_kind", "input_bytes_nil", "input_exact_length_and_bytes", "receiver_before_16_exact_bytes", "receiver_after_16_exact_bytes", "returned_normally", "error_nil", "error_type", "error_message", "panic_present", "panic_type", "panic_text"],
+      "fixtures": [
+        {"id":"scan80-nil-interface","input_kind":"nil_interface","input":null,"selection_reason":"Type switch's nil case returns before assignment."},
+        {"id":"scan80-empty-string","input_kind":"string","input":"","selection_reason":"Empty string returns before parsing and assignment; do not infer reset from the comment."},
+        {"id":"scan80-nil-bytes","input_kind":"bytes","bytes_nil":true,"bytes_hex":null,"selection_reason":"Typed nil byte slice is a []byte switch case with length0, distinct from nil interface."},
+        {"id":"scan80-empty-bytes","input_kind":"bytes","bytes_nil":false,"bytes_hex":"","selection_reason":"Nonnil empty byte slice shares the length0 return but input nilness remains observable metadata."},
+        {"id":"scan80-valid-text","input_kind":"string","input":"00112233-4455-6677-8899-aabbccddeeff","selection_reason":"Receiver assignment occurs only after Parse returns no error."},
+        {"id":"scan80-raw16","input_kind":"bytes","bytes_nil":false,"bytes_hex":"00112233445566778899aabbccddeeff","selection_reason":"Exactly sixteen bytes use direct copy rather than textual parsing."},
+        {"id":"scan80-late-bad-text","input_kind":"string","input":"00112233-4455-6677-8899-aabbccddgeff","selection_reason":"A local partial Parse result is not committed to the receiver after its error."},
+        {"id":"scan80-late-bad-bytes","input_kind":"bytes_text","bytes_nil":false,"input":"00112233-4455-6677-8899-aabbccddgeff","selection_reason":"Non-sixteen byte slice is converted to a string and delegated to a recursive Scan call; distinguish direct observer calls from internal calls."}
+      ],
+      "not_in_finite_fixture_scope": ["Nil receiver", "Unsupported dynamic input types", "Database connection or SQL driver callbacks", "All other textual formats", "Aliasing or mutation of input after return", "Observed UnmarshalText/UnmarshalBinary/NullUUID methods", "Error Unwrap or errors.Is properties"],
+      "material_request_boundary": "Use UUID.Scan on a fresh nonnil receiver, not NullUUID.Scan. Source-readable wrapper differences are not direct observed API facts. fmt.Errorf uses %v rather than %w; do not invent wrapped error identity."
+    },
+    {
+      "id": "scope80-humanize-ordinal",
+      "family": "dustin/go-humanize",
+      "entrypoint": "Ordinal",
+      "goal": "Observe the original int ordinal formatter on small nonnegative integers, including last-digit suffixes and modulo100 teen exceptions.",
+      "source_alternatives_read_not_observed": [],
+      "observation_fields_to_freeze_later": ["input_int", "returned_normally", "exact_output_string", "panic_present", "panic_type", "panic_text"],
+      "fixtures": [
+        {"id":"ordinal80-zero","input_kind":"int","input":0,"selection_reason":"Boundary0 and the default suffix branch."},
+        {"id":"ordinal80-one","input_kind":"int","input":1,"selection_reason":"Last-digit1 non-teen branch."},
+        {"id":"ordinal80-two","input_kind":"int","input":2,"selection_reason":"Last-digit2 non-teen branch."},
+        {"id":"ordinal80-three","input_kind":"int","input":3,"selection_reason":"Last-digit3 non-teen branch."},
+        {"id":"ordinal80-eleven","input_kind":"int","input":11,"selection_reason":"Modulo100 exception to the last-digit1 branch."},
+        {"id":"ordinal80-twelve","input_kind":"int","input":12,"selection_reason":"Modulo100 exception to the last-digit2 branch."},
+        {"id":"ordinal80-thirteen","input_kind":"int","input":13,"selection_reason":"Modulo100 exception to the last-digit3 branch."},
+        {"id":"ordinal80-hundred-twelve","input_kind":"int","input":112,"selection_reason":"The exception is modulo100 rather than a check restricted to the literal twelve."}
+      ],
+      "not_in_finite_fixture_scope": ["Negative integers", "Platform int endpoints or large values", "Ordinal64 or any added API", "Other whole-package formatting or English joining methods", "Whole-upstream package initialization equivalence"],
+      "material_request_boundary": "The original signature accepts int and has no nonnegative guard. Restricting this observation to0..112 does not make negative inputs unsupported or fix their existing suffix behavior. No source changes are proposed."
+    }
+  ]
+}

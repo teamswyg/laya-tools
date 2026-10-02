@@ -2,7 +2,7 @@
 
 최근 연구: [작은 학습 모델 두 방식](experiments/short-claim/second-ranking-fit-72/README.ko.md)은 기존 정렬보다 후보 확인이 많아져 기본값으로 쓰지 않습니다. [Go 특징 계산](experiments/short-claim/feature-prefix-74/README.ko.md)은 두 공개 예제에서 시간을 약20~24% 줄였지만 할당량은 같았습니다.
 
-[함수 관찰75](experiments/short-claim/native-observation-75/README.ko.md)는 두 행동 목표의24개 경계 사례가 사전 기대값과 일치했습니다. 모델 추론이나24개 독립 요청은 아닙니다. [시점별 연구·실패 기록](RESEARCH-HISTORY.ko.md)과 [상세 문서](docs/README.md)에 측정 범위와 근거를 보존합니다.
+[공개 함수 동작 검증](experiments/short-claim/native-observation-80/ACTUAL-RESULTS.ko.md)은 UUID Parse·Scan·Ordinal의24개 입력이 사전 기대값과 일치했습니다. 전체 프로그램 RSS17.27 MiB·wall1.21초이며 모델 추론이나24개 독립 요청은 아닙니다. [시점별 연구·실패 기록](RESEARCH-HISTORY.ko.md)과 [상세 문서](docs/README.md)에 측정 범위와 근거를 보존합니다.
 
 **한국어** · [English](README.en.md) · [사용자 Wiki](https://github.com/teamswyg/laya-tools/wiki) · [문서 목록](docs/README.md)
 

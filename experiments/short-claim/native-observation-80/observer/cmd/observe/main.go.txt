@@ -1,0 +1,249 @@
+// Private one-attempt native observer. Never execute before outside reservation.
+package main
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"flag"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"runtime"
+
+	humanize "github.com/dustin/go-humanize"
+	"github.com/google/uuid"
+	"riido.local/source80observer/pure"
+)
+
+func digest(b []byte) string { s := sha256.Sum256(b); return hex.EncodeToString(s[:]) }
+func readFile(path string, cap int) ([]byte, error) {
+	s, e := os.Lstat(path)
+	if e != nil || !s.Mode().IsRegular() || s.Size() <= 0 || s.Size() > int64(cap) {
+		return nil, pure.ErrProtocol
+	}
+	f, e := os.Open(path)
+	if e != nil {
+		return nil, pure.ErrProtocol
+	}
+	defer f.Close()
+	b, e := io.ReadAll(io.LimitReader(f, int64(cap)+1))
+	if e != nil || len(b) > cap {
+		return nil, pure.ErrProtocol
+	}
+	return b, nil
+}
+func pinFile(root string, p pure.FilePin, cap int) ([]byte, error) {
+	if !pure.SafePath(p.Path) {
+		return nil, pure.ErrProtocol
+	}
+	cur := root
+	for _, part := range bytes.Split([]byte(filepath.ToSlash(p.Path)), []byte("/")) {
+		cur = filepath.Join(cur, string(part))
+		s, e := os.Lstat(cur)
+		if e != nil || s.Mode()&os.ModeSymlink != 0 {
+			return nil, pure.ErrProtocol
+		}
+	}
+	b, e := readFile(cur, cap)
+	if e != nil || len(b) != p.Bytes || digest(b) != p.SHA256 {
+		return nil, pure.ErrProtocol
+	}
+	return b, nil
+}
+func verifySources(p pure.Plan, w pure.WantFile) error {
+	for _, f := range p.Closure {
+		r := p.ObserverRoot
+		if f.Base == "original" {
+			r = p.OriginalSourceRoot
+		}
+		if _, e := pinFile(r, f, pure.Limit-1); e != nil {
+			return e
+		}
+	}
+	if len(w.Sources) != 2 || len(w.Sources[0].Files) != 17 || len(w.Sources[1].Files) != 3 {
+		return pure.ErrProtocol
+	}
+	for _, s := range w.Sources {
+		prefix := "uuid/"
+		if s.Family == "dustin/go-humanize" {
+			prefix = "humanize/"
+		} else if s.Family != "google/uuid" {
+			return pure.ErrProtocol
+		}
+		for _, f := range s.Files {
+			want := prefix + filepath.Base(f.Path)
+			count := 0
+			for _, c := range p.Closure {
+				if c.Base == "original" && c.Path == want && c.Bytes == f.Bytes && c.SHA256 == f.SHA256 {
+					count++
+				}
+			}
+			if count != 1 {
+				return pure.ErrProtocol
+			}
+		}
+	}
+	// Every Go file under the selected source and observer source directories must
+	// occur exactly once in the frozen closure. No implicit extra implementation.
+	for _, base := range []struct{ Root, Kind string }{{p.OriginalSourceRoot, "original"}, {filepath.Join(p.ObserverRoot, "pure"), "observer"}, {filepath.Join(p.ObserverRoot, "cmd"), "observer"}} {
+		err := filepath.WalkDir(base.Root, func(path string, d os.DirEntry, e error) error {
+			if e != nil || d.Type()&os.ModeSymlink != 0 {
+				return pure.ErrProtocol
+			}
+			if d.IsDir() {
+				return nil
+			}
+			if filepath.Ext(path) != ".go" {
+				return nil
+			}
+			r := p.ObserverRoot
+			if base.Kind == "original" {
+				r = p.OriginalSourceRoot
+			}
+			rel, e := filepath.Rel(r, path)
+			if e != nil {
+				return pure.ErrProtocol
+			}
+			n := 0
+			for _, c := range p.Closure {
+				if c.Base == base.Kind && c.Path == filepath.ToSlash(rel) {
+					n++
+				}
+			}
+			if n != 1 {
+				return pure.ErrProtocol
+			}
+			return nil
+		})
+		if err != nil {
+			return pure.ErrProtocol
+		}
+	}
+	return nil
+}
+func loadWant(b []byte) (pure.WantFile, error) {
+	var w pure.WantFile
+	// The literal document is immutable by the compiled SHA, including metadata.
+	if digest(b) != pure.WantSHA || json.Unmarshal(b, &w) != nil || w.Schema != "riido-source-observation80-proposed-wants-v1" || pure.ValidateLiterals(w.Records) != nil {
+		return w, pure.ErrProtocol
+	}
+	return w, nil
+}
+func execute(args []string) error {
+	f := flag.NewFlagSet("observer80", flag.ContinueOnError)
+	f.SetOutput(io.Discard)
+	planPath := f.String("plan", "", "")
+	planSHA := f.String("plan-sha256", "", "")
+	attempt := f.String("attempt-dir", "", "")
+	if f.Parse(args) != nil || f.NArg() != 0 || *planPath == "" || *attempt == "" || !pure.SHAValid(*planSHA) {
+		return pure.ErrProtocol
+	}
+	b, e := readFile(*planPath, pure.Limit-1)
+	if e != nil || digest(b) != *planSHA {
+		return pure.ErrProtocol
+	}
+	var p pure.Plan
+	if pure.Decode(b, &p) != nil || pure.ValidatePlan(p) != nil || runtime.Version() != p.GoVersion || runtime.GOOS != p.GOOS || runtime.GOARCH != p.GOARCH || runtime.GOMAXPROCS(0) != 1 || os.Getenv("GOMEMLIMIT") != "268435456" {
+		return pure.ErrProtocol
+	}
+	wb, e := pinFile(p.ObserverRoot, p.Want, pure.Limit-1)
+	if e != nil {
+		return e
+	}
+	w, e := loadWant(wb)
+	if e != nil || verifySources(p, w) != nil {
+		return pure.ErrProtocol
+	}
+	exe, e := os.Executable()
+	if e != nil {
+		return pure.ErrProtocol
+	}
+	binary, e := readFile(exe, 16<<20)
+	if e != nil || len(binary) != p.Binary.Bytes || digest(binary) != p.Binary.SHA256 {
+		return pure.ErrProtocol
+	}
+	if e := os.Mkdir(*attempt, 0700); e != nil {
+		return pure.ErrProtocol
+	}
+	resultFile, e := os.OpenFile(filepath.Join(*attempt, "results.json"), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	if e != nil {
+		return pure.ErrProtocol
+	}
+	defer resultFile.Close()
+	if resultFile.Sync() != nil || syncDir(*attempt) != nil {
+		return pure.ErrCheckpoint
+	}
+	r := pure.Result{Schema: "riido-source80-finite-observation-result-v1", State: "reserved_before_direct_dispatch", PlanSHA256: *planSHA, WantSHA256: pure.WantSHA, InputSHA256: pure.InputSHA, BinarySHA256: p.Binary.SHA256, RuntimeGo: runtime.Version(), SourcePins: p.Closure, SourceBindings: w.Sources, BehaviorGoals: 3, FiniteFixtures: 24, SourceFamilies: 2, PlannedDirectAPI: 24, PlannedExplicitError: 5, PlannedTracked: 29, MaximumTracked: 48, StaticStartupSitesReserved: 4}
+	reservation, e := encode(r)
+	if e != nil {
+		return e
+	}
+	if writeExclusive(filepath.Join(*attempt, "reservation.json"), reservation) != nil {
+		return pure.ErrCheckpoint
+	}
+	if writePartial(*attempt, reservation) != nil {
+		return pure.ErrCheckpoint
+	}
+	cb := pure.Callbacks{
+		Parse:   func(s string) ([16]byte, error) { u, e := uuid.Parse(s); return [16]byte(u), e },
+		Scan:    func(dst *[16]byte, x any) error { return (*uuid.UUID)(dst).Scan(x) },
+		Ordinal: humanize.Ordinal,
+	}
+	state, runErr := pure.Run(w.Records, cb, func(s pure.RunState) error {
+		r.Run = s
+		r.State = "finite_observations_in_progress"
+		b, e := encode(r)
+		if e != nil {
+			return e
+		}
+		return writePartial(*attempt, b)
+	})
+	r.Run = state
+	panicFailure := state.Counters.PrimaryPanicked+state.Counters.ErrorPanicked > 0
+	if runErr != nil {
+		r.State = "incomplete_finite_observations"
+		r.Failure = "observer80_checkpoint_or_protocol_failure"
+	} else if panicFailure {
+		r.State = "completed_finite_observations_with_panics"
+		r.Failure = "observer80_observed_panic"
+	} else if state.Counters.Differences == 0 && state.Counters.Matches == 24 {
+		r.State = "completed_finite_observations_all_match"
+		r.All24WantMatched = true
+	} else {
+		r.State = "completed_finite_observations_with_differences"
+	}
+	final, e := encode(r)
+	if e != nil {
+		return e
+	}
+	// Final and partial use the exact same canonical bytes. Counter preservation
+	// is best effort if storage fails; stdout still carries the final snapshot.
+	partialErr := writePartial(*attempt, final)
+	n, saveErr := resultFile.Write(final)
+	if saveErr == nil && n != len(final) {
+		saveErr = io.ErrShortWrite
+	}
+	if saveErr == nil {
+		saveErr = resultFile.Sync()
+	}
+	if saveErr == nil {
+		saveErr = syncDir(*attempt)
+	}
+	n, outErr := os.Stdout.Write(final)
+	if outErr == nil && n != len(final) {
+		outErr = io.ErrShortWrite
+	}
+	if runErr != nil || partialErr != nil || saveErr != nil || outErr != nil || panicFailure {
+		return pure.ErrCheckpoint
+	}
+	return nil
+}
+func main() {
+	if e := execute(os.Args[1:]); e != nil {
+		fmt.Fprintln(os.Stderr, "observer80_failed")
+		os.Exit(1)
+	}
+}

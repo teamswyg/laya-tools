@@ -1,0 +1,165 @@
+package pure
+
+import (
+	"encoding/json"
+	"errors"
+	"fmt"
+	"reflect"
+	"strings"
+	"testing"
+)
+
+func toyRows(t *testing.T) []Literal {
+	t.Helper()
+	rows := make([]Literal, 24)
+	for i := range rows {
+		g := i / 8
+		id := fmt.Sprintf("synthetic%d", i)
+		input := fmt.Sprintf(`{"id":%q,"input_kind":"string","input":"x","selection_reason":"synthetic"}`, id)
+		goal := [3]string{"scope80-uuid-parse", "scope80-uuid-scan", "scope80-humanize-ordinal"}[g]
+		want := Channels{ReturnedNormally: true}
+		if g == 0 {
+			want.UUIDHex = strPtr("01000000000000000000000000000000")
+			want.ErrorNil = boolPtr(true)
+		}
+		if g == 1 {
+			input = fmt.Sprintf(`{"id":%q,"input_kind":"nil_interface","input":null,"selection_reason":"synthetic"}`, id)
+			want.ReceiverBeforeHex = strPtr("ffeeddccbbaa99887766554433221100")
+			want.ReceiverAfterHex = strPtr("2aeeddccbbaa99887766554433221100")
+			want.ErrorNil = boolPtr(true)
+		}
+		if g == 2 {
+			input = fmt.Sprintf(`{"id":%q,"input_kind":"int","input":0,"selection_reason":"synthetic"}`, id)
+			want.ExactOutputString = strPtr("literal")
+		}
+		null := json.RawMessage("null")
+		rows[i] = Literal{Ordinal: i, GoalIndex: g, FixtureIndex: i % 8, GoalID: goal, FixtureID: id, InputReference: Reference{"source-first80/INPUT-DRAFTS.v1.json", fmt.Sprintf("/goals/%d/fixtures/%d", g, i%8)}, Input: json.RawMessage(input), SourceClauses: []string{"synthetic"}, Want: want, Got: null, Truth: null, Role: null, Weight: null, Acceptable: null}
+	}
+	return rows
+}
+func toyCallbacks() Callbacks {
+	return Callbacks{Parse: func(string) ([16]byte, error) { return [16]byte{1}, nil }, Scan: func(dst *[16]byte, _ any) error { dst[0] = 42; return nil }, Ordinal: func(int) string { return "literal" }}
+}
+func TestPureLiteralChannelsAndCalls(t *testing.T) {
+	rows := toyRows(t)
+	calls := 0
+	s, e := Run(rows, toyCallbacks(), func(s RunState) error {
+		calls++
+		if s.Counters.PrimaryReserved < s.Counters.PrimaryReturned+s.Counters.PrimaryPanicked {
+			t.Fatal("conservation")
+		}
+		return nil
+	})
+	if e != nil || s.Counters.PrimaryReserved != 24 || s.Counters.PrimaryReturned != 24 || s.Counters.Matches != 24 || s.Counters.ErrorReserved != 0 || calls != 72 {
+		t.Fatalf("literal counters: %+v %v %d", s.Counters, e, calls)
+	}
+	if s.Records[8].InputObservation.DynamicType != "<nil>" || s.Records[16].Got.ErrorNil != nil {
+		t.Fatal("nullable channels")
+	}
+}
+func TestCheckpointStopsBeforeDispatch(t *testing.T) {
+	cb := toyCallbacks()
+	n := 0
+	cb.Parse = func(string) ([16]byte, error) { n++; return [16]byte{}, nil }
+	s, e := Run(toyRows(t), cb, func(RunState) error { return errors.New("stub") })
+	if !errors.Is(e, ErrCheckpoint) || n != 0 || s.Counters.PrimaryReserved != 1 || s.Counters.PrimaryReturned != 0 {
+		t.Fatal("checkpoint must reserve without calling")
+	}
+}
+
+type poisonError struct{ Calls *int }
+
+func (e poisonError) Error() string { *e.Calls++; panic("error-method-panic") }
+func TestPrimaryAndErrorPanicSeparate(t *testing.T) {
+	rows := toyRows(t)
+	cb := toyCallbacks()
+	cb.Scan = func(dst *[16]byte, _ any) error { dst[0] = 99; panic("primary-panic") }
+	calls := 0
+	cb.Parse = func(string) ([16]byte, error) { return [16]byte{1}, poisonError{&calls} }
+	s, e := Run(rows, cb, func(RunState) error { return nil })
+	if e != nil || s.Counters.PrimaryPanicked != 8 || s.Counters.PrimaryReturned != 16 || s.Counters.ErrorReserved != 8 || s.Counters.ErrorPanicked != 8 || calls != 8 || s.Counters.Matches != 8 {
+		t.Fatalf("panic %v %+v", e, s.Counters)
+	}
+	if *s.Records[8].Got.ReceiverAfterHex != "63eeddccbbaa99887766554433221100" || *s.Records[8].Got.PanicText != "primary-panic" || !s.Records[0].ErrorMethodPanicked || s.Records[0].Got.PanicPresent {
+		t.Fatal("panic channel separation")
+	}
+}
+func TestTypeNeverCallsErrorAndOnceError(t *testing.T) {
+	calls := 0
+	err := poisonError{&calls}
+	if fmt.Sprintf("%T", err) != "pure.poisonError" || calls != 0 {
+		t.Fatal("type invoked Error")
+	}
+	_, typ, text, nonstring := capture(func() { panic(err) })
+	if typ == nil || text != nil || !nonstring || calls != 0 {
+		t.Fatal("panic formatting invoked Error")
+	}
+	_ = reflect.TypeOf(err)
+}
+func TestNilEmptyBytesAndBounds(t *testing.T) {
+	for _, tc := range []struct {
+		input   string
+		nilWant bool
+	}{
+		{`{"id":"x","input_kind":"bytes","bytes_nil":true,"bytes_hex":null,"selection_reason":"t"}`, true},
+		{`{"id":"x","input_kind":"bytes","bytes_nil":false,"bytes_hex":"","selection_reason":"t"}`, false},
+	} {
+		x, a, e := Fixture(Literal{FixtureID: "x", Input: json.RawMessage(tc.input)})
+		if e != nil || (x.([]byte) == nil) != tc.nilWant || a.DynamicType != "[]uint8" || *a.BytesNil != tc.nilWant {
+			t.Fatal("nil/empty")
+		}
+	}
+	l := Literal{FixtureID: "x", Input: json.RawMessage(fmt.Sprintf(`{"id":"x","input_kind":"string","input":%q,"selection_reason":"t"}`, strings.Repeat("a", 513)))}
+	if _, _, e := Fixture(l); e == nil {
+		t.Fatal("bounds")
+	}
+}
+func TestStrictMetadataDuplicateUnknownAndMultiple(t *testing.T) {
+	for _, s := range []string{`{"schema":"a","schema":"b"}`, `{"schema":"a","Schema":"b"}`, `{"not_a_field":1}`, `null {}`, string([]byte{0xff})} {
+		var p Plan
+		if Decode([]byte(s), &p) == nil {
+			t.Fatalf("accepted %q", s)
+		}
+	}
+}
+func syntheticPlan() Plan {
+	p := Plan{Schema: "riido-source80-native-observer-plan-v1", Frozen: true, ObserverRoot: "/synthetic/observer", OriginalSourceRoot: "/synthetic/original", GoVersion: "go1.27.1", GOOS: "darwin", GOARCH: "arm64", CGOEnabled: "0", CPU: 1, SoftHeapBytes: 268435456, OutsideSeconds: 60, OutputBytes: Limit, Goals: 3, Fixtures: 24, DirectAPI: 24, ExpectedErrors: 5, MaximumErrors: 24, PlannedTracked: 29, StaticStartupSites: 4, Policy: "finite_observations_only_no_labels_no_retry", Want: FilePin{ID: "Want", Base: "observer", Path: "WANTS.v1.json", Bytes: 38513, SHA256: WantSHA}, Binary: FilePin{ID: "binary", Base: "observer", Path: "bin/source80-observer", Bytes: 1, SHA256: strings.Repeat("a", 64)}}
+	for i := 0; i < 27; i++ {
+		base := "original"
+		if i >= 20 {
+			base = "observer"
+		}
+		p.Closure = append(p.Closure, FilePin{ID: fmt.Sprintf("toy%d", i), Base: base, Path: fmt.Sprintf("toy%d.go", i), Bytes: 1, SHA256: strings.Repeat("b", 64)})
+	}
+	return p
+}
+func TestPlanFreezeBudgetAndClosureRefusals(t *testing.T) {
+	if ValidatePlan(syntheticPlan()) != nil {
+		t.Fatal("synthetic exact plan")
+	}
+	for _, tc := range []struct {
+		name   string
+		change func(*Plan)
+	}{
+		{"unfrozen", func(p *Plan) { p.Frozen = false }},
+		{"directbudget", func(p *Plan) { p.DirectAPI = 25 }},
+		{"wantederrors", func(p *Plan) { p.ExpectedErrors = 4 }},
+		{"maximumerrors", func(p *Plan) { p.MaximumErrors = 25 }},
+		{"retry", func(p *Plan) { p.Retry = 1 }},
+		{"version", func(p *Plan) { p.GoVersion = "go1.21" }},
+		{"wantsha", func(p *Plan) { p.Want.SHA256 = strings.Repeat("0", 64) }},
+		{"duplicateID", func(p *Plan) { p.Closure[1].ID = p.Closure[0].ID }},
+		{"duplicatepath", func(p *Plan) { p.Closure[1].Path = p.Closure[0].Path }},
+		{"escape", func(p *Plan) { p.Closure[0].Path = "../outside.go" }},
+		{"originalcount", func(p *Plan) { p.Closure[0].Base = "observer" }},
+		{"oversize", func(p *Plan) { p.Closure[0].Bytes = Limit }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			p := syntheticPlan()
+			tc.change(&p)
+			if ValidatePlan(p) == nil {
+				t.Fatal("accepted corrupt plan")
+			}
+		})
+	}
+}
