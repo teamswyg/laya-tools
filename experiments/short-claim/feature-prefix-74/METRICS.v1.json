@@ -1,0 +1,58 @@
+{
+  "schema": "riido-feature-prefix-development-benchmark-v1",
+  "scope": "public_synthetic_feature_extraction_only",
+  "base_head": "ad61cd1a8b95434e2f2ed106aa154f3dcbe44621",
+  "original_learn_source_sha256": "fd3c93b516ad5f3a84dd8e221aa38b5d6d9b6fb26345bd2dfda937b889ce6899",
+  "new_learn_source_sha256": "d0c906d1283617d0778039ff8bc4c6fff6cb0af3a813c48df088424d78bebb71",
+  "compatibility_and_benchmark_source_sha256": "242cfda848e027ab692b0c0e24324f2f2206dcbb50d8a19399157b281fe15eec",
+  "private_benchmark_output_sha256": "9a3da1f5c837f7eb73c2e44081269e209b8b26e420753d434cbd52b2742d7546",
+  "go_version": "1.27.1",
+  "goos": "darwin",
+  "goarch": "arm64",
+  "cpu": "Apple M4 Pro",
+  "GOMAXPROCS": 1,
+  "GOMEMLIMIT_soft_bytes": 268435456,
+  "benchtime": "200ms",
+  "samples_per_fixture_and_path": 5,
+  "benchmark_invocations": 1,
+  "measurement_rows": 20,
+  "fixtures": [
+    {
+      "name": "short",
+      "concatenating_ns_per_op": [4680, 4522, 4240, 4172, 4167],
+      "prefix_ns_per_op": [3214, 3230, 3234, 3148, 3176],
+      "concatenating_median_ns_per_op": 4240,
+      "prefix_median_ns_per_op": 3214,
+      "observed_median_time_reduction_percent": 24.19811320754717,
+      "both_paths_bytes_per_op": 2216,
+      "both_paths_allocations_per_op": 19
+    },
+    {
+      "name": "bounded32",
+      "concatenating_ns_per_op": [353974, 353536, 350932, 351143, 351653],
+      "prefix_ns_per_op": [281685, 282633, 288122, 281536, 282987],
+      "concatenating_median_ns_per_op": 351653,
+      "prefix_median_ns_per_op": 282633,
+      "observed_median_time_reduction_percent": 19.627303051587788,
+      "both_paths_bytes_per_op": 70792,
+      "both_paths_allocations_per_op": 72
+    }
+  ],
+  "control": "original concatenating FNV loop, term order, sorting, collision merging and lexical feature retained in test-only control; no per-pair indirect hash callback",
+  "compatibility_scope": "standard-library FNV byte composition plus sparse arrays and FP64 score bits on seven public fixtures",
+  "new_maps_locks_or_shared_caches": 0,
+  "development_or_protected_corpus_reads": 0,
+  "new_research_fits_or_model_files": 0,
+  "original_upstream_API_calls": 0,
+  "GPU_measurements": 0,
+  "whole_process_RSS_measurements": 0,
+  "LLM_cost_or_quality_improvement_established": false,
+  "pre_publication_reporting_correction": "independent static review caught selection of a middle sample rather than the sorted bounded32 median; corrected 282987 to 282633ns; one intermediate manual percentage transcription was corrected by arithmetic evaluation; initial and intermediate reports preserved privately, all measured samples unchanged, no benchmark or feature rerun",
+  "limitations": [
+    "one local benchmark invocation on two public synthetic fixtures; five sequential samples per path",
+    "fixed path ordering and unmeasured ambient host load; no cold-cache or deployment guarantee",
+    "allocation counts and bytes did not improve",
+    "feature extraction time is not model ranking quality or end-to-end LLM latency",
+    "no protected-final data, new source membership, labels, model tuning or deployment in this benchmark"
+  ]
+}

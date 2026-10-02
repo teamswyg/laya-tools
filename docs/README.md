@@ -14,6 +14,7 @@ Latest owned task evidence: [experiment55](../experiments/task-outcomes/RESULTS-
 | Topic / 주제 | English | 한국어 |
 |---|---|---|
 | Project overview / 프로젝트 개요 | [README](../README.en.md) | [README](../README.md) |
+| Identical feature hashing74 / 같은 특징의 해시 최적화74 | [Two public fixtures: lower feature time, unchanged allocations and score bits](../experiments/short-claim/feature-prefix-74/README.en.md) | [공개 예제2개: 특징 계산 시간 감소·할당량과 점수 비트 유지](../experiments/short-claim/feature-prefix-74/README.ko.md) |
 | Source declaration preparation60 / 소스 선언 연결 준비60 | [Go module and proposed plan; original run pending](../experiments/short-claim/PLAN-INVENTORY-60.en.md) | [Go 모듈·계획 초안; 원본 실행 전](../experiments/short-claim/PLAN-INVENTORY-60.ko.md) |
 | Source references60 / 소스 참조60 | [60 roots/204 component matches](../experiments/short-claim/RESULTS-INVENTORY-60.en.md) · [Usage](../experiments/short-claim/USAGE-INVENTORY-60.en.md) · [Content review rules](../experiments/short-claim/CONTENT-REVIEW-PROTOCOL-60.en.md) | [루트60·구성 요소204 일치](../experiments/short-claim/RESULTS-INVENTORY-60.ko.md) · [사용법](../experiments/short-claim/USAGE-INVENTORY-60.ko.md) · [내용 검토 규칙](../experiments/short-claim/CONTENT-REVIEW-PROTOCOL-60.ko.md) |
 | Scoped caption review60 / 한정 설명 검토60 | [123 assessed entries; fidelity and task scope kept separate](../experiments/short-claim/CONTENT-REVIEW-FINDINGS-60.en.md) | [123개 항목 검토; 설명 충실도와 요청 범위 구분](../experiments/short-claim/CONTENT-REVIEW-FINDINGS-60.ko.md) |

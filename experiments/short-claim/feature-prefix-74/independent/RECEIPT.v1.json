@@ -1,0 +1,50 @@
+{
+  "schema":"riido-feature-prefix-independent-static-review-74-v1",
+  "state":"source_control_no_blocker_saved_median_error_root_correction_pending",
+  "reader":"semantic_review60_prep",
+  "change_author":false,
+  "AI_assisted_nonblind_source_reading":true,
+  "pins":[
+    {"id":"internal/hintlearn/learn.go","bytes":10429,"sha256":"d0c906d1283617d0778039ff8bc4c6fff6cb0af3a813c48df088424d78bebb71"},
+    {"id":"internal/hintlearn/prefix_test.go","bytes":4187,"sha256":"242cfda848e027ab692b0c0e24324f2f2206dcbb50d8a19399157b281fe15eec"},
+    {"id":"stored-feature-prefix-benchmark-log","bytes":2387,"sha256":"9a3da1f5c837f7eb73c2e44081269e209b8b26e420753d434cbd52b2742d7546"}
+  ],
+  "source_findings":{
+    "compatibility_blockers":[],
+    "control_fairness_blockers":[],
+    "hash_equivalence":"FNV continuation composes byte sequences with identical initial state, NUL delimiter and uint64 modular multiplication.",
+    "float_order_preserved":"Identical hash/index/sign/scale sequence and unchanged sorting/collision accumulation/recall append preserve sparse values and subsequent score operations.",
+    "control":"Original concatenating path calls originalByteHash statically with the same prior loop; no per-pair indirect callback.",
+    "existing_tests_read_not_run":"Stdlib fnv comparison on byte strings; sparse equality and FP64 score bits on synthetic fixtures, including repeated32/Unicode/NUL/empty inputs."
+  },
+  "reporting_correction":{
+    "affected_draft_locations":["METRICS.v1.json bounded32 prefix_median_ns_per_op and reduction","README.ko.md bounded32 row","README.en.md bounded32 row"],
+    "saved_prefix_ns_per_op":[281685,282633,288122,281536,282987],
+    "sorted_prefix_ns_per_op":[281536,281685,282633,282987,288122],
+    "reported_draft_median":282987,
+    "correct_median":282633,
+    "control_median":351653,
+    "correct_reduction_formula":"100*(1-282633/351653)",
+    "correct_rounded_reduction_percent":19.63,
+    "root_acknowledged":true,
+    "canonical_corrected_files_verified":false,
+    "confirmation_receipt":"pending_separate_read_after_root_correction",
+    "requires_benchmark_or_feature_rerun":false
+  },
+  "bounded_claims":{
+    "short_control_prefix_median_ns":[4240,3214],
+    "short_unchanged_bytes_allocations":[2216,19],
+    "bounded32_unchanged_bytes_allocations":[70792,72],
+    "scope":"Two public synthetic fixtures, five saved samples per path; host Apple M4 Pro darwin/arm64. No causal whole-application/RSS/utility/general-input claim.",
+    "feature_semantics_array_layout_or_objective_changed":false
+  },
+  "operations":{
+    "static_shell_read_or_hash_commands_before_note_creation":5,
+    "read_failures":0,
+    "new_test_benchmark_code_binary_executions":0,
+    "Features_Fit_corpus_original_API_model_executions":0,
+    "shared_edits":0,
+    "publication":0,
+    "ordinary_AI_collaboration_cost_measured":false
+  }
+}
