@@ -14,6 +14,11 @@ Latest owned task evidence: [experiment55](../experiments/task-outcomes/RESULTS-
 | Topic / 주제 | English | 한국어 |
 |---|---|---|
 | Project overview / 프로젝트 개요 | [README](../README.en.md) | [README](../README.md) |
+| Training preparation review / 학습 준비 재검토 | [Data connections before another fit](../experiments/short-claim/training-resume-review/REVIEW.v1.en.md) | [다음 학습 전 자료 연결](../experiments/short-claim/training-resume-review/REVIEW.v1.ko.md) |
+| Candidate conversion pilot / 비교 후보 변환 pilot | [Three request drafts and nine code candidates](../experiments/short-claim/conversion-pilot-80/README.en.md) | [요청 초안3개·후보 코드9개](../experiments/short-claim/conversion-pilot-80/README.ko.md) |
+| Next frozen expectations / 다음 봉인 기대값 | [32 literal Wants; source-only peer checked](../experiments/short-claim/source-observation-81/want-supplement/README.en.md) · [Peer review](../experiments/short-claim/source-observation-81/want-supplement/source-peer/REVIEW.v1.en.md) | [literal Want32개·별도 원문 검토](../experiments/short-claim/source-observation-81/want-supplement/README.ko.md) · [검토](../experiments/short-claim/source-observation-81/want-supplement/source-peer/REVIEW.v1.ko.md) |
+| Original source completion / 원문 누락 보완 | [57 retained files; compilation still separate](../experiments/short-claim/source-closure-82/ACTUAL-STATE.en.md) | [원문57파일·컴파일은 별도](../experiments/short-claim/source-closure-82/ACTUAL-STATE.ko.md) |
+| Function evidence publication / 함수 근거 게시 확인 | [CI and fetched Wiki verification102](../experiments/short-claim/publication-proof-102/README.en.md) | [CI·원격 Wiki 확인102](../experiments/short-claim/publication-proof-102/README.ko.md) |
 | Public function verification / 공개 함수 동작 검증 | [24 matches; evidence before training](../experiments/short-claim/native-observation-80/ACTUAL-RESULTS.en.md) | [24개 일치; 학습 전 근거](../experiments/short-claim/native-observation-80/ACTUAL-RESULTS.ko.md) |
 | Next source reading / 다음 원문 읽기 | [Four goals,32 input drafts](../experiments/short-claim/source-observation-81/README.en.md) | [네 목표·입력 초안32개](../experiments/short-claim/source-observation-81/README.ko.md) |
 | Packed module publication / 압축 모듈 게시 확인 | [CI and exact Wiki readback](../experiments/short-claim/publication-proof-101/README.en.md) | [CI·Wiki 바이트 일치](../experiments/short-claim/publication-proof-101/README.ko.md) |

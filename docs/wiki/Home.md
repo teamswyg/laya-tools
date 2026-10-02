@@ -4,6 +4,8 @@
 
 [공개 함수 동작 검증과 학습 자료 확장](Source-Behavior-80-KO) · [Public behavior verification and training data](Source-Behavior-80-EN): 사전 기대값24개 일치, 새 학습 정답0 /24 matching fixed expectations, zero new training labels.
 
+[다음 학습 자료를 만드는 과정](Claim-Data-Preparation-KO) · [Preparing the next training data](Claim-Data-Preparation-EN): 함수 예제와 사용자 요청, 후보의 실제 동작과 설명·학습 적격성을 구분합니다. / Separate function fixtures from user requests, and candidate behavior from caption fidelity and training eligibility.
+
 | 사용 목적 / Goal | 한국어 | English |
 |---|---|---|
 | 모델 없이 코드 검색·실행 계획 시작 / Start without a model | [처음 시작하기](Getting-Started-KO) | [Getting started](Getting-Started-EN) |
