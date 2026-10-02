@@ -1,0 +1,243 @@
+{
+  "Schema": "riido-public-baseline-runtime-profile-71-v1",
+  "State": "one_public_fixture_profile_completed_no_fit_or_quality_claim",
+  "SourceOrigin": "9d204c2c700505658c108297d5fa769a835a60c3; working HEAD Go/go.mod/go.sum diff0",
+  "Bench": {
+    "schema": "riido-shortclaim-benchmark-v1",
+    "baseline": "lexical_ordered",
+    "canonical_input_sha256": "1f1360b413e34986bcc2bfc69a601c1fb0f03c21921e091a2586a769b2b9161c",
+    "os": "darwin",
+    "arch": "arm64",
+    "go": "go1.27.1",
+    "candidate_count": 8,
+    "gomaxprocs": 1,
+    "gpu_used": false,
+    "encoder_used": false,
+    "cache_hits": 0,
+    "cpu_profile_enabled": true,
+    "warmups_per_stage": 20,
+    "allocation_probes_per_stage_including_warmup": 101,
+    "go_heap_alloc_bytes_at_end": 3221544,
+    "go_total_alloc_bytes_delta": 1009991512,
+    "measurement_wall_seconds": 1.009231333,
+    "stages": [
+      {
+        "stage": "parse_validate_normalize",
+        "repetitions": 10000,
+        "p50_ns": 19708,
+        "p95_ns": 45542,
+        "go_allocations_per_op": 184
+      },
+      {
+        "stage": "rank_validate_features_score_order",
+        "repetitions": 10000,
+        "p50_ns": 21334,
+        "p95_ns": 31666,
+        "go_allocations_per_op": 81
+      },
+      {
+        "stage": "input_digest",
+        "repetitions": 10000,
+        "p50_ns": 875,
+        "p95_ns": 1167,
+        "go_allocations_per_op": 23
+      },
+      {
+        "stage": "ranking_serialization",
+        "repetitions": 10000,
+        "p50_ns": 458,
+        "p95_ns": 1250,
+        "go_allocations_per_op": 2
+      },
+      {
+        "stage": "full_go_request",
+        "repetitions": 10000,
+        "p50_ns": 42500,
+        "p95_ns": 83042,
+        "go_allocations_per_op": 291
+      }
+    ],
+    "scope": "Original repeated fixture; rank combines validation, features, scoring and ordering. HeapAlloc includes uncollected garbage, without forced GC, and is not OS peak RSS; timer/GC/serialization overhead is included. Optional profile covers warmups, allocation probes and timed stages; profile flush/close is outside measurement_wall_seconds. No learned model or quality/savings claim."
+  },
+  "OSWholeChild": {
+    "RealSeconds": 1.47,
+    "UserSeconds": 0.99,
+    "SystemSeconds": 0.01,
+    "ControllerWallSeconds": 1.4762223749999999,
+    "PeakRSSBytes": 13189120,
+    "PeakFootprintBytes": 10568184
+  },
+  "HeapSoftBytes": 268435456,
+  "GPUProfileAvailable": false,
+  "ProfileNodes": [
+    {
+      "symbol": "runtime.kevent",
+      "FlatMS": 730,
+      "FlatPercent": 77.66,
+      "CumulativeMS": 730,
+      "CumulativePercent": 77.66
+    },
+    {
+      "symbol": "github.com/teamswyg/laya-tools/internal/lexicalhint.tokens",
+      "FlatMS": 40,
+      "FlatPercent": 4.26,
+      "CumulativeMS": 140,
+      "CumulativePercent": 14.89
+    },
+    {
+      "symbol": "runtime.madvise",
+      "FlatMS": 20,
+      "FlatPercent": 2.13,
+      "CumulativeMS": 20,
+      "CumulativePercent": 2.13
+    },
+    {
+      "symbol": "runtime.stringtoslicerune",
+      "FlatMS": 20,
+      "FlatPercent": 2.13,
+      "CumulativeMS": 30,
+      "CumulativePercent": 3.19
+    },
+    {
+      "symbol": "strings.Fields",
+      "FlatMS": 20,
+      "FlatPercent": 2.13,
+      "CumulativeMS": 30,
+      "CumulativePercent": 3.19
+    },
+    {
+      "symbol": "unicode.IsUpper (inline)",
+      "FlatMS": 20,
+      "FlatPercent": 2.13,
+      "CumulativeMS": 20,
+      "CumulativePercent": 2.13
+    },
+    {
+      "symbol": "github.com/teamswyg/laya-tools/pkg/shortclaim.baselineTokenize",
+      "FlatMS": 10,
+      "FlatPercent": 1.06,
+      "CumulativeMS": 10,
+      "CumulativePercent": 1.06
+    },
+    {
+      "symbol": "runtime.mallocgcSmallNoscan",
+      "FlatMS": 10,
+      "FlatPercent": 1.06,
+      "CumulativeMS": 10,
+      "CumulativePercent": 1.06
+    },
+    {
+      "symbol": "runtime.memequal",
+      "FlatMS": 10,
+      "FlatPercent": 1.06,
+      "CumulativeMS": 10,
+      "CumulativePercent": 1.06
+    },
+    {
+      "symbol": "runtime.newArenaMayUnlock",
+      "FlatMS": 10,
+      "FlatPercent": 1.06,
+      "CumulativeMS": 10,
+      "CumulativePercent": 1.06
+    },
+    {
+      "symbol": "runtime.spanOf",
+      "FlatMS": 10,
+      "FlatPercent": 1.06,
+      "CumulativeMS": 10,
+      "CumulativePercent": 1.06
+    },
+    {
+      "symbol": "runtime.tryDeferToSpanScan",
+      "FlatMS": 10,
+      "FlatPercent": 1.06,
+      "CumulativeMS": 10,
+      "CumulativePercent": 1.06
+    }
+  ],
+  "Refs": [
+    {
+      "id": "public-benchmark-binary",
+      "bytes": 4564546,
+      "sha256": "cab0a436aaf288a0dde842b8f886f2cd91a0ec0612d26361017510a41576340e",
+      "private_original": true
+    },
+    {
+      "id": "original-benchmark-stats",
+      "bytes": 1468,
+      "sha256": "469d03a98e57736dc86f445495990f3a03dcee269696bd333f1604dc47a16837",
+      "private_original": true
+    },
+    {
+      "id": "raw-private-CPU-profile",
+      "bytes": 3259,
+      "sha256": "4faece30b91134cd6ddd5187adedaf9ea3171ba12bc9ab0a79b48b31993e06e3",
+      "private_original": true
+    },
+    {
+      "id": "raw-private-pprof-top",
+      "bytes": 1103,
+      "sha256": "0c27941bf3dac199aa18616d7770b3fe2d3b48db89d8e488b61632ffa5b38253",
+      "private_original": true
+    },
+    {
+      "id": "raw-private-OS-time",
+      "bytes": 777,
+      "sha256": "07be03a295eb74c8fde0d1ce03c34ca3d4f82948c1ee88ed831d2b8c5b1a8ed1",
+      "private_original": true
+    },
+    {
+      "id": "benchmark-reservation",
+      "bytes": 491,
+      "sha256": "6dac7b139388b4167b392561b04f694383fc33a14f795e8329760ce9ebbb8e0b",
+      "private_original": true
+    },
+    {
+      "id": "benchmark-execution-ledger",
+      "bytes": 290,
+      "sha256": "31d2fa525ae5c9bcc37d8a0012cedbd5d04026f8ccbbcb1ac5776181abb45432",
+      "private_original": true
+    },
+    {
+      "id": "original-public-eight-candidate-fixture",
+      "bytes": 2194,
+      "sha256": "bc41dc423139be4adebc0687ffd30237f22458ea58fccf58771e2003276b5155",
+      "private_original": false
+    }
+  ],
+  "Counts": {
+    "PublicTargetBuilds": 1,
+    "BenchmarkStarts": 1,
+    "Retries": 0,
+    "PprofReads": 1,
+    "Fits": 0,
+    "Models": 0,
+    "NewLabels": 0,
+    "PaidCalls": 0,
+    "SharedEdits": 0
+  },
+  "SourceDerivedCalls": {
+    "Measured": false,
+    "StageCallbackCallsPerStage": 10121,
+    "TotalStageCallbackCalls": 50605,
+    "Load": 20243,
+    "Rank": 20243,
+    "ValidatePrepared": 20243,
+    "Validate": 40486,
+    "NormalizeText": 364374,
+    "SelectedBaselineTokenizations": 20243,
+    "LearnedFeatures": 0,
+    "BaselinesAllFour": 0
+  },
+  "Boundaries": [
+    "original8-candidate repeated fixture, not76 validation or learned-model latency/utility",
+    "CPU profile enabled for this single run; profiler overhead not isolated",
+    "HeapAlloc end snapshot includes uncollected garbage, no forced GC; cumulative alloc bytes are lifetime allocation, not resident footprint",
+    "OS RSS/footprint bytes cover whole child; Go heap256MiB is soft, no hard OS cap",
+    "profile covers warmups, allocation probes and five stages; flush/close outside internal wall; external wall includes startup/flush",
+    "pprof CPU symbols only; no GPU telemetry or learned encoder/model execution",
+    "static successful-path call arithmetic, not dynamic instrumentation; original71 fit counters unchanged",
+    "30s group SIGKILL dispatch then Wait, exact total controller termination bound not guaranteed",
+    "raw input/profile/paths/logs remain private; aggregated symbols and safe numeric metadata only"
+  ]
+}
