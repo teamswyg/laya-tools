@@ -1,5 +1,7 @@
 # laya-tools
 
+[다음 개발 자료73](experiments/short-claim/source-observation-73/README.ko.md): 서로 다른3개 동작 목표의24개 유한 입력을 실제 Go 원문에 한 번 적용해 사전 예상과 일치함을 확인했습니다. 아직 새 학습 정답은0이며, 후보 설명에 필요한 정보가 있는지를 먼저 검토합니다. [저장 형식73](experiments/short-claim/compact-storage-73/README.ko.md)은 FP64 bit를 유지하고8.39MB→1.98MB로 줄였으며 공백 제거·gzip 기준선도 따로 공개합니다. 파일 감소는 RAM·추론 성능 개선과 구분합니다.
+
 [최신 개발 결과](experiments/short-claim/second-ranking-fit-72/README.ko.md): 작은 주장 모델 두 방식 모두 기존 정렬보다 많은 후보 확인이 필요했습니다(**27→31→33회**). 기본 정렬은 유지하며 [새 개발 데이터의 다양성](experiments/short-claim/second-ranking-fit-72/ANALYSIS.ko.md)을 먼저 늘립니다. [Go 입력 재사용](experiments/short-claim/validated-input-runtime-71/README.ko.md)은 정렬 할당81→0을 관측했고 전체 race/vet 검사를 통과했습니다. [첫 실패 모델의 HF 보관·검증](experiments/short-claim/publication-proof-96/README.ko.md)은 완료했으며 모델 본체는 Git에 올리지 않습니다. [English](experiments/short-claim/second-ranking-fit-72/README.en.md). 아래 항목은 각 당시의 기록입니다.
 
 [첫 작은 주장 모델의 실제 결과](docs/wiki/First-Claim-Fit-71-KO.md): 전체76개 자료로 FP32 학습1회를 완료했지만 확인 횟수는 기존 규칙27회→모델31회로 악화해 효용 기준을 통과하지 못했습니다. 파일32,792B, 전체 학습 peak RSS약26.98MiB/0.805초이며 LLM 절감 수치는 아닙니다. 기존 규칙을 유지하고 같은 요청의 상대 순서 손실을 한 번 추가하는 후속을 진행합니다. [원래72개 준비 데이터](https://huggingface.co/datasets/JooYoon/riidolaya-public-claim-preparation-69/tree/d80075c6160a53d5426019cf018016a3b02017bd)는 공개·재다운로드 검증을 마쳤습니다. [English](docs/wiki/First-Claim-Fit-71-EN.md). 아래 항목은 각 당시의 기록입니다.

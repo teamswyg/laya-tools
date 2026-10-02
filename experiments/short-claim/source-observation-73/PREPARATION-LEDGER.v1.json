@@ -1,0 +1,29 @@
+{
+  "schema": "riido-first-three-controller-preparation-ledger-v1",
+  "state": "prepared_not_executed",
+  "attempts": [
+    {"kind": "gofmt", "attempt": 1, "success": true, "scope": "initial stdlib-only controller source"},
+    {"kind": "gofmt", "attempt": 2, "success": true, "scope": "controller and pure synthetic tests"},
+    {"kind": "race", "attempt": 1, "success": true, "top_level_tests_passed": 10, "seconds_reported_by_go": 1.527, "scope": "synthetic freeze/JSON/pins/counters/output/time-parser/stub lifecycle; no original packages"},
+    {"kind": "vet", "attempt": 1, "success": true, "scope": "stdlib-only controller"},
+    {"kind": "build", "attempt": 1, "success": true, "scope": "CGO0 trimpath build only; binary not executed"},
+    {"kind": "gofmt", "attempt": 3, "success": true, "scope": "optional metadata-only fixed-asset binding test"},
+    {"kind": "race", "attempt": 2, "success": true, "top_level_tests_passed": 1, "seconds_reported_by_go": 1.538, "scope": "fixed author JSON/21 asset byte hashes/Want/buildinfo metadata; no run/Start/native callback"},
+    {"kind": "vet", "attempt": 2, "success": true, "scope": "source plus metadata-read test"},
+    {"kind": "gofmt", "attempt": 4, "success": true, "scope": "whole-child resource scope wording"},
+    {"kind": "build", "attempt": 2, "success": true, "scope": "final binary after resource-scope wording; binary not executed"},
+    {"kind": "race", "attempt": 3, "success": true, "top_level_tests_passed": 1, "seconds_reported_by_go": 1.500, "scope": "affected nullable OS time parser only"}
+  ],
+  "gofmt_invocations": 4, "gofmt_failures": 0,
+  "race_invocations": 3, "race_failures": 0,
+  "top_level_test_executions_passed": 12,
+  "distinct_top_level_test_functions": 11,
+  "vet_invocations": 2, "vet_failures": 0,
+  "build_invocations": 2, "build_failures": 0,
+  "actual_controller_invocations": 0, "observer_binary_invocations": 0,
+  "original_package_initialization_executions": 0, "original_api_calls": 0,
+  "upstream_test_executions": 0, "new_labels": 0, "new_parents": 0,
+  "model_calls": 0, "fits": 0, "protected_final_reads": 0,
+  "shared_edits": 0, "remote_mutations": 0,
+  "note": "Go test durations are preparation invocation records, not product latency/performance measurements. Expected guard refusals in passing tests are not failed preparation invocations. Source reads/hash/build metadata are not native binary execution."
+}

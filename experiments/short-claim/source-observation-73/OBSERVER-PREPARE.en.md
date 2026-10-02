@@ -1,0 +1,23 @@
+# Preparation for narrow observations of three public sources
+
+This prepares **three behavior goals and 24 fixed literal probes**. No actual observations exist yet. Original APIs, observer-binary execution and original package initialization remain unexecuted. Three sources are not 128 distinct problems or the 2,400-task final evaluation. New parents, captions, labels, models, fitting, protected-final reads and paid APIs remain zero. Training readiness and broad semantic/caption/parent-label qualification remain false.
+
+| Goal | API | Fixed probes | Preserved observation |
+|---|---|---:|---|
+| datasize-unit-parse-state | ByteSize.UnmarshalText | 10 | Exact uint64, initial receiver 7 → final receiver, NumError function/input/range/syntax/ErrBits identity and text |
+| query-tagged-multivalue | query.Values | 6 | Nil versus nonnil empty map, tagged omission, repeated-value order, nested names and error |
+| shlex-quoted-argv | shlex.Split | 8 | Empty quoted words, nil versus empty slice, completed prefix plus error on malformed EOF |
+
+Want is a **source-based finite expectation** authored from pinned source and API documentation. It is not an oracle derived from execution or independent evidence of broad truth. Before dispatch, the worker compares exact `wants.v1.json` bytes/SHA with its compiled literal specification. Differences never rewrite Want or trigger automatic retry. Each Want/Got preserves exact integers, errors and slice/map state. Query keys alone are sorted for deterministic storage; values for the same key retain their original order.
+
+The `pure` package imports no upstream packages. Its tests use stub observers and big.Int boundary arithmetic to check checkpointing, panic handling, ownership and null/empty distinctions. Only `cmd/observe` imports the three originals; preparation compiles/links it without executing it. The existing source-build bundle's ten original files/39,013 bytes, modules and licenses remain unchanged and are not recopied. The new private observer module merely replaces dependencies with those pinned local originals.
+
+Root owns the actual child execution. Starting the original-import executable initializes Go packages before main. Source-visible initializers include datasize `errors.New` and query `reflect.TypeOf`; initialization types/counts are not dynamically instrumented and are separate from the 24 direct API dispatches. Before child Start, root must exclusively reserve its outside attempt and verify plan/source/binary/Want pins.
+
+Root seals the draft by changing only `Frozen` false→true and supplies its fresh whole-plan SHA. The child verifies source closure, Go1.27.1/CGO0/trimpath build identity, CPU1, the 256MiB Go soft heap target and Want, then reserves a **new child output directory**. Existing directories are refused. A reservation receipt and empty final output are fsynced first. Before each API call, DispatchReserved is committed to partial JSON using atomic rename/fsync. After return, counters, panic, match/difference and valid prefix are committed again. Persistence failures stop further calls. Normal differences remain in the completed result and create no supervision labels or training approval. Unexpected error/panic text is replaced with fixed messages; stacks and host/source paths are not recorded.
+
+Arguments are only `--plan`, `--plan-sha256` and `--attempt-dir`. Original API inputs are compiled public finite literals/primitive structs, never environment/file/network data or actor-supplied Go code. Each final/partial JSON is **below 1MiB**. Stdout is one completion line and stderr a fixed failure message; raw inputs, profiles and absolute paths are not publicly emitted. No model or feature calls occur.
+
+Proposed outside boundary: GOMAXPROCS=1, GOMEMLIMIT=268435456, `/usr/bin/time -l` for whole-child CPU/RSS, and independent process-group SIGKILL after **60 seconds**. Wait after kill means exact total controller termination within 60 seconds is not guaranteed. The Go heap soft target is not a hard RSS cap or GPU measurement. On failure/timeout, root preserves partial/final bytes/SHA, nullable counters and OS observations with no automatic retry. Actual command/host paths and raw logs remain private.
+
+The observer author has prior projection/controller preparation exposure. Author-side stub tests/byte checks are not independent runtime observations or caption-semantic approval. Source pins plus a trusted compiler/build receipt provide provenance, not a formal proof that compiled instructions match source. One actual child is planned only after root's separate read-only precheck.

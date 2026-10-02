@@ -8,4 +8,6 @@ The [source proposal and priorities](NEXT-DEVELOPMENT-SOURCES.proposal.v1.en.md)
 
 The [memory review](../memory-scale-73/ANALYSIS.en.md) confirms existingCSR/SoA anduint16 indices. First consider compact/sharded storage that preserves numerical values. Keep this preparation separate from model compression, new objectives and performance qualification.
 
+The first three sources subsequently passed [one actual observation](../source-observation-73/README.en.md): all24 finite inputs matched pre-execution Want, and saved-file comparison passed. Three goals are distinct from the three unlabelled parent drafts; new labels and fits remain zero. A separate [storage experiment](../compact-storage-73/README.en.md) preserved numbers and compared file-size controls. No runtime, loader or input-cap change was made.
+
 [Failure analysis](../second-ranking-fit-72/ANALYSIS.en.md) · [한국어](README.ko.md)

@@ -1,0 +1,86 @@
+{
+  "Schema": "riido-saved-bytes-control-v1",
+  "State": "one_minification_and_three_gzip_saved_byte_controls_only",
+  "RuntimeGo": "go1.27.1",
+  "Comparisons": [
+    {
+      "Saved": {
+        "id": "pretty-json",
+        "bytes": 8390462,
+        "sha256": "f68bff5f48747a66f038c17262568c1bd91251a8c81b3f46f7ae5090c8fe4b99"
+      },
+      "Gzip": {
+        "id": "private-pretty-json.gz",
+        "bytes": 594236,
+        "sha256": "793b6ddafd0e864843c9d3a04374f0ebc96b40a210c19f0ce0e706a3a452bee4"
+      }
+    },
+    {
+      "Saved": {
+        "id": "minified-json",
+        "bytes": 4697570,
+        "sha256": "fd8d48e76d809c91614cea8ea652c01350bbb27cc7898c39ed238833fbfc2685"
+      },
+      "Gzip": {
+        "id": "private-minified-json.gz",
+        "bytes": 400256,
+        "sha256": "2199e6be888b541a93bfe23c03d4017cba78571096d91b1cc9bc02d79bb53be4"
+      }
+    },
+    {
+      "Saved": {
+        "id": "compact-binary",
+        "bytes": 1978694,
+        "sha256": "43736823fa4dfa1206eaa9e939b7ab042e97be5950bc3a73b6196668db33a627"
+      },
+      "Gzip": {
+        "id": "private-compact-binary.gz",
+        "bytes": 328206,
+        "sha256": "b3d33f3c9d4d8dda7831812d8d87182cabe500060beccd11dfcbf43a8256e0c9"
+      }
+    }
+  ],
+  "PlanKO": {
+    "id": "PLAN.ko.md",
+    "bytes": 1634,
+    "sha256": "8cbf33d22a37b7dd836cca701b2d36326564b8aabde1269aedd534c1188e13d7"
+  },
+  "PlanEN": {
+    "id": "PLAN.en.md",
+    "bytes": 1395,
+    "sha256": "b4a43a6aee2d12848bb6272c9991dde87ecced6f32a4f0fc42f87f9ef55fce86"
+  },
+  "HelperSource": {
+    "id": "main.go",
+    "bytes": 9576,
+    "sha256": "7b1d0746e414fb074304f597d2ff49f5fb415e2ab00f659b45780666bda93279"
+  },
+  "PrettyToMinifiedReduction": 0.4401297568596342,
+  "MinifiedToCompactReduction": 0.5787834987025207,
+  "PrettyToCompactReduction": 0.7641734150038461,
+  "HelperInvocations": 1,
+  "HelperFailures": 0,
+  "JSONCompactCalls": 1,
+  "GzipCalls": 3,
+  "Retries": 0,
+  "OriginalRoundtripReruns": 0,
+  "CompactDecoderCalls": 0,
+  "GzipDecoderCalls": 0,
+  "TimingMeasurements": 0,
+  "MemoryMeasurements": 0,
+  "OriginalAPICalls": 0,
+  "Models": 0,
+  "Fits": 0,
+  "Roles": 0,
+  "NewLabels": 0,
+  "ProtectedFinalReads": 0,
+  "PaidCalls": 0,
+  "SharedEdits": 0,
+  "HFOperations": 0,
+  "TrainingReady": false,
+  "PerformanceApproved": false,
+  "Final2400Complete": false,
+  "GzipRecipe": "Go1.27.1 compress/gzip DefaultCompression=-1; default empty Name/Comment/Extra, zero ModTime, OS255; writer close completes one member. No gzip decoder or runtime performance measurement.",
+  "Scope": "One separate saved-bytes control: same immutable JSON and compact file, minification removes insignificant whitespace without parsing FP64. Existing roundtrip and no-retry ledger unchanged; private outputs only.",
+  "Limitations": "Uncompressed pretty-to-compact reduction combines formatting and representation. Gzip results are compressed transfer/cache byte comparisons, not source/label/behavior/learning or RAM/performance evidence. Decoded JSON64MiB input cap and owned-payload/RSS budgets remain independently applicable. Compression ratios depend on this snapshot/toolchain; future128/512 expansion unmeasured."
+}

@@ -1,0 +1,124 @@
+package pure
+
+import (
+	"errors"
+	"math/big"
+	"reflect"
+	"testing"
+)
+
+func TestLiteralBoundaryAndShape(t *testing.T) {
+	s := LiteralSpecification()
+	if len(s.Goals) != 3 || len(s.Probes) != 24 || s.TrainingReady || s.NewLabels != 0 {
+		t.Fatal("scope")
+	}
+	max, _ := new(big.Int).SetString("18446744073709551615", 10)
+	if new(big.Int).Mul(big.NewInt(2), big.NewInt(1024)).Uint64() != s.Probes[1].Want.Value {
+		t.Fatal("two-kb")
+	}
+	floor := new(big.Int).Div(new(big.Int).Set(max), big.NewInt(1024))
+	if floor.String() != "18014398509481983" {
+		t.Fatal("floor")
+	}
+	if new(big.Int).Mul(floor, big.NewInt(1024)).Uint64() != s.Probes[4].Want.Value {
+		t.Fatal("floor-product")
+	}
+	over := new(big.Int).Mul(new(big.Int).Add(floor, big.NewInt(1)), big.NewInt(1024))
+	if over.Cmp(max) <= 0 || s.Probes[6].Want.Error.Kind != "range" {
+		t.Fatal("overflow")
+	}
+	for i, p := range s.Probes {
+		if p.ID == "" {
+			t.Fatal("id")
+		}
+		for _, old := range s.Probes[:i] {
+			if p.ID == old.ID {
+				t.Fatal("duplicate")
+			}
+		}
+	}
+}
+func TestStubCompleteMismatchAndOwnedArrays(t *testing.T) {
+	s := LiteralSpecification()
+	calls, checkpoints := 0, 0
+	r, err := Observe(s, "want", "plan", func(p Probe) Observation {
+		calls++
+		v := clone(p.Want)
+		if p.ID == "ds-two-kb" {
+			v.Value = 2000
+		}
+		return v
+	}, func(r Result) error {
+		checkpoints++
+		b, e := Encode(r)
+		if e != nil || len(b) >= 1<<20 {
+			t.Fatal("serialization")
+		}
+		return nil
+	})
+	if err != nil || calls != 24 || checkpoints != 49 || r.DispatchReserved != 24 || r.OriginalReturns != 24 || r.Differences != 1 || r.Matches != 23 || r.State != "completed_finite_observations_with_differences" {
+		t.Fatal("counters")
+	}
+	for i, p := range s.Probes {
+		if len(p.Want.Tokens) > 0 {
+			before := r.Records[i].Probe.Want.Tokens[0]
+			p.Want.Tokens[0] = "mutated"
+			if r.Records[i].Probe.Want.Tokens[0] != before || r.Records[i].Got.Tokens[0] != before {
+				t.Fatal("ownership")
+			}
+			break
+		}
+	}
+	if r.TrainingReady || r.BroadTruthProven || r.NewLabels != 0 || r.Fits != 0 {
+		t.Fatal("qualification")
+	}
+}
+func TestCheckpointBeforeDispatchAndPanicPrefix(t *testing.T) {
+	s := LiteralSpecification()
+	calls := 0
+	r, e := Observe(s, "want", "plan", func(p Probe) Observation { calls++; return p.Want }, func(Result) error { return errors.New("toy") })
+	if e == nil || calls != 0 || r.DispatchReserved != 1 || len(r.Records) != 0 {
+		t.Fatal("reservation")
+	}
+	checkpoints := 0
+	r, e = Observe(s, "want", "plan", func(p Probe) Observation {
+		calls++
+		if p.ID == "ds-empty" {
+			panic("private toy payload")
+		}
+		return p.Want
+	}, func(Result) error {
+		checkpoints++
+		if checkpoints == 4 {
+			return errors.New("toy")
+		}
+		return nil
+	})
+	if e == nil || calls != 2 || r.WrapperPanics != 1 || r.OriginalReturns != 1 || len(r.Records) != 2 || r.Records[0].Got.Error.Text != "upstream_panic_redacted" {
+		t.Fatal("prefix")
+	}
+}
+func TestNullVersusEmptyAndValueOrderRemainObservable(t *testing.T) {
+	a := Observation{Tokens: []string{}}
+	b := Observation{Tokens: nil, TokensNil: true}
+	if reflect.DeepEqual(a, b) {
+		t.Fatal("token-null")
+	}
+	a = Observation{QueryValues: []Entry{}, QueryValuesNil: false}
+	b = Observation{QueryValues: nil, QueryValuesNil: true}
+	if reflect.DeepEqual(a, b) {
+		t.Fatal("map-null")
+	}
+	a = Observation{QueryValues: []Entry{{"tag", []string{"a", "b", "a"}}}}
+	b = Observation{QueryValues: []Entry{{"tag", []string{"a", "a", "b"}}}}
+	if reflect.DeepEqual(a, b) {
+		t.Fatal("value-order")
+	}
+	s := LiteralSpecification()
+	s.Probes = make([]Probe, MaxProbes+1)
+	calls := 0
+	_, e := Observe(s, "want", "plan", func(Probe) Observation { calls++; return Observation{} }, func(Result) error { return nil })
+	if e == nil || calls != 0 {
+		t.Fatal("bound")
+	}
+}

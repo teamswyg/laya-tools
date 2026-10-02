@@ -1,0 +1,54 @@
+{
+  "schema": "riido-first-three-observer-independent-mechanics-receipt-v1",
+  "state": "bounded_source_and_frozen_byte_review_no_launch_blocker",
+  "observer_handoff": {"id": "FIRST-THREE-OBSERVER-HANDOFF.v1.json", "bytes": 24791, "sha256": "39e426eac4f87d98e05fa02b0d82d19f1a930ee39ecec88063a24146177b55a1"},
+  "draft": {"id": "execution-plan.v1.draft.json", "bytes": 5598, "sha256": "e8d53652d0023b61d6a0c6ec0bec72d3f016c3760cc2c1c6de1330aac0b881b2"},
+  "want": {"id": "wants.v1.json", "bytes": 16691, "sha256": "25ba0b259965a429a2198938e2238677985a5f7fa9714a62ce5a4339741beb25"},
+  "binary": {"id": "bin/first-three-observer", "bytes": 5015202, "sha256": "5f230c59b1849e23f32cf57c94f3d1b165c4d23d61421f721a96093398268210"},
+  "read_source_pins": [
+    {"id": "cmd/observe/main.go", "bytes": 11208, "sha256": "8e6b6730f939e74b0de6514ef4e41f39b012708543678a59b68f031681a247f8"},
+    {"id": "pure/spec.go", "bytes": 10088, "sha256": "084ebfe10e184a4e3f6cf08d5066699299b677af5b7e72cc8ae58ef7f3518e7c"},
+    {"id": "pure/plan.go", "bytes": 1151, "sha256": "811d148259e89d01577d61e3172405548e3a26900fad72eda93a4d51a006d5d7"},
+    {"id": "pure/spec_test.go", "bytes": 3746, "sha256": "32bab44d5ee21186b7f47fbf7de3cce109352545a167bc395701cd531fcad162"}
+  ],
+  "mechanical_checks": {
+    "original_closed_asset_bindings_verified": 10,
+    "all_plan_closed_asset_bindings_verified": 21,
+    "original_source_bytes": 39013,
+    "frozen_handoff_want_structs_exactly_equal": true,
+    "uint64_max_decoded_without_float64_rounding": true,
+    "go_build_information_only": "go1.27.1, CGO0, trimpath, darwin/arm64, exactly three original modules with fixed local replacements",
+    "original_binary_executions": 0
+  },
+  "source_review": [
+    "Exactly three direct dispatch branches: datasize.UnmarshalText, query.Values, shlex.Split; literal specification fixes 10/6/8 probes. Helper/getter/internal calls are not separate primary API counts.",
+    "Worker verifies runtime CPU1/soft heap, fixed budgets and qualification=false, source/Want/binary pins before dispatch. Literal Want byte equality is against the compiled pure specification. Root controller verifies the exact 21-entry ordered closure.",
+    "New attempt directory, O_EXCL reservation.json and reserved final results.json precede direct API dispatch. Files and child directory are fsynced. Before each call, DispatchReserved and ActiveProbeID are saved through a fsynced temporary file, atomic rename, and child-directory fsync.",
+    "A failed pre-call checkpoint prevents that callback. Returns and wrapper panics are distinct; a saved prefix may have exactly one reserved in-flight call. Post-return and final checkpoints preserve differences without rewriting Want.",
+    "Nil and allocated-empty token slices/maps remain observable. Query keys are sorted but repeated value order is preserved. Returned observations and copied Want arrays are owned independently.",
+    "Panic payloads and unclassified error strings are redacted. Accepted classified error text refers only to fixed public probe inputs. CLI errors are fixed strings. No stdin/env/FS-execution API or actor callback is dispatched.",
+    "Complete finite differences exit normally and remain differences. No general no-panic guarantee, new parent labels, or caption/training approval is inferred."
+  ],
+  "trust_and_limits": [
+    "Reviewer authored the preceding source inventory/import-build preparation, not this observer. Observer mechanics review is independent of observer authorship but is not blind and is not independent source-origin proof. Want semantic review is performed separately.",
+    "The observer is reviewed behind the exact frozen root controller, not as a general untrusted-plan runner; its standalone JSON/closure checks are narrower than the controller checks.",
+    "Imported Go package initialization runs before worker main after child Start. Source-visible initializers are read-only observations, not dynamically instrumented counts and not part of the 24 direct API counters.",
+    "Last synced partial prefix is the available evidence after process termination. The newly created child directory entry is not separately fsynced in its parent by the worker; universal power-loss durability is not asserted.",
+    "Outside 60-second kill/Wait and nullable whole-child resource fields are controller responsibilities. Heap setting is soft, RSS is observed rather than hard-capped. No resource performance claim is established here.",
+    "Source/binary SHA and trusted compiler metadata do not formally prove a trusted compiler. No original API result, model quality, exhaustive behavior, or generalization claim is established."
+  ],
+  "actual_review_attempts": 1,
+  "actual_review_failures": 0,
+  "metadata_binding_test_invocations": 1,
+  "metadata_binding_test_failures": 0,
+  "observer_tests_executed_by_reviewer": 0,
+  "original_api_calls": 0,
+  "original_package_initialization_executions": 0,
+  "observer_binary_invocations": 0,
+  "controller_invocations": 0,
+  "new_parents": 0, "new_labels": 0, "model_calls": 0,
+  "fits": 0, "paid_calls": 0, "protected_final_reads": 0,
+  "hf_operations": 0, "shared_edits": 0, "remote_mutations": 0,
+  "captions_qualified": false, "parent_labels_qualified": false,
+  "broad_truth_proven": false, "training_ready": false
+}
