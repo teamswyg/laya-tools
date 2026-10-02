@@ -10,6 +10,6 @@ CI는 `scripts/verify-next60-development.sh checkpoint`로 [직접 작성한 두
 
 [실행 통제 준비](../next60-four-selector-outside-preparation/README.ko.md)에는 가짜 시작·대기·시간 초과와 결과 메타데이터 검사 8개를 별도로 추가했습니다. 실제 원본 호출 57회는 이 합성 검사와 구분합니다.
 
-[수정 전후 준비 자료](preparation-v2/README.ko.md)와 [원본 선택 검토](../next60-four-selector-selection/README.ko.md)를 보존합니다. 현재 새 라운드의 적격 요청은 여전히 3개입니다. 추가 학습은 30개·60개 점검 계획에 따릅니다.
+[수정 전후 준비 자료](preparation-v2/README.ko.md)와 [원본 선택 검토](../next60-four-selector-selection/README.ko.md)를 보존합니다. 이후 [실제 57개 관측과 독립 검토](../next60-four-selector-actual-observation/README.ko.md)를 완료해 새 라운드의 적격 요청은 7개가 됐습니다. 이 문서의 합성 테스트는 실제 관측과 별도입니다. 추가 학습은 30개·60개 점검 계획에 따릅니다.
 
 [English](README.en.md)

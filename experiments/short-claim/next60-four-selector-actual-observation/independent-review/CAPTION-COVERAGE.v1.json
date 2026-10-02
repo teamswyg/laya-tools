@@ -1,0 +1,196 @@
+{
+  "schema": "riidolaya-four-selector-caption-scope-review-v1",
+  "state": "saved_finite_caption_coverage_review_not_qualification",
+  "model_calls": 0,
+  "source_captions_changed": 0,
+  "scope_rule": "Original broader task text is history. Current proposed request/candidate texts are evaluated only within the frozen finite input set; no whole-API implementation or general contract proof follows.",
+  "requests": [
+    {
+      "parent_id": "next60-humanize-strict-comma",
+      "original_ordinal": 1,
+      "finite_inputs": 6,
+      "request_text": "Parse ASCII integers with optional sign and no whitespace; allow ungrouped digits or comma groups of one to three initial digits followed by exactly three; zero on grammar or overflow errors.",
+      "request_bytes": 191,
+      "request_static_alphanumeric_words": 31,
+      "original_request_history": "Add ParseCommaStrict accepting ungrouped integers or canonical three-digit comma groups and rejecting malformed grouping.",
+      "coverage": "faithful_to_owned_wrapper_and_frozen_input_scope",
+      "candidates": [
+        {
+          "candidate_index": 0,
+          "candidate_id": "baseline-design",
+          "text": "Use the original comma parser, removing all commas before checked integer parsing.",
+          "bytes": 82,
+          "static_alphanumeric_words": 12,
+          "coverage": "faithful_to_reviewed_source_and_saved_observation",
+          "label": null,
+          "role": null,
+          "weight": null
+        },
+        {
+          "candidate_index": 1,
+          "candidate_id": "reference-design",
+          "text": "Check signed ASCII comma groups first, parse an int64, and return zero for grammar or range errors.",
+          "bytes": 99,
+          "static_alphanumeric_words": 17,
+          "coverage": "faithful_to_reviewed_source_and_saved_observation",
+          "label": null,
+          "role": null,
+          "weight": null
+        },
+        {
+          "candidate_index": 2,
+          "candidate_id": "wrong-seed-design",
+          "text": "Call the original comma parser directly and retain its permissive grouping behavior.",
+          "bytes": 84,
+          "static_alphanumeric_words": 12,
+          "coverage": "faithful_to_reviewed_source_and_saved_observation",
+          "label": null,
+          "role": null,
+          "weight": null
+        }
+      ]
+    },
+    {
+      "parent_id": "next60-mapstructure-key-collision",
+      "original_ordinal": 4,
+      "finite_inputs": 4,
+      "request_text": "For the Name string field with case insensitive matching, reject every multiple matching key before assignment, including equal values or exact spelling; return sorted conflicting keys.",
+      "request_bytes": 185,
+      "request_static_alphanumeric_words": 26,
+      "original_request_history": "Add an opt-in ambiguity error when multiple input keys match one destination field through MatchName; do not resolve the conflict by random map order.",
+      "coverage": "faithful_to_owned_wrapper_and_frozen_input_scope",
+      "candidates": [
+        {
+          "candidate_index": 0,
+          "candidate_id": "baseline-design",
+          "text": "Decode Name with original case insensitive matching; preserve exact key lookup and fallback selection.",
+          "bytes": 102,
+          "static_alphanumeric_words": 14,
+          "coverage": "faithful_to_reviewed_source_and_saved_observation",
+          "label": null,
+          "role": null,
+          "weight": null
+        },
+        {
+          "candidate_index": 1,
+          "candidate_id": "reference-design",
+          "text": "Sort every matching Name key; reject collisions before writing; otherwise use the original decoder.",
+          "bytes": 99,
+          "static_alphanumeric_words": 14,
+          "coverage": "faithful_to_reviewed_source_and_saved_observation",
+          "label": null,
+          "role": null,
+          "weight": null
+        },
+        {
+          "candidate_index": 2,
+          "candidate_id": "wrong-seed-design",
+          "text": "Sort matching keys and assign the first value without reporting collisions.",
+          "bytes": 75,
+          "static_alphanumeric_words": 11,
+          "coverage": "faithful_to_reviewed_source_and_saved_observation",
+          "label": null,
+          "role": null,
+          "weight": null
+        }
+      ]
+    },
+    {
+      "parent_id": "next60-pflag-map-snapshot",
+      "original_ordinal": 5,
+      "finite_inputs": 4,
+      "request_text": "Return an independent snapshot of string to string flag maps; preserve nil and missing flag errors and the legacy shared getter. Mutations must not cross snapshot and live maps.",
+      "request_bytes": 177,
+      "request_static_alphanumeric_words": 29,
+      "original_request_history": "Add a snapshot getter for string-to-string flags that returns an independent map while preserving the existing documented shared-map getter.",
+      "coverage": "faithful_to_owned_wrapper_and_frozen_input_scope",
+      "candidates": [
+        {
+          "candidate_index": 0,
+          "candidate_id": "baseline-design",
+          "text": "Return the legacy getter map and preserve its shared storage.",
+          "bytes": 61,
+          "static_alphanumeric_words": 10,
+          "coverage": "faithful_to_reviewed_source_and_saved_observation",
+          "label": null,
+          "role": null,
+          "weight": null
+        },
+        {
+          "candidate_index": 1,
+          "candidate_id": "reference-design",
+          "text": "Copy successful map entries into new storage, preserve nil and getter errors, and leave the legacy getter unchanged.",
+          "bytes": 116,
+          "static_alphanumeric_words": 18,
+          "coverage": "faithful_to_reviewed_source_and_saved_observation",
+          "label": null,
+          "role": null,
+          "weight": null
+        },
+        {
+          "candidate_index": 2,
+          "candidate_id": "wrong-seed-design",
+          "text": "Copy a struct containing the original map without copying its storage.",
+          "bytes": 70,
+          "static_alphanumeric_words": 11,
+          "coverage": "faithful_to_reviewed_source_and_saved_observation",
+          "label": null,
+          "role": null,
+          "weight": null
+        }
+      ]
+    },
+    {
+      "parent_id": "next60-humanize-fractional-bytes",
+      "original_ordinal": 9,
+      "finite_inputs": 5,
+      "request_text": "Parse nonnegative ASCII decimal sizes using existing byte units exactly; preserve whole numbers, reject uint64 overflow before truncating fractions, and return zero on error.",
+      "request_bytes": 174,
+      "request_static_alphanumeric_words": 24,
+      "original_request_history": "Make ParseBytes evaluate fractional decimal sizes with exact arithmetic, checking the uint64 range before truncating toward zero.",
+      "coverage": "faithful_to_owned_wrapper_and_frozen_input_scope",
+      "candidates": [
+        {
+          "candidate_index": 0,
+          "candidate_id": "baseline-design",
+          "text": "Call original ParseBytes: checked integer arithmetic for whole numbers and float64 multiplication for decimals.",
+          "bytes": 111,
+          "static_alphanumeric_words": 15,
+          "coverage": "faithful_to_reviewed_source_and_saved_observation",
+          "label": null,
+          "role": null,
+          "weight": null
+        },
+        {
+          "candidate_index": 1,
+          "candidate_id": "reference-design",
+          "text": "Evaluate decimal scaling exactly; check the rational uint64 range before truncating; delegate whole numbers to the original parser.",
+          "bytes": 131,
+          "static_alphanumeric_words": 18,
+          "coverage": "faithful_to_reviewed_source_and_saved_observation",
+          "label": null,
+          "role": null,
+          "weight": null
+        },
+        {
+          "candidate_index": 2,
+          "candidate_id": "wrong-seed-design",
+          "text": "Compute decimals exactly but truncate before testing the uint64 range.",
+          "bytes": 70,
+          "static_alphanumeric_words": 10,
+          "coverage": "faithful_to_reviewed_source_and_saved_observation",
+          "label": null,
+          "role": null,
+          "weight": null
+        }
+      ]
+    }
+  ],
+  "limitations": [
+    "Comma candidates 0/2 share one original implementation; different captions do not create independent parents or implementations.",
+    "Collision scope is only one Name string field; a full DecoderConfig option is not implemented or evaluated.",
+    "Snapshot sharing is specific to the exact pflag revision; other revisions were not executed.",
+    "Five byte cases are decimal ASCII inputs using B/KiB; whole delegation is source-reviewed only. General units/grammar/Unicode regression is not established.",
+    "No IDs, source references, Want/Got, outcomes, counters, roles, groups, weights or hashes may become model features. Only separately qualified request/candidate texts are eligible."
+  ]
+}
