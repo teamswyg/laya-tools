@@ -1,0 +1,4102 @@
+{
+  "Schema": "riido-bounded-development-rank-bce-fit-result-v1",
+  "State": "completed_primary_fit_and_same_validation_utility_no_publication_or_production_approval",
+  "Failure": "",
+  "PlanSHA": "17afbf5c8d14fdd34f7c627d7b43b9582793984d010f52118f408b287bbc7daf",
+  "RuntimeGo": "go1.27.1",
+  "Counts": {
+    "FitAttempts": 1,
+    "FitReturned": 1,
+    "FitSuccessful": 1,
+    "EncodeAttempts": 1,
+    "DecodeAttempts": 1,
+    "NLLRechecks": 2,
+    "ControlParentAttempts": 15,
+    "CachedScoreRows": 45,
+    "EncodeReturned": 1,
+    "DecodeReturned": 1,
+    "NLLReturned": 2,
+    "ControlParentReturned": 15,
+    "FeaturesCalls": 0,
+    "PrepareCalls": 0,
+    "ProjectCalls": 0,
+    "NewRoles": 0,
+    "NewLabels": 0,
+    "ProtectedFinalReads": 0,
+    "PaidOrJudgeAPICalls": 0,
+    "TrainerInternalScoring": "FitWithRankingTrace lambda1 internal Quantize/BCE-NLL/pair-NLL/score calls uninstrumented; one explicit Fit entry plus separate finite BCE and pair epoch traces; local cached score rows counted. This is the second corpus fit, not a zero-cost AI collaboration claim."
+  },
+  "Trace": {
+    "Schema": "riido-pairlearn-epoch-trace-v1",
+    "Mode": "fp32",
+    "Precision": "Coefficients are rounded to float32 before scoring; shadow weights, gradients and loss accumulation use float64.",
+    "Training": {
+      "Rows": 91,
+      "ZeroWeightRows": 18,
+      "SampleWeightSum": 73
+    },
+    "Validation": {
+      "Rows": 45,
+      "ZeroWeightRows": 1,
+      "SampleWeightSum": 44
+    },
+    "Epochs": [
+      {
+        "Epoch": 1,
+        "TrainingNLL": 0.6909758182540825,
+        "ValidationNLL": 0.6933573596106263,
+        "IsNewBest": true,
+        "BestEpochSoFar": 1
+      },
+      {
+        "Epoch": 2,
+        "TrainingNLL": 0.6896234172468205,
+        "ValidationNLL": 0.6932552560970175,
+        "IsNewBest": true,
+        "BestEpochSoFar": 2
+      },
+      {
+        "Epoch": 3,
+        "TrainingNLL": 0.6882769593281374,
+        "ValidationNLL": 0.693153281565423,
+        "IsNewBest": true,
+        "BestEpochSoFar": 3
+      },
+      {
+        "Epoch": 4,
+        "TrainingNLL": 0.6869364139048744,
+        "ValidationNLL": 0.6930514384696509,
+        "IsNewBest": true,
+        "BestEpochSoFar": 4
+      },
+      {
+        "Epoch": 5,
+        "TrainingNLL": 0.6856017505273111,
+        "ValidationNLL": 0.6929497293153456,
+        "IsNewBest": true,
+        "BestEpochSoFar": 5
+      },
+      {
+        "Epoch": 6,
+        "TrainingNLL": 0.6842729385391899,
+        "ValidationNLL": 0.6928481564352235,
+        "IsNewBest": true,
+        "BestEpochSoFar": 6
+      },
+      {
+        "Epoch": 7,
+        "TrainingNLL": 0.6829499477956654,
+        "ValidationNLL": 0.6927467223965483,
+        "IsNewBest": true,
+        "BestEpochSoFar": 7
+      },
+      {
+        "Epoch": 8,
+        "TrainingNLL": 0.6816327479217245,
+        "ValidationNLL": 0.6926454296110767,
+        "IsNewBest": true,
+        "BestEpochSoFar": 8
+      },
+      {
+        "Epoch": 9,
+        "TrainingNLL": 0.6803213087634801,
+        "ValidationNLL": 0.6925442806281491,
+        "IsNewBest": true,
+        "BestEpochSoFar": 9
+      },
+      {
+        "Epoch": 10,
+        "TrainingNLL": 0.6790156002480664,
+        "ValidationNLL": 0.692443277733139,
+        "IsNewBest": true,
+        "BestEpochSoFar": 10
+      },
+      {
+        "Epoch": 11,
+        "TrainingNLL": 0.6777155924460716,
+        "ValidationNLL": 0.6923424235280007,
+        "IsNewBest": true,
+        "BestEpochSoFar": 11
+      },
+      {
+        "Epoch": 12,
+        "TrainingNLL": 0.6764212553956748,
+        "ValidationNLL": 0.6922417204231036,
+        "IsNewBest": true,
+        "BestEpochSoFar": 12
+      },
+      {
+        "Epoch": 13,
+        "TrainingNLL": 0.6751325593499834,
+        "ValidationNLL": 0.6921411709635752,
+        "IsNewBest": true,
+        "BestEpochSoFar": 13
+      },
+      {
+        "Epoch": 14,
+        "TrainingNLL": 0.6738494746987117,
+        "ValidationNLL": 0.692040777354334,
+        "IsNewBest": true,
+        "BestEpochSoFar": 14
+      },
+      {
+        "Epoch": 15,
+        "TrainingNLL": 0.6725719716868651,
+        "ValidationNLL": 0.6919405422002507,
+        "IsNewBest": true,
+        "BestEpochSoFar": 15
+      },
+      {
+        "Epoch": 16,
+        "TrainingNLL": 0.6713000210352791,
+        "ValidationNLL": 0.6918404680067225,
+        "IsNewBest": true,
+        "BestEpochSoFar": 16
+      },
+      {
+        "Epoch": 17,
+        "TrainingNLL": 0.6700335932221764,
+        "ValidationNLL": 0.6917405569273337,
+        "IsNewBest": true,
+        "BestEpochSoFar": 17
+      },
+      {
+        "Epoch": 18,
+        "TrainingNLL": 0.6687726590190213,
+        "ValidationNLL": 0.691640811611586,
+        "IsNewBest": true,
+        "BestEpochSoFar": 18
+      },
+      {
+        "Epoch": 19,
+        "TrainingNLL": 0.6675171892702111,
+        "ValidationNLL": 0.6915412344474438,
+        "IsNewBest": true,
+        "BestEpochSoFar": 19
+      },
+      {
+        "Epoch": 20,
+        "TrainingNLL": 0.6662671549185231,
+        "ValidationNLL": 0.6914418275722664,
+        "IsNewBest": true,
+        "BestEpochSoFar": 20
+      },
+      {
+        "Epoch": 21,
+        "TrainingNLL": 0.6650225270307184,
+        "ValidationNLL": 0.6913425937145354,
+        "IsNewBest": true,
+        "BestEpochSoFar": 21
+      },
+      {
+        "Epoch": 22,
+        "TrainingNLL": 0.6637832767362062,
+        "ValidationNLL": 0.6912435350029094,
+        "IsNewBest": true,
+        "BestEpochSoFar": 22
+      },
+      {
+        "Epoch": 23,
+        "TrainingNLL": 0.6625493752902959,
+        "ValidationNLL": 0.6911446537640701,
+        "IsNewBest": true,
+        "BestEpochSoFar": 23
+      },
+      {
+        "Epoch": 24,
+        "TrainingNLL": 0.6613207941853262,
+        "ValidationNLL": 0.6910459525326746,
+        "IsNewBest": true,
+        "BestEpochSoFar": 24
+      },
+      {
+        "Epoch": 25,
+        "TrainingNLL": 0.6600975048234573,
+        "ValidationNLL": 0.6909474334103227,
+        "IsNewBest": true,
+        "BestEpochSoFar": 25
+      },
+      {
+        "Epoch": 26,
+        "TrainingNLL": 0.6588794787888334,
+        "ValidationNLL": 0.6908490987373025,
+        "IsNewBest": true,
+        "BestEpochSoFar": 26
+      },
+      {
+        "Epoch": 27,
+        "TrainingNLL": 0.657666687929457,
+        "ValidationNLL": 0.6907509510051381,
+        "IsNewBest": true,
+        "BestEpochSoFar": 27
+      },
+      {
+        "Epoch": 28,
+        "TrainingNLL": 0.6564591038707244,
+        "ValidationNLL": 0.6906529921197899,
+        "IsNewBest": true,
+        "BestEpochSoFar": 28
+      },
+      {
+        "Epoch": 29,
+        "TrainingNLL": 0.6552566986833613,
+        "ValidationNLL": 0.6905552246774098,
+        "IsNewBest": true,
+        "BestEpochSoFar": 29
+      },
+      {
+        "Epoch": 30,
+        "TrainingNLL": 0.6540594445521859,
+        "ValidationNLL": 0.6904576507387589,
+        "IsNewBest": true,
+        "BestEpochSoFar": 30
+      },
+      {
+        "Epoch": 31,
+        "TrainingNLL": 0.6528673133945213,
+        "ValidationNLL": 0.6903602725679847,
+        "IsNewBest": true,
+        "BestEpochSoFar": 31
+      },
+      {
+        "Epoch": 32,
+        "TrainingNLL": 0.6516802776537192,
+        "ValidationNLL": 0.6902630921597712,
+        "IsNewBest": true,
+        "BestEpochSoFar": 32
+      },
+      {
+        "Epoch": 33,
+        "TrainingNLL": 0.6504983099283136,
+        "ValidationNLL": 0.6901661121948067,
+        "IsNewBest": true,
+        "BestEpochSoFar": 33
+      },
+      {
+        "Epoch": 34,
+        "TrainingNLL": 0.6493213824480416,
+        "ValidationNLL": 0.6900693341520654,
+        "IsNewBest": true,
+        "BestEpochSoFar": 34
+      },
+      {
+        "Epoch": 35,
+        "TrainingNLL": 0.6481494681019911,
+        "ValidationNLL": 0.6899727608519652,
+        "IsNewBest": true,
+        "BestEpochSoFar": 35
+      },
+      {
+        "Epoch": 36,
+        "TrainingNLL": 0.6469825393910599,
+        "ValidationNLL": 0.6898763937183916,
+        "IsNewBest": true,
+        "BestEpochSoFar": 36
+      },
+      {
+        "Epoch": 37,
+        "TrainingNLL": 0.6458205695182913,
+        "ValidationNLL": 0.689780235315025,
+        "IsNewBest": true,
+        "BestEpochSoFar": 37
+      },
+      {
+        "Epoch": 38,
+        "TrainingNLL": 0.6446635313322234,
+        "ValidationNLL": 0.6896842875855355,
+        "IsNewBest": true,
+        "BestEpochSoFar": 38
+      },
+      {
+        "Epoch": 39,
+        "TrainingNLL": 0.6435113979783788,
+        "ValidationNLL": 0.6895885526830292,
+        "IsNewBest": true,
+        "BestEpochSoFar": 39
+      },
+      {
+        "Epoch": 40,
+        "TrainingNLL": 0.6423641427614725,
+        "ValidationNLL": 0.6894930321480321,
+        "IsNewBest": true,
+        "BestEpochSoFar": 40
+      },
+      {
+        "Epoch": 41,
+        "TrainingNLL": 0.6412217390720343,
+        "ValidationNLL": 0.6893977286456896,
+        "IsNewBest": true,
+        "BestEpochSoFar": 41
+      },
+      {
+        "Epoch": 42,
+        "TrainingNLL": 0.6400841604905345,
+        "ValidationNLL": 0.6893026437974549,
+        "IsNewBest": true,
+        "BestEpochSoFar": 42
+      },
+      {
+        "Epoch": 43,
+        "TrainingNLL": 0.638951380304371,
+        "ValidationNLL": 0.6892077794262433,
+        "IsNewBest": true,
+        "BestEpochSoFar": 43
+      },
+      {
+        "Epoch": 44,
+        "TrainingNLL": 0.6378233726042359,
+        "ValidationNLL": 0.6891131377662112,
+        "IsNewBest": true,
+        "BestEpochSoFar": 44
+      },
+      {
+        "Epoch": 45,
+        "TrainingNLL": 0.6367001112692952,
+        "ValidationNLL": 0.6890187206601103,
+        "IsNewBest": true,
+        "BestEpochSoFar": 45
+      },
+      {
+        "Epoch": 46,
+        "TrainingNLL": 0.635581569959371,
+        "ValidationNLL": 0.6889245293895773,
+        "IsNewBest": true,
+        "BestEpochSoFar": 46
+      },
+      {
+        "Epoch": 47,
+        "TrainingNLL": 0.6344677230018819,
+        "ValidationNLL": 0.6888305665367581,
+        "IsNewBest": true,
+        "BestEpochSoFar": 47
+      },
+      {
+        "Epoch": 48,
+        "TrainingNLL": 0.6333585449087455,
+        "ValidationNLL": 0.6887368339697691,
+        "IsNewBest": true,
+        "BestEpochSoFar": 48
+      },
+      {
+        "Epoch": 49,
+        "TrainingNLL": 0.6322540097848958,
+        "ValidationNLL": 0.6886433332375735,
+        "IsNewBest": true,
+        "BestEpochSoFar": 49
+      },
+      {
+        "Epoch": 50,
+        "TrainingNLL": 0.6311540918774127,
+        "ValidationNLL": 0.6885500655576609,
+        "IsNewBest": true,
+        "BestEpochSoFar": 50
+      }
+    ],
+    "SelectedEpoch": 50,
+    "Complete": true,
+    "FailureEpoch": 0,
+    "FailureKind": ""
+  },
+  "RankingTrace": {
+    "Schema": "riido-pairlearn-same-parent-ranking-v1",
+    "Enabled": true,
+    "Lambda": 1,
+    "Training": {
+      "Rows": 91,
+      "Parents": 31,
+      "NoAnswerParents": 9,
+      "EligibleParents": 16,
+      "ZeroWeightPairs": 16,
+      "ParentIDs": [
+        16,
+        16,
+        17,
+        17,
+        17,
+        17,
+        20,
+        20,
+        21,
+        21,
+        21,
+        21,
+        24,
+        24,
+        25,
+        25,
+        25,
+        25,
+        28,
+        28,
+        29,
+        29,
+        29,
+        29,
+        32,
+        32,
+        33,
+        33,
+        33,
+        33,
+        40,
+        40,
+        41,
+        41,
+        41,
+        41,
+        44,
+        44,
+        45,
+        45,
+        45,
+        45,
+        48,
+        48,
+        49,
+        49,
+        52,
+        52,
+        53,
+        53,
+        72,
+        73,
+        74,
+        74,
+        75,
+        75
+      ],
+      "PositiveRows": [
+        0,
+        0,
+        4,
+        4,
+        6,
+        6,
+        11,
+        11,
+        13,
+        13,
+        15,
+        15,
+        19,
+        19,
+        22,
+        22,
+        24,
+        24,
+        27,
+        27,
+        31,
+        31,
+        33,
+        33,
+        38,
+        38,
+        40,
+        40,
+        42,
+        42,
+        45,
+        45,
+        49,
+        49,
+        51,
+        51,
+        56,
+        56,
+        58,
+        58,
+        60,
+        60,
+        64,
+        64,
+        67,
+        67,
+        72,
+        72,
+        75,
+        75,
+        81,
+        84,
+        86,
+        86,
+        88,
+        90
+      ],
+      "NegativeRows": [
+        1,
+        2,
+        3,
+        5,
+        3,
+        5,
+        9,
+        10,
+        12,
+        14,
+        12,
+        14,
+        18,
+        20,
+        21,
+        23,
+        21,
+        23,
+        28,
+        29,
+        30,
+        32,
+        30,
+        32,
+        36,
+        37,
+        39,
+        41,
+        39,
+        41,
+        46,
+        47,
+        48,
+        50,
+        48,
+        50,
+        54,
+        55,
+        57,
+        59,
+        57,
+        59,
+        63,
+        65,
+        66,
+        68,
+        73,
+        74,
+        76,
+        77,
+        82,
+        83,
+        85,
+        87,
+        89,
+        89
+      ],
+      "Weights": [
+        0.03125,
+        0.03125,
+        0.015625,
+        0.015625,
+        0.015625,
+        0.015625,
+        0.03125,
+        0.03125,
+        0.015625,
+        0.015625,
+        0.015625,
+        0.015625,
+        0.03125,
+        0.03125,
+        0.015625,
+        0.015625,
+        0.015625,
+        0.015625,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0.03125,
+        0.03125,
+        0,
+        0,
+        0.03125,
+        0.03125,
+        0.03125,
+        0.03125,
+        0.015625,
+        0.015625,
+        0.015625,
+        0.015625,
+        0.03125,
+        0.03125,
+        0.015625,
+        0.015625,
+        0.015625,
+        0.015625,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0.0625,
+        0.0625,
+        0.03125,
+        0.03125,
+        0.03125,
+        0.03125
+      ],
+      "PayloadBytes": 2528
+    },
+    "Validation": {
+      "Rows": 45,
+      "Parents": 15,
+      "NoAnswerParents": 5,
+      "EligibleParents": 10,
+      "ZeroWeightPairs": 2,
+      "ParentIDs": [
+        4,
+        4,
+        5,
+        5,
+        5,
+        5,
+        8,
+        8,
+        9,
+        9,
+        9,
+        9,
+        12,
+        12,
+        13,
+        13,
+        13,
+        13,
+        36,
+        36,
+        37,
+        37,
+        37,
+        37,
+        60,
+        60,
+        61,
+        61
+      ],
+      "PositiveRows": [
+        0,
+        0,
+        4,
+        4,
+        6,
+        6,
+        11,
+        11,
+        13,
+        13,
+        15,
+        15,
+        19,
+        19,
+        22,
+        22,
+        24,
+        24,
+        28,
+        28,
+        31,
+        31,
+        33,
+        33,
+        37,
+        37,
+        40,
+        40
+      ],
+      "NegativeRows": [
+        1,
+        2,
+        3,
+        5,
+        3,
+        5,
+        9,
+        10,
+        12,
+        14,
+        12,
+        14,
+        18,
+        20,
+        21,
+        23,
+        21,
+        23,
+        27,
+        29,
+        30,
+        32,
+        30,
+        32,
+        36,
+        38,
+        39,
+        41
+      ],
+      "Weights": [
+        0.05,
+        0.05,
+        0.025,
+        0.025,
+        0.025,
+        0.025,
+        0.05,
+        0.05,
+        0,
+        0,
+        0.05,
+        0.05,
+        0.05,
+        0.05,
+        0.025,
+        0.025,
+        0.025,
+        0.025,
+        0.05,
+        0.05,
+        0.025,
+        0.025,
+        0.025,
+        0.025,
+        0.05,
+        0.05,
+        0.05,
+        0.05
+      ],
+      "PayloadBytes": 1264
+    },
+    "Epochs": [
+      {
+        "Epoch": 1,
+        "Training": {
+          "Defined": true,
+          "Value": 0.6924595447102165
+        },
+        "Validation": {
+          "Defined": true,
+          "Value": 0.6944096940198118
+        }
+      },
+      {
+        "Epoch": 2,
+        "Training": {
+          "Defined": true,
+          "Value": 0.6901386579820976
+        },
+        "Validation": {
+          "Defined": true,
+          "Value": 0.694371602256313
+        }
+      },
+      {
+        "Epoch": 3,
+        "Training": {
+          "Defined": true,
+          "Value": 0.6878318740412682
+        },
+        "Validation": {
+          "Defined": true,
+          "Value": 0.6943336809826064
+        }
+      },
+      {
+        "Epoch": 4,
+        "Training": {
+          "Defined": true,
+          "Value": 0.6855390956285357
+        },
+        "Validation": {
+          "Defined": true,
+          "Value": 0.6942959294519634
+        }
+      },
+      {
+        "Epoch": 5,
+        "Training": {
+          "Defined": true,
+          "Value": 0.6832602259026865
+        },
+        "Validation": {
+          "Defined": true,
+          "Value": 0.6942583467891076
+        }
+      },
+      {
+        "Epoch": 6,
+        "Training": {
+          "Defined": true,
+          "Value": 0.6809951680788405
+        },
+        "Validation": {
+          "Defined": true,
+          "Value": 0.694220931957335
+        }
+      },
+      {
+        "Epoch": 7,
+        "Training": {
+          "Defined": true,
+          "Value": 0.6787438259979108
+        },
+        "Validation": {
+          "Defined": true,
+          "Value": 0.694183684306008
+        }
+      },
+      {
+        "Epoch": 8,
+        "Training": {
+          "Defined": true,
+          "Value": 0.6765061038617101
+        },
+        "Validation": {
+          "Defined": true,
+          "Value": 0.6941466029412323
+        }
+      },
+      {
+        "Epoch": 9,
+        "Training": {
+          "Defined": true,
+          "Value": 0.6742819058510982
+        },
+        "Validation": {
+          "Defined": true,
+          "Value": 0.6941096868417792
+        }
+      },
+      {
+        "Epoch": 10,
+        "Training": {
+          "Defined": true,
+          "Value": 0.6720711370513783
+        },
+        "Validation": {
+          "Defined": true,
+          "Value": 0.6940729352382645
+        }
+      },
+      {
+        "Epoch": 11,
+        "Training": {
+          "Defined": true,
+          "Value": 0.6698737025105798
+        },
+        "Validation": {
+          "Defined": true,
+          "Value": 0.6940363470964083
+        }
+      },
+      {
+        "Epoch": 12,
+        "Training": {
+          "Defined": true,
+          "Value": 0.6676895077309527
+        },
+        "Validation": {
+          "Defined": true,
+          "Value": 0.6939999217759519
+        }
+      },
+      {
+        "Epoch": 13,
+        "Training": {
+          "Defined": true,
+          "Value": 0.6655184588724403
+        },
+        "Validation": {
+          "Defined": true,
+          "Value": 0.6939636583373922
+        }
+      },
+      {
+        "Epoch": 14,
+        "Training": {
+          "Defined": true,
+          "Value": 0.6633604622854986
+        },
+        "Validation": {
+          "Defined": true,
+          "Value": 0.6939275557247326
+        }
+      },
+      {
+        "Epoch": 15,
+        "Training": {
+          "Defined": true,
+          "Value": 0.6612154246470283
+        },
+        "Validation": {
+          "Defined": true,
+          "Value": 0.6938916133030951
+        }
+      },
+      {
+        "Epoch": 16,
+        "Training": {
+          "Defined": true,
+          "Value": 0.6590832532006375
+        },
+        "Validation": {
+          "Defined": true,
+          "Value": 0.6938558300119705
+        }
+      },
+      {
+        "Epoch": 17,
+        "Training": {
+          "Defined": true,
+          "Value": 0.6569638557246477
+        },
+        "Validation": {
+          "Defined": true,
+          "Value": 0.6938202049785108
+        }
+      },
+      {
+        "Epoch": 18,
+        "Training": {
+          "Defined": true,
+          "Value": 0.654857140016115
+        },
+        "Validation": {
+          "Defined": true,
+          "Value": 0.6937847374685272
+        }
+      },
+      {
+        "Epoch": 19,
+        "Training": {
+          "Defined": true,
+          "Value": 0.6527630147534131
+        },
+        "Validation": {
+          "Defined": true,
+          "Value": 0.6937494264356161
+        }
+      },
+      {
+        "Epoch": 20,
+        "Training": {
+          "Defined": true,
+          "Value": 0.6506813890415502
+        },
+        "Validation": {
+          "Defined": true,
+          "Value": 0.6937142710792471
+        }
+      },
+      {
+        "Epoch": 21,
+        "Training": {
+          "Defined": true,
+          "Value": 0.64861217208288
+        },
+        "Validation": {
+          "Defined": true,
+          "Value": 0.6936792705609707
+        }
+      },
+      {
+        "Epoch": 22,
+        "Training": {
+          "Defined": true,
+          "Value": 0.6465552739609488
+        },
+        "Validation": {
+          "Defined": true,
+          "Value": 0.6936444240090716
+        }
+      },
+      {
+        "Epoch": 23,
+        "Training": {
+          "Defined": true,
+          "Value": 0.644510604881807
+        },
+        "Validation": {
+          "Defined": true,
+          "Value": 0.6936097303780651
+        }
+      },
+      {
+        "Epoch": 24,
+        "Training": {
+          "Defined": true,
+          "Value": 0.6424780756622809
+        },
+        "Validation": {
+          "Defined": true,
+          "Value": 0.6935751889720758
+        }
+      },
+      {
+        "Epoch": 25,
+        "Training": {
+          "Defined": true,
+          "Value": 0.6404575978699227
+        },
+        "Validation": {
+          "Defined": true,
+          "Value": 0.6935407988042634
+        }
+      },
+      {
+        "Epoch": 26,
+        "Training": {
+          "Defined": true,
+          "Value": 0.6384490831164186
+        },
+        "Validation": {
+          "Defined": true,
+          "Value": 0.6935065591591425
+        }
+      },
+      {
+        "Epoch": 27,
+        "Training": {
+          "Defined": true,
+          "Value": 0.6364524435958417
+        },
+        "Validation": {
+          "Defined": true,
+          "Value": 0.6934724688338073
+        }
+      },
+      {
+        "Epoch": 28,
+        "Training": {
+          "Defined": true,
+          "Value": 0.6344675922035522
+        },
+        "Validation": {
+          "Defined": true,
+          "Value": 0.6934385273093869
+        }
+      },
+      {
+        "Epoch": 29,
+        "Training": {
+          "Defined": true,
+          "Value": 0.6324944421129007
+        },
+        "Validation": {
+          "Defined": true,
+          "Value": 0.6934047336086528
+        }
+      },
+      {
+        "Epoch": 30,
+        "Training": {
+          "Defined": true,
+          "Value": 0.6305329074236455
+        },
+        "Validation": {
+          "Defined": true,
+          "Value": 0.6933710867375279
+        }
+      },
+      {
+        "Epoch": 31,
+        "Training": {
+          "Defined": true,
+          "Value": 0.6285829019558329
+        },
+        "Validation": {
+          "Defined": true,
+          "Value": 0.6933375860285372
+        }
+      },
+      {
+        "Epoch": 32,
+        "Training": {
+          "Defined": true,
+          "Value": 0.6266443408840551
+        },
+        "Validation": {
+          "Defined": true,
+          "Value": 0.6933042304585498
+        }
+      },
+      {
+        "Epoch": 33,
+        "Training": {
+          "Defined": true,
+          "Value": 0.6247171393201776
+        },
+        "Validation": {
+          "Defined": true,
+          "Value": 0.6932710191985567
+        }
+      },
+      {
+        "Epoch": 34,
+        "Training": {
+          "Defined": true,
+          "Value": 0.6228012133828773
+        },
+        "Validation": {
+          "Defined": true,
+          "Value": 0.6932379514220691
+        }
+      },
+      {
+        "Epoch": 35,
+        "Training": {
+          "Defined": true,
+          "Value": 0.6208964788561752
+        },
+        "Validation": {
+          "Defined": true,
+          "Value": 0.6932050262242051
+        }
+      },
+      {
+        "Epoch": 36,
+        "Training": {
+          "Defined": true,
+          "Value": 0.619002853066597
+        },
+        "Validation": {
+          "Defined": true,
+          "Value": 0.6931722427926619
+        }
+      },
+      {
+        "Epoch": 37,
+        "Training": {
+          "Defined": true,
+          "Value": 0.6171202533413148
+        },
+        "Validation": {
+          "Defined": true,
+          "Value": 0.6931396001797434
+        }
+      },
+      {
+        "Epoch": 38,
+        "Training": {
+          "Defined": true,
+          "Value": 0.6152485972582087
+        },
+        "Validation": {
+          "Defined": true,
+          "Value": 0.6931070976217444
+        }
+      },
+      {
+        "Epoch": 39,
+        "Training": {
+          "Defined": true,
+          "Value": 0.6133878035187305
+        },
+        "Validation": {
+          "Defined": true,
+          "Value": 0.6930747342804776
+        }
+      },
+      {
+        "Epoch": 40,
+        "Training": {
+          "Defined": true,
+          "Value": 0.6115377914940833
+        },
+        "Validation": {
+          "Defined": true,
+          "Value": 0.6930425093457709
+        }
+      },
+      {
+        "Epoch": 41,
+        "Training": {
+          "Defined": true,
+          "Value": 0.60969848001764
+        },
+        "Validation": {
+          "Defined": true,
+          "Value": 0.6930104217638708
+        }
+      },
+      {
+        "Epoch": 42,
+        "Training": {
+          "Defined": true,
+          "Value": 0.6078697894731985
+        },
+        "Validation": {
+          "Defined": true,
+          "Value": 0.692978470905648
+        }
+      },
+      {
+        "Epoch": 43,
+        "Training": {
+          "Defined": true,
+          "Value": 0.6060516401863364
+        },
+        "Validation": {
+          "Defined": true,
+          "Value": 0.6929466558091126
+        }
+      },
+      {
+        "Epoch": 44,
+        "Training": {
+          "Defined": true,
+          "Value": 0.6042439533414337
+        },
+        "Validation": {
+          "Defined": true,
+          "Value": 0.6929149756944437
+        }
+      },
+      {
+        "Epoch": 45,
+        "Training": {
+          "Defined": true,
+          "Value": 0.6024466509031121
+        },
+        "Validation": {
+          "Defined": true,
+          "Value": 0.6928834298087164
+        }
+      },
+      {
+        "Epoch": 46,
+        "Training": {
+          "Defined": true,
+          "Value": 0.6006596548036506
+        },
+        "Validation": {
+          "Defined": true,
+          "Value": 0.6928520171164539
+        }
+      },
+      {
+        "Epoch": 47,
+        "Training": {
+          "Defined": true,
+          "Value": 0.5988828873725199
+        },
+        "Validation": {
+          "Defined": true,
+          "Value": 0.6928207369456912
+        }
+      },
+      {
+        "Epoch": 48,
+        "Training": {
+          "Defined": true,
+          "Value": 0.5971162725363749
+        },
+        "Validation": {
+          "Defined": true,
+          "Value": 0.6927895884218207
+        }
+      },
+      {
+        "Epoch": 49,
+        "Training": {
+          "Defined": true,
+          "Value": 0.5953597337365303
+        },
+        "Validation": {
+          "Defined": true,
+          "Value": 0.6927585707938206
+        }
+      },
+      {
+        "Epoch": 50,
+        "Training": {
+          "Defined": true,
+          "Value": 0.593613195205774
+        },
+        "Validation": {
+          "Defined": true,
+          "Value": 0.6927276831485621
+        }
+      }
+    ],
+    "SelectedEpoch": 50,
+    "Complete": true,
+    "FailureEpoch": 0,
+    "FailureKind": ""
+  },
+  "Fit": {
+    "config": {
+      "Seed": 1729,
+      "Mode": "fp32",
+      "LearningRate": 0.1,
+      "L2": 0.0001,
+      "Epochs": 50,
+      "Batch": 128,
+      "Dimension": 8192
+    },
+    "selected_epoch": 50,
+    "training_NLL": 0.6311540918774127,
+    "validation_NLL": 0.6885500655576609
+  },
+  "Utility": {
+    "Controls": [
+      {
+        "Kind": "fixed_order",
+        "Metric": {
+          "Parents": 15,
+          "Answerable": 10,
+          "NoAnswer": 5,
+          "UnknownExcluded": 5,
+          "TotalChecks": 31,
+          "OracleChecks": 21,
+          "Top1Correct": 1,
+          "Top3Correct": 10,
+          "MeanChecks": 2.066666666666667,
+          "OracleMean": 1.4
+        },
+        "Parents": [
+          {
+            "ParentIndex": 4,
+            "Role": 1,
+            "Truth": 1,
+            "CandidateCount": 3,
+            "Order": [
+              0,
+              1,
+              2,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Scores": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Checks": 1,
+            "Top1": true,
+            "Top3": true,
+            "FirstLossMasked": false
+          },
+          {
+            "ParentIndex": 5,
+            "Role": 1,
+            "Truth": 1,
+            "CandidateCount": 4,
+            "Order": [
+              0,
+              1,
+              2,
+              3,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Scores": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Checks": 2,
+            "Top1": false,
+            "Top3": true,
+            "FirstLossMasked": false
+          },
+          {
+            "ParentIndex": 6,
+            "Role": 1,
+            "Truth": 2,
+            "CandidateCount": 2,
+            "Order": [
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Scores": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Checks": 2,
+            "Top1": false,
+            "Top3": false,
+            "FirstLossMasked": false
+          },
+          {
+            "ParentIndex": 8,
+            "Role": 1,
+            "Truth": 1,
+            "CandidateCount": 3,
+            "Order": [
+              0,
+              1,
+              2,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Scores": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Checks": 3,
+            "Top1": false,
+            "Top3": true,
+            "FirstLossMasked": false
+          },
+          {
+            "ParentIndex": 9,
+            "Role": 1,
+            "Truth": 1,
+            "CandidateCount": 4,
+            "Order": [
+              0,
+              1,
+              2,
+              3,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Scores": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Checks": 2,
+            "Top1": false,
+            "Top3": true,
+            "FirstLossMasked": false
+          },
+          {
+            "ParentIndex": 10,
+            "Role": 1,
+            "Truth": 2,
+            "CandidateCount": 2,
+            "Order": [
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Scores": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Checks": 2,
+            "Top1": false,
+            "Top3": false,
+            "FirstLossMasked": false
+          },
+          {
+            "ParentIndex": 12,
+            "Role": 1,
+            "Truth": 1,
+            "CandidateCount": 3,
+            "Order": [
+              0,
+              1,
+              2,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Scores": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Checks": 2,
+            "Top1": false,
+            "Top3": true,
+            "FirstLossMasked": false
+          },
+          {
+            "ParentIndex": 13,
+            "Role": 1,
+            "Truth": 1,
+            "CandidateCount": 4,
+            "Order": [
+              0,
+              1,
+              2,
+              3,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Scores": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Checks": 2,
+            "Top1": false,
+            "Top3": true,
+            "FirstLossMasked": false
+          },
+          {
+            "ParentIndex": 14,
+            "Role": 1,
+            "Truth": 2,
+            "CandidateCount": 2,
+            "Order": [
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Scores": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Checks": 2,
+            "Top1": false,
+            "Top3": false,
+            "FirstLossMasked": false
+          },
+          {
+            "ParentIndex": 36,
+            "Role": 1,
+            "Truth": 1,
+            "CandidateCount": 3,
+            "Order": [
+              0,
+              1,
+              2,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Scores": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Checks": 2,
+            "Top1": false,
+            "Top3": true,
+            "FirstLossMasked": false
+          },
+          {
+            "ParentIndex": 37,
+            "Role": 1,
+            "Truth": 1,
+            "CandidateCount": 4,
+            "Order": [
+              0,
+              1,
+              2,
+              3,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Scores": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Checks": 2,
+            "Top1": false,
+            "Top3": true,
+            "FirstLossMasked": false
+          },
+          {
+            "ParentIndex": 38,
+            "Role": 1,
+            "Truth": 2,
+            "CandidateCount": 2,
+            "Order": [
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Scores": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Checks": 2,
+            "Top1": false,
+            "Top3": false,
+            "FirstLossMasked": false
+          },
+          {
+            "ParentIndex": 60,
+            "Role": 1,
+            "Truth": 1,
+            "CandidateCount": 3,
+            "Order": [
+              0,
+              1,
+              2,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Scores": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Checks": 2,
+            "Top1": false,
+            "Top3": true,
+            "FirstLossMasked": false
+          },
+          {
+            "ParentIndex": 61,
+            "Role": 1,
+            "Truth": 1,
+            "CandidateCount": 3,
+            "Order": [
+              0,
+              1,
+              2,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Scores": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Checks": 2,
+            "Top1": false,
+            "Top3": true,
+            "FirstLossMasked": false
+          },
+          {
+            "ParentIndex": 62,
+            "Role": 1,
+            "Truth": 2,
+            "CandidateCount": 3,
+            "Order": [
+              0,
+              1,
+              2,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Scores": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Checks": 3,
+            "Top1": false,
+            "Top3": false,
+            "FirstLossMasked": false
+          }
+        ],
+        "SubsetBFullyEligible": {
+          "Parents": 14,
+          "Answerable": 9,
+          "NoAnswer": 5,
+          "UnknownExcluded": 0,
+          "TotalChecks": 29,
+          "OracleChecks": 20,
+          "Top1Correct": 1,
+          "Top3Correct": 9,
+          "MeanChecks": 2.0714285714285716,
+          "OracleMean": 1.4285714285714286
+        },
+        "Strata": [
+          {
+            "Tag": "legacy",
+            "Metric": {
+              "Parents": 12,
+              "Answerable": 8,
+              "NoAnswer": 4,
+              "UnknownExcluded": 0,
+              "TotalChecks": 24,
+              "OracleChecks": 16,
+              "Top1Correct": 1,
+              "Top3Correct": 8,
+              "MeanChecks": 2,
+              "OracleMean": 1.3333333333333333
+            }
+          },
+          {
+            "Tag": "original_mask_affected",
+            "Metric": {
+              "Parents": 1,
+              "Answerable": 1,
+              "NoAnswer": 0,
+              "UnknownExcluded": 0,
+              "TotalChecks": 2,
+              "OracleChecks": 1,
+              "Top1Correct": 0,
+              "Top3Correct": 1,
+              "MeanChecks": 2,
+              "OracleMean": 1
+            }
+          },
+          {
+            "Tag": "typed",
+            "Metric": {
+              "Parents": 3,
+              "Answerable": 2,
+              "NoAnswer": 1,
+              "UnknownExcluded": 0,
+              "TotalChecks": 7,
+              "OracleChecks": 5,
+              "Top1Correct": 0,
+              "Top3Correct": 2,
+              "MeanChecks": 2.3333333333333335,
+              "OracleMean": 1.6666666666666667
+            }
+          }
+        ],
+        "MissingStrataParents": 0
+      },
+      {
+        "Kind": "bm25",
+        "Metric": {
+          "Parents": 15,
+          "Answerable": 10,
+          "NoAnswer": 5,
+          "UnknownExcluded": 5,
+          "TotalChecks": 28,
+          "OracleChecks": 21,
+          "Top1Correct": 5,
+          "Top3Correct": 10,
+          "MeanChecks": 1.8666666666666667,
+          "OracleMean": 1.4
+        },
+        "Parents": [
+          {
+            "ParentIndex": 4,
+            "Role": 1,
+            "Truth": 1,
+            "CandidateCount": 3,
+            "Order": [
+              1,
+              0,
+              2,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Scores": [
+              0.7370664144947807,
+              2.6987249205182335,
+              0.26706278524904525,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Checks": 2,
+            "Top1": false,
+            "Top3": true,
+            "FirstLossMasked": false
+          },
+          {
+            "ParentIndex": 5,
+            "Role": 1,
+            "Truth": 1,
+            "CandidateCount": 4,
+            "Order": [
+              1,
+              0,
+              2,
+              3,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Scores": [
+              2.0996442489973552,
+              2.946942109384559,
+              1.5606477482646683,
+              0.7133498878774647,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Checks": 1,
+            "Top1": true,
+            "Top3": true,
+            "FirstLossMasked": false
+          },
+          {
+            "ParentIndex": 6,
+            "Role": 1,
+            "Truth": 2,
+            "CandidateCount": 2,
+            "Order": [
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Scores": [
+              0.36464311358790924,
+              2.444084655267745,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Checks": 2,
+            "Top1": false,
+            "Top3": false,
+            "FirstLossMasked": false
+          },
+          {
+            "ParentIndex": 8,
+            "Role": 1,
+            "Truth": 1,
+            "CandidateCount": 3,
+            "Order": [
+              0,
+              1,
+              2,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Scores": [
+              2.507300929844226,
+              0.579734015796789,
+              0.5024997143501773,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Checks": 3,
+            "Top1": false,
+            "Top3": true,
+            "FirstLossMasked": false
+          },
+          {
+            "ParentIndex": 9,
+            "Role": 1,
+            "Truth": 1,
+            "CandidateCount": 4,
+            "Order": [
+              2,
+              3,
+              0,
+              1,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Scores": [
+              0.7122666842838962,
+              0.3023388710181102,
+              4.151234208136431,
+              2.458142715980784,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Checks": 2,
+            "Top1": false,
+            "Top3": true,
+            "FirstLossMasked": false
+          },
+          {
+            "ParentIndex": 10,
+            "Role": 1,
+            "Truth": 2,
+            "CandidateCount": 2,
+            "Order": [
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Scores": [
+              0.7685890777421801,
+              2.081386660023746,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Checks": 2,
+            "Top1": false,
+            "Top3": false,
+            "FirstLossMasked": false
+          },
+          {
+            "ParentIndex": 12,
+            "Role": 1,
+            "Truth": 1,
+            "CandidateCount": 3,
+            "Order": [
+              0,
+              1,
+              2,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Scores": [
+              2.252021238004598,
+              1.320293821323068,
+              0.7724604864175574,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Checks": 2,
+            "Top1": false,
+            "Top3": true,
+            "FirstLossMasked": false
+          },
+          {
+            "ParentIndex": 13,
+            "Role": 1,
+            "Truth": 1,
+            "CandidateCount": 4,
+            "Order": [
+              1,
+              3,
+              2,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Scores": [
+              0.31335409354801264,
+              4.759156805616726,
+              0.32455642459838846,
+              0.33658941253406505,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Checks": 1,
+            "Top1": true,
+            "Top3": true,
+            "FirstLossMasked": false
+          },
+          {
+            "ParentIndex": 14,
+            "Role": 1,
+            "Truth": 2,
+            "CandidateCount": 2,
+            "Order": [
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Scores": [
+              2.525137209563604,
+              1.074812128983391,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Checks": 2,
+            "Top1": false,
+            "Top3": false,
+            "FirstLossMasked": false
+          },
+          {
+            "ParentIndex": 36,
+            "Role": 1,
+            "Truth": 1,
+            "CandidateCount": 3,
+            "Order": [
+              2,
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Scores": [
+              1.2078422976669863,
+              1.064161863605473,
+              3.1191187543390417,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Checks": 3,
+            "Top1": false,
+            "Top3": true,
+            "FirstLossMasked": false
+          },
+          {
+            "ParentIndex": 37,
+            "Role": 1,
+            "Truth": 1,
+            "CandidateCount": 4,
+            "Order": [
+              3,
+              2,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Scores": [
+              0.5163378987506094,
+              1.073831305204019,
+              3.2997790508142506,
+              4.545998913290695,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Checks": 1,
+            "Top1": true,
+            "Top3": true,
+            "FirstLossMasked": false
+          },
+          {
+            "ParentIndex": 38,
+            "Role": 1,
+            "Truth": 2,
+            "CandidateCount": 2,
+            "Order": [
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Scores": [
+              0.9092851263504025,
+              2.917615388395102,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Checks": 2,
+            "Top1": false,
+            "Top3": false,
+            "FirstLossMasked": false
+          },
+          {
+            "ParentIndex": 60,
+            "Role": 1,
+            "Truth": 1,
+            "CandidateCount": 3,
+            "Order": [
+              1,
+              2,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Scores": [
+              3.61488555747815,
+              4.084889186723886,
+              4.034814914489689,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Checks": 1,
+            "Top1": true,
+            "Top3": true,
+            "FirstLossMasked": false
+          },
+          {
+            "ParentIndex": 61,
+            "Role": 1,
+            "Truth": 1,
+            "CandidateCount": 3,
+            "Order": [
+              1,
+              2,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Scores": [
+              3.4312798926194312,
+              4.421361423345099,
+              4.371287151110902,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Checks": 1,
+            "Top1": true,
+            "Top3": true,
+            "FirstLossMasked": false
+          },
+          {
+            "ParentIndex": 62,
+            "Role": 1,
+            "Truth": 2,
+            "CandidateCount": 3,
+            "Order": [
+              1,
+              0,
+              2,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Scores": [
+              3.951357794099363,
+              4.882112774876893,
+              3.4312798926194312,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Checks": 3,
+            "Top1": false,
+            "Top3": false,
+            "FirstLossMasked": false
+          }
+        ],
+        "SubsetBFullyEligible": {
+          "Parents": 14,
+          "Answerable": 9,
+          "NoAnswer": 5,
+          "UnknownExcluded": 0,
+          "TotalChecks": 26,
+          "OracleChecks": 20,
+          "Top1Correct": 5,
+          "Top3Correct": 9,
+          "MeanChecks": 1.8571428571428572,
+          "OracleMean": 1.4285714285714286
+        },
+        "Strata": [
+          {
+            "Tag": "legacy",
+            "Metric": {
+              "Parents": 12,
+              "Answerable": 8,
+              "NoAnswer": 4,
+              "UnknownExcluded": 0,
+              "TotalChecks": 23,
+              "OracleChecks": 16,
+              "Top1Correct": 3,
+              "Top3Correct": 8,
+              "MeanChecks": 1.9166666666666667,
+              "OracleMean": 1.3333333333333333
+            }
+          },
+          {
+            "Tag": "original_mask_affected",
+            "Metric": {
+              "Parents": 1,
+              "Answerable": 1,
+              "NoAnswer": 0,
+              "UnknownExcluded": 0,
+              "TotalChecks": 2,
+              "OracleChecks": 1,
+              "Top1Correct": 0,
+              "Top3Correct": 1,
+              "MeanChecks": 2,
+              "OracleMean": 1
+            }
+          },
+          {
+            "Tag": "typed",
+            "Metric": {
+              "Parents": 3,
+              "Answerable": 2,
+              "NoAnswer": 1,
+              "UnknownExcluded": 0,
+              "TotalChecks": 5,
+              "OracleChecks": 5,
+              "Top1Correct": 2,
+              "Top3Correct": 2,
+              "MeanChecks": 1.6666666666666667,
+              "OracleMean": 1.6666666666666667
+            }
+          }
+        ],
+        "MissingStrataParents": 0
+      },
+      {
+        "Kind": "lexical_ordered",
+        "Metric": {
+          "Parents": 15,
+          "Answerable": 10,
+          "NoAnswer": 5,
+          "UnknownExcluded": 5,
+          "TotalChecks": 27,
+          "OracleChecks": 21,
+          "Top1Correct": 5,
+          "Top3Correct": 10,
+          "MeanChecks": 1.8,
+          "OracleMean": 1.4
+        },
+        "Parents": [
+          {
+            "ParentIndex": 4,
+            "Role": 1,
+            "Truth": 1,
+            "CandidateCount": 3,
+            "Order": [
+              1,
+              0,
+              2,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Scores": [
+              0.1875,
+              0.45535714285714285,
+              0.125,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Checks": 2,
+            "Top1": false,
+            "Top3": true,
+            "FirstLossMasked": false
+          },
+          {
+            "ParentIndex": 5,
+            "Role": 1,
+            "Truth": 1,
+            "CandidateCount": 4,
+            "Order": [
+              0,
+              1,
+              2,
+              3,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Scores": [
+              0.2318181818181818,
+              0.2318181818181818,
+              0.09090909090909091,
+              0.09090909090909091,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Checks": 2,
+            "Top1": false,
+            "Top3": true,
+            "FirstLossMasked": false
+          },
+          {
+            "ParentIndex": 6,
+            "Role": 1,
+            "Truth": 2,
+            "CandidateCount": 2,
+            "Order": [
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Scores": [
+              0.125,
+              0.45535714285714285,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Checks": 2,
+            "Top1": false,
+            "Top3": false,
+            "FirstLossMasked": false
+          },
+          {
+            "ParentIndex": 8,
+            "Role": 1,
+            "Truth": 1,
+            "CandidateCount": 3,
+            "Order": [
+              0,
+              1,
+              2,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Scores": [
+              0.6458333333333333,
+              0.2847222222222222,
+              0.2222222222222222,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Checks": 3,
+            "Top1": false,
+            "Top3": true,
+            "FirstLossMasked": false
+          },
+          {
+            "ParentIndex": 9,
+            "Role": 1,
+            "Truth": 1,
+            "CandidateCount": 4,
+            "Order": [
+              3,
+              2,
+              0,
+              1,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Scores": [
+              0.2222222222222222,
+              0.16666666666666666,
+              0.4444444444444444,
+              0.5,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Checks": 1,
+            "Top1": true,
+            "Top3": true,
+            "FirstLossMasked": false
+          },
+          {
+            "ParentIndex": 10,
+            "Role": 1,
+            "Truth": 2,
+            "CandidateCount": 2,
+            "Order": [
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Scores": [
+              0.2847222222222222,
+              0.6458333333333333,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Checks": 2,
+            "Top1": false,
+            "Top3": false,
+            "FirstLossMasked": false
+          },
+          {
+            "ParentIndex": 12,
+            "Role": 1,
+            "Truth": 1,
+            "CandidateCount": 3,
+            "Order": [
+              0,
+              1,
+              2,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Scores": [
+              0.5160256410256411,
+              0.47756410256410253,
+              0.3557692307692308,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Checks": 2,
+            "Top1": false,
+            "Top3": true,
+            "FirstLossMasked": false
+          },
+          {
+            "ParentIndex": 13,
+            "Role": 1,
+            "Truth": 1,
+            "CandidateCount": 4,
+            "Order": [
+              1,
+              0,
+              2,
+              3,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Scores": [
+              0.16666666666666666,
+              0.45833333333333337,
+              0.16666666666666666,
+              0.16666666666666666,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Checks": 1,
+            "Top1": true,
+            "Top3": true,
+            "FirstLossMasked": false
+          },
+          {
+            "ParentIndex": 14,
+            "Role": 1,
+            "Truth": 2,
+            "CandidateCount": 2,
+            "Order": [
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Scores": [
+              0.5160256410256411,
+              0.3557692307692308,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Checks": 2,
+            "Top1": false,
+            "Top3": false,
+            "FirstLossMasked": false
+          },
+          {
+            "ParentIndex": 36,
+            "Role": 1,
+            "Truth": 1,
+            "CandidateCount": 3,
+            "Order": [
+              2,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Scores": [
+              0.1,
+              0.15,
+              0.3055555555555556,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Checks": 2,
+            "Top1": false,
+            "Top3": true,
+            "FirstLossMasked": false
+          },
+          {
+            "ParentIndex": 37,
+            "Role": 1,
+            "Truth": 1,
+            "CandidateCount": 4,
+            "Order": [
+              3,
+              2,
+              0,
+              1,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Scores": [
+              0.1,
+              0.1,
+              0.24545454545454548,
+              0.4818181818181818,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Checks": 1,
+            "Top1": true,
+            "Top3": true,
+            "FirstLossMasked": false
+          },
+          {
+            "ParentIndex": 38,
+            "Role": 1,
+            "Truth": 2,
+            "CandidateCount": 2,
+            "Order": [
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Scores": [
+              0.1,
+              0.3055555555555556,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Checks": 2,
+            "Top1": false,
+            "Top3": false,
+            "FirstLossMasked": false
+          },
+          {
+            "ParentIndex": 60,
+            "Role": 1,
+            "Truth": 1,
+            "CandidateCount": 3,
+            "Order": [
+              1,
+              0,
+              2,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Scores": [
+              0.9323821339950372,
+              1,
+              0.9193548387096775,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Checks": 1,
+            "Top1": true,
+            "Top3": true,
+            "FirstLossMasked": false
+          },
+          {
+            "ParentIndex": 61,
+            "Role": 1,
+            "Truth": 1,
+            "CandidateCount": 3,
+            "Order": [
+              1,
+              2,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Scores": [
+              0.7841191066997519,
+              0.9516129032258065,
+              0.8870967741935484,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Checks": 1,
+            "Top1": true,
+            "Top3": true,
+            "FirstLossMasked": false
+          },
+          {
+            "ParentIndex": 62,
+            "Role": 1,
+            "Truth": 2,
+            "CandidateCount": 3,
+            "Order": [
+              0,
+              1,
+              2,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Scores": [
+              0.9323821339950372,
+              0.9193548387096775,
+              0.8163771712158809,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Checks": 3,
+            "Top1": false,
+            "Top3": false,
+            "FirstLossMasked": false
+          }
+        ],
+        "SubsetBFullyEligible": {
+          "Parents": 14,
+          "Answerable": 9,
+          "NoAnswer": 5,
+          "UnknownExcluded": 0,
+          "TotalChecks": 26,
+          "OracleChecks": 20,
+          "Top1Correct": 4,
+          "Top3Correct": 9,
+          "MeanChecks": 1.8571428571428572,
+          "OracleMean": 1.4285714285714286
+        },
+        "Strata": [
+          {
+            "Tag": "legacy",
+            "Metric": {
+              "Parents": 12,
+              "Answerable": 8,
+              "NoAnswer": 4,
+              "UnknownExcluded": 0,
+              "TotalChecks": 22,
+              "OracleChecks": 16,
+              "Top1Correct": 3,
+              "Top3Correct": 8,
+              "MeanChecks": 1.8333333333333333,
+              "OracleMean": 1.3333333333333333
+            }
+          },
+          {
+            "Tag": "original_mask_affected",
+            "Metric": {
+              "Parents": 1,
+              "Answerable": 1,
+              "NoAnswer": 0,
+              "UnknownExcluded": 0,
+              "TotalChecks": 1,
+              "OracleChecks": 1,
+              "Top1Correct": 1,
+              "Top3Correct": 1,
+              "MeanChecks": 1,
+              "OracleMean": 1
+            }
+          },
+          {
+            "Tag": "typed",
+            "Metric": {
+              "Parents": 3,
+              "Answerable": 2,
+              "NoAnswer": 1,
+              "UnknownExcluded": 0,
+              "TotalChecks": 5,
+              "OracleChecks": 5,
+              "Top1Correct": 2,
+              "Top3Correct": 2,
+              "MeanChecks": 1.6666666666666667,
+              "OracleMean": 1.6666666666666667
+            }
+          }
+        ],
+        "MissingStrataParents": 0
+      },
+      {
+        "Kind": "narrow_rule",
+        "Metric": {
+          "Parents": 15,
+          "Answerable": 10,
+          "NoAnswer": 5,
+          "UnknownExcluded": 5,
+          "TotalChecks": 28,
+          "OracleChecks": 21,
+          "Top1Correct": 5,
+          "Top3Correct": 10,
+          "MeanChecks": 1.8666666666666667,
+          "OracleMean": 1.4
+        },
+        "Parents": [
+          {
+            "ParentIndex": 4,
+            "Role": 1,
+            "Truth": 1,
+            "CandidateCount": 3,
+            "Order": [
+              1,
+              0,
+              2,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Scores": [
+              0.7370664144947807,
+              2.6987249205182335,
+              0.26706278524904525,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Checks": 2,
+            "Top1": false,
+            "Top3": true,
+            "FirstLossMasked": false
+          },
+          {
+            "ParentIndex": 5,
+            "Role": 1,
+            "Truth": 1,
+            "CandidateCount": 4,
+            "Order": [
+              1,
+              0,
+              2,
+              3,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Scores": [
+              2.0996442489973552,
+              2.946942109384559,
+              1.5606477482646683,
+              0.7133498878774647,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Checks": 1,
+            "Top1": true,
+            "Top3": true,
+            "FirstLossMasked": false
+          },
+          {
+            "ParentIndex": 6,
+            "Role": 1,
+            "Truth": 2,
+            "CandidateCount": 2,
+            "Order": [
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Scores": [
+              0.36464311358790924,
+              2.444084655267745,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Checks": 2,
+            "Top1": false,
+            "Top3": false,
+            "FirstLossMasked": false
+          },
+          {
+            "ParentIndex": 8,
+            "Role": 1,
+            "Truth": 1,
+            "CandidateCount": 3,
+            "Order": [
+              0,
+              1,
+              2,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Scores": [
+              2.507300929844226,
+              0.579734015796789,
+              0.5024997143501773,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Checks": 3,
+            "Top1": false,
+            "Top3": true,
+            "FirstLossMasked": false
+          },
+          {
+            "ParentIndex": 9,
+            "Role": 1,
+            "Truth": 1,
+            "CandidateCount": 4,
+            "Order": [
+              2,
+              3,
+              0,
+              1,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Scores": [
+              0.7122666842838962,
+              0.3023388710181102,
+              4.151234208136431,
+              2.458142715980784,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Checks": 2,
+            "Top1": false,
+            "Top3": true,
+            "FirstLossMasked": false
+          },
+          {
+            "ParentIndex": 10,
+            "Role": 1,
+            "Truth": 2,
+            "CandidateCount": 2,
+            "Order": [
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Scores": [
+              0.7685890777421801,
+              2.081386660023746,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Checks": 2,
+            "Top1": false,
+            "Top3": false,
+            "FirstLossMasked": false
+          },
+          {
+            "ParentIndex": 12,
+            "Role": 1,
+            "Truth": 1,
+            "CandidateCount": 3,
+            "Order": [
+              0,
+              1,
+              2,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Scores": [
+              2.252021238004598,
+              1.320293821323068,
+              0.7724604864175574,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Checks": 2,
+            "Top1": false,
+            "Top3": true,
+            "FirstLossMasked": false
+          },
+          {
+            "ParentIndex": 13,
+            "Role": 1,
+            "Truth": 1,
+            "CandidateCount": 4,
+            "Order": [
+              1,
+              3,
+              2,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Scores": [
+              0.31335409354801264,
+              4.759156805616726,
+              0.32455642459838846,
+              0.33658941253406505,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Checks": 1,
+            "Top1": true,
+            "Top3": true,
+            "FirstLossMasked": false
+          },
+          {
+            "ParentIndex": 14,
+            "Role": 1,
+            "Truth": 2,
+            "CandidateCount": 2,
+            "Order": [
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Scores": [
+              2.525137209563604,
+              1.074812128983391,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Checks": 2,
+            "Top1": false,
+            "Top3": false,
+            "FirstLossMasked": false
+          },
+          {
+            "ParentIndex": 36,
+            "Role": 1,
+            "Truth": 1,
+            "CandidateCount": 3,
+            "Order": [
+              2,
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Scores": [
+              1.2078422976669863,
+              1.064161863605473,
+              3.1191187543390417,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Checks": 3,
+            "Top1": false,
+            "Top3": true,
+            "FirstLossMasked": false
+          },
+          {
+            "ParentIndex": 37,
+            "Role": 1,
+            "Truth": 1,
+            "CandidateCount": 4,
+            "Order": [
+              3,
+              2,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Scores": [
+              0.5163378987506094,
+              1.073831305204019,
+              3.2997790508142506,
+              4.545998913290695,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Checks": 1,
+            "Top1": true,
+            "Top3": true,
+            "FirstLossMasked": false
+          },
+          {
+            "ParentIndex": 38,
+            "Role": 1,
+            "Truth": 2,
+            "CandidateCount": 2,
+            "Order": [
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Scores": [
+              0.9092851263504025,
+              2.917615388395102,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Checks": 2,
+            "Top1": false,
+            "Top3": false,
+            "FirstLossMasked": false
+          },
+          {
+            "ParentIndex": 60,
+            "Role": 1,
+            "Truth": 1,
+            "CandidateCount": 3,
+            "Order": [
+              1,
+              2,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Scores": [
+              3.61488555747815,
+              4.084889186723886,
+              4.034814914489689,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Checks": 1,
+            "Top1": true,
+            "Top3": true,
+            "FirstLossMasked": false
+          },
+          {
+            "ParentIndex": 61,
+            "Role": 1,
+            "Truth": 1,
+            "CandidateCount": 3,
+            "Order": [
+              1,
+              2,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Scores": [
+              3.4312798926194312,
+              4.421361423345099,
+              4.371287151110902,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Checks": 1,
+            "Top1": true,
+            "Top3": true,
+            "FirstLossMasked": false
+          },
+          {
+            "ParentIndex": 62,
+            "Role": 1,
+            "Truth": 2,
+            "CandidateCount": 3,
+            "Order": [
+              1,
+              0,
+              2,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Scores": [
+              3.951357794099363,
+              4.882112774876893,
+              3.4312798926194312,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "Checks": 3,
+            "Top1": false,
+            "Top3": false,
+            "FirstLossMasked": false
+          }
+        ],
+        "SubsetBFullyEligible": {
+          "Parents": 14,
+          "Answerable": 9,
+          "NoAnswer": 5,
+          "UnknownExcluded": 0,
+          "TotalChecks": 26,
+          "OracleChecks": 20,
+          "Top1Correct": 5,
+          "Top3Correct": 9,
+          "MeanChecks": 1.8571428571428572,
+          "OracleMean": 1.4285714285714286
+        },
+        "Strata": [
+          {
+            "Tag": "legacy",
+            "Metric": {
+              "Parents": 12,
+              "Answerable": 8,
+              "NoAnswer": 4,
+              "UnknownExcluded": 0,
+              "TotalChecks": 23,
+              "OracleChecks": 16,
+              "Top1Correct": 3,
+              "Top3Correct": 8,
+              "MeanChecks": 1.9166666666666667,
+              "OracleMean": 1.3333333333333333
+            }
+          },
+          {
+            "Tag": "original_mask_affected",
+            "Metric": {
+              "Parents": 1,
+              "Answerable": 1,
+              "NoAnswer": 0,
+              "UnknownExcluded": 0,
+              "TotalChecks": 2,
+              "OracleChecks": 1,
+              "Top1Correct": 0,
+              "Top3Correct": 1,
+              "MeanChecks": 2,
+              "OracleMean": 1
+            }
+          },
+          {
+            "Tag": "typed",
+            "Metric": {
+              "Parents": 3,
+              "Answerable": 2,
+              "NoAnswer": 1,
+              "UnknownExcluded": 0,
+              "TotalChecks": 5,
+              "OracleChecks": 5,
+              "Top1Correct": 2,
+              "Top3Correct": 2,
+              "MeanChecks": 1.6666666666666667,
+              "OracleMean": 1.6666666666666667
+            }
+          }
+        ],
+        "MissingStrataParents": 0
+      }
+    ],
+    "StrongestControlIndex": 2,
+    "OracleHeadroom": 0.2222222222222222,
+    "HeadroomPass": true,
+    "Primary": {
+      "Kind": "rank_bce8192_fp32_seed1729_lambda1",
+      "Metric": {
+        "Parents": 15,
+        "Answerable": 10,
+        "NoAnswer": 5,
+        "UnknownExcluded": 5,
+        "TotalChecks": 33,
+        "OracleChecks": 21,
+        "Top1Correct": 1,
+        "Top3Correct": 10,
+        "MeanChecks": 2.2,
+        "OracleMean": 1.4
+      },
+      "Parents": [
+        {
+          "ParentIndex": 4,
+          "Role": 1,
+          "Truth": 1,
+          "CandidateCount": 3,
+          "Order": [
+            2,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "Scores": [
+            -0.008094820157748397,
+            -0.017266181481591578,
+            0.004031467049275823,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "Checks": 2,
+          "Top1": false,
+          "Top3": true,
+          "FirstLossMasked": false
+        },
+        {
+          "ParentIndex": 5,
+          "Role": 1,
+          "Truth": 1,
+          "CandidateCount": 4,
+          "Order": [
+            2,
+            0,
+            3,
+            1,
+            0,
+            0,
+            0,
+            0
+          ],
+          "Scores": [
+            -0.009933254694362525,
+            -0.020335672457022325,
+            -0.0036989830693702685,
+            -0.012119075821498942,
+            0,
+            0,
+            0,
+            0
+          ],
+          "Checks": 3,
+          "Top1": false,
+          "Top3": true,
+          "FirstLossMasked": false
+        },
+        {
+          "ParentIndex": 6,
+          "Role": 1,
+          "Truth": 2,
+          "CandidateCount": 2,
+          "Order": [
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "Scores": [
+            0.004031467049275823,
+            -0.017266181481591578,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "Checks": 2,
+          "Top1": false,
+          "Top3": false,
+          "FirstLossMasked": false
+        },
+        {
+          "ParentIndex": 8,
+          "Role": 1,
+          "Truth": 1,
+          "CandidateCount": 3,
+          "Order": [
+            1,
+            0,
+            2,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "Scores": [
+            -0.009423503009648075,
+            -0.004684013804992596,
+            -0.012353316706045593,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "Checks": 3,
+          "Top1": false,
+          "Top3": true,
+          "FirstLossMasked": false
+        },
+        {
+          "ParentIndex": 9,
+          "Role": 1,
+          "Truth": 1,
+          "CandidateCount": 4,
+          "Order": [
+            3,
+            0,
+            1,
+            2,
+            0,
+            0,
+            0,
+            0
+          ],
+          "Scores": [
+            -0.017159601645816293,
+            -0.026066582010683133,
+            -0.05747955108818524,
+            -0.0035646878701906396,
+            0,
+            0,
+            0,
+            0
+          ],
+          "Checks": 1,
+          "Top1": true,
+          "Top3": true,
+          "FirstLossMasked": false
+        },
+        {
+          "ParentIndex": 10,
+          "Role": 1,
+          "Truth": 2,
+          "CandidateCount": 2,
+          "Order": [
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "Scores": [
+            -0.004684013804992596,
+            -0.009423503009648075,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "Checks": 2,
+          "Top1": false,
+          "Top3": false,
+          "FirstLossMasked": false
+        },
+        {
+          "ParentIndex": 12,
+          "Role": 1,
+          "Truth": 1,
+          "CandidateCount": 3,
+          "Order": [
+            2,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "Scores": [
+            -0.05969276152967681,
+            -0.04275993760078488,
+            -0.019361384817368824,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "Checks": 2,
+          "Top1": false,
+          "Top3": true,
+          "FirstLossMasked": false
+        },
+        {
+          "ParentIndex": 13,
+          "Role": 1,
+          "Truth": 1,
+          "CandidateCount": 4,
+          "Order": [
+            0,
+            3,
+            1,
+            2,
+            0,
+            0,
+            0,
+            0
+          ],
+          "Scores": [
+            -0.0039245555611323755,
+            -0.03696957554139446,
+            -0.03899017976386379,
+            -0.02243558753065064,
+            0,
+            0,
+            0,
+            0
+          ],
+          "Checks": 2,
+          "Top1": false,
+          "Top3": true,
+          "FirstLossMasked": false
+        },
+        {
+          "ParentIndex": 14,
+          "Role": 1,
+          "Truth": 2,
+          "CandidateCount": 2,
+          "Order": [
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "Scores": [
+            -0.05969276152967681,
+            -0.019361384817368824,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "Checks": 2,
+          "Top1": false,
+          "Top3": false,
+          "FirstLossMasked": false
+        },
+        {
+          "ParentIndex": 36,
+          "Role": 1,
+          "Truth": 1,
+          "CandidateCount": 3,
+          "Order": [
+            0,
+            1,
+            2,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "Scores": [
+            -0.02115401516901714,
+            -0.02979308745373247,
+            -0.0331962267589119,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "Checks": 2,
+          "Top1": false,
+          "Top3": true,
+          "FirstLossMasked": false
+        },
+        {
+          "ParentIndex": 37,
+          "Role": 1,
+          "Truth": 1,
+          "CandidateCount": 4,
+          "Order": [
+            2,
+            1,
+            3,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "Scores": [
+            -0.032139042404805494,
+            -0.0035757593386362826,
+            -0.0020421965276482793,
+            -0.015553136207457047,
+            0,
+            0,
+            0,
+            0
+          ],
+          "Checks": 2,
+          "Top1": false,
+          "Top3": true,
+          "FirstLossMasked": false
+        },
+        {
+          "ParentIndex": 38,
+          "Role": 1,
+          "Truth": 2,
+          "CandidateCount": 2,
+          "Order": [
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "Scores": [
+            -0.02115401516901714,
+            -0.0331962267589119,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "Checks": 2,
+          "Top1": false,
+          "Top3": false,
+          "FirstLossMasked": false
+        },
+        {
+          "ParentIndex": 60,
+          "Role": 1,
+          "Truth": 1,
+          "CandidateCount": 3,
+          "Order": [
+            0,
+            1,
+            2,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "Scores": [
+            -0.02636366196641592,
+            -0.027139427591466085,
+            -0.02749177450185552,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "Checks": 2,
+          "Top1": false,
+          "Top3": true,
+          "FirstLossMasked": false
+        },
+        {
+          "ParentIndex": 61,
+          "Role": 1,
+          "Truth": 1,
+          "CandidateCount": 3,
+          "Order": [
+            0,
+            2,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "Scores": [
+            -0.027898080208456404,
+            -0.029658974070146987,
+            -0.02813995117879016,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "Checks": 3,
+          "Top1": false,
+          "Top3": true,
+          "FirstLossMasked": false
+        },
+        {
+          "ParentIndex": 62,
+          "Role": 1,
+          "Truth": 2,
+          "CandidateCount": 3,
+          "Order": [
+            2,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "Scores": [
+            -0.02636366196641592,
+            -0.02749177450185552,
+            -0.025914218585317592,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "Checks": 3,
+          "Top1": false,
+          "Top3": false,
+          "FirstLossMasked": false
+        }
+      ],
+      "SubsetBFullyEligible": {
+        "Parents": 14,
+        "Answerable": 9,
+        "NoAnswer": 5,
+        "UnknownExcluded": 0,
+        "TotalChecks": 32,
+        "OracleChecks": 20,
+        "Top1Correct": 0,
+        "Top3Correct": 9,
+        "MeanChecks": 2.2857142857142856,
+        "OracleMean": 1.4285714285714286
+      },
+      "Strata": [
+        {
+          "Tag": "legacy",
+          "Metric": {
+            "Parents": 12,
+            "Answerable": 8,
+            "NoAnswer": 4,
+            "UnknownExcluded": 0,
+            "TotalChecks": 25,
+            "OracleChecks": 16,
+            "Top1Correct": 1,
+            "Top3Correct": 8,
+            "MeanChecks": 2.0833333333333335,
+            "OracleMean": 1.3333333333333333
+          }
+        },
+        {
+          "Tag": "original_mask_affected",
+          "Metric": {
+            "Parents": 1,
+            "Answerable": 1,
+            "NoAnswer": 0,
+            "UnknownExcluded": 0,
+            "TotalChecks": 1,
+            "OracleChecks": 1,
+            "Top1Correct": 1,
+            "Top3Correct": 1,
+            "MeanChecks": 1,
+            "OracleMean": 1
+          }
+        },
+        {
+          "Tag": "typed",
+          "Metric": {
+            "Parents": 3,
+            "Answerable": 2,
+            "NoAnswer": 1,
+            "UnknownExcluded": 0,
+            "TotalChecks": 8,
+            "OracleChecks": 5,
+            "Top1Correct": 0,
+            "Top3Correct": 2,
+            "MeanChecks": 2.6666666666666665,
+            "OracleMean": 1.6666666666666667
+          }
+        }
+      ],
+      "MissingStrataParents": 0
+    },
+    "RelativeGain": -0.2222222222222222,
+    "CheckReductionPass": false,
+    "Top1Pass": false,
+    "Top3Pass": true,
+    "DevelopmentUtilityPassed": false,
+    "ComparatorTiePolicy": "minimum total checks on identical validation A; ties fixed_order then bm25 then lexical_ordered then narrow_rule"
+  },
+  "Artifact": {
+    "id": "rank-bce8192-fp32-seed1729.hbin",
+    "bytes": 32792,
+    "sha256": "539bd0de1c4b08af99645ebc113eeaa7a7aeaef8dcf4282d10e3b3336e737c6f"
+  },
+  "ProjectionInput": {
+    "id": "actual-projection76",
+    "bytes": 8390462,
+    "sha256": "f68bff5f48747a66f038c17262568c1bd91251a8c81b3f46f7ae5090c8fe4b99"
+  },
+  "Evidence": [
+    {
+      "id": "combined76",
+      "bytes": 2694968,
+      "sha256": "4e9d36db9e151f807cc2c79da72d863308369d0708a86524b32f717a334f8c21"
+    },
+    {
+      "id": "full76-whole-group-role-result",
+      "bytes": 29864,
+      "sha256": "24de7b745747966107b00c6748a61dc920d97ed9cc9f98a8f22fd367cd8b6b70"
+    },
+    {
+      "id": "independent-role70-QA",
+      "bytes": 2781,
+      "sha256": "34751236b9929ab24b9cbba8b603201c8a26087f06d077156684a47a1b5d0a60"
+    },
+    {
+      "id": "historical-fit71-QA",
+      "bytes": 15367,
+      "sha256": "f4e7b715826df6c4b3f23e67ae41afc7baea57652addf4f4b2db736463b4ae40"
+    },
+    {
+      "id": "independent-precheck76",
+      "bytes": 2840,
+      "sha256": "502f148e312f711e826a4c58831982597e56d208532c73bd9daf042cdb159f44"
+    },
+    {
+      "id": "truth56b",
+      "bytes": 266818,
+      "sha256": "4128400c792d2151955a1d98f7d35aca6112d097a3ac20aa280a7357996636c4"
+    },
+    {
+      "id": "masks67",
+      "bytes": 1026473,
+      "sha256": "0ab835d8dca2e3157d9546e0059b39cd46c4c309b3c237489f74960df9cfcebf"
+    },
+    {
+      "id": "probes56",
+      "bytes": 49941,
+      "sha256": "0fe97dd65606f4239ef9187f1fc4d9c8dc2fcaebf342612b2071220896b92df0"
+    },
+    {
+      "id": "probes56b",
+      "bytes": 43598,
+      "sha256": "0d2bf6980353cefc4327af165c0f60a6455c1feea920f354dc621019ce3ed21e"
+    },
+    {
+      "id": "contract68",
+      "bytes": 27415,
+      "sha256": "818eed54f6b14b1f512025804cf7782d4a59d94ed30eeeaa46c56a270afbd0eb"
+    },
+    {
+      "id": "finiteqa68",
+      "bytes": 17101,
+      "sha256": "ecc9de25fea14872257fc50af2ddb312db644d0e0b5e9ed07ffdc9f3fb119083"
+    },
+    {
+      "id": "independent-runtime76-QA",
+      "bytes": 3759,
+      "sha256": "962b977da5f7ea320434121381ceb64aa79224b81df75c9202c8526f20796def"
+    },
+    {
+      "id": "historical-caller-readiness71",
+      "bytes": 3020,
+      "sha256": "995d42d9fad2b2701131008ad55927150ac1f61c104e5b67c095d9dd96c1da93"
+    },
+    {
+      "id": "fixed-utility-strata-policy",
+      "bytes": 7050,
+      "sha256": "0eb66f3296641ac7df1a19ea617659c72335f7e13714d6d451c258f93ade5dd2"
+    },
+    {
+      "id": "combined76-source-fidelity-masks-audit",
+      "bytes": 3801,
+      "sha256": "cda948c6816e848483c5ab8aada5190e6e1a279e167591b92fe78fc22fa3d86e"
+    },
+    {
+      "id": "original-plan56",
+      "bytes": 10537,
+      "sha256": "c22feb5cd2da85e5b8420fec07b3023250a4915cae583cb2f71cf15941bf20f5"
+    },
+    {
+      "id": "historical-fit71-result",
+      "bytes": 71849,
+      "sha256": "060eaa602f27f7fd9a67306e2fa2a530f0ef4c5c4548858a7818d9dfdb4bb28a"
+    },
+    {
+      "id": "independent-rank-bce-driver-QA",
+      "bytes": 7810,
+      "sha256": "d261a183880a7c64208daa3ee890046c9ec5e04072068e3e86f9562f73556d60"
+    },
+    {
+      "id": "caller-bounded-development-readiness",
+      "bytes": 3460,
+      "sha256": "566c8409a3a10041e82c55c93eac904db05cb44c2823bf3f581dfb980f361352"
+    }
+  ],
+  "TrainingReadinessScope": "bounded_development_primary_only_no_generalization_or_production_claim",
+  "ProductionReady": false,
+  "PublicationQualified": false,
+  "LimitsExplanation": "256MiB Go heap is soft; external controller measures whole-process CPU/RSS and kills at300s; projection payload and new outputs capped64MiB; JSON temporary allocation is not a hard RSS proof"
+}

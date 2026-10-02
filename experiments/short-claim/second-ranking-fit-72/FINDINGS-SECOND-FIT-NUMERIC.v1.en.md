@@ -1,0 +1,11 @@
+# Numerical review of the second fit
+
+The saved coefficients, prepared arrays and recorded arithmetic agree. Utility still failed. On the same validation parents, the control required 27 checks, the first model 31, and the second model 33. Top1 was 5→2→1; Top3 stayed at 10. The second model's relative gain against the control was −22.22%.
+
+An independent Go stdlib-only helper ran once, with zero failures or retries. It manually decoded all 8,192 FP32 coefficients. Weighted BCE on 91 training rows (18 zero-weight rows) and 45 validation rows (one zero-weight row) was 0.6311540918774127 and 0.6885500655576609, matching the saved values. Maximum validation candidate score difference was zero. No original trainer, feature, role or preparation API was rerun.
+
+Pair NLL was independently computed as a mean within each parent, then across eligible parents. All 56 training pairs and 28 validation pairs remain, including 16 and two zero-weight pairs. There were 16 eligible training parents and 10 eligible validation parents. Selected-epoch pair NLL was 0.593613195205774 and 0.6927276831485621, with maximum arithmetic difference 1.11e−16. PairAudit.Weights are supervision weights, not model coefficients.
+
+All 50 BCE records and 50 pair records were finite and ordered. The unchanged earliest minimum validation-BCE rule selected epoch 50. Old and new control outputs and parent order were exact matches. Primary utility retained every candidate of the 15 known validation parents: 10 answerable and five no_answer. Five validation unknown parents were excluded from truth-cost denominators while all 21 corpus unknown parents and 63 null candidate labels remained. Masks affect loss only; calibration was excluded from fitting and selection.
+
+This checks final-weight arithmetic and stored-record consistency. Intermediate epoch coefficients, training updates and training reproducibility were not reconstructed. Adaptive reuse of the same validation set is not final generalization evidence. PublicationQualified, ProductionReady and UtilityPass remain false; no new resource or LLM-savings measurements occurred. Private helper source, binaries and logs are not public assets. The receipt and attempt ledger contain exact hashes and actual review work counts.
