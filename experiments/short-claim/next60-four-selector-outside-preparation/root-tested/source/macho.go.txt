@@ -1,0 +1,172 @@
+// INERT adaptation of owned bounded Mach-O structural checks. No Ftoa
+// binding symbols, candidate counts or readiness policy are carried over.
+package main
+
+import (
+	"bytes"
+	"debug/macho"
+	"encoding/binary"
+	"errors"
+	"io"
+	"math"
+)
+
+var errMachOBinding = errors.New("invalid bounded Mach-O worker binding")
+
+func inRange(offset, size, total uint64) bool { return offset <= total && size <= total-offset }
+func readFixed(r io.ReaderAt, offset uint64, b []byte, total uint64) error {
+	if offset > math.MaxInt64 || !inRange(offset, uint64(len(b)), total) {
+		return errMachOBinding
+	}
+	n, e := r.ReadAt(b, int64(offset))
+	if n != len(b) || e != nil {
+		return errMachOBinding
+	}
+	return nil
+}
+
+// Validate allocation-bearing load commands before debug/macho parses them.
+// Current scope is a thin little-endian MachO64 ARM64 executable <=8MiB,
+// <=128 commands/64 sections/100000 symbols/8MiB string table, symbol names
+// <=1024 bytes each/8MiB cumulatively. No Data() bulk
+// section read, symbol code invocation, or original binary execution occurs.
+func boundedMachO(r io.ReaderAt, size uint64) (*macho.File, error) {
+	if size < 32 || size > uint64(binaryCap) {
+		return nil, errMachOBinding
+	}
+	var header [32]byte
+	if readFixed(r, 0, header[:], size) != nil {
+		return nil, errMachOBinding
+	}
+	le := binary.LittleEndian
+	if le.Uint32(header[0:4]) != macho.Magic64 || le.Uint32(header[4:8]) != uint32(macho.CpuArm64) || le.Uint32(header[12:16]) != uint32(macho.TypeExec) {
+		return nil, errMachOBinding
+	}
+	ncmd, cmdbytes := uint64(le.Uint32(header[16:20])), uint64(le.Uint32(header[20:24]))
+	if ncmd < 1 || ncmd > 128 || cmdbytes > 128<<10 || !inRange(32, cmdbytes, size) {
+		return nil, errMachOBinding
+	}
+	off, end := uint64(32), uint64(32)+cmdbytes
+	var sections, symtabs, relocations, dynTables uint64
+	var symOffset, symCount, strOffset, strSize, undefIndex, undefCount uint64
+	for i := uint64(0); i < ncmd; i++ {
+		var raw [8]byte
+		if !inRange(off, 8, end) || readFixed(r, off, raw[:], size) != nil {
+			return nil, errMachOBinding
+		}
+		cmd, n := le.Uint32(raw[:4]), uint64(le.Uint32(raw[4:]))
+		if n < 8 || n%8 != 0 || !inRange(off, n, end) {
+			return nil, errMachOBinding
+		}
+		switch macho.LoadCmd(cmd) {
+		case macho.LoadCmdSegment:
+			return nil, errMachOBinding
+		case macho.LoadCmdSegment64:
+			if n < 72 {
+				return nil, errMachOBinding
+			}
+			var seg [72]byte
+			if readFixed(r, off, seg[:], size) != nil {
+				return nil, errMachOBinding
+			}
+			count := uint64(le.Uint32(seg[64:68]))
+			sections += count
+			if count > 64 || sections > 64 || n != 72+80*count {
+				return nil, errMachOBinding
+			}
+			vmaddr, vmsize := le.Uint64(seg[24:32]), le.Uint64(seg[32:40])
+			if vmaddr > math.MaxUint64-vmsize || !inRange(le.Uint64(seg[40:48]), le.Uint64(seg[48:56]), size) {
+				return nil, errMachOBinding
+			}
+			for j := uint64(0); j < count; j++ {
+				var section [80]byte
+				if readFixed(r, off+72+80*j, section[:], size) != nil {
+					return nil, errMachOBinding
+				}
+				reloff, nrel := uint64(le.Uint32(section[56:60])), uint64(le.Uint32(section[60:64]))
+				relocations += nrel
+				if relocations > 100000 || !inRange(reloff, nrel*8, size) {
+					return nil, errMachOBinding
+				}
+			}
+		case macho.LoadCmdSymtab:
+			if n != 24 {
+				return nil, errMachOBinding
+			}
+			var table [24]byte
+			if readFixed(r, off, table[:], size) != nil {
+				return nil, errMachOBinding
+			}
+			symtabs++
+			symoff, nsym := uint64(le.Uint32(table[8:12])), uint64(le.Uint32(table[12:16]))
+			stroff, strsize := uint64(le.Uint32(table[16:20])), uint64(le.Uint32(table[20:24]))
+			if symtabs != 1 || nsym < 6 || nsym > 100000 || strsize < 1 || strsize > 8<<20 || !inRange(symoff, nsym*16, size) || !inRange(stroff, strsize, size) {
+				return nil, errMachOBinding
+			}
+			symOffset, symCount, strOffset, strSize = symoff, nsym, stroff, strsize
+		case macho.LoadCmdDysymtab:
+			if n != 80 {
+				return nil, errMachOBinding
+			}
+			var dyn [80]byte
+			if readFixed(r, off, dyn[:], size) != nil {
+				return nil, errMachOBinding
+			}
+			dynTables++
+			indirect, count := uint64(le.Uint32(dyn[56:60])), uint64(le.Uint32(dyn[60:64]))
+			if dynTables > 1 || count > 100000 || !inRange(indirect, count*4, size) {
+				return nil, errMachOBinding
+			}
+			undefIndex, undefCount = uint64(le.Uint32(dyn[24:28])), uint64(le.Uint32(dyn[28:32]))
+		}
+		off += n
+	}
+	if off != end || symtabs != 1 {
+		return nil, errMachOBinding
+	}
+	if !inRange(undefIndex, undefCount, symCount) {
+		return nil, errMachOBinding
+	}
+	// parseSymtab copies each NUL-terminated name independently. Shared long
+	// strings must not multiply into unbounded allocations/scan work. Bound
+	// each symbol name to1024 bytes and cumulative copied names to8MiB first.
+	var namesTotal uint64
+	var nameBuffer [1025]byte
+	for i := uint64(0); i < symCount; i++ {
+		var rawName [4]byte
+		if readFixed(r, symOffset+16*i, rawName[:], size) != nil {
+			return nil, errMachOBinding
+		}
+		index := uint64(le.Uint32(rawName[:]))
+		if index >= strSize {
+			return nil, errMachOBinding
+		}
+		n := strSize - index
+		if n > uint64(len(nameBuffer)) {
+			n = uint64(len(nameBuffer))
+		}
+		if readFixed(r, strOffset+index, nameBuffer[:int(n)], size) != nil {
+			return nil, errMachOBinding
+		}
+		end := bytes.IndexByte(nameBuffer[:int(n)], 0)
+		if end < 0 {
+			return nil, errMachOBinding
+		}
+		namesTotal += uint64(end + 1)
+		if namesTotal > 8<<20 {
+			return nil, errMachOBinding
+		}
+	}
+	f, e := macho.NewFile(r)
+	if e != nil || f.Magic != macho.Magic64 || f.ByteOrder != binary.LittleEndian || f.Cpu != macho.CpuArm64 || f.Type != macho.TypeExec || f.Symtab == nil {
+		return nil, errMachOBinding
+	}
+	for i, s := range f.Sections {
+		for _, other := range f.Sections[:i] {
+			if s.Seg == other.Seg && s.Name == other.Name {
+				return nil, errMachOBinding
+			}
+		}
+	}
+	return f, nil
+}

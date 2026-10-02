@@ -1,0 +1,260 @@
+package batchprep
+
+import (
+	"reflect"
+	"strconv"
+)
+
+// Observe is one future candidate-wrapper dispatch. Setup and diagnostic legacy
+// calls can invoke upstream APIs inside it. The original API/internal/init
+// counts remain null; wrapper dispatch counters are not those inner counts.
+func Observe(d Dispatch, f Fixture, ops OriginalOps, checkpoint Checkpoint, counters *Counters) (Observation, error) {
+	var out Observation
+	if checkpoint == nil || counters == nil || !ValidFixture(f, d) || d.CandidateIndex < 0 || d.CandidateIndex >= 3 {
+		return out, missingBinding("dispatch_contract")
+	}
+	if counters.CheckpointStopped {
+		out.UnknownReason = "checkpoint_stopped"
+		return out, missingBinding("checkpoint_stopped")
+	}
+	switch d.OriginalOrdinal {
+	case 1:
+		if ops.ParseComma == nil {
+			return out, missingBinding("comma_binding_missing")
+		}
+	case 4:
+		if ops.DecodeName == nil {
+			return out, missingBinding("collision_binding_missing")
+		}
+	case 5:
+		if ops.SetupMap == nil {
+			return out, missingBinding("snapshot_binding_missing")
+		}
+	case 9:
+		if ops.ParseBytes == nil {
+			return out, missingBinding("bytes_binding_missing")
+		}
+	default:
+		return out, missingBinding("ordinal_unsupported")
+	}
+	if counters.CandidateDispatched >= 57 {
+		return out, missingBinding("candidate_dispatch_cap")
+	}
+	counters.CandidateReserved++
+	if err := emitCheckpoint(checkpoint, "before_candidate", d, out, *counters); err != nil {
+		counters.CheckpointStopped = true
+		out.UnknownReason = "reservation_checkpoint_failed"
+		return out, err
+	}
+	counters.CandidateDispatched++
+	var resultErr error
+	returned := false
+	func() {
+		defer func() {
+			if !returned {
+				out.Panicked = true
+				value := recover()
+				if value != nil {
+					t := reflect.TypeOf(value).String()
+					out.PanicType = &t
+				}
+				if s, ok := value.(string); ok {
+					out.PanicText = &s
+				} else {
+					out.NonStringPanicTextUnobserved = true
+				}
+				out.UnknownReason = "candidate_wrapper_panic"
+			}
+		}()
+		switch d.OriginalOrdinal {
+		case 1:
+			v, e := CommaCandidate(d.CandidateIndex, *f.StringInput, ops.ParseComma)
+			resultErr = e
+			text := strconv.FormatInt(v, 10)
+			out.Int64Decimal = &text
+		case 9:
+			v, e := BytesCandidate(d.CandidateIndex, *f.StringInput, ops.ParseBytes)
+			resultErr = e
+			text := strconv.FormatUint(v, 10)
+			out.Uint64Decimal = &text
+		case 4:
+			before := f.Collision.InitialName
+			out.NameBefore = &before
+			target := NameTarget{Name: before}
+			resultErr = CollisionCandidate(d.CandidateIndex, CopyMap(f.Collision.Map), &target, ops.DecodeName)
+			after := target.Name
+			out.NameAfter = &after
+			if e, ok := resultErr.(*ContractError); ok && e.Kind == "ambiguous_key" {
+				out.ConflictingKeys = append([]string{}, e.Keys...)
+			}
+		case 5:
+			input := f.Snapshot
+			binding := ops.SetupMap(CopyMap(input.Map))
+			if binding.Live == nil || binding.Get == nil {
+				panic("invalid_snapshot_binding")
+			}
+			out.LiveBefore = Image(*binding.Live)
+			name := input.FlagName
+			if name == "" {
+				name = "items"
+			}
+			snapshot, e := SnapshotCandidate(d.CandidateIndex, name, binding.Get)
+			resultErr = e
+			out.SnapshotBefore = Image(snapshot)
+			if e == nil {
+				for k, v := range input.MutateSnapshot {
+					snapshot[k] = v
+				}
+				for k, v := range input.MutateLive {
+					(*binding.Live)[k] = v
+				}
+			}
+			out.SnapshotAfter = Image(snapshot)
+			out.LiveAfter = Image(*binding.Live)
+			// One explicit legacy getter is part of every snapshot wrapper.
+			legacy, legacyErr := binding.Get("items")
+			if legacyErr != nil {
+				panic("legacy_getter_unexpected_error")
+			}
+			out.LegacyAfter = Image(legacy)
+		}
+		returned = true
+	}()
+	if !returned {
+		counters.CandidatePanicked++
+	} else {
+		counters.CandidateReturned++
+		out.ReturnedNormally = true
+	}
+	if returned {
+		present := resultErr != nil
+		out.ErrorPresent = &present
+		if resultErr != nil {
+			t := reflect.TypeOf(resultErr).String()
+			out.ErrorType = &t
+			if counters.ErrorMethodDispatched >= 57 {
+				out.UnknownReason = "error_dispatch_cap"
+				return out, missingBinding("error_dispatch_cap")
+			}
+			counters.ErrorMethodReserved++
+			if err := emitCheckpoint(checkpoint, "before_error_method", d, out, *counters); err != nil {
+				counters.CheckpointStopped = true
+				out.UnknownReason = "error_checkpoint_failed"
+				return out, err
+			}
+			counters.ErrorMethodDispatched++
+			errorReturned := false
+			func() {
+				defer func() {
+					if !errorReturned {
+						recover()
+						out.ErrorMethodPanicked = true
+					}
+				}()
+				text := resultErr.Error()
+				out.ErrorText = &text
+				out.ErrorTextObserved = true
+				errorReturned = true
+			}()
+			if errorReturned {
+				counters.ErrorMethodReturned++
+				kind := errorKind(resultErr, *out.ErrorText)
+				out.ErrorKind = &kind
+			} else {
+				counters.ErrorMethodPanicked++
+				out.UnknownReason = "error_method_panic"
+			}
+			if err := emitCheckpoint(checkpoint, "after_error_method", d, out, *counters); err != nil {
+				counters.CheckpointStopped = true
+				out.UnknownReason = "error_result_checkpoint_failed"
+				return out, err
+			}
+		}
+	}
+	if err := emitCheckpoint(checkpoint, "after_candidate", d, out, *counters); err != nil {
+		counters.CheckpointStopped = true
+		out.UnknownReason = "result_checkpoint_failed"
+		return out, err
+	}
+	return out, nil
+}
+
+// Desired contract comparison, not truth/label/rights/role qualification. A
+// panic or unavailable channel is unknown, never automatically a negative.
+func Compare(o Observation, w Wanted) Comparison {
+	r := Comparison{State: "satisfied", Fields: []string{}}
+	if !o.ReturnedNormally || o.Panicked || o.ErrorMethodPanicked || o.UnknownReason != "" || o.ErrorPresent == nil {
+		r.State = "unknown"
+		return r
+	}
+	if *o.ErrorPresent && (o.ErrorKind == nil || *o.ErrorKind == "unclassified_error") {
+		r.State = "unknown"
+		return r
+	}
+	if *o.ErrorPresent != w.ErrorPresent {
+		r.Fields = append(r.Fields, "error_present")
+	}
+	if w.RequiredErrorKind != nil {
+		if !*o.ErrorPresent {
+			r.Fields = append(r.Fields, "error_kind")
+		} else {
+			if o.ErrorKind == nil {
+				r.State = "unknown"
+				return r
+			}
+			if *o.ErrorKind != *w.RequiredErrorKind {
+				r.Fields = append(r.Fields, "error_kind")
+			}
+		}
+	}
+	if w.RequiredErrorType != nil {
+		if !*o.ErrorPresent {
+			r.Fields = append(r.Fields, "error_type")
+		} else {
+			if o.ErrorType == nil {
+				r.State = "unknown"
+				return r
+			}
+			if *o.ErrorType != *w.RequiredErrorType {
+				r.Fields = append(r.Fields, "error_type")
+			}
+		}
+	}
+	strings := []struct {
+		name      string
+		got, want *string
+	}{{"int64_decimal", o.Int64Decimal, w.Int64Decimal}, {"uint64_decimal", o.Uint64Decimal, w.Uint64Decimal}, {"name_after", o.NameAfter, w.NameAfter}}
+	for _, s := range strings {
+		if s.want != nil {
+			if s.got == nil {
+				r.State = "unknown"
+				return r
+			}
+			if *s.got != *s.want {
+				r.Fields = append(r.Fields, s.name)
+			}
+		}
+	}
+	if w.ConflictingKeys != nil && !reflect.DeepEqual(o.ConflictingKeys, w.ConflictingKeys) {
+		r.Fields = append(r.Fields, "conflicting_keys")
+	}
+	maps := []struct {
+		name      string
+		got, want *MapImage
+	}{{"live_after", o.LiveAfter, w.LiveAfter}, {"snapshot_after", o.SnapshotAfter, w.SnapshotAfter}, {"legacy_after", o.LegacyAfter, w.LegacyAfter}}
+	for _, m := range maps {
+		if m.want != nil {
+			if m.got == nil {
+				r.State = "unknown"
+				return r
+			}
+			if !reflect.DeepEqual(m.got, m.want) {
+				r.Fields = append(r.Fields, m.name)
+			}
+		}
+	}
+	if len(r.Fields) > 0 {
+		r.State = "known_mismatch"
+	}
+	return r
+}

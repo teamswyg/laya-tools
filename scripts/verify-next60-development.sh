@@ -54,8 +54,36 @@ case "$mode" in
     CGO_ENABLED=1 go vet ./...
     echo 'PASS: authored synthetic controller tests; original worker and models not launched.'
     ;;
+  checkpoint)
+    source_root="$repo_root/experiments/short-claim/next60-four-selector-checkpoints/root-tested/source"
+    mkdir -p "$check_dir/module/batchprep" "$check_dir/module/checkpoint"
+    cp "$source_root/go.mod.txt" "$check_dir/module/go.mod"
+    for part in batchprep checkpoint; do
+      for source_file in "$source_root/$part/"*.go.txt; do
+        file_name=${source_file##*/}
+        cp "$source_file" "$check_dir/module/$part/${file_name%.txt}"
+      done
+    done
+    cd "$check_dir/module"
+    # Exactly these two owned packages; no original imports or native main.
+    CGO_ENABLED=1 go test -race -p=1 -timeout=5m ./batchprep ./checkpoint
+    CGO_ENABLED=1 go vet -p=1 ./batchprep ./checkpoint
+    echo 'PASS: synthetic checkpoint failure controls; no original57 observation or model execution.'
+    ;;
+  outside)
+    source_root="$repo_root/experiments/short-claim/next60-four-selector-outside-preparation/root-tested/source"
+    mkdir -p "$check_dir/module/pure"
+    for name in main.go files.go process.go macho.go main_test.go go.mod; do
+      cp "$source_root/$name.txt" "$check_dir/module/$name"
+    done
+    cp "$source_root/pure/protocol.go.txt" "$check_dir/module/pure/protocol.go"
+    cd "$check_dir/module"
+    CGO_ENABLED=1 go test -race -p=1 -timeout=5m ./...
+    CGO_ENABLED=1 go vet -p=1 ./...
+    echo 'PASS: fake lifecycle and metadata tests; no native worker or real child process.'
+    ;;
   *)
-    echo 'Expected data or controller mode.' >&2
+    echo 'Expected data, controller, checkpoint or outside mode.' >&2
     exit 2
     ;;
 esac

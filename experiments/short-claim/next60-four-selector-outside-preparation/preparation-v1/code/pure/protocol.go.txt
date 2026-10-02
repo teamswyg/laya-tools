@@ -1,0 +1,132 @@
+// INERT source-only protocol. No upstream imports or native/model operations.
+package pure
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"io"
+	"path"
+	"strings"
+	"unicode/utf8"
+)
+
+const BindingSchema="riido-four-selector-outside-binding-v1"
+const ManifestSchema="riido-four-selector-declared-source-v1"
+const ReviewSchema="riido-four-selector-root-prereview-v1"
+const WorkerSchema="riido-four-selector-native-observation-v1"
+const FixtureSHA="1ee48c079f85f9e4c3051b53c7f51a3e2d9c0eadc8dd7599f34afbcf46ef42ba"
+const FixtureBytes=47256
+const MetadataCap=128<<10
+const WorkerCap=(1<<20)-1
+const FinalCap=256<<10
+const EventCap=32<<10
+const StderrCap=64<<10
+const BinaryCap=8<<20
+const OutsideCap=1<<20
+const WholeSeconds=60
+const CleanupMilliseconds=1000
+var Err=errors.New("four_selector_protocol")
+
+type Pin struct {ID string `json:"asset_id"`;Path string `json:"path"`;Bytes int64 `json:"bytes"`;SHA string `json:"sha256"`}
+type PublicPin struct {ID string `json:"asset_id"`;Bytes int64 `json:"bytes"`;SHA string `json:"sha256"`}
+func (p Pin)Public()PublicPin{return PublicPin{p.ID,p.Bytes,p.SHA}}
+type Binding struct {
+	Schema string `json:"schema"`;Frozen bool `json:"frozen"`
+	SourceRoot string `json:"source_root_private"`;ControllerRoot string `json:"controller_source_root_private"`;OutsideDir string `json:"outside_dir_private"`
+	Manifest Pin `json:"source_manifest"`;Plan Pin `json:"worker_plan"`;Fixture Pin `json:"fixture"`;Worker Pin `json:"worker_binary"`;Self Pin `json:"controller_binary"`;TimeTool Pin `json:"time_tool"`;Review Pin `json:"root_prereview"`
+	ControllerSources []Pin `json:"controller_sources"`
+	Attempt int `json:"attempt"`;Retries int `json:"automatic_retries"`;CPU int `json:"cpu_threads"`;SoftHeap int64 `json:"heap_soft_bytes"`;Seconds int `json:"outside_wall_seconds"`;MaxOutside int64 `json:"max_outside_bytes"`
+	AllowModels bool `json:"allow_model_operations"`;AllowProtected bool `json:"allow_protected_final"`;AllowPublication bool `json:"allow_public_writes"`
+}
+// Root-authored review binds exact inputs; matching booleans is an external
+// trust boundary, not independent proof of rights, CI or compiler selection.
+type Review struct {
+	Schema string `json:"schema"`;Frozen bool `json:"frozen"`
+	ManifestSHA string `json:"source_manifest_sha256"`;WorkerSHA string `json:"worker_binary_sha256"`;PlanSHA string `json:"worker_plan_sha256"`;FixtureSHA string `json:"fixture_sha256"`;SelfSHA string `json:"controller_binary_sha256"`
+	SourcePassed bool `json:"source_review_passed"`;WantPassed bool `json:"finite_Want_review_passed"`;RightsPassed bool `json:"local_observation_rights_review_passed"`;CompilerPassed bool `json:"full_compiler_selection_review_passed"`;CIPassed bool `json:"source_CI_review_passed"`;ResourcePassed bool `json:"resource_reservation_review_passed"`
+	Evidence []Pin `json:"evidence"`
+}
+type Manifest struct {Schema string `json:"schema"`;Files []Pin `json:"files"`;ClosedDirs []string `json:"closed_go_directories"`;Module string `json:"worker_module"`}
+type Plan struct {
+	Schema string `json:"schema"`;Frozen bool `json:"frozen"`;FixtureFile string `json:"fixture_file"`;FixtureBytes int `json:"fixture_bytes"`;FixtureSHA string `json:"fixture_sha256"`
+	Requests int `json:"requests"`;Inputs int `json:"inputs"`;Candidates int `json:"candidate_positions"`;Dispatches int `json:"candidate_dispatches"`;ErrorsExpected int `json:"error_methods_expected"`;ErrorsMax int `json:"error_methods_maximum"`
+	CPU int `json:"cpu_threads"`;SoftHeap int64 `json:"heap_soft_bytes"`;Seconds int `json:"outside_wall_seconds"`;MaxOutput int `json:"max_output_bytes"`;MaxEvent int `json:"max_event_bytes"`;MaxFinal int `json:"max_final_bytes"`;Retries int `json:"automatic_retries"`
+}
+func Digest(b []byte)string{h:=sha256.Sum256(b);return hex.EncodeToString(h[:])}
+func SHA(s string)bool{if len(s)!=64{return false};for _,c:=range s{if !(c>='a'&&c<='f')&&!(c>='0'&&c<='9'){return false}};return true}
+func SafePath(s string)bool{return s!=""&&len(s)<=2048&&utf8.ValidString(s)&&!strings.ContainsAny(s,"\\\x00")&&!path.IsAbs(s)&&path.Clean(s)==s&&s!=".."&&!strings.HasPrefix(s,"../")}
+func ValidPin(p Pin,cap int64)bool{if p.ID==""||len(p.ID)>512||!SafePath(p.ID){return false};for _,c:=range p.ID{if !(c>='a'&&c<='z')&&!(c>='A'&&c<='Z')&&!(c>='0'&&c<='9')&&c!='/'&&c!='.'&&c!='_'&&c!='-'{return false}};return SafePath(p.Path)&&p.Bytes>0&&p.Bytes<=cap&&SHA(p.SHA)}
+// Reject duplicates including case folds before typed decoding. Null is allowed
+// only for protocols that have nullable observation channels; metadata callers
+// use DecodeNonNull. Bounds apply before map/slice-bearing typed allocation.
+func unique(b []byte,cap int,nonNull bool)error{
+	if len(b)==0||len(b)>cap||!utf8.Valid(b){return Err};d:=json.NewDecoder(bytes.NewReader(b));d.UseNumber();nodes:=0
+	var walk func(int)error;walk=func(depth int)error{nodes++;if depth>32||nodes>65536{return Err};v,e:=d.Token();if e!=nil||(nonNull&&v==nil){return Err};x,ok:=v.(json.Delim);if !ok{return nil}
+		switch x{case '{':var keys []string;for d.More(){v,e:=d.Token();k,ok:=v.(string);if e!=nil||!ok||len(keys)>=128{return Err};for _,old:=range keys{if strings.EqualFold(old,k){return Err}};keys=append(keys,k);if walk(depth+1)!=nil{return Err}};v,e=d.Token();if e!=nil||v!=json.Delim('}'){return Err}
+		case '[':n:=0;for d.More(){n++;if n>4096||walk(depth+1)!=nil{return Err}};v,e=d.Token();if e!=nil||v!=json.Delim(']'){return Err};default:return Err};return nil}
+	if walk(0)!=nil{return Err};if _,e:=d.Token();e!=io.EOF{return Err};return nil
+}
+func Decode(b []byte,out any,cap int)error{if unique(b,cap,false)!=nil{return Err};d:=json.NewDecoder(bytes.NewReader(b));d.DisallowUnknownFields();if d.Decode(out)!=nil||d.Decode(new(any))!=io.EOF{return Err};return nil}
+func DecodeNonNull(b []byte,out any,cap int)error{if unique(b,cap,true)!=nil{return Err};return Decode(b,out,cap)}
+func CheckPlan(b []byte,p *Plan)error{
+	if DecodeNonNull(b,p,65536)!=nil{return Err};var keys map[string]json.RawMessage;if json.Unmarshal(b,&keys)!=nil||len(keys)!=18{return Err}
+	for k:=range keys{if k==""{return Err};for _,c:=range k{if !(c>='a'&&c<='z')&&!(c>='0'&&c<='9')&&c!='_'{return Err}}}
+	if p.Schema!="riido-four-selector-checkpoint-worker-plan-v1"||!p.Frozen||p.FixtureFile!="FIXTURES.v1.json"||p.FixtureBytes!=FixtureBytes||p.FixtureSHA!=FixtureSHA||p.Requests!=4||p.Inputs!=19||p.Candidates!=12||p.Dispatches!=57||p.ErrorsExpected!=14||p.ErrorsMax!=57||p.CPU!=1||p.SoftHeap!=268435456||p.Seconds!=60||p.MaxOutput!=WorkerCap||p.MaxEvent!=EventCap||p.MaxFinal!=FinalCap||p.Retries!=0{return Err};return nil
+}
+func CheckBinding(b Binding)error{
+	if b.Schema!=BindingSchema||!b.Frozen||b.Attempt!=1||b.Retries!=0||b.CPU!=1||b.SoftHeap!=268435456||b.Seconds!=60||b.MaxOutside!=OutsideCap||b.AllowModels||b.AllowProtected||b.AllowPublication||len(b.ControllerSources)!=6{return Err}
+	for _,p:=range []Pin{b.Manifest,b.Plan,b.Fixture,b.Review}{if !ValidPin(p,MetadataCap){return Err}}
+	for _,p:=range []Pin{b.Worker,b.Self,b.TimeTool}{if !ValidPin(p,BinaryCap){return Err}}
+	if b.Fixture.Path!="FIXTURES.v1.json"||b.Fixture.Bytes!=FixtureBytes||b.Fixture.SHA!=FixtureSHA||path.Dir(b.Plan.Path)!="."{return Err}
+	return nil
+}
+func CheckReview(r Review,b Binding)error{
+	if r.Schema!=ReviewSchema||!r.Frozen||r.ManifestSHA!=b.Manifest.SHA||r.WorkerSHA!=b.Worker.SHA||r.PlanSHA!=b.Plan.SHA||r.FixtureSHA!=FixtureSHA||r.SelfSHA!=b.Self.SHA||!r.SourcePassed||!r.WantPassed||!r.RightsPassed||!r.CompilerPassed||!r.CIPassed||!r.ResourcePassed||len(r.Evidence)!=6{return Err}
+	names:=[6]string{"root/source","root/Wanted","root/rights","root/compiler","root/CI","root/resource"}
+	for i,p:=range r.Evidence{if p.ID!=names[i]||!ValidPin(p,MetadataCap){return Err};for _,q:=range r.Evidence[:i]{if p.ID==q.ID||p.Path==q.Path{return Err}}};return nil
+}
+type Dispatch struct {RequestIndex int;OriginalOrdinal int;CandidateIndex int;FixtureIndex int;FixtureOrdinal int}
+func Schedule()[57]Dispatch{ord:=[4]int{1,4,5,9};counts:=[4]int{6,4,4,5};var a [57]Dispatch;n,base:=0,0;for r,o:=range ord{for c:=0;c<3;c++{for f:=0;f<counts[r];f++{a[n]=Dispatch{r,o,c,f,base+f};n++}};base+=counts[r]};return a}
+type Counters struct {Reserved int `json:"candidate_reserved"`;Dispatched int `json:"candidate_dispatched"`;Returned int `json:"candidate_returned"`;Panicked int `json:"candidate_panicked"`;ErrorReserved int `json:"error_method_reserved"`;ErrorDispatched int `json:"error_method_dispatched"`;ErrorReturned int `json:"error_method_returned"`;ErrorPanicked int `json:"error_method_panicked"`;Stopped bool `json:"checkpoint_stopped"`}
+func CheckCounters(c Counters)bool{a:=[8]int{c.Reserved,c.Dispatched,c.Returned,c.Panicked,c.ErrorReserved,c.ErrorDispatched,c.ErrorReturned,c.ErrorPanicked};for _,n:=range a{if n<0||n>57{return false}};return c.Returned+c.Panicked==c.Dispatched&&c.ErrorReturned+c.ErrorPanicked==c.ErrorDispatched&&c.Reserved>=c.Dispatched&&c.Reserved-c.Dispatched<=1&&c.ErrorReserved>=c.ErrorDispatched&&c.ErrorReserved-c.ErrorDispatched<=1}
+type Header struct {Schema string `json:"schema"`;Plan string `json:"plan_sha256"`;Fixture string `json:"fixture_sha256"`;Requests int `json:"existing_requests"`;Inputs int `json:"finite_inputs"`;Candidates int `json:"candidate_positions"`;Dispatches int `json:"planned_candidate_dispatches"`;ErrorsExpected int `json:"expected_error_methods"`;ErrorsMax int `json:"maximum_error_methods"`;Native *int `json:"original_native_calls_measured"`;Init *int `json:"startup_init_calls_measured"`}
+func CheckHeader(h Header,planSHA string)bool{return h.Schema==WorkerSchema&&h.Plan==planSHA&&h.Fixture==FixtureSHA&&h.Requests==4&&h.Inputs==19&&h.Candidates==12&&h.Dispatches==57&&h.ErrorsExpected==14&&h.ErrorsMax==57&&h.Native==nil&&h.Init==nil}
+type Row struct {Dispatch Dispatch `json:"dispatch"`;Attempted bool `json:"attempted"`;Observation json.RawMessage `json:"observation"`;State string `json:"state"`;Truth json.RawMessage `json:"truth"`;Label json.RawMessage `json:"label"`;Role json.RawMessage `json:"role"`;Weight json.RawMessage `json:"weight"`}
+type Entry struct{Key string `json:"key"`;Value string `json:"value"`}
+type MapImage struct{Nil bool `json:"nil"`;Entries []Entry `json:"entries"`}
+type Observation struct{
+	Returned bool `json:"returned_normally"`;Int64 *string `json:"int64_decimal"`;Uint64 *string `json:"uint64_decimal"`;Before *string `json:"name_before"`;After *string `json:"name_after"`;Keys []string `json:"conflicting_keys"`
+	LiveBefore *MapImage `json:"live_before"`;LiveAfter *MapImage `json:"live_after"`;SnapshotBefore *MapImage `json:"snapshot_before"`;SnapshotAfter *MapImage `json:"snapshot_after"`;LegacyAfter *MapImage `json:"legacy_after"`
+	ErrorPresent *bool `json:"error_present"`;ErrorType *string `json:"error_type"`;ErrorKind *string `json:"error_kind"`;ErrorText *string `json:"error_text"`;ErrorTextObserved bool `json:"error_text_observed"`;ErrorPanicked bool `json:"error_method_panicked"`
+	Panicked bool `json:"panicked"`;PanicType *string `json:"panic_type"`;PanicText *string `json:"panic_text"`;UnobservedPanicText bool `json:"nonstring_panic_text_unobserved"`;Unknown string `json:"unknown_reason"`;Native *int `json:"original_api_calls_measured"`;Init *int `json:"startup_init_calls_measured"`
+}
+func observation(raw []byte)(Observation,error){
+	var o Observation;if Decode(raw,&o,EventCap)!=nil||o.Native!=nil||o.Init!=nil||len(o.Keys)>8{return o,Err}
+	for _,s:=range []*string{o.Int64,o.Uint64,o.Before,o.After,o.ErrorType,o.ErrorKind,o.ErrorText,o.PanicType,o.PanicText}{if s!=nil&&(len(*s)>4096||!utf8.ValidString(*s)){return o,Err}}
+	if len(o.Unknown)>4096||!utf8.ValidString(o.Unknown){return o,Err};for _,s:=range o.Keys{if len(s)>512||!utf8.ValidString(s){return o,Err}}
+	for _,m:=range []*MapImage{o.LiveBefore,o.LiveAfter,o.SnapshotBefore,o.SnapshotAfter,o.LegacyAfter}{if m==nil{continue};if len(m.Entries)>24||(m.Nil&&len(m.Entries)!=0){return o,Err};for i,e:=range m.Entries{if len(e.Key)>512||len(e.Value)>512||!utf8.ValidString(e.Key)||!utf8.ValidString(e.Value)||(i>0&&m.Entries[i-1].Key>=e.Key){return o,Err}}}
+	return o,nil
+}
+type Durable struct {Synced int `json:"events_synced"`;Completed int `json:"completed_dispatches"`;LastSHA string `json:"last_record_sha256"`;HasLast bool `json:"has_last_event"`;LastEvent json.RawMessage `json:"last_event"`;Bytes int64 `json:"physical_bytes_written_before_final"`;Stopped bool `json:"stopped"`;Failure string `json:"failure"`}
+type LastEvent struct {Schema string;Stage string;Dispatch Dispatch;Partial json.RawMessage;Counters Counters}
+type Final struct {Schema string `json:"schema"`;Header Header `json:"header"`;State string `json:"state"`;Failure string `json:"failure"`;Counters Counters `json:"counters"`;Rows []Row `json:"rows"`;ObserveReturned int `json:"Observe_calls_returned"`;Durable Durable `json:"durable_checkpoint_prefix"`;Comparison string `json:"Wanted_comparison_state"`;Parents int `json:"created_parents"`;Labels int `json:"created_labels"`;Scope string `json:"scope"`}
+func Null(b json.RawMessage)bool{return bytes.Equal(bytes.TrimSpace(b),[]byte("null"))}
+type Counts struct {Known bool `json:"counts_known"`;Reason string `json:"reason"`;Counters *Counters `json:"owned_dispatch_counters"`;ObserveReturned *int `json:"Observe_calls_returned"`;Native *int `json:"original_native_calls_measured"`;Init *int `json:"startup_init_calls_measured"`}
+func Unknown(reason string)Counts{return Counts{Reason:reason}}
+// Read only stored final metadata. No semantic Want comparison/approval occurs.
+// Caller must establish exit0, joined Wait, no caps/timeout and exact stdout.
+func AssessFinal(raw []byte,planSHA string)(Counts,error){
+	var f Final;if Decode(raw,&f,FinalCap)!=nil||f.Schema!=WorkerSchema||!CheckHeader(f.Header,planSHA)||!CheckCounters(f.Counters)||len(f.Rows)!=57||f.ObserveReturned<0||f.ObserveReturned>57||f.Parents!=0||f.Labels!=0||f.Comparison!="pending_separate_saved_observation_comparison"{return Unknown("final_invalid"),Err}
+	seen,returned,panicked,errorReturns,errorPanics:=0,0,0,0,0
+	for i,d:=range Schedule(){r:=f.Rows[i];if r.Dispatch!=d||!Null(r.Truth)||!Null(r.Label)||!Null(r.Role)||!Null(r.Weight){return Unknown("row_invalid"),Err};if r.Attempted{seen++;if len(r.Observation)==0||Null(r.Observation){return Unknown("row_invalid"),Err};o,e:=observation(r.Observation);if e!=nil{return Unknown("observation_invalid"),Err};if f.State=="completed_finite_observations_not_compared"&&(r.State!="observed_not_compared"||o.Returned==o.Panicked||(o.Returned&&o.ErrorPresent==nil)){return Unknown("completion_channel_invalid"),Err};if o.Returned{returned++};if o.Panicked{panicked++};if o.ErrorTextObserved{errorReturns++};if o.ErrorPanicked{errorPanics++}}else if !Null(r.Observation){return Unknown("row_invalid"),Err}}
+	if seen!=f.ObserveReturned{return Unknown("row_count_invalid"),Err}
+	if f.State!="completed_finite_observations_not_compared"||f.Failure!=""||f.Counters.Stopped||f.Counters.Reserved!=57||f.Counters.Dispatched!=57||f.Counters.ErrorReserved!=f.Counters.ErrorDispatched||seen!=57{return Unknown("incomplete_final_retained"),nil}
+	if returned!=f.Counters.Returned||panicked!=f.Counters.Panicked||errorReturns!=f.Counters.ErrorReturned||errorPanics!=f.Counters.ErrorPanicked{return Unknown("channel_counter_mismatch"),Err}
+	if f.Durable.Stopped||f.Durable.Failure!=""||f.Durable.Completed!=57||f.Durable.Synced!=114+2*f.Counters.ErrorDispatched||!f.Durable.HasLast||!SHA(f.Durable.LastSHA)||f.Durable.Bytes<0||f.Durable.Bytes>WorkerCap-FinalCap{return Unknown("durable_final_invalid"),Err}
+	var last LastEvent;if Decode(f.Durable.LastEvent,&last,EventCap)!=nil||last.Schema!="riido-four-selector-checkpoint-v2"||last.Stage!="after_candidate"||last.Dispatch!=Schedule()[56]||last.Counters!=f.Counters||len(last.Partial)==0||Null(last.Partial){return Unknown("durable_event_invalid"),Err}
+	var p struct{CandidateCompletionObserved bool};if json.Unmarshal(last.Partial,&p)!=nil||!p.CandidateCompletionObserved{return Unknown("durable_partial_invalid"),Err}
+	c,n:=f.Counters,f.ObserveReturned;return Counts{Known:true,Reason:"joined_success_final_metadata_only_not_satisfaction",Counters:&c,ObserveReturned:&n},nil
+}

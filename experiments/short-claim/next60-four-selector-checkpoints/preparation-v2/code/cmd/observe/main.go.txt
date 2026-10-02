@@ -1,0 +1,107 @@
+// INERT source-only native entrypoint. Import/init must not occur until a
+// separately frozen Root outside-controller verifies full source/dependency,
+// notices/compiler/binary/input closure. Frozen below is a data token, not
+// rights/CI/readiness authority. Existing generic controller compatibility is
+// pending; no source-only preparation flag bypasses those external gates.
+package main
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"flag"
+	"io"
+	"os"
+	"path/filepath"
+	"runtime"
+	"runtime/debug"
+	"strings"
+	"unicode/utf8"
+
+	"riido.local/fourselectors/checkpoint"
+	"riido.local/fourselectors/nativebinding"
+)
+
+type Plan struct {
+	Schema string `json:"schema"`
+	Frozen bool `json:"frozen"`
+	FixtureFile string `json:"fixture_file"`
+	FixtureBytes int `json:"fixture_bytes"`
+	FixtureSHA256 string `json:"fixture_sha256"`
+	Requests int `json:"requests"`
+	Inputs int `json:"inputs"`
+	Candidates int `json:"candidate_positions"`
+	CandidateDispatches int `json:"candidate_dispatches"`
+	ErrorMethodsExpected int `json:"error_methods_expected"`
+	ErrorMethodsMaximum int `json:"error_methods_maximum"`
+	CPUThreads int `json:"cpu_threads"`
+	HeapSoftBytes int64 `json:"heap_soft_bytes"`
+	OutsideWallSeconds int `json:"outside_wall_seconds"`
+	MaxOutputBytes int `json:"max_output_bytes"`
+	MaxEventBytes int `json:"max_event_bytes"`
+	MaxFinalBytes int `json:"max_final_bytes"`
+	AutomaticRetries int `json:"automatic_retries"`
+}
+func fixed(s string)error{return errors.New(s)}
+func validSHA(s string)bool{if len(s)!=64{return false};for _,c:=range s{if !(c>='0'&&c<='9')&&!(c>='a'&&c<='f'){return false}};return true}
+func read(path string,cap int64)([]byte,error) {
+	a,e:=os.Lstat(path);if e!=nil||!a.Mode().IsRegular()||a.Size()<=0||a.Size()>cap{return nil,fixed("input_type_or_cap")}
+	f,e:=os.Open(path);if e!=nil{return nil,fixed("input_open")};defer f.Close()
+	s,e:=f.Stat();if e!=nil||!os.SameFile(a,s)||s.Size()!=a.Size(){return nil,fixed("input_identity")}
+	b,e:=io.ReadAll(io.LimitReader(f,cap+1));if e!=nil||int64(len(b))!=a.Size(){return nil,fixed("input_read")}
+	z,e:=os.Lstat(path);if e!=nil||!os.SameFile(a,z)||z.Size()!=a.Size()||!z.ModTime().Equal(a.ModTime()){return nil,fixed("input_changed")};return b,nil
+}
+func uniquePlan(b []byte) error {
+	if !utf8.Valid(b){return fixed("plan_utf8")};d:=json.NewDecoder(bytes.NewReader(b));d.UseNumber();nodes:=0
+	var walk func(int)error
+	walk=func(depth int)error {
+		nodes++;if depth>8||nodes>512{return fixed("plan_json_cap")};v,e:=d.Token();if e!=nil||v==nil{return fixed("plan_json")}
+		x,ok:=v.(json.Delim);if !ok{return nil}
+		switch x {
+		case '{':
+			var keys []string
+			for d.More(){v,e:=d.Token();k,ok:=v.(string);if e!=nil||!ok||len(keys)>64{return fixed("plan_keys")};for _,c:=range k{if !(c>='a'&&c<='z')&&!(c>='0'&&c<='9')&&c!='_'{return fixed("plan_keys")}};for _,old:=range keys{if old==k{return fixed("plan_duplicate_key")}};keys=append(keys,k);if walk(depth+1)!=nil{return fixed("plan_json")}}
+			v,e=d.Token();if e!=nil||v!=json.Delim('}')||(depth==0&&len(keys)!=18){return fixed("plan_json")}
+		case '[':
+			for d.More(){if walk(depth+1)!=nil{return fixed("plan_json")}};v,e=d.Token();if e!=nil||v!=json.Delim(']'){return fixed("plan_json")}
+		default:return fixed("plan_json")
+		};return nil
+	}
+	if walk(0)!=nil{return fixed("plan_json")};if _,e:=d.Token();e!=io.EOF{return fixed("plan_json_tail")};return nil
+}
+func check(p Plan) bool {
+	return p.Schema=="riido-four-selector-checkpoint-worker-plan-v1"&&p.Frozen&&p.FixtureFile=="FIXTURES.v1.json"&&p.FixtureBytes==checkpoint.FixtureBytes&&p.FixtureSHA256==checkpoint.FixtureSHA256&&p.Requests==4&&p.Inputs==19&&p.Candidates==12&&p.CandidateDispatches==57&&p.ErrorMethodsExpected==14&&p.ErrorMethodsMaximum==57&&p.CPUThreads==1&&p.HeapSoftBytes==268435456&&p.OutsideWallSeconds==60&&p.MaxOutputBytes==checkpoint.MaxOutputBytes&&p.MaxEventBytes==checkpoint.MaxEventBytes&&p.MaxFinalBytes==checkpoint.MaxFinalBytes&&p.AutomaticRetries==0
+}
+// The standalone experimental CLI accepts exactly three distinct option/value
+// pairs, in any order. Equals forms, duplicate options and residual args fail.
+func exactArguments(args []string) bool {
+	if len(args)!=6{return false}
+	var seen [3]bool
+	for i:=0;i<6;i+=2 {
+		if args[i+1]==""{return false};slot:=-1
+		switch args[i] {case "--plan":slot=0;case "--plan-sha256":slot=1;case "--attempt-dir":slot=2;default:return false}
+		if seen[slot]{return false};seen[slot]=true
+	};return seen[0]&&seen[1]&&seen[2]
+}
+func run(args []string)error {
+	if !exactArguments(args){return fixed("arguments")}
+	f:=flag.NewFlagSet("four-selector-observe",flag.ContinueOnError);f.SetOutput(io.Discard)
+	planPath:=f.String("plan","","");planSHA:=f.String("plan-sha256","","");out:=f.String("attempt-dir","","")
+	if f.Parse(args)!=nil||f.NArg()!=0||*planPath==""||*out==""||!validSHA(*planSHA){return fixed("arguments")}
+	if runtime.Version()!="go1.27.1"{return fixed("runtime_go")}
+	b,e:=read(*planPath,65536);if e!=nil{return fixed("plan_read")};h:=sha256.Sum256(b);if hex.EncodeToString(h[:])!=*planSHA{return fixed("plan_sha")}
+	if uniquePlan(b)!=nil{return fixed("plan_json")};var p Plan;d:=json.NewDecoder(bytes.NewReader(b));d.DisallowUnknownFields();if d.Decode(&p)!=nil||d.Decode(new(Plan))!=io.EOF||!check(p){return fixed("plan_contract")}
+	if filepath.IsAbs(p.FixtureFile)||strings.Contains(p.FixtureFile,"..") {return fixed("fixture_path")}
+	b,e=read(filepath.Join(filepath.Dir(*planPath),p.FixtureFile),checkpoint.FixtureBytes);if e!=nil{return fixed("fixture_read")}
+	batch,e:=checkpoint.LoadFrozenFixtures(b);if e!=nil{return fixed("fixture_binding")}
+	runtime.GOMAXPROCS(1);debug.SetMemoryLimit(268435456)
+	w,e:=checkpoint.Open(*out,checkpoint.NewHeader(*planSHA));if e!=nil{return fixed("output_reservation")}
+	r,observeErr:=checkpoint.Execute(batch,nativebinding.ClosedOriginalOps(),w)
+	encoded,saveErr:=w.Finish(r);closeErr:=w.Close()
+	if saveErr!=nil{return fixed("result_save")};if closeErr!=nil{return fixed("output_close")}
+	if _,e=os.Stdout.Write(encoded);e!=nil{return fixed("stdout_write")}
+	if observeErr!=nil{return fixed("observation_incomplete")};return nil
+}
+func main(){if run(os.Args[1:])!=nil{os.Stderr.WriteString("four_selector_worker_failed\n");os.Exit(1)}}

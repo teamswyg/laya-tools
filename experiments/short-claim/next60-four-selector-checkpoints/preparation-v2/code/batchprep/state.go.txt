@@ -1,0 +1,32 @@
+package batchprep
+
+import (
+	"sort"
+	"strings"
+)
+
+// Bounded new option behavior for struct{Name string}, not an implementation of
+// RejectAmbiguousMatch inside the full original DecoderConfig or decoder.
+func CollisionCandidate(which int,input map[string]string,target *NameTarget,original func(map[string]string,*NameTarget)error) error {
+	if which==0 { return original(input,target) }
+	keys:=make([]string,0,len(input))
+	for key:=range input { if strings.EqualFold(key,"Name") { keys=append(keys,key) } }
+	sort.Strings(keys)
+	if which==1 && len(keys)>1 { return &ContractError{Kind:"ambiguous_key",Field:"Name",Keys:keys} }
+	if which==1 { return original(input,target) }
+	if which==2 {
+		// Deterministic first match is still wrong: it hides every ambiguity,
+		// including equal-valued/exact-spelling collisions.
+		if len(keys)>0 { target.Name=input[keys[0]] }; return nil
+	}
+	return ErrSyntax
+}
+func SnapshotCandidate(which int,name string,get func(string)(map[string]string,error))(map[string]string,error) {
+	current,err:=get(name)
+	if which==0 { return current,err }
+	if which==1 { if err!=nil { return current,err }; return CopyMap(current),nil }
+	if which==2 {
+		// Copying this outer struct does not copy the referenced map.
+		box:=struct{Map map[string]string}{current};copy:=box;return copy.Map,err
+	};return nil,ErrSyntax
+}

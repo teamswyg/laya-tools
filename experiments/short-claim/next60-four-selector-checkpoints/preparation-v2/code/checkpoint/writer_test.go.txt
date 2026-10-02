@@ -1,0 +1,134 @@
+// INERT synthetic test source. No original package import, tests or Go runs.
+package checkpoint
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"riido.local/fourselectors/batchprep"
+)
+
+type fakeTarget struct { data []byte; syncs int; failSync int; failWrite bool }
+func (f *fakeTarget) Write(b []byte)(int,error){if f.failWrite{n:=7;if n>len(b){n=len(b)};f.data=append(f.data,b[:n]...);return n,errors.New("fake_write")};f.data=append(f.data,b...);return len(b),nil}
+func (f *fakeTarget) Sync()error{f.syncs++;if f.syncs==f.failSync{return errors.New("fake_sync")};return nil}
+func (f *fakeTarget) Close()error{return nil}
+func toyWriter(j,r *fakeTarget)*Writer{return &Writer{header:NewHeader(strings.Repeat("0",64)),journal:j,result:r}}
+func toyFixture()batchprep.Fixture{s:="1";return batchprep.Fixture{OriginalOrdinal:1,FixtureIndex:0,CaseID:"synthetic_only",StringInput:&s}}
+type directFakeError struct{ calls *int; beforeCall func() }
+func (e *directFakeError)Error()string{e.beforeCall();(*e.calls)++;return "fake_error"}
+func frames(t *testing.T,b []byte)[]Frame {
+	t.Helper();var result []Frame
+	for _,line:=range bytes.Split(bytes.TrimSpace(b),[]byte{'\n'}){if len(line)==0{continue};var f Frame;if json.Unmarshal(line,&f)!=nil{t.Fatal("fake_frame_decode")};result=append(result,f)};return result
+}
+
+func TestDurableReturnSnapshotPrecedesErrorMethod(t *testing.T){
+	j,r:=&fakeTarget{},&fakeTarget{};w:=toyWriter(j,r);calls:=0;var counters batchprep.Counters
+	errObject:=&directFakeError{calls:&calls,beforeCall:func(){if j.syncs!=2{t.Fatal("Error called before second Sync")};fs:=frames(t,j.data);p:=fs[1].Event.Partial;if !p.Int64Decimal.Known||p.Int64Decimal.Value!="7"||!p.ErrorPresent.Known||!p.ErrorPresent.Value||p.ErrorText.Known||p.ErrorKind.Known{t.Fatal("return/pending-text snapshot missing")}}}
+	ops:=batchprep.OriginalOps{ParseComma:func(string)(int64,error){if j.syncs!=1{t.Fatal("candidate called before initial Sync")};return 7,errObject}}
+	o,e:=batchprep.Observe(batchprep.Schedule()[0],toyFixture(),ops,w.Checkpoint,&counters)
+	if e!=nil||calls!=1||j.syncs!=4||w.State().EventsSynced!=4||w.State().CompletedDispatches!=1||o.ErrorText==nil||*o.ErrorText!="fake_error"{t.Fatal("phase completion")}
+	fs:=frames(t,j.data);lines:=bytes.Split(bytes.TrimSuffix(j.data,[]byte{'\n'}),[]byte{'\n'});previous:=""
+	for i,f:=range fs{if f.Sequence!=i+1||f.PreviousRecordSHA256!=previous{t.Fatal("sequence/digest link")};sum:=sha256.Sum256(append(append([]byte{},lines[i]...),'\n'));previous=hex.EncodeToString(sum[:])}
+	if w.State().LastRecordSHA256!=previous{t.Fatal("terminal digest")}
+	if fs[2].Event.Counters.ErrorMethodReturned!=1||!fs[2].Event.Partial.ErrorText.Known{t.Fatal("post-error snapshot")}
+	copy:=w.State();copy.LastEvent.Partial.ErrorText.Value="changed";if w.State().LastEvent.Partial.ErrorText.Value=="changed"{t.Fatal("State escaped mutable payload")}
+}
+func TestPreErrorSyncFailureKeepsOnlyOldDurablePrefix(t *testing.T){
+	j,r:=&fakeTarget{failSync:2},&fakeTarget{};w:=toyWriter(j,r);calls,errorsCalled:=0,0;var counters batchprep.Counters
+	ops:=batchprep.OriginalOps{ParseComma:func(string)(int64,error){calls++;return 7,&directFakeError{calls:&errorsCalled,beforeCall:func(){}}}}
+	o,e:=batchprep.Observe(batchprep.Schedule()[0],toyFixture(),ops,w.Checkpoint,&counters)
+	if e==nil||calls!=1||errorsCalled!=0||o.Int64Decimal==nil||*o.Int64Decimal!="7"||!counters.CheckpointStopped{t.Fatal("known return or stop lost")}
+	if w.State().EventsSynced!=1||w.State().LastEvent.Stage!="before_candidate"||w.State().PhysicalBytesWritten!=int64(len(j.data)){t.Fatal("failed Sync counted durable")}
+	_,e=batchprep.Observe(batchprep.Schedule()[0],toyFixture(),ops,w.Checkpoint,&counters)
+	if e==nil||calls!=1||j.syncs!=2{t.Fatal("future dispatch after failure")}
+}
+func TestPartialWriteRefusesAllLaterCallbacks(t *testing.T){
+	j,r:=&fakeTarget{failWrite:true},&fakeTarget{};w:=toyWriter(j,r)
+	e:=batchprep.Event{Schema:batchprep.CheckpointSchema,Stage:"before_candidate",Dispatch:batchprep.Schedule()[0],Counters:batchprep.Counters{CandidateReserved:1}}
+	if w.Checkpoint(e)==nil||w.State().EventsSynced!=0||w.State().PhysicalBytesWritten!=7||!w.State().Stopped{t.Fatal("partial write prefix")}
+	if w.Checkpoint(e)==nil||len(j.data)!=7{t.Fatal("sticky callback failure")}
+}
+func TestCheckpointOrderAndFrameCapsRefuseBeforeWrite(t *testing.T){
+	cases:=[]struct{name string;event batchprep.Event}{
+		{"wrong_first_stage",batchprep.Event{Schema:batchprep.CheckpointSchema,Stage:"after_candidate",Dispatch:batchprep.Schedule()[0]}},
+		{"wrong_dispatch",batchprep.Event{Schema:batchprep.CheckpointSchema,Stage:"before_candidate",Dispatch:batchprep.Schedule()[1],Counters:batchprep.Counters{CandidateReserved:1}}},
+		{"invented_dispatched",batchprep.Event{Schema:batchprep.CheckpointSchema,Stage:"before_candidate",Dispatch:batchprep.Schedule()[0],Counters:batchprep.Counters{CandidateReserved:1,CandidateDispatched:1,CandidateReturned:1}}},
+		{"invented_inner_measurement",batchprep.Event{Schema:batchprep.CheckpointSchema,Stage:"before_candidate",Dispatch:batchprep.Schedule()[0],Counters:batchprep.Counters{CandidateReserved:1},Partial:batchprep.PartialObservation{OriginalAPICallsMeasured:batchprep.IntField{Known:true,Value:0}}}},
+		{"oversized_frame",batchprep.Event{Schema:batchprep.CheckpointSchema,Stage:"before_candidate",Dispatch:batchprep.Schedule()[0],Counters:batchprep.Counters{CandidateReserved:1},Partial:batchprep.PartialObservation{UnknownReason:strings.Repeat("x",MaxEventBytes)}}},
+	}
+	for _,tc:=range cases{t.Run(tc.name,func(t *testing.T){j,r:=&fakeTarget{},&fakeTarget{};w:=toyWriter(j,r);if w.Checkpoint(tc.event)==nil||len(j.data)!=0||j.syncs!=0||w.State().EventsSynced!=0{t.Fatal("invalid event written")}})}
+}
+func pendingReport(w *Writer)Report{r:=Report{Schema:ResultSchema,Header:w.header,State:"incomplete_mechanics_failure",WantedComparisonState:"pending_separate_saved_observation_comparison"};for i,d:=range batchprep.Schedule(){r.Rows[i]=Row{Dispatch:d,State:"not_started"}};return r}
+func TestJournalReservationLeavesBoundedIncompleteFinal(t *testing.T){
+	j,r:=&fakeTarget{},&fakeTarget{};w:=toyWriter(j,r);w.state.PhysicalBytesWritten=MaxOutputBytes-MaxFinalBytes
+	e:=batchprep.Event{Schema:batchprep.CheckpointSchema,Stage:"before_candidate",Dispatch:batchprep.Schedule()[0],Counters:batchprep.Counters{CandidateReserved:1}}
+	if w.Checkpoint(e)==nil||len(j.data)!=0||!w.State().Stopped{t.Fatal("final reservation consumed by journal")}
+	p:=pendingReport(w);b,err:=w.Finish(p)
+	if err!=nil||len(b)==0||len(b)>MaxFinalBytes||r.syncs!=1||w.State().PhysicalBytesWritten>MaxOutputBytes{t.Fatal("bounded incomplete final")}
+	if _,err=w.Finish(p);err==nil{t.Fatal("automatic final retry")}
+}
+func TestFreshExclusiveFilesAndHeaderSync(t *testing.T){
+	parent,e:=filepath.EvalSymlinks(t.TempDir());if e!=nil{t.Fatal(e)}
+	root:=filepath.Join(parent,"child");w,e:=Open(root,NewHeader(strings.Repeat("0",64)));if e!=nil{t.Fatal(e)};defer w.Close()
+	for _,name:=range []string{"reservation.json","checkpoints.jsonl","results.json"}{st,e:=os.Stat(filepath.Join(root,name));if e!=nil||!st.Mode().IsRegular(){t.Fatal("exclusive files missing")};if name!="reservation.json"&&st.Size()!=0{t.Fatal("pre-dispatch observations invented")}}
+	if _,e=Open(root,NewHeader(strings.Repeat("0",64)));e==nil{t.Fatal("existing attempt allowed")}
+	if w.State().EventsSynced!=0||w.State().LastEvent.Counters!=(batchprep.Counters{}){t.Fatal("pre-dispatch counts")}
+}
+func TestZeroBatchNoDispatchAndNullSupervision(t *testing.T){
+	j,r:=&fakeTarget{},&fakeTarget{};w:=toyWriter(j,r);calls:=0
+	op:=batchprep.OriginalOps{ParseComma:func(string)(int64,error){calls++;return 0,nil}}
+	p,e:=Execute(Batch{},op,w);if e==nil||calls!=0||p.Counters!=(batchprep.Counters{})||len(j.data)!=0{t.Fatal("zero batch dispatched")}
+	b,e:=w.Finish(p);if e!=nil{t.Fatal(e)};var decoded Report;if json.Unmarshal(b,&decoded)!=nil{t.Fatal("final decode")}
+	for _,row:=range decoded.Rows{if row.Observation!=nil||row.Truth!=nil||row.Label!=nil||row.Role!=nil||row.Weight!=nil{t.Fatal("unknown/unstarted fields promoted")}}
+	if decoded.Header.OriginalNativeCallsMeasured!=nil||decoded.Header.StartupInitCallsMeasured!=nil{t.Fatal("inner counts invented")}
+}
+type panickingFakeError struct{calls *int}
+func (e *panickingFakeError)Error()string{(*e.calls)++;panic("synthetic_error_method_panic")}
+func TestErrorMethodPanicIsRecordedWithoutExtraDispatch(t *testing.T){
+	j,r:=&fakeTarget{},&fakeTarget{};w:=toyWriter(j,r);calls:=0;var counters batchprep.Counters
+	op:=batchprep.OriginalOps{ParseComma:func(string)(int64,error){return 7,&panickingFakeError{calls:&calls}}}
+	o,e:=batchprep.Observe(batchprep.Schedule()[0],toyFixture(),op,w.Checkpoint,&counters)
+	if e!=nil||calls!=1||!o.ErrorMethodPanicked||o.ErrorText!=nil||o.ErrorKind!=nil||counters.ErrorMethodPanicked!=1||counters.ErrorMethodReturned!=0{t.Fatal("error panic channel/dispatch")}
+	fs:=frames(t,j.data);if len(fs)!=4||!fs[2].Event.Partial.ErrorMethodPanicked||!fs[2].Event.Partial.ErrorMethodCompletionObserved||fs[2].Event.Partial.ErrorText.Known||w.State().CompletedDispatches!=1{t.Fatal("error panic checkpoint")}
+}
+func TestFailedFinalSyncHasNoSecondWrite(t *testing.T){
+	j,r:=&fakeTarget{},&fakeTarget{failSync:1};w:=toyWriter(j,r);p:=pendingReport(w)
+	if _,e:=w.Finish(p);e==nil||len(r.data)==0||!w.State().Stopped{t.Fatal("failed final sync lost")}
+	n:=len(r.data);if _,e:=w.Finish(p);e==nil||len(r.data)!=n||r.syncs!=1{t.Fatal("final retried")}
+}
+func TestParentDirectorySyncFailureRefusesUsableWriter(t *testing.T){
+	parent,e:=filepath.EvalSymlinks(t.TempDir());if e!=nil{t.Fatal(e)};root:=filepath.Join(parent,"child")
+	var paths []string
+	w,e:=openWithDirectorySync(root,NewHeader(strings.Repeat("0",64)),func(path string)error{
+		paths=append(paths,path)
+		if path==parent{return errors.New("synthetic_parent_sync_failure")}
+		return syncDirectory(path)
+	})
+	if w!=nil||e==nil||e.Error()!="output_parent_directory_sync"{t.Fatal("parent Sync failure returned usable writer")}
+	if len(paths)!=2||paths[0]!=root||paths[1]!=parent{t.Fatal("child entry not ordered before parent Sync")}
+	for _,name:=range []string{"reservation.json","checkpoints.jsonl","results.json"}{st,e:=os.Stat(filepath.Join(root,name));if e!=nil||!st.Mode().IsRegular(){t.Fatal("failure evidence erased")};if name!="reservation.json"&&st.Size()!=0{t.Fatal("candidate observations invented")}}
+	if _,e=Open(root,NewHeader(strings.Repeat("0",64)));e==nil{t.Fatal("failed attempt silently reused")}
+}
+func TestStickyWriterFailureRejectsPriorCompletedReport(t *testing.T){
+	j,r:=&fakeTarget{},&fakeTarget{};w:=toyWriter(j,r);b:=Batch{bound:true}
+	for _,d:=range batchprep.Schedule(){
+		f:=batchprep.Fixture{OriginalOrdinal:d.OriginalOrdinal,FixtureIndex:d.FixtureIndex,CaseID:"synthetic_only"}
+		switch d.OriginalOrdinal{case 1,9:s:="1";f.StringInput=&s;case 4:f.Collision=&batchprep.CollisionInput{InitialName:"initial",Map:map[string]string{}};case 5:f.Snapshot=&batchprep.SnapshotInput{Map:map[string]string{},FlagName:"items"}}
+		b.fixtures[d.FixtureOrdinal]=f
+	}
+	ops:=batchprep.OriginalOps{
+		ParseComma:func(string)(int64,error){return 1,nil},ParseBytes:func(string)(uint64,error){return 1,nil},
+		DecodeName:func(map[string]string,*batchprep.NameTarget)error{return nil},
+		SetupMap:func(m map[string]string)batchprep.MapBinding{return batchprep.MapBinding{Live:&m,Get:func(string)(map[string]string,error){return m,nil}}},
+	}
+	p,e:=Execute(b,ops,w);if e!=nil||p.State!="completed_finite_observations_not_compared"||w.State().CompletedDispatches!=57{t.Fatal("synthetic finite completion")}
+	if w.Checkpoint(batchprep.Event{})==nil||!w.State().Stopped{t.Fatal("sticky failure not recorded")}
+	if _,e=w.Finish(p);e==nil||len(r.data)!=0||r.syncs!=0{t.Fatal("prior completion serialized after sticky failure")}
+}

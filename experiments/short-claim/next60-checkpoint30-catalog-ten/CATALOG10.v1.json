@@ -1,0 +1,237 @@
+{
+  "schema": "riidolaya-checkpoint30-existing-catalog-ten-proposal-v1",
+  "state": "source_only_finite_contract_proposals_unobserved_unqualified",
+  "source_catalog": {"path":"benchmarks/training/public-go-acquisition-53.json","bytes":341538,"sha256":"e79cf90505fff4c636de99f322ab82001afd22516216cebcd8249b9b3d61cf67","existing_unique_IDs":120,"first20_linked_catalog_IDs":18,"catalog_IDs_not_in_first20":102},
+  "first20": {"path":"experiments/short-claim/next60-acquisition-drafts/DRAFT-CONTRACTS.v1.json","bytes":209341,"sha256":"c7bbf7bcc7912300fabdd6e671b0922df295299f00e5e7201df1ab5e824a2a9b"},
+  "allowed_admitted_metadata": {
+    "group_recipe":{"path":"experiments/short-claim/next60-development-dataset/evidence/group-review/GROUP-PROJECTION-RECIPE.v1.json","bytes":9614,"sha256":"9949aeba9eff4b45634148044717c17ce0e28ae55e23878264c6cf3b17ef7155","read_scope":"existing_metadata only"},
+    "old_three_append":{"path":"experiments/short-claim/conversion-pilot-80/qualification/QUALIFIED-TRAIN-APPEND.v1.json","bytes":7456,"sha256":"dc375daeddbd9dd744d28af5e72a63f532c6b332c1839154e1341aa4121249a5","read_scope":"parent IDs, source family, role and public request only; truth/candidate labels were not selected"},
+    "already_qualified_native2_requests":{"path":"experiments/short-claim/next60-native2-qualification/INPUTS.v3.json","bytes":1483,"sha256":"63e195e3d103a5725d61c298c57159fc77f216bd253879926fc4309c5415abfb","read_scope":"public request/candidate text and provenance only; no supervision"},
+    "admitted79": "Original76 contains17 authored components plus semver/doublestar whole families. The three actual append contracts are UUID Parsepartialerrors, UUID Scanstateerrors and Humanize Ordinalteen suffix. None is selected here.",
+    "dedup_limit": "Allowed metadata contains no direct pflag/mapstructure family in original76/79. This establishes no exhaustive semantic comparison with all original76 authored requests or complete external dependency graph. Linked ownership/error/hook mechanisms remain connected, not independently counted by paraphrase.",
+    "latest_Root_status": "After the previous six-priority seal, Root reported ftoa qualified: next60 now3 requests/8labels, old79 unchanged. Previous QA-pending documents remain immutable historical snapshots. This author grants no labels."
+  },
+  "families": {
+    "pflag":{"repo":"spf13/pflag","revision":"c966cfef47379dcb01e7929504d66d94b540945b","whole_group":"Existing Cobra/pflag connected development family, currently group77; all new descendants require the same whole-family train role review"},
+    "mapstructure":{"repo":"go-viper/mapstructure","revision":"52aa5c6dc1d27226460807054ca2107b2d54fb2d","whole_group":"Existing exposed development family, currently group78; all descendants stay connected"},
+    "unseen_families_created": 0,
+    "semver_doublestar_nontrain_families_selected": 0
+  },
+  "ten": [
+    {
+      "priority":1,"id":"go53-pflag-annotation-ownership","family":"pflag","anchor":"flag.go:578-588","stratum":"state",
+      "contract":"Copy registered annotation slices and return owned copies; caller mutation must not change stored metadata. Original SetAnnotation stores the caller slice directly.",
+      "nonoverlap":"Distinct from first20 map-snapshot request: annotation registration and []string getter ownership versus StringToString live map getter. Same ownership mechanism/whole family; no new family claim.",
+      "fixtures":[
+        {"input":"register [first], mutate caller[0] to changed","Want":"stored annotation remains [first]"},
+        {"input":"get [first], mutate returned[0] to changed","Want":"stored annotation remains [first]"},
+        {"input":"replace with [second], then mutate both old and replacement input slices","Want":"stored [second]; neither caller slice affects it"},
+        {"input":"unknown flag annotation set/get","Want":"declared not-exist error; other metadata unchanged"},
+        {"input":"nil then empty annotation slice","Want":"freeze exact nil/empty-copy policy before observation; neither aliases mutable caller memory"}
+      ],
+      "baseline":"Use original SetAnnotation plus a declared old getter substitute Lookup(name).Annotations[key]; it exposes borrowed slices, never silently clones.",
+      "reference":"Authored copied registration/getter, retaining original flag identity and unknown-flag errors.",
+      "negative":"Copy registration but return the live stored getter slice; discriminator fixture2.",
+      "before_observe":"Pin new getter signature and nil/empty behavior; record slice content and receiver state, not pointer addresses. Do not reuse map-snapshot labels.",
+      "rights_dependency":"pflag BSD plus selected-file Go notices/full compiler selection; existing exact source can be reused."
+    },
+    {
+      "priority":2,"id":"go53-pflag-bounded-count","family":"pflag","anchor":"count.go:13-23; flag.go:543-577","stratum":"arithmetic",
+      "contract":"An opt-in count range0..2 rejects increments or explicit values outside the range without modifying the previous count. Original count has no range and assigns ParseInt's result even on error.",
+      "nonoverlap":"Not IPNet parsing or map snapshot; observable integer state/overflow policy. Existing generic bound mechanisms are links, not proof of new independent semantics.",
+      "fixtures":[
+        {"input":"start1, +1","Want":"2,nil error"},
+        {"input":"start2, +1","Want":"range error, count remains2"},
+        {"input":"start1, explicit2","Want":"2,nil error"},
+        {"input":"start1, explicit-1","Want":"range error, count remains1"},
+        {"input":"start1, oversized decimal9223372036854775808 on pinned64-bit platform","Want":"parse/range cause retained, count remains1"},
+        {"input":"fresh ordinary Count grouped shorthand -vv","Want":"legacy count2,nil error; ordinary API remains unchanged"}
+      ],
+      "baseline":"Original CountVarP/Flag.Value.Set and Parse; preserve its actual return and changed count on errors.",
+      "reference":"Authored bounded Value parses into temporary int, checks range before committing; uses original FlagSet parsing.",
+      "negative":"Check increment bound but assign explicit parsed value before range/error check; fixtures4/5 discriminate.",
+      "before_observe":"Freeze error identities, int64 target, exact declared range, parse base and shorthand behavior; no allocation/performance claim.",
+      "rights_dependency":"count.go imports strconv only; entire selected pflag package still requires compiler/notices closure."
+    },
+    {
+      "priority":3,"id":"go53-pflag-single-assignment","family":"pflag","anchor":"flag.go:543-575,1292","stratum":"state",
+      "contract":"An opt-in annotation rejects a second parsed assignment to the same flag, including its shorthand, preserving the first value. Original Changed records bookkeeping after every Value.Set, not single-assignment enforcement.",
+      "nonoverlap":"Distinct from annotation ownership/required metadata and map snapshots: assignment multiplicity during actual argv parsing.",
+      "fixtures":[
+        {"input":"annotated name/n alias: --name=a --name=b","Want":"duplicate error; value a"},
+        {"input":"annotated: --name=a -n b","Want":"same duplicate error; value a"},
+        {"input":"annotated: one --name=a","Want":"nil error; value a"},
+        {"input":"unannotated repeated --name=a --name=b","Want":"legacy nil error; value b"},
+        {"input":"two distinct annotated flags, one assignment each","Want":"both values committed; no duplicate error"}
+      ],
+      "baseline":"Original StringVarP and Parse in a fresh FlagSet per vector; do not inspect Changed then skip an actual original setter call.",
+      "reference":"Authored opt-in check keyed to actual flag identity before second setter dispatch, leaving ordinary repeats unchanged.",
+      "negative":"Track raw argv spelling; long and shorthand aliases are incorrectly treated as different flags.",
+      "before_observe":"Freeze annotation key, duplicate sentinel, direct Set versus Parse scope and multiple Parse policy. Current fixture scope is one fresh Parse.",
+      "rights_dependency":"Same pflag selected package and notices; no new network/filesystem dependency."
+    },
+    {
+      "priority":4,"id":"go53-pflag-sensitive-default","family":"pflag","anchor":"flag.go:775-835","stratum":"io",
+      "contract":"Honor a sensitive-default annotation with a fixed help redaction marker while retaining parsed values and ordinary help behavior. Original help renders DefValue and optional NoOptDefVal without checking annotations.",
+      "nonoverlap":"Distinct from Cobra checked writers: local help representation of synthetic defaults, not error propagation. No actual user secret is an input.",
+      "fixtures":[
+        {"input":"annotated string defaultPUBLIC_DEFAULT","Want":"help includes [redacted], not literal or quoted default; GetString remainsPUBLIC_DEFAULT"},
+        {"input":"same annotated flag then parse --name=public-change","Want":"GetString public-change; help still redacted and DefValue unchanged"},
+        {"input":"unannotated string defaultPUBLIC_DEFAULT","Want":"exact legacy help includes ordinary default; value unchanged"},
+        {"input":"annotated optional string NoOptDefValPUBLIC_OPTION","Want":"optional help form contains marker, not optional literal; parse without value remainsPUBLIC_OPTION"},
+        {"input":"annotated Hidden flag","Want":"exact legacy hidden omission and value unchanged"}
+      ],
+      "baseline":"Original FlagUsagesWrapped at fixedcols0; capture its string without terminal output.",
+      "reference":"Authored annotation-aware help formatting at original emission branches, retaining flag visibility/value/DefValue and legacy formatting.",
+      "negative":"Replace only default help segment, leaving optional NoOptDefVal visible; fixture4 discriminates. Do not count hiding the entire flag as a reference.",
+      "before_observe":"Freeze annotation token, marker, zero-default behavior and both emission sites. Full rendered-help Want needs a literal independent freeze; current assertions are bounded fragments/state.",
+      "rights_dependency":"Existing flag.go BSD source; strings/formatting stdlib closure and original notices remain."
+    },
+    {
+      "priority":5,"id":"go53-pflag-deferred-function","family":"pflag","anchor":"func.go:6-24; flag.go:1292","stratum":"lifecycle",
+      "contract":"Deferred Func callbacks run in argv order only after parsing succeeds; existing immediate Func remains immediate. Original funcValue.Set invokes the callback during parsing.",
+      "nonoverlap":"Different concrete FlagSet API from Cobra global finalizers. Link earlier authored deferred-helper mechanisms; do not claim exhaustive original76 semantic dedup.",
+      "fixtures":[
+        {"input":"--job=a --job=b, successful parse","Want":"callbacks a,b once in order"},
+        {"input":"--job=a then unknown strict flag","Want":"parse error; deferred callbacks0"},
+        {"input":"--job=a then missing required flag value","Want":"parse error; deferred callbacks0"},
+        {"input":"successful syntax with callbacks a,cause-error,b","Want":"a and cause-error once; cause retained; b not invoked"},
+        {"input":"ordinary immediate Func job=a before later syntax error","Want":"legacy callback a already invoked; error retained"}
+      ],
+      "baseline":"Actual original FuncP and Parse with bounded trace callback; no package-global CommandLine.",
+      "reference":"Authored deferred registration queues values through original parsing and executes the bounded owned queue after successful Parse; no fake replacement parser.",
+      "negative":"Flush queued callbacks from defer even when parsing fails; fixtures2/3 discriminate.",
+      "before_observe":"Freeze callback-failure stop policy, ErrHelp versus successful syntax and argv order; parser errors do not authorize rollback claims beyond callback suppression.",
+      "rights_dependency":"func.go plus selected pflag package; no process-global initializer/finalizer reset."
+    },
+    {
+      "priority":6,"id":"go53-pflag-text-error-value","family":"pflag","anchor":"text.go:28-29; flag.go:543-560; errors.go:97-117","stratum":"io",
+      "contract":"An opt-in Text error wrapper identifies the flag and preserves errors.Is/As without embedding a synthetic supplied value. Original InvalidValueError already Unwraps its cause but formats the supplied value in Error().",
+      "nonoverlap":"Different from Cobra writer failure: typed flag parsing error representation/causes. Cause preservation alone is already implemented and is not a new baseline gap.",
+      "fixtures":[
+        {"input":"Text Unmarshal returns sentinelE for SYNTHETIC_BAD","Want":"errors.Is E; error identifies flagname; synthetic value absent; receiver unchanged"},
+        {"input":"Text Unmarshal returns typed causeE","Want":"errors.As typed cause; name present; supplied value absent"},
+        {"input":"successful public-text input","Want":"exact parsed receiver; nil error"},
+        {"input":"unknown flag with Text wrapper enabled","Want":"original not-exist identity; receiver unchanged"},
+        {"input":"opt-in disabled sentinel failure","Want":"exact legacy InvalidValueError, including its supplied-value rendering and cause"}
+      ],
+      "baseline":"Original TextVar with an authored local encoding fixture, then original FlagSet.Set; observe original error after return, not a rewritten error string.",
+      "reference":"Authored redacting typed wrapper keeps cause access and flag identity. Synthetic causes themselves contain no supplied value; broader cause-text sanitization is not claimed.",
+      "negative":"Create a fresh errors.New(redacted text), losing Is/As while hiding the value; fixtures1/2 discriminate.",
+      "before_observe":"Freeze returned wrapper ABI, receiver commit policy and sensitive-value scope. Do not claim redaction of arbitrary nested cause messages.",
+      "rights_dependency":"pflag BSD; text.go explicitly copied from Go1.23.4 flag.go. Existing exact Go1.23.4 body/license pins must accompany selected closure; no blanket license assumption."
+    },
+    {
+      "priority":7,"id":"go53-mapstructure-hooks-errors-is","family":"mapstructure","anchor":"decode_hooks.go:140-164","stratum":"lifecycle",
+      "contract":"Preserve failed alternative-hook causes using errors.Join, while retaining first-success short-circuit and a declared empty-hook error. Original OrCompose concatenates Error strings into a new error, losing sentinels.",
+      "nonoverlap":"Current qualified native2 Or request explicitly requires message concatenation plus linefeeds and empty-hook error. This proposed coding change instead requires Is/As cause retention; it must not reuse native2 labels and remains connected to that hook family.",
+      "fixtures":[
+        {"input":"two failed hooks E1,E2","Want":"nil output; Is E1 and E2; callback order1,2 on unchanged input"},
+        {"input":"first failed E1, second success value7","Want":"7,nil error; callbacks1,2"},
+        {"input":"first success nil output, second would fail","Want":"nil,nil error; second calls0"},
+        {"input":"one failed typed causeE","Want":"As typed causeE; one callback"},
+        {"input":"zero hooks","Want":"declared ErrNoHooks, callbacks0; no nil-success claim"}
+      ],
+      "baseline":"Actual original OrComposeDecodeHookFunc followed by DecodeHookExec with authored typed bounded hooks; capture Is/As and callback trace.",
+      "reference":"Authored alternative composer retains errors and joins after all fail, preserves original input and nil-success stopping, explicitly handles zero hooks.",
+      "negative":"Join failed causes correctly but continue after nil-success output; fixture3 discriminates.",
+      "before_observe":"Freeze hook signatures, cause sentinels/type, ErrNoHooks and error-channel policy before calls. Do not preserve the old concatenation caption for the new Join candidate.",
+      "rights_dependency":"mapstructure MIT plus selected reflect/internal-errors Go notices; source pins are reusable, new selection still required."
+    },
+    {
+      "priority":8,"id":"go53-mapstructure-remain-conflict","family":"mapstructure","anchor":"mapstructure.go:1585-1655","stratum":"config",
+      "contract":"Reject multiple remain fields in one effective squashed schema before assigning unmatched data. Original discovery repeatedly replaces one remainField pointer; later field wins.",
+      "nonoverlap":"Different from normalized input-key collisions: conflicting output schema fields rather than input spelling. Shared Decoder structure/family retained.",
+      "fixtures":[
+        {"input":"struct with direct remain mapsA,B; data x1","Want":"declared schema conflict; no unmatched assignment to either map"},
+        {"input":"direct remainA and squashed embedded remainB; data x1","Want":"same deterministic schema conflict before unmatched assignment"},
+        {"input":"one remainA plus normal Name; data Nameok,x1","Want":"Name ok; remainA exactly x1; nil error"},
+        {"input":"two ordinary maps without remain tags","Want":"legacy ordinary decoding; no schema conflict"},
+        {"input":"two remain fields with no unmatched data","Want":"schema conflict still detected; policy independent of particular input keys"}
+      ],
+      "baseline":"Original NewDecoder/Decode with bounded authored struct types and initialized receiver maps; preserve actual mutation and return.",
+      "reference":"Authored schema discovery counts all effective remain fields before unmatched assignment; keeps single-field and ordinary decoding unchanged.",
+      "negative":"Check only direct fields, overlooking squashed embedded fields; fixture2 discriminates.",
+      "before_observe":"Freeze SchemaError identity, field-name ordering and exact receiver-state scope. Broader transactional/no-allocation-on-error behavior is not promised.",
+      "rights_dependency":"Existing mapstructure selected package/reflect/errors notices; no filesystem/service."
+    },
+    {
+      "priority":9,"id":"go53-mapstructure-tag-precedence","family":"mapstructure","anchor":"mapstructure.go:1879-1912","stratum":"config",
+      "contract":"Opt-in present-first tag precedence distinguishes absent tag from explicitly empty tag; legacy first-nonempty stays default. Original getTagValue uses StructTag.Get and ignores empty values.",
+      "nonoverlap":"Distinct from nil config and input-key collision: source-field tag presence policy. Same Decoder/config family, not independent data.",
+      "fixtures":[
+        {"input":"first tag absent, second jsonother; map has Fieldname and otherfallback","Want":"present-first selects fallback value"},
+        {"input":"first tag explicitly empty, second jsonother; same map","Want":"present-first keeps empty tag and uses original field name -> name value"},
+        {"input":"first tag -, second jsonother","Want":"skip field; initialized receiver unchanged"},
+        {"input":"explicit-empty first tag with optionoff","Want":"legacy first-nonempty chooses fallback"},
+        {"input":"only one configured ordinary tag","Want":"legacy result unchanged"}
+      ],
+      "baseline":"Original NewDecoder/Decode with TagName mapstructure,json and literal authored struct tags; fresh receiver per vector.",
+      "reference":"Authored explicit mode uses StructTag.Lookup presence, preserving skip/default behavior and original decoding.",
+      "negative":"Use StructTag.Get under the new mode; fixture2 collapses empty with missing.",
+      "before_observe":"Freeze new mode name/ABI, missing versus empty return behavior and exact struct tags. No invented fallback order or unknown-mode policy is assumed.",
+      "rights_dependency":"Same mapstructure/reflect package closure; source tag scanning itself requires no service."
+    },
+    {
+      "priority":10,"id":"go53-pflag-unknown-token-report","family":"pflag","anchor":"flag.go:1066-1157,1218-1289","stratum":"parsing",
+      "contract":"An opt-in report carries original argv positions/spellings for actually encountered unknown flag tokens while preserving ignore/pass-through semantics. Original parser handles unknown tokens but has no such position report.",
+      "nonoverlap":"Distinct from value/map ownership, multiplicity and help. Token provenance of actual parser branches; not input rephrasing.",
+      "fixtures":[
+        {"input":"Ignore mode [--mystery=7,--known,ok]","Want":"report original index0/token--mystery=7; known ok; legacy residual args"},
+        {"input":"[--known,--mystery=7] for known required string","Want":"no unknown report; token is known flag's value"},
+        {"input":"Ignore mode short group -vx, v known bool and x unknown","Want":"report original argv index0 and raw -vx with frozen fragment coordinate; v true"},
+        {"input":"[--,--mystery=7]","Want":"no unknown report; positional token retained"},
+        {"input":"Pass-through mode [--mystery,item]","Want":"report index0/token--mystery; exact original pass-through residual argv retained"},
+        {"input":"opt-in off ordinary known/unknown Ignore parse","Want":"exact original behavior; no reporting side effects"}
+      ],
+      "baseline":"Actual original FlagSet.Parse with declared unknown handling and fresh flags. Missing report is unavailable, not a fabricated empty success.",
+      "reference":"Authored instrumentation at actual original parser branches carries original input coordinates. Do not substitute a separate hand-written parser.",
+      "negative":"Scan every dash-prefixed argv token as unknown; fixtures2/4 discriminate recognized values and post-- positionals.",
+      "before_observe":"Freeze zero-based indexes, shorthand fragment coordinate, return/report ABI, exact residual args and unknown-mode options before calls. This is later priority because parser-coordinate adaptation is larger than the direct API cases.",
+      "rights_dependency":"Existing pflag parser/BSD and selected notices; bounded argv only, no OS args or shell execution."
+    }
+  ],
+  "excluded_after_source_read": [
+    {"id":"go53-mapstructure-typed-nil-hook","reason":"Compose already retains typed-nil pointers through reflect.ValueOf; no proposed typed-nil baseline gap demonstrated. Untyped nil has a different branch and cannot be silently relabeled as typed nil."},
+    {"id":"go53-mapstructure-unused-order","reason":"Strict-key error names already sort, but Metadata Unused/Unset map iteration is unordered. A single finite run can accidentally match sorted output; postpone deterministic-gap/observation design rather than guarantee failure."},
+    {"id":"go53-humanize-int64-template","reason":"number.go adapted-gist/WTFPL lineage adds scope work; not an immediately cheap slice."},
+    {"id":"go53-humanize-append-comma","reason":"No-extra-allocation contract needs separately pinned allocation measurement; not a pure text-result-only observation."}
+  ],
+  "source_body_pins_reread": [
+    {"repo":"spf13/pflag","path":"flag.go","bytes":42152,"sha256":"07c3af1500f870079899627f868978336a291fe615d6e85ff7f532d3b7f7107f"},
+    {"repo":"spf13/pflag","path":"count.go","bytes":2952,"sha256":"1b80ac030add1d69b2a426199c17f081dd7b7007196d58226f2c07e97f78109f"},
+    {"repo":"spf13/pflag","path":"text.go","bytes":3184,"sha256":"8503607c058136326c8f3337c5350b98f785105bed1b2cd167fecdad243e4607"},
+    {"repo":"spf13/pflag","path":"func.go","bytes":1430,"sha256":"83a0f492f6e3f28812e76007869063d552ab9190a326f89e1f7944a7626d74eb"},
+    {"repo":"spf13/pflag","path":"errors.go","bytes":4241,"sha256":"65209c173f3330bc35a09c9b9a9379e39b07be03e8e15f79388782d2cf06b709"},
+    {"repo":"go-viper/mapstructure","path":"mapstructure.go","bytes":55732,"sha256":"87d01b09fcb2ca148ef722ba52baf6851c35357c49d9f2e918d8551c7c03f1ee"},
+    {"repo":"go-viper/mapstructure","path":"decode_hooks.go","bytes":19432,"sha256":"cb863229ef96129bc899a25852f9f21d506353224b01606538c375a1b392285a"}
+  ],
+  "notice_pins_from_existing_native2_closure": [
+    {"path":"upstream/pflag/LICENSE","bytes":1531,"sha256":"b8514c577c1c4b46cee454d5a882b15fa411e72c5bd7f801f241591789fce61a"},
+    {"path":"upstream/mapstructure/LICENSE","bytes":1085,"sha256":"22adc4abdece712a737573672f082fd61ac2b21df878efb87ffcff4354a07f26"},
+    {"path":"attribution/Go-go1.23.4-LICENSE","bytes":1479,"sha256":"2d36597f7117c38b006835ae7f537487207d8ec407aa9d9980794b2030cbc067"},
+    {"path":"upstream/Go-go1.23.4/src/flag/flag.go.txt","bytes":40691,"sha256":"70be4a80822e3f0a9289e956e0d49a0e92ce0728a3e2e4d34eb90b0bd017ba78"}
+  ],
+  "batch_proposal": {
+    "existing_catalog_IDs_selected":10,"pflag_requests":7,"mapstructure_requests":3,"new_unseen_families":0,
+    "finite_vector_proposals":52,"three_way_dispatch_proposals":156,
+    "labels":null,"roles":null,"weights":null,"new_qualified_or_admitted_count":0,
+    "procedure":"Use existing durable before-dispatch/after-return checkpoints, typed observations and fixed request/candidate/vector spans. Reuse exact original family sources and once-child/resource mechanism after a separately frozen plan. No new policy/review framework is proposed.",
+    "first_batch":"Ownership/count/single-assignment/sensitive-default have direct bounded state/result probes. Context/global-finalizer complexity is absent. Defer unknown-token instrumentation until the direct cases run.",
+    "boundaries":"Before any original call Root freezes candidate source, literal adequate Wants/captions, exact compiler/dependency/notices and known capacity. Returned values and Error calls have durable checkpoints; killed/incomplete prefixes remain unknown. Don't force baseline failure if observations happen to satisfy finite Wants.",
+    "feature_policy":"Only separately reviewed request/candidate text later enters models. IDs, labels, source/role/weights, Want/Got, callbacks and error observations remain supervision/bookkeeping.",
+    "count_path":"Current3 + batch4 + prior-six6 + this-ten10 could yield23 qualified requests, only if each passes qualification. Registry20 + these10 could yield30, but seven registry holds need resolution. If they remain expensive/MPL-deferred, use seven further concrete existing catalog contracts after dedup, not fixture multiplication. Checkpoint60 and protected2400/domain remain future targets.",
+    "fit_policy":"No fit at small fixture counts; preserve checkpoint30/60 plan, old79 and inactive models. No paid/production/GPU/LLM-cost or runtime-efficiency claim."
+  },
+  "activity": {
+    "whole_new_directory_cap_bytes":131072,
+    "Go_build_test_authored_helper_original_oracle_model_protected_HF_HTTP_Git_publication_shared_writes":0,
+    "raw_upstream_bodies_copied":0,
+    "preserved_lookup_limits":[
+      "One binding lookup guessed module/private instead of the separate prep private directory and failed; no binding facts were used",
+      "One catalog query omitted its input file and produced no rows; corrected explicit-file query supplied the facts",
+      "Two native2 metadata queries assumed an object rather than the actual array and failed; the corrected array query supplied only public request/candidate metadata"
+    ],
+    "independence":"Nonblind source-informed planning by the earlier ftoa/controller/converter/reader author. No independent label/oracle/legal/compiler approval and no exhaustive original76 semantics were inferred."
+  }
+}

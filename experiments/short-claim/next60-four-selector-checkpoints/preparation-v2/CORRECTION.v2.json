@@ -1,0 +1,59 @@
+{
+  "schema": "riido-four-selector-checkpoint-correction-v2",
+  "state": "source_only_correction_not_executed",
+  "original_v1_handoff": {
+    "bytes": 8176,
+    "sha256": "152f595cb357a7a5ca007192d16c2c0ff04999bcd5f4ada8502699db45a72403",
+    "archived_path": "history-v1/HANDOFF.v1.json"
+  },
+  "original_v1_all_18_files_preserved": true,
+  "unchanged_semantics": [
+    "fixture raw bytes/SHA; original ordinals1/4/5/9; requests4/inputs19/candidate positions12/dispatches57",
+    "all six copied adapter sources, candidate ordering, captions and literal Wants",
+    "truth/labels/roles/weights unchanged null; original/native/init/model calls0",
+    "PLAN frozen=false and all18fields/output budgets/retries0 unchanged"
+  ],
+  "findings": [
+    {
+      "id": "parent_directory_entry_sync",
+      "v1": "child directory Sync did not acknowledge its newly created entry in the parent directory",
+      "v2": "reservation file.Sync -> child-directory Sync -> parent-directory Sync; failure returns nil writer before callbacks",
+      "source_control": "TestParentDirectorySyncFailureRefusesUsableWriter; standard filesystem files plus injected parent sync failure, not executed"
+    },
+    {
+      "id": "standalone_argument_arity",
+      "v1": "FlagSet alone accepted duplicate options and had no argument-count bound",
+      "v2": "exact6tokens; --plan/--plan-sha256/--attempt-dir each once in any order; nonempty values; equals/duplicates/residuals reject",
+      "source_control": "guard statically read; driver/native excluded from future pure fork, no tests executed"
+    },
+    {
+      "id": "sticky_completed_final",
+      "v1": "stale completed report could be finalized after a later invalid Checkpoint stopped Writer",
+      "v2": "completed final rejects report/writer stopped and nonempty failure; preserves sticky original failure",
+      "source_control": "TestStickyWriterFailureRejectsPriorCompletedReport; full fake57 Execute then invalid Checkpoint then refusal with zero final writes, not executed"
+    },
+    {
+      "id": "post_kill_row_acknowledgment",
+      "v1": "prefix wording could imply complete row presence proves Sync returned",
+      "v2": "without finalized receipt, final complete-row acknowledgment is unknown; Frame sequence is proposed before Sync; in-memory EventsSynced advances only after success"
+    }
+  ],
+  "changed_active_files": [
+    "code/checkpoint/writer.go.txt",
+    "code/checkpoint/writer_test.go.txt",
+    "code/cmd/observe/main.go.txt",
+    "README.ko.md",
+    "README.en.md",
+    "SCHEMA.v1.json"
+  ],
+  "preservation_mapping": "changed originals are exact history-v1 copies; all other v1 files retain exact active bytes; historical README links retain original-context text and are not rewritten",
+  "author_role": "v1/v2 adapter and worker author; peer findings supplied independently; not independent semantic judge",
+  "authoring_attempts": {
+    "failed_apply_patch_context": 1,
+    "reason": "whole paragraph did not match a one-sentence patch context; no source changed; subsequent own-doc replacement completed",
+    "Go_gofmt_test_vet_build_native_original_model": 0,
+    "new_source_tests": 2,
+    "old_seals_changed": 0
+  },
+  "permissions": "no execution authority, rights, qualification or semantic label assignment granted"
+}

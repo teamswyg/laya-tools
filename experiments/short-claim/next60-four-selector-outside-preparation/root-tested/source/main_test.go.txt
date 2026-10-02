@@ -1,0 +1,182 @@
+// INERT fake/metadata test source. No subprocesses or original imports.
+package main
+
+import (
+	"encoding/json"
+	"errors"
+	"os"
+	"path/filepath"
+	"riido.local/fourselectoroutside/pure"
+	"strings"
+	"testing"
+	"time"
+)
+
+type fakeProcess struct {
+	startFail            bool
+	starts, waits, kills int
+	release              chan struct{}
+}
+
+func (f *fakeProcess) Start() error {
+	f.starts++
+	if f.startFail {
+		return errors.New("fake_start")
+	}
+	return nil
+}
+func (f *fakeProcess) Wait() error {
+	f.waits++
+	if f.release != nil {
+		<-f.release
+	}
+	return nil
+}
+func (f *fakeProcess) KillGroup() error {
+	f.kills++
+	if f.release != nil {
+		close(f.release)
+	}
+	return nil
+}
+func TestFailedStartNeverWaits(t *testing.T) {
+	f := &fakeProcess{startFail: true}
+	r := once(f, nil, nil, nil, time.Hour, time.Second)
+	if f.starts != 1 || f.waits != 0 || f.kills != 0 || r.StartSucceeded || r.WaitInvocations != 0 || r.WaitJoined {
+		t.Fatal("failed Start accounting")
+	}
+}
+func TestTimeoutKillsAndJoinsSingleWait(t *testing.T) {
+	f := &fakeProcess{release: make(chan struct{})}
+	r := once(f, nil, nil, nil, 0, time.Second)
+	if f.starts != 1 || f.waits != 1 || f.kills != 1 || !r.WaitJoined || !r.Timeout || r.ExitZero {
+		t.Fatal("timeout/reap conservation")
+	}
+}
+func TestStreamOverflowStopsWithSingleJoinedWait(t *testing.T) {
+	f := &fakeProcess{release: make(chan struct{})}
+	events := make(chan string, 1)
+	events <- "stream_cap"
+	r := once(f, events, nil, nil, time.Hour, time.Second)
+	if f.waits != 1 || f.kills != 1 || !r.WaitJoined || r.Failure != "stream_cap" {
+		t.Fatal("overflow lifecycle")
+	}
+}
+func TestStrictArgumentShape(t *testing.T) {
+	s := strings.Repeat("0", 64)
+	if _, _, e := arguments([]string{"--binding", "/synthetic/binding.json", "--binding-sha256", s}); e != nil {
+		t.Fatal(e)
+	}
+	cases := [][]string{{"--binding", "/synthetic/x", "--binding", "/synthetic/y"}, {"--binding=/synthetic/x", "--binding-sha256", s}, {"--binding", "/synthetic/x", "--binding-sha256", s, "extra"}}
+	for _, a := range cases {
+		if _, _, e := arguments(a); e == nil {
+			t.Fatal("invalid arguments accepted")
+		}
+	}
+}
+func TestPlanPresenceNullCaseAndExtraReject(t *testing.T) {
+	p := pure.Plan{Schema: "riido-four-selector-checkpoint-worker-plan-v1", Frozen: true, FixtureFile: "FIXTURES.v1.json", FixtureBytes: pure.FixtureBytes, FixtureSHA: pure.FixtureSHA, Requests: 4, Inputs: 19, Candidates: 12, Dispatches: 57, ErrorsExpected: 14, ErrorsMax: 57, CPU: 1, SoftHeap: 268435456, Seconds: 60, MaxOutput: pure.WorkerCap, MaxEvent: pure.EventCap, MaxFinal: pure.FinalCap}
+	b, _ := json.Marshal(p)
+	var got pure.Plan
+	if pure.CheckPlan(b, &got) != nil {
+		t.Fatal("valid literal plan")
+	}
+	var m map[string]json.RawMessage
+	json.Unmarshal(b, &m)
+	m["automatic_retries"] = json.RawMessage("null")
+	bad, _ := json.Marshal(m)
+	if pure.CheckPlan(bad, &got) == nil {
+		t.Fatal("null retries")
+	}
+	delete(m, "automatic_retries")
+	bad, _ = json.Marshal(m)
+	if pure.CheckPlan(bad, &got) == nil {
+		t.Fatal("missing retries")
+	}
+	bad = []byte(strings.Replace(string(b), "\"frozen\"", "\"Frozen\"", 1))
+	if pure.CheckPlan(bad, &got) == nil {
+		t.Fatal("casefold plan accepted")
+	}
+	bad = []byte(strings.TrimSuffix(string(b), "}") + `,"automatic_retries":0}`)
+	if pure.CheckPlan(bad, &got) == nil {
+		t.Fatal("duplicate plan key")
+	}
+}
+func TestPendingAndEmptyWorkerFilesAreNotCompletion(t *testing.T) {
+	parent, e := filepath.EvalSymlinks(t.TempDir())
+	if e != nil {
+		t.Fatal(e)
+	}
+	child := filepath.Join(parent, "child")
+	if _, _, e = workerFiles(child, false); e != nil {
+		t.Fatal("absent live child")
+	}
+	if _, _, e = workerFiles(child, true); e == nil {
+		t.Fatal("absent final")
+	}
+	os.Mkdir(child, 0700)
+	for _, n := range []string{"reservation.json", "checkpoints.jsonl", "results.json"} {
+		if os.WriteFile(filepath.Join(child, n), nil, 0600) != nil {
+			t.Fatal("fake empty file")
+		}
+	}
+	a, n, e := workerFiles(child, false)
+	if e != nil || len(a) != 3 || n != 0 {
+		t.Fatal("empty running files")
+	}
+	if c, e := pure.AssessFinal(nil, strings.Repeat("0", 64)); e == nil || c.Known || c.Counters != nil {
+		t.Fatal("empty implies no calls")
+	}
+}
+func TestDarwinUnitsAndMissingResourceNullable(t *testing.T) {
+	r := resource([]byte(" 0.85 real 0.01 user 0.04 sys\n 18743296 maximum resident set size\n"))
+	if r.RSSBytes == nil || *r.RSSBytes != 18743296 || r.UserSeconds == nil || *r.UserSeconds != 0.01 {
+		t.Fatal("Darwin byte units")
+	}
+	r = resource([]byte("synthetic missing footer"))
+	if r.RSSBytes != nil || r.RealSeconds != nil {
+		t.Fatal("missing resource invented")
+	}
+	r = resource([]byte("1 maximum resident set size\n2 maximum resident set size\n"))
+	if r.RSSBytes != nil {
+		t.Fatal("ambiguous footer accepted")
+	}
+}
+func TestStoredFinalArityNullsAndCountersMetadataOnly(t *testing.T) {
+	sha := strings.Repeat("0", 64)
+	no := false
+	ob, _ := json.Marshal(pure.Observation{Returned: true, ErrorPresent: &no})
+	f := pure.Final{Schema: pure.WorkerSchema, Header: pure.Header{Schema: pure.WorkerSchema, Plan: sha, Fixture: pure.FixtureSHA, Requests: 4, Inputs: 19, Candidates: 12, Dispatches: 57, ErrorsExpected: 14, ErrorsMax: 57}, State: "completed_finite_observations_not_compared", Counters: pure.Counters{Reserved: 57, Dispatched: 57, Returned: 57}, ObserveReturned: 57, Comparison: "pending_separate_saved_observation_comparison", Durable: pure.Durable{Synced: 114, Completed: 57, LastSHA: sha, HasLast: true, LastEvent: json.RawMessage("{}")}}
+	last, _ := json.Marshal(pure.LastEvent{Schema: "riido-four-selector-checkpoint-v2", Stage: "after_candidate", Dispatch: pure.Schedule()[56], Partial: json.RawMessage(`{"CandidateCompletionObserved":true}`), Counters: f.Counters})
+	f.Durable.LastEvent = last
+	for _, d := range pure.Schedule() {
+		f.Rows = append(f.Rows, pure.Row{Dispatch: d, Attempted: true, Observation: ob, State: "observed_not_compared", Truth: json.RawMessage("null"), Label: json.RawMessage("null"), Role: json.RawMessage("null"), Weight: json.RawMessage("null")})
+	}
+	b, _ := json.Marshal(f)
+	c, e := pure.AssessFinal(b, sha)
+	if e != nil || !c.Known || c.Native != nil || c.Init != nil {
+		t.Fatal("metadata-only complete")
+	}
+	f.Rows = append(f.Rows, f.Rows[0])
+	b, _ = json.Marshal(f)
+	if c, e = pure.AssessFinal(b, sha); e == nil || c.Known {
+		t.Fatal("58 rows accepted")
+	}
+	f.Rows = f.Rows[:57]
+	b, _ = json.Marshal(f)
+	var fields map[string]json.RawMessage
+	json.Unmarshal(b, &fields)
+	var rows []map[string]json.RawMessage
+	json.Unmarshal(fields["rows"], &rows)
+	delete(rows[0], "truth")
+	fields["rows"], _ = json.Marshal(rows)
+	b, _ = json.Marshal(fields)
+	if c, e = pure.AssessFinal(b, sha); e == nil || c.Known {
+		t.Fatal("missing null supervision accepted")
+	}
+	f.Durable.Stopped = true
+	b, _ = json.Marshal(f)
+	if c, e = pure.AssessFinal(b, sha); e == nil || c.Known {
+		t.Fatal("stopped final accepted")
+	}
+}

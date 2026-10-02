@@ -1,0 +1,231 @@
+// Source-only preparation. This inert file has not been formatted, compiled,
+// imported, tested or executed. Activation needs a separately frozen worker.
+package batchprep
+
+import (
+	"errors"
+	"reflect"
+	"sort"
+	"strconv"
+	"strings"
+	"unicode/utf8"
+)
+
+type Entry struct { Key string `json:"key"`; Value string `json:"value"` }
+type MapImage struct {
+	Nil bool `json:"nil"`
+	Entries []Entry `json:"entries"`
+}
+type NameTarget struct { Name string }
+type CollisionInput struct {
+	InitialName string `json:"initial_name"`
+	Map map[string]string `json:"map"`
+}
+type SnapshotInput struct {
+	Map map[string]string `json:"map"`
+	FlagName string `json:"flag_name"`
+	MutateSnapshot map[string]string `json:"mutate_snapshot"`
+	MutateLive map[string]string `json:"mutate_live"`
+}
+type Fixture struct {
+	OriginalOrdinal int `json:"original_ordinal"`
+	FixtureIndex int `json:"fixture_index"`
+	CaseID string `json:"case_id"`
+	StringInput *string `json:"string_input"`
+	Collision *CollisionInput `json:"collision_input"`
+	Snapshot *SnapshotInput `json:"snapshot_input"`
+}
+type MapBinding struct {
+	Live *map[string]string
+	Get func(string) (map[string]string,error)
+}
+// These are closed, typed binding slots, not a source selection or permission.
+// The separate native binding must be source-pinned; arbitrary supplied slots
+// are not accepted by any future official worker.
+type OriginalOps struct {
+	ParseComma func(string) (int64,error)
+	ParseBytes func(string) (uint64,error)
+	DecodeName func(map[string]string,*NameTarget) error
+	SetupMap func(map[string]string) MapBinding
+}
+type ContractError struct { Kind string; Field string; Keys []string }
+func (e *ContractError) Error() string { return e.Kind }
+var ErrSyntax = &ContractError{Kind:"syntax"}
+var ErrGrouping = &ContractError{Kind:"grouping"}
+var ErrRange = &ContractError{Kind:"range"}
+
+type Observation struct {
+	ReturnedNormally bool `json:"returned_normally"`
+	Int64Decimal *string `json:"int64_decimal"`
+	Uint64Decimal *string `json:"uint64_decimal"`
+	NameBefore *string `json:"name_before"`
+	NameAfter *string `json:"name_after"`
+	ConflictingKeys []string `json:"conflicting_keys"`
+	LiveBefore *MapImage `json:"live_before"`
+	LiveAfter *MapImage `json:"live_after"`
+	SnapshotBefore *MapImage `json:"snapshot_before"`
+	SnapshotAfter *MapImage `json:"snapshot_after"`
+	LegacyAfter *MapImage `json:"legacy_after"`
+	ErrorPresent *bool `json:"error_present"`
+	ErrorType *string `json:"error_type"`
+	ErrorKind *string `json:"error_kind"`
+	ErrorText *string `json:"error_text"`
+	ErrorTextObserved bool `json:"error_text_observed"`
+	ErrorMethodPanicked bool `json:"error_method_panicked"`
+	Panicked bool `json:"panicked"`
+	PanicType *string `json:"panic_type"`
+	PanicText *string `json:"panic_text"`
+	NonStringPanicTextUnobserved bool `json:"nonstring_panic_text_unobserved"`
+	UnknownReason string `json:"unknown_reason"`
+	OriginalAPICallsMeasured *int `json:"original_api_calls_measured"`
+	StartupInitCallsMeasured *int `json:"startup_init_calls_measured"`
+}
+type Wanted struct {
+	ErrorPresent bool `json:"error_present"`
+	RequiredErrorKind *string `json:"required_error_kind"`
+	RequiredErrorType *string `json:"required_error_type"`
+	Int64Decimal *string `json:"int64_decimal"`
+	Uint64Decimal *string `json:"uint64_decimal"`
+	NameAfter *string `json:"name_after"`
+	ConflictingKeys []string `json:"conflicting_keys"`
+	LiveAfter *MapImage `json:"live_after"`
+	SnapshotAfter *MapImage `json:"snapshot_after"`
+	LegacyAfter *MapImage `json:"legacy_after"`
+}
+type Comparison struct { State string `json:"state"`; Fields []string `json:"fields"` }
+type Dispatch struct { RequestIndex int; OriginalOrdinal int; CandidateIndex int; FixtureIndex int; FixtureOrdinal int }
+const CheckpointSchema = "riido-four-selector-checkpoint-v2"
+const MaxCheckpointMapEntries = 24
+const MaxCheckpointKeys = 8
+const MaxCheckpointScalarBytes = 4096
+// Known distinguishes a measured null from a channel not yet observed.
+// Snapshot payloads contain values and fixed arrays only: no map, slice,
+// pointer, upstream error, or callback is exposed to the checkpoint writer.
+type TextField struct { Known bool; Nil bool; Value string }
+type BoolField struct { Known bool; Value bool }
+type IntField struct { Known bool; Value int }
+type MapSnapshot struct { Known bool; Nil bool; Count int; Entries [MaxCheckpointMapEntries]Entry }
+type KeySnapshot struct { Known bool; Nil bool; Count int; Values [MaxCheckpointKeys]string }
+type PartialObservation struct {
+	CandidateCompletionObserved bool
+	ReturnedNormally bool
+	Int64Decimal,Uint64Decimal,NameBefore,NameAfter TextField
+	ConflictingKeys KeySnapshot
+	LiveBefore,LiveAfter,SnapshotBefore,SnapshotAfter,LegacyAfter MapSnapshot
+	ErrorPresent BoolField
+	ErrorType,ErrorKind,ErrorText TextField
+	ErrorMethodCompletionObserved bool
+	ErrorTextObserved,ErrorMethodPanicked,Panicked bool
+	PanicType,PanicText TextField
+	NonStringPanicTextUnobserved bool
+	UnknownReason string
+	OriginalAPICallsMeasured,StartupInitCallsMeasured IntField
+}
+type Event struct { Schema string; Stage string; Dispatch Dispatch; Partial PartialObservation; Counters Counters }
+// The trusted writer must synchronously serialize and fsync this value-only
+// snapshot before returning nil. This draft itself performs no filesystem I/O.
+// The last successfully synced event is evidence; failed/in-flight writes are
+// not claimed durable. A failure stops subsequent dispatch with these counters.
+type Checkpoint func(Event) error
+type Counters struct {
+	CandidateReserved int `json:"candidate_reserved"`
+	CandidateDispatched int `json:"candidate_dispatched"`
+	CandidateReturned int `json:"candidate_returned"`
+	CandidatePanicked int `json:"candidate_panicked"`
+	ErrorMethodReserved int `json:"error_method_reserved"`
+	ErrorMethodDispatched int `json:"error_method_dispatched"`
+	ErrorMethodReturned int `json:"error_method_returned"`
+	ErrorMethodPanicked int `json:"error_method_panicked"`
+	CheckpointStopped bool `json:"checkpoint_stopped"`
+}
+
+func snapshotText(v *string) (TextField,error) {
+	if v==nil { return TextField{},nil }
+	if len(*v)>MaxCheckpointScalarBytes || !utf8.ValidString(*v) { return TextField{},missingBinding("checkpoint_snapshot_bounds") }
+	return TextField{Known:true,Value:*v},nil
+}
+func snapshotMap(v *MapImage) (MapSnapshot,error) {
+	var r MapSnapshot
+	if v==nil {return r,nil}
+	if len(v.Entries)>MaxCheckpointMapEntries || (v.Nil && len(v.Entries)!=0) {return r,missingBinding("checkpoint_snapshot_bounds")}
+	r.Known=true;r.Nil=v.Nil;r.Count=len(v.Entries)
+	for i,e:=range v.Entries {
+		if !boundedText(e.Key)||!boundedText(e.Value)||(i>0 && v.Entries[i-1].Key>=e.Key) {return MapSnapshot{},missingBinding("checkpoint_snapshot_bounds")}
+		r.Entries[i]=e
+	};return r,nil
+}
+func snapshotObservation(o Observation) (PartialObservation,error) {
+	var r PartialObservation
+	r.CandidateCompletionObserved=o.ReturnedNormally||o.Panicked
+	r.ReturnedNormally=o.ReturnedNormally;r.Panicked=o.Panicked
+	r.ErrorMethodCompletionObserved=o.ErrorTextObserved||o.ErrorMethodPanicked
+	r.ErrorTextObserved=o.ErrorTextObserved;r.ErrorMethodPanicked=o.ErrorMethodPanicked
+	r.NonStringPanicTextUnobserved=o.NonStringPanicTextUnobserved;r.UnknownReason=o.UnknownReason
+	texts:=[]struct{source *string;target *TextField}{{o.Int64Decimal,&r.Int64Decimal},{o.Uint64Decimal,&r.Uint64Decimal},{o.NameBefore,&r.NameBefore},{o.NameAfter,&r.NameAfter},{o.ErrorType,&r.ErrorType},{o.ErrorKind,&r.ErrorKind},{o.ErrorText,&r.ErrorText},{o.PanicType,&r.PanicType},{o.PanicText,&r.PanicText}}
+	for _,v:=range texts {value,err:=snapshotText(v.source);if err!=nil{return PartialObservation{},err};*v.target=value}
+	if o.ErrorPresent!=nil {
+		r.ErrorPresent=BoolField{Known:true,Value:*o.ErrorPresent}
+		if !*o.ErrorPresent {r.ErrorType=TextField{Known:true,Nil:true};r.ErrorKind=TextField{Known:true,Nil:true};r.ErrorText=TextField{Known:true,Nil:true}}
+	}
+	if len(o.ConflictingKeys)>MaxCheckpointKeys {return PartialObservation{},missingBinding("checkpoint_snapshot_bounds")}
+	r.ConflictingKeys.Known=o.ReturnedNormally||o.ConflictingKeys!=nil
+	r.ConflictingKeys.Nil=o.ConflictingKeys==nil;r.ConflictingKeys.Count=len(o.ConflictingKeys)
+	for i,s:=range o.ConflictingKeys {if !boundedText(s) {return PartialObservation{},missingBinding("checkpoint_snapshot_bounds")};r.ConflictingKeys.Values[i]=s}
+	maps:=[]struct{source *MapImage;target *MapSnapshot}{{o.LiveBefore,&r.LiveBefore},{o.LiveAfter,&r.LiveAfter},{o.SnapshotBefore,&r.SnapshotBefore},{o.SnapshotAfter,&r.SnapshotAfter},{o.LegacyAfter,&r.LegacyAfter}}
+	for _,v:=range maps {value,err:=snapshotMap(v.source);if err!=nil{return PartialObservation{},err};*v.target=value}
+	if o.OriginalAPICallsMeasured!=nil {r.OriginalAPICallsMeasured=IntField{Known:true,Value:*o.OriginalAPICallsMeasured}}
+	if o.StartupInitCallsMeasured!=nil {r.StartupInitCallsMeasured=IntField{Known:true,Value:*o.StartupInitCallsMeasured}}
+	return r,nil
+}
+func emitCheckpoint(checkpoint Checkpoint,stage string,d Dispatch,out Observation,counters Counters) error {
+	partial,err:=snapshotObservation(out);if err!=nil{return err}
+	return checkpoint(Event{Schema:CheckpointSchema,Stage:stage,Dispatch:d,Partial:partial,Counters:counters})
+}
+
+func Schedule() [57]Dispatch {
+	ordinals := [4]int{1,4,5,9}
+	counts := [4]int{6,4,4,5}
+	var result [57]Dispatch
+	index, first := 0,0
+	for r,ordinal := range ordinals {
+		for c:=0;c<3;c++ { for f:=0;f<counts[r];f++ {
+			result[index]=Dispatch{r,ordinal,c,f,first+f}; index++
+		} }
+		first+=counts[r]
+	}
+	return result
+}
+func CopyMap(m map[string]string) map[string]string {
+	if m==nil { return nil }
+	r:=make(map[string]string,len(m)); for k,v:=range m { r[k]=v }; return r
+}
+func Image(m map[string]string) *MapImage {
+	r:=&MapImage{Nil:m==nil}; if m==nil { return r }
+	r.Entries=make([]Entry,0,len(m)); for k,v:=range m { r.Entries=append(r.Entries,Entry{k,v}) }
+	sort.Slice(r.Entries,func(i,j int)bool{return r.Entries[i].Key<r.Entries[j].Key}); return r
+}
+func boundedText(s string) bool { return len(s)<=512 && utf8.ValidString(s) }
+func boundedMap(m map[string]string) bool {
+	if len(m)>8 { return false }; for k,v:=range m { if !boundedText(k)||!boundedText(v) { return false } }; return true
+}
+func ValidFixture(f Fixture,d Dispatch) bool {
+	matched:=false; for _,expected:=range Schedule() { if expected==d { matched=true;break } };if !matched {return false}
+	if f.OriginalOrdinal!=d.OriginalOrdinal || f.FixtureIndex!=d.FixtureIndex || f.CaseID=="" || !boundedText(f.CaseID) { return false }
+	switch f.OriginalOrdinal {
+	case 1,9: return f.StringInput!=nil && boundedText(*f.StringInput) && f.Collision==nil && f.Snapshot==nil
+	case 4: return f.StringInput==nil && f.Collision!=nil && f.Snapshot==nil && boundedText(f.Collision.InitialName) && boundedMap(f.Collision.Map)
+	case 5: return f.StringInput==nil && f.Collision==nil && f.Snapshot!=nil && boundedText(f.Snapshot.FlagName) && boundedMap(f.Snapshot.Map) && boundedMap(f.Snapshot.MutateSnapshot) && boundedMap(f.Snapshot.MutateLive)
+	}; return false
+}
+func errorKind(err error,text string) string {
+	switch e:=err.(type) {
+	case *ContractError: return e.Kind
+	case *strconv.NumError:
+		if e.Err==strconv.ErrRange { return "range" }; if e.Err==strconv.ErrSyntax { return "syntax" }
+	}
+	if reflect.TypeOf(err).String()=="*pflag.NotExistError" { return "missing_flag" }
+	// This literal source-path mapping is diagnostic, not errors.Is identity.
+	if strings.HasPrefix(text,"too large: ") { return "range" }
+	return "unclassified_error"
+}
+func missingBinding(s string) error { return errors.New(s) }

@@ -1,0 +1,59 @@
+// Source-only filesystem and exact declared-source binding. Stdlib only.
+package main
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"debug/buildinfo"
+	"encoding/hex"
+	"errors"
+	"io"
+	"os"
+	"path/filepath"
+	"strings"
+	"unicode/utf8"
+	"riido.local/fourselectoroutside/pure"
+)
+const binaryCap=int64(pure.BinaryCap)
+func bad(s string)error{return errors.New(s)}
+func absolute(p string)bool{return filepath.IsAbs(p)&&filepath.Clean(p)==p&&len(p)<=2048&&utf8.ValidString(p)&&!strings.ContainsRune(p,0)}
+func ancestry(p string,absentLeaf bool)error{
+	if !absolute(p){return bad("absolute_path")};parts:=strings.Split(strings.TrimPrefix(p,"/"),"/");cur:="/"
+	for i,s:=range parts{if s==""{continue};cur=filepath.Join(cur,s);a,e:=os.Lstat(cur);if i==len(parts)-1&&absentLeaf&&errors.Is(e,os.ErrNotExist){return nil};if e!=nil||a.Mode()&os.ModeSymlink!=0||(i<len(parts)-1&&!a.IsDir()){return bad("path_ancestor")}};return nil
+}
+func read(path string,cap int64)([]byte,error){
+	if ancestry(path,false)!=nil{return nil,bad("read_path")};a,e:=os.Lstat(path);if e!=nil||!a.Mode().IsRegular()||a.Size()<=0||a.Size()>cap{return nil,bad("read_type_cap")}
+	f,e:=os.Open(path);if e!=nil{return nil,bad("read_open")};defer f.Close();z,e:=f.Stat();if e!=nil||!os.SameFile(a,z)||a.Size()!=z.Size(){return nil,bad("read_identity")}
+	b,e:=io.ReadAll(io.LimitReader(f,cap+1));if e!=nil||int64(len(b))!=a.Size(){return nil,bad("read_bytes")};z,e=os.Lstat(path);q,qe:=f.Stat();if e!=nil||qe!=nil||!os.SameFile(a,z)||!os.SameFile(a,q)||q.Size()!=a.Size()||z.Size()!=a.Size()||!q.ModTime().Equal(a.ModTime())||!z.ModTime().Equal(a.ModTime()){return nil,bad("read_changed")};return b,nil
+}
+func pinned(root string,p pure.Pin,cap int64,executable bool)([]byte,error){
+	if !pure.ValidPin(p,cap){return nil,bad("pin_shape")};name:=filepath.Join(root,filepath.FromSlash(p.Path));b,e:=read(name,cap);if e!=nil||int64(len(b))!=p.Bytes||pure.Digest(b)!=p.SHA{return nil,bad("pin_mismatch")};if executable{a,e:=os.Lstat(name);if e!=nil||a.Mode().Perm()&0111==0{return nil,bad("binary_mode")}};return b,nil
+}
+func syncDir(p string)error{f,e:=os.Open(p);if e!=nil{return bad("directory_open")};e=f.Sync();ce:=f.Close();if e!=nil||ce!=nil{return bad("directory_sync")};return nil}
+func freshLeaf(p string)bool{s:=filepath.Base(p);if len(s)==0||len(s)>128{return false};for _,c:=range s{if !(c>='a'&&c<='z')&&!(c>='0'&&c<='9')&&c!='-'&&c!='_'{return false}};return true}
+func contains(a,b string)bool{r,e:=filepath.Rel(a,b);return e==nil&&r!=".."&&!strings.HasPrefix(r,"../")}
+func separation(source,output string)error{
+	if ancestry(source,false)!=nil||ancestry(output,true)!=nil||!freshLeaf(output)||contains(source,output)||contains(output,source){return bad("source_output_overlap")}
+	s,e:=os.Lstat(source);if e!=nil||!s.IsDir(){return bad("source_root")}
+	for p:=output;;p=filepath.Dir(p){a,e:=os.Lstat(p);if e==nil&&os.SameFile(s,a){return bad("physical_source_output_overlap")};if e!=nil&&!errors.Is(e,os.ErrNotExist){return bad("physical_ancestor")};if p==filepath.Dir(p){break}}
+	return nil
+}
+func sources(root string,m pure.Manifest)error{
+	if m.Schema!=pure.ManifestSchema||m.Module!="riido.local/fourselectors"||len(m.Files)<10||len(m.Files)>4096||len(m.ClosedDirs)<1||len(m.ClosedDirs)>64{return bad("manifest_shape")}
+	var total int64;notices,modules:=0,0
+	for i,p:=range m.Files{if !pure.ValidPin(p,1<<20){return bad("source_pin")};for _,q:=range m.Files[:i]{if p.ID==q.ID||p.Path==q.Path{return bad("source_duplicate")}};total+=p.Bytes;if total>64<<20{return bad("declared_source_total_cap")};if _,e:=pinned(root,p,1<<20,false);e!=nil{return e};base:=filepath.Base(p.Path);if base=="go.mod"{modules++};if base=="LICENSE"||base=="LICENCE"||strings.HasPrefix(base,"NOTICE"){notices++}}
+	if modules<4||notices<3{return bad("module_notice_inventory")}
+	for i,dir:=range m.ClosedDirs{if !pure.SafePath(dir){return bad("closed_dir")};for _,old:=range m.ClosedDirs[:i]{if dir==old{return bad("closed_dir_duplicate")}}
+		e:=filepath.WalkDir(filepath.Join(root,dir),func(p string,d os.DirEntry,e error)error{if e!=nil||d.Type()&os.ModeSymlink!=0{return bad("source_walk")};if d.IsDir(){return nil};base:=d.Name();relevant:=(strings.HasSuffix(base,".go")&&!strings.HasSuffix(base,"_test.go"))||base=="go.mod"||base=="go.sum";if !relevant{return nil};rel,e:=filepath.Rel(root,p);if e!=nil{return bad("source_walk")};found:=false;for _,pin:=range m.Files{if pin.Path==filepath.ToSlash(rel){found=true;break}};if !found{return bad("undeclared_go_module")};return nil});if e!=nil{return e}}
+	return nil
+}
+func checkBinary(b []byte,module string)error{
+	f,e:=boundedMachO(bytes.NewReader(b),uint64(len(b)));if e!=nil{return bad("macho_metadata")};f.Close()
+	info,e:=buildinfo.Read(bytes.NewReader(b));if e!=nil||info.GoVersion!="go1.27.1"||info.Main.Path!=module{return bad("go_buildinfo")}
+	var cgo,trim,osname,arch string;for _,s:=range info.Settings{if strings.HasPrefix(s.Key,"vcs"){return bad("buildvcs_metadata")};switch s.Key{case "CGO_ENABLED":cgo=s.Value;case "-trimpath":trim=s.Value;case "GOOS":osname=s.Value;case "GOARCH":arch=s.Value}}
+	if cgo!="0"||trim!="true"||osname!="darwin"||arch!="arm64"{return bad("build_settings")};return nil
+}
+// Exact writes/fsync, readback and directory sync precede Start. No overwrite.
+func exclusive(dir,name string,b []byte,cap int64)error{
+	if int64(len(b))>cap{return bad("control_cap")};f,e:=os.OpenFile(filepath.Join(dir,name),os.O_RDWR|os.O_CREATE|os.O_EXCL,0600);if e!=nil{return bad("control_exclusive")};defer f.Close();n,e:=f.Write(b);if e!=nil||n!=len(b)||f.Sync()!=nil{return bad("control_sync")};if _,e=f.Seek(0,io.SeekStart);e!=nil{return bad("control_readback")};h:=sha256.New();nr,e:=io.Copy(h,io.LimitReader(f,int64(len(b))+1));if e!=nil||nr!=int64(len(b))||hex.EncodeToString(h.Sum(nil))!=pure.Digest(b){return bad("control_readback")};return syncDir(dir)
+}
