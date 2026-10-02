@@ -1,0 +1,134 @@
+// Package pure contains stdlib-only DTOs and callback orchestration, without
+// native package imports or initialization.
+package pure
+
+import (
+	"encoding/hex"
+	"errors"
+)
+
+const MaxBytes = 1 << 20
+
+var APINames = [10]string{"NewDecoder", "NewDecoderSize", "ScanRecord", "ScanKeyval", "Key", "Value", "Err", "ErrorString", "Escape", "Unescape"}
+
+type Counter struct {
+	Reserved int `json:"reserved"`
+	Returned int `json:"returned"`
+	Panicked int `json:"panicked"`
+}
+type ByteState struct {
+	Nil    bool   `json:"nil"`
+	Length int    `json:"length"`
+	Hex    string `json:"hex"`
+}
+
+func Bytes(b []byte) ByteState   { return ByteState{b == nil, len(b), hex.EncodeToString(b)} }
+func Literal(s string) ByteState { return Bytes([]byte(s)) }
+
+type Syntax struct {
+	Msg  string `json:"msg"`
+	Line int    `json:"line"`
+	Pos  int    `json:"pos"`
+}
+type ErrorState struct {
+	Type    string  `json:"type"`
+	Message string  `json:"message"`
+	Syntax  *Syntax `json:"syntax"`
+}
+type Step struct {
+	ScanKeyval bool        `json:"scan_keyval"`
+	Key        ByteState   `json:"key"`
+	Value      ByteState   `json:"value"`
+	Error      *ErrorState `json:"error"`
+}
+type Record struct {
+	Index int    `json:"record_index"`
+	Steps []Step `json:"steps"`
+}
+type LogObservation struct {
+	ScanRecords       []bool      `json:"scan_record_results"`
+	Records           []Record    `json:"records"`
+	TerminalError     *ErrorState `json:"terminal_error"`
+	StickyRecord      bool        `json:"sticky_scan_record"`
+	StickyRecordError *ErrorState `json:"sticky_record_error"`
+	StickyKeyval      Step        `json:"sticky_keyval"`
+}
+type Observation struct {
+	Returned    bool            `json:"returned"`
+	Panic       bool            `json:"panic"`
+	Log         *LogObservation `json:"logfmt"`
+	Text        *string         `json:"text"`
+	Bytes       *ByteState      `json:"bytes"`
+	Error       *ErrorState     `json:"error"`
+	InputBefore *ByteState      `json:"input_before"`
+	InputAfter  *ByteState      `json:"input_after"`
+}
+type Fixture struct {
+	ID               string      `json:"id"`
+	Goal             string      `json:"goal_id"`
+	Operation        string      `json:"operation"`
+	Input            string      `json:"input"`
+	EscapeInput      *ByteState  `json:"escape_input"`
+	BufferSize       int         `json:"buffer_size"`
+	Want             Observation `json:"want"`
+	DirectCallBudget [10]int     `json:"direct_call_budget"`
+}
+type WantSet struct {
+	Schema        string      `json:"schema"`
+	Scope         string      `json:"scope"`
+	Fixtures      [24]Fixture `json:"fixtures"`
+	OriginalCalls int         `json:"original_API_calls_before_seal"`
+	Qualification bool        `json:"qualification"`
+	NewParents    int         `json:"new_parents"`
+	NewLabels     int         `json:"new_truth_labels"`
+}
+type Observed struct {
+	Fixture  Fixture     `json:"fixture"`
+	Started  bool        `json:"started"`
+	Finished bool        `json:"finished"`
+	Got      Observation `json:"got"`
+	Matches  bool        `json:"matches"`
+	Failure  string      `json:"failure"`
+	Calls    [10]Counter `json:"direct_calls"`
+}
+type Result struct {
+	Schema          string       `json:"schema"`
+	State           string       `json:"state"`
+	Phase           string       `json:"phase"`
+	Failure         string       `json:"failure"`
+	WantSHA         string       `json:"want_sha256"`
+	GoalCount       int          `json:"source_behavior_goals"`
+	Cases           [24]Observed `json:"cases"`
+	Started         int          `json:"cases_started"`
+	Finished        int          `json:"cases_finished"`
+	Matched         int          `json:"cases_matched"`
+	Calls           [10]Counter  `json:"direct_calls"`
+	APINames        [10]string   `json:"API_names"`
+	Qualification   bool         `json:"qualification"`
+	TrainingReady   bool         `json:"training_ready"`
+	ProductionReady bool         `json:"production_ready"`
+	ProtectedFinal  bool         `json:"protected_final"`
+	Memory          Memory       `json:"Go_memory"`
+	Wall            float64      `json:"worker_wall_seconds"`
+}
+type Memory struct {
+	HeapAlloc  uint64 `json:"heap_alloc_bytes"`
+	HeapSys    uint64 `json:"heap_sys_bytes"`
+	TotalAlloc uint64 `json:"cumulative_alloc_bytes"`
+	WorkAlloc  uint64 `json:"alloc_since_worker_start_bytes"`
+}
+type Decoder interface {
+	ScanRecord() bool
+	ScanKeyval() bool
+	Key() []byte
+	Value() []byte
+	Err() error
+}
+type Ops struct {
+	New       func(string, int) Decoder
+	ErrorInfo func(error) ErrorState
+	Escape    func([]byte) string
+	Unescape  func(string) ([]byte, error)
+}
+
+func Fail(s string) error { return errors.New("observer77_" + s) }

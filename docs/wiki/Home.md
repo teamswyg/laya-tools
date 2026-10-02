@@ -14,6 +14,7 @@ Codex 연동은 선택 사항입니다. 현재 도구의 추천은 실험이며 
 작은 주장 모델 연구에서는 확인 순서를 제안하고 독립 검증을 남기는 방식을 시험합니다. 두 학습 모델은 앞선 효용 검사를 실패해 기본값으로 켜지 않습니다. 최근 설명 보강 비교에서도 단순 검색은 개선됐지만 기존 모델은 악화됐습니다. / Tiny claim research proposes a verification order while retaining independent checks. Both learned models failed earlier utility tests and remain inactive. In the latest caption diagnostic, cheap retrieval improved while the existing models worsened.
 
 - [최근 실제 비교76](Claim-Diagnostic-76-KO) · [Latest actual diagnostic76](Claim-Diagnostic-76-EN)
+- [선택형 Go 압축 가중치: 저장 공간과 CPU 비용](Packed-Weights-78-KO) · [Optional packed Go weights: storage and CPU tradeoff](Packed-Weights-78-EN)
 - [자료의 동작·설명을 구분하기](Source-Observation-73-KO) · [Separating source behavior and descriptions](Source-Observation-73-EN)
 - [저장 형식과 메모리의 차이](Compact-Storage-73-KO) · [Storage size versus memory](Compact-Storage-73-EN)
 - [Go 계산 개선: 같은 점수·할당량, 두 예제 약20~24% 시간 감소](https://github.com/teamswyg/laya-tools/tree/main/experiments/short-claim/feature-prefix-74) · [Identical-score Go optimization](https://github.com/teamswyg/laya-tools/blob/main/experiments/short-claim/feature-prefix-74/README.en.md)

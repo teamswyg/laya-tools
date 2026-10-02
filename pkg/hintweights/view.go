@@ -1,0 +1,209 @@
+package hintweights
+
+import (
+	"encoding/binary"
+	"errors"
+	"math"
+	"math/bits"
+)
+
+// Dimension is the number of coefficients in the RIIDOH01 format.
+const Dimension = 8192
+const headerBytes = 24
+const bitmapBytes = Dimension / 8
+
+// Fixed errors distinguish invalid bytes, nil/zero views, and feature bounds.
+var (
+	ErrFormat = errors.New("packed78_invalid_format")
+	ErrView   = errors.New("packed78_invalid_view")
+	ErrIndex  = errors.New("packed78_feature_index")
+)
+
+// Feature supplies one ordered sparse input. Duplicate indices are preserved.
+type Feature struct {
+	Index int
+	Value float64
+}
+
+// View owns its bytes. No accessor returns the underlying slices. Copies of a
+// View share immutable owned storage and are safe for concurrent readers.
+type View struct {
+	data   []byte
+	prefix []uint16 // cumulative presence popcounts before each 64-bit word
+	scale  float64
+	kind   byte
+}
+
+// New validates borrowed input before allocating its owned copy. The caller
+// must keep input stable during New; mutations after return cannot affect View.
+// It reads the fixed RIIDOH01/8192 format; it does not train or encode models.
+func New(raw []byte) (*View, error) {
+	if len(raw) < headerBytes || string(raw[:8]) != "RIIDOH01" || binary.LittleEndian.Uint32(raw[8:]) != Dimension || raw[13] != 0 || raw[14] != 0 || raw[15] != 0 {
+		return nil, ErrFormat
+	}
+	kind := raw[12]
+	scale := float64(math.Float32frombits(binary.LittleEndian.Uint32(raw[16:])))
+	n := binary.LittleEndian.Uint32(raw[20:])
+	if math.IsNaN(scale) || math.IsInf(scale, 0) || scale < 0 || n > Dimension {
+		return nil, ErrFormat
+	}
+	size := headerBytes + Dimension*4
+	switch kind {
+	case 0:
+	case 1:
+		size = headerBytes + Dimension
+	case 2:
+		size = headerBytes + bitmapBytes + (int(n)+7)/8
+	default:
+		return nil, ErrFormat
+	}
+	if len(raw) != size {
+		return nil, ErrFormat
+	}
+	nz := 0
+	switch kind {
+	case 0:
+		for i := 0; i < Dimension; i++ {
+			w := float64(math.Float32frombits(binary.LittleEndian.Uint32(raw[headerBytes+4*i:])))
+			if math.IsNaN(w) || math.IsInf(w, 0) {
+				return nil, ErrFormat
+			}
+			if w != 0 {
+				nz++
+			}
+		}
+	case 1:
+		for i := 0; i < Dimension; i++ {
+			q := int8(raw[headerBytes+i])
+			if q == -128 {
+				return nil, ErrFormat
+			}
+			w := float64(q) * scale
+			if math.IsNaN(w) || math.IsInf(w, 0) {
+				return nil, ErrFormat
+			}
+			if w != 0 {
+				nz++
+			}
+		}
+	case 2:
+		for i := 0; i < bitmapBytes; i += 8 {
+			nz += bits.OnesCount64(binary.LittleEndian.Uint64(raw[headerBytes+i:]))
+		}
+		if nz > 0 && scale == 0 {
+			return nil, ErrFormat
+		}
+		if n%8 != 0 && raw[len(raw)-1]>>uint(n%8) != 0 {
+			return nil, ErrFormat
+		}
+	}
+	if nz != int(n) {
+		return nil, ErrFormat
+	}
+	v := &View{data: append([]byte(nil), raw...), scale: scale, kind: kind}
+	if kind == 2 {
+		v.prefix = make([]uint16, bitmapBytes/8+1)
+		for i := 0; i < bitmapBytes/8; i++ {
+			v.prefix[i+1] = v.prefix[i] + uint16(bits.OnesCount64(binary.LittleEndian.Uint64(v.data[headerBytes+8*i:])))
+		}
+	}
+	return v, nil
+}
+
+func (v *View) valid() bool {
+	return v != nil && len(v.data) >= headerBytes && v.kind <= 2 && (v.kind != 2 || len(v.prefix) == bitmapBytes/8+1)
+}
+func (v *View) coefficient(index int) float64 {
+	switch v.kind {
+	case 0:
+		return float64(math.Float32frombits(binary.LittleEndian.Uint32(v.data[headerBytes+4*index:])))
+	case 1:
+		return float64(int8(v.data[headerBytes+index])) * v.scale
+	case 2:
+		wordIndex, bit := index/64, uint(index%64)
+		word := binary.LittleEndian.Uint64(v.data[headerBytes+8*wordIndex:])
+		if word&(uint64(1)<<bit) == 0 {
+			return 0
+		} // Decode's unassigned +0, including scale -0.
+		rank := int(v.prefix[wordIndex]) + bits.OnesCount64(word&((uint64(1)<<bit)-1))
+		w := -v.scale
+		if v.data[headerBytes+bitmapBytes+rank/8]&(1<<uint(rank%8)) != 0 {
+			w = v.scale
+		}
+		return w
+	}
+	return 0
+}
+
+// Coefficient returns the decoded FP64 value at index without expanding the
+// entire table. It rejects a nil/zero View or an index outside [0, Dimension).
+func (v *View) Coefficient(index int) (float64, error) {
+	if !v.valid() {
+		return 0, ErrView
+	}
+	if index < 0 || index >= Dimension {
+		return 0, ErrIndex
+	}
+	return v.coefficient(index), nil
+}
+
+// Score retains feature order, repeats and FP64 coefficient*value + sum order.
+// It does not pre-sum signs and multiply by scale afterward. Bounds errors are
+// fixed diagnostics; nonfinite feature arithmetic follows the reference scorer.
+func (v *View) Score(fs []Feature) (float64, error) {
+	if !v.valid() {
+		return 0, ErrView
+	}
+	s := 0.
+	// Select the storage representation once. Each branch retains the same
+	// ordered coefficient decode, FP64 multiply, and accumulation as coefficient.
+	switch v.kind {
+	case 0:
+		data := v.data
+		for _, f := range fs {
+			if f.Index < 0 || f.Index >= Dimension {
+				return 0, ErrIndex
+			}
+			w := float64(math.Float32frombits(binary.LittleEndian.Uint32(data[headerBytes+4*f.Index:])))
+			s += w * f.Value
+		}
+	case 1:
+		data, scale := v.data, v.scale
+		for _, f := range fs {
+			if f.Index < 0 || f.Index >= Dimension {
+				return 0, ErrIndex
+			}
+			w := float64(int8(data[headerBytes+f.Index])) * scale
+			s += w * f.Value
+		}
+	case 2:
+		data, prefix, scale := v.data, v.prefix, v.scale
+		for _, f := range fs {
+			if f.Index < 0 || f.Index >= Dimension {
+				return 0, ErrIndex
+			}
+			wordIndex, bit := f.Index/64, uint(f.Index%64)
+			word := binary.LittleEndian.Uint64(data[headerBytes+8*wordIndex:])
+			w := 0. // Unassigned Decode coefficient is +0, including scale -0.
+			if word&(uint64(1)<<bit) != 0 {
+				rank := int(prefix[wordIndex]) + bits.OnesCount64(word&((uint64(1)<<bit)-1))
+				w = -scale
+				if data[headerBytes+bitmapBytes+rank/8]&(1<<uint(rank%8)) != 0 {
+					w = scale
+				}
+			}
+			// Never skip zero coefficients: 0*Inf and 0*NaN must remain NaN.
+			s += w * f.Value
+		}
+	}
+	return s, nil
+}
+
+// OwnedPayloadBytes excludes slice/struct headers, allocator padding, input
+// bytes retained by the caller, feature buffers, Go heap and process RSS.
+func (v *View) OwnedPayloadBytes() int {
+	if !v.valid() {
+		return 0
+	}
+	return len(v.data) + 2*len(v.prefix)
+}

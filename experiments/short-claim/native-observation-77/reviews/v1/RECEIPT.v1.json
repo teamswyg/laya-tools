@@ -1,0 +1,77 @@
+{
+  "schema": "riido-logfmt-percent77-source-Want-review-v1",
+  "state": "v1_material_EOF_observer_scope_blocker_found_before_native_execution",
+  "Want": {
+    "bytes": 39675,
+    "sha256": "b21af96b142b023d2d85c8448cfcba6fa29775f2454f5749898b2db18c808af0",
+    "original_preserved": true
+  },
+  "pre_Want_source_first_records_preserved": [
+    {"id": "SOURCE-FIRST-77.ko.md", "sha256": "540997f7a323bd8234466632aadecedbb27057476b8b9e8938608bf0b67fabe8"},
+    {"id": "SOURCE-FIRST-77.en.md", "sha256": "c9e5c03b25bcb0c93ebe1b0d3760a8f02bb94f218445423794ff76af30ca835c"},
+    {"id": "NEXT-BEHAVIOR-77.proposal.v1.json", "sha256": "eaec641e4bb0cb26b09b12b68408543b1a004475e7b77e038521603d16a6ea50"}
+  ],
+  "chronology_boundary": "These previously sealed notes were authored before this reader saw WANTS24; hashes establish artifact identity, not an independent timestamp proof.",
+  "original_source_pins_checked": 16,
+  "original_source_pin_bytes": 51234,
+  "original_source_pins_reference": {
+    "id": "source-first77-RECEIPT.v1.json",
+    "sha256": "357fe8f6692534c112ecc47bde87f48ad91d08fa09ba7374178ddbac3fcb7806",
+    "pointer": "/source_pins"
+  },
+  "code_references": [
+    {"id": "logfmt/decode.go", "sha256": "8996665a4f52b59361758cc6b23e45c81b144a1269f3fc97ac09dc24b0c9f02c", "lines": [54, 87]},
+    {"id": "logfmt/jsonstring.go", "sha256": "47fafd410502e02561492129698bf9f8274d1b8eb36cee7659f6441101cd6eba"},
+    {"id": "dataurl/rfc2396.go", "sha256": "ea58845ebf74183621e793506801ea2e4fc5c63da50298614532c89f6e9c01d2"},
+    {"id": "observer77-v1/pure/run.go", "sha256": "89ee8e9373f4a17ec3bdb9714640563122705452553223b8cc7d9d02f207407d", "lines": [148, 158]},
+    {"id": "observer77-v1/pure/spec.go", "sha256": "5a930cc14b8d3a773878b0137caa846fb20080ab5b760d91cdfce3268716c20a"},
+    {"id": "observer77-v1/pure/types.go", "sha256": "5b1b4d79493eb9031c5904e35243c6d9704b081653913ccaa6bdb5746f2522a4"},
+    {"id": "go1.27.1/src/bufio/scan.go", "bytes": 14585, "sha256": "67ad04ac41a859798cb26e112d52ac15ec2fb11b4948293e20c0f7983d029c0b", "lines": [139, 186]},
+    {"id": "go1.27.1/src/bytes/buffer.go", "bytes": 16932, "sha256": "11cf45edaaf49b6dd6ece3d1a7c7779bb6623b705283e691c66c137336aa62de", "lines": [55, 60]}
+  ],
+  "fixture_counts": {"logfmt": 12, "Escape": 4, "Unescape": 8, "total": 24},
+  "source_reading_status": {
+    "full_v1_Want_supported_fixtures": ["logfmt-01", "logfmt-02", "logfmt-08", "logfmt-09", "logfmt-10", "logfmt-11", "logfmt-12", "percent-01", "percent-02", "percent-03", "percent-04", "percent-05", "percent-06", "percent-07", "percent-08", "percent-09", "percent-10", "percent-11", "percent-12"],
+    "post_EOF_step_contradicted_fixtures": ["logfmt-03", "logfmt-04", "logfmt-05", "logfmt-06", "logfmt-07"],
+    "otherwise_supported_preterminal_pairs_and_errors": 12,
+    "runtime_observed_fixtures": 0,
+    "new_truth_labels": 0
+  },
+  "material_finding": {
+    "id": "post_EOF_ScanKeyval_no_current_record",
+    "source_reading_only": true,
+    "actual_panic_reproduced": false,
+    "mechanism": "v1 calls ScanKeyval after terminal EOF with nil Err. Scanner token becomes nil, while decoder pos remains positive after a nonempty record. decode.go slices line[pos:], creating a source-visible bounds-panic path.",
+    "v1_claim_contradicted": "The five Wants expect returned=true and panic=false for that extra step.",
+    "root_selected_v2_scope": "After terminal ScanRecord=false and Err=nil, do not request a current-record Keyval observation; record skipped/null explicitly. Observe sticky nonnil error only within its guard-supported scope.",
+    "original_v1_Want_source_and_pre_Want_notes_mutated": false,
+    "v2_review_completed": false
+  },
+  "other_finite_source_facts": [
+    "Duplicate keys retain encounter order; successful items before SyntaxError are distinct from the failing Key/Value snapshot.",
+    "Bare, equal-empty, and unescaped quoted-empty values in logfmt-04 are nil, not allocated empty slices.",
+    "SyntaxError locations are byte positions; fields and Error string agree for positions 6,11,12,14 on line1.",
+    "Too-small Scanner buffer gives ErrTooLong and the current error guard supports repeated false scans.",
+    "Observer encodes/copies Key/Value before advancing; this does not make the upstream borrowed slices owned snapshots.",
+    "Escape iterates bytes, preserves the listed unreserved characters, emits uppercase escapes and does not mutate its input.",
+    "Unescape preserves plus; decoded 00/ff bytes are retained as hex, not forced through UTF8 strings.",
+    "Successful empty Unescape returns nil buffer bytes; errors return nil bytes and discard any already accumulated prefix.",
+    "Invalid hex messages use the percent rune and therefore report 0x25, while errors are freshly constructed errorString values."
+  ],
+  "planned_v1_direct_call_budget_sum": [11, 1, 35, 38, 38, 38, 62, 24, 4, 8],
+  "planned_v1_direct_call_budget_total": 259,
+  "planned_calls_are_not_actual_calls": true,
+  "reviewer_authored_pre_Want_source_notes": true,
+  "reviewer_authored_observer_or_Wants": false,
+  "AI_assisted_nonblind_source_reading": true,
+  "independent_human_blind_or_general_semantic_proof": false,
+  "original_import_init_API_observer_tests_executions": 0,
+  "model_assets_read_or_model_calls": 0,
+  "Features_Project_Fit_role_membership_calls": 0,
+  "new_parents_truth_labels_or_training_roles": 0,
+  "qualification": false,
+  "training_ready": false,
+  "production_ready": false,
+  "protected_final": false,
+  "shared_or_remote_mutations": 0
+}

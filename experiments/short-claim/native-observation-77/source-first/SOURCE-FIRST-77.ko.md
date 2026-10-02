@@ -1,0 +1,19 @@
+# 다음 관찰77: 두 행동 목표의 원천 검토
+
+선택은 **logfmt의 순서 있는 레코드 파싱**과 **dataurl의 바이트 percent 변환**입니다. source-audit74에서 이미 제안했던 두 목표를 다음 작은 실행의 대상으로 좁혔습니다. 새 부모나 정답을 추가한 것이 아닙니다. 고정 원문을 읽었으며 원 함수·패키지 초기화·원 테스트·모델은 실행하지 않았고, Want도 아직 작성하지 않았습니다.
+
+logfmt는 [decode.go](https://github.com/go-logfmt/logfmt/blob/804e98fff868b206344991c57a8182172e5ba41e/decode.go)의 `NewDecoder` 또는 `NewDecoderSize → ScanRecord → ScanKeyval → Key/Value → Err`를 관찰합니다. 키와 값은 리스트 순서대로 읽어야 하며 중복 키를 맵에 덮어쓰면 정보를 잃습니다. 키만 있는 항목, 빈 값, 비어 있는 quoted 값의 nil 여부도 지우면 안 됩니다. 오류를 만나기 전 성공한 항목과 실패 시점의 Key/Value를 구분해 남기고, `*SyntaxError`의 Msg·Line·Pos와 오류 문자열을 보존합니다. Line과 Pos를 문자 인덱스로 재해석하지 않습니다. EOF에서는 Err가 nil이며, 첫 오류 뒤에는 계속 진행하지 않는 경로가 있습니다.
+
+Key/Value는 내부 줄 버퍼의 일부일 수 있고 다음 ScanRecord까지만 유효합니다. 관찰기는 다음 레코드를 읽기 전에 nil 여부·길이·바이트를 자체 배열로 복사해야 합니다. 그 복사본의 수명을 원 API가 소유 스냅샷을 반환한다는 주장으로 바꾸면 안 됩니다. quoted escape는 [jsonstring.go](https://github.com/go-logfmt/logfmt/blob/804e98fff868b206344991c57a8182172e5ba41e/jsonstring.go)의 `unquoteBytes/getu4`로 이어집니다. 이 경로는 일부 입력에서 새 버퍼를 만듭니다. decoder 자체에는 goroutine이나 공유 상태 쓰기가 없지만 생성자에 Reader가 들어갑니다. 이번 범위는 메모리 문자열 Reader로 제한하여 사용자 callback·파일·네트워크를 포함하지 않습니다. Scanner는 요청한 레코드보다 뒤를 미리 읽을 수 있으므로 정확한 소비 바이트 수는 주장하지 않습니다.
+
+dataurl은 [rfc2396.go](https://github.com/vincent-petithory/dataurl/blob/d1553a71de50473073e188aa79cebf7f993f20fe/rfc2396.go)의 `Escape → isUnreserved` 및 `Unescape → isHex/unhex`만 직접 관찰합니다. Escape는 바이트를 순회하고 허용하지 않는 바이트를 대문자 hex percent 형식으로 만듭니다. Unescape는 ASCII 입력을 읽으며 plus를 공백으로 바꾸지 않습니다. percent 해독 결과는 UTF-8 텍스트가 아닐 수 있으므로 nil·길이·hex로 기록합니다. 잘못된 escape 또는 원시 비ASCII 입력에서 반환 바이트는 nil이고 오류가 있습니다. 오류는 공유 sentinel이 아니라 새 오류 문자열이며, 잘못된 hex 메시지는 두 분기 모두 현재 rune 값을 사용합니다. 이 원문 동작을 더 정확한 오류로 교정하지 말고 그대로 관찰해야 합니다. 원시 invalid UTF-8은 이번 범위에서 제외합니다. 성공한 빈 결과의 nil 여부도 그대로 남깁니다.
+
+전체 `DecodeString`은 이번에 제외합니다. [dataurl.go 199–252](https://github.com/vincent-petithory/dataurl/blob/d1553a71de50473073e188aa79cebf7f993f20fe/dataurl.go#L199)의 파서가 unescape·unquote·base64 오류에서 먼저 반환할 수 있습니다. [lex.go 151–192](https://github.com/vincent-petithory/dataurl/blob/d1553a71de50473073e188aa79cebf7f993f20fe/lex.go#L151)는 별도 goroutine과 unbuffered 채널을 쓰지만 파서 반환 시 cancel·drain·join이 없습니다. 이후 emit이 막힐 수 있는 경로가 원문에 있습니다. 모든 오류가 goroutine 누수라는 뜻은 아니며 실제 누수를 측정하지 않았습니다. `Decode(io.Reader)`의 ReadAll, 외부 Writer/환경/파일 API 및 인코더 callback도 제외합니다.
+
+다음 준비는 **12개의 decoder fixture와 12개의 percent fixture**, 합계 24개의 유한 사례입니다. decoder 입력은 최대 512바이트, 최대 4개 레코드와 전체 8개 성공 키/값으로 계획합니다. API에는 생성·scan·getter·Err 호출이 여러 개 있으므로 24사례를 24 API 호출로 세지 않습니다. percent는 Escape 4개와 Unescape 8개로 계획하며 nil/empty, reserved/unreserved, raw byte, hex 대소문자, 잘린 escape, 잘못된 hex, 늦게 발생하는 오류를 다룹니다. 구체 입력과 출력 Want는 이후 실행 계획에서 별도로 고정해야 합니다. [기계 판독 계획](NEXT-BEHAVIOR-77.proposal.v1.json)에 fixture 종류와 호출·관측 범위를 적었습니다.
+
+미래의 어려운 오답 후보는 중복 키 제거, 순서 정렬, nil과 empty 합치기, 빌린 버퍼를 항상 소유 버퍼라고 설명하기, plus를 공백으로 해독하기, Unicode 문자 단위로 Escape하기, 오류에서 부분 결과를 반환한다고 설명하기 등이 가능합니다. 이것은 후보 설계 제안이며 현재 레이블이 아닙니다. 후보 모두가 실제로 요구를 충족하지 않는 no-answer 사례와, 지원하지 않는 callback·전체 data URL·invalid UTF-8·큰 입력에 관한 unknown 사례를 구분해야 합니다. 실제 후보 집합이나 허용 정답은 아직 없습니다.
+
+두 가족은 각 저장소의 전체 원천·helper·공유 선언과 alias를 묶어야 합니다. EscapeString/UnescapeToString이나 반복·번역·nearvariant를 독립 원천 또는 새 부모로 세지 않습니다. 서로 다른 저장소에도 Go에서 가져온 코드가 있으며 작성 흐름과 의미 그룹은 별도 검토 대상입니다. 이번 선택만으로 다양성이 충족되지 않습니다. 실제 128→256개 개발 문제로 가려면 현재 세 요청의 표현 변형이 아닌 새로운 의미 목표·코드 후보·독립 유한 계약을 계속 확보해야 합니다. 24개 리터럴은 그런 규모를 대신하지 않으며 ≥2,400개/domain 최종 보호 자료는 별도이고 읽지 않았습니다.
+
+전체 MIT 고지 두 개와 source-audit74의 Go BSD-3 고지 및 보완 NOTICE를 유지합니다. logfmt의 jsonstring과 dataurl의 unhex/lexer에는 Go 계보가 있으므로 저장소 루트 MIT가 이를 재라이선스한다고 해석하지 않습니다. 공식 Go 고정 비교 원천은 정확한 복사 릴리스를 증명하지 않습니다. 원문 go.mod/go.sum을 유지하며 dataurl에 원래 없는 파일을 upstream 파일로 만들지 않습니다. 이후 import-only 준비에서 별도 maintainer recipe를 고정해야 합니다. logfmt의 go-cmp는 원 테스트 의존성으로, 선택 경로의 실행 의존성은 stdlib입니다. 이번에는 원 import/build도 0회입니다.

@@ -1,0 +1,316 @@
+package pure
+
+import (
+	"encoding/hex"
+	"reflect"
+)
+
+func NewResult(w WantSet, sha string) Result {
+	r := Result{Schema: "riido-logfmt-percent77-finite-observation-v1", State: "reserved_no_native_calls", WantSHA: sha, GoalCount: 2, APINames: APINames}
+	for i, f := range w.Fixtures {
+		r.Cases[i].Fixture = f
+	}
+	return r
+}
+
+type runner struct {
+	r        *Result
+	c        *Observed
+	o        Ops
+	progress func(*Result) error
+}
+
+var caps = [10]int{1, 1, 6, 13, 13, 13, 15, 15, 1, 1}
+
+func (s *runner) call(api int, fn func() any) (v any, err error) {
+	if s.c.Calls[api].Reserved >= caps[api] {
+		return nil, Fail("direct_call_bound")
+	}
+	s.c.Calls[api].Reserved++
+	s.r.Calls[api].Reserved++
+	s.r.Phase = APINames[api] + "_reserved"
+	if err = s.progress(s.r); err != nil {
+		return nil, Fail("persistence")
+	}
+	func() {
+		defer func() {
+			if recover() != nil {
+				s.c.Calls[api].Panicked++
+				s.r.Calls[api].Panicked++
+				s.c.Got.Panic = true
+				err = Fail("callback_panic")
+			}
+		}()
+		v = fn()
+		s.c.Calls[api].Returned++
+		s.r.Calls[api].Returned++
+	}()
+	s.r.Phase = APINames[api] + "_returned_or_panicked"
+	if e := s.progress(s.r); e != nil {
+		return nil, Fail("persistence")
+	}
+	return v, err
+}
+func (s *runner) errInfo(e error) (*ErrorState, error) {
+	if e == nil {
+		return nil, nil
+	}
+	v, er := s.call(7, func() any { return s.o.ErrorInfo(e) })
+	if er != nil {
+		return nil, er
+	}
+	x := v.(ErrorState)
+	if len(x.Type) > 128 || len(x.Message) > 1024 {
+		return nil, Fail("error_bound")
+	}
+	return &x, nil
+}
+func (s *runner) logError(d Decoder) (*ErrorState, error) {
+	v, e := s.call(6, func() any { return d.Err() })
+	if e != nil {
+		return nil, e
+	}
+	if v == nil {
+		return nil, nil
+	}
+	return s.errInfo(v.(error))
+}
+func (s *runner) step(d Decoder) (Step, error) {
+	x := Step{Key: ByteState{Nil: true}, Value: ByteState{Nil: true}}
+	v, e := s.call(3, func() any { return d.ScanKeyval() })
+	if e != nil {
+		return x, e
+	}
+	x.ScanKeyval = v.(bool)
+	v, e = s.call(4, func() any { return Bytes(d.Key()) })
+	if e != nil {
+		return x, e
+	}
+	x.Key = v.(ByteState)
+	v, e = s.call(5, func() any { return Bytes(d.Value()) })
+	if e != nil {
+		return x, e
+	}
+	x.Value = v.(ByteState)
+	x.Error, e = s.logError(d)
+	return x, e
+}
+func (s *runner) log(f Fixture) error {
+	api := 0
+	if f.BufferSize != 0 {
+		api = 1
+	}
+	v, e := s.call(api, func() any { return s.o.New(f.Input, f.BufferSize) })
+	if e != nil {
+		return e
+	}
+	d, ok := v.(Decoder)
+	if !ok || d == nil {
+		return Fail("decoder")
+	}
+	l := &LogObservation{ScanRecords: []bool{}, Records: []Record{}}
+	s.c.Got.Log = l
+	pairs := 0
+	for {
+		v, e = s.call(2, func() any { return d.ScanRecord() })
+		if e != nil {
+			return e
+		}
+		yes := v.(bool)
+		l.ScanRecords = append(l.ScanRecords, yes)
+		if !yes {
+			l.TerminalError, e = s.logError(d)
+			if e != nil {
+				return e
+			}
+			break
+		}
+		if len(l.Records) >= 4 {
+			return Fail("record_bound")
+		}
+		l.Records = append(l.Records, Record{Index: len(l.Records), Steps: []Step{}})
+		rec := &l.Records[len(l.Records)-1]
+		for {
+			x, er := s.step(d)
+			rec.Steps = append(rec.Steps, x)
+			if er != nil {
+				return er
+			}
+			if !x.ScanKeyval {
+				break
+			}
+			pairs++
+			if pairs > 8 {
+				return Fail("pair_bound")
+			}
+		}
+	}
+	v, e = s.call(2, func() any { return d.ScanRecord() })
+	if e != nil {
+		return e
+	}
+	l.StickyRecord = v.(bool)
+	l.StickyRecordError, e = s.logError(d)
+	if e != nil {
+		return e
+	}
+	l.StickyKeyval, e = s.step(d)
+	return e
+}
+
+type unescapeResult struct {
+	b []byte
+	e error
+}
+
+func (s *runner) observe(f Fixture) error {
+	switch f.Operation {
+	case "logfmt":
+		return s.log(f)
+	case "Escape":
+		var b []byte
+		if !f.EscapeInput.Nil {
+			var e error
+			b, e = hex.DecodeString(f.EscapeInput.Hex)
+			if e != nil {
+				return Fail("input_hex")
+			}
+			if b == nil {
+				b = []byte{}
+			}
+		}
+		before := Bytes(b)
+		s.c.Got.InputBefore = &before
+		v, e := s.call(8, func() any { return s.o.Escape(b) })
+		after := Bytes(b)
+		s.c.Got.InputAfter = &after
+		if e != nil {
+			return e
+		}
+		x := v.(string)
+		if len(x) > 1536 {
+			return Fail("text_bound")
+		}
+		s.c.Got.Text = &x
+		return nil
+	case "Unescape":
+		v, e := s.call(9, func() any { b, er := s.o.Unescape(f.Input); return unescapeResult{b, er} })
+		if e != nil {
+			return e
+		}
+		x := v.(unescapeResult)
+		b := Bytes(x.b)
+		if b.Length > 512 {
+			return Fail("byte_bound")
+		}
+		s.c.Got.Bytes = &b
+		s.c.Got.Error, e = s.errInfo(x.e)
+		return e
+	}
+	return Fail("operation")
+}
+func Validate(w WantSet) error {
+	if w.Schema != "riido-logfmt-percent77-pre-native-wants-v1" || w.OriginalCalls != 0 || w.Qualification || w.NewParents != 0 || w.NewLabels != 0 {
+		return Fail("scope")
+	}
+	for i, f := range w.Fixtures {
+		op, goal := "logfmt", "logfmt-record-decoding"
+		if i >= 12 {
+			goal = "dataurl-percent-bytes"
+			op = "Escape"
+			if i >= 16 {
+				op = "Unescape"
+			}
+		}
+		if f.Operation != op || f.Goal != goal || f.ID == "" || len(f.Input) > 512 || f.BufferSize < 0 || f.BufferSize > 512 {
+			return Fail("fixture_bound")
+		}
+		for j := 0; j < i; j++ {
+			if f.ID == w.Fixtures[j].ID {
+				return Fail("duplicate_id")
+			}
+		}
+		if op == "Escape" {
+			if f.EscapeInput == nil || f.EscapeInput.Length < 0 || f.EscapeInput.Length > 512 || len(f.EscapeInput.Hex) != f.EscapeInput.Length*2 || f.EscapeInput.Nil && (f.EscapeInput.Length != 0 || f.EscapeInput.Hex != "") {
+				return Fail("escape_input")
+			}
+			if _, e := hex.DecodeString(f.EscapeInput.Hex); e != nil {
+				return Fail("escape_input")
+			}
+		}
+		if op == "logfmt" && f.Want.Log == nil {
+			return Fail("log_want")
+		}
+		if f.DirectCallBudget != Budget(f) {
+			return Fail("budget")
+		}
+		for j, n := range f.DirectCallBudget {
+			if n < 0 || n > caps[j] {
+				return Fail("budget_bound")
+			}
+		}
+	}
+	return nil
+}
+func Run(w WantSet, o Ops, r *Result, progress func(*Result) error) error {
+	if e := Validate(w); e != nil {
+		return e
+	}
+	if o.New == nil || o.ErrorInfo == nil || o.Escape == nil || o.Unescape == nil || progress == nil {
+		return Fail("callbacks")
+	}
+	failed := false
+	for i, f := range w.Fixtures {
+		c := &r.Cases[i]
+		c.Started = true
+		r.Started++
+		r.Phase = "fixture_started"
+		if progress(r) != nil {
+			return Fail("persistence")
+		}
+		s := runner{r, c, o, progress}
+		e := s.observe(f)
+		if e != nil {
+			c.Failure = e.Error()
+			failed = true
+			if e.Error() == "observer77_persistence" {
+				return e
+			}
+		} else {
+			c.Got.Returned = true
+		}
+		c.Finished = true
+		r.Finished++
+		c.Matches = e == nil && reflect.DeepEqual(c.Got, f.Want)
+		if c.Matches {
+			for j, n := range f.DirectCallBudget {
+				if c.Calls[j].Reserved != n || c.Calls[j].Returned != n || c.Calls[j].Panicked != 0 {
+					c.Matches = false
+				}
+			}
+		}
+		if c.Matches {
+			r.Matched++
+		}
+		r.Phase = "fixture_finished"
+		if progress(r) != nil {
+			return Fail("persistence")
+		}
+	}
+	r.State = "completed_all_wants_matched_no_qualification"
+	if r.Matched != 24 {
+		r.State = "completed_with_differences_no_qualification"
+	}
+	if failed {
+		r.State = "completed_with_observer_failures_no_qualification"
+		r.Failure = "observer77_fixture_failure"
+	}
+	r.Phase = "completed"
+	if progress(r) != nil {
+		return Fail("persistence")
+	}
+	if failed {
+		return Fail("fixture_failure")
+	}
+	return nil
+}

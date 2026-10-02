@@ -1,0 +1,74 @@
+package main
+
+import (
+	"encoding/json"
+	"github.com/teamswyg/laya-tools/maintainer/observer77/pure"
+	"os"
+	"path/filepath"
+)
+
+func encode(r pure.Result) ([]byte, error) {
+	b, e := json.Marshal(r)
+	if e != nil {
+		return nil, pure.Fail("output_JSON")
+	}
+	b = append(b, '\n')
+	if len(b) >= pure.MaxBytes {
+		return nil, pure.Fail("output_bound")
+	}
+	return b, nil
+}
+func write(path string, b []byte) error {
+	f, e := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	if e != nil {
+		return pure.Fail("exclusive")
+	}
+	n, e := f.Write(b)
+	if e != nil || n != len(b) {
+		f.Close()
+		return pure.Fail("write")
+	}
+	if f.Sync() != nil {
+		f.Close()
+		return pure.Fail("fsync")
+	}
+	if f.Close() != nil {
+		return pure.Fail("close")
+	}
+	return nil
+}
+func syncDir(dir string) error {
+	d, e := os.Open(dir)
+	if e != nil {
+		return pure.Fail("directory")
+	}
+	defer d.Close()
+	if d.Sync() != nil {
+		return pure.Fail("directory_sync")
+	}
+	return nil
+}
+func exclusive(path string, r pure.Result) error {
+	b, e := encode(r)
+	if e != nil {
+		return e
+	}
+	if e = write(path, b); e != nil {
+		return e
+	}
+	return syncDir(filepath.Dir(path))
+}
+func partial(dir string, r pure.Result) error {
+	b, e := encode(r)
+	if e != nil {
+		return e
+	}
+	p := filepath.Join(dir, "partial.tmp")
+	if e = write(p, b); e != nil {
+		return e
+	}
+	if os.Rename(p, filepath.Join(dir, "partial.json")) != nil {
+		return pure.Fail("partial_rename")
+	}
+	return syncDir(dir)
+}

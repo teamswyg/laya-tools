@@ -1,0 +1,113 @@
+{
+  "schema": "riido-packed-score-preparation-ledger-78-v1",
+  "state": "synthetic_kernel_prepared_no_benchmark_or_model_execution",
+  "author": "semantic_review60_prep",
+  "source_commit": "7cea49090727555924bf22679ffeccc4f38c9865",
+  "toolchain": "go1.27.1 darwin/arm64",
+  "resource_scope": {
+    "test_cpu_parallelism": 1,
+    "test_go_heap_soft_limit_bytes": 268435456,
+    "heap_limit_is_os_rss_cap": false,
+    "whole_process_cpu_rss_measured": false
+  },
+  "attempts": [
+    {
+      "operation": "gofmt",
+      "attempt": 1,
+      "files": ["view.go", "view_test.go", "view_bench_test.go"],
+      "state": "passed"
+    },
+    {
+      "operation": "synthetic_race_tests",
+      "attempt": 1,
+      "state": "failed_test_fixture",
+      "top_level_passed": 4,
+      "top_level_failed": 1,
+      "subtests_passed": 37,
+      "subtests_failed": 1,
+      "failure": "dimension fixture wrote zero to an already-zero low byte; the input remained valid under both decoders",
+      "synthetic_reference_decode_calls": 39,
+      "synthetic_reference_score_calls": 37,
+      "private_raw_log": "synthetic-test-attempt-1.private.jsonl"
+    },
+    {
+      "operation": "vet",
+      "attempt": 1,
+      "state": "failed",
+      "diagnostics": 13,
+      "failure": "test Feature alias used unkeyed external-struct literals"
+    },
+    {
+      "operation": "library_build",
+      "attempt": 1,
+      "state": "passed",
+      "cgo_enabled": false,
+      "standalone_binary_created": false
+    },
+    {
+      "operation": "test_fixture_correction",
+      "attempt": 1,
+      "state": "completed",
+      "changes": ["invalid dimension low byte set to one", "Feature literals use Index and Value keys"],
+      "production_view_changed": false,
+      "pre_correction_files_retained": true
+    },
+    {
+      "operation": "gofmt",
+      "attempt": 2,
+      "files": ["view_test.go"],
+      "state": "passed"
+    },
+    {
+      "operation": "affected_synthetic_race_tests",
+      "attempt": 2,
+      "state": "passed",
+      "top_level_passed": 3,
+      "top_level_failed": 0,
+      "subtests_passed": 38,
+      "subtests_failed": 0,
+      "tests": ["TestCoefficientAndScoreBits", "TestAcceptanceParityAndInvalidBytes", "TestDoNotMoveScaleAfterAccumulation"],
+      "synthetic_reference_decode_calls": 39,
+      "synthetic_reference_score_calls": 37,
+      "private_raw_log": "synthetic-test-attempt-2.private.jsonl"
+    },
+    {
+      "operation": "vet",
+      "attempt": 2,
+      "state": "passed"
+    }
+  ],
+  "totals": {
+    "race_test_invocations": 2,
+    "failed_race_test_invocations": 1,
+    "vet_invocations": 2,
+    "failed_vet_invocations": 1,
+    "library_build_invocations": 1,
+    "failed_library_build_invocations": 0,
+    "synthetic_reference_decode_calls": 78,
+    "synthetic_reference_score_calls": 74,
+    "benchmark_invocations": 0,
+    "hf_or_trained_model_content_reads": 0,
+    "hf_or_trained_model_decode_calls": 0,
+    "hf_or_trained_model_score_calls": 0,
+    "features_calls": 0,
+    "fit_calls": 0,
+    "original_native_observer_calls": 0,
+    "protected_data_reads": 0,
+    "separate_paid_or_judge_api_calls": 0,
+    "shared_repository_edits": 0,
+    "uploads": 0
+  },
+  "metadata_navigation": {
+    "source_acquisition_failures": 0,
+    "non_runtime_navigation_misses": 2,
+    "details": ["rg before creation of the private preparation directory", "one README hash request used the repository directory; correct private README hashes were read separately"],
+    "local_frozen_decoder_and_scorer_hashes_matched": true
+  },
+  "counter_limits": [
+    "Reference Decode and Score were executed only on deterministic public synthetic bytes/features, never HF or trained model assets.",
+    "Repeated test invocations do not add independent cases.",
+    "This work used AI-assisted coding and review; no separate paid/judge API execution is not a claim that collaboration cost was zero. Collaboration cost was not measured.",
+    "This is author verification, not independent reviewer approval or production activation."
+  ]
+}

@@ -1,0 +1,67 @@
+{
+  "schema": "riido-packed-score-kernel-preparation-78-v2",
+  "state": "private_format_hoist_prepared_new_benchmark_pending",
+  "author": "task_expansion_52",
+  "original_v1_handoff_sha256": "a9666e38ec1ad78d24308e53c0c1a6fbc3370b7fa3af31104158f047ccaf724c",
+  "original_v1_source_sha256": "6f3b3bafbd589081d6cc32413fc43e481396614b47fc7968b10e183c2c2e78e0",
+  "original_v1_test_sha256": "e8588f61686cc265f26fd4151c21ef6f39d34c7d7d191c01f990f668fb3dfbac",
+  "original_v1_and_failures_preserved": true,
+  "public_reference_sources": [
+    {"path":"internal/hintlearn/model.go","bytes":3560,"sha256":"f27e18883f073555775ff15de4f2e72d4fcff9bb1b49dfe7b11007779ec95aff"},
+    {"path":"internal/hintlearn/learn.go","bytes":10429,"sha256":"d0c906d1283617d0778039ff8bc4c6fff6cb0af3a813c48df088424d78bebb71"}
+  ],
+  "assets": [
+    {"path":"view.go","bytes":5912,"sha256":"449b53e887abb5b908bc07fffb5bf4f46e3f23cdeac5ec6f3faf68ee63702bb9","kind":"private_prototype_source"},
+    {"path":"view_test.go","bytes":8420,"sha256":"03cdf942dfd8dd212f0bd51ee9562d5915ec783c4b7f842f133af4ecf6400dae","kind":"public_synthetic_test_source"},
+    {"path":"view_bench_test.go","bytes":1716,"sha256":"63d657e38371588823693e521c60c78c7df922fba73cf59a66c7981f697e42be","kind":"unchanged_benchmark_source_not_executed_in_v2"},
+    {"path":"go.mod","bytes":218,"sha256":"3c3c597d86366eb00585218deeb1f43e57d3618a36e8ba9dc2b29c6dacc1bc49","kind":"unchanged_private_module_contains_host_path_omit_verbatim"},
+    {"path":"synthetic-test-attempt-1.private.jsonl","bytes":41169,"sha256":"ebecce334190bcfd1caedcad0f83f71588c0942f61d2b8962d490d1836b78934","kind":"private_synthetic_test_log_omit"},
+    {"path":"ATTEMPT-LEDGER.v2.json","bytes":2131,"sha256":"f2225d9a165c0bd8ddf280f08c727c4116023860bf84ea0b414edbdc7c0c6129","kind":"safe_attempt_ledger"},
+    {"path":"README.ko.md","bytes":3204,"sha256":"6c74f8adf3ad1660b502b970114f83f179df85743cadce96df89bb0c840ed2d6","kind":"safe_korean_explanation"},
+    {"path":"README.en.md","bytes":2908,"sha256":"bff60186f57987d55991922e4511cad013235677a5e6669a2995abf6a677ba6e","kind":"safe_english_explanation"}
+  ],
+  "change": "View.Score selects kind once and uses three serial loops; each feature still performs the same FP64 coefficient decode, multiply and ordered addition",
+  "unchanged": ["New", "valid", "coefficient", "Coefficient", "OwnedPayloadBytes", "RIIDOH01 format", "owned input copy", "ternary prefix", "default state", "benchmark source", "go.mod"],
+  "contract": {
+    "feature_order_and_duplicates_preserved": true,
+    "same_FP64_multiply_add_order": true,
+    "zero_coefficient_multiply_never_skipped": true,
+    "scale_never_moved_after_accumulation": true,
+    "invalid_index_returns_ErrIndex_and_positive_zero": true,
+    "Inf_NaN_payload_signed_zero_synthetic_bits_checked": true,
+    "maps_locks_global_cache_SIMD_added": false,
+    "compiler_portability_or_performance_proved": false
+  },
+  "verification": {
+    "go_version":"go1.27.1",
+    "target":"darwin/arm64",
+    "race_invocations":1,
+    "top_tests_passed":5,
+    "subtests_passed":38,
+    "test_failures":0,
+    "vet_invocations_passed":1,
+    "library_build_invocations_passed":1,
+    "library_build_creates_runnable_binary":false,
+    "binary_asset":null,
+    "own_synthetic_verification_only":true
+  },
+  "future_benchmark": {
+    "new_executions":0,
+    "root_planned_comparison_only":true,
+    "formats":["fp32","int8","ternary_edges","ternary_dense"],
+    "ordered_synthetic_features":266,
+    "count":5,
+    "benchtime_ms":200,
+    "same_direct_reference_and_packed_controls":true,
+    "v2_speedup_or_causality_claim":false
+  },
+  "boundaries": {
+    "trained_model_or_HF_payload_read":false,
+    "Fit_Features_Project_or_native_observation_executions":0,
+    "new_weights_or_labels":0,
+    "shared_repository_changes":0,
+    "remote_mutations":0,
+    "production_ready":false,
+    "default_activation":false
+  }
+}

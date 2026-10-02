@@ -1,0 +1,85 @@
+{
+  "schema": "riido-packed-score-kernel-preparation-78-v1",
+  "state": "private_synthetic_prototype_prepared_independent_review_pending",
+  "author": "semantic_review60_prep",
+  "source_commit": "7cea49090727555924bf22679ffeccc4f38c9865",
+  "public_reference_sources": [
+    {"path": "internal/hintlearn/model.go", "bytes": 3560, "sha256": "f27e18883f073555775ff15de4f2e72d4fcff9bb1b49dfe7b11007779ec95aff", "use": "RIIDOH01 Decode acceptance and coefficient semantics"},
+    {"path": "internal/hintlearn/learn.go", "bytes": 10429, "sha256": "d0c906d1283617d0778039ff8bc4c6fff6cb0af3a813c48df088424d78bebb71", "use": "Dimension, Feature type and ordered reference Score"}
+  ],
+  "assets": [
+    {"path": "view.go", "bytes": 4754, "sha256": "6f3b3bafbd589081d6cc32413fc43e481396614b47fc7968b10e183c2c2e78e0", "kind": "private_prototype_source"},
+    {"path": "view_test.go", "bytes": 7756, "sha256": "e8588f61686cc265f26fd4151c21ef6f39d34c7d7d191c01f990f668fb3dfbac", "kind": "public_synthetic_test_source"},
+    {"path": "view_bench_test.go", "bytes": 1716, "sha256": "63d657e38371588823693e521c60c78c7df922fba73cf59a66c7981f697e42be", "kind": "benchmark_source_not_executed"},
+    {"path": "go.mod", "bytes": 218, "sha256": "3c3c597d86366eb00585218deeb1f43e57d3618a36e8ba9dc2b29c6dacc1bc49", "kind": "private_module_with_local_replace_do_not_publish_verbatim"},
+    {"path": "history/view.before-fixture-vet-fix.go.txt", "bytes": 4754, "sha256": "6f3b3bafbd589081d6cc32413fc43e481396614b47fc7968b10e183c2c2e78e0", "kind": "immutable_history"},
+    {"path": "history/view_test.before-fixture-vet-fix.go.txt", "bytes": 7574, "sha256": "a94adfc54b823acd9c630d644bd7b28609ddaeccd0a13f470ddabca1c1ce4f5c", "kind": "immutable_history"},
+    {"path": "synthetic-test-attempt-1.private.jsonl", "bytes": 41448, "sha256": "44561ac299bd6768ec502beece6329220c262901bf183ae49176b635ad28f957", "kind": "private_failed_test_log_not_public"},
+    {"path": "synthetic-test-attempt-2.private.jsonl", "bytes": 39451, "sha256": "0ebb11d86ea72f91e0618237df054ed7181f2c6436277104755183bdc417f82c", "kind": "private_affected_test_log_not_public"},
+    {"path": "README.ko.md", "bytes": 4898, "sha256": "146f5618965be4597fcf319dfc0c8d8350d28dba52de03e6d71b8a29c3db495d", "kind": "safe_korean_explanation"},
+    {"path": "README.en.md", "bytes": 4140, "sha256": "1a485bea2b44d1eb73112e1ecb3735dd905560227d099fd5bda9b105f4b61d4c", "kind": "safe_english_explanation"},
+    {"path": "ATTEMPT-LEDGER.v1.json", "bytes": 4036, "sha256": "804d9c98f9b095fae911ceec94863292347d46f030ad0ac88795b5a26012fa61", "kind": "safe_attempt_ledger"}
+  ],
+  "api": ["New(raw) validates before owned copy", "Coefficient(index) reads one coefficient", "Score(features) preserves feature order, duplicates and FP64 multiply/add order", "OwnedPayloadBytes excludes headers, padding, caller input, features, heap and RSS"],
+  "format": "RIIDOH01 unchanged: FP32, INT8 and ternary bitmap plus sign bits",
+  "owned_payload_bytes": {"legacy_decoded_fp64_values": 65536, "packed_fp32": 32792, "packed_int8": 8216, "packed_ternary_13_nonzero": 1308, "packed_ternary_8192_nonzero": 2330, "ternary_prefix_only": 258},
+  "contract": {
+    "same_acceptance_as_frozen_decode_on_64_bit_target": true,
+    "same_valid_feature_math_goal": "FP64 bit equality, same coefficient and multiply/add order",
+    "synthetic_bit_checks_passed_on": "go1.27.1 darwin/arm64",
+    "caller_input_must_remain_stable_during_constructor": true,
+    "caller_mutation_after_constructor_safe": true,
+    "ternary_prefix": "129 uint16 cumulative presence counts before each 64-bit word",
+    "invalid_feature_index": "fixed error rather than legacy panic; outside valid-index parity",
+    "nonfinite_features": "reference IEEE arithmetic retained",
+    "no_sum_then_scale_rearrangement": true,
+    "no_maps_locks_or_mutable_global_cache": true,
+    "simd_or_hardware_intrinsic_proved": false,
+    "portable_compiler_bit_equivalence_proved": false
+  },
+  "verification": {
+    "author_verification_only": true,
+    "independent_review_completed": false,
+    "first_race_test_failed_fixture_preserved": true,
+    "first_vet_failed_test_literals_preserved": true,
+    "production_source_unchanged_by_test_correction": true,
+    "affected_three_race_tests_passed": true,
+    "ownership_and_concurrent_reader_test_passed_in_first_race_run": true,
+    "final_vet_passed": true,
+    "library_build_passed": true,
+    "reference_synthetic_decode_calls_total": 78,
+    "reference_synthetic_score_calls_total": 74
+  },
+  "benchmark_preparation": {
+    "executions": 0,
+    "cases": ["fp32", "int8", "ternary_edges", "ternary_dense"],
+    "constructors": "direct reference Decode vs owned New, output ownership differs explicitly",
+    "scorers": "direct reference Score vs direct View.Score; no callback charged to the control",
+    "features": "same 266 ordered public synthetic feature entries; setup outside score timing",
+    "future_cpu_parallelism": 1,
+    "future_go_heap_soft_limit_bytes": 268435456,
+    "proposed_command_after_root_review_only": "go test -run '^$' -bench '^BenchmarkPrepared(Construct|Score)$' -benchmem -count=5 -benchtime=200ms -cpu=1",
+    "future_whole_process_timeout_seconds": 60,
+    "no_guarantee_that_benchmark_duration_fits_timeout": true,
+    "cannot_establish": ["model quality", "file I/O savings", "whole-process RSS reduction", "service latency", "LLM usage or cost savings"]
+  },
+  "boundaries": {
+    "hf_or_trained_model_contents_read": false,
+    "protected_data_read": false,
+    "features_or_fit_executed": false,
+    "upstream_native_observer_executed": false,
+    "new_encoder_or_format_version": false,
+    "learned_weights_created": false,
+    "benchmark_executed": false,
+    "shared_repository_changed": false,
+    "hf_uploaded": false,
+    "production_ready": false,
+    "default_activation": false
+  },
+  "limits": [
+    "The smaller table reports owned coefficient payload, not an observed Go-heap or OS-RSS reduction; caller raw bytes may coexist.",
+    "Packed loads and popcounts may increase scoring CPU; no performance result exists yet.",
+    "Safe docs and metadata contain no host paths; private go.mod and raw test logs are excluded from verbatim public publication.",
+    "Synthetic verification is not a model-quality or training-readiness approval."
+  ]
+}
