@@ -1,0 +1,125 @@
+{
+  "schema": "riido-private-pair-loss-code-qa-receipt-v1",
+  "verdict": "PASS_NO_REMAINING_CODE_BLOCKER",
+  "pins": [
+    {
+      "path": "QA-PLAN.v1.json",
+      "bytes": 2112,
+      "sha256": "43a76b6d330479cc20bcac2dd381e05fc98b000aeba28431b370748df1227794"
+    },
+    {
+      "path": "frozen/internal/pairlearn/learn.go",
+      "bytes": 8115,
+      "sha256": "e25ca8e75b55b7dc1b91c3b29222835ca38e5399e7ba78a38be9207c671a8768"
+    },
+    {
+      "path": "frozen/internal/pairlearn/ranking.go",
+      "bytes": 13968,
+      "sha256": "531ce807d0b4117dc9acaaa800e7d42f8ed38998bc799a69fb588092dce2c11d"
+    },
+    {
+      "path": "frozen/internal/pairlearn/ranking_test.go",
+      "bytes": 18622,
+      "sha256": "a96bbfe56606508ce1cdad2365eb0b8f923e835f4a6a1241fb2bc469350ef492"
+    },
+    {
+      "path": "frozen/internal/pairlearn/independent_ranking_test.go",
+      "bytes": 8542,
+      "sha256": "b6777104e00bb1ac23eba3b5e58f584460fa341b7e56dd707abdf1bfeb6f5ec6"
+    },
+    {
+      "path": "frozen/internal/pairlearn/trace.go",
+      "bytes": 4388,
+      "sha256": "ef326120b5fe36c3702297e01fdab4e13a8a2132f94ebbf99902ab9cfee66086"
+    },
+    {
+      "path": "frozen/legacy-learn.raw.txt",
+      "bytes": 7325,
+      "sha256": "81da43b9d2c8cfe6983b8ab8ccc5b7a097fdb7c5a2074a534a7378b44db415a0"
+    },
+    {
+      "path": "frozen/legacy-trace.raw.txt",
+      "bytes": 4388,
+      "sha256": "ef326120b5fe36c3702297e01fdab4e13a8a2132f94ebbf99902ab9cfee66086"
+    },
+    {
+      "path": "frozen/internal/pairlegacy/learn.go",
+      "bytes": 7326,
+      "sha256": "85e0cbb7030e60bc7300fdd316416d40384c17f0d7d23e821eb010629468ce8c"
+    },
+    {
+      "path": "frozen/internal/pairlegacy/trace.go",
+      "bytes": 4389,
+      "sha256": "6bdea5a8afe7bffb15e6fb1e50087546fa6b81d6fdc4fe812122952b11472005"
+    },
+    {
+      "path": "frozen/internal/hintlearn/learn.go",
+      "bytes": 10192,
+      "sha256": "fd3c93b516ad5f3a84dd8e221aa38b5d6d9b6fb26345bd2dfda937b889ce6899"
+    },
+    {
+      "path": "frozen/internal/hintlearn/model.go",
+      "bytes": 3560,
+      "sha256": "f27e18883f073555775ff15de4f2e72d4fcff9bb1b49dfe7b11007779ec95aff"
+    },
+    {
+      "path": "frozen/internal/paireval/data.go",
+      "bytes": 5583,
+      "sha256": "15180844b4a83db4b940a0e28213f75ee68ca2426547595f63189f8198882ceb"
+    },
+    {
+      "path": "frozen/internal/paireval/metrics.go",
+      "bytes": 4479,
+      "sha256": "fcd3585aecce628836a4cc227c1932503cb92714c4e76f254c41ff659c0e35ec"
+    },
+    {
+      "path": "frozen/go.mod",
+      "bytes": 49,
+      "sha256": "147947a47dfc2687b12be9692b2c132fa07db60662820b01d1ea6634de702399"
+    },
+    {
+      "path": "targeted-race.v1.jsonl",
+      "bytes": 38253,
+      "sha256": "688182ffb40f0f5007e293441d7de2e75862d59c0e704bb0558ea552b07dc460"
+    },
+    {
+      "path": "targeted-race.v1.stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "targeted-vet.v1.stdout.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "targeted-vet.v1.stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "TopTests": 18,
+  "Subtests": 21,
+  "Failures": 0,
+  "Skips": 0,
+  "PackageTerminalPasses": 1,
+  "IndependentUniformSubsets": 231,
+  "IndependentLegacyConfigurations": 12,
+  "IndependentSyntheticFitCalls": 36,
+  "ActualCorpusFit": 0,
+  "ActualFeatures": 0,
+  "ActualBaselines": 0,
+  "ActualProjection": 0,
+  "NewLabels": 0,
+  "NewRoles": 0,
+  "SharedEdits": 0,
+  "RemoteMutations": 0,
+  "limitations": [
+    "Synthetic code mathematics only; no actual corpus utility or training-readiness inference.",
+    "Fixed-coefficient uniform subsets prove the stated expectation, not conditional independence of evolving random-reshuffle SGD coefficients.",
+    "Finite differences apply to the continuous logistic surrogate at fixed coefficients, not a derivative through FP32 rounding or ternary quantization.",
+    "64 MiB caps new association/pair/diagnostic backing arrays; it is not an RSS hard limit or a cap on caller feature data, shadow coefficients, or existing trainer allocations.",
+    "Caller-frozen parent completeness, truth, roles, unknown exclusion and calibration exclusion are not proved by integer association IDs.",
+    "Original BCE validation minimum still selects the epoch; pair validation loss is a diagnostic, and eventual utility remains unobserved for this backend."
+  ]
+}

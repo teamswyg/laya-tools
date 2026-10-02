@@ -1,5 +1,7 @@
 # laya-tools
 
+[첫 작은 주장 모델의 실제 결과](docs/wiki/First-Claim-Fit-71-KO.md): 전체76개 자료로 FP32 학습1회를 완료했지만 확인 횟수는 기존 규칙27회→모델31회로 악화해 효용 기준을 통과하지 못했습니다. 파일32,792B, 전체 학습 peak RSS약26.98MiB/0.805초이며 LLM 절감 수치는 아닙니다. 기존 규칙을 유지하고 같은 요청의 상대 순서 손실을 한 번 추가하는 후속을 진행합니다. [원래72개 준비 데이터](https://huggingface.co/datasets/JooYoon/riidolaya-public-claim-preparation-69/tree/d80075c6160a53d5426019cf018016a3b02017bd)는 공개·재다운로드 검증을 마쳤습니다. [English](docs/wiki/First-Claim-Fit-71-EN.md). 아래 항목은 각 당시의 기록입니다.
+
 [실제 작은 힌트 준비69–70](docs/wiki/Claim-Projection-69-70-KO.md): 원래72개 요청의 첫 Go 배열 준비와 별도 검증을 완료했습니다. 반환 payload 약1.69MiB, 전체 준비 peak RSS 약53.95MiB이며 모델 추론 수치는 아닙니다. 새 사례를 합친76개는 전체로 다시 분할했고 첫 학습을 준비합니다. [English](docs/wiki/Claim-Projection-69-70-EN.md).
 
 최근 [작은 주장 힌트의 연결66–69](docs/wiki/Claim-Checks-66-69-KO.md)에서는 원래72요청의 역할을 실제 배정하고, MIT upstream 설명으로 만든4요청·10후보의 유한 동작을 관측했습니다. 원래216후보의 학습 적격 양성35·음성95를 보존하며, 요청·설명 모두 기존 입력 한도 안에 있습니다. [같은 역할의 검사 비용](experiments/short-claim/stored-role-utility-69/STORED-ROLE-UTILITY.ko.md)은 검증 구간의 단일 최선 기준22회/oracle17회로 개선 여지를 확인했습니다. 이는 학습 성과나 Codex 절감이 아니며, 첫 실제 Go 투영을 별도 고정 계획으로 진행합니다. [English](docs/wiki/Claim-Checks-66-69-EN.md).

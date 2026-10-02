@@ -1,0 +1,44 @@
+{
+  "schema": "riido-opt-in-same-parent-ranking-preparation-ledger-v1",
+  "state": "source_frozen_synthetic_checks_passed_independent_review_pending_no_actual_second_fit",
+  "author": "semantic_review60_prep",
+  "authorship_scope": "Author of this implementation and synthetic tests; not independent validation of own code. AI-assisted Codex collaboration cost unmeasured.",
+  "base_commit": "9d204c2c700505658c108297d5fa769a835a60c3",
+  "branch": "feat/claim-pair-loss",
+  "source_pins": [
+    {"path": "internal/pairlearn/learn.go", "bytes": 8115, "sha256": "e25ca8e75b55b7dc1b91c3b29222835ca38e5399e7ba78a38be9207c671a8768"},
+    {"path": "internal/pairlearn/ranking.go", "bytes": 13968, "sha256": "531ce807d0b4117dc9acaaa800e7d42f8ed38998bc799a69fb588092dce2c11d"},
+    {"path": "internal/pairlearn/ranking_test.go", "bytes": 18622, "sha256": "a96bbfe56606508ce1cdad2365eb0b8f923e835f4a6a1241fb2bc469350ef492"}
+  ],
+  "attempts": {
+    "apply_patch": {"attempted": 7, "failed": 0},
+    "gofmt": {"attempted": 5, "failed": 0},
+    "targeted_go1271_race": [
+      {"attempt": 1, "state": "passed", "package_seconds": 1.423},
+      {"attempt": 2, "state": "failed", "package_seconds": 0.468, "reason": "Author test JSON guard incorrectly treated PairAudit supervision Weights as model coefficients; corrected guard to Result field scope."},
+      {"attempt": 3, "state": "passed", "package_seconds": 1.520},
+      {"attempt": 4, "state": "passed", "package_seconds": 1.530},
+      {"attempt": 5, "state": "passed", "package_seconds": 1.406}
+    ],
+    "targeted_vet": {"attempted": 2, "failed": 0},
+    "git_diff_check": {"attempted": 1, "failed": 0}
+  },
+  "test_scope": {
+    "new_final_test_functions": 15,
+    "new_test_successful_synthetic_trainer_calls_per_suite_manual_source_count": [57,57,59,61,61],
+    "new_test_successful_synthetic_trainer_calls_manual_source_count_total": 295,
+    "new_test_opt_in_metadata_refusals_per_suite": 13,
+    "new_test_source_group_preinitialization_trainer_refusals_per_suite": 1,
+    "existing_package_tests": "Also executed and passed except the stated new-test guard failure. Existing synthetic trainer entries are not individually instrumented. Existing Prepare/runtime-parity test uses toy text and Features; no actual76 input was loaded.",
+    "gradient_scope": "Finite differences of the continuous score surrogate at fixed coefficients, not derivatives through discontinuous FP32 rounding.",
+    "minibatch_scope": "Exhaustive size2 subsets at fixed coefficients plus independent one-epoch uneven-batch SGD; random-reshuffle conditional independence not claimed."
+  },
+  "original_corpus_counters": {
+    "actual76_Fit": 0, "actual76_Features": 0, "actual76_Project": 0, "actual76_Baselines": 0,
+    "new_actual_model_assets": 0, "HF_publication": 0, "public_CLI_activation": 0,
+    "seed_mask_threshold_or_coefficient_search": 0, "protected_final_reads": 0,
+    "Git_commit_push_or_PR_at_this_freeze": 0
+  },
+  "historical_primary_result_sha256": "060eaa602f27f7fd9a67306e2fa2a530f0ef4c5c4548858a7818d9dfdb4bb28a",
+  "next_actual_fit": "One separate source/input/binary freeze after CI; no execution authorized by this ledger itself."
+}

@@ -1,0 +1,15 @@
+# Author-side artifact check of actual result 71
+
+The parent's first execution **completed one fit and failed the utility checks**. This narrow check was performed by the binder/controller/76 worker author against saved bytes, result fields, reservation and OS records; it is not an independent model evaluation. The original fitter, controller, features, controls, NLL or model decoder were not rerun.
+
+The original result is 71,849 bytes, SHA256 `060eaa602f27f7fd9a67306e2fa2a530f0ef4c5c4548858a7818d9dfdb4bb28a`. Frozen plan `51b3b99904d1f757a29281e2ecc440e95839cb21f9349e65b0e89bc3d0e03d1d` exactly equals draft `87ed7c3a…` after changing only its two false flags to true. Reservation and result bind the same plan, driver and existing QA pins. All 40 input byte pins, totaling 17,100,056 bytes, remained linked by SHA.
+
+Saved counters record one Fit attempt/return/success, one Encode and Decode each, two NLL rechecks, 15 control-parent evaluations and 45 cached score rows. The fit worker records zero new Features/Prepare/Project/roles/labels/paid/final calls. These are explicitly instrumented outer calls, not a count of every trainer-internal Quantize/NLL/score call. The trace stores 50 epochs, training91/zero18/weight sum73 and validation45/zero1/weight sum44. Selected epoch50, reported training NLL0.6514239277140677 and validation NLL0.6657976915843424 were preserved; neither losses nor scores were recomputed.
+
+The recorded headroom check passed, check reduction and Top1 failed, and Top3 passed. Completion was therefore not relabeled as utility success. `ProductionReady` and `PublicationQualified` remain false. This check recomputed no candidate ranking and added no label or experiment prerequisite.
+
+The private FP32 model is 32,792 bytes, SHA256 `5ecbeb9b35f67cd91de5c1674d0398e9890bae51029684f45cc955e7407c7049`; it was checked only by byte hash. No coefficients or model contents appear in this record. The distinction between serialized FP32 and FP64 decoder/shadow/gradient memory remains in the preparation handoff.
+
+The saved raw time record agrees with OS units in the root ledger. Whole-child RSS is **28,295,168 bytes**, and peak footprint25,821,712 bytes. Displayed times are real0.8s, user0.07s, sys0.02s; controller elapsed time is0.805194625s. These cover the whole child pipeline, including controls, fit, trace, model I/O and checkpoints; they are not an isolated training or deployment-inference benchmark. Observed RSS stayed within the existing256MiB budget, with no claim that Go's soft heap limit is a hard cap.
+
+The author-side metadata checker ran twice. The first attempt failed because the checker selected a root by ID alone despite driver and repository both having a `go.mod` ID. Its exact source and private failure log were preserved. A separate v2 compares ID and Path and succeeded once. This failure was neither a failed real fit nor a model rerun. Both checker attempts made zero original API calls, and the successful attempt does not erase the failed record. The report is `AUTHOR-ACTUAL-QA-71.v1.json`, SHA256 `69cd3bd5b0a06544850611a70c205bbb364e3a79ea3410b7deac22ca14d3141b`.
