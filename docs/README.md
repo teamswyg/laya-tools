@@ -14,6 +14,11 @@ Latest owned task evidence: [experiment55](../experiments/task-outcomes/RESULTS-
 | Topic / 주제 | English | 한국어 |
 |---|---|---|
 | Project overview / 프로젝트 개요 | [README](../README.en.md) | [README](../README.md) |
+| Actual fixed-model caption comparison76 / 설명 보강 실제 모델 비교76 | [Cheap controls improve; existing models worsen](../experiments/short-claim/caption-inference-76/README.en.md) | [단순 기준선 개선·기존 모델 악화](../experiments/short-claim/caption-inference-76/README.ko.md) |
+| Finite function observations75 / 유한 함수 관찰75 | [24 matching cases across two goals,17.81MiB child RSS](../experiments/short-claim/native-observation-75/README.en.md) | [두 목표의24개 기대값 일치·자식 RSS17.81MiB](../experiments/short-claim/native-observation-75/README.ko.md) |
+| Scoped request preparation75 / 요청 범위 준비75 | [Caption information, code satisfaction and corrected pair weights](../experiments/short-claim/request-scope-75/README.en.md) | [설명 정보·코드 충족·pair 가중치 정정](../experiments/short-claim/request-scope-75/README.ko.md) |
+| Verified publication99 / 실제 게시 확인99 | [Required CI, merged head and exact Wiki readback](../experiments/short-claim/publication-proof-99/README.en.md) | [필수 CI·병합 head·Wiki 바이트 확인](../experiments/short-claim/publication-proof-99/README.ko.md) |
+| Research history / 시점별 연구 기록 | [Preserved measurements and failures](../RESEARCH-HISTORY.en.md) | [기존 측정과 실패 기록 보존](../RESEARCH-HISTORY.ko.md) |
 | Source-description information74 / 소스 설명의 정보74 | [Same3 parents/9 candidates; information and truth kept separate](../experiments/short-claim/source-caption-74/README.en.md) | [같은 부모3개·후보9개; 정보와 정답 분리](../experiments/short-claim/source-caption-74/README.ko.md) |
 | Standalone storage readers74 / 저장 단독 reader74 | [Exact values; lower file size and cumulative allocations, no RSS saving](../experiments/short-claim/standalone-reader-74/README.en.md) | [수치 일치; 파일·누적 할당 감소, RSS 절감 없음](../experiments/short-claim/standalone-reader-74/README.ko.md) |
 | Next four public-source scopes74 / 다음 네 원천 범위74 | [Pinned sources, conditional licensing and execution proposals](../experiments/short-claim/source-audit-74/README.en.md) | [고정 원문·조건부 라이선스·실행 제안](../experiments/short-claim/source-audit-74/README.ko.md) |

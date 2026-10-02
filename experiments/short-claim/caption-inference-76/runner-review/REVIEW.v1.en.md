@@ -1,0 +1,15 @@
+# Fixed failed-model caption diagnostic76: pre-execution runner review
+
+No control-flow or input-binding blocker was found in the sealed worker and wrapper. This is a static review for one development diagnostic; it does not approve model quality, training readiness, or an independent evaluation.
+
+Features receives only the request and caption. The separately sealed truth is used after ranking to calculate checks, Top1 and Top3. Code, truth, candidate IDs, roles, masks and provenance are not feature arguments. All nine candidates remain in each A/B arm. The three acceptable candidates [0]/[1]/[2] bind to the earlier separate truth review without changing historical null artifacts.
+
+Each fixed model is checked against its 32,792-byte size and SHA before Decode. Only 8,192 finite FP64 decoded coefficients are accepted; coefficients are not output. Planned direct counts are Prepare6, Baselines6, Decode2, Features36 and Score36. They are future execution budgets: this review executed none of those APIs. Equal model scores preserve candidate order; tied minimum-check controls preserve fixed_order→bm25→lexical_ordered→narrow_rule order. The narrow rule's existing BM25 fallback is recorded. Top3 is uninformative when each parent has three candidates.
+
+After verifying the plan, truth and five runtime source files, the worker reserves a fresh child attempt directory. Before each callback it fsyncs a partial record with its dispatch-intent counter; returned finite scores and the valid prefix are preserved afterward. Reservation is not proof of API entry. Final results.json uses O_EXCL; stdout serializes the same final structure. If persistence itself fails, only the last durable prefix may survive. The worker returns an error and exit1, which the wrapper rejects.
+
+The wrapper creates a fresh parent directory and reservation before one Start. It caps stdout at1MiB and stderr at64KiB, replaces the environment, and sets CPU1 and a256-MiB Go soft heap. At60seconds it kills the process group and joins one Wait. Start, Wait, exit, timeout and overflow failures are rejected. Wrapper PASS means successful child termination only; actual result state, content and counters require subsequent saved-result review.
+
+The soft heap is not an OS RSS cap. Go memory and worker wall are snapshots before final persistence. Mutable-file TOCTOU defense, crash durability of reservation directories and a hard60-second total return are not claimed. The scope assumes root-owned sealed files remain immutable.
+
+One separate stdlib metadata helper verified19 file byte/SHA records and actual worker build metadata: Go1.27.1, CGO0, Darwin arm64 and trimpath. Original tests, worker, models and upstream API executions remain0, as do shared/original edits. The reviewer did not author this runner, wrapper or truth, but authored the original finite observer and earlier projection/binder and saw prior results; the review is nonblind. Byte/build metadata checks are not independent hermetic compiler-trust proof.

@@ -1,0 +1,160 @@
+package pure
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"io"
+	"os"
+)
+
+func Fail(code string) error { return errors.New("caption76_" + code) }
+func Hash(b []byte) string   { s := sha256.Sum256(b); return hex.EncodeToString(s[:]) }
+func ReadBounded(path string, cap int64) ([]byte, error) {
+	f, e := os.Open(path)
+	if e != nil {
+		return nil, Fail("read")
+	}
+	defer f.Close()
+	st, e := f.Stat()
+	if e != nil || !st.Mode().IsRegular() || st.Size() < 0 || st.Size() > cap {
+		return nil, Fail("file_bound")
+	}
+	b, e := io.ReadAll(io.LimitReader(f, cap+1))
+	if e != nil || int64(len(b)) > cap {
+		return nil, Fail("read_bound")
+	}
+	return b, nil
+}
+func ReadPin(path string, p Pin) ([]byte, error) {
+	if p.Bytes < 1 || p.Bytes > MaxBytes || len(p.SHA) != 64 {
+		return nil, Fail("pin_schema")
+	}
+	b, e := ReadBounded(path, p.Bytes)
+	if e != nil {
+		return nil, e
+	}
+	if int64(len(b)) != p.Bytes || Hash(b) != p.SHA {
+		return nil, Fail("pin_mismatch")
+	}
+	return b, nil
+}
+
+// Duplicate decoded object keys are rejected before DTO materialization. These
+// inputs also have exact immutable byte hashes; this is not an alternate parser.
+func JSON(b []byte, out any) error {
+	if len(b) == 0 || len(b) > MaxBytes {
+		return Fail("json_bound")
+	}
+	d := json.NewDecoder(bytes.NewReader(b))
+	var walk func(int) error
+	walk = func(depth int) error {
+		if depth > 32 {
+			return Fail("json_depth")
+		}
+		t, e := d.Token()
+		if e != nil {
+			return Fail("json")
+		}
+		switch t {
+		case json.Delim('{'):
+			seen := make(map[string]bool)
+			for d.More() {
+				k, e := d.Token()
+				s, ok := k.(string)
+				if e != nil || !ok || seen[s] || len(seen) >= 4096 {
+					return Fail("json_duplicate_or_bound")
+				}
+				seen[s] = true
+				if e = walk(depth + 1); e != nil {
+					return e
+				}
+			}
+			t, e = d.Token()
+			if e != nil || t != json.Delim('}') {
+				return Fail("json")
+			}
+		case json.Delim('['):
+			n := 0
+			for d.More() {
+				n++
+				if n > 4096 {
+					return Fail("json_array_bound")
+				}
+				if e = walk(depth + 1); e != nil {
+					return e
+				}
+			}
+			t, e = d.Token()
+			if e != nil || t != json.Delim(']') {
+				return Fail("json")
+			}
+		case json.Delim('}'), json.Delim(']'):
+			return Fail("json")
+		}
+		return nil
+	}
+	if e := walk(0); e != nil {
+		return e
+	}
+	if _, e := d.Token(); e != io.EOF {
+		return Fail("json_trailing")
+	}
+	if e := json.Unmarshal(b, out); e != nil {
+		return Fail("json_DTO")
+	}
+	return nil
+}
+func Validate(p Plan, t Truth) error {
+	if p.Schema != "riido-fixed-failed-model-caption-input-diagnostic-plan-76-v1" || p.State != "draft_source_reference_audit_complete_no_execution_no_truth_promotion" || p.SourceCommit != SourceCommit || len(p.Parents) != 3 || len(p.Models) != 2 || len(p.Pins) != 5 || p.Frozen || string(p.TypedTruth) != "null" {
+		return Fail("plan_scope")
+	}
+	if t.Schema != "riido-exploratory-source-rubric-76-v1" || t.Scope != "direct_selected_api_under_request75_v4_only" || t.Frozen == nil || !*t.Frozen || t.PlanSHA != PlanSHA || t.RequestSHA != RequestSHA || t.PeerSHA != PeerSHA || len(t.Parents) != 3 || t.FitCalls == nil || *t.FitCalls != 0 {
+		return Fail("truth_scope")
+	}
+	for _, f := range [6]*bool{t.Qualification, t.Production, t.Training, t.Final, t.Heldout, t.Universal} {
+		if f == nil || *f {
+			return Fail("truth_qualification")
+		}
+	}
+	for i, x := range p.Parents {
+		y := t.Parents[i]
+		if x.Position != i || x.ID == "" || y.ID != x.ID || y.Request != x.Request || len(x.Request) > 512 || len(x.Candidates) != 3 || len(y.Candidates) != 3 || y.Kind != "answerable" || len(y.Acceptable) != 1 {
+			return Fail("parent_binding")
+		}
+		positive := -1
+		for j, c := range x.Candidates {
+			z := y.Candidates[j]
+			if c.Position != j || z.Position != j || c.ID == "" || c.ID != z.ID || z.Satisfied == nil || len(c.Captions) != 2 {
+				return Fail("candidate_binding")
+			}
+			if *z.Satisfied {
+				if positive != -1 {
+					return Fail("truth_multiple_positive")
+				}
+				positive = j
+			}
+			for k := 0; k < j; k++ {
+				if x.Candidates[k].ID == c.ID {
+					return Fail("candidate_duplicate")
+				}
+			}
+			for a, cap := range c.Captions {
+				if cap.Arm != [2]string{"A", "B"}[a] || cap.Bytes != len(cap.Text) || cap.Bytes < 1 || cap.Bytes > 512 || Hash([]byte(cap.Text)) != cap.SHA {
+					return Fail("caption_binding")
+				}
+			}
+		}
+		if positive < 0 || y.Acceptable[0] != positive {
+			return Fail("truth_acceptable")
+		}
+	}
+	for i, m := range p.Models {
+		if m.ID != [2]string{"failed71", "failed72"}[i] || m.Artifact.Bytes != 32792 || m.Artifact.SHA != [2]string{"5ecbeb9b35f67cd91de5c1674d0398e9890bae51029684f45cc955e7407c7049", "539bd0de1c4b08af99645ebc113eeaa7a7aeaef8dcf4282d10e3b3336e737c6f"}[i] {
+			return Fail("model_binding")
+		}
+	}
+	return nil
+}

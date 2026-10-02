@@ -1,0 +1,1062 @@
+{
+  "Schema": "riido-wrap-marshal75-finite-observation-v1",
+  "State": "completed_finite_observations_all_match",
+  "WantSHA256": "97cd1034d8c7b7fb1c470d7d4d854d62a54b43a0cff73e3eb9ccc908d5c737ef",
+  "PlanSHA256": "e9e715904787b0f4e63b63a641bfcf062099edcc558b96696620045ebd9bce39",
+  "Failure": "",
+  "ActiveProbeID": "",
+  "DistinctBehaviorGoals": 2,
+  "PlannedAPICalls": 24,
+  "DispatchReserved": 24,
+  "OriginalReturns": 24,
+  "WrapperPanics": 0,
+  "Matches": 24,
+  "Differences": 0,
+  "Records": [
+    {
+      "Probe": {
+        "ID": "wrap-empty",
+        "Goal": "wordwrap-whitespace-layout",
+        "Text": "",
+        "Width": 3,
+        "MapNil": false,
+        "Entries": null,
+        "Want": {
+          "Text": "",
+          "Error": null,
+          "InputBefore": null,
+          "InputAfter": null,
+          "Panicked": false
+        }
+      },
+      "Got": {
+        "Text": "",
+        "Error": null,
+        "InputBefore": null,
+        "InputAfter": null,
+        "Panicked": false
+      },
+      "Matches": true
+    },
+    {
+      "Probe": {
+        "ID": "wrap-three-words",
+        "Goal": "wordwrap-whitespace-layout",
+        "Text": "foo bar baz",
+        "Width": 3,
+        "MapNil": false,
+        "Entries": null,
+        "Want": {
+          "Text": "foo\nbar\nbaz",
+          "Error": null,
+          "InputBefore": null,
+          "InputAfter": null,
+          "Panicked": false
+        }
+      },
+      "Got": {
+        "Text": "foo\nbar\nbaz",
+        "Error": null,
+        "InputBefore": null,
+        "InputAfter": null,
+        "Panicked": false
+      },
+      "Matches": true
+    },
+    {
+      "Probe": {
+        "ID": "wrap-explicit-newline",
+        "Goal": "wordwrap-whitespace-layout",
+        "Text": "ab\ncd",
+        "Width": 2,
+        "MapNil": false,
+        "Entries": null,
+        "Want": {
+          "Text": "ab\ncd",
+          "Error": null,
+          "InputBefore": null,
+          "InputAfter": null,
+          "Panicked": false
+        }
+      },
+      "Got": {
+        "Text": "ab\ncd",
+        "Error": null,
+        "InputBefore": null,
+        "InputAfter": null,
+        "Panicked": false
+      },
+      "Matches": true
+    },
+    {
+      "Probe": {
+        "ID": "wrap-short-break",
+        "Goal": "wordwrap-whitespace-layout",
+        "Text": "a b",
+        "Width": 2,
+        "MapNil": false,
+        "Entries": null,
+        "Want": {
+          "Text": "a\nb",
+          "Error": null,
+          "InputBefore": null,
+          "InputAfter": null,
+          "Panicked": false
+        }
+      },
+      "Got": {
+        "Text": "a\nb",
+        "Error": null,
+        "InputBefore": null,
+        "InputAfter": null,
+        "Panicked": false
+      },
+      "Matches": true
+    },
+    {
+      "Probe": {
+        "ID": "wrap-long-word",
+        "Goal": "wordwrap-whitespace-layout",
+        "Text": "abcdef",
+        "Width": 3,
+        "MapNil": false,
+        "Entries": null,
+        "Want": {
+          "Text": "abcdef",
+          "Error": null,
+          "InputBefore": null,
+          "InputAfter": null,
+          "Panicked": false
+        }
+      },
+      "Got": {
+        "Text": "abcdef",
+        "Error": null,
+        "InputBefore": null,
+        "InputAfter": null,
+        "Panicked": false
+      },
+      "Matches": true
+    },
+    {
+      "Probe": {
+        "ID": "wrap-double-space",
+        "Goal": "wordwrap-whitespace-layout",
+        "Text": "a  b",
+        "Width": 3,
+        "MapNil": false,
+        "Entries": null,
+        "Want": {
+          "Text": "a\nb",
+          "Error": null,
+          "InputBefore": null,
+          "InputAfter": null,
+          "Panicked": false
+        }
+      },
+      "Got": {
+        "Text": "a\nb",
+        "Error": null,
+        "InputBefore": null,
+        "InputAfter": null,
+        "Panicked": false
+      },
+      "Matches": true
+    },
+    {
+      "Probe": {
+        "ID": "wrap-tab",
+        "Goal": "wordwrap-whitespace-layout",
+        "Text": "a\tb",
+        "Width": 2,
+        "MapNil": false,
+        "Entries": null,
+        "Want": {
+          "Text": "a\nb",
+          "Error": null,
+          "InputBefore": null,
+          "InputAfter": null,
+          "Panicked": false
+        }
+      },
+      "Got": {
+        "Text": "a\nb",
+        "Error": null,
+        "InputBefore": null,
+        "InputAfter": null,
+        "Panicked": false
+      },
+      "Matches": true
+    },
+    {
+      "Probe": {
+        "ID": "wrap-rune-count",
+        "Goal": "wordwrap-whitespace-layout",
+        "Text": "가 나",
+        "Width": 2,
+        "MapNil": false,
+        "Entries": null,
+        "Want": {
+          "Text": "가\n나",
+          "Error": null,
+          "InputBefore": null,
+          "InputAfter": null,
+          "Panicked": false
+        }
+      },
+      "Got": {
+        "Text": "가\n나",
+        "Error": null,
+        "InputBefore": null,
+        "InputAfter": null,
+        "Panicked": false
+      },
+      "Matches": true
+    },
+    {
+      "Probe": {
+        "ID": "wrap-nbsp",
+        "Goal": "wordwrap-whitespace-layout",
+        "Text": "a b",
+        "Width": 2,
+        "MapNil": false,
+        "Entries": null,
+        "Want": {
+          "Text": "a b",
+          "Error": null,
+          "InputBefore": null,
+          "InputAfter": null,
+          "Panicked": false
+        }
+      },
+      "Got": {
+        "Text": "a b",
+        "Error": null,
+        "InputBefore": null,
+        "InputAfter": null,
+        "Panicked": false
+      },
+      "Matches": true
+    },
+    {
+      "Probe": {
+        "ID": "wrap-leading-overflow",
+        "Goal": "wordwrap-whitespace-layout",
+        "Text": "  a",
+        "Width": 2,
+        "MapNil": false,
+        "Entries": null,
+        "Want": {
+          "Text": "\na",
+          "Error": null,
+          "InputBefore": null,
+          "InputAfter": null,
+          "Panicked": false
+        }
+      },
+      "Got": {
+        "Text": "\na",
+        "Error": null,
+        "InputBefore": null,
+        "InputAfter": null,
+        "Panicked": false
+      },
+      "Matches": true
+    },
+    {
+      "Probe": {
+        "ID": "wrap-trailing-overflow",
+        "Goal": "wordwrap-whitespace-layout",
+        "Text": "a  ",
+        "Width": 2,
+        "MapNil": false,
+        "Entries": null,
+        "Want": {
+          "Text": "a",
+          "Error": null,
+          "InputBefore": null,
+          "InputAfter": null,
+          "Panicked": false
+        }
+      },
+      "Got": {
+        "Text": "a",
+        "Error": null,
+        "InputBefore": null,
+        "InputAfter": null,
+        "Panicked": false
+      },
+      "Matches": true
+    },
+    {
+      "Probe": {
+        "ID": "wrap-zero-width",
+        "Goal": "wordwrap-whitespace-layout",
+        "Text": "a b",
+        "Width": 0,
+        "MapNil": false,
+        "Entries": null,
+        "Want": {
+          "Text": "a b",
+          "Error": null,
+          "InputBefore": null,
+          "InputAfter": null,
+          "Panicked": false
+        }
+      },
+      "Got": {
+        "Text": "a b",
+        "Error": null,
+        "InputBefore": null,
+        "InputAfter": null,
+        "Panicked": false
+      },
+      "Matches": true
+    },
+    {
+      "Probe": {
+        "ID": "marshal-nil",
+        "Goal": "godotenv-canonical-marshal",
+        "Text": "",
+        "Width": 0,
+        "MapNil": true,
+        "Entries": null,
+        "Want": {
+          "Text": "",
+          "Error": null,
+          "InputBefore": {
+            "Nil": true,
+            "Entries": null
+          },
+          "InputAfter": {
+            "Nil": true,
+            "Entries": null
+          },
+          "Panicked": false
+        }
+      },
+      "Got": {
+        "Text": "",
+        "Error": null,
+        "InputBefore": {
+          "Nil": true,
+          "Entries": null
+        },
+        "InputAfter": {
+          "Nil": true,
+          "Entries": null
+        },
+        "Panicked": false
+      },
+      "Matches": true
+    },
+    {
+      "Probe": {
+        "ID": "marshal-empty",
+        "Goal": "godotenv-canonical-marshal",
+        "Text": "",
+        "Width": 0,
+        "MapNil": false,
+        "Entries": [],
+        "Want": {
+          "Text": "",
+          "Error": null,
+          "InputBefore": {
+            "Nil": false,
+            "Entries": []
+          },
+          "InputAfter": {
+            "Nil": false,
+            "Entries": []
+          },
+          "Panicked": false
+        }
+      },
+      "Got": {
+        "Text": "",
+        "Error": null,
+        "InputBefore": {
+          "Nil": false,
+          "Entries": []
+        },
+        "InputAfter": {
+          "Nil": false,
+          "Entries": []
+        },
+        "Panicked": false
+      },
+      "Matches": true
+    },
+    {
+      "Probe": {
+        "ID": "marshal-sorted-lines",
+        "Goal": "godotenv-canonical-marshal",
+        "Text": "",
+        "Width": 0,
+        "MapNil": false,
+        "Entries": [
+          {
+            "Key": "Z",
+            "Value": "last"
+          },
+          {
+            "Key": "A",
+            "Value": "first"
+          }
+        ],
+        "Want": {
+          "Text": "A=\"first\"\nZ=\"last\"",
+          "Error": null,
+          "InputBefore": {
+            "Nil": false,
+            "Entries": [
+              {
+                "Key": "A",
+                "Value": "first"
+              },
+              {
+                "Key": "Z",
+                "Value": "last"
+              }
+            ]
+          },
+          "InputAfter": {
+            "Nil": false,
+            "Entries": [
+              {
+                "Key": "A",
+                "Value": "first"
+              },
+              {
+                "Key": "Z",
+                "Value": "last"
+              }
+            ]
+          },
+          "Panicked": false
+        }
+      },
+      "Got": {
+        "Text": "A=\"first\"\nZ=\"last\"",
+        "Error": null,
+        "InputBefore": {
+          "Nil": false,
+          "Entries": [
+            {
+              "Key": "A",
+              "Value": "first"
+            },
+            {
+              "Key": "Z",
+              "Value": "last"
+            }
+          ]
+        },
+        "InputAfter": {
+          "Nil": false,
+          "Entries": [
+            {
+              "Key": "A",
+              "Value": "first"
+            },
+            {
+              "Key": "Z",
+              "Value": "last"
+            }
+          ]
+        },
+        "Panicked": false
+      },
+      "Matches": true
+    },
+    {
+      "Probe": {
+        "ID": "marshal-leading-zero",
+        "Goal": "godotenv-canonical-marshal",
+        "Text": "",
+        "Width": 0,
+        "MapNil": false,
+        "Entries": [
+          {
+            "Key": "INT",
+            "Value": "0012"
+          }
+        ],
+        "Want": {
+          "Text": "INT=0012",
+          "Error": null,
+          "InputBefore": {
+            "Nil": false,
+            "Entries": [
+              {
+                "Key": "INT",
+                "Value": "0012"
+              }
+            ]
+          },
+          "InputAfter": {
+            "Nil": false,
+            "Entries": [
+              {
+                "Key": "INT",
+                "Value": "0012"
+              }
+            ]
+          },
+          "Panicked": false
+        }
+      },
+      "Got": {
+        "Text": "INT=0012",
+        "Error": null,
+        "InputBefore": {
+          "Nil": false,
+          "Entries": [
+            {
+              "Key": "INT",
+              "Value": "0012"
+            }
+          ]
+        },
+        "InputAfter": {
+          "Nil": false,
+          "Entries": [
+            {
+              "Key": "INT",
+              "Value": "0012"
+            }
+          ]
+        },
+        "Panicked": false
+      },
+      "Matches": true
+    },
+    {
+      "Probe": {
+        "ID": "marshal-negative-zero-text",
+        "Goal": "godotenv-canonical-marshal",
+        "Text": "",
+        "Width": 0,
+        "MapNil": false,
+        "Entries": [
+          {
+            "Key": "NEG",
+            "Value": "-000"
+          }
+        ],
+        "Want": {
+          "Text": "NEG=-000",
+          "Error": null,
+          "InputBefore": {
+            "Nil": false,
+            "Entries": [
+              {
+                "Key": "NEG",
+                "Value": "-000"
+              }
+            ]
+          },
+          "InputAfter": {
+            "Nil": false,
+            "Entries": [
+              {
+                "Key": "NEG",
+                "Value": "-000"
+              }
+            ]
+          },
+          "Panicked": false
+        }
+      },
+      "Got": {
+        "Text": "NEG=-000",
+        "Error": null,
+        "InputBefore": {
+          "Nil": false,
+          "Entries": [
+            {
+              "Key": "NEG",
+              "Value": "-000"
+            }
+          ]
+        },
+        "InputAfter": {
+          "Nil": false,
+          "Entries": [
+            {
+              "Key": "NEG",
+              "Value": "-000"
+            }
+          ]
+        },
+        "Panicked": false
+      },
+      "Matches": true
+    },
+    {
+      "Probe": {
+        "ID": "marshal-plus-not-integer",
+        "Goal": "godotenv-canonical-marshal",
+        "Text": "",
+        "Width": 0,
+        "MapNil": false,
+        "Entries": [
+          {
+            "Key": "PLUS",
+            "Value": "+7"
+          }
+        ],
+        "Want": {
+          "Text": "PLUS=\"+7\"",
+          "Error": null,
+          "InputBefore": {
+            "Nil": false,
+            "Entries": [
+              {
+                "Key": "PLUS",
+                "Value": "+7"
+              }
+            ]
+          },
+          "InputAfter": {
+            "Nil": false,
+            "Entries": [
+              {
+                "Key": "PLUS",
+                "Value": "+7"
+              }
+            ]
+          },
+          "Panicked": false
+        }
+      },
+      "Got": {
+        "Text": "PLUS=\"+7\"",
+        "Error": null,
+        "InputBefore": {
+          "Nil": false,
+          "Entries": [
+            {
+              "Key": "PLUS",
+              "Value": "+7"
+            }
+          ]
+        },
+        "InputAfter": {
+          "Nil": false,
+          "Entries": [
+            {
+              "Key": "PLUS",
+              "Value": "+7"
+            }
+          ]
+        },
+        "Panicked": false
+      },
+      "Matches": true
+    },
+    {
+      "Probe": {
+        "ID": "marshal-minus-not-integer",
+        "Goal": "godotenv-canonical-marshal",
+        "Text": "",
+        "Width": 0,
+        "MapNil": false,
+        "Entries": [
+          {
+            "Key": "MINUS",
+            "Value": "-"
+          }
+        ],
+        "Want": {
+          "Text": "MINUS=\"-\"",
+          "Error": null,
+          "InputBefore": {
+            "Nil": false,
+            "Entries": [
+              {
+                "Key": "MINUS",
+                "Value": "-"
+              }
+            ]
+          },
+          "InputAfter": {
+            "Nil": false,
+            "Entries": [
+              {
+                "Key": "MINUS",
+                "Value": "-"
+              }
+            ]
+          },
+          "Panicked": false
+        }
+      },
+      "Got": {
+        "Text": "MINUS=\"-\"",
+        "Error": null,
+        "InputBefore": {
+          "Nil": false,
+          "Entries": [
+            {
+              "Key": "MINUS",
+              "Value": "-"
+            }
+          ]
+        },
+        "InputAfter": {
+          "Nil": false,
+          "Entries": [
+            {
+              "Key": "MINUS",
+              "Value": "-"
+            }
+          ]
+        },
+        "Panicked": false
+      },
+      "Matches": true
+    },
+    {
+      "Probe": {
+        "ID": "marshal-nonascii-digits",
+        "Goal": "godotenv-canonical-marshal",
+        "Text": "",
+        "Width": 0,
+        "MapNil": false,
+        "Entries": [
+          {
+            "Key": "DIGITS",
+            "Value": "１２"
+          }
+        ],
+        "Want": {
+          "Text": "DIGITS=\"１２\"",
+          "Error": null,
+          "InputBefore": {
+            "Nil": false,
+            "Entries": [
+              {
+                "Key": "DIGITS",
+                "Value": "１２"
+              }
+            ]
+          },
+          "InputAfter": {
+            "Nil": false,
+            "Entries": [
+              {
+                "Key": "DIGITS",
+                "Value": "１２"
+              }
+            ]
+          },
+          "Panicked": false
+        }
+      },
+      "Got": {
+        "Text": "DIGITS=\"１２\"",
+        "Error": null,
+        "InputBefore": {
+          "Nil": false,
+          "Entries": [
+            {
+              "Key": "DIGITS",
+              "Value": "１２"
+            }
+          ]
+        },
+        "InputAfter": {
+          "Nil": false,
+          "Entries": [
+            {
+              "Key": "DIGITS",
+              "Value": "１２"
+            }
+          ]
+        },
+        "Panicked": false
+      },
+      "Matches": true
+    },
+    {
+      "Probe": {
+        "ID": "marshal-wide-integer-text",
+        "Goal": "godotenv-canonical-marshal",
+        "Text": "",
+        "Width": 0,
+        "MapNil": false,
+        "Entries": [
+          {
+            "Key": "HUGE",
+            "Value": "9999999999999999999999999999999999999999999999999999999999999999"
+          }
+        ],
+        "Want": {
+          "Text": "HUGE=9999999999999999999999999999999999999999999999999999999999999999",
+          "Error": null,
+          "InputBefore": {
+            "Nil": false,
+            "Entries": [
+              {
+                "Key": "HUGE",
+                "Value": "9999999999999999999999999999999999999999999999999999999999999999"
+              }
+            ]
+          },
+          "InputAfter": {
+            "Nil": false,
+            "Entries": [
+              {
+                "Key": "HUGE",
+                "Value": "9999999999999999999999999999999999999999999999999999999999999999"
+              }
+            ]
+          },
+          "Panicked": false
+        }
+      },
+      "Got": {
+        "Text": "HUGE=9999999999999999999999999999999999999999999999999999999999999999",
+        "Error": null,
+        "InputBefore": {
+          "Nil": false,
+          "Entries": [
+            {
+              "Key": "HUGE",
+              "Value": "9999999999999999999999999999999999999999999999999999999999999999"
+            }
+          ]
+        },
+        "InputAfter": {
+          "Nil": false,
+          "Entries": [
+            {
+              "Key": "HUGE",
+              "Value": "9999999999999999999999999999999999999999999999999999999999999999"
+            }
+          ]
+        },
+        "Panicked": false
+      },
+      "Matches": true
+    },
+    {
+      "Probe": {
+        "ID": "marshal-empty-string",
+        "Goal": "godotenv-canonical-marshal",
+        "Text": "",
+        "Width": 0,
+        "MapNil": false,
+        "Entries": [
+          {
+            "Key": "EMPTY",
+            "Value": ""
+          }
+        ],
+        "Want": {
+          "Text": "EMPTY=\"\"",
+          "Error": null,
+          "InputBefore": {
+            "Nil": false,
+            "Entries": [
+              {
+                "Key": "EMPTY",
+                "Value": ""
+              }
+            ]
+          },
+          "InputAfter": {
+            "Nil": false,
+            "Entries": [
+              {
+                "Key": "EMPTY",
+                "Value": ""
+              }
+            ]
+          },
+          "Panicked": false
+        }
+      },
+      "Got": {
+        "Text": "EMPTY=\"\"",
+        "Error": null,
+        "InputBefore": {
+          "Nil": false,
+          "Entries": [
+            {
+              "Key": "EMPTY",
+              "Value": ""
+            }
+          ]
+        },
+        "InputAfter": {
+          "Nil": false,
+          "Entries": [
+            {
+              "Key": "EMPTY",
+              "Value": ""
+            }
+          ]
+        },
+        "Panicked": false
+      },
+      "Matches": true
+    },
+    {
+      "Probe": {
+        "ID": "marshal-special-escapes",
+        "Goal": "godotenv-canonical-marshal",
+        "Text": "",
+        "Width": 0,
+        "MapNil": false,
+        "Entries": [
+          {
+            "Key": "ESC",
+            "Value": "a\\b\n\r\"!$`"
+          }
+        ],
+        "Want": {
+          "Text": "ESC=\"a\\\\b\\n\\r\\\"\\!\\$\\`\"",
+          "Error": null,
+          "InputBefore": {
+            "Nil": false,
+            "Entries": [
+              {
+                "Key": "ESC",
+                "Value": "a\\b\n\r\"!$`"
+              }
+            ]
+          },
+          "InputAfter": {
+            "Nil": false,
+            "Entries": [
+              {
+                "Key": "ESC",
+                "Value": "a\\b\n\r\"!$`"
+              }
+            ]
+          },
+          "Panicked": false
+        }
+      },
+      "Got": {
+        "Text": "ESC=\"a\\\\b\\n\\r\\\"\\!\\$\\`\"",
+        "Error": null,
+        "InputBefore": {
+          "Nil": false,
+          "Entries": [
+            {
+              "Key": "ESC",
+              "Value": "a\\b\n\r\"!$`"
+            }
+          ]
+        },
+        "InputAfter": {
+          "Nil": false,
+          "Entries": [
+            {
+              "Key": "ESC",
+              "Value": "a\\b\n\r\"!$`"
+            }
+          ]
+        },
+        "Panicked": false
+      },
+      "Matches": true
+    },
+    {
+      "Probe": {
+        "ID": "marshal-space-hash",
+        "Goal": "godotenv-canonical-marshal",
+        "Text": "",
+        "Width": 0,
+        "MapNil": false,
+        "Entries": [
+          {
+            "Key": "B",
+            "Value": "z#n"
+          },
+          {
+            "Key": "A",
+            "Value": "x y"
+          }
+        ],
+        "Want": {
+          "Text": "A=\"x y\"\nB=\"z#n\"",
+          "Error": null,
+          "InputBefore": {
+            "Nil": false,
+            "Entries": [
+              {
+                "Key": "A",
+                "Value": "x y"
+              },
+              {
+                "Key": "B",
+                "Value": "z#n"
+              }
+            ]
+          },
+          "InputAfter": {
+            "Nil": false,
+            "Entries": [
+              {
+                "Key": "A",
+                "Value": "x y"
+              },
+              {
+                "Key": "B",
+                "Value": "z#n"
+              }
+            ]
+          },
+          "Panicked": false
+        }
+      },
+      "Got": {
+        "Text": "A=\"x y\"\nB=\"z#n\"",
+        "Error": null,
+        "InputBefore": {
+          "Nil": false,
+          "Entries": [
+            {
+              "Key": "A",
+              "Value": "x y"
+            },
+            {
+              "Key": "B",
+              "Value": "z#n"
+            }
+          ]
+        },
+        "InputAfter": {
+          "Nil": false,
+          "Entries": [
+            {
+              "Key": "A",
+              "Value": "x y"
+            },
+            {
+              "Key": "B",
+              "Value": "z#n"
+            }
+          ]
+        },
+        "Panicked": false
+      },
+      "Matches": true
+    }
+  ],
+  "PackageInitializationScope": "One original-import child initializes Go packages before main. Source-inspected godotenv parser globals are three errors.New and three regexp.MustCompile expressions; wordwrap has no dynamic package globals. Initializer counts/types are not dynamically instrumented and are distinct from 24 direct API dispatches.",
+  "OriginalInitializationDynamicallyInstrumented": false,
+  "CaptionsQualified": false,
+  "ParentLabelsQualified": false,
+  "BroadTruthProven": false,
+  "TrainingReady": false,
+  "NewParents": 0,
+  "NewLabels": 0,
+  "ModelCalls": 0,
+  "Fits": 0,
+  "ProtectedFinalReads": 0
+}

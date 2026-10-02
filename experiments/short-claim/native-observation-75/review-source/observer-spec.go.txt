@@ -1,0 +1,172 @@
+// SPDX-License-Identifier: Apache-2.0
+// Author-derived finite literals only. This package never imports upstreams.
+package pure
+
+import (
+	"errors"
+	"reflect"
+)
+
+const MaxProbes = 32
+const OutputLimit = (1 << 20) - 1
+
+type Pair struct{ Key, Value string }
+type MapState struct {
+	Nil     bool
+	Entries []Pair
+}
+type Observation struct {
+	Text                    string
+	Error                   *string
+	InputBefore, InputAfter *MapState
+	Panicked                bool
+}
+type Goal struct{ ID, API, Repository, Revision, SourceSHA256, Derivation, ExcludedScope string }
+type Probe struct {
+	ID, Goal, Text string
+	Width          uint
+	MapNil         bool
+	Entries        []Pair
+	Want           Observation
+}
+type Specification struct {
+	Schema                                                                    string
+	Goals                                                                     []Goal
+	Probes                                                                    []Probe
+	BroadTruthProven, CaptionsQualified, ParentLabelsQualified, TrainingReady bool
+	NewParents, NewLabels, Models, Fits, ProtectedFinalReads                  int
+}
+
+func LiteralSpecification() Specification {
+	s := Specification{Schema: "riido-wrap-marshal75-finite-want-v1", Goals: []Goal{
+		{ID: "wordwrap-whitespace-layout", API: "wordwrap.WrapString", Repository: "mitchellh/go-wordwrap", Revision: "ecf0936a077a4bd73a1cc2ac5c370f2b55618d62", SourceSHA256: "a924b1cb3b0e04c603019e608d3196275cea56bbd1aab82af04d0996fb7a86ee", Derivation: "Pinned source buffers word/space runes separately, preserves explicit LF, excludes NBSP from Unicode whitespace, only inserts a break while wordBufLen < lim, and handles trailing spaces separately. Fixed manual outputs are sealed before native dispatch.", ExcludedScope: "No general Unicode grapheme/display-column width, smarter word splitting, arbitrary input, full whitespace grammar, universal no-panic promise or new independent parents."},
+		{ID: "godotenv-canonical-marshal", API: "godotenv.Marshal", Repository: "joho/godotenv", Revision: "97a2850142438b3c357c1d3439e325181afdcc1d", SourceSHA256: "c4bfd90250cd5caf760bc91ef0eeb8748b1596e2d720ac0d944e8079cc9d0488", Derivation: "Pinned isInt strips at most one leading '-' and accepts nonempty ASCII digits with no numeric conversion/length cap. Marshal escapes seven fixed characters for other values, sorts whole lines, joins LF with no final LF and returns nil error. Inputs are only explicit in-memory literal maps.", ExcludedScope: "No Load/Read/Write/Parse/Unmarshal/Exec/autoload or environment/filesystem lookup; no dotenv roundtrip, key validation, general error/caption/label/readiness promise."},
+	}}
+	wrap := func(id, text string, width uint, want string) {
+		s.Probes = append(s.Probes, Probe{ID: id, Goal: s.Goals[0].ID, Text: text, Width: width, Want: Observation{Text: want}})
+	}
+	wrap("wrap-empty", "", 3, "")
+	wrap("wrap-three-words", "foo bar baz", 3, "foo\nbar\nbaz")
+	wrap("wrap-explicit-newline", "ab\ncd", 2, "ab\ncd")
+	wrap("wrap-short-break", "a b", 2, "a\nb")
+	wrap("wrap-long-word", "abcdef", 3, "abcdef")
+	wrap("wrap-double-space", "a  b", 3, "a\nb")
+	wrap("wrap-tab", "a\tb", 2, "a\nb")
+	wrap("wrap-rune-count", "가 나", 2, "가\n나")
+	wrap("wrap-nbsp", "a\u00a0b", 2, "a\u00a0b")
+	wrap("wrap-leading-overflow", "  a", 2, "\na")
+	wrap("wrap-trailing-overflow", "a  ", 2, "a")
+	wrap("wrap-zero-width", "a b", 0, "a b")
+	marshal := func(id string, pairs []Pair, nilMap bool, want string, canonical []Pair) {
+		state := &MapState{Nil: nilMap, Entries: canonical}
+		s.Probes = append(s.Probes, Probe{ID: id, Goal: s.Goals[1].ID, MapNil: nilMap, Entries: pairs, Want: Observation{Text: want, InputBefore: cloneMap(state), InputAfter: cloneMap(state)}})
+	}
+	marshal("marshal-nil", nil, true, "", nil)
+	marshal("marshal-empty", []Pair{}, false, "", []Pair{})
+	marshal("marshal-sorted-lines", []Pair{{"Z", "last"}, {"A", "first"}}, false, "A=\"first\"\nZ=\"last\"", []Pair{{"A", "first"}, {"Z", "last"}})
+	marshal("marshal-leading-zero", []Pair{{"INT", "0012"}}, false, "INT=0012", []Pair{{"INT", "0012"}})
+	marshal("marshal-negative-zero-text", []Pair{{"NEG", "-000"}}, false, "NEG=-000", []Pair{{"NEG", "-000"}})
+	marshal("marshal-plus-not-integer", []Pair{{"PLUS", "+7"}}, false, "PLUS=\"+7\"", []Pair{{"PLUS", "+7"}})
+	marshal("marshal-minus-not-integer", []Pair{{"MINUS", "-"}}, false, "MINUS=\"-\"", []Pair{{"MINUS", "-"}})
+	marshal("marshal-nonascii-digits", []Pair{{"DIGITS", "１２"}}, false, "DIGITS=\"１２\"", []Pair{{"DIGITS", "１２"}})
+	const huge = "9999999999999999999999999999999999999999999999999999999999999999"
+	marshal("marshal-wide-integer-text", []Pair{{"HUGE", huge}}, false, "HUGE="+huge, []Pair{{"HUGE", huge}})
+	marshal("marshal-empty-string", []Pair{{"EMPTY", ""}}, false, "EMPTY=\"\"", []Pair{{"EMPTY", ""}})
+	const special = "a\\b\n\r\"!$`"
+	marshal("marshal-special-escapes", []Pair{{"ESC", special}}, false, "ESC=\"a\\\\b\\n\\r\\\"\\!\\$\\`\"", []Pair{{"ESC", special}})
+	marshal("marshal-space-hash", []Pair{{"B", "z#n"}, {"A", "x y"}}, false, "A=\"x y\"\nB=\"z#n\"", []Pair{{"A", "x y"}, {"B", "z#n"}})
+	return s
+}
+
+func clonePairs(v []Pair) []Pair {
+	if v == nil {
+		return nil
+	}
+	return append([]Pair{}, v...)
+}
+func cloneMap(v *MapState) *MapState {
+	if v == nil {
+		return nil
+	}
+	return &MapState{Nil: v.Nil, Entries: clonePairs(v.Entries)}
+}
+func CloneObservation(v Observation) Observation {
+	v.InputBefore = cloneMap(v.InputBefore)
+	v.InputAfter = cloneMap(v.InputAfter)
+	if v.Error != nil {
+		x := *v.Error
+		v.Error = &x
+	}
+	return v
+}
+func cloneProbe(p Probe) Probe {
+	p.Entries = clonePairs(p.Entries)
+	p.Want = CloneObservation(p.Want)
+	return p
+}
+func invoke(p Probe, call func(Probe) Observation) (out Observation) {
+	defer func() {
+		if recover() != nil {
+			msg := "upstream_panic_redacted"
+			out = Observation{Panicked: true, Error: &msg}
+		}
+	}()
+	return CloneObservation(call(cloneProbe(p)))
+}
+
+type Record struct {
+	Probe   Probe
+	Got     Observation
+	Matches bool
+}
+type Result struct {
+	Schema, State, WantSHA256, PlanSHA256, Failure, ActiveProbeID                                                  string
+	DistinctBehaviorGoals, PlannedAPICalls, DispatchReserved, OriginalReturns, WrapperPanics, Matches, Differences int
+	Records                                                                                                        []Record
+	PackageInitializationScope                                                                                     string
+	OriginalInitializationDynamicallyInstrumented                                                                  bool
+	CaptionsQualified, ParentLabelsQualified, BroadTruthProven, TrainingReady                                      bool
+	NewParents, NewLabels, ModelCalls, Fits, ProtectedFinalReads                                                   int
+}
+
+func Observe(s Specification, wantSHA, planSHA string, call func(Probe) Observation, checkpoint func(Result) error) (Result, error) {
+	r := Result{Schema: "riido-wrap-marshal75-finite-observation-v1", State: "running_finite_observations", WantSHA256: wantSHA, PlanSHA256: planSHA, DistinctBehaviorGoals: len(s.Goals), PlannedAPICalls: len(s.Probes), Records: []Record{}, PackageInitializationScope: "One original-import child initializes Go packages before main. Source-inspected godotenv parser globals are three errors.New and three regexp.MustCompile expressions; wordwrap has no dynamic package globals. Initializer counts/types are not dynamically instrumented and are distinct from 24 direct API dispatches."}
+	if !reflect.DeepEqual(s, LiteralSpecification()) || len(s.Probes) > MaxProbes || call == nil || checkpoint == nil {
+		return r, errors.New("fixed_spec_refused")
+	}
+	for _, p := range s.Probes {
+		r.ActiveProbeID = p.ID
+		r.DispatchReserved++
+		if err := checkpoint(r); err != nil {
+			r.Failure = "checkpoint_failed_before_dispatch"
+			return r, err
+		}
+		got := invoke(p, call)
+		if got.Panicked {
+			r.WrapperPanics++
+		} else {
+			r.OriginalReturns++
+		}
+		match := reflect.DeepEqual(got, p.Want)
+		if match {
+			r.Matches++
+		} else {
+			r.Differences++
+		}
+		r.Records = append(r.Records, Record{Probe: cloneProbe(p), Got: got, Matches: match})
+		r.ActiveProbeID = ""
+		if err := checkpoint(r); err != nil {
+			r.Failure = "checkpoint_failed_after_dispatch"
+			return r, err
+		}
+	}
+	r.State = "completed_finite_observations_all_match"
+	if r.Differences != 0 {
+		r.State = "completed_finite_observations_with_differences"
+	}
+	if err := checkpoint(r); err != nil {
+		r.Failure = "checkpoint_failed_final"
+		return r, err
+	}
+	return r, nil
+}
