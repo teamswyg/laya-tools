@@ -1,0 +1,49 @@
+{
+  "schema": "riido-storedutility-oracle-review-58-v1",
+  "state": "pre_ranking_plan",
+  "source": "existing frozen public authored inputs and finite truth56b; no new source observations",
+  "independent_design_review": {
+    "reviewer": "independent source-reading agent",
+    "human_approval": false,
+    "design_review_sha256": "4ce58605b9206c5e79f4ad2ab0d035f135a5ccbb3135d3141e9a34923ca18295",
+    "controller_review_sha256": "351d0b987f41636cd52f0c422d45cc7b89a22cb497a081001ff92b15bda3a99c",
+    "private_binding_draft_sha256": "82b731119596ce57e1844a494f9bb9da9c046293915e1824a3e75c78ffb4d9d8",
+    "rankings_in_review": 0,
+    "source_api_calls_in_review": 0,
+    "model_calls_in_review": 0
+  },
+  "controls": ["fixed_order", "bm25", "lexical_ordered", "narrow_rule"],
+  "tie_policy": "original candidate order; best fixed control ties use this array order",
+  "oracle_policy": "answerable1; no-answer all candidates; unknown excluded from cost and top metrics but kept in original denominator",
+  "necessary_gain_formula": "(best_fixed_known_checks-oracle_known_checks)/best_fixed_known_checks",
+  "necessary_gain_at_least": 0.05,
+  "integer_gate": "100*(best_fixed_known_checks-oracle_known_checks)>=5*best_fixed_known_checks",
+  "denominators": {
+    "parents": 72,
+    "candidate_captions": 216,
+    "answerable": 34,
+    "no_answer": 17,
+    "unknown": 21,
+    "connected_groups": 17,
+    "labeled_groups": 16,
+    "two_candidate_parents": 12,
+    "three_candidate_parents": 48,
+    "four_candidate_parents": 12
+  },
+  "preparation_tests": "metadata Bind and literal permutation/cancellation controls only; no actual72 corpus ranking or original candidate execution",
+  "counterfactual_cost_is_actual_execution": false,
+  "ci_replay_comparison": {
+    "orders_integer_counts_states_reasons_denominators_and_remaining_evaluation": "exact",
+    "unverified_score_tolerance": "both finite; abs(actual-saved)<=1e-12*(1+abs(saved))",
+    "original_result_sha256_pinned_separately": true,
+    "ci_replays_add_official_attempts_or_independent_requests": false
+  },
+  "roles_assigned": 0,
+  "fits_authorized": 0,
+  "model_calls_authorized": 0,
+  "paid_calls_authorized": 0,
+  "protected_final_reads_authorized": 0,
+  "new_weights_authorized": 0,
+  "training_ready": false,
+  "preserve_stop_reasons": ["no_roles_plan", "synthetic_single_pipeline"]
+}
