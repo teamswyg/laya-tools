@@ -1,0 +1,50 @@
+{
+  "schema": "riido-next60-independent-proposed-correction-ledger-v1",
+  "state": "proposed_next_version_corrections_only_original_draft_preserved",
+  "original_draft_sha256": "c7bbf7bcc7912300fabdd6e671b0922df295299f00e5e7201df1ab5e824a2a9b",
+  "original_draft_bytes": 209341,
+  "actual_original_edits": 0,
+  "actual_corrected_versions_created": 0,
+  "actual_candidate_builds_or_native_executions": 0,
+  "current_qualified": 0,
+  "corrections": [
+    {
+      "id": "CORR1-nil-result-mutant",
+      "draft_id": "next60-mapstructure-nil-config",
+      "original_pointer": "/drafts/6/wrong_seed",
+      "source_reference": "mapstructure.go:477-499 at 52aa5c6dc1d27226460807054ca2107b2d54fb2d",
+      "en": "Typed-nil Result is already rejected by Elem().CanAddr before Metadata mutation. Guarding config only does not itself cause the described typed-nil panic. A future wrong seed needs an explicit incorrect implementation, and safe existing Result behavior stays compatibility evidence.",
+      "ko": "typed-nil Result는 이미 Elem().CanAddr로 Metadata 변경 전에 거부됩니다. config guard만으로 설명한 typed-nil panic이 생기지 않습니다. 다음 wrong seed에는 실제 오류 구현을 명시하고 기존 안전한 Result 처리는 호환성 근거로 유지해야 합니다.",
+      "action": "Review a future explicit early-Metadata-mutation or wrong-reflection mutant; do not alter this sealed design or create a result here."
+    },
+    {
+      "id": "CORR2-exclusive-race-fixture",
+      "draft_id": "next60-afero-exclusive-write",
+      "original_pointer": "/drafts/13/finite_cases/0/input/race_after_exists",
+      "source_reference": "util.go:74-104 at eb6a92826ea568e3f40ab91fcbda8d2b38b61d3e",
+      "en": "A competitor injected only after Exists may be absent on corrected OpenFile(O_EXCL), which eliminates Exists. Fix the fake-FS scheduling contract independently of implementation route, so both face an existing destination immediately before acquisition.",
+      "ko": "Exists 이후에만 경쟁자를 넣으면 Exists를 없애는 OpenFile(O_EXCL) 경로에는 경쟁자가 없을 수 있습니다. 두 구현 모두 획득 직전에 기존 목적지를 마주하도록 구현 경로와 독립적인 fake-FS 스케줄을 정해야 합니다.",
+      "action": "Future adapter must preserve the same competitor state and observe exact flags/truncation; no fake-FS or original was run here."
+    },
+    {
+      "id": "CORR3-clean-parent-description",
+      "draft_id": "next60-afero-sub-validation",
+      "original_pointer": "/drafts/0/wrong_seed",
+      "source_reference": "Project-authored wrong-seed description; fs.ValidPath and path.Clean semantics are distinct from iofs.go:118 at eb6a92826ea568e3f40ab91fcbda8d2b38b61d3e",
+      "en": "path.Clean(../a) remains ../a, so cleaning followed by validation does not accept that parent path. Empty-name cleaning to dot is a valid discriminator. A description claiming parent-path acceptance needs an additional concrete mistake or must be narrowed in a new version.",
+      "ko": "path.Clean(../a)는 ../a이므로 정리 후 검증만으로 상위 경로를 통과시키지 않습니다. 빈 이름이 dot으로 바뀌는 경우는 유효한 구분입니다. 상위 경로가 통과한다는 설명에는 추가 실제 실수가 필요하거나 다음 버전에서 설명을 좁혀야 합니다.",
+      "action": "Use the empty-name vector as the actual cleaning discriminator unless a future pinned mutant genuinely accepts parent paths. No original API or path.Clean call occurred here."
+    },
+    {
+      "id": "CORR4-ini-source-type",
+      "draft_ids": ["next60-ini-quoted-comments","next60-ini-byte-budget"],
+      "original_pointers": ["/drafts/2/finite_cases","/drafts/7/finite_cases"],
+      "source_reference": "ini.go:133-157 documents strings as filenames and []byte as raw data at e2db55b0e088fa4ee0c128aa4ade263cdc1d7f08",
+      "en": "Draft JSON strings represent literal INI contents, while the original loader's string source means filename. A frozen adapter must pass raw []byte or a bounded reader; do not accidentally open an OS filename or treat that adapter error as a parser failure.",
+      "ko": "초안 JSON 문자열은 INI 본문이지만 원본 loader의 문자열 source는 파일명입니다. 동결 adapter는 []byte나 제한 reader를 넘겨야 합니다. 실수로 OS 파일을 열거나 adapter 오류를 parser 실패로 세면 안 됩니다.",
+      "action": "Future source-type binding must be explicit in both unchanged-baseline and corrected routes; no raw-source adapter or file API was executed here."
+    }
+  ],
+  "source_contract_review_complete_is_not_correction_execution": true,
+  "release_training_execution_permission": false
+}

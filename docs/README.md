@@ -1,5 +1,7 @@
 # Documentation / 문서 안내
 
+Next PDCA / 다음 PDCA: [evidence and plan in English](../experiments/short-claim/next-pdca-after-79/REPORT.en.md) · [한국어 분석과 계획](../experiments/short-claim/next-pdca-after-79/REPORT.ko.md). First acquisition drafts / 첫 확보 초안: [20 drafts, zero qualified](../experiments/short-claim/next60-acquisition-drafts/README.en.md) · [초안20개·적격0개](../experiments/short-claim/next60-acquisition-drafts/README.ko.md). Actual archive/Wiki publication / 실제 보관·Wiki 게시: [English](../experiments/short-claim/publication-proof-after-79/README.en.md) · [한국어](../experiments/short-claim/publication-proof-after-79/README.ko.md).
+
 Latest data-addition fit / 최근 데이터 추가 학습: [한국어](../experiments/short-claim/data-effect-fit-79/README.ko.md) · [English](../experiments/short-claim/data-effect-fit-79/README.en.md). Project79 and one fixed-recipe Fit completed, preserving the original76 and full validation/calibration parts. Utility failed:31 checks versus27 for the lexical control; the model remains inactive. / Go79 변환과 동일 조건 학습1회를 완료했고 기존76개와 검증·보정 구간 보존을 확인했습니다. 확인31회로 단순 정렬27회보다 나빠 효용 검사를 실패했으며 모델은 비활성입니다.
 
 Recent actual claim checks66–69 / 최근 실제 주장 검사66–69: [한국어](wiki/Claim-Checks-66-69-KO.md) · [English](wiki/Claim-Checks-66-69-EN.md). Actual roles, finite public-source behavior, unchanged input bounds and loss-mask bindings are recorded; fitting remains a separate next step. / 실제 역할·유한 공개 원천 동작·기존 입력 한도·학습 제외 연결을 기록하고, 학습은 다음 별도 단계로 진행합니다.
