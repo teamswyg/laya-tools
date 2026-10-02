@@ -1,0 +1,308 @@
+// Package pure validates metadata and finite schedules without importing upstream
+// packages. This package and its tests must never dispatch original functions.
+package pure
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"io"
+	"path"
+	"reflect"
+	"strings"
+)
+
+const (
+	Schema       = "riido-next60-native2-plan-v1"
+	VectorSchema = "riido-next60-native2-vectors-v1"
+	OutputLimit  = 12 << 20
+	OutsideLimit = 1 << 20
+	HeapLimit    = 256 << 20
+	Seconds      = 300
+	Scheduled    = 23
+)
+
+var ErrProtocol = errors.New("invalid native2 metadata protocol")
+
+type Pin struct {
+	ID     string `json:"asset_id"`
+	Path   string `json:"path"`
+	Bytes  int64  `json:"bytes"`
+	SHA256 string `json:"sha256"`
+}
+
+type Plan struct {
+	Schema                  string `json:"schema"`
+	SourceRoot              string `json:"source_root"`
+	AttemptDir              string `json:"attempt_dir"`
+	Closure                 Pin    `json:"closure"`
+	Vectors                 Pin    `json:"vectors"`
+	Readiness               Pin    `json:"readiness"`
+	GoVersion               string `json:"go_version"`
+	GOOS                    string `json:"goos"`
+	GOARCH                  string `json:"goarch"`
+	CPU                     int    `json:"cpu"`
+	MaxRSS                  int64  `json:"max_rss_bytes"`
+	SoftHeap                int64  `json:"soft_heap_bytes"`
+	WholeSeconds            int    `json:"whole_seconds"`
+	MaxOutput               int64  `json:"max_output_bytes"`
+	MaxOutside              int64  `json:"max_outside_bytes"`
+	Scheduled               int    `json:"scheduled_observations"`
+	Retry                   int    `json:"retry"`
+	Mode                    string `json:"mode"`
+	OutsideReservation      string `json:"outside_reservation_sha256"`
+	ImportedStartupIncluded bool   `json:"imported_startup_included_in_whole_child"`
+}
+
+type Readiness struct {
+	Schema                       string `json:"schema"`
+	ClosureSHA                   string `json:"closure_sha256"`
+	VectorsSHA                   string `json:"vectors_sha256"`
+	IndependentWantReview        bool   `json:"independent_want_review_passed"`
+	CandidateFidelityReview      bool   `json:"candidate_fidelity_review_passed"`
+	SourceSelectionReview        bool   `json:"source_selection_review_passed"`
+	LocalObservationRightsReview bool   `json:"local_observation_rights_review_passed"`
+	RootCIReview                 bool   `json:"root_source_review_and_ci_passed"`
+	RootOutsideReserved          bool   `json:"root_outside_attempt_reserved"`
+	AllowOriginalObservation     bool   `json:"allow_original_observation_once"`
+	AllowModelOperations         bool   `json:"allow_model_operations"`
+	AllowProtectedFinal          bool   `json:"allow_protected_final"`
+	AllowPublicWrites            bool   `json:"allow_public_writes"`
+	OutsideReservation           string `json:"outside_reservation_sha256"`
+}
+
+type Closure struct {
+	Schema           string `json:"schema"`
+	Runtime          []Pin  `json:"runtime_files"`
+	SourceProvenance []Pin  `json:"provenance_files"`
+}
+
+type Candidate struct {
+	ID         string `json:"id"`
+	Symbol     string `json:"symbol"`
+	Caption    string `json:"caption"`
+	SourceFile string `json:"source_file"`
+}
+
+type Vector struct {
+	ID    string          `json:"case_id"`
+	Input json.RawMessage `json:"input"`
+	Want  json.RawMessage `json:"want"`
+	Got   json.RawMessage `json:"Got"`
+}
+
+type Goal struct {
+	ID         string      `json:"id"`
+	Request    string      `json:"request_en"`
+	Revision   string      `json:"source_revision"`
+	Candidates []Candidate `json:"candidates"`
+	Vectors    []Vector    `json:"vectors"`
+}
+
+type VectorFile struct {
+	Schema        string          `json:"schema"`
+	Draft         Pin             `json:"frozen_draft"`
+	OriginalCalls int             `json:"original_calls_at_preparation"`
+	Truth         json.RawMessage `json:"truth"`
+	Roles         json.RawMessage `json:"roles"`
+	Weights       json.RawMessage `json:"weights"`
+	Goals         []Goal          `json:"goals"`
+}
+
+type Dispatch struct {
+	Goal      int `json:"goal"`
+	Vector    int `json:"vector"`
+	Candidate int `json:"candidate"`
+}
+
+func Digest(b []byte) string { x := sha256.Sum256(b); return hex.EncodeToString(x[:]) }
+func SHA(s string) bool {
+	b, e := hex.DecodeString(s)
+	return e == nil && len(b) == 32 && s == strings.ToLower(s)
+}
+func Null(b json.RawMessage) bool { return bytes.Equal(bytes.TrimSpace(b), []byte("null")) }
+func SafePath(s string) bool {
+	return s != "" && !path.IsAbs(s) && path.Clean(s) == s && !strings.Contains(s, "\\") && s != ".." && !strings.HasPrefix(s, "../")
+}
+
+// UniqueJSON rejects duplicate member names at any level before typed decoding.
+func UniqueJSON(b []byte) error {
+	if len(b) == 0 || len(b) > OutputLimit {
+		return ErrProtocol
+	}
+	d := json.NewDecoder(bytes.NewReader(b))
+	d.UseNumber()
+	var walk func(int) error
+	walk = func(depth int) error {
+		if depth > 32 {
+			return ErrProtocol
+		}
+		t, e := d.Token()
+		if e != nil {
+			return ErrProtocol
+		}
+		if x, ok := t.(json.Delim); ok {
+			switch x {
+			case '{':
+				seen := map[string]bool{}
+				for d.More() {
+					k, e := d.Token()
+					s, ok := k.(string)
+					if e != nil || !ok || seen[s] || len(seen) > 512 {
+						return ErrProtocol
+					}
+					seen[s] = true
+					if e = walk(depth + 1); e != nil {
+						return e
+					}
+				}
+				end, e := d.Token()
+				if e != nil || end != json.Delim('}') {
+					return ErrProtocol
+				}
+			case '[':
+				n := 0
+				for d.More() {
+					n++
+					if n > 4096 {
+						return ErrProtocol
+					}
+					if e = walk(depth + 1); e != nil {
+						return e
+					}
+				}
+				end, e := d.Token()
+				if e != nil || end != json.Delim(']') {
+					return ErrProtocol
+				}
+			default:
+				return ErrProtocol
+			}
+		}
+		return nil
+	}
+	if e := walk(0); e != nil {
+		return e
+	}
+	if _, e := d.Token(); e != io.EOF {
+		return ErrProtocol
+	}
+	return nil
+}
+func Decode(b []byte, v any) error {
+	if UniqueJSON(b) != nil {
+		return ErrProtocol
+	}
+	d := json.NewDecoder(bytes.NewReader(b))
+	d.DisallowUnknownFields()
+	if d.Decode(v) != nil || d.Decode(new(any)) != io.EOF {
+		return ErrProtocol
+	}
+	return nil
+}
+func ValidPin(p Pin) bool {
+	return p.ID != "" && SafePath(p.Path) && p.Bytes > 0 && p.Bytes < OutputLimit && SHA(p.SHA256)
+}
+func CheckPlan(p Plan, r Readiness) error {
+	if p.Schema != Schema || p.SourceRoot == "" || p.AttemptDir == "" || p.GoVersion != "go1.27.1" || p.GOOS != "darwin" || p.GOARCH != "arm64" || p.CPU != 1 || p.MaxRSS != HeapLimit || p.SoftHeap != HeapLimit || p.WholeSeconds != Seconds || p.MaxOutput != OutputLimit || p.MaxOutside != OutsideLimit || p.Scheduled != Scheduled || p.Retry != 0 || p.Mode != "reserved_native_observation_only" || !p.ImportedStartupIncluded || !ValidPin(p.Closure) || !ValidPin(p.Vectors) || !ValidPin(p.Readiness) || !SHA(p.OutsideReservation) {
+		return ErrProtocol
+	}
+	if r.Schema != "riido-next60-native2-readiness-v1" || r.ClosureSHA != p.Closure.SHA256 || r.VectorsSHA != p.Vectors.SHA256 || r.OutsideReservation != p.OutsideReservation || !r.IndependentWantReview || !r.CandidateFidelityReview || !r.SourceSelectionReview || !r.LocalObservationRightsReview || !r.RootCIReview || !r.RootOutsideReserved || !r.AllowOriginalObservation || r.AllowModelOperations || r.AllowProtectedFinal || r.AllowPublicWrites {
+		return ErrProtocol
+	}
+	return nil
+}
+func Schedule(v VectorFile) ([]Dispatch, error) {
+	if v.Schema != VectorSchema || v.OriginalCalls != 0 || !Null(v.Truth) || !Null(v.Roles) || !Null(v.Weights) || len(v.Goals) != 2 || !ValidPin(v.Draft) {
+		return nil, ErrProtocol
+	}
+	goals := [2]string{"next60-pflag-native-ipnet", "next60-mapstructure-native-or"}
+	counts := [2]int{3, 2}
+	rows := [2]int{5, 4}
+	out := make([]Dispatch, 0, Scheduled)
+	for gi, g := range v.Goals {
+		if g.ID != goals[gi] || len(g.Candidates) != counts[gi] || len(g.Vectors) != rows[gi] || g.Request == "" || len(g.Request) > 512 {
+			return nil, ErrProtocol
+		}
+		for ci, c := range g.Candidates {
+			if c.ID == "" || c.Symbol == "" || c.Caption == "" || c.SourceFile == "" {
+				return nil, ErrProtocol
+			}
+			for vi, x := range g.Vectors {
+				if x.ID == "" || len(x.Input) == 0 || len(x.Want) == 0 || !Null(x.Got) || UniqueJSON(x.Input) != nil || UniqueJSON(x.Want) != nil {
+					return nil, ErrProtocol
+				}
+				out = append(out, Dispatch{gi, vi, ci})
+			}
+		}
+	}
+	if len(out) != Scheduled {
+		return nil, ErrProtocol
+	}
+	return out, nil
+}
+
+// CheckDraftBinding compares real source fields, including every Input/Want,
+// rather than treating matching row counts as proof of frozen provenance.
+func CheckDraftBinding(v VectorFile, b []byte) error {
+	if UniqueJSON(b) != nil || int64(len(b)) != v.Draft.Bytes || Digest(b) != v.Draft.SHA256 {
+		return ErrProtocol
+	}
+	var doc struct {
+		Drafts []json.RawMessage `json:"drafts"`
+	}
+	if json.Unmarshal(b, &doc) != nil {
+		return ErrProtocol
+	}
+	for _, g := range v.Goals {
+		found := 0
+		for _, raw := range doc.Drafts {
+			var d struct {
+				ID         string `json:"id"`
+				Request    string `json:"request_en"`
+				Revision   string `json:"source_revision"`
+				Candidates []struct {
+					ID          string `json:"id"`
+					Description string `json:"description"`
+					SourceFile  string `json:"source_file"`
+					Kind        string `json:"kind"`
+				} `json:"candidate_descriptions"`
+				Vectors []Vector `json:"finite_cases"`
+			}
+			if json.Unmarshal(raw, &d) != nil {
+				return ErrProtocol
+			}
+			if d.ID != g.ID {
+				continue
+			}
+			found++
+			if d.Request != g.Request || d.Revision != g.Revision || len(d.Candidates) != len(g.Candidates) || len(d.Vectors) != len(g.Vectors) {
+				return ErrProtocol
+			}
+			for i, c := range g.Candidates {
+				q := d.Candidates[i]
+				if c.ID != q.ID || c.Symbol != q.ID || c.Caption != q.Description || c.SourceFile != q.SourceFile || q.Kind != "existing_upstream_symbol" {
+					return ErrProtocol
+				}
+			}
+			for i, x := range g.Vectors {
+				q := d.Vectors[i]
+				if x.ID != q.ID || !Null(q.Got) {
+					return ErrProtocol
+				}
+				for _, pair := range [][2]json.RawMessage{{x.Input, q.Input}, {x.Want, q.Want}} {
+					var a, z any
+					if json.Unmarshal(pair[0], &a) != nil || json.Unmarshal(pair[1], &z) != nil || !reflect.DeepEqual(a, z) {
+						return ErrProtocol
+					}
+				}
+			}
+		}
+		if found != 1 {
+			return ErrProtocol
+		}
+	}
+	return nil
+}

@@ -1,6 +1,6 @@
 # laya-tools
 
-첫 두 과제의 [원본 관측기 준비](experiments/short-claim/next60-native2-preparation/README.ko.md)와 [독립 검토](experiments/short-claim/next60-native2-review/REVIEW.ko.md)를 공개했습니다. 요청 2개에 입력 9개·예정 관측 23회를 고정했으며, 원본 실행·새 정답·추가 학습은 아직 0회입니다. [바깥 실행 제어기](experiments/short-claim/next60-native2-outside-preparation/README.ko.md)는 더미 테스트 15개와 [독립 검토](experiments/short-claim/next60-native2-outside-review/README.ko.md)를 마쳤습니다. 실제 실행 전 CI와 별도 소스·권리·자원 고정이 남아 있습니다.
+첫 두 과제의 [원본 관측기 준비](experiments/short-claim/next60-native2-preparation/README.ko.md)와 [독립 검토](experiments/short-claim/next60-native2-review/REVIEW.ko.md)를 공개했습니다. 요청 2개에 입력 9개·예정 관측 23회를 고정했습니다. 실제 두 실행 파일까지 빌드했으며, [시작 전에 발견한 빌드 정보 호환성 문제](experiments/short-claim/native2-actual-build-hold/README.ko.md)를 [v5 소스](experiments/short-claim/next60-native2-outside-v5-preparation/README.ko.md)에서 수정했습니다. [독립 검토](experiments/short-claim/next60-native2-outside-v5-review/README.ko.md)와 수정본 테스트25개를 확인했으며 새 CI와 실행 연결은 별도 단계입니다. 원본 실행·새 정답·추가 학습은 아직 0회입니다. 기존 [v4 코드와 검사 이력](experiments/short-claim/next60-native2-outside-preparation/README.ko.md)은 보존합니다.
 
 다음 PDCA는 [계약 초안20개](experiments/short-claim/next60-acquisition-drafts/README.ko.md)를 실제 검사로 적격화하며 30개·60개로 넓힙니다. 현재 적격0개이며, 같은79개 자료의 반복 튜닝은 멈췄습니다. [판단 근거와 도메인·2,400개 최종 평가 계획](experiments/short-claim/next-pdca-after-79/REPORT.ko.md)을 보세요. 실패79 모델은 [고정 HF 커밋](https://huggingface.co/JooYoon/riidolaya-shortclaim-data-effect-failed-79/tree/5bef215895b69d3f2ef4b82bb3f1970279d67f46)에 비활성 보관했고 21개 파일을 다시 내려받아 지문을 확인했습니다.
 

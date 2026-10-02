@@ -1,0 +1,33 @@
+{
+  "schema": "riido-native2-v5-independent-corrections-v1",
+  "preserved_prior_seals": true,
+  "events": [
+    {
+      "found_by": "Root actual build metadata",
+      "before": "v4 fake15 PASS and earlier peer source clearance did not establish actual build compatibility",
+      "evidence": "Go1.27.1 trimpath intentionally removes ldflags buildinfo",
+      "after": "v5 verifies actual string data; old v4 files/reports remain unchanged"
+    },
+    {
+      "found_by": "this independent source review",
+      "before": "bounded symbol count/string table still allowed repeated long per-symbol name copies",
+      "after": "author bounds each name1024B and aggregate8MiB before NewFile; malformed-name tests added"
+    },
+    {
+      "found_by": "author source review",
+      "before": "buildinfo.ReadFile internally parsed Mach-O before the bounded worker inspector",
+      "reviewer_correction": "I had reported remaining source blockers0 before tracing this whole call order. That premature clearance was withdrawn in an internal message; attribution belongs to the author.",
+      "after": "both self and worker bounded gates precede buildinfo.ReadFile; final early-error regression added"
+    },
+    {
+      "found_by": "reviewer readback",
+      "before": "assumed READBACK.v5.json existed",
+      "after": "lookup failed; actual final HANDOFF/ACTIVITY/manifest/SUMS were read instead; failed lookup preserved"
+    },
+    {
+      "found_by": "reviewer static offset message",
+      "before": "one internal message abbreviated header offsets ambiguously",
+      "after": "exact offsets2888832/2888848/2888864 supplied; original byte observation unchanged"
+    }
+  ]
+}

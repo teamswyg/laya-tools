@@ -1,0 +1,165 @@
+{
+  "schema": "riido-native2-v5-independent-source-review-v1",
+  "conclusion": "No remaining concrete source blocker in exact final v5 pins. Source-only review, not execution readiness or semantic success.",
+  "remaining_concrete_source_blockers": 0,
+  "source": [
+    {
+      "id": "controller/source/main.go",
+      "bytes": 34919,
+      "sha256": "5475360689c2b7eaf98ed57a81a2d5952619bddfb49302fb5eabe75d10794633",
+      "runtime_selected": true
+    },
+    {
+      "id": "controller/source/bindings_macho.go",
+      "bytes": 9898,
+      "sha256": "866329333754469f1497388454e8ba3d70b3e23b116e038d9dbf786486b689bc",
+      "runtime_selected": true
+    },
+    {
+      "id": "controller/source/main_test.go",
+      "bytes": 12863,
+      "sha256": "32f065c0704d46a4cf17d1017456272bcb2ea161a411d70ee5c9610e19045639",
+      "runtime_selected": false
+    },
+    {
+      "id": "controller/source/bindings_macho_test.go",
+      "bytes": 10340,
+      "sha256": "3212dcea74beb8915f081faf9b6474f480ee5d56713582cb231c1874cedba0cf",
+      "runtime_selected": false
+    },
+    {
+      "id": "controller/source/pure/protocol.go",
+      "bytes": 10302,
+      "sha256": "c39ce30ff50b546adcce30834f132f5715d2b04d44a1261df483daff65bae764",
+      "runtime_selected": true
+    },
+    {
+      "id": "controller/source/go.mod",
+      "bytes": 46,
+      "sha256": "cbdafee9f7c25cd152d6545ecdb401e6916b70ae1229954c6213fc313dc0d982",
+      "runtime_selected": true
+    }
+  ],
+  "author_seal": {
+    "files": 13,
+    "bytes": 99325,
+    "handoff": {
+      "id": "author/HANDOFF.v5.json",
+      "bytes": 4248,
+      "sha256": "a4a1dc8d6876aa8ef11ee6d0aeb53f3c63324eb8098c0ccf83e0de6678b1ed2b"
+    },
+    "manifest": {
+      "id": "author/PUBLIC-FINAL-PINS.v5.json",
+      "bytes": 1976,
+      "sha256": "b1c3d65aa45d805d80a3fd2fac6b36fa65f120056275b1e86f3a0c4a744d374b"
+    },
+    "sums": {
+      "id": "author/SHA256SUMS",
+      "bytes": 957,
+      "sha256": "2521833dbd40b8b8bea45bfac987f5d7f79e285f6aba5461d7dbc2a5be7b8e0a"
+    },
+    "checksum_entries_PASS": 11,
+    "source_hashes_bytes_readback_PASS": 6
+  },
+  "primary_local_Go_source": [
+    {
+      "id": "Go1.27.1/src/cmd/go/internal/load/pkg.go",
+      "bytes": 126937,
+      "sha256": "d6e1adb610ec55f2e8bc0afd361eedd6e38689684bca122b02873da1d0ed1584",
+      "lines": "2469-2479;2495-2496"
+    },
+    {
+      "id": "Go1.27.1/src/debug/macho/file.go",
+      "bytes": 19075,
+      "sha256": "c732a31c803fb5cf99d11ca27addb7263059e3e33a3858d4ea303a8fc146b649",
+      "lines": "229-578"
+    },
+    {
+      "id": "Go1.27.1/src/debug/macho/macho.go",
+      "bytes": 7741,
+      "sha256": "4a3e0f92444766c0a1269e9bd0e6fc5d7e483a686d28fe108c071dc02e841ac1"
+    },
+    {
+      "id": "Go1.27.1/src/debug/buildinfo/buildinfo.go",
+      "bytes": 16658,
+      "sha256": "5e4064efa60e5fb768ffbf49f44bb6dd037fe35d3245ba9573881adef2f9c097",
+      "lines": "112-430;517-545"
+    },
+    {
+      "id": "Go1.27.1/src/internal/saferio/io.go",
+      "bytes": 3449,
+      "sha256": "efadc03e4126b93f9924cd2d3f70019387bd2945a86657bc6663207d0c8cebc1"
+    }
+  ],
+  "production_source_inventory_order": [
+    "controller/source/main.go",
+    "controller/source/pure/protocol.go",
+    "controller/source/go.mod",
+    "controller/source/bindings_macho.go"
+  ],
+  "checked": [
+    "Actual Go1.27.1 source omits -ldflags from buildinfo when trimpath=true; v4 mandatory declaration gate cannot pass actual build.",
+    "Both self and worker paths run bounded Mach-O validation before debug/buildinfo.ReadFile. Exact worker strings are checked before that second parser.",
+    "Before macho.NewFile: thin LE MachO64 ARM64 executable; file<=64MiB; commands<=128 and128KiB; sections<=64; exact one symtab; symbols<=100000; string table<=8MiB; symbol names<=1024 bytes each and<=8MiB cumulatively including NUL.",
+    "LC_DYSYMTAB count<=1, indirect symbols<=100000 and table range bounded; undefined index/count use uint64. Section relocation total<=100000 and raw ranges bounded before allocation.",
+    "All segment/name section pairs are unique. Legitimate __TEXT/__rodata and __DATA_CONST/__rodata coexist; name-only duplicate rejection would reject the actual worker.",
+    "Exactly one each of main.compiledClosureSHA/main.compiledVectorSHA/main.compiledReadinessSHA and their .str backings; correct section/type, 16-byte Go headers, pointer+64 length, unambiguous mapped bytes, overflow/range guards and lowercase exact SHA comparisons.",
+    "Regular files, no symlink ancestors, opened/path identity and final identity/size/mtime checks; no section Data bulk copy, binary execution or initialization.",
+    "Whole final main diff against v4 changes only binding inspection/order and controller inventory3->4. Reservation graph, physical directory separation, synced exclusive start.once, Start/Wait failure accounting and resources are unchanged.",
+    "Go buildinfo uses1MiB magic search chunks; saferio reads large claimed lengths in10MiB chunks rather than allocating attacker length at once. This is not an absolute process RSS bound."
+  ],
+  "static_old_worker": {
+    "id": "Root/freeze-v1/native-worker",
+    "bytes": 4537554,
+    "sha256": "8736b8042018bfd1868b9ad534e8f38dff7c7909187b64d7ca78802de321cab0",
+    "executions": 0,
+    "raw_payload_copied_bytes": 0,
+    "all_three_values_match_old_plan": true,
+    "values": [
+      "bd6331ee6bc1575de96e464cddda1d47bdbbb07519dbac3e6d92775b9a6cea09",
+      "70f2083e60cd72c910743fa687ec0d8f9e73cd5dae7e291d6db4d37f4059840b",
+      "e1625740c71909c7c830f892c40c7d81d5e9b8e0aba895b3b8fe88192e1d146a"
+    ],
+    "header_offsets": [
+      2888832,
+      2888848,
+      2888864
+    ],
+    "backing_offsets": [
+      1336640,
+      1336736,
+      1336832
+    ],
+    "string_lengths": [
+      64,
+      64,
+      64
+    ],
+    "scope": "Old held binary proves static layout compatibility only; it does not bind future v2 readiness or establish runtime values."
+  },
+  "limits": [
+    "Root proof files bind identity/bytes; semantic rights/CI/resource interpretation remains Root-owned.",
+    "No compiler-independent, post-initialization, kernel or adversarial filesystem attestation; immutable single-owner input assumptions remain.",
+    "GOMEMLIMIT256MiB is soft; GOMAXPROCS1 is Go scheduling configuration, not a GPU or whole-process hard resource cap.",
+    "No new original observation, Want correctness, truth/role/weight assignment, training/redistribution approval or CI pass is supplied by this review.",
+    "New prospective source/CI/resource proof -> readiness -> worker/native plan -> execution binding must be frozen separately. Existing oldReady1/v4/old binary are preserved."
+  ],
+  "alternatives": [
+    {
+      "option": "bounded static v5 values",
+      "fit": "recommended for current unstripped thin darwin/arm64 Go binary",
+      "reason": "pre-initialization and actual data comparison; retains trimpath"
+    },
+    {
+      "option": "expose ldflags buildinfo by removing trimpath",
+      "fit": "poor",
+      "reason": "changes reproducibility/path privacy and restores declaration rather than actual value evidence"
+    },
+    {
+      "option": "run worker to print bindings",
+      "fit": "incompatible with current pre-start gate",
+      "reason": "original package initialization precedes main; consumes an execution before outside approval"
+    }
+  ],
+  "publication_or_execution_approval": false
+}
