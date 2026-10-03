@@ -1,0 +1,262 @@
+package main
+
+import (
+	"bytes"
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
+
+func boolean(v bool) *bool { return &v }
+
+// Entirely owned prose/vectors. Fixed ID and count constants exercise the
+// production contract without reading any actual dataset, fixture or adoption.
+func synthetic(t *testing.T) ([]byte, fixtures, qualification) {
+	t.Helper()
+	counts := [16]int{5, 4, 6, 7, 6, 3, 3, 5, 6, 5, 5, 5, 5, 5, 5, 5}
+	var previous []byte
+	for i, id := range previousIDs {
+		n := 3
+		if i == 1 {
+			n = 2
+		}
+		candidates := make([]Candidate, n)
+		for j := range candidates {
+			positive := j == 1
+			if i < 2 {
+				positive = j == 0
+			}
+			candidates[j] = Candidate{ID: candidateIDs[j], Text: "Owned old candidate text.", Label: positive, Weight: 1}
+		}
+		r := Row{Schema: rowSchema, ID: id, Request: "Owned old request text.", Candidates: candidates, Role: role, Group: 76, Family: "owned-toy", Revision: strings.Repeat("a", 40), Scope: Scope{Inputs: counts[i], Observations: counts[i] * n, Description: "Owned finite toy scope."}, TextRevision: "owned-toy-v1", FeaturePolicy: featurePolicy}
+		raw, err := json.Marshal(r)
+		if err != nil {
+			t.Fatal(err)
+		}
+		previous = append(previous, raw...)
+		previous = append(previous, '\n')
+	}
+	f := fixtures{Schema: "riido-next-five-fixtures-v1"}
+	q := qualification{
+		Schema: "riido-next-five-root-finite-development-qualification-v2", State: "Root_adopted_five_finite_development_requests",
+		Prior:      priorTotals{Bytes: previousBytes, SHA: previousSHA, Rows: 16, Labels: 47, Positive: 16, Negative: 31, Inputs: 80, Observations: 236},
+		FixtureSHA: fixtureSHA, Role: role, Weight: 1, Inputs: 23, Observations: 69, SelectedObservations: 65,
+		Positive: 5, Negative: 9, Labels: 14, Parents: 5,
+		Combined:          combinedTotals{Requests: 21, Labels: 61, Positive: 21, Negative: 40, Inputs: 103, Observations: 305, Evidence: 305, Selected: 301},
+		UnknownNeverFalse: true, KnownNegativeMayHaveUnknown: true, BaselineExcluded: true, Old79: true,
+		Positions: positionControls{Index1: 18, Requests: 21, Negative: 40, Labels: 61, DifferentUnits: true},
+	}
+	first := 0
+	for i, id := range newIDs {
+		a := adoptedRequest{ID: id, OriginalOrdinal: originalOrdinals[i], Request: "Owned new request text.", Family: families[i], Inputs: inputCounts[i], Group: groups[i], Revision: textRevision, SourceRevision: revisions[i], TextRevision: textRevision, Observations: inputCounts[i] * selectedCounts[i]}
+		for j := 0; j < inputCounts[i]; j++ {
+			f.Records = append(f.Records, fixtureRecord{Ordinal: first + j, RequestIndex: i, OriginalOrdinal: originalOrdinals[i], CaseIndex: j, RequestID: id, CaseID: id + "-vector-0" + string(rune('1'+j)), Got: json.RawMessage("null"), Truth: json.RawMessage("null"), Role: json.RawMessage("null"), Weight: json.RawMessage("null")})
+		}
+		for j := 0; j < selectedCounts[i]; j++ {
+			position := j
+			if i == 1 {
+				position++
+			}
+			c := selectedCandidate{Position: position, ID: candidateIDs[position], Text: "Owned new candidate text.", Truth: boolean(position == 1), Role: role, Weight: 1}
+			for k := 0; k < inputCounts[i]; k++ {
+				c.Ordinals = append(c.Ordinals, (first+k)*3+position)
+				state := "satisfied"
+				if position != 1 && k == 0 {
+					state = "unsatisfied"
+					c.Counterexamples = append(c.Counterexamples, k)
+				}
+				c.Vector = append(c.Vector, state)
+			}
+			a.Selected = append(a.Selected, c)
+		}
+		if i == 1 {
+			a.Excluded = []excludedCandidate{{Position: 0, ID: candidateIDs[0], Reason: "No known counterexample and at least one unavailable required predicate; no training label", Unknown: []int{0, 1, 2, 3}}}
+		}
+		q.Requests = append(q.Requests, a)
+		first += inputCounts[i]
+	}
+	return previous, f, q
+}
+
+func clone(t *testing.T, q qualification) qualification {
+	t.Helper()
+	raw, err := json.Marshal(q)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out qualification
+	if err := decode(raw, &out, false); err != nil {
+		t.Fatal(err)
+	}
+	return out
+}
+
+func TestOwnedComposePreservesPrefixSelectedOrderAndUnits(t *testing.T) {
+	previous, f, q := synthetic(t)
+	q.Requests[0].Request = "Owned exact request with trailing space. "
+	q.Requests[0].Selected[0].Text = "Owned exact caption with line feed.\n"
+	raw, summary, err := compose(previous, f, q)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(raw[:len(previous)], previous) || !summary.PrefixExact || summary.PreviousRows != 16 || summary.RowsAppended != 5 {
+		t.Fatal("prefix was changed")
+	}
+	if summary.Requests != 21 || summary.Labels != 61 || summary.Positive != 21 || summary.Negative != 40 || summary.Inputs != 103 || summary.EvidenceObservations != 305 || summary.SelectedObservations != 301 || summary.ExcludedCandidates != 1 || summary.PositiveIndex1 != 18 {
+		t.Fatalf("wrong units: %+v", summary)
+	}
+	if summary.TrainingReady || summary.NewQualification || summary.UnknownToFalse || summary.Reader+summary.Original+summary.Oracle+summary.Feature+summary.Score+summary.Project+summary.Fit+summary.Model != 0 {
+		t.Fatal("outside operation claimed")
+	}
+	lines := bytes.Split(raw[:len(raw)-1], []byte{'\n'})
+	if len(lines) != 21 {
+		t.Fatal("row count")
+	}
+	selectedObs := 0
+	for i := 16; i < len(lines); i++ {
+		var row Row
+		if err := decode(lines[i], &row, true); err != nil {
+			t.Fatal(err)
+		}
+		if row.ID != newIDs[i-16] || strings.HasPrefix(row.ID, "next60-next60-") || row.Scope.Observations != row.Scope.Inputs*len(row.Candidates) || row.TextRevision != textRevision || row.Revision != revisions[i-16] {
+			t.Fatal("metadata or ID remapping")
+		}
+		selectedObs += row.Scope.Observations
+		if i == 16 && (row.Request != q.Requests[0].Request || row.Candidates[0].Text != q.Requests[0].Selected[0].Text) {
+			t.Fatal("text normalized")
+		}
+		if i == 17 && (len(row.Candidates) != 2 || row.Candidates[0].ID != "reference-design" || !row.Candidates[0].Label || row.Candidates[1].ID != "wrong-seed-design" || row.Candidates[1].Label || row.Scope.Observations != 8) {
+			t.Fatal("unknown baseline leaked into training")
+		}
+	}
+	if selectedObs != 65 {
+		t.Fatal("excluded observation counted")
+	}
+}
+
+func TestFiniteSupportAndMetadataGuards(t *testing.T) {
+	previous, f, base := synthetic(t)
+	cases := []struct {
+		name   string
+		mutate func(*qualification)
+	}{
+		{"unknown only is not false", func(q *qualification) {
+			c := &q.Requests[1].Selected[1]
+			c.Counterexamples = nil
+			c.Unknown = []int{0}
+			c.Vector[0] = "unknown"
+		}},
+		{"null truth", func(q *qualification) { q.Requests[0].Selected[0].Truth = nil }},
+		{"positive unknown", func(q *qualification) { c := &q.Requests[0].Selected[1]; c.Unknown = []int{0}; c.Vector[0] = "unknown" }},
+		{"known counterexample lost", func(q *qualification) { q.Requests[0].Selected[0].Counterexamples = nil }},
+		{"unknown baseline silently selected", func(q *qualification) {
+			a := &q.Requests[1]
+			c := a.Selected[1]
+			c.Position = 0
+			c.ID = candidateIDs[0]
+			a.Selected = append([]selectedCandidate{c}, a.Selected...)
+			a.Excluded = nil
+			a.Observations = 12
+		}},
+		{"selected order reordered", func(q *qualification) {
+			q.Requests[1].Selected[0], q.Requests[1].Selected[1] = q.Requests[1].Selected[1], q.Requests[1].Selected[0]
+		}},
+		{"double next60 ID", func(q *qualification) { q.Requests[0].ID = "next60-" + q.Requests[0].ID }},
+		{"group drift", func(q *qualification) { q.Requests[0].Group = 77 }},
+		{"source revision not text revision", func(q *qualification) { q.Requests[0].SourceRevision = textRevision }},
+		{"weight drift", func(q *qualification) { q.Requests[0].Selected[0].Weight = 2 }},
+		{"role drift", func(q *qualification) { q.Requests[0].Selected[0].Role = "validation" }},
+		{"claimed unseen family", func(q *qualification) { q.NewFamilies = 1 }},
+		{"position conflates source with selected", func(q *qualification) { q.Positions.Index1 = 19 }},
+		{"evidence conflates selected observations", func(q *qualification) { q.Combined.Selected = 305 }},
+		{"early fit allowed", func(q *qualification) { q.FitBefore30 = true }},
+		{"row schedule drift", func(q *qualification) { q.Requests[2].Selected[1].Ordinals[0]++ }},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			q := clone(t, base)
+			tc.mutate(&q)
+			if raw, _, err := compose(previous, f, q); err == nil || raw != nil {
+				t.Fatal("invalid support accepted")
+			}
+		})
+	}
+	// Known false and another unavailable predicate may overlap in one fixture;
+	// preserve unknown bookkeeping instead of requiring false to erase it.
+	q := clone(t, base)
+	q.Requests[0].Selected[0].Unknown = []int{0}
+	if _, _, err := compose(previous, f, q); err != nil {
+		t.Fatal("known negative lost retained unknown:", err)
+	}
+}
+
+func TestPinnedBytesAndFailurePreservation(t *testing.T) {
+	dir := t.TempDir()
+	input := filepath.Join(dir, "owned-input.json")
+	raw := []byte("{\"owned\":true}\n")
+	if err := os.WriteFile(input, raw, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := pinned(input, digest(raw), len(raw)); err != nil {
+		t.Fatal(err)
+	}
+	changed := bytes.Clone(raw)
+	changed[9] = 'f'
+	if err := os.WriteFile(input, changed, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := pinned(input, digest(raw), len(raw)); err == nil {
+		t.Fatal("same-length prefix mutation accepted")
+	}
+	link := filepath.Join(dir, "link")
+	if err := os.Symlink(input, link); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := pinned(link, digest(changed), len(changed)); err == nil {
+		t.Fatal("symlink input accepted")
+	}
+	output := filepath.Join(dir, "exclusive.jsonl")
+	summary := failed()
+	if err := writeExclusive(output, raw, &summary); err != nil {
+		t.Fatal(err)
+	}
+	if !summary.Reserved || summary.Written != len(raw) || !summary.FileSynced || !summary.DirectorySynced {
+		t.Fatal("durable counters missing")
+	}
+	if err := writeExclusive(output, []byte("replace"), &summary); err == nil {
+		t.Fatal("existing output overwritten")
+	}
+	got, err := os.ReadFile(output)
+	if err != nil || !bytes.Equal(got, raw) {
+		t.Fatal("original output changed")
+	}
+	if err := writeExclusive("relative.jsonl", raw, &Summary{}); err == nil {
+		t.Fatal("relative output accepted")
+	}
+	if err := writeExclusive(filepath.Join(dir, "large"), make([]byte, maxOutput+1), &Summary{}); err == nil {
+		t.Fatal("oversize output accepted")
+	}
+	if _, err := os.Stat(filepath.Join(dir, "large")); !os.IsNotExist(err) {
+		t.Fatal("invalid output was reserved")
+	}
+}
+
+func TestStrictJSONAndFixturePrestate(t *testing.T) {
+	for _, raw := range []string{`{"truth":false,"truth":true}`, `{"truth":false,"TRUTH":true}`, `{"tr\u0075th":false,"truth":true}`, `{"truth":false} {}`, `{"truth":false,"unknown":[`} {
+		var q qualification
+		if err := decode([]byte(raw), &q, false); err == nil {
+			t.Fatal("bad JSON accepted")
+		}
+	}
+	previous, f, q := synthetic(t)
+	f.Records[0].Truth = json.RawMessage("false")
+	if _, _, err := compose(previous, f, q); err == nil {
+		t.Fatal("fixture truth replaced Root supervision")
+	}
+	previous, f, q = synthetic(t)
+	if _, _, err := compose(bytes.TrimSuffix(previous, []byte{'\n'}), f, q); err == nil {
+		t.Fatal("prefix final newline not preserved")
+	}
+}

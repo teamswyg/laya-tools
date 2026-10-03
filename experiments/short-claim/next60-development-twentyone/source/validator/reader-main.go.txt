@@ -1,0 +1,73 @@
+// Future Root bridge only. Pure preparation never compiles or runs this file.
+// Copy beside module/validate.go inside the project module after review and
+// after Root freezes prospective data21. LoadDevelopmentRow is the only reader
+// entry; getters inspect values without Features/Rank/Score/Project/Fit calls.
+package main
+
+import (
+	"bytes"
+	"github.com/teamswyg/laya-tools/pkg/shortclaimdata"
+	"io"
+	"os"
+)
+
+func projectRead(raw []byte) (loadedView, error) {
+	ex, e := shortclaimdata.LoadDevelopmentRow(bytes.NewReader(raw))
+	if e != nil || !ex.Valid() {
+		return loadedView{}, failure("project_reader_validation")
+	}
+	m := ex.Metadata()
+	p := ex.Input().Prepared()
+	s := ex.Supervision()
+	v := loadedView{Valid: true, ID: m.StableID, Request: p.Request, Schema: p.Schema, Provenance: p.Provenance, Role: m.Role, Policy: m.FeaturePolicy, Family: m.SourceFamily, Revision: m.SourceRevision, TextRevision: m.TextRevision, ScopeDescription: m.FiniteScope.Description, Group: m.WholeGroup, Inputs: m.FiniteScope.InputCount, Observations: m.FiniteScope.CandidateObservations, Count: p.Count, SupervisionCount: s.Count, All: m.FiniteScope.AllInputGuarantee, Unseen: m.FiniteScope.UnseenSourceGuarantee, UnusedZero: true}
+	if p.Count < 1 || p.Count > len(v.Candidates) || s.Count != p.Count {
+		return loadedView{}, failure("project_reader_validation")
+	}
+	for j := 0; j < len(v.Candidates); j++ {
+		c := p.Candidates[j]
+		if j < p.Count {
+			v.Candidates[j] = loadedCandidate{ID: c.ID, Text: c.Text, Label: s.Labels[j], Weight: s.Weights[j]}
+		} else if c.ID != "" || c.Text != "" || c.NormalizedText != "" || s.Labels[j] || s.Weights[j] != 0 {
+			v.UnusedZero = false
+		}
+	}
+	return v, nil
+}
+func main() {
+	out := initialSummary()
+	v, e := parseOptions(os.Args[1:])
+	if e != nil {
+		_, _ = io.WriteString(os.Stderr, "validation_arguments\n")
+		os.Exit(2)
+	}
+	var b bundle
+	inputs := []struct {
+		path, sha string
+		size      int
+		dst       *[]byte
+	}{{v[0], v[1], 0, &b.Data}, {v[2], previousSHA, previousBytes, &b.Previous}, {v[3], fixtureSHA, fixtureBytes, &b.Fixtures}, {v[4], wantsSHA, wantsBytes, &b.Wants}, {v[5], v[6], adoptionBytes, &b.Adoption}, {v[7], comparisonSHA, comparisonBytes, &b.Comparison}, {v[8], resultSHA, resultBytes, &b.Results}}
+	for _, x := range inputs {
+		*x.dst, e = pinned(x.path, x.sha, x.size)
+		if e != nil {
+			break
+		}
+	}
+	if e == nil {
+		e = validateBundle(b, pins{Data: v[1], Adoption: v[6]}, projectRead, &out)
+	}
+	code := 0
+	if e != nil {
+		out.Failure = e.Error()
+		code = 1
+	}
+	if writeOutput(v[9], out) != nil {
+		_, _ = io.WriteString(os.Stderr, "validation_output\n")
+		os.Exit(1)
+	}
+	if code == 0 {
+		_, _ = io.WriteString(os.Stdout, "input_validation_saved\n")
+	} else {
+		_, _ = io.WriteString(os.Stderr, "validation_failed\n")
+	}
+	os.Exit(code)
+}

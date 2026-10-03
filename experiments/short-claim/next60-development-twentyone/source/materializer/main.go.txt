@@ -1,0 +1,651 @@
+// Copies Root-adopted public finite annotations into development JSONL.
+// No original, oracle, reader, model, feature, score, projection or fit calls.
+package main
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"flag"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"runtime"
+	"runtime/debug"
+	"strings"
+	"unicode/utf8"
+)
+
+const (
+	previousSHA        = "3222e493f4b5bfaf4de008a115a3969209b493d85e115df209394b2e1f0077a4"
+	previousBytes      = 22097
+	fixtureSHA         = "d0d5bc6c9248a600912eb9c769fff00abdb105fe310703a6cd57b785702106af"
+	fixtureBytes       = 21636
+	qualificationSHA   = "3c1468970a99bc494f3674c6fcbaf476f485e3d491a850ab7aebb09abadd3bfd"
+	qualificationBytes = 18497
+	rowSchema          = "riido-finite-development-request-row-v1"
+	role               = "development_train"
+	featurePolicy      = "request_and_candidates_text_only"
+	textRevision       = "nextfive-finite-v1"
+	description        = "Only this request frozen finite inputs; saved first observation comparison supports these candidate positions. No all-input or unseen-source guarantee."
+	maxInput           = 1 << 20
+	maxOutput          = 128 << 10
+	maxRow             = 16 << 10
+	heapLimit          = 256 << 20
+)
+
+var previousIDs = [16]string{
+	"next60-pflag-native-ipnet", "next60-mapstructure-native-or", "next60-humanize-precise-ftoa",
+	"next60-humanize-strict-comma", "next60-mapstructure-key-collision", "next60-pflag-map-snapshot", "next60-humanize-fractional-bytes",
+	"next60-go53-pflag-annotation-ownership", "next60-go53-pflag-bounded-count", "next60-go53-pflag-single-assignment",
+	"next60-go53-pflag-sensitive-default", "next60-go53-pflag-deferred-function", "next60-go53-pflag-text-error-value",
+	"next60-go53-mapstructure-hooks-errors-is", "next60-go53-mapstructure-remain-conflict", "next60-go53-mapstructure-tag-precedence",
+}
+var newIDs = [5]string{"next60-mapstructure-nil-config", "next60-cobra-error-writer", "next60-cobra-required-annotation", "next60-cobra-context-preflight", "next60-humanize-bigbytes-precision"}
+var originalOrdinals = [5]int{6, 14, 8, 16, 10}
+var inputCounts = [5]int{4, 4, 5, 4, 6}
+var selectedCounts = [5]int{3, 2, 3, 3, 3}
+var groups = [5]int{78, 77, 77, 77, 76}
+var families = [5]string{"upstream53-mapstructure", "upstream53-cobra-pflag-connected", "upstream53-cobra-pflag-connected", "upstream53-cobra-pflag-connected", "upstream53-humanize"}
+var revisions = [5]string{"52aa5c6dc1d27226460807054ca2107b2d54fb2d", "adbc8813901bba65827259daa8e22ff94ec1f30e", "adbc8813901bba65827259daa8e22ff94ec1f30e", "adbc8813901bba65827259daa8e22ff94ec1f30e", "a1b4e66b9a6d890e9e15e7091cf16c8032367d6e"}
+var candidateIDs = [3]string{"baseline-design", "reference-design", "wrong-seed-design"}
+
+type Candidate struct {
+	ID     string `json:"metadata_id"`
+	Text   string `json:"text"`
+	Label  bool   `json:"label"`
+	Weight int    `json:"sample_weight"`
+}
+type Scope struct {
+	Inputs       int    `json:"input_count"`
+	Observations int    `json:"candidate_observations"`
+	Description  string `json:"description"`
+	AllInputs    bool   `json:"all_input_guarantee"`
+	Unseen       bool   `json:"unseen_source_guarantee"`
+}
+type Row struct {
+	Schema        string      `json:"schema"`
+	ID            string      `json:"stable_id"`
+	Request       string      `json:"request"`
+	Candidates    []Candidate `json:"candidates"`
+	Role          string      `json:"role"`
+	Group         int         `json:"whole_group"`
+	Family        string      `json:"source_family"`
+	Revision      string      `json:"source_revision"`
+	Scope         Scope       `json:"finite_scope"`
+	TextRevision  string      `json:"text_revision"`
+	FeaturePolicy string      `json:"feature_policy"`
+}
+type selectedCandidate struct {
+	Position        int      `json:"source_candidate_position"`
+	ID              string   `json:"metadata_id"`
+	Text            string   `json:"text"`
+	Truth           *bool    `json:"truth"`
+	Role            string   `json:"role"`
+	Weight          int      `json:"weight"`
+	Counterexamples []int    `json:"known_counterexample_fixture_positions"`
+	Unknown         []int    `json:"unknown_fixture_positions"`
+	Ordinals        []int    `json:"row_ordinals"`
+	Vector          []string `json:"row_vector"`
+}
+type excludedCandidate struct {
+	Position int    `json:"source_candidate_position"`
+	ID       string `json:"metadata_id"`
+	Reason   string `json:"reason"`
+	Unknown  []int  `json:"unknown_fixture_positions"`
+}
+type adoptedRequest struct {
+	ID              string              `json:"id"`
+	OriginalOrdinal int                 `json:"original_draft_ordinal"`
+	Request         string              `json:"request"`
+	Family          string              `json:"source_family"`
+	Inputs          int                 `json:"finite_inputs"`
+	Group           int                 `json:"connected_group"`
+	Revision        string              `json:"revision"`
+	SourceRevision  string              `json:"source_revision"`
+	TextRevision    string              `json:"text_revision"`
+	Observations    int                 `json:"selected_candidate_observations"`
+	Selected        []selectedCandidate `json:"selected"`
+	Excluded        []excludedCandidate `json:"excluded"`
+}
+type priorTotals struct {
+	Bytes        int    `json:"bytes"`
+	SHA          string `json:"sha256"`
+	Rows         int    `json:"rows"`
+	Labels       int    `json:"labels"`
+	Positive     int    `json:"positive"`
+	Negative     int    `json:"negative"`
+	Inputs       int    `json:"inputs"`
+	Observations int    `json:"observations"`
+}
+type combinedTotals struct {
+	Requests     int `json:"requests"`
+	Labels       int `json:"labels"`
+	Positive     int `json:"positive"`
+	Negative     int `json:"negative"`
+	Inputs       int `json:"inputs"`
+	Observations int `json:"observations"`
+	Evidence     int `json:"original_evidence_observations"`
+	Selected     int `json:"selected_candidate_observations"`
+}
+type positionControls struct {
+	Index1         int  `json:"positive_index1_selected_requests"`
+	Requests       int  `json:"total_requests"`
+	Negative       int  `json:"always_negative_correct_labels"`
+	Labels         int  `json:"total_labels"`
+	DifferentUnits bool `json:"different_units_not_model_accuracy"`
+}
+type qualification struct {
+	Schema                      string           `json:"schema"`
+	State                       string           `json:"state"`
+	Prior                       priorTotals      `json:"prior_data"`
+	FixtureSHA                  string           `json:"fixture_sha256"`
+	Role                        string           `json:"role"`
+	Weight                      int              `json:"weight_per_candidate"`
+	Inputs                      int              `json:"new_inputs"`
+	Observations                int              `json:"new_observations"`
+	SelectedObservations        int              `json:"new_selected_candidate_observations"`
+	Positive                    int              `json:"new_positive"`
+	Negative                    int              `json:"new_negative"`
+	Labels                      int              `json:"new_labels"`
+	Parents                     int              `json:"new_parents"`
+	Combined                    combinedTotals   `json:"combined"`
+	Requests                    []adoptedRequest `json:"requests"`
+	UnknownNeverFalse           bool             `json:"unknown_never_false"`
+	KnownNegativeMayHaveUnknown bool             `json:"known_negative_may_retain_other_unknown_predicates"`
+	BaselineExcluded            bool             `json:"baseline_error_writer_removed_and_selected_order_preserved"`
+	Positions                   positionControls `json:"position_controls"`
+	NewFamilies                 int              `json:"new_source_families"`
+	Old79                       bool             `json:"historical_79_unchanged"`
+	Fit                         int              `json:"new_corpus_Fit"`
+	Model                       int              `json:"new_model_inference"`
+	FitBefore30                 bool             `json:"fit_before_30_qualified"`
+}
+type fixtureRecord struct {
+	Ordinal         int             `json:"ordinal"`
+	RequestIndex    int             `json:"request_index"`
+	OriginalOrdinal int             `json:"original_request_ordinal"`
+	CaseIndex       int             `json:"case_index"`
+	RequestID       string          `json:"request_id"`
+	CaseID          string          `json:"case_id"`
+	Got             json.RawMessage `json:"Got"`
+	Truth           json.RawMessage `json:"truth"`
+	Role            json.RawMessage `json:"role"`
+	Weight          json.RawMessage `json:"weight"`
+}
+type fixtures struct {
+	Schema  string          `json:"schema"`
+	Records []fixtureRecord `json:"records"`
+}
+type Summary struct {
+	Schema               string `json:"schema"`
+	State                string `json:"state"`
+	FailureCode          string `json:"failure_code"`
+	PinReads             int    `json:"pin_reads_completed"`
+	PreviousRows         int    `json:"previous_rows_preserved"`
+	RowsAppended         int    `json:"rows_appended"`
+	PrefixExact          bool   `json:"previous_sixteen_prefix_byte_exact"`
+	Requests             int    `json:"requests"`
+	Labels               int    `json:"candidate_labels"`
+	Positive             int    `json:"positive_labels"`
+	Negative             int    `json:"negative_labels"`
+	Inputs               int    `json:"finite_inputs"`
+	EvidenceObservations int    `json:"original_evidence_observations"`
+	SelectedObservations int    `json:"selected_candidate_observations"`
+	ExcludedCandidates   int    `json:"excluded_unknown_candidates"`
+	PositiveIndex1       int    `json:"positive_index1_selected_requests"`
+	Bytes                int    `json:"output_bytes"`
+	SHA                  string `json:"output_sha256"`
+	Reserved             bool   `json:"output_exclusive_reserved"`
+	Written              int    `json:"output_bytes_written"`
+	FileSynced           bool   `json:"output_file_synced"`
+	DirectorySynced      bool   `json:"output_parent_directory_synced"`
+	NewQualification     bool   `json:"new_qualification_assigned"`
+	UnknownToFalse       bool   `json:"unknown_to_false_conversion"`
+	Reader               int    `json:"reader_calls"`
+	Original             int    `json:"original_calls"`
+	Oracle               int    `json:"oracle_calls"`
+	Feature              int    `json:"feature_calls"`
+	Score                int    `json:"score_calls"`
+	Project              int    `json:"project_calls"`
+	Fit                  int    `json:"fit_calls"`
+	Model                int    `json:"model_calls"`
+	TrainingReady        bool   `json:"training_ready"`
+}
+
+func failed() Summary {
+	return Summary{Schema: "riido-twentyone-development-materialization-v1", State: "failed"}
+}
+func invalid(s string) error   { return errors.New(s) }
+func digest(raw []byte) string { h := sha256.Sum256(raw); return hex.EncodeToString(h[:]) }
+func boundedText(s string) bool {
+	return s != "" && utf8.ValidString(s) && len(s) <= 512 && len(strings.Fields(s)) <= 32
+}
+
+func pinned(file, sha string, size int) ([]byte, os.FileInfo, error) {
+	st, err := os.Lstat(file)
+	if err != nil || !st.Mode().IsRegular() || size < 1 || size > maxInput || st.Size() != int64(size) {
+		return nil, nil, invalid("twentyone_input_regular_or_bound")
+	}
+	f, err := os.Open(file)
+	if err != nil {
+		return nil, nil, invalid("twentyone_input_open")
+	}
+	defer f.Close()
+	before, err := f.Stat()
+	if err != nil || !os.SameFile(st, before) || st.Size() != before.Size() {
+		return nil, nil, invalid("twentyone_input_changed")
+	}
+	raw, err := io.ReadAll(io.LimitReader(f, int64(size)+1))
+	after, statErr := f.Stat()
+	if err != nil || statErr != nil || len(raw) != size || !os.SameFile(st, after) || after.Size() != st.Size() || !st.ModTime().Equal(after.ModTime()) {
+		return nil, nil, invalid("twentyone_input_read")
+	}
+	if digest(raw) != sha {
+		return nil, nil, invalid("twentyone_input_pin")
+	}
+	return raw, st, nil
+}
+
+// Strict duplicate/case-folded key rejection precedes projections. Projections
+// intentionally omit Root metadata outside this materialization's contract;
+// exact full-file pins bind that metadata, not a permissive re-labeling path.
+func decode(raw []byte, value any, strictFields bool) error {
+	if len(raw) == 0 || len(raw) > maxInput || !utf8.Valid(raw) {
+		return invalid("twentyone_json")
+	}
+	scan := json.NewDecoder(bytes.NewReader(raw))
+	if scanValue(scan, 0) != nil {
+		return invalid("twentyone_json")
+	}
+	if _, err := scan.Token(); err != io.EOF {
+		return invalid("twentyone_json")
+	}
+	d := json.NewDecoder(bytes.NewReader(raw))
+	if strictFields {
+		d.DisallowUnknownFields()
+	}
+	if d.Decode(value) != nil {
+		return invalid("twentyone_json")
+	}
+	return nil
+}
+func scanValue(d *json.Decoder, depth int) error {
+	if depth > 32 {
+		return invalid("twentyone_json")
+	}
+	t, err := d.Token()
+	if err != nil {
+		return err
+	}
+	delim, compound := t.(json.Delim)
+	if !compound {
+		return nil
+	}
+	if delim == '{' {
+		var keys [64]string
+		count := 0
+		for d.More() {
+			key, err := d.Token()
+			name, ok := key.(string)
+			if err != nil || !ok || count == len(keys) {
+				return invalid("twentyone_json")
+			}
+			for i := 0; i < count; i++ {
+				if strings.EqualFold(keys[i], name) {
+					return invalid("twentyone_json")
+				}
+			}
+			keys[count] = name
+			count++
+			if err := scanValue(d, depth+1); err != nil {
+				return err
+			}
+		}
+	} else if delim == '[' {
+		for count := 0; d.More(); count++ {
+			if count >= 4096 {
+				return invalid("twentyone_json")
+			}
+			if err := scanValue(d, depth+1); err != nil {
+				return err
+			}
+		}
+	} else {
+		return invalid("twentyone_json")
+	}
+	end, err := d.Token()
+	if err != nil || (delim == '{' && end != json.Delim('}')) || (delim == '[' && end != json.Delim(']')) {
+		return invalid("twentyone_json")
+	}
+	return nil
+}
+
+func inspectPrefix(previous []byte) (int, error) {
+	if len(previous) < 1 || len(previous) > maxOutput || previous[len(previous)-1] != '\n' || !utf8.Valid(previous) {
+		return 0, invalid("twentyone_previous_shape")
+	}
+	lines := bytes.Split(previous[:len(previous)-1], []byte{'\n'})
+	if len(lines) != 16 {
+		return 0, invalid("twentyone_previous_count")
+	}
+	labels, positives, inputs, observations, position1 := 0, 0, 0, 0, 0
+	for i, line := range lines {
+		var r Row
+		if len(line) == 0 || len(line) > maxRow || decode(line, &r, true) != nil ||
+			r.Schema != rowSchema || r.ID != previousIDs[i] || r.Role != role || r.FeaturePolicy != featurePolicy ||
+			!boundedText(r.Request) || r.Scope.AllInputs || r.Scope.Unseen || r.Scope.Inputs < 1 ||
+			len(r.Candidates) < 2 || len(r.Candidates) > 8 || r.Scope.Observations != r.Scope.Inputs*len(r.Candidates) ||
+			r.Group < 76 || r.Group > 78 || len(r.Revision) != 40 || r.Family == "" {
+			return 0, invalid("twentyone_previous_shape")
+		}
+		p := 0
+		for j, c := range r.Candidates {
+			if c.ID == "" || !boundedText(c.Text) || c.Weight != 1 {
+				return 0, invalid("twentyone_previous_shape")
+			}
+			if c.Label {
+				p++
+				if j == 1 {
+					position1++
+				}
+			}
+		}
+		if p != 1 {
+			return 0, invalid("twentyone_previous_supervision")
+		}
+		labels += len(r.Candidates)
+		positives += p
+		inputs += r.Scope.Inputs
+		observations += r.Scope.Observations
+	}
+	if labels != 47 || positives != 16 || inputs != 80 || observations != 236 || position1 != 14 {
+		return 0, invalid("twentyone_previous_totals")
+	}
+	return position1, nil
+}
+
+func sortedPositions(values []int, count int) bool {
+	prior := -1
+	for _, p := range values {
+		if p < 0 || p >= count || p <= prior {
+			return false
+		}
+		prior = p
+	}
+	return true
+}
+func contains(values []int, p int) bool {
+	for _, v := range values {
+		if v == p {
+			return true
+		}
+	}
+	return false
+}
+
+func validateCandidate(c selectedCandidate, count, firstFixture int) error {
+	if c.Position < 0 || c.Position >= 3 || c.ID != candidateIDs[c.Position] || !boundedText(c.Text) ||
+		c.Truth == nil || c.Role != role || c.Weight != 1 || len(c.Ordinals) != count || len(c.Vector) != count ||
+		!sortedPositions(c.Counterexamples, count) || !sortedPositions(c.Unknown, count) {
+		return invalid("twentyone_candidate_binding")
+	}
+	for j, state := range c.Vector {
+		if c.Ordinals[j] != (firstFixture+j)*3+c.Position {
+			return invalid("twentyone_candidate_schedule")
+		}
+		switch state {
+		case "satisfied":
+			if contains(c.Counterexamples, j) || contains(c.Unknown, j) {
+				return invalid("twentyone_candidate_state")
+			}
+		case "unsatisfied":
+			if !contains(c.Counterexamples, j) {
+				return invalid("twentyone_candidate_state")
+			}
+		case "unknown":
+			if contains(c.Counterexamples, j) || !contains(c.Unknown, j) {
+				return invalid("twentyone_candidate_state")
+			}
+		default:
+			return invalid("twentyone_candidate_state")
+		}
+	}
+	if *c.Truth {
+		if len(c.Counterexamples) != 0 || len(c.Unknown) != 0 {
+			return invalid("twentyone_positive_unknown_or_counterexample")
+		}
+		for _, state := range c.Vector {
+			if state != "satisfied" {
+				return invalid("twentyone_positive_state")
+			}
+		}
+	} else if len(c.Counterexamples) == 0 {
+		return invalid("twentyone_unknown_is_not_negative")
+	}
+	return nil
+}
+
+func qualificationShape(q qualification) bool {
+	p, t := q.Prior, q.Combined
+	return q.Schema == "riido-next-five-root-finite-development-qualification-v2" && q.State == "Root_adopted_five_finite_development_requests" &&
+		p.Bytes == previousBytes && p.SHA == previousSHA && p.Rows == 16 && p.Labels == 47 && p.Positive == 16 && p.Negative == 31 && p.Inputs == 80 && p.Observations == 236 &&
+		q.FixtureSHA == fixtureSHA && q.Role == role && q.Weight == 1 && q.Inputs == 23 && q.Observations == 69 && q.SelectedObservations == 65 &&
+		q.Positive == 5 && q.Negative == 9 && q.Labels == 14 && q.Parents == 5 && len(q.Requests) == 5 &&
+		t.Requests == 21 && t.Labels == 61 && t.Positive == 21 && t.Negative == 40 && t.Inputs == 103 && t.Observations == 305 && t.Evidence == 305 && t.Selected == 301 &&
+		q.UnknownNeverFalse && q.KnownNegativeMayHaveUnknown && q.BaselineExcluded && q.NewFamilies == 0 && q.Old79 && q.Fit == 0 && q.Model == 0 && !q.FitBefore30 &&
+		q.Positions.Index1 == 18 && q.Positions.Requests == 21 && q.Positions.Negative == 40 && q.Positions.Labels == 61 && q.Positions.DifferentUnits
+}
+
+// Copy Root's already-assigned truth. This function checks provenance and
+// internal finite-support invariants; it never derives a new label from text,
+// source position, Wants, Gets, score, or unavailable predicates.
+func compose(previous []byte, f fixtures, q qualification) ([]byte, Summary, error) {
+	out := failed()
+	position1, err := inspectPrefix(previous)
+	if err != nil {
+		return nil, out, err
+	}
+	if !qualificationShape(q) || f.Schema != "riido-next-five-fixtures-v1" || len(f.Records) != 23 {
+		return nil, out, invalid("twentyone_qualification_or_fixture_shape")
+	}
+	data := make([]byte, len(previous), maxOutput)
+	copy(data, previous)
+	firstFixture, labels, positive := 0, 0, 0
+	for i, a := range q.Requests {
+		if a.ID != newIDs[i] || a.OriginalOrdinal != originalOrdinals[i] || !boundedText(a.Request) || a.Group != groups[i] || a.Family != families[i] ||
+			a.SourceRevision != revisions[i] || a.Revision != textRevision || a.TextRevision != textRevision || a.Inputs != inputCounts[i] ||
+			len(a.Selected) != selectedCounts[i] || a.Observations != a.Inputs*len(a.Selected) {
+			return nil, out, invalid("twentyone_request_binding")
+		}
+		for j := 0; j < a.Inputs; j++ {
+			r := f.Records[firstFixture+j]
+			if r.Ordinal != firstFixture+j || r.RequestIndex != i || r.OriginalOrdinal != a.OriginalOrdinal || r.CaseIndex != j || r.RequestID != a.ID ||
+				r.CaseID != fmt.Sprintf("%s-vector-%02d", a.ID, j+1) || !bytes.Equal(r.Got, []byte("null")) || !bytes.Equal(r.Truth, []byte("null")) || !bytes.Equal(r.Role, []byte("null")) || !bytes.Equal(r.Weight, []byte("null")) {
+				return nil, out, invalid("twentyone_fixture_schedule")
+			}
+		}
+		if i == 1 {
+			if len(a.Excluded) != 1 {
+				return nil, out, invalid("twentyone_excluded_baseline")
+			}
+			x := a.Excluded[0]
+			if x.Position != 0 || x.ID != candidateIDs[0] || x.Reason != "No known counterexample and at least one unavailable required predicate; no training label" ||
+				len(x.Unknown) != a.Inputs || !sortedPositions(x.Unknown, a.Inputs) {
+				return nil, out, invalid("twentyone_excluded_baseline")
+			}
+			out.ExcludedCandidates++
+		} else if len(a.Excluded) != 0 {
+			return nil, out, invalid("twentyone_excluded_baseline")
+		}
+		r := Row{Schema: rowSchema, ID: a.ID, Request: a.Request, Candidates: make([]Candidate, len(a.Selected)), Role: q.Role, Group: a.Group, Family: a.Family, Revision: a.SourceRevision,
+			Scope: Scope{Inputs: a.Inputs, Observations: a.Observations, Description: description}, TextRevision: a.TextRevision, FeaturePolicy: featurePolicy}
+		p := 0
+		for j, c := range a.Selected {
+			expectedPosition := j
+			if i == 1 {
+				expectedPosition++
+			}
+			if c.Position != expectedPosition {
+				return nil, out, invalid("twentyone_selected_order")
+			}
+			if err := validateCandidate(c, a.Inputs, firstFixture); err != nil {
+				return nil, out, err
+			}
+			if *c.Truth {
+				p++
+				positive++
+				if j == 1 {
+					position1++
+				}
+			}
+			// The source-position pattern is a frozen artifact assertion, never a label generator.
+			if *c.Truth != (c.Position == 1) {
+				return nil, out, invalid("twentyone_adopted_truth_binding")
+			}
+			r.Candidates[j] = Candidate{ID: c.ID, Text: c.Text, Label: *c.Truth, Weight: c.Weight}
+		}
+		if p != 1 {
+			return nil, out, invalid("twentyone_positive_count")
+		}
+		raw, err := json.Marshal(r)
+		if err != nil || len(raw) > maxRow || len(data)+len(raw)+1 > maxOutput {
+			return nil, out, invalid("twentyone_output_bound")
+		}
+		data = append(data, raw...)
+		data = append(data, '\n')
+		out.RowsAppended++
+		labels += len(a.Selected)
+		firstFixture += a.Inputs
+	}
+	if labels != 14 || positive != 5 || firstFixture != 23 || position1 != 18 {
+		return nil, out, invalid("twentyone_output_totals")
+	}
+	out.PreviousRows = 16
+	out.PrefixExact = bytes.HasPrefix(data, previous)
+	out.Requests = q.Combined.Requests
+	out.Labels = q.Combined.Labels
+	out.Positive = q.Combined.Positive
+	out.Negative = q.Combined.Negative
+	out.Inputs = q.Combined.Inputs
+	out.EvidenceObservations = q.Combined.Evidence
+	out.SelectedObservations = q.Combined.Selected
+	out.PositiveIndex1 = position1
+	out.Bytes = len(data)
+	out.SHA = digest(data)
+	return data, out, nil
+}
+
+func writeExclusive(file string, raw []byte, out *Summary) error {
+	if !filepath.IsAbs(file) || filepath.Clean(file) != file || len(raw) == 0 || len(raw) > maxOutput {
+		return invalid("twentyone_output_arguments")
+	}
+	parent := filepath.Dir(file)
+	st, err := os.Lstat(parent)
+	if err != nil || !st.IsDir() || st.Mode()&os.ModeSymlink != 0 {
+		return invalid("twentyone_output_parent")
+	}
+	root, err := os.OpenRoot(parent)
+	if err != nil {
+		return invalid("twentyone_output_parent")
+	}
+	defer root.Close()
+	f, err := root.OpenFile(filepath.Base(file), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if err != nil {
+		return invalid("twentyone_output_exclusive")
+	}
+	out.Reserved = true
+	n, err := f.Write(raw)
+	out.Written = n
+	if err != nil || n != len(raw) {
+		f.Close()
+		return invalid("twentyone_output_write_partial_preserved")
+	}
+	if f.Sync() != nil {
+		f.Close()
+		return invalid("twentyone_output_sync_partial_preserved")
+	}
+	out.FileSynced = true
+	if f.Close() != nil {
+		return invalid("twentyone_output_close_partial_preserved")
+	}
+	dir, err := root.Open(".")
+	if err != nil {
+		return invalid("twentyone_directory_open")
+	}
+	now, statErr := dir.Stat()
+	syncErr := dir.Sync()
+	closeErr := dir.Close()
+	if statErr != nil || !os.SameFile(st, now) || syncErr != nil || closeErr != nil {
+		return invalid("twentyone_directory_sync")
+	}
+	out.DirectorySynced = true
+	return nil
+}
+
+func run(previous, fixtureFile, qualificationFile, output string) (Summary, error) {
+	out := failed()
+	names := [3]string{previous, fixtureFile, qualificationFile}
+	shas := [3]string{previousSHA, fixtureSHA, qualificationSHA}
+	sizes := [3]int{previousBytes, fixtureBytes, qualificationBytes}
+	var raw [3][]byte
+	var info [3]os.FileInfo
+	for i := range raw {
+		var err error
+		raw[i], info[i], err = pinned(names[i], shas[i], sizes[i])
+		if err != nil {
+			return out, err
+		}
+		out.PinReads++
+		for j := 0; j < i; j++ {
+			if os.SameFile(info[i], info[j]) {
+				return out, invalid("twentyone_input_alias")
+			}
+		}
+	}
+	var f fixtures
+	var q qualification
+	if decode(raw[1], &f, false) != nil || decode(raw[2], &q, false) != nil {
+		return out, invalid("twentyone_input_json")
+	}
+	data, composed, err := compose(raw[0], f, q)
+	composed.PinReads = out.PinReads
+	out = composed
+	if err != nil {
+		return out, err
+	}
+	if err := writeExclusive(output, data, &out); err != nil {
+		return out, err
+	}
+	out.State = "complete"
+	return out, nil
+}
+
+func main() {
+	runtime.GOMAXPROCS(1)
+	debug.SetMemoryLimit(heapLimit)
+	flags := flag.NewFlagSet("riido-twentyone-materializer", flag.ContinueOnError)
+	flags.SetOutput(io.Discard)
+	previous := flags.String("previous-data", "", "exact pinned sixteen-row JSONL")
+	fixtures := flags.String("fixtures", "", "exact frozen five-request fixture ledger")
+	qualification := flags.String("qualification", "", "exact Root v2 finite adoption")
+	output := flags.String("out", "", "new external absolute exclusive JSONL path")
+	if flags.Parse(os.Args[1:]) != nil || flags.NArg() != 0 || *previous == "" || *fixtures == "" || *qualification == "" || *output == "" || runtime.Version() != "go1.27.1" {
+		fmt.Fprintln(os.Stderr, "twentyone_arguments_or_toolchain")
+		os.Exit(2)
+	}
+	out, err := run(*previous, *fixtures, *qualification, *output)
+	if err != nil {
+		out.State = "failed"
+		out.FailureCode = err.Error()
+	}
+	if json.NewEncoder(os.Stdout).Encode(out) != nil {
+		os.Exit(1)
+	}
+	if err != nil {
+		os.Exit(1)
+	}
+}

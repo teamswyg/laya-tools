@@ -1,0 +1,136 @@
+package pure
+
+import (
+	"errors"
+	"testing"
+)
+
+func toyFixtures() FixtureFile {
+	f := FixtureFile{Schema: FixtureSchema, OriginalSHA256: "c7bbf7bcc7912300fabdd6e671b0922df295299f00e5e7201df1ab5e824a2a9b"}
+	counts := [5]int{4, 4, 5, 4, 6}
+	ordinals := [5]int{6, 14, 8, 16, 10}
+	ids := [5]string{"next60-mapstructure-nil-config", "next60-cobra-error-writer", "next60-cobra-required-annotation", "next60-cobra-context-preflight", "next60-humanize-bigbytes-precision"}
+	for g, count := range counts {
+		for i := 0; i < count; i++ {
+			f.Records = append(f.Records, Fixture{Ordinal: len(f.Records), RequestIndex: g, OriginalOrdinal: ordinals[g], CaseIndex: i, RequestID: ids[g], CaseID: "synthetic"})
+		}
+	}
+	return f
+}
+
+type panicError struct{ calls *int }
+
+func (e panicError) Error() string { *e.calls++; return "should_not_be_called" }
+func TestSyntheticPanicAndUnavailableChannels(t *testing.T) {
+	errorCalls := 0
+	calls := 0
+	factory := func(_ Fixture, _ int) (Invocation, error) {
+		return Invocation{Kind: func(error) string { return "synthetic" }, Call: func(out *Channels) error {
+			calls++
+			out.ConfigKnown = true
+			if calls == 1 {
+				out.Text = S("not_returned")
+				panic(panicError{&errorCalls})
+			}
+			out.ErrorChannelAvailable = B(false)
+			return nil
+		}}, nil
+	}
+	r := Observe(toyFixtures(), factory, func(Event) error { return nil })
+	if r.State != "completed_finite_observations" || calls != Planned || r.Counters.CandidateReturned != Planned-1 || r.Counters.CandidatePanicked != 1 || errorCalls != 0 {
+		t.Fatal("panic accounting")
+	}
+	first := r.Records[0]
+	if first.Returned.Value || !first.PanicPresent.Value || first.Channels.Text.Known || !first.Channels.ConfigKnown || r.Records[1].Channels.ErrorPresent.Known {
+		t.Fatal("channel accounting")
+	}
+}
+func TestSyntheticCheckpointBeforeErrorAndSnapshots(t *testing.T) {
+	err := errors.New("synthetic")
+	calls := 0
+	var before Event
+	factory := func(Fixture, int) (Invocation, error) {
+		return Invocation{Kind: func(error) string { return "synthetic" }, Call: func(out *Channels) error {
+			calls++
+			out.Text = S("returned")
+			out.ErrorChannelAvailable = B(true)
+			return err
+		}}, nil
+	}
+	r := Observe(toyFixtures(), factory, func(e Event) error {
+		if e.Stage == "before_error_method" {
+			before = e
+			return errors.New("synthetic_checkpoint_stop")
+		}
+		return nil
+	})
+	if r.State != "incomplete" || r.Failure != "checkpoint_failed" || calls != 1 || r.Counters.ErrorReserved != 1 || r.Counters.ErrorDispatched != 0 || !r.Counters.CheckpointStopped {
+		t.Fatal("dispatch did not stop")
+	}
+	if !before.Record.Returned.Value || !before.Record.Channels.ErrorPresent.Value || before.Record.Channels.ErrorText.Known || !before.Record.Channels.Text.Known {
+		t.Fatal("wrong checkpoint phase")
+	}
+	// Mutating the callback's by-value snapshot cannot mutate the result.
+	before.Record.Channels.Text = S("changed")
+	if r.Records[0].Channels.Text.Value != "returned" {
+		t.Fatal("snapshot ownership")
+	}
+}
+func TestSyntheticCompleteOrder(t *testing.T) {
+	last := 0
+	r := Observe(toyFixtures(), func(Fixture, int) (Invocation, error) {
+		return Invocation{Kind: func(error) string { return "" }, Call: func(out *Channels) error { out.ErrorChannelAvailable = B(true); return nil }}, nil
+	}, func(e Event) error {
+		if e.Sequence != last+1 {
+			t.Fatal("sequence")
+		}
+		last = e.Sequence
+		return nil
+	})
+	if last != Planned*2 || r.LastSyncedSequence != last || r.Counters.CandidateDispatched != Planned || r.Counters.CompletedDispatches != Planned {
+		t.Fatal("counts")
+	}
+	for i, row := range r.Records {
+		if row.Ordinal != i || row.CandidateIndex != i%3 || row.FixtureOrdinal != i/3 || !row.Channels.ErrorPresent.Known || row.Channels.ErrorPresent.Value {
+			t.Fatal("order")
+		}
+	}
+	if r.Counters.InnerOriginalAPICalls != nil || r.Counters.OriginalStartupCalls != nil || r.Qualified != 0 || r.TrainingReady {
+		t.Fatal("invented authority")
+	}
+}
+
+func TestSyntheticPredeclaredTextPredicateAfterTrackedError(t *testing.T) {
+	first := true
+	before, after := "", ""
+	r := Observe(toyFixtures(), func(Fixture, int) (Invocation, error) {
+		isFirst := first
+		first = false
+		return Invocation{Kind: func(error) string { return "unclassified_error" }, KindAfter: func(_ string, text string) string {
+			if text == "literal source predicate" {
+				return "logical_contract_kind"
+			}
+			return ""
+		}, Call: func(out *Channels) error {
+			out.ErrorChannelAvailable = B(true)
+			if isFirst {
+				return errors.New("literal source predicate")
+			}
+			return nil
+		}}, nil
+	}, func(e Event) error {
+		if e.Stage == "before_error_method" {
+			before = e.Record.Channels.ErrorKind.Value
+			if e.Record.Channels.ErrorText.Known {
+				t.Fatal("text before call")
+			}
+		}
+		if e.Stage == "after_error_method" {
+			after = e.Record.Channels.ErrorKind.Value
+		}
+		return nil
+	})
+	if r.State != "completed_finite_observations" || before != "unclassified_error" || after != "logical_contract_kind" || r.Counters.ErrorDispatched != 1 || r.Counters.ErrorReturned != 1 {
+		t.Fatal("predicate provenance/order")
+	}
+}

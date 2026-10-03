@@ -1,0 +1,262 @@
+{
+  "schema": "riido-next-five-source-selection-proposal-v1",
+  "state": "source_only_compiler_selection_pending",
+  "frozen": false,
+  "original_drafts": {
+    "artifact": "next60-acquisition-drafts/DRAFT-CONTRACTS.v1.json",
+    "bytes": 209341,
+    "sha256": "c7bbf7bcc7912300fabdd6e671b0922df295299f00e5e7201df1ab5e824a2a9b"
+  },
+  "selection": {
+    "priority_original_ordinals": [
+      6,
+      14,
+      8,
+      16,
+      10
+    ],
+    "input_counts": [
+      4,
+      4,
+      5,
+      4,
+      6
+    ],
+    "requests": 5,
+    "candidate_positions": 15,
+    "input_cases": 23,
+    "dispatches": 69,
+    "order": "request priority, original case order, candidate index 0/1/2",
+    "dispatch_ordinal": "3 * fixture_ordinal + candidate_index",
+    "held": {
+      "original_ordinal": 15,
+      "id": "next60-cobra-local-finalizers",
+      "inputs": 5,
+      "candidate_positions": 3,
+      "dispatches": 15,
+      "reason": "process-global finalizers cannot be reset or isolated by undocumented internal mutation; no faithful adapter prepared"
+    }
+  },
+  "source_seals": [
+    {
+      "id": "cobra/full-root-package",
+      "revision": "adbc8813901bba65827259daa8e22ff94ec1f30e",
+      "files": 17,
+      "bytes": 218974,
+      "go_files": 14,
+      "darwin_nonwindows_go_files_proposal": 13,
+      "source_pins": {
+        "artifact": "Cobra SOURCE-PINS.v1.json",
+        "bytes": 5942,
+        "sha256": "a7bbf84ae9a90ed2712d3e92684c28c6cad9942ffad91f75f4beeedba420fb0c"
+      },
+      "license": {
+        "path": "LICENSE.txt",
+        "bytes": 10140,
+        "sha256": "5e3400b93bbb099e83e52bab885e7441750673c21f97988ca3f1240639b63283",
+        "url": "https://github.com/spf13/cobra/blob/adbc8813901bba65827259daa8e22ff94ec1f30e/LICENSE.txt"
+      },
+      "boundary": "root command package, not whole repository/doc package; original Go/mod/sum/license remain exact",
+      "notice_paths": []
+    },
+    {
+      "id": "pflag/exact-1.0.9",
+      "version": "v1.0.9",
+      "revision": "10438578954bba2527fe5cae3684d4532b064bbe",
+      "files": 45,
+      "bytes": 198444,
+      "go_files": 42,
+      "source_pins": {
+        "artifact": "pflag109 public-safe/SOURCE-PINS.v1.json",
+        "bytes": 24191,
+        "sha256": "1eee270b69bd019ab270f278a77d72f67b847c98c5a1b272c2da8d93e9cd54ea"
+      },
+      "go_sum_present": true,
+      "go_sum_bytes": 0,
+      "license": {
+        "path": "LICENSE",
+        "bytes": 1531,
+        "sha256": "b8514c577c1c4b46cee454d5a882b15fa411e72c5bd7f801f241591789fce61a",
+        "url": "https://github.com/spf13/pflag/blob/10438578954bba2527fe5cae3684d4532b064bbe/LICENSE"
+      },
+      "supplemental_go_notice": {
+        "bytes": 1479,
+        "sha256": "2d36597f7117c38b006835ae7f537487207d8ec407aa9d9980794b2030cbc067",
+        "url": "https://github.com/golang/go/blob/go1.23.4/LICENSE",
+        "boundary": "authoritative comparable Go notice; not a proved exact copied release"
+      },
+      "boundary": "all root non-test Go plus exact original module assets; no substitute version"
+    },
+    {
+      "id": "mapstructure/retained-go-selection",
+      "revision": "52aa5c6dc1d27226460807054ca2107b2d54fb2d",
+      "files": 8,
+      "bytes": 81483,
+      "go_files": 6,
+      "entrypoint": {
+        "path": "mapstructure.go",
+        "bytes": 55732,
+        "sha256": "87d01b09fcb2ca148ef722ba52baf6851c35357c49d9f2e918d8551c7c03f1ee"
+      },
+      "license": {
+        "path": "LICENSE",
+        "bytes": 1085,
+        "sha256": "22adc4abdece712a737573672f082fd61ac2b21df878efb87ffcff4354a07f26",
+        "url": "https://github.com/go-viper/mapstructure/blob/52aa5c6dc1d27226460807054ca2107b2d54fb2d/LICENSE"
+      },
+      "boundary": "previous retained Go1.27 source selection including two internal/errors files; not a new whole-repository acquisition; actual compiler selection pending"
+    },
+    {
+      "id": "humanize/bigbytes-original-two-file-slice",
+      "revision": "a1b4e66b9a6d890e9e15e7091cf16c8032367d6e",
+      "go_files": [
+        {
+          "path": "big.go",
+          "bytes": 612,
+          "sha256": "26c2e7a009a1579f126853cbfb6c9ffc7cda00b4f5ca3faea4705c384cff5edf"
+        },
+        {
+          "path": "bigbytes.go",
+          "bytes": 4850,
+          "sha256": "9318dd523505253f686747635394232cabe2968984df14b2f49d91926ea80c70"
+        }
+      ],
+      "license": {
+        "path": "LICENSE",
+        "bytes": 1136,
+        "sha256": "a973b4498c13eb74baa2a8e5c351426a6826f2fcdd909916dbe53ee2e755fd71",
+        "url": "https://github.com/dustin/go-humanize/blob/a1b4e66b9a6d890e9e15e7091cf16c8032367d6e/LICENSE"
+      },
+      "boundary": "exact two-file package slice with original package humanize and owned local go.mod; not whole humanize/importer; upstream go.mod was not retained, absence upstream is not asserted"
+    }
+  ],
+  "source_instantiation": [
+    {
+      "root": "module/upstream/cobra",
+      "rule": "copy all 17 exact root-package source/module/license assets"
+    },
+    {
+      "root": "module/upstream/preflightcobra",
+      "rule": "separate full root-package fork; original Go14 assets except command.go two-insertion recipe; preserve original mod/sum/license inert, use owned module riido.local/preflightcobra; derived raw/diff pins Root pending",
+      "recipe": "DERIVED-CONTEXT-PATCH.v1.txt"
+    },
+    {
+      "root": "module/upstream/pflag",
+      "rule": "copy all 45 exact assets including present empty go.sum"
+    },
+    {
+      "root": "module/upstream/mapstructure",
+      "rule": "copy exact retained eight-file selection with existing go.mod"
+    },
+    {
+      "root": "module/upstream/humanizeslice",
+      "rule": "copy exact big.go + bigbytes.go + MIT LICENSE; owned go.mod module riido.local/humanizeslice go1.27.1, no original file rewrite"
+    },
+    {
+      "root": "module/modulemetadata",
+      "rule": "five authentic .mod files, no upstream package bodies; required inactive imports must not be compiler selected",
+      "graph": {
+        "artifact": "Cobra SOURCE-GRAPH.v1.json",
+        "bytes": 5593,
+        "sha256": "3880938bed1c26d917f0b3b8f711cc099f2400f42ed1d3d62a1a6ad99ff52fbc"
+      }
+    }
+  ],
+  "future_go_directories": [
+    "module/cmd/observe",
+    "module/pure",
+    "module/writer",
+    "module/internal/adapters",
+    "module/upstream/mapstructure",
+    "module/upstream/mapstructure/internal/errors",
+    "module/upstream/cobra",
+    "module/upstream/preflightcobra",
+    "module/upstream/pflag",
+    "module/upstream/humanizeslice"
+  ],
+  "negative_resolution": [
+    {
+      "request": "next60-mapstructure-nil-config",
+      "branch": "initialize Metadata nil slices prematurely before refusing nil Result",
+      "historical_or_description_unchanged": true
+    },
+    {
+      "request": "next60-cobra-error-writer",
+      "branch": "legacy PrintErr, then fabricate len(text),nil",
+      "historical_or_description_unchanged": true
+    },
+    {
+      "request": "next60-humanize-bigbytes-precision",
+      "branch": "render original input, then mutate supplied integer through repeated quotient while finding SI unit",
+      "historical_or_description_unchanged": true
+    },
+    {
+      "request": "next60-cobra-context-preflight",
+      "branch": "only check canceled context inside RunE when opted in, after initializer/PreRun",
+      "historical_or_description_unchanged": true
+    }
+  ],
+  "counters": {
+    "candidate_api_boundary": "reserved/dispatched before call; returned vs recovered panic distinct; panic Error/String is never called",
+    "expected_dispatches": 69,
+    "expected_candidate_returns_source_only": 67,
+    "expected_candidate_panics_source_only": 2,
+    "expected_explicit_error_methods_source_only": 23,
+    "maximum_explicit_error_methods": 69,
+    "maximum_tracked_candidate_plus_error": 138,
+    "actual_candidate_dispatches": 0,
+    "actual_error_methods": 0,
+    "inner_original_api_calls": null,
+    "package_initialization_calls": null,
+    "owned_initializer_registration_proposal": 2,
+    "source_expected_panics": "unobserved original nil-config and original empty annotation; not labels or runtime findings"
+  },
+  "family_policy": {
+    "source_families": 3,
+    "families": [
+      "upstream53-mapstructure",
+      "upstream53-cobra-pflag-connected",
+      "upstream53-humanize"
+    ],
+    "derived_cobra_alias_of_original": true,
+    "no_parent_or_family_inflation": true,
+    "role": null,
+    "truth": null,
+    "weight": null,
+    "qualified": 0
+  },
+  "checkpoints": {
+    "before_candidate": true,
+    "before_error_method": "returned candidate state, error presence/type/identity known, Error text unknown; immutable scalar/string/fixed-array event",
+    "after_error_method": true,
+    "after_candidate": true,
+    "parent_directory_sync_before_callbacks": true,
+    "sticky_failure_stops_future_dispatch": true,
+    "surviving_journal_tail": "physical evidence only; row presence after kill does not prove Sync returned without finalized receipt"
+  },
+  "runtime_proposal": {
+    "go": "go1.27.1",
+    "goos": "darwin",
+    "goarch": "arm64",
+    "cgo": "0",
+    "trimpath": true,
+    "buildvcs": false,
+    "cpu": 1,
+    "soft_heap_bytes": 268435456,
+    "outside_wall_seconds": 60,
+    "starts": 1,
+    "retries": 0,
+    "total_worker_output_bytes": 1048575,
+    "stdout_cap_bytes": 262144
+  },
+  "holds": [
+    "native module source instantiation and derived patch/diff pins not yet produced",
+    "actual GoList/toolchain/stdlib/full selected source manifest Root pending",
+    "rights/notices and cached compiler proof require Root exact reviewed evidence",
+    "outside controller requires next-five 69-case schema adaptation, not inherited four-specific 57-case or Ftoa 18-case approval",
+    "pure synthetic test sources authored only; no test/build/compiler execution; all runtime observations 0",
+    "no interpretation of missing n/error signatures as automatic false label; unknown channels remain unknown",
+    "ties/carry/>QB/18-19digits/DisableFlagParsing/nonrunnable/extra malformed flags are not claimed exercised by the original23 cases"
+  ]
+}
+

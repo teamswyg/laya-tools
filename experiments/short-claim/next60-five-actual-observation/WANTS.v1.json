@@ -1,0 +1,724 @@
+{
+  "schema": "riido-next-five-target-Wants-v1",
+  "state": "sealed_source_only_proposal",
+  "counts": {
+    "requests": 5,
+    "input_cases": 23,
+    "candidate_positions": 15,
+    "planned_dispatches": 69
+  },
+  "requests": [
+    {
+      "ordinal": 6,
+      "id": "next60-mapstructure-nil-config",
+      "candidate_descriptions": [
+        {
+          "description": "NewDecoder first dereferences config.Result, then validates pointer/addressability before setting defaults and Metadata.",
+          "executable_prepared": false,
+          "id": "baseline-design",
+          "kind": "unmodified_baseline_or_declared_old_api_substitute",
+          "source_faithfulness": "reviewed_static_source"
+        },
+        {
+          "description": "Guard config and nilness of Result before reflection/default initialization; preserve valid initialization behavior.",
+          "executable_prepared": false,
+          "id": "reference-design",
+          "kind": "intended_correct_reference",
+          "source_faithfulness": "authored_planned_change_not_existing_implementation"
+        },
+        {
+          "description": "Guard config only, then panic on typed-nil Result or initialize Metadata before refusing the target.",
+          "executable_prepared": false,
+          "id": "wrong-seed-design",
+          "kind": "seeded_wrong_reference",
+          "source_faithfulness": "authored_negative_control_not_existing_implementation"
+        }
+      ],
+      "source_family": "upstream53-mapstructure",
+      "reference_design": "Guard config and nilness of Result before reflection/default initialization; preserve valid initialization behavior.",
+      "baseline_source_behavior": "NewDecoder first dereferences config.Result, then validates pointer/addressability before setting defaults and Metadata.",
+      "source_spans": [
+        "mapstructure.go:477-535"
+      ],
+      "request_en": "Return a declared error for nil DecoderConfig and nil Result pointers in NewDecoder without reflection panics or partial metadata initialization.",
+      "scope": "NewDecoder validates nil config, nil Result interface, and typed-nil Result pointer before mutating config defaults or Metadata slices; declared error, no panic.",
+      "original_pointer": "/drafts/6",
+      "finite_case_count": 4
+    },
+    {
+      "ordinal": 14,
+      "id": "next60-cobra-error-writer",
+      "candidate_descriptions": [
+        {
+          "description": "PrintErr calls fmt.Fprint on ErrOrStderr and discards its return values.",
+          "executable_prepared": false,
+          "id": "baseline-design",
+          "kind": "unmodified_baseline_or_declared_old_api_substitute",
+          "source_faithfulness": "reviewed_static_source"
+        },
+        {
+          "description": "Write requested bytes through inherited error writer, preserve returned count/cause, normalize nil short-write and keep legacy methods unchanged.",
+          "executable_prepared": false,
+          "id": "reference-design",
+          "kind": "intended_correct_reference",
+          "source_faithfulness": "authored_planned_change_not_existing_implementation"
+        },
+        {
+          "description": "Call legacy PrintErr then always return len(text),nil; or switch to normal output writer.",
+          "executable_prepared": false,
+          "id": "wrong-seed-design",
+          "kind": "seeded_wrong_reference",
+          "source_faithfulness": "authored_negative_control_not_existing_implementation"
+        }
+      ],
+      "source_family": "upstream53-cobra-pflag-connected",
+      "reference_design": "Write requested bytes through inherited error writer, preserve returned count/cause, normalize nil short-write and keep legacy methods unchanged.",
+      "baseline_source_behavior": "PrintErr calls fmt.Fprint on ErrOrStderr and discards its return values.",
+      "source_spans": [
+        "command.go:1449-1462"
+      ],
+      "request_en": "Add error-returning diagnostic write methods that propagate writer failures without process exit or silently reporting a complete write.",
+      "scope": "Add checked string diagnostic writer method returning (n,error); no process exit. Inherited error writer is used. n<len with nil underlying error becomes io.ErrShortWrite; retain nonnil causes.",
+      "original_pointer": "/drafts/14",
+      "finite_case_count": 4
+    },
+    {
+      "ordinal": 8,
+      "id": "next60-cobra-required-annotation",
+      "candidate_descriptions": [
+        {
+          "description": "ValidateRequiredFlags indexes requiredAnnotation[0] whenever the annotation key is present.",
+          "executable_prepared": false,
+          "id": "baseline-design",
+          "kind": "unmodified_baseline_or_declared_old_api_substitute",
+          "source_faithfulness": "reviewed_static_source"
+        },
+        {
+          "description": "Validate cardinality/token before indexing, then apply existing required-flag check; report malformed names in sorted order.",
+          "executable_prepared": false,
+          "id": "reference-design",
+          "kind": "intended_correct_reference",
+          "source_faithfulness": "authored_planned_change_not_existing_implementation"
+        },
+        {
+          "description": "Treat empty or unknown annotation as optional and silently return success.",
+          "executable_prepared": false,
+          "id": "wrong-seed-design",
+          "kind": "seeded_wrong_reference",
+          "source_faithfulness": "authored_negative_control_not_existing_implementation"
+        }
+      ],
+      "source_family": "upstream53-cobra-pflag-connected",
+      "reference_design": "Validate cardinality/token before indexing, then apply existing required-flag check; report malformed names in sorted order.",
+      "baseline_source_behavior": "ValidateRequiredFlags indexes requiredAnnotation[0] whenever the annotation key is present.",
+      "source_spans": [
+        "command.go:1180-1204"
+      ],
+      "request_en": "Handle empty or malformed required-flag annotations with a declared validation error instead of indexing unchecked data, preserving valid annotations.",
+      "scope": "Checked required-annotation validation; [] is malformed, exactly one ASCII true/false is valid, multi-element/other token malformed. Invalid metadata returns deterministic AnnotationError without panic or flag mutation.",
+      "original_pointer": "/drafts/8",
+      "finite_case_count": 5
+    },
+    {
+      "ordinal": 16,
+      "id": "next60-cobra-context-preflight",
+      "candidate_descriptions": [
+        {
+          "description": "execute enters preRun before command hooks; a preflight cancellation policy is not declared at this point.",
+          "executable_prepared": false,
+          "id": "baseline-design",
+          "kind": "unmodified_baseline_or_declared_old_api_substitute",
+          "source_faithfulness": "reviewed_static_source"
+        },
+        {
+          "description": "At the frozen execution boundary check ctx.Err and return the same cause before hooks; leave help/version and legacy option-off behavior intact.",
+          "executable_prepared": false,
+          "id": "reference-design",
+          "kind": "intended_correct_reference",
+          "source_faithfulness": "authored_planned_change_not_existing_implementation"
+        },
+        {
+          "description": "Check cancellation only inside Run, after initializers have mutated state; or suppress help for pre-canceled contexts.",
+          "executable_prepared": false,
+          "id": "wrong-seed-design",
+          "kind": "seeded_wrong_reference",
+          "source_faithfulness": "authored_negative_control_not_existing_implementation"
+        }
+      ],
+      "source_family": "upstream53-cobra-pflag-connected",
+      "reference_design": "At the frozen execution boundary check ctx.Err and return the same cause before hooks; leave help/version and legacy option-off behavior intact.",
+      "baseline_source_behavior": "execute enters preRun before command hooks; a preflight cancellation policy is not declared at this point.",
+      "source_spans": [
+        "command.go:905-977",
+        "command.go:1084"
+      ],
+      "request_en": "Add opt-in context preflight cancellation before initializer and run hooks, preserving help behavior and the existing execution default.",
+      "scope": "Opt-in preflight after help/version handling and before initializer/pre-run/run hooks; pre-canceled runnable command returns context.Canceled with no hook side effects, uncanceled normal run unchanged.",
+      "original_pointer": "/drafts/16",
+      "finite_case_count": 4
+    },
+    {
+      "ordinal": 10,
+      "id": "next60-humanize-bigbytes-precision",
+      "candidate_descriptions": [
+        {
+          "description": "humanateBigBytes clones the input but oomm converts quotient/remainder to float64 and existing BigBytes selects only coarse formatting precision.",
+          "executable_prepared": false,
+          "id": "baseline-design",
+          "kind": "unmodified_baseline_or_declared_old_api_substitute",
+          "source_faithfulness": "reviewed_static_source"
+        },
+        {
+          "description": "Choose SI magnitude by big.Int comparison, render/round an exact rational using decimal integer arithmetic, preserve requested significant digits and clone receiver data.",
+          "executable_prepared": false,
+          "id": "reference-design",
+          "kind": "intended_correct_reference",
+          "source_faithfulness": "authored_planned_change_not_existing_implementation"
+        },
+        {
+          "description": "Convert the whole integer to float64 or mutate input via DivMod while finding the unit.",
+          "executable_prepared": false,
+          "id": "wrong-seed-design",
+          "kind": "seeded_wrong_reference",
+          "source_faithfulness": "authored_negative_control_not_existing_implementation"
+        }
+      ],
+      "source_family": "upstream53-humanize",
+      "reference_design": "Choose SI magnitude by big.Int comparison, render/round an exact rational using decimal integer arithmetic, preserve requested significant digits and clone receiver data.",
+      "baseline_source_behavior": "humanateBigBytes clones the input but oomm converts quotient/remainder to float64 and existing BigBytes selects only coarse formatting precision.",
+      "source_spans": [
+        "bigbytes.go:112-145",
+        "big.go:8-21"
+      ],
+      "request_en": "Add BigBytesN for non-negative big.Int counts, preserving requested significant digits without converting the whole count to float64 or mutating the input.",
+      "scope": "New BigBytesN for nonnegative big.Int, decimal SI base 1000, 1-18 significant digits, ties to even, retain trailing zeros to requested precision except zero='0 B'; clamp suffix at QB, input immutable.",
+      "original_pointer": "/drafts/10",
+      "finite_case_count": 6
+    }
+  ],
+  "wants": [
+    {
+      "ordinal": 0,
+      "request_id": "next60-mapstructure-nil-config",
+      "case_id": "next60-mapstructure-nil-config-vector-01",
+      "original_pointer": "/drafts/6/finite_cases/0/want",
+      "Want": {
+        "error_kind": "invalid_config",
+        "panic": false
+      },
+      "source_or_new_policy": "source-only target proposal; not observed",
+      "candidate_order": [
+        "baseline-design",
+        "reference-design",
+        "wrong-seed-design"
+      ],
+      "required_new_return_channel": null,
+      "unavailable_baseline_return_channel": "unknown, not a returned nil error or automatic false label",
+      "Got": null,
+      "truth": null,
+      "role": null,
+      "weight": null
+    },
+    {
+      "ordinal": 1,
+      "request_id": "next60-mapstructure-nil-config",
+      "case_id": "next60-mapstructure-nil-config-vector-02",
+      "original_pointer": "/drafts/6/finite_cases/1/want",
+      "Want": {
+        "error_kind": "invalid_result",
+        "metadata_unchanged": true,
+        "panic": false
+      },
+      "source_or_new_policy": "source-only target proposal; not observed",
+      "candidate_order": [
+        "baseline-design",
+        "reference-design",
+        "wrong-seed-design"
+      ],
+      "required_new_return_channel": null,
+      "unavailable_baseline_return_channel": "unknown, not a returned nil error or automatic false label",
+      "Got": null,
+      "truth": null,
+      "role": null,
+      "weight": null
+    },
+    {
+      "ordinal": 2,
+      "request_id": "next60-mapstructure-nil-config",
+      "case_id": "next60-mapstructure-nil-config-vector-03",
+      "original_pointer": "/drafts/6/finite_cases/2/want",
+      "Want": {
+        "error_kind": "invalid_result",
+        "metadata_unchanged": true,
+        "panic": false
+      },
+      "source_or_new_policy": "source-only target proposal; not observed",
+      "candidate_order": [
+        "baseline-design",
+        "reference-design",
+        "wrong-seed-design"
+      ],
+      "required_new_return_channel": null,
+      "unavailable_baseline_return_channel": "unknown, not a returned nil error or automatic false label",
+      "Got": null,
+      "truth": null,
+      "role": null,
+      "weight": null
+    },
+    {
+      "ordinal": 3,
+      "request_id": "next60-mapstructure-nil-config",
+      "case_id": "next60-mapstructure-nil-config-vector-04",
+      "original_pointer": "/drafts/6/finite_cases/3/want",
+      "Want": {
+        "decoder_created": true,
+        "default_tag": "mapstructure",
+        "error": null
+      },
+      "source_or_new_policy": "source-only target proposal; not observed",
+      "candidate_order": [
+        "baseline-design",
+        "reference-design",
+        "wrong-seed-design"
+      ],
+      "required_new_return_channel": null,
+      "unavailable_baseline_return_channel": "unknown, not a returned nil error or automatic false label",
+      "Got": null,
+      "truth": null,
+      "role": null,
+      "weight": null
+    },
+    {
+      "ordinal": 4,
+      "request_id": "next60-cobra-error-writer",
+      "case_id": "next60-cobra-error-writer-vector-01",
+      "original_pointer": "/drafts/14/finite_cases/0/want",
+      "Want": {
+        "bytes": "abc",
+        "error": null,
+        "n": 3
+      },
+      "source_or_new_policy": "source-only target proposal; not observed",
+      "candidate_order": [
+        "baseline-design",
+        "reference-design",
+        "wrong-seed-design"
+      ],
+      "required_new_return_channel": true,
+      "unavailable_baseline_return_channel": "unknown, not a returned nil error or automatic false label",
+      "Got": null,
+      "truth": null,
+      "role": null,
+      "weight": null
+    },
+    {
+      "ordinal": 5,
+      "request_id": "next60-cobra-error-writer",
+      "case_id": "next60-cobra-error-writer-vector-02",
+      "original_pointer": "/drafts/14/finite_cases/1/want",
+      "Want": {
+        "error_is": "io.ErrShortWrite",
+        "n": 1
+      },
+      "source_or_new_policy": "source-only target proposal; not observed",
+      "candidate_order": [
+        "baseline-design",
+        "reference-design",
+        "wrong-seed-design"
+      ],
+      "required_new_return_channel": true,
+      "unavailable_baseline_return_channel": "unknown, not a returned nil error or automatic false label",
+      "Got": null,
+      "truth": null,
+      "role": null,
+      "weight": null
+    },
+    {
+      "ordinal": 6,
+      "request_id": "next60-cobra-error-writer",
+      "case_id": "next60-cobra-error-writer-vector-03",
+      "original_pointer": "/drafts/14/finite_cases/2/want",
+      "Want": {
+        "error_is": "cause",
+        "n": 1
+      },
+      "source_or_new_policy": "source-only target proposal; not observed",
+      "candidate_order": [
+        "baseline-design",
+        "reference-design",
+        "wrong-seed-design"
+      ],
+      "required_new_return_channel": true,
+      "unavailable_baseline_return_channel": "unknown, not a returned nil error or automatic false label",
+      "Got": null,
+      "truth": null,
+      "role": null,
+      "weight": null
+    },
+    {
+      "ordinal": 7,
+      "request_id": "next60-cobra-error-writer",
+      "case_id": "next60-cobra-error-writer-vector-04",
+      "original_pointer": "/drafts/14/finite_cases/3/want",
+      "Want": {
+        "child_bytes": "",
+        "n": 3,
+        "parent_bytes": "abc"
+      },
+      "source_or_new_policy": "source-only target proposal; not observed",
+      "candidate_order": [
+        "baseline-design",
+        "reference-design",
+        "wrong-seed-design"
+      ],
+      "required_new_return_channel": true,
+      "unavailable_baseline_return_channel": "unknown, not a returned nil error or automatic false label",
+      "Got": null,
+      "truth": null,
+      "role": null,
+      "weight": null
+    },
+    {
+      "ordinal": 8,
+      "request_id": "next60-cobra-required-annotation",
+      "case_id": "next60-cobra-required-annotation-vector-01",
+      "original_pointer": "/drafts/8/finite_cases/0/want",
+      "Want": {
+        "error_kind": "annotation",
+        "flag_unchanged": true,
+        "panic": false
+      },
+      "source_or_new_policy": "source-only target proposal; not observed",
+      "candidate_order": [
+        "baseline-design",
+        "reference-design",
+        "wrong-seed-design"
+      ],
+      "required_new_return_channel": null,
+      "unavailable_baseline_return_channel": "unknown, not a returned nil error or automatic false label",
+      "Got": null,
+      "truth": null,
+      "role": null,
+      "weight": null
+    },
+    {
+      "ordinal": 9,
+      "request_id": "next60-cobra-required-annotation",
+      "case_id": "next60-cobra-required-annotation-vector-02",
+      "original_pointer": "/drafts/8/finite_cases/1/want",
+      "Want": {
+        "error_kind": "annotation",
+        "panic": false
+      },
+      "source_or_new_policy": "source-only target proposal; not observed",
+      "candidate_order": [
+        "baseline-design",
+        "reference-design",
+        "wrong-seed-design"
+      ],
+      "required_new_return_channel": null,
+      "unavailable_baseline_return_channel": "unknown, not a returned nil error or automatic false label",
+      "Got": null,
+      "truth": null,
+      "role": null,
+      "weight": null
+    },
+    {
+      "ordinal": 10,
+      "request_id": "next60-cobra-required-annotation",
+      "case_id": "next60-cobra-required-annotation-vector-03",
+      "original_pointer": "/drafts/8/finite_cases/2/want",
+      "Want": {
+        "error_kind": "annotation",
+        "panic": false
+      },
+      "source_or_new_policy": "source-only target proposal; not observed",
+      "candidate_order": [
+        "baseline-design",
+        "reference-design",
+        "wrong-seed-design"
+      ],
+      "required_new_return_channel": null,
+      "unavailable_baseline_return_channel": "unknown, not a returned nil error or automatic false label",
+      "Got": null,
+      "truth": null,
+      "role": null,
+      "weight": null
+    },
+    {
+      "ordinal": 11,
+      "request_id": "next60-cobra-required-annotation",
+      "case_id": "next60-cobra-required-annotation-vector-04",
+      "original_pointer": "/drafts/8/finite_cases/3/want",
+      "Want": {
+        "error_kind": "missing_required"
+      },
+      "source_or_new_policy": "source-only target proposal; not observed",
+      "candidate_order": [
+        "baseline-design",
+        "reference-design",
+        "wrong-seed-design"
+      ],
+      "required_new_return_channel": null,
+      "unavailable_baseline_return_channel": "unknown, not a returned nil error or automatic false label",
+      "Got": null,
+      "truth": null,
+      "role": null,
+      "weight": null
+    },
+    {
+      "ordinal": 12,
+      "request_id": "next60-cobra-required-annotation",
+      "case_id": "next60-cobra-required-annotation-vector-05",
+      "original_pointer": "/drafts/8/finite_cases/4/want",
+      "Want": {
+        "error": null
+      },
+      "source_or_new_policy": "source-only target proposal; not observed",
+      "candidate_order": [
+        "baseline-design",
+        "reference-design",
+        "wrong-seed-design"
+      ],
+      "required_new_return_channel": null,
+      "unavailable_baseline_return_channel": "unknown, not a returned nil error or automatic false label",
+      "Got": null,
+      "truth": null,
+      "role": null,
+      "weight": null
+    },
+    {
+      "ordinal": 13,
+      "request_id": "next60-cobra-context-preflight",
+      "case_id": "next60-cobra-context-preflight-vector-01",
+      "original_pointer": "/drafts/16/finite_cases/0/want",
+      "Want": {
+        "error_is": "context.Canceled",
+        "initializer_calls": 0,
+        "pre_run_calls": 0,
+        "run_calls": 0
+      },
+      "source_or_new_policy": "source-only target proposal; not observed",
+      "candidate_order": [
+        "baseline-design",
+        "reference-design",
+        "wrong-seed-design"
+      ],
+      "required_new_return_channel": null,
+      "unavailable_baseline_return_channel": "unknown, not a returned nil error or automatic false label",
+      "Got": null,
+      "truth": null,
+      "role": null,
+      "weight": null
+    },
+    {
+      "ordinal": 14,
+      "request_id": "next60-cobra-context-preflight",
+      "case_id": "next60-cobra-context-preflight-vector-02",
+      "original_pointer": "/drafts/16/finite_cases/1/want",
+      "Want": {
+        "error": null,
+        "initializer_calls": 1,
+        "pre_run_calls": 1,
+        "run_calls": 1
+      },
+      "source_or_new_policy": "source-only target proposal; not observed",
+      "candidate_order": [
+        "baseline-design",
+        "reference-design",
+        "wrong-seed-design"
+      ],
+      "required_new_return_channel": null,
+      "unavailable_baseline_return_channel": "unknown, not a returned nil error or automatic false label",
+      "Got": null,
+      "truth": null,
+      "role": null,
+      "weight": null
+    },
+    {
+      "ordinal": 15,
+      "request_id": "next60-cobra-context-preflight",
+      "case_id": "next60-cobra-context-preflight-vector-03",
+      "original_pointer": "/drafts/16/finite_cases/2/want",
+      "Want": {
+        "help_displayed": true,
+        "initializer_calls": 0,
+        "run_calls": 0
+      },
+      "source_or_new_policy": "source-only target proposal; not observed",
+      "candidate_order": [
+        "baseline-design",
+        "reference-design",
+        "wrong-seed-design"
+      ],
+      "required_new_return_channel": null,
+      "unavailable_baseline_return_channel": "unknown, not a returned nil error or automatic false label",
+      "Got": null,
+      "truth": null,
+      "role": null,
+      "weight": null
+    },
+    {
+      "ordinal": 16,
+      "request_id": "next60-cobra-context-preflight",
+      "case_id": "next60-cobra-context-preflight-vector-04",
+      "original_pointer": "/drafts/16/finite_cases/3/want",
+      "Want": {
+        "behavior": "legacy execution retained"
+      },
+      "source_or_new_policy": "source-only target proposal; not observed",
+      "candidate_order": [
+        "baseline-design",
+        "reference-design",
+        "wrong-seed-design"
+      ],
+      "required_new_return_channel": null,
+      "unavailable_baseline_return_channel": "unknown, not a returned nil error or automatic false label",
+      "Got": null,
+      "truth": null,
+      "role": null,
+      "weight": null
+    },
+    {
+      "ordinal": 17,
+      "request_id": "next60-humanize-bigbytes-precision",
+      "case_id": "next60-humanize-bigbytes-precision-vector-01",
+      "original_pointer": "/drafts/10/finite_cases/0/want",
+      "Want": {
+        "input_unchanged": true,
+        "text": "1.50 kB"
+      },
+      "source_or_new_policy": "source-only target proposal; not observed",
+      "candidate_order": [
+        "baseline-design",
+        "reference-design",
+        "wrong-seed-design"
+      ],
+      "required_new_return_channel": true,
+      "unavailable_baseline_return_channel": "unknown, not a returned nil error or automatic false label",
+      "Got": null,
+      "truth": null,
+      "role": null,
+      "weight": null
+    },
+    {
+      "ordinal": 18,
+      "request_id": "next60-humanize-bigbytes-precision",
+      "case_id": "next60-humanize-bigbytes-precision-vector-02",
+      "original_pointer": "/drafts/10/finite_cases/1/want",
+      "Want": {
+        "input_unchanged": true,
+        "text": "1.501 kB"
+      },
+      "source_or_new_policy": "source-only target proposal; not observed",
+      "candidate_order": [
+        "baseline-design",
+        "reference-design",
+        "wrong-seed-design"
+      ],
+      "required_new_return_channel": true,
+      "unavailable_baseline_return_channel": "unknown, not a returned nil error or automatic false label",
+      "Got": null,
+      "truth": null,
+      "role": null,
+      "weight": null
+    },
+    {
+      "ordinal": 19,
+      "request_id": "next60-humanize-bigbytes-precision",
+      "case_id": "next60-humanize-bigbytes-precision-vector-03",
+      "original_pointer": "/drafts/10/finite_cases/2/want",
+      "Want": {
+        "input_unchanged": true,
+        "text": "1.000000000000001 QB"
+      },
+      "source_or_new_policy": "source-only target proposal; not observed",
+      "candidate_order": [
+        "baseline-design",
+        "reference-design",
+        "wrong-seed-design"
+      ],
+      "required_new_return_channel": true,
+      "unavailable_baseline_return_channel": "unknown, not a returned nil error or automatic false label",
+      "Got": null,
+      "truth": null,
+      "role": null,
+      "weight": null
+    },
+    {
+      "ordinal": 20,
+      "request_id": "next60-humanize-bigbytes-precision",
+      "case_id": "next60-humanize-bigbytes-precision-vector-04",
+      "original_pointer": "/drafts/10/finite_cases/3/want",
+      "Want": {
+        "text": "0 B"
+      },
+      "source_or_new_policy": "source-only target proposal; not observed",
+      "candidate_order": [
+        "baseline-design",
+        "reference-design",
+        "wrong-seed-design"
+      ],
+      "required_new_return_channel": true,
+      "unavailable_baseline_return_channel": "unknown, not a returned nil error or automatic false label",
+      "Got": null,
+      "truth": null,
+      "role": null,
+      "weight": null
+    },
+    {
+      "ordinal": 21,
+      "request_id": "next60-humanize-bigbytes-precision",
+      "case_id": "next60-humanize-bigbytes-precision-vector-05",
+      "original_pointer": "/drafts/10/finite_cases/4/want",
+      "Want": {
+        "error_kind": "negative_size",
+        "input_unchanged": true
+      },
+      "source_or_new_policy": "source-only target proposal; not observed",
+      "candidate_order": [
+        "baseline-design",
+        "reference-design",
+        "wrong-seed-design"
+      ],
+      "required_new_return_channel": true,
+      "unavailable_baseline_return_channel": "unknown, not a returned nil error or automatic false label",
+      "Got": null,
+      "truth": null,
+      "role": null,
+      "weight": null
+    },
+    {
+      "ordinal": 22,
+      "request_id": "next60-humanize-bigbytes-precision",
+      "case_id": "next60-humanize-bigbytes-precision-vector-06",
+      "original_pointer": "/drafts/10/finite_cases/5/want",
+      "Want": {
+        "error_kind": "precision"
+      },
+      "source_or_new_policy": "source-only target proposal; not observed",
+      "candidate_order": [
+        "baseline-design",
+        "reference-design",
+        "wrong-seed-design"
+      ],
+      "required_new_return_channel": true,
+      "unavailable_baseline_return_channel": "unknown, not a returned nil error or automatic false label",
+      "Got": null,
+      "truth": null,
+      "role": null,
+      "weight": null
+    }
+  ],
+  "context_realization": {
+    "omitted_opt_in_in_original_cases_1_to_3": true,
+    "explicit_case4_opt_in": false,
+    "public_option_default": false
+  },
+  "null_policy": "Unavailable channels and pre-call fields remain unknown. Expected candidate panic is recorded, not a harness failure. No label is allocated here.",
+  "actual_original_api_calls": 0,
+  "actual_original_init": 0,
+  "labels_created": 0,
+  "roles_assigned": 0
+}
+

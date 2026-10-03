@@ -1,0 +1,138 @@
+package writer
+
+import (
+	"errors"
+	"os"
+	"path/filepath"
+	"testing"
+
+	"riido.local/nextfive/pure"
+)
+
+func syntheticFixtures() pure.FixtureFile {
+	f := pure.FixtureFile{Schema: pure.FixtureSchema, OriginalSHA256: "c7bbf7bcc7912300fabdd6e671b0922df295299f00e5e7201df1ab5e824a2a9b"}
+	counts := [5]int{4, 4, 5, 4, 6}
+	ordinals := [5]int{6, 14, 8, 16, 10}
+	ids := [5]string{"next60-mapstructure-nil-config", "next60-cobra-error-writer", "next60-cobra-required-annotation", "next60-cobra-context-preflight", "next60-humanize-bigbytes-precision"}
+	for g, count := range counts {
+		for i := 0; i < count; i++ {
+			f.Records = append(f.Records, pure.Fixture{Ordinal: len(f.Records), RequestIndex: g, OriginalOrdinal: ordinals[g], CaseIndex: i, RequestID: ids[g], CaseID: "synthetic"})
+		}
+	}
+	return f
+}
+func completeSynthetic(w *Writer) pure.Result {
+	return pure.Observe(syntheticFixtures(), func(pure.Fixture, int) (pure.Invocation, error) {
+		return pure.Invocation{Kind: func(error) string { return "" }, Call: func(out *pure.Channels) error {
+			out.ErrorChannelAvailable = pure.B(true)
+			out.Text = pure.S("synthetic")
+			return nil
+		}}, nil
+	}, w.Emit)
+}
+
+func TestSyntheticExclusiveReservationAndPrefix(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "child")
+	w, err := Open(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer w.Close()
+	if _, err := Open(root); err == nil {
+		t.Fatal("rerun allowed")
+	}
+	before, err := os.ReadFile(filepath.Join(root, "results.json"))
+	if err != nil || len(before) != 0 {
+		t.Fatal("final not pre-reserved empty")
+	}
+	e := pure.Event{Sequence: 1, Stage: "before_candidate", Record: pure.Record{Ordinal: 0, CandidateID: "baseline-design", CaseID: "synthetic"}, Counters: pure.Counters{CandidateReserved: 1}}
+	if w.Emit(e) != nil {
+		t.Fatal("emit")
+	}
+	// A physical complete journal row is acknowledged only by the live writer
+	// state/final receipt, never from its mere presence after a simulated kill.
+	b, err := os.ReadFile(filepath.Join(root, "journal.jsonl"))
+	if err != nil || len(b) == 0 || w.last != 1 {
+		t.Fatal("prefix")
+	}
+	r := pure.Result{Schema: pure.ResultSchema, State: "incomplete", Failure: "synthetic_stop"}
+	r.LastSyncedSequence = 999
+	final, err := w.Finish(r)
+	if err != nil || len(final) == 0 {
+		t.Fatal("incomplete preservation")
+	}
+}
+func TestSyntheticStickyFailureRejectsStaleCompletion(t *testing.T) {
+	w, err := Open(filepath.Join(t.TempDir(), "child"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer w.Close()
+	r := pure.Result{Schema: pure.ResultSchema, State: "completed_finite_observations"}
+	r.Counters.CandidateDispatched = pure.Planned
+	r.Counters.CandidateReturned = pure.Planned
+	r.Counters.CompletedDispatches = pure.Planned
+	for i := range r.Records {
+		r.Records[i] = pure.Record{Ordinal: i, Dispatched: true, Returned: pure.B(true), PanicPresent: pure.B(false)}
+	}
+	if err := w.Emit(pure.Event{Sequence: 9, Stage: "before_candidate", Record: pure.Record{Ordinal: 0}}); !errors.Is(err, ErrOrder) {
+		t.Fatal("did not become sticky")
+	}
+	if _, err := w.Finish(r); !errors.Is(err, ErrFinal) {
+		t.Fatal("accepted stale completed report")
+	}
+	if w.Emit(pure.Event{Sequence: 1, Stage: "before_candidate", Record: pure.Record{Ordinal: 0}}) == nil {
+		t.Fatal("dispatch resumed")
+	}
+}
+
+func TestSyntheticNoFramesCannotForgeCompletion(t *testing.T) {
+	w, err := Open(filepath.Join(t.TempDir(), "child"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer w.Close()
+	r := pure.Result{Schema: pure.ResultSchema, State: "completed_finite_observations"}
+	r.Counters.CandidateReserved = pure.Planned
+	r.Counters.CandidateDispatched = pure.Planned
+	r.Counters.CandidateReturned = pure.Planned
+	r.Counters.CompletedDispatches = pure.Planned
+	for i := range r.Records {
+		r.Records[i] = pure.Record{Ordinal: i, Dispatched: true, Returned: pure.B(true), PanicPresent: pure.B(false)}
+	}
+	if _, err := w.Finish(r); !errors.Is(err, ErrFinal) {
+		t.Fatal("invented persisted completions")
+	}
+}
+func TestSyntheticAcknowledgedCounterAndRecordBinding(t *testing.T) {
+	for _, mutate := range []string{"reserved", "record", "clean"} {
+		t.Run(mutate, func(t *testing.T) {
+			w, err := Open(filepath.Join(t.TempDir(), "child"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer w.Close()
+			r := completeSynthetic(w)
+			if r.State != "completed_finite_observations" || w.completed != pure.Planned || w.phase != 0 {
+				t.Fatal("synthetic sequence failed")
+			}
+			switch mutate {
+			case "reserved":
+				r.Counters.CandidateReserved++
+			case "record":
+				r.Records[0].Channels.Text = pure.S("forged")
+			}
+			_, err = w.Finish(r)
+			if mutate == "clean" {
+				if err != nil {
+					t.Fatal(err)
+				}
+			} else if !errors.Is(err, ErrFinal) {
+				t.Fatal("forged ack")
+			}
+			if _, err := w.Finish(r); !errors.Is(err, ErrFinal) {
+				t.Fatal("second final write allowed")
+			}
+		})
+	}
+}

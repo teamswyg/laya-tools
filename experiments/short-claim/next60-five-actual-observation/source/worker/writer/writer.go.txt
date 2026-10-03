@@ -1,0 +1,256 @@
+// Package writer is owned stdlib-only checkpoint mechanics. Native bindings are
+// outside this package. Journal row existence alone never proves Sync returned.
+package writer
+
+import (
+	"encoding/json"
+	"errors"
+	"os"
+	"path/filepath"
+
+	"riido.local/nextfive/pure"
+)
+
+var ErrOpen = errors.New("checkpoint_open")
+var ErrWrite = errors.New("checkpoint_write")
+var ErrOrder = errors.New("checkpoint_order")
+var ErrFinal = errors.New("checkpoint_final")
+
+const JournalCap = 512 << 10
+const FinalCap = 256 << 10
+const ReservationCap = 8 << 10
+const EventCap = 8 << 10
+
+type Writer struct {
+	journal          *os.File
+	final            *os.File
+	journalBytes     int
+	reservationBytes int
+	last             int
+	completed        int
+	phase            int
+	ack              pure.Counters
+	row              pure.Record
+	rows             [pure.Planned]pure.Record
+	stopped          bool
+	closed           bool
+	finished         bool
+}
+
+func syncDir(path string) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return ErrOpen
+	}
+	defer f.Close()
+	if f.Sync() != nil {
+		return ErrOpen
+	}
+	return nil
+}
+func writeAll(f *os.File, b []byte) error {
+	n, err := f.Write(b)
+	if err != nil || n != len(b) {
+		return ErrWrite
+	}
+	if f.Sync() != nil {
+		return ErrWrite
+	}
+	return nil
+}
+func Open(root string) (*Writer, error) {
+	if !filepath.IsAbs(root) || filepath.Clean(root) != root {
+		return nil, ErrOpen
+	}
+	if _, err := os.Lstat(root); !errors.Is(err, os.ErrNotExist) {
+		return nil, ErrOpen
+	}
+	if os.Mkdir(root, 0700) != nil {
+		return nil, ErrOpen
+	}
+	w := &Writer{}
+	fail := func() (*Writer, error) { w.Close(); return nil, ErrOpen }
+	var err error
+	w.journal, err = os.OpenFile(filepath.Join(root, "journal.jsonl"), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if err != nil {
+		return fail()
+	}
+	w.final, err = os.OpenFile(filepath.Join(root, "results.json"), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if err != nil {
+		return fail()
+	}
+	f, err := os.OpenFile(filepath.Join(root, "reservation.json"), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if err != nil {
+		return fail()
+	}
+	b := []byte("{\"schema\":\"riido-next-five-attempt-reservation-v1\",\"planned_dispatches\":69,\"candidate_dispatched\":0,\"inner_original_api_calls\":null,\"original_startup_calls\":null,\"qualified\":0}\n")
+	if len(b) > ReservationCap || writeAll(f, b) != nil {
+		f.Close()
+		return fail()
+	}
+	if f.Close() != nil {
+		return fail()
+	}
+	w.reservationBytes = len(b)
+	if w.journal.Sync() != nil || w.final.Sync() != nil || syncDir(root) != nil || syncDir(filepath.Dir(root)) != nil {
+		return fail()
+	}
+	return w, nil
+}
+func (w *Writer) Emit(e pure.Event) error {
+	if w == nil || w.closed || w.stopped || w.finished {
+		return ErrWrite
+	}
+	if e.Sequence != w.last+1 || e.Record.Ordinal < 0 || e.Record.Ordinal >= pure.Planned || e.Record.Truth != nil || e.Record.Role != nil || e.Record.Weight != nil || e.Counters.InnerOriginalAPICalls != nil || e.Counters.OriginalStartupCalls != nil {
+		w.stopped = true
+		return ErrOrder
+	}
+	nextPhase, nextCompleted, err := w.checkEvent(e)
+	if err != nil {
+		w.stopped = true
+		return ErrOrder
+	}
+	b, err := json.Marshal(e)
+	if err != nil || len(b)+1 > EventCap || w.journalBytes+len(b)+1 > JournalCap {
+		w.stopped = true
+		return ErrWrite
+	}
+	b = append(b, '\n')
+	// Charge bytes even on partial-write/Sync failure; surviving tails are not
+	// acknowledged. An outside reader may retain them only as physical evidence.
+	w.journalBytes += len(b)
+	if writeAll(w.journal, b) != nil {
+		w.stopped = true
+		return ErrWrite
+	}
+	w.last, w.phase, w.completed, w.ack, w.row = e.Sequence, nextPhase, nextCompleted, e.Counters, e.Record
+	if e.Stage == "after_candidate" {
+		w.rows[e.Record.Ordinal] = e.Record
+	}
+	return nil
+}
+func (w *Writer) checkEvent(e pure.Event) (int, int, error) {
+	row, c := e.Record, e.Counters
+	if row.Ordinal != w.completed || row.FixtureOrdinal != row.Ordinal/3 || row.CandidateIndex != row.Ordinal%3 || row.CandidateID != [3]string{"baseline-design", "reference-design", "wrong-seed-design"}[row.Ordinal%3] || row.CaseID == "" || c.CheckpointStopped {
+		return 0, 0, ErrOrder
+	}
+	expected := w.ack
+	phase, completed := w.phase, w.completed
+	returned := func() bool {
+		if !row.Dispatched || !row.Returned.Known || !row.PanicPresent.Known || row.Returned.Value == row.PanicPresent.Value {
+			return false
+		}
+		expected.CandidateDispatched++
+		if row.PanicPresent.Value {
+			expected.CandidatePanicked++
+		} else {
+			expected.CandidateReturned++
+		}
+		return true
+	}
+	switch e.Stage {
+	case "before_candidate":
+		if phase != 0 || row.Dispatched || row.Returned.Known || row.PanicPresent.Known {
+			return 0, 0, ErrOrder
+		}
+		expected.CandidateReserved++
+		phase = 1
+	case "before_error_method":
+		if phase != 1 || !returned() || row.PanicPresent.Value || !row.Channels.ErrorChannelAvailable.Known || !row.Channels.ErrorChannelAvailable.Value || !row.Channels.ErrorPresent.Known || !row.Channels.ErrorPresent.Value || row.Channels.ErrorText.Known || row.Channels.ErrorMethodReturned.Known {
+			return 0, 0, ErrOrder
+		}
+		expected.ErrorReserved++
+		phase = 2
+	case "after_error_method":
+		if phase != 2 || !row.Channels.ErrorMethodReturned.Known || row.Ordinal != w.row.Ordinal || row.Returned != w.row.Returned || row.PanicPresent != w.row.PanicPresent || row.Channels.ErrorType != w.row.Channels.ErrorType || row.Channels.ErrorPresent != w.row.Channels.ErrorPresent {
+			return 0, 0, ErrOrder
+		}
+		before := w.row
+		before.Channels.ErrorText = row.Channels.ErrorText
+		before.Channels.ErrorKind = row.Channels.ErrorKind
+		before.Channels.ErrorMethodReturned = row.Channels.ErrorMethodReturned
+		before.Channels.ErrorMethodPanicType = row.Channels.ErrorMethodPanicType
+		if before != row {
+			return 0, 0, ErrOrder
+		}
+		expected.ErrorDispatched++
+		if row.Channels.ErrorMethodReturned.Value {
+			expected.ErrorReturned++
+		} else {
+			expected.ErrorPanicked++
+		}
+		phase = 3
+	case "after_candidate":
+		if phase == 1 {
+			if !returned() || (row.Channels.ErrorChannelAvailable.Known && row.Channels.ErrorChannelAvailable.Value && row.Channels.ErrorPresent.Known && row.Channels.ErrorPresent.Value) {
+				return 0, 0, ErrOrder
+			}
+		} else if phase != 3 || row != w.row {
+			return 0, 0, ErrOrder
+		}
+		expected.CompletedDispatches++
+		completed++
+		phase = 0
+	default:
+		return 0, 0, ErrOrder
+	}
+	if c != expected || c.CandidateReserved > pure.Planned || c.ErrorReserved > pure.Planned || c.CandidateReserved+c.ErrorReserved > pure.MaxTracked {
+		return 0, 0, ErrOrder
+	}
+	return phase, completed, nil
+}
+func (w *Writer) Finish(r pure.Result) ([]byte, error) {
+	if w == nil || w.closed || w.finished {
+		return nil, ErrFinal
+	}
+	w.finished = true
+	if r.Schema != pure.ResultSchema || r.Qualified != 0 || r.ParentsCreated != 0 || r.TrainingReady || r.SourceSelectionComplete || r.Counters.InnerOriginalAPICalls != nil || r.Counters.OriginalStartupCalls != nil {
+		return nil, ErrFinal
+	}
+	for _, row := range r.Records {
+		if row.Truth != nil || row.Role != nil || row.Weight != nil {
+			return nil, ErrFinal
+		}
+	}
+	if r.State == "completed_finite_observations" {
+		c := r.Counters
+		if w.stopped || w.completed != pure.Planned || w.phase != 0 || w.last == 0 || w.ack != c || r.Failure != "" || c.CheckpointStopped || c.CompletedDispatches != pure.Planned || c.CandidateDispatched != pure.Planned || c.CandidateReturned+c.CandidatePanicked != pure.Planned || c.ErrorReturned+c.ErrorPanicked != c.ErrorDispatched {
+			return nil, ErrFinal
+		}
+		for i, row := range r.Records {
+			if row != w.rows[i] || row.Ordinal != i || !row.Dispatched || !row.Returned.Known || !row.PanicPresent.Known || row.Returned.Value == row.PanicPresent.Value || row.Truth != nil || row.Role != nil || row.Weight != nil {
+				return nil, ErrFinal
+			}
+		}
+	} else if r.State != "incomplete" || r.Failure == "" {
+		return nil, ErrFinal
+	}
+	r.LastSyncedSequence = w.last
+	// Compact canonical field order keeps the 69 fixed records within the
+	// standalone stdout cap. Metadata inputs use their separate pretty recipe.
+	b, err := json.Marshal(r)
+	if err != nil {
+		return nil, ErrFinal
+	}
+	b = append(b, '\n')
+	if len(b) > FinalCap || w.journalBytes+w.reservationBytes+len(b) > pure.OutputCap {
+		return nil, ErrFinal
+	}
+	if writeAll(w.final, b) != nil {
+		w.stopped = true
+		return nil, ErrFinal
+	}
+	return b, nil
+}
+func (w *Writer) Close() {
+	if w == nil || w.closed {
+		return
+	}
+	w.closed = true
+	if w.journal != nil {
+		_ = w.journal.Close()
+	}
+	if w.final != nil {
+		_ = w.final.Close()
+	}
+}

@@ -1,0 +1,143 @@
+package main
+
+import (
+	"bytes"
+	"errors"
+	"os"
+	"path/filepath"
+	"testing"
+	"time"
+)
+
+func TestPureDeadlineAndCapKillThenReap(t *testing.T) {
+	for _, kind := range []string{"deadline", "cap"} {
+		t.Run(kind, func(t *testing.T) {
+			done := make(chan error, 1)
+			deadline := make(chan time.Time, 1)
+			capSignal := make(chan struct{}, 1)
+			if kind == "deadline" {
+				deadline <- time.Time{}
+			} else {
+				capSignal <- struct{}{}
+			}
+			want := errors.New("synthetic_wait_error")
+			kills := 0
+			got := await(done, deadline, capSignal, func() bool { kills++; done <- want; return true })
+			if kills != 1 || !got.Killed || got.KillOK == nil || !*got.KillOK || got.Err != want {
+				t.Fatal("kill/reap control failed")
+			}
+			if got.Deadline != (kind == "deadline") || got.Cap != (kind == "cap") {
+				t.Fatal("wrong cause")
+			}
+		})
+	}
+	done := make(chan error, 1)
+	done <- nil
+	got := await(done, make(chan time.Time), make(chan struct{}), func() bool { t.Fatal("killed completed fake process"); return false })
+	if got.Err != nil || got.Killed || got.Deadline || got.Cap {
+		t.Fatal("unexpected completed state")
+	}
+}
+func TestPureFailedKillStillConsumesWait(t *testing.T) {
+	done := make(chan error, 1)
+	deadline := make(chan time.Time, 1)
+	deadline <- time.Time{}
+	got := await(done, deadline, make(chan struct{}), func() bool { done <- errors.New("synthetic_reaped"); return false })
+	if !got.Killed || got.KillOK == nil || *got.KillOK || got.Err == nil {
+		t.Fatal("lost failed kill/wait facts")
+	}
+}
+func TestBoundedRegularFilesPinsAndSymlink(t *testing.T) {
+	dir := t.TempDir()
+	file := filepath.Join(dir, "owned")
+	body := []byte("owned fixture")
+	if e := os.WriteFile(file, body, 0600); e != nil {
+		t.Fatal(e)
+	}
+	p := Pin{"owned/synthetic", file, len(body), sum(body)}
+	if _, _, e := verify(p, 64); e != nil {
+		t.Fatal(e)
+	}
+	if _, _, e := regularRead(file, len(body)-1); e == nil {
+		t.Fatal("accepted oversize")
+	}
+	p.SHA = sum([]byte("different"))
+	if _, _, e := verify(p, 64); e == nil {
+		t.Fatal("accepted changed bytes")
+	}
+	link := filepath.Join(dir, "link")
+	if e := os.Symlink(file, link); e != nil {
+		t.Fatal(e)
+	}
+	if _, _, e := regularRead(link, 64); e == nil {
+		t.Fatal("accepted symlink leaf")
+	}
+	if _, _, e := regularRead(dir, 64); e == nil {
+		t.Fatal("accepted directory")
+	}
+	p = Pin{"owned/synthetic", file, 0, sum(body)}
+	if _, _, e := verify(p, 64); e == nil {
+		t.Fatal("accepted empty pin")
+	}
+}
+func TestCaptureCapPreservesPrefixAndSignals(t *testing.T) {
+	file, e := os.CreateTemp(t.TempDir(), "owned")
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer file.Close()
+	signal := make(chan struct{}, 1)
+	w := capture{file: file, cap: 4, signal: signal}
+	if n, e := w.Write([]byte("ab")); n != 2 || e != nil {
+		t.Fatal("first write", n, e)
+	}
+	if n, e := w.Write([]byte("cdef")); n != 2 || e == nil || !w.exceeded || w.n != 4 {
+		t.Fatal("cap write", n, e)
+	}
+	select {
+	case <-signal:
+	default:
+		t.Fatal("missing cap signal")
+	}
+	if _, e = file.Seek(0, 0); e != nil {
+		t.Fatal(e)
+	}
+	got := make([]byte, 4)
+	if _, e = file.Read(got); e != nil || !bytes.Equal(got, []byte("abcd")) {
+		t.Fatal("lost retained prefix", e)
+	}
+}
+func TestMetricsUnitsMissingDuplicateAndNonfinite(t *testing.T) {
+	good := []byte(" 0.38 real 0.03 user 0.01 sys\n 5816320 maximum resident set size\n")
+	m := parseMetrics(good)
+	if !m.Valid || m.MaximumRSSBytes == nil || *m.MaximumRSSBytes != 5816320 || m.RealSeconds == nil || *m.RealSeconds != 0.38 {
+		t.Fatal("wrong Darwin bytes/time")
+	}
+	for _, raw := range [][]byte{
+		[]byte(""), []byte("0 maximum resident set size\n"), []byte("NaN real 0.1 user 0.1 sys\n5816320 maximum resident set size\n"),
+		append(append([]byte{}, good...), []byte("1 maximum resident set size\n")...),
+		append(append([]byte{}, good...), []byte("0.1 real 0.1 user 0.1 sys\n")...),
+	} {
+		if parseMetrics(raw).Valid {
+			t.Fatal("accepted invalid/ambiguous metrics")
+		}
+	}
+}
+func TestExclusiveOutputPreservesPreviousAndFixedCodeRedacts(t *testing.T) {
+	dir := t.TempDir()
+	file := filepath.Join(dir, "reserved")
+	if e := os.WriteFile(file, []byte("previous"), 0600); e != nil {
+		t.Fatal(e)
+	}
+	if f, e := os.OpenFile(file, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600); e == nil {
+		f.Close()
+		t.Fatal("reused output")
+	}
+	body, e := os.ReadFile(file)
+	if e != nil || string(body) != "previous" {
+		t.Fatal("overwrote previous output")
+	}
+	if fixedCode(errors.New("private-host-path or secret")) != "nextfive_outside_output_invalid" {
+		t.Fatal("unredacted failure cause")
+	}
+}

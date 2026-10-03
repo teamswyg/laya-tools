@@ -1,0 +1,86 @@
+{
+  "schema": "riido-pr118-local-verification-v1",
+  "scope": "Local checks before PR118 publication; does not assert remote PR118 CI or model utility",
+  "toolchain": "go1.27.1 darwin/arm64",
+  "full_repository_race": {
+    "packages_pass": 82,
+    "tests_pass": 1972,
+    "tests_skip": 9,
+    "failure_events": 0,
+    "CGO_ENABLED": 1
+  },
+  "full_repository_vet": {
+    "passed": true,
+    "CGO_ENABLED": 1
+  },
+  "saved_comparison_five": {
+    "passed": true,
+    "rows": 69,
+    "satisfied": 42,
+    "unsatisfied": 21,
+    "unknown": 6,
+    "original_worker_replayed": false,
+    "attempt1": {
+      "passed": false,
+      "cause": "Missing owned test fixture environment variables; no native execution"
+    },
+    "attempt2": {
+      "passed": true
+    }
+  },
+  "data_pipeline": {
+    "passed": true,
+    "invoked_outside_repository_cwd": true,
+    "requests": 21,
+    "candidate_labels": 61,
+    "frozen_inputs": 103,
+    "original_evidence_observations": 305,
+    "selected_candidate_observations": 301,
+    "data_sha256": "f8d9beb88393d2c1d2d8f690e366342157fd13bee25abb79078287e62c94b828",
+    "validation_sha256": "2be650004e5149836ef952a9925ca121325f23bae173f5ea8101e1c49b716791",
+    "unknown_writer_baseline_excluded": true
+  },
+  "twentyone_owned_synthetic_modules": {
+    "passed": true,
+    "race_and_vet": true,
+    "failed_preparation_attempts": [
+      {
+        "attempt": 1,
+        "cause": "Expected owned JSON fixture omitted from temporary module parent",
+        "original_calls": 0
+      },
+      {
+        "attempt": 2,
+        "cause": "Non-executable shell script invoked directly; exit126 before tests",
+        "original_calls": 0
+      }
+    ],
+    "successful_attempt": 3,
+    "source_and_labels_unchanged": true
+  },
+  "new_corpus_Fit_calls": 0,
+  "new_model_calls": 0,
+  "remote_PR118_CI_verified": false,
+  "HF21_published": false,
+  "formatting": {
+    "owned_runtime_source_passed": true,
+    "upstream_testdata_unchanged": true
+  },
+  "narrow_staged_secret_scan": {
+    "passed": true,
+    "redacted": true,
+    "bytes_scanned": 783966
+  },
+  "immutable_terminal_LF": {
+    "initial_diff_check_failed": true,
+    "frozen_files_rewritten": false,
+    "remedy": "Four exact .gitattributes whitespace attributes preserve already SHA-pinned bytes; no broad whitespace bypass"
+  },
+  "publication_sequence_correction": {
+    "peer_receipt_terminal_LF_diff_check_failed": true,
+    "initial_head_pushed_before_interpreting_that_exit": true,
+    "correction": "Three additional exact attributes preserve sealed review bytes; final diff/secret checks precede follow-up push",
+    "sealed_review_bytes_unchanged": true,
+    "CI_gate_bypassed": false
+  }
+}

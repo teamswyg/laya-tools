@@ -1,0 +1,882 @@
+{
+  "schema": "riido-next-five-fixtures-v1",
+  "original_sha256": "c7bbf7bcc7912300fabdd6e671b0922df295299f00e5e7201df1ab5e824a2a9b",
+  "records": [
+    {
+      "ordinal": 0,
+      "request_index": 0,
+      "original_request_ordinal": 6,
+      "case_index": 0,
+      "request_id": "next60-mapstructure-nil-config",
+      "case_id": "next60-mapstructure-nil-config-vector-01",
+      "original_pointer": "/drafts/6/finite_cases/0",
+      "original_input": {
+        "config": null
+      },
+      "original_want": {
+        "error_kind": "invalid_config",
+        "panic": false
+      },
+      "realized_input": {
+        "config_mode": "nil_config",
+        "metadata_empty": false,
+        "writer_mode": "",
+        "text": "",
+        "annotation_count": 0,
+        "annotation": [
+          "",
+          ""
+        ],
+        "help": false,
+        "pre_canceled": false,
+        "opt_in": false,
+        "integer": "",
+        "digits": 0
+      },
+      "Got": null,
+      "truth": null,
+      "role": null,
+      "weight": null
+    },
+    {
+      "ordinal": 1,
+      "request_index": 0,
+      "original_request_ordinal": 6,
+      "case_index": 1,
+      "request_id": "next60-mapstructure-nil-config",
+      "case_id": "next60-mapstructure-nil-config-vector-02",
+      "original_pointer": "/drafts/6/finite_cases/1",
+      "original_input": {
+        "config": {
+          "Metadata": "empty",
+          "Result": null
+        }
+      },
+      "original_want": {
+        "error_kind": "invalid_result",
+        "metadata_unchanged": true,
+        "panic": false
+      },
+      "realized_input": {
+        "config_mode": "nil_result",
+        "metadata_empty": true,
+        "writer_mode": "",
+        "text": "",
+        "annotation_count": 0,
+        "annotation": [
+          "",
+          ""
+        ],
+        "help": false,
+        "pre_canceled": false,
+        "opt_in": false,
+        "integer": "",
+        "digits": 0
+      },
+      "Got": null,
+      "truth": null,
+      "role": null,
+      "weight": null
+    },
+    {
+      "ordinal": 2,
+      "request_index": 0,
+      "original_request_ordinal": 6,
+      "case_index": 2,
+      "request_id": "next60-mapstructure-nil-config",
+      "case_id": "next60-mapstructure-nil-config-vector-03",
+      "original_pointer": "/drafts/6/finite_cases/2",
+      "original_input": {
+        "config": {
+          "Metadata": "empty",
+          "Result": "typed nil *struct"
+        }
+      },
+      "original_want": {
+        "error_kind": "invalid_result",
+        "metadata_unchanged": true,
+        "panic": false
+      },
+      "realized_input": {
+        "config_mode": "typed_nil",
+        "metadata_empty": true,
+        "writer_mode": "",
+        "text": "",
+        "annotation_count": 0,
+        "annotation": [
+          "",
+          ""
+        ],
+        "help": false,
+        "pre_canceled": false,
+        "opt_in": false,
+        "integer": "",
+        "digits": 0
+      },
+      "Got": null,
+      "truth": null,
+      "role": null,
+      "weight": null
+    },
+    {
+      "ordinal": 3,
+      "request_index": 0,
+      "original_request_ordinal": 6,
+      "case_index": 3,
+      "request_id": "next60-mapstructure-nil-config",
+      "case_id": "next60-mapstructure-nil-config-vector-04",
+      "original_pointer": "/drafts/6/finite_cases/3",
+      "original_input": {
+        "config": {
+          "Result": "addressable *struct"
+        }
+      },
+      "original_want": {
+        "decoder_created": true,
+        "default_tag": "mapstructure",
+        "error": null
+      },
+      "realized_input": {
+        "config_mode": "addressable",
+        "metadata_empty": false,
+        "writer_mode": "",
+        "text": "",
+        "annotation_count": 0,
+        "annotation": [
+          "",
+          ""
+        ],
+        "help": false,
+        "pre_canceled": false,
+        "opt_in": false,
+        "integer": "",
+        "digits": 0
+      },
+      "Got": null,
+      "truth": null,
+      "role": null,
+      "weight": null
+    },
+    {
+      "ordinal": 4,
+      "request_index": 1,
+      "original_request_ordinal": 14,
+      "case_index": 0,
+      "request_id": "next60-cobra-error-writer",
+      "case_id": "next60-cobra-error-writer-vector-01",
+      "original_pointer": "/drafts/14/finite_cases/0",
+      "original_input": {
+        "text": "abc",
+        "writer": "full"
+      },
+      "original_want": {
+        "bytes": "abc",
+        "error": null,
+        "n": 3
+      },
+      "realized_input": {
+        "config_mode": "",
+        "metadata_empty": false,
+        "writer_mode": "full",
+        "text": "abc",
+        "annotation_count": 0,
+        "annotation": [
+          "",
+          ""
+        ],
+        "help": false,
+        "pre_canceled": false,
+        "opt_in": false,
+        "integer": "",
+        "digits": 0
+      },
+      "Got": null,
+      "truth": null,
+      "role": null,
+      "weight": null
+    },
+    {
+      "ordinal": 5,
+      "request_index": 1,
+      "original_request_ordinal": 14,
+      "case_index": 1,
+      "request_id": "next60-cobra-error-writer",
+      "case_id": "next60-cobra-error-writer-vector-02",
+      "original_pointer": "/drafts/14/finite_cases/1",
+      "original_input": {
+        "text": "abc",
+        "writer": {
+          "error": null,
+          "n": 1
+        }
+      },
+      "original_want": {
+        "error_is": "io.ErrShortWrite",
+        "n": 1
+      },
+      "realized_input": {
+        "config_mode": "",
+        "metadata_empty": false,
+        "writer_mode": "short",
+        "text": "abc",
+        "annotation_count": 0,
+        "annotation": [
+          "",
+          ""
+        ],
+        "help": false,
+        "pre_canceled": false,
+        "opt_in": false,
+        "integer": "",
+        "digits": 0
+      },
+      "Got": null,
+      "truth": null,
+      "role": null,
+      "weight": null
+    },
+    {
+      "ordinal": 6,
+      "request_index": 1,
+      "original_request_ordinal": 14,
+      "case_index": 2,
+      "request_id": "next60-cobra-error-writer",
+      "case_id": "next60-cobra-error-writer-vector-03",
+      "original_pointer": "/drafts/14/finite_cases/2",
+      "original_input": {
+        "text": "abc",
+        "writer": {
+          "error": "cause",
+          "n": 1
+        }
+      },
+      "original_want": {
+        "error_is": "cause",
+        "n": 1
+      },
+      "realized_input": {
+        "config_mode": "",
+        "metadata_empty": false,
+        "writer_mode": "cause",
+        "text": "abc",
+        "annotation_count": 0,
+        "annotation": [
+          "",
+          ""
+        ],
+        "help": false,
+        "pre_canceled": false,
+        "opt_in": false,
+        "integer": "",
+        "digits": 0
+      },
+      "Got": null,
+      "truth": null,
+      "role": null,
+      "weight": null
+    },
+    {
+      "ordinal": 7,
+      "request_index": 1,
+      "original_request_ordinal": 14,
+      "case_index": 3,
+      "request_id": "next60-cobra-error-writer",
+      "case_id": "next60-cobra-error-writer-vector-04",
+      "original_pointer": "/drafts/14/finite_cases/3",
+      "original_input": {
+        "child_writer": null,
+        "parent_writer": "buffer",
+        "text": "abc"
+      },
+      "original_want": {
+        "child_bytes": "",
+        "n": 3,
+        "parent_bytes": "abc"
+      },
+      "realized_input": {
+        "config_mode": "",
+        "metadata_empty": false,
+        "writer_mode": "inherited",
+        "text": "abc",
+        "annotation_count": 0,
+        "annotation": [
+          "",
+          ""
+        ],
+        "help": false,
+        "pre_canceled": false,
+        "opt_in": false,
+        "integer": "",
+        "digits": 0
+      },
+      "Got": null,
+      "truth": null,
+      "role": null,
+      "weight": null
+    },
+    {
+      "ordinal": 8,
+      "request_index": 2,
+      "original_request_ordinal": 8,
+      "case_index": 0,
+      "request_id": "next60-cobra-required-annotation",
+      "case_id": "next60-cobra-required-annotation-vector-01",
+      "original_pointer": "/drafts/8/finite_cases/0",
+      "original_input": {
+        "annotation": []
+      },
+      "original_want": {
+        "error_kind": "annotation",
+        "flag_unchanged": true,
+        "panic": false
+      },
+      "realized_input": {
+        "config_mode": "",
+        "metadata_empty": false,
+        "writer_mode": "",
+        "text": "",
+        "annotation_count": 0,
+        "annotation": [
+          "",
+          ""
+        ],
+        "help": false,
+        "pre_canceled": false,
+        "opt_in": false,
+        "integer": "",
+        "digits": 0
+      },
+      "Got": null,
+      "truth": null,
+      "role": null,
+      "weight": null
+    },
+    {
+      "ordinal": 9,
+      "request_index": 2,
+      "original_request_ordinal": 8,
+      "case_index": 1,
+      "request_id": "next60-cobra-required-annotation",
+      "case_id": "next60-cobra-required-annotation-vector-02",
+      "original_pointer": "/drafts/8/finite_cases/1",
+      "original_input": {
+        "annotation": [
+          "garbage"
+        ]
+      },
+      "original_want": {
+        "error_kind": "annotation",
+        "panic": false
+      },
+      "realized_input": {
+        "config_mode": "",
+        "metadata_empty": false,
+        "writer_mode": "",
+        "text": "",
+        "annotation_count": 1,
+        "annotation": [
+          "garbage",
+          ""
+        ],
+        "help": false,
+        "pre_canceled": false,
+        "opt_in": false,
+        "integer": "",
+        "digits": 0
+      },
+      "Got": null,
+      "truth": null,
+      "role": null,
+      "weight": null
+    },
+    {
+      "ordinal": 10,
+      "request_index": 2,
+      "original_request_ordinal": 8,
+      "case_index": 2,
+      "request_id": "next60-cobra-required-annotation",
+      "case_id": "next60-cobra-required-annotation-vector-03",
+      "original_pointer": "/drafts/8/finite_cases/2",
+      "original_input": {
+        "annotation": [
+          "true",
+          "false"
+        ]
+      },
+      "original_want": {
+        "error_kind": "annotation",
+        "panic": false
+      },
+      "realized_input": {
+        "config_mode": "",
+        "metadata_empty": false,
+        "writer_mode": "",
+        "text": "",
+        "annotation_count": 2,
+        "annotation": [
+          "true",
+          "false"
+        ],
+        "help": false,
+        "pre_canceled": false,
+        "opt_in": false,
+        "integer": "",
+        "digits": 0
+      },
+      "Got": null,
+      "truth": null,
+      "role": null,
+      "weight": null
+    },
+    {
+      "ordinal": 11,
+      "request_index": 2,
+      "original_request_ordinal": 8,
+      "case_index": 3,
+      "request_id": "next60-cobra-required-annotation",
+      "case_id": "next60-cobra-required-annotation-vector-04",
+      "original_pointer": "/drafts/8/finite_cases/3",
+      "original_input": {
+        "annotation": [
+          "true"
+        ],
+        "changed": false
+      },
+      "original_want": {
+        "error_kind": "missing_required"
+      },
+      "realized_input": {
+        "config_mode": "",
+        "metadata_empty": false,
+        "writer_mode": "",
+        "text": "",
+        "annotation_count": 1,
+        "annotation": [
+          "true",
+          ""
+        ],
+        "help": false,
+        "pre_canceled": false,
+        "opt_in": false,
+        "integer": "",
+        "digits": 0
+      },
+      "Got": null,
+      "truth": null,
+      "role": null,
+      "weight": null
+    },
+    {
+      "ordinal": 12,
+      "request_index": 2,
+      "original_request_ordinal": 8,
+      "case_index": 4,
+      "request_id": "next60-cobra-required-annotation",
+      "case_id": "next60-cobra-required-annotation-vector-05",
+      "original_pointer": "/drafts/8/finite_cases/4",
+      "original_input": {
+        "annotation": [
+          "false"
+        ],
+        "changed": false
+      },
+      "original_want": {
+        "error": null
+      },
+      "realized_input": {
+        "config_mode": "",
+        "metadata_empty": false,
+        "writer_mode": "",
+        "text": "",
+        "annotation_count": 1,
+        "annotation": [
+          "false",
+          ""
+        ],
+        "help": false,
+        "pre_canceled": false,
+        "opt_in": false,
+        "integer": "",
+        "digits": 0
+      },
+      "Got": null,
+      "truth": null,
+      "role": null,
+      "weight": null
+    },
+    {
+      "ordinal": 13,
+      "request_index": 3,
+      "original_request_ordinal": 16,
+      "case_index": 0,
+      "request_id": "next60-cobra-context-preflight",
+      "case_id": "next60-cobra-context-preflight-vector-01",
+      "original_pointer": "/drafts/16/finite_cases/0",
+      "original_input": {
+        "help": false,
+        "pre_canceled": true
+      },
+      "original_want": {
+        "error_is": "context.Canceled",
+        "initializer_calls": 0,
+        "pre_run_calls": 0,
+        "run_calls": 0
+      },
+      "realized_input": {
+        "config_mode": "",
+        "metadata_empty": false,
+        "writer_mode": "",
+        "text": "",
+        "annotation_count": 0,
+        "annotation": [
+          "",
+          ""
+        ],
+        "help": false,
+        "pre_canceled": true,
+        "opt_in": true,
+        "integer": "",
+        "digits": 0
+      },
+      "Got": null,
+      "truth": null,
+      "role": null,
+      "weight": null
+    },
+    {
+      "ordinal": 14,
+      "request_index": 3,
+      "original_request_ordinal": 16,
+      "case_index": 1,
+      "request_id": "next60-cobra-context-preflight",
+      "case_id": "next60-cobra-context-preflight-vector-02",
+      "original_pointer": "/drafts/16/finite_cases/1",
+      "original_input": {
+        "help": false,
+        "pre_canceled": false
+      },
+      "original_want": {
+        "error": null,
+        "initializer_calls": 1,
+        "pre_run_calls": 1,
+        "run_calls": 1
+      },
+      "realized_input": {
+        "config_mode": "",
+        "metadata_empty": false,
+        "writer_mode": "",
+        "text": "",
+        "annotation_count": 0,
+        "annotation": [
+          "",
+          ""
+        ],
+        "help": false,
+        "pre_canceled": false,
+        "opt_in": true,
+        "integer": "",
+        "digits": 0
+      },
+      "Got": null,
+      "truth": null,
+      "role": null,
+      "weight": null
+    },
+    {
+      "ordinal": 15,
+      "request_index": 3,
+      "original_request_ordinal": 16,
+      "case_index": 2,
+      "request_id": "next60-cobra-context-preflight",
+      "case_id": "next60-cobra-context-preflight-vector-03",
+      "original_pointer": "/drafts/16/finite_cases/2",
+      "original_input": {
+        "help": true,
+        "pre_canceled": true
+      },
+      "original_want": {
+        "help_displayed": true,
+        "initializer_calls": 0,
+        "run_calls": 0
+      },
+      "realized_input": {
+        "config_mode": "",
+        "metadata_empty": false,
+        "writer_mode": "",
+        "text": "",
+        "annotation_count": 0,
+        "annotation": [
+          "",
+          ""
+        ],
+        "help": true,
+        "pre_canceled": true,
+        "opt_in": true,
+        "integer": "",
+        "digits": 0
+      },
+      "Got": null,
+      "truth": null,
+      "role": null,
+      "weight": null
+    },
+    {
+      "ordinal": 16,
+      "request_index": 3,
+      "original_request_ordinal": 16,
+      "case_index": 3,
+      "request_id": "next60-cobra-context-preflight",
+      "case_id": "next60-cobra-context-preflight-vector-04",
+      "original_pointer": "/drafts/16/finite_cases/3",
+      "original_input": {
+        "help": false,
+        "opt_in": false,
+        "pre_canceled": true
+      },
+      "original_want": {
+        "behavior": "legacy execution retained"
+      },
+      "realized_input": {
+        "config_mode": "",
+        "metadata_empty": false,
+        "writer_mode": "",
+        "text": "",
+        "annotation_count": 0,
+        "annotation": [
+          "",
+          ""
+        ],
+        "help": false,
+        "pre_canceled": true,
+        "opt_in": false,
+        "integer": "",
+        "digits": 0
+      },
+      "Got": null,
+      "truth": null,
+      "role": null,
+      "weight": null
+    },
+    {
+      "ordinal": 17,
+      "request_index": 4,
+      "original_request_ordinal": 10,
+      "case_index": 0,
+      "request_id": "next60-humanize-bigbytes-precision",
+      "case_id": "next60-humanize-bigbytes-precision-vector-01",
+      "original_pointer": "/drafts/10/finite_cases/0",
+      "original_input": {
+        "digits": 3,
+        "integer": "1500"
+      },
+      "original_want": {
+        "input_unchanged": true,
+        "text": "1.50 kB"
+      },
+      "realized_input": {
+        "config_mode": "",
+        "metadata_empty": false,
+        "writer_mode": "",
+        "text": "",
+        "annotation_count": 0,
+        "annotation": [
+          "",
+          ""
+        ],
+        "help": false,
+        "pre_canceled": false,
+        "opt_in": false,
+        "integer": "1500",
+        "digits": 3
+      },
+      "Got": null,
+      "truth": null,
+      "role": null,
+      "weight": null
+    },
+    {
+      "ordinal": 18,
+      "request_index": 4,
+      "original_request_ordinal": 10,
+      "case_index": 1,
+      "request_id": "next60-humanize-bigbytes-precision",
+      "case_id": "next60-humanize-bigbytes-precision-vector-02",
+      "original_pointer": "/drafts/10/finite_cases/1",
+      "original_input": {
+        "digits": 4,
+        "integer": "1501"
+      },
+      "original_want": {
+        "input_unchanged": true,
+        "text": "1.501 kB"
+      },
+      "realized_input": {
+        "config_mode": "",
+        "metadata_empty": false,
+        "writer_mode": "",
+        "text": "",
+        "annotation_count": 0,
+        "annotation": [
+          "",
+          ""
+        ],
+        "help": false,
+        "pre_canceled": false,
+        "opt_in": false,
+        "integer": "1501",
+        "digits": 4
+      },
+      "Got": null,
+      "truth": null,
+      "role": null,
+      "weight": null
+    },
+    {
+      "ordinal": 19,
+      "request_index": 4,
+      "original_request_ordinal": 10,
+      "case_index": 2,
+      "request_id": "next60-humanize-bigbytes-precision",
+      "case_id": "next60-humanize-bigbytes-precision-vector-03",
+      "original_pointer": "/drafts/10/finite_cases/2",
+      "original_input": {
+        "digits": 16,
+        "integer": "1000000000000001000000000000000"
+      },
+      "original_want": {
+        "input_unchanged": true,
+        "text": "1.000000000000001 QB"
+      },
+      "realized_input": {
+        "config_mode": "",
+        "metadata_empty": false,
+        "writer_mode": "",
+        "text": "",
+        "annotation_count": 0,
+        "annotation": [
+          "",
+          ""
+        ],
+        "help": false,
+        "pre_canceled": false,
+        "opt_in": false,
+        "integer": "1000000000000001000000000000000",
+        "digits": 16
+      },
+      "Got": null,
+      "truth": null,
+      "role": null,
+      "weight": null
+    },
+    {
+      "ordinal": 20,
+      "request_index": 4,
+      "original_request_ordinal": 10,
+      "case_index": 3,
+      "request_id": "next60-humanize-bigbytes-precision",
+      "case_id": "next60-humanize-bigbytes-precision-vector-04",
+      "original_pointer": "/drafts/10/finite_cases/3",
+      "original_input": {
+        "digits": 3,
+        "integer": "0"
+      },
+      "original_want": {
+        "text": "0 B"
+      },
+      "realized_input": {
+        "config_mode": "",
+        "metadata_empty": false,
+        "writer_mode": "",
+        "text": "",
+        "annotation_count": 0,
+        "annotation": [
+          "",
+          ""
+        ],
+        "help": false,
+        "pre_canceled": false,
+        "opt_in": false,
+        "integer": "0",
+        "digits": 3
+      },
+      "Got": null,
+      "truth": null,
+      "role": null,
+      "weight": null
+    },
+    {
+      "ordinal": 21,
+      "request_index": 4,
+      "original_request_ordinal": 10,
+      "case_index": 4,
+      "request_id": "next60-humanize-bigbytes-precision",
+      "case_id": "next60-humanize-bigbytes-precision-vector-05",
+      "original_pointer": "/drafts/10/finite_cases/4",
+      "original_input": {
+        "digits": 3,
+        "integer": "-1"
+      },
+      "original_want": {
+        "error_kind": "negative_size",
+        "input_unchanged": true
+      },
+      "realized_input": {
+        "config_mode": "",
+        "metadata_empty": false,
+        "writer_mode": "",
+        "text": "",
+        "annotation_count": 0,
+        "annotation": [
+          "",
+          ""
+        ],
+        "help": false,
+        "pre_canceled": false,
+        "opt_in": false,
+        "integer": "-1",
+        "digits": 3
+      },
+      "Got": null,
+      "truth": null,
+      "role": null,
+      "weight": null
+    },
+    {
+      "ordinal": 22,
+      "request_index": 4,
+      "original_request_ordinal": 10,
+      "case_index": 5,
+      "request_id": "next60-humanize-bigbytes-precision",
+      "case_id": "next60-humanize-bigbytes-precision-vector-06",
+      "original_pointer": "/drafts/10/finite_cases/5",
+      "original_input": {
+        "digits": 0,
+        "integer": "1"
+      },
+      "original_want": {
+        "error_kind": "precision"
+      },
+      "realized_input": {
+        "config_mode": "",
+        "metadata_empty": false,
+        "writer_mode": "",
+        "text": "",
+        "annotation_count": 0,
+        "annotation": [
+          "",
+          ""
+        ],
+        "help": false,
+        "pre_canceled": false,
+        "opt_in": false,
+        "integer": "1",
+        "digits": 0
+      },
+      "Got": null,
+      "truth": null,
+      "role": null,
+      "weight": null
+    }
+  ]
+}
+

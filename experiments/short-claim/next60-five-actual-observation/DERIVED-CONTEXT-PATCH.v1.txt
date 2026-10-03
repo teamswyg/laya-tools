@@ -1,0 +1,36 @@
+This is a proposed exact two-insertion source recipe, not an executed patch.
+Original Cobra command.go: 61142 B
+SHA256 f79613721ad04c9b438dfb30fe0ac3deca85c487658b0aa04a1ae6e4395bfd90
+Commit adbc8813901bba65827259daa8e22ff94ec1f30e
+
+Root must preserve the entire original Cobra package separately, instantiate
+a separate complete derived package, and freeze both raw/diff/compiler pins.
+The derived package gets an owned local module declaration
+"module riido.local/preflightcobra". Original go.mod/go.sum remain unchanged.
+No other Go source bytes are changed by this recipe.
+
+1. In command.go, immediately after the unique line "type Command struct {":
+	// ContextPreflight enables cancellation after help/version/Runnable handling
+	// and before initializer/pre-run/run hooks. Default false preserves legacy.
+	ContextPreflight bool
+
+2. In command.go, immediately before the unique line "\tc.preRun()":
+	if c.ContextPreflight {
+		if err := c.ctx.Err(); err != nil {
+			return err
+		}
+	}
+
+The help flag, version path and !Runnable early-return remain before insertion.
+DisableFlagParsing does not bypass this guard for a runnable command.
+ExecuteC/ExecuteContext establish c.ctx before this path.
+No global initializer/finalizer reset or accumulation per case is allowed.
+The observer installs one owned initializer callback per original/derived
+package lifetime; it points to the current local hook-count snapshot.
+Original initializer/startup counts remain null, not dynamically instrumented.
+
+Fixture cases 1-3 omit opt_in in the original JSON: realization opts in.
+Case 4 explicitly opts out. The public field itself still defaults false.
+Source instantiation, actual compiler selection, module graph linkage, rights,
+outside-controller compatibility and execution remain pending.
+

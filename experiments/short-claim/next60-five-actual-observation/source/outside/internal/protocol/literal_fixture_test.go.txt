@@ -1,0 +1,38 @@
+package protocol
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"os"
+	"testing"
+)
+
+// This is the real frozen public preparation, not candidate execution. It
+// closes the gap left by synthetic controls that had not loaded these bytes.
+func TestFrozenLiteralFixtureEncodingAndSchedule(t *testing.T) {
+	file := os.Getenv("RIIDO_NEXTFIVE_TEST_FIXTURES")
+	if file == "" {
+		t.Fatal("explicit frozen public fixture required")
+	}
+	raw, e := os.ReadFile(file)
+	if e != nil {
+		t.Fatal("fixture read")
+	}
+	sha := sha256.Sum256(raw)
+	if len(raw) != FixtureBytes || hex.EncodeToString(sha[:]) != FixtureSHA {
+		t.Fatal("frozen fixture pin")
+	}
+	cases, e := ReadFixtures(raw)
+	if e != nil || cases[0] != "next60-mapstructure-nil-config-vector-01" || cases[22] != "next60-humanize-bigbytes-precision-vector-06" {
+		t.Fatal("literal encoding or order")
+	}
+	if !bytes.HasSuffix(raw, []byte("\n\n")) {
+		t.Fatal("historical extra LF missing")
+	}
+	for _, bad := range [][]byte{raw[:len(raw)-1], append(append([]byte{}, raw...), '\n')} {
+		if _, e := ReadFixtures(bad); e == nil {
+			t.Fatal("accepted changed literal encoding")
+		}
+	}
+}

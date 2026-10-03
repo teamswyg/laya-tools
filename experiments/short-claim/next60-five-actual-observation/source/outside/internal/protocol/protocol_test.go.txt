@@ -1,0 +1,261 @@
+package protocol
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"strings"
+	"testing"
+)
+
+// These owned frames contain no actual fixture/source/candidate invocations.
+// Writing this test source is not a claim that it has run.
+func syntheticFrames(t *testing.T) ([]byte, Result, [CaseCount]string) {
+	t.Helper()
+	var cases [CaseCount]string
+	for i := range cases {
+		cases[i] = fmt.Sprintf("owned-%d", i)
+	}
+	r := Result{Schema: ResultSchema, State: "completed_finite_observations", PlanSHA256: strings.Repeat("a", 64), FixtureSHA256: FixtureSHA, WantSHA256: WantSHA}
+	var journal bytes.Buffer
+	seq := 0
+	c := Counters{}
+	emit := func(stage string, row Record) {
+		seq++
+		raw, e := json.Marshal(Event{seq, stage, row, c})
+		if e != nil {
+			t.Fatal(e)
+		}
+		journal.Write(raw)
+		journal.WriteByte('\n')
+	}
+	for n := 0; n < Planned; n++ {
+		f := n / 3
+		row := Record{Ordinal: n, FixtureOrdinal: f, RequestIndex: requestIndex(f), CaseID: cases[f], CandidateIndex: n % 3, CandidateID: [3]string{"baseline-design", "reference-design", "wrong-seed-design"}[n%3]}
+		c.CandidateReserved++
+		emit("before_candidate", row)
+		row.Dispatched = true
+		row.Returned = B(n != 0)
+		row.PanicPresent = B(n == 0)
+		c.CandidateDispatched++
+		if n == 0 {
+			c.CandidatePanicked++
+			row.PanicType = S("ownedPanic")
+			row.Channels.ConfigKnown = true
+			row.Channels.ConfigAfter.ConfigPresent = true
+		} else {
+			c.CandidateReturned++
+			if n == 1 || n == 2 {
+				row.Channels.ErrorChannelAvailable = B(true)
+				row.Channels.ErrorPresent = B(true)
+				row.Channels.ErrorType = S("*ownedError")
+				row.Channels.ErrorKind = S("owned_identity")
+				c.ErrorReserved++
+				emit("before_error_method", row)
+				c.ErrorDispatched++
+				row.Channels.ErrorMethodReturned = B(n == 1)
+				if n == 1 {
+					c.ErrorReturned++
+				} else {
+					c.ErrorPanicked++
+					row.Channels.ErrorMethodPanicType = S("ownedErrorPanic")
+				}
+				// A returned Error method may have an unavailable oversized text channel.
+				emit("after_error_method", row)
+			} else if n == 3 {
+				row.Channels.ErrorChannelAvailable = B(false)
+				row.Channels.Text = S("owned string-only result")
+			} else {
+				row.Channels.ErrorChannelAvailable = B(true)
+				row.Channels.ErrorPresent = B(false)
+			}
+		}
+		c.CompletedDispatches++
+		emit("after_candidate", row)
+		r.Records[n] = row
+	}
+	r.Counters = c
+	r.LastSyncedSequence = seq
+	return journal.Bytes(), r, cases
+}
+func resultBytes(t *testing.T, r Result) []byte {
+	t.Helper()
+	b, e := json.Marshal(r)
+	if e != nil {
+		t.Fatal(e)
+	}
+	return append(b, '\n')
+}
+func TestRecoveredPanicsCompleteWithoutReturnedOrErrorInference(t *testing.T) {
+	raw, r, cases := syntheticFrames(t)
+	j, e := ReadJournal(raw, cases)
+	if e != nil {
+		t.Fatal(e)
+	}
+	got, e := ReadResult(resultBytes(t, r), cases, r.PlanSHA256)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if !Complete(got, j) || j.Frames != 142 || got.Counters.CandidateReturned != 68 || got.Counters.CandidatePanicked != 1 || got.Counters.ErrorReturned != 1 || got.Counters.ErrorPanicked != 1 {
+		t.Fatal("wrong recovered completion")
+	}
+	if got.Records[0].Returned.Value || !got.Records[0].PanicPresent.Value || got.Records[0].Channels.ErrorPresent.Known {
+		t.Fatal("invented candidate/error return")
+	}
+	if !got.Records[1].Channels.ErrorMethodReturned.Value || got.Records[1].Channels.ErrorText.Known {
+		t.Fatal("invented unavailable Error text")
+	}
+	if got.Records[3].Channels.ErrorChannelAvailable.Value || got.Records[3].Channels.ErrorPresent.Known {
+		t.Fatal("unknown error became absence")
+	}
+}
+func TestPhysicalPrefixDoesNotClaimFinalSyncOrComplete(t *testing.T) {
+	raw, r, cases := syntheticFrames(t)
+	first := bytes.IndexByte(raw, '\n') + 1
+	j, e := ReadJournal(raw[:first], cases)
+	if e != nil || j.Frames != 1 || j.CompletedPrefix != 0 || j.Phase != 1 || j.CompleteSequence || Complete(r, j) {
+		t.Fatal("in-progress reservation interpreted as completion")
+	}
+	prefix := append(append([]byte{}, raw[:first]...), []byte("{\"sequence\":2")...)
+	j, e = ReadJournal(prefix, cases)
+	if e == nil || j.Frames != 1 || !j.IncompleteTail {
+		t.Fatal("lost valid truncated prefix")
+	}
+	j, e = ReadJournal(raw, cases)
+	if e != nil {
+		t.Fatal(e)
+	}
+	r.LastSyncedSequence--
+	if Complete(r, j) {
+		t.Fatal("physical presence used as Sync acknowledgement")
+	}
+}
+func TestJournalScheduleAndTransitionCorruption(t *testing.T) {
+	raw, _, cases := syntheticFrames(t)
+	parts := bytes.Split(bytes.TrimSuffix(raw, []byte{'\n'}), []byte{'\n'})
+	for _, kind := range []string{"counter", "stage", "seq", "case", "null-supervision", "error-before-return", "unknown-value"} {
+		t.Run(kind, func(t *testing.T) {
+			var ev Event
+			if json.Unmarshal(parts[0], &ev) != nil {
+				t.Fatal("fixture")
+			}
+			switch kind {
+			case "counter":
+				ev.Counters.CandidateDispatched++
+			case "stage":
+				ev.Stage = "after_candidate"
+			case "seq":
+				ev.Sequence = 2
+			case "case":
+				ev.Record.CaseID = "different"
+			case "null-supervision":
+				s := "assigned"
+				ev.Record.Truth = &s
+			case "error-before-return":
+				ev.Stage = "before_error_method"
+			case "unknown-value":
+				ev.Record.Channels.ErrorPresent = Bool{false, true}
+			}
+			b, e := json.Marshal(ev)
+			if e != nil {
+				t.Fatal(e)
+			}
+			_, e = ReadJournal(append(b, '\n'), cases)
+			if e == nil {
+				t.Fatal("accepted corrupt transition")
+			}
+		})
+	}
+	// A corruption after a valid line retains the preceding physical prefix.
+	bad := append(append([]byte{}, parts[0]...), '\n')
+	bad = append(bad, []byte("{}\n")...)
+	j, e := ReadJournal(bad, cases)
+	if e == nil || j.Frames != 1 {
+		t.Fatal("lost prior prefix")
+	}
+}
+func TestResultExactArraysUnknownKeysAndBindings(t *testing.T) {
+	_, r, cases := syntheticFrames(t)
+	raw := resultBytes(t, r)
+	mutants := [][]byte{
+		bytes.Replace(raw, []byte(`"records":[`), []byte(`"records":[{},`), 1),
+		bytes.Replace(raw, []byte(`"qualified":0`), []byte(`"qualified":0,"qualified":0`), 1),
+		bytes.Replace(raw, []byte(`"qualified":0`), []byte(`"Qualified":0`), 1),
+		bytes.Replace(raw, []byte(`"qualified":0`), []byte(`"qualified":null`), 1),
+		append(append([]byte{}, raw...), []byte("{}")...),
+	}
+	for i, b := range mutants {
+		if _, e := ReadResult(b, cases, r.PlanSHA256); e == nil {
+			t.Fatalf("accepted mutant %d", i)
+		}
+	}
+	if _, e := ReadResult(raw, cases, strings.Repeat("b", 64)); e == nil {
+		t.Fatal("accepted other plan")
+	}
+	r.TrainingReady = true
+	if _, e := ReadResult(resultBytes(t, r), cases, r.PlanSHA256); e == nil {
+		t.Fatal("accepted training authority")
+	}
+}
+func TestResultAndJournalBothRequired(t *testing.T) {
+	raw, r, cases := syntheticFrames(t)
+	j, e := ReadJournal(raw, cases)
+	if e != nil {
+		t.Fatal(e)
+	}
+	r.Records[68].Channels.Text = S("different still structurally valid")
+	if _, e := ReadResult(resultBytes(t, r), cases, r.PlanSHA256); e != nil {
+		t.Fatal(e)
+	}
+	if Complete(r, j) {
+		t.Fatal("accepted final/journal disagreement")
+	}
+	r.State = "incomplete"
+	r.Failure = "checkpoint_failed"
+	r.Counters.CheckpointStopped = true
+	if _, e := ReadResult(resultBytes(t, r), cases, r.PlanSHA256); e != nil {
+		t.Fatal(e)
+	}
+	if Complete(r, j) {
+		t.Fatal("accepted incomplete as complete")
+	}
+}
+func TestCanonicalPlanPinnedRecipe(t *testing.T) {
+	p := Plan{Schema: "riido-next-five-execution-plan-v1", Frozen: true, SourceRoot: "/owned/source", BinarySHA256: strings.Repeat("a", 64), GoVersion: "go1.27.1", CGO: "0", GOOS: "darwin", GOARCH: "arm64", CPU: 1, SoftHeapBytes: 256 << 20, WallSeconds: 60, OutputCapBytes: CombinedCap, PlannedDispatches: Planned}
+	p.Manifest = RelativePin{"manifest", "manifest.json", 1, strings.Repeat("b", 64)}
+	p.Readiness = RelativePin{"readiness", "ready.json", 1, strings.Repeat("c", 64)}
+	p.Fixtures = RelativePin{"fixtures", "FIXTURES.v1.json", FixtureBytes, FixtureSHA}
+	p.Wants = RelativePin{"wants", "WANTS.v1.json", WantBytes, WantSHA}
+	marshal := func() []byte {
+		b, e := json.MarshalIndent(p, "", "  ")
+		if e != nil {
+			t.Fatal(e)
+		}
+		return append(b, '\n')
+	}
+	if _, e := ReadPlan(marshal(), p.BinarySHA256); e != nil {
+		t.Fatal(e)
+	}
+	for _, kind := range []string{"wall", "dispatch", "unknown-path", "fixture", "frozen"} {
+		q := p
+		switch kind {
+		case "wall":
+			q.WallSeconds = 300
+		case "dispatch":
+			q.PlannedDispatches = 138
+		case "unknown-path":
+			q.Manifest.Path = "../source"
+		case "fixture":
+			q.Fixtures.SHA256 = strings.Repeat("d", 64)
+		case "frozen":
+			q.Frozen = false
+		}
+		b, e := json.MarshalIndent(q, "", "  ")
+		if e != nil {
+			t.Fatal(e)
+		}
+		if _, e := ReadPlan(append(b, '\n'), p.BinarySHA256); e == nil {
+			t.Fatal("accepted changed recipe", kind)
+		}
+	}
+}

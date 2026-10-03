@@ -1,0 +1,280 @@
+// Owned stdlib JSON utilities, derived from this reviewer's sealed Catalog9
+// comparator and Unicode-scalar check in the project's Apache-2.0 reader.
+package main
+
+import (
+	"bytes"
+	"encoding/json"
+	"errors"
+	"io"
+	"sort"
+	"strconv"
+	"strings"
+	"unicode/utf8"
+)
+
+const inputCap = 1 << 20
+
+var errInput = errors.New("comparison_input_invalid")
+var errBounds = errors.New("comparison_bounds")
+
+type member struct {
+	key   string
+	value *node
+}
+type node struct {
+	kind   byte
+	scalar any
+	fields []member
+	items  []*node
+}
+type parser struct {
+	d     *json.Decoder
+	count int
+}
+
+func parse(raw []byte) (*node, error) {
+	if len(raw) < 1 || len(raw) > inputCap || !utf8.Valid(raw) || !json.Valid(raw) || !scalarEscapes(raw) {
+		return nil, errInput
+	}
+	d := json.NewDecoder(bytes.NewReader(raw))
+	d.UseNumber()
+	p := parser{d: d}
+	n, e := p.read(0)
+	if e != nil {
+		return nil, e
+	}
+	if _, e = d.Token(); e != io.EOF {
+		return nil, errInput
+	}
+	return n, nil
+}
+func (p *parser) read(depth int) (*node, error) {
+	p.count++
+	if depth > 32 || p.count > 65536 {
+		return nil, errBounds
+	}
+	t, e := p.d.Token()
+	if e != nil {
+		return nil, errInput
+	}
+	n := &node{}
+	switch v := t.(type) {
+	case nil:
+		n.kind = 'z'
+	case bool:
+		n.kind = 'b'
+		n.scalar = v
+	case string:
+		if len(v) > 65536 {
+			return nil, errBounds
+		}
+		n.kind = 's'
+		n.scalar = v
+	case json.Number:
+		n.kind = 'n'
+		n.scalar = v
+	case json.Delim:
+		switch v {
+		case '{':
+			n.kind = 'o'
+			for p.d.More() {
+				if len(n.fields) >= 128 {
+					return nil, errBounds
+				}
+				kt, e := p.d.Token()
+				k, ok := kt.(string)
+				if e != nil || !ok || len(k) > 1024 {
+					return nil, errInput
+				}
+				for _, m := range n.fields {
+					if strings.EqualFold(m.key, k) {
+						return nil, errInput
+					}
+				}
+				child, e := p.read(depth + 1)
+				if e != nil {
+					return nil, e
+				}
+				n.fields = append(n.fields, member{k, child})
+			}
+			t, e = p.d.Token()
+			if e != nil || t != json.Delim('}') {
+				return nil, errInput
+			}
+		case '[':
+			n.kind = 'a'
+			for p.d.More() {
+				if len(n.items) >= 1024 {
+					return nil, errBounds
+				}
+				child, e := p.read(depth + 1)
+				if e != nil {
+					return nil, e
+				}
+				n.items = append(n.items, child)
+			}
+			t, e = p.d.Token()
+			if e != nil || t != json.Delim(']') {
+				return nil, errInput
+			}
+		default:
+			return nil, errInput
+		}
+	default:
+		return nil, errInput
+	}
+	return n, nil
+}
+func (n *node) get(k string) (*node, bool) {
+	if n == nil || n.kind != 'o' {
+		return nil, false
+	}
+	for _, m := range n.fields {
+		if m.key == k {
+			return m.value, true
+		}
+	}
+	return nil, false
+}
+func (n *node) keys() []string {
+	out := make([]string, 0)
+	if n != nil {
+		for _, m := range n.fields {
+			out = append(out, m.key)
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+func ns(s string) *node               { return &node{kind: 's', scalar: s} }
+func nb(b bool) *node                 { return &node{kind: 'b', scalar: b} }
+func ni(i int) *node                  { return &node{kind: 'n', scalar: json.Number(strconv.Itoa(i))} }
+func nz() *node                       { return &node{kind: 'z'} }
+func isString(n *node, s string) bool { return n != nil && n.kind == 's' && n.scalar.(string) == s }
+func isBool(n *node, b bool) bool     { return n != nil && n.kind == 'b' && n.scalar.(bool) == b }
+func isInt(n *node, i int) bool {
+	return n != nil && n.kind == 'n' && n.scalar.(json.Number).String() == strconv.Itoa(i)
+}
+func fieldString(n *node, k, s string) bool    { x, _ := n.get(k); return isString(x, s) }
+func fieldBool(n *node, k string, b bool) bool { x, _ := n.get(k); return isBool(x, b) }
+func fieldInt(n *node, k string, i int) bool   { x, _ := n.get(k); return isInt(x, i) }
+func fieldNull(n *node, k string) bool         { x, p := n.get(k); return p && x.kind == 'z' }
+func array(n *node, k string, length int) (*node, bool) {
+	x, _ := n.get(k)
+	return x, x != nil && x.kind == 'a' && len(x.items) == length
+}
+func equal(a, b *node) bool {
+	if a == nil || b == nil || a.kind != b.kind {
+		return false
+	}
+	switch a.kind {
+	case 'z':
+		return true
+	case 'a':
+		if len(a.items) != len(b.items) {
+			return false
+		}
+		for i := range a.items {
+			if !equal(a.items[i], b.items[i]) {
+				return false
+			}
+		}
+		return true
+	case 'o':
+		if len(a.fields) != len(b.fields) {
+			return false
+		}
+		for _, m := range a.fields {
+			x, p := b.get(m.key)
+			if !p || !equal(m.value, x) {
+				return false
+			}
+		}
+		return true
+	default:
+		return a.scalar == b.scalar
+	}
+}
+func (n *node) write(b *bytes.Buffer) {
+	if n == nil {
+		b.WriteString("null")
+		return
+	}
+	switch n.kind {
+	case 'o':
+		b.WriteByte('{')
+		for i, m := range n.fields {
+			if i > 0 {
+				b.WriteByte(',')
+			}
+			k, _ := json.Marshal(m.key)
+			b.Write(k)
+			b.WriteByte(':')
+			m.value.write(b)
+		}
+		b.WriteByte('}')
+	case 'a':
+		b.WriteByte('[')
+		for i, x := range n.items {
+			if i > 0 {
+				b.WriteByte(',')
+			}
+			x.write(b)
+		}
+		b.WriteByte(']')
+	case 'z':
+		b.WriteString("null")
+	default:
+		r, _ := json.Marshal(n.scalar)
+		b.Write(r)
+	}
+}
+func raw(n *node) json.RawMessage { var b bytes.Buffer; n.write(&b); return b.Bytes() }
+func scalarEscapes(raw []byte) bool {
+	for i := 0; i < len(raw); i++ {
+		if raw[i] != '"' {
+			continue
+		}
+		for i++; i < len(raw) && raw[i] != '"'; i++ {
+			if raw[i] != '\\' {
+				continue
+			}
+			i++
+			if raw[i] != 'u' {
+				continue
+			}
+			u := hex4(raw[i+1 : i+5])
+			i += 4
+			if u >= 0xdc00 && u <= 0xdfff {
+				return false
+			}
+			if u >= 0xd800 && u <= 0xdbff {
+				if i+6 >= len(raw) || raw[i+1] != '\\' || raw[i+2] != 'u' {
+					return false
+				}
+				lo := hex4(raw[i+3 : i+7])
+				if lo < 0xdc00 || lo > 0xdfff {
+					return false
+				}
+				i += 6
+			}
+		}
+	}
+	return true
+}
+func hex4(b []byte) uint16 {
+	var v uint16
+	for _, c := range b {
+		v <<= 4
+		switch {
+		case c >= '0' && c <= '9':
+			v |= uint16(c - '0')
+		case c >= 'a' && c <= 'f':
+			v |= uint16(c - 'a' + 10)
+		case c >= 'A' && c <= 'F':
+			v |= uint16(c - 'A' + 10)
+		}
+	}
+	return v
+}

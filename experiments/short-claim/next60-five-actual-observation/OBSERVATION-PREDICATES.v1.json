@@ -1,0 +1,50 @@
+{
+  "schema": "riido-next-five-source-defined-observation-predicates-v1",
+  "state": "pre_observation_source_only",
+  "original_wants_unchanged": {
+    "file": "WANTS.v1.json",
+    "sha256": "16a30778db43583da06319430d7344ec1bf1160f2c483dd350d1add9df59ff7f"
+  },
+  "predicates": [
+    {
+      "request": "next60-cobra-required-annotation",
+      "field": "channels.error_kind",
+      "source": {
+        "file": "command.go",
+        "sha256": "f79613721ad04c9b438dfb30fe0ac3deca85c487658b0aa04a1ae6e4395bfd90",
+        "lines": "1180-1204"
+      },
+      "when": "tracked Error method returned normally, error text known and exactly equals the following source-defined message for the single item fixture",
+      "exact_error_text": "required flag(s) \"item\" not set",
+      "logical_kind": "missing_required",
+      "go_error_identity": null,
+      "go_type": "preserve actually observed type separately; never claim an upstream typed/sentinel missing_required error",
+      "before_error_kind": "unclassified_error",
+      "otherwise": "existing own typed/sentinel identities retained; unexpected source error remains unclassified"
+    }
+  ],
+  "context_opt_out_literal": {
+    "original_pointer": "/drafts/16/finite_cases/3/want/behavior",
+    "historical_want": "legacy execution retained",
+    "returned": true,
+    "panic_present": false,
+    "error_channel_available": true,
+    "error_present": false,
+    "hooks_known": true,
+    "initializer_calls": 1,
+    "pre_run_calls": 1,
+    "run_calls": 1,
+    "help_calls": 0,
+    "meaning": "predeclared source-only fixture predicate; no new input or observed result"
+  },
+  "annotation_snapshot": {
+    "key_presence": "preserved separately from count",
+    "nil_slice": "preserved separately from nonnil empty slice",
+    "empty_fixture": "present key, nonnil zero-length slice",
+    "unchanged": "compare value, Changed, presence, nilness, count and ordered two-slot values"
+  },
+  "actual_error_calls": 0,
+  "truth": null,
+  "role": null,
+  "qualification": false
+}

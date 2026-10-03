@@ -1,0 +1,550 @@
+{
+  "schema": "riido-next-five-root-finite-development-qualification-v2",
+  "state": "Root_adopted_five_finite_development_requests",
+  "authority": "Root independent read of frozen Wanted, owned source, saved observations and nonblind saved comparator; finite only",
+  "prior_data": {
+    "path": "next60-development-sixteen/data/train.jsonl",
+    "bytes": 22097,
+    "sha256": "3222e493f4b5bfaf4de008a115a3969209b493d85e115df209394b2e1f0077a4",
+    "rows": 16,
+    "labels": 47,
+    "positive": 16,
+    "negative": 31,
+    "inputs": 80,
+    "observations": 236
+  },
+  "fixture_sha256": "d0d5bc6c9248a600912eb9c769fff00abdb105fe310703a6cd57b785702106af",
+  "wants_sha256": "16a30778db43583da06319430d7344ec1bf1160f2c483dd350d1add9df59ff7f",
+  "saved_result_sha256": "bfaa50f313a851348069e7d2fec4cd6680dd6dab963683285fe307f8b384af1e",
+  "saved_comparison_sha256": "c4db2ae8f33b29161af66fba5468edfd507a2b1c579c65c811a0c746478bd0bc",
+  "plan_sha256": "fa572467945c6c48bf5182b5e8d1e05595793e0d56ae3757bae33583005ab633",
+  "role": "development_train",
+  "weight_per_candidate": 1,
+  "new_inputs": 23,
+  "new_observations": 69,
+  "new_positive": 5,
+  "new_negative": 9,
+  "new_labels": 14,
+  "new_parents": 5,
+  "combined": {
+    "requests": 21,
+    "labels": 61,
+    "positive": 21,
+    "negative": 40,
+    "inputs": 103,
+    "observations": 305,
+    "original_evidence_observations": 305,
+    "selected_candidate_observations": 301
+  },
+  "requests": [
+    {
+      "id": "next60-mapstructure-nil-config",
+      "original_draft_ordinal": 6,
+      "request": "Return a declared error for nil DecoderConfig and nil Result pointers in NewDecoder without reflection panics or partial metadata initialization.",
+      "source_family": "upstream53-mapstructure",
+      "source_spans": [
+        "mapstructure.go:477-535"
+      ],
+      "scope": "NewDecoder validates nil config, nil Result interface, and typed-nil Result pointer before mutating config defaults or Metadata slices; declared error, no panic.",
+      "finite_inputs": 4,
+      "connected_group": 78,
+      "revision": "nextfive-finite-v1",
+      "selected": [
+        {
+          "source_candidate_position": 0,
+          "metadata_id": "baseline-design",
+          "text": "NewDecoder first dereferences config.Result, then validates pointer/addressability before setting defaults and Metadata.",
+          "truth": false,
+          "role": "development_train",
+          "weight": 1,
+          "known_counterexample_fixture_positions": [
+            0,
+            1,
+            2
+          ],
+          "unknown_fixture_positions": [
+            0
+          ],
+          "row_ordinals": [
+            0,
+            3,
+            6,
+            9
+          ],
+          "row_vector": [
+            "unsatisfied",
+            "unsatisfied",
+            "unsatisfied",
+            "satisfied"
+          ]
+        },
+        {
+          "source_candidate_position": 1,
+          "metadata_id": "reference-design",
+          "text": "Guard config and nilness of Result before reflection/default initialization; preserve valid initialization behavior.",
+          "truth": true,
+          "role": "development_train",
+          "weight": 1,
+          "known_counterexample_fixture_positions": [],
+          "unknown_fixture_positions": [],
+          "row_ordinals": [
+            1,
+            4,
+            7,
+            10
+          ],
+          "row_vector": [
+            "satisfied",
+            "satisfied",
+            "satisfied",
+            "satisfied"
+          ]
+        },
+        {
+          "source_candidate_position": 2,
+          "metadata_id": "wrong-seed-design",
+          "text": "Guard config only, then panic on typed-nil Result or initialize Metadata before refusing the target.",
+          "truth": false,
+          "role": "development_train",
+          "weight": 1,
+          "known_counterexample_fixture_positions": [
+            1,
+            2
+          ],
+          "unknown_fixture_positions": [],
+          "row_ordinals": [
+            2,
+            5,
+            8,
+            11
+          ],
+          "row_vector": [
+            "satisfied",
+            "unsatisfied",
+            "unsatisfied",
+            "satisfied"
+          ]
+        }
+      ],
+      "excluded": [],
+      "source_revision": "52aa5c6dc1d27226460807054ca2107b2d54fb2d",
+      "text_revision": "nextfive-finite-v1",
+      "selected_candidate_observations": 12
+    },
+    {
+      "id": "next60-cobra-error-writer",
+      "original_draft_ordinal": 14,
+      "request": "Add error-returning diagnostic write methods that propagate writer failures without process exit or silently reporting a complete write.",
+      "source_family": "upstream53-cobra-pflag-connected",
+      "source_spans": [
+        "command.go:1449-1462"
+      ],
+      "scope": "Add checked string diagnostic writer method returning (n,error); no process exit. Inherited error writer is used. n<len with nil underlying error becomes io.ErrShortWrite; retain nonnil causes.",
+      "finite_inputs": 4,
+      "connected_group": 77,
+      "revision": "nextfive-finite-v1",
+      "selected": [
+        {
+          "source_candidate_position": 1,
+          "metadata_id": "reference-design",
+          "text": "Write requested bytes through inherited error writer, preserve returned count/cause, normalize nil short-write and keep legacy methods unchanged.",
+          "truth": true,
+          "role": "development_train",
+          "weight": 1,
+          "known_counterexample_fixture_positions": [],
+          "unknown_fixture_positions": [],
+          "row_ordinals": [
+            13,
+            16,
+            19,
+            22
+          ],
+          "row_vector": [
+            "satisfied",
+            "satisfied",
+            "satisfied",
+            "satisfied"
+          ]
+        },
+        {
+          "source_candidate_position": 2,
+          "metadata_id": "wrong-seed-design",
+          "text": "Call legacy PrintErr then always return len(text),nil; or switch to normal output writer.",
+          "truth": false,
+          "role": "development_train",
+          "weight": 1,
+          "known_counterexample_fixture_positions": [
+            1,
+            2
+          ],
+          "unknown_fixture_positions": [],
+          "row_ordinals": [
+            14,
+            17,
+            20,
+            23
+          ],
+          "row_vector": [
+            "satisfied",
+            "unsatisfied",
+            "unsatisfied",
+            "satisfied"
+          ]
+        }
+      ],
+      "excluded": [
+        {
+          "source_candidate_position": 0,
+          "metadata_id": "baseline-design",
+          "reason": "No known counterexample and at least one unavailable required predicate; no training label",
+          "unknown_fixture_positions": [
+            0,
+            1,
+            2,
+            3
+          ]
+        }
+      ],
+      "source_revision": "adbc8813901bba65827259daa8e22ff94ec1f30e",
+      "text_revision": "nextfive-finite-v1",
+      "selected_candidate_observations": 8
+    },
+    {
+      "id": "next60-cobra-required-annotation",
+      "original_draft_ordinal": 8,
+      "request": "Handle empty or malformed required-flag annotations with a declared validation error instead of indexing unchecked data, preserving valid annotations.",
+      "source_family": "upstream53-cobra-pflag-connected",
+      "source_spans": [
+        "command.go:1180-1204"
+      ],
+      "scope": "Checked required-annotation validation; [] is malformed, exactly one ASCII true/false is valid, multi-element/other token malformed. Invalid metadata returns deterministic AnnotationError without panic or flag mutation.",
+      "finite_inputs": 5,
+      "connected_group": 77,
+      "revision": "nextfive-finite-v1",
+      "selected": [
+        {
+          "source_candidate_position": 0,
+          "metadata_id": "baseline-design",
+          "text": "ValidateRequiredFlags indexes requiredAnnotation[0] whenever the annotation key is present.",
+          "truth": false,
+          "role": "development_train",
+          "weight": 1,
+          "known_counterexample_fixture_positions": [
+            0,
+            1,
+            2
+          ],
+          "unknown_fixture_positions": [
+            0
+          ],
+          "row_ordinals": [
+            24,
+            27,
+            30,
+            33,
+            36
+          ],
+          "row_vector": [
+            "unsatisfied",
+            "unsatisfied",
+            "unsatisfied",
+            "satisfied",
+            "satisfied"
+          ]
+        },
+        {
+          "source_candidate_position": 1,
+          "metadata_id": "reference-design",
+          "text": "Validate cardinality/token before indexing, then apply existing required-flag check; report malformed names in sorted order.",
+          "truth": true,
+          "role": "development_train",
+          "weight": 1,
+          "known_counterexample_fixture_positions": [],
+          "unknown_fixture_positions": [],
+          "row_ordinals": [
+            25,
+            28,
+            31,
+            34,
+            37
+          ],
+          "row_vector": [
+            "satisfied",
+            "satisfied",
+            "satisfied",
+            "satisfied",
+            "satisfied"
+          ]
+        },
+        {
+          "source_candidate_position": 2,
+          "metadata_id": "wrong-seed-design",
+          "text": "Treat empty or unknown annotation as optional and silently return success.",
+          "truth": false,
+          "role": "development_train",
+          "weight": 1,
+          "known_counterexample_fixture_positions": [
+            0,
+            1,
+            2
+          ],
+          "unknown_fixture_positions": [],
+          "row_ordinals": [
+            26,
+            29,
+            32,
+            35,
+            38
+          ],
+          "row_vector": [
+            "unsatisfied",
+            "unsatisfied",
+            "unsatisfied",
+            "satisfied",
+            "satisfied"
+          ]
+        }
+      ],
+      "excluded": [],
+      "source_revision": "adbc8813901bba65827259daa8e22ff94ec1f30e",
+      "text_revision": "nextfive-finite-v1",
+      "selected_candidate_observations": 15
+    },
+    {
+      "id": "next60-cobra-context-preflight",
+      "original_draft_ordinal": 16,
+      "request": "Add opt-in context preflight cancellation before initializer and run hooks, preserving help behavior and the existing execution default.",
+      "source_family": "upstream53-cobra-pflag-connected",
+      "source_spans": [
+        "command.go:905-977",
+        "command.go:1084"
+      ],
+      "scope": "Opt-in preflight after help/version handling and before initializer/pre-run/run hooks; pre-canceled runnable command returns context.Canceled with no hook side effects, uncanceled normal run unchanged.",
+      "finite_inputs": 4,
+      "connected_group": 77,
+      "revision": "nextfive-finite-v1",
+      "selected": [
+        {
+          "source_candidate_position": 0,
+          "metadata_id": "baseline-design",
+          "text": "execute enters preRun before command hooks; a preflight cancellation policy is not declared at this point.",
+          "truth": false,
+          "role": "development_train",
+          "weight": 1,
+          "known_counterexample_fixture_positions": [
+            0
+          ],
+          "unknown_fixture_positions": [],
+          "row_ordinals": [
+            39,
+            42,
+            45,
+            48
+          ],
+          "row_vector": [
+            "unsatisfied",
+            "satisfied",
+            "satisfied",
+            "satisfied"
+          ]
+        },
+        {
+          "source_candidate_position": 1,
+          "metadata_id": "reference-design",
+          "text": "At the frozen execution boundary check ctx.Err and return the same cause before hooks; leave help/version and legacy option-off behavior intact.",
+          "truth": true,
+          "role": "development_train",
+          "weight": 1,
+          "known_counterexample_fixture_positions": [],
+          "unknown_fixture_positions": [],
+          "row_ordinals": [
+            40,
+            43,
+            46,
+            49
+          ],
+          "row_vector": [
+            "satisfied",
+            "satisfied",
+            "satisfied",
+            "satisfied"
+          ]
+        },
+        {
+          "source_candidate_position": 2,
+          "metadata_id": "wrong-seed-design",
+          "text": "Check cancellation only inside Run, after initializers have mutated state; or suppress help for pre-canceled contexts.",
+          "truth": false,
+          "role": "development_train",
+          "weight": 1,
+          "known_counterexample_fixture_positions": [
+            0
+          ],
+          "unknown_fixture_positions": [],
+          "row_ordinals": [
+            41,
+            44,
+            47,
+            50
+          ],
+          "row_vector": [
+            "unsatisfied",
+            "satisfied",
+            "satisfied",
+            "satisfied"
+          ]
+        }
+      ],
+      "excluded": [],
+      "source_revision": "adbc8813901bba65827259daa8e22ff94ec1f30e",
+      "text_revision": "nextfive-finite-v1",
+      "selected_candidate_observations": 12
+    },
+    {
+      "id": "next60-humanize-bigbytes-precision",
+      "original_draft_ordinal": 10,
+      "request": "Add BigBytesN for non-negative big.Int counts, preserving requested significant digits without converting the whole count to float64 or mutating the input.",
+      "source_family": "upstream53-humanize",
+      "source_spans": [
+        "bigbytes.go:112-145",
+        "big.go:8-21"
+      ],
+      "scope": "New BigBytesN for nonnegative big.Int, decimal SI base 1000, 1-18 significant digits, ties to even, retain trailing zeros to requested precision except zero='0 B'; clamp suffix at QB, input immutable.",
+      "finite_inputs": 6,
+      "connected_group": 76,
+      "revision": "nextfive-finite-v1",
+      "selected": [
+        {
+          "source_candidate_position": 0,
+          "metadata_id": "baseline-design",
+          "text": "humanateBigBytes clones the input but oomm converts quotient/remainder to float64 and existing BigBytes selects only coarse formatting precision.",
+          "truth": false,
+          "role": "development_train",
+          "weight": 1,
+          "known_counterexample_fixture_positions": [
+            0,
+            1,
+            2
+          ],
+          "unknown_fixture_positions": [
+            4,
+            5
+          ],
+          "row_ordinals": [
+            51,
+            54,
+            57,
+            60,
+            63,
+            66
+          ],
+          "row_vector": [
+            "unsatisfied",
+            "unsatisfied",
+            "unsatisfied",
+            "satisfied",
+            "unknown",
+            "unknown"
+          ]
+        },
+        {
+          "source_candidate_position": 1,
+          "metadata_id": "reference-design",
+          "text": "Choose SI magnitude by big.Int comparison, render/round an exact rational using decimal integer arithmetic, preserve requested significant digits and clone receiver data.",
+          "truth": true,
+          "role": "development_train",
+          "weight": 1,
+          "known_counterexample_fixture_positions": [],
+          "unknown_fixture_positions": [],
+          "row_ordinals": [
+            52,
+            55,
+            58,
+            61,
+            64,
+            67
+          ],
+          "row_vector": [
+            "satisfied",
+            "satisfied",
+            "satisfied",
+            "satisfied",
+            "satisfied",
+            "satisfied"
+          ]
+        },
+        {
+          "source_candidate_position": 2,
+          "metadata_id": "wrong-seed-design",
+          "text": "Convert the whole integer to float64 or mutate input via DivMod while finding the unit.",
+          "truth": false,
+          "role": "development_train",
+          "weight": 1,
+          "known_counterexample_fixture_positions": [
+            0,
+            1,
+            2
+          ],
+          "unknown_fixture_positions": [],
+          "row_ordinals": [
+            53,
+            56,
+            59,
+            62,
+            65,
+            68
+          ],
+          "row_vector": [
+            "unsatisfied",
+            "unsatisfied",
+            "unsatisfied",
+            "satisfied",
+            "satisfied",
+            "satisfied"
+          ]
+        }
+      ],
+      "excluded": [],
+      "source_revision": "a1b4e66b9a6d890e9e15e7091cf16c8032367d6e",
+      "text_revision": "nextfive-finite-v1",
+      "selected_candidate_observations": 18
+    }
+  ],
+  "unknown_never_false": true,
+  "known_negative_may_retain_other_unknown_predicates": true,
+  "baseline_error_writer_removed_and_selected_order_preserved": true,
+  "position_controls": {
+    "positive_index1_selected_requests": 18,
+    "total_requests": 21,
+    "arithmetic_only": "18/21 approximately 85.7%; source index1 is remapped to selected index0 when unknown baseline is excluded",
+    "always_negative_correct_labels": 40,
+    "total_labels": 61,
+    "different_units_not_model_accuracy": true
+  },
+  "new_source_families": 0,
+  "historical_79_unchanged": true,
+  "new_corpus_Fit": 0,
+  "new_model_inference": 0,
+  "fit_before_30_qualified": false,
+  "protected_2400_per_claimed_domain_pending": true,
+  "utility_improvement_unproved": true,
+  "execution_history": {
+    "prestart_outside_failure": 1,
+    "failed_Start": 0,
+    "failed_Wait": 0,
+    "first_native_Start": 1,
+    "first_native_Wait": 1,
+    "native_replay": 0,
+    "fixture_and_Wanted_changed": false,
+    "parser_fixes": "Owned function-name collision and exact frozen terminal-LF binding; original candidates and observations unchanged",
+    "candidate_returns": 67,
+    "candidate_panics": 2,
+    "error_method_returns": 23,
+    "error_method_panics": 0,
+    "internal_and_startup_calls": null
+  },
+  "limits": "Finite frozen behavior only; not general source correctness, model quality, GPU inference, or token savings. Timing, nilness and availability retain their original declared scope.",
+  "previous_qualification_v1_sha256": "6e6b2ac7effd956c8bdb8d3fdbbb6d1f753f29cc8c40167f2b788b8ebb19c227",
+  "new_selected_candidate_observations": 65,
+  "metadata_scope": "source_revision is pinned 40-hex upstream ancestor; nextfive-finite-v1 is text_revision. Row finite_scope counts selected candidates only; full saved evidence includes the excluded unknown baseline."
+}
