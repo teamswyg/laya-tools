@@ -64,6 +64,8 @@ jobs:
         run: bash scripts/verify-next60-source-controls.sh
       - name: Masked sparse learning columns and actual Go loss controls (synthetic inputs; no training)
         run: bash scripts/verify-next60-mask-learning.sh
+      - name: Bounded next-case wire, durable ACK and file drift controls (owned fakes; no worker)
+        run: bash scripts/verify-next60-union-preparation.sh
       - name: Variable Go input controls and frozen nonlearned33 ranking reproduction (no training)
         env:
           RIIDOLAYA_BIAS_ACTUAL: ${{ runner.temp }}/riidolaya-bias-actual/actual.json

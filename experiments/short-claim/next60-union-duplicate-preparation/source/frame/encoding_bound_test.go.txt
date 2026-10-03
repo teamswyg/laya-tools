@@ -1,0 +1,50 @@
+// SPDX-License-Identifier: Apache-2.0
+package frame
+
+import (
+	"encoding/json"
+	"strings"
+	"testing"
+)
+
+// This intentionally INVALID envelope overestimates every valid field width.
+// False is the longest bool spelling, uint maxima overestimate decimal widths,
+// all fixed arrays are full, and all three optional objects coexist. Valid pin
+// strings are exactly 64 lowercase hex bytes without JSON escapes. Canonical
+// Terminal requires Startup and Nested nil. No open strings or extra keys exist.
+// This is a closed wire-format bound, not provenance or native execution proof.
+func TestClosedDTOConservativeEncodingUpperBound(t *testing.T) {
+	var n Counts
+	for i := range n {
+		for j := range n[i] {
+			n[i][j] = 65535
+		}
+	}
+	var es [3]Entry
+	for i := range es {
+		es[i] = Entry{255, 255, 255}
+	}
+	var vs [4]Visit
+	for i := range vs {
+		vs[i] = Visit{255, 255, 255, 255, 255}
+	}
+	sm := Small{V: 255}
+	facts := Facts{Error: ErrorFact{V: Identity(255)}, Entries: Entries{C: 255, V: es}, Visits: Visits{C: 255, V: vs}, Path: sm, Key: sm, Occurrence: sm, ParserType: sm, ParserIndex: sm}
+	h := strings.Repeat("f", 64)
+	f := Frame{V: 255, Q: 65535, K: Stage(255), D: 255, X: [4]uint8{255, 255, 255, 255}, S: 65535, P: 65535, M: MethodID(255), C: CallbackID(255), N: n, F: &facts, B: &Pins{h, h, h}, Z: &Terminal{Reason: Stop(255)}}
+	b, e := json.Marshal(f)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if len(b)+1 > MaxLineBytes {
+		t.Fatalf("closed envelope %d exceeds %d", len(b)+1, MaxLineBytes)
+	}
+	if _, e := CanonicalFrame(f); e == nil {
+		t.Fatal("invalid envelope gained semantic authority")
+	}
+	a, e := json.Marshal(Ack{255, 65535, h})
+	if e != nil || len(a)+1 > MaxAckBytes {
+		t.Fatal("ACK envelope", len(a)+1, e)
+	}
+	t.Logf("closed invalid superset envelope: frame including LF=%d; ACK including LF=%d", len(b)+1, len(a)+1)
+}

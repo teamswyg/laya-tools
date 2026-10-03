@@ -1,0 +1,291 @@
+package frame
+
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"io"
+)
+
+// ReadAck is an injected transport boundary. A matching Ack is not, by itself,
+// proof of disk Sync, ACK transmission or native execution.
+type ReadAck func() (Ack, error)
+type slot struct {
+	unit   Unit
+	d      uint8
+	m      MethodID
+	c      CallbackID
+	span   uint16
+	parent uint16
+}
+
+// Prefix is copied by value; no errors, native objects, borrowed slices or maps.
+type Prefix struct {
+	Seq    uint16
+	Hash   string
+	Counts Counts
+}
+type Status struct {
+	Acknowledged          Prefix
+	AttemptedSeq          uint16
+	AttemptedStage        Stage
+	EffectMayHaveOccurred bool
+	Stopped               bool
+	Finished              bool
+}
+
+// Writer has no goroutines, map or lock. One owned execution goroutine only.
+// live is unacknowledged bookkeeping; prefix is last matching external ACK.
+type Writer struct {
+	out          io.Writer
+	read         ReadAck
+	pins         Pins
+	stack        [MaxDepth]slot
+	depth        uint8
+	live         Counts
+	prefix       Prefix
+	attemptQ     uint16
+	attemptK     Stage
+	uncertain    bool
+	stop         error
+	ready        bool
+	finished     bool
+	rowCandidate bool
+}
+
+func New(out io.Writer, read ReadAck, pins Pins) (*Writer, error) {
+	if out == nil || read == nil || !validPins(pins) {
+		return nil, ErrShape
+	}
+	return &Writer{out: out, read: read, pins: pins}, nil
+}
+func (w *Writer) Status() Status {
+	return Status{w.prefix, w.attemptQ, w.attemptK, w.uncertain, w.stop != nil, w.finished}
+}
+func (w *Writer) fail(err error) error {
+	if w.stop == nil {
+		w.stop = err
+	}
+	return w.stop
+}
+
+// WriteFull continues a single frame's partial I/O, never retries a source call.
+// Impossible counts, zero progress and errors terminate the transport.
+func WriteFull(out io.Writer, b []byte) error {
+	for len(b) != 0 {
+		n, err := out.Write(b)
+		if n < 0 || n > len(b) {
+			return ErrTransport
+		}
+		if err != nil {
+			return ErrTransport
+		}
+		if n == 0 {
+			return ErrTransport
+		}
+		b = b[n:]
+	}
+	return nil
+}
+func (w *Writer) transmit(f Frame) (err error) {
+	if w.stop != nil {
+		return w.stop
+	}
+	if w.finished {
+		return w.fail(ErrStopped)
+	}
+	defer func() {
+		if recover() != nil {
+			err = w.fail(ErrTransport)
+		}
+	}()
+	f.V = Version
+	f.Q = w.prefix.Seq + 1
+	f.N = w.live
+	w.attemptQ, w.attemptK = f.Q, f.K
+	b, err := CanonicalFrame(f)
+	if err != nil {
+		return w.fail(err)
+	} // bound before Write
+	sum := sha256.Sum256(b)
+	h := hex.EncodeToString(sum[:])
+	line := append(b, '\n')
+	if err := WriteFull(w.out, line); err != nil {
+		return w.fail(err)
+	}
+	a, err := w.read()
+	if err != nil {
+		return w.fail(ErrTransport)
+	}
+	if a.V != Version || a.Q != f.Q || a.H != h || !Hex64(a.H) {
+		return w.fail(ErrAck)
+	}
+	w.prefix = Prefix{f.Q, h, w.live}
+	w.uncertain = w.depth != 0
+	return nil
+}
+func (w *Writer) Ready() error {
+	if w.ready || w.depth != 0 || w.prefix.Seq != 0 {
+		return w.fail(ErrShape)
+	}
+	f := Frame{K: Ready, D: 255, B: &w.pins}
+	if err := w.transmit(f); err != nil {
+		return err
+	}
+	w.ready = true
+	return nil
+}
+func stages(u Unit) (Stage, Stage, error) {
+	switch u {
+	case Row:
+		return BeforeRow, AfterRow, nil
+	case Candidate:
+		return BeforeCandidate, AfterCandidate, nil
+	case Method:
+		return BeforeMethod, AfterMethod, nil
+	case Callback:
+		return BeforeCallback, AfterCallback, nil
+	default:
+		return 0, 0, ErrShape
+	}
+}
+func (w *Writer) permit(u Unit, d uint8, m MethodID, c CallbackID) error {
+	if !w.ready || w.finished || w.stop != nil {
+		return ErrStopped
+	}
+	if w.depth >= MaxDepth {
+		return ErrBound
+	}
+	x, err := Schedule(d)
+	if err != nil {
+		return err
+	}
+	if u == Row {
+		if w.depth != 0 || d != uint8(w.live[Row][2]+w.live[Row][3]) || m != 0 || c != 0 {
+			return ErrShape
+		}
+		return nil
+	}
+	if w.depth == 0 {
+		return ErrShape
+	}
+	parent := w.stack[w.depth-1]
+	if d != parent.d {
+		return ErrShape
+	}
+	switch u {
+	case Candidate:
+		if parent.unit != Row || w.rowCandidate || m != 0 || c != 0 {
+			return ErrShape
+		}
+	case Method:
+		if (parent.unit != Row && parent.unit != Candidate && parent.unit != Callback) || c != 0 {
+			return ErrShape
+		}
+		if x[0] == 0 && m != Readdir || x[0] == 1 && (m < Valid || m > ForEach) {
+			return ErrShape
+		}
+	case Callback:
+		if parent.unit != Method || m != 0 {
+			return ErrShape
+		}
+		if parent.m == Readdir && (c < Layer || c > Merger) || parent.m == ForEach && c != Each || parent.m != Readdir && parent.m != ForEach {
+			return ErrShape
+		}
+	default:
+		return ErrShape
+	}
+	return nil
+}
+
+// Call ACKs BEFORE, invokes fn once, then copies/ACKs AFTER before returning its
+// primitive result. It invokes only the supplied thunk, never an original API.
+// Nested Call inside a callback permits an enclosing method's later AFTER.
+// Native methods must be reachable solely through correctly bound thunks.
+// That coverage and the provenance of supplied facts need a later Root ABI review.
+func (w *Writer) Call(u Unit, d uint8, m MethodID, c CallbackID, fn func() Facts) (Facts, error) {
+	if fn == nil {
+		return Facts{}, w.fail(ErrShape)
+	}
+	if err := w.permit(u, d, m, c); err != nil {
+		return Facts{}, w.fail(err)
+	}
+	before, after, err := stages(u)
+	if err != nil {
+		return Facts{}, w.fail(err)
+	}
+	x, _ := Schedule(d)
+	parent := uint16(0)
+	if w.depth != 0 {
+		parent = w.stack[w.depth-1].span
+	}
+	span := w.prefix.Seq + 1
+	w.live[u][0]++
+	f := Frame{K: before, D: d, X: x, S: span, P: parent, M: m, C: c}
+	if err := w.transmit(f); err != nil {
+		return Facts{}, err
+	}
+	w.stack[w.depth] = slot{u, d, m, c, span, parent}
+	w.depth++
+	if u == Row {
+		w.rowCandidate = false
+	}
+	if u == Candidate {
+		w.rowCandidate = true
+	}
+	w.live[u][1]++ // prospective call entry; visible at the next ACK
+	w.uncertain = true
+	var facts Facts
+	returned := false
+	func() {
+		defer func() { _ = recover() }()
+		facts = fn()
+		returned = true
+	}()
+	// A nested ACK/bound failure must not be reclassified as candidate panic.
+	if w.stop != nil {
+		return Facts{}, w.stop
+	}
+	if returned {
+		facts.Normal = Bool{A: true, K: true, V: true}
+		facts.Panic = Bool{A: true, K: true, V: false}
+		w.live[u][2]++
+	} else {
+		facts = Facts{Normal: Bool{A: true, K: true, V: false}, Panic: Bool{A: true, K: true, V: true}}
+		w.live[u][3]++
+	}
+	f = Frame{K: after, D: d, X: x, S: span, P: parent, M: m, C: c, F: &facts}
+	if err := w.transmit(f); err != nil {
+		return Facts{}, err
+	}
+	w.depth--
+	w.uncertain = w.depth != 0
+	return facts, nil
+}
+
+// Finish(true) certifies only owned full schedule/ACK bookkeeping, not Want match.
+func (w *Writer) Finish(complete bool, reason Stop) error {
+	if w.stop != nil {
+		return w.stop
+	}
+	if !w.ready || w.depth != 0 || w.finished || reason > ObserverStop {
+		return w.fail(ErrShape)
+	}
+	if complete {
+		if reason != NoStop || w.live[Row][1] != MaxRows || w.live[Candidate][1] != MaxRows {
+			return w.fail(ErrShape)
+		}
+		for _, n := range w.live {
+			if n[0] != n[1] || n[2]+n[3] != n[1] {
+				return w.fail(ErrShape)
+			}
+		}
+	} else if reason == NoStop {
+		return w.fail(ErrShape)
+	}
+	f := Frame{K: Final, D: 255, B: &w.pins, Z: &Terminal{Complete: complete, Reason: reason}}
+	if err := w.transmit(f); err != nil {
+		return err
+	}
+	w.finished = true
+	return nil
+}

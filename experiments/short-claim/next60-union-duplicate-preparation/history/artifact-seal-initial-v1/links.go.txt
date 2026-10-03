@@ -1,0 +1,14 @@
+//go:build darwin || linux
+
+// SPDX-License-Identifier: Apache-2.0
+package artifactseal
+
+import (
+	"os"
+	"syscall"
+)
+
+func oneLink(s os.FileInfo) bool {
+	x, ok := s.Sys().(*syscall.Stat_t)
+	return ok && x.Nlink == 1
+}

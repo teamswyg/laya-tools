@@ -1,0 +1,51 @@
+{
+  "schema": "riido-artifact-seal-root-QA-v2",
+  "state": "CORRECTED_OWNED_CONTROLS_PASS_PEER_PENDING_NOT_EXECUTION_AUTHORITY",
+  "source": [
+    {
+      "path": "go.mod",
+      "bytes": 51,
+      "sha256": "413762a1ee161fc429bf612b6ec82dc6ce06ba58307166f56aa7e6486d94792f"
+    },
+    {
+      "path": "links.go",
+      "bytes": 218,
+      "sha256": "720961d91ba94fdad45ac14343d3f3e86ec7e82a03eae59f13ad4c601968e8bc"
+    },
+    {
+      "path": "seal.go",
+      "bytes": 3941,
+      "sha256": "46784c2955c60a7629c12053ef72382b7c347d0be3f9fbf335009913292bb4e4"
+    },
+    {
+      "path": "seal_test.go",
+      "bytes": 3286,
+      "sha256": "5a9b676ade0be116c3a5120794b67476d8ec73dc6dc2ad98eb471ded3655c3b0"
+    }
+  ],
+  "Go": "1.27.1",
+  "race": {
+    "exit": 0,
+    "tests": 6,
+    "seconds": 1.816
+  },
+  "vet_darwin_exit": 0,
+  "vet_linux_amd64_exit": 0,
+  "format_unformatted": 0,
+  "corrections": [
+    "Comment explicitly states observed-symlink rejection and ordinary os.Open TOCTOU limit",
+    "Outside-root control canonicalizes both roots",
+    "Same-length byte mutation preserves inode/size/mode/mtime and rejects exact ErrPin"
+  ],
+  "initial_source_and_QA_preserved": true,
+  "actual_compiler_harness": false,
+  "actual_Go_build_metadata_validation": false,
+  "actual_original_worker_controller_calls": 0,
+  "model_Fit": 0,
+  "new_transient_scratch_exclusion": false,
+  "pending": [
+    "Independent corrected source review",
+    "Source/compiler/buildinfo/target identity and transport",
+    "Fresh original execution admission"
+  ]
+}

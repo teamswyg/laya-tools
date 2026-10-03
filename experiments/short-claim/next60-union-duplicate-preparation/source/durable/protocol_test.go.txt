@@ -1,0 +1,284 @@
+// SPDX-License-Identifier: Apache-2.0
+package durable
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"io"
+	"strings"
+	"testing"
+
+	f "riido.local/unionduplicateframe"
+)
+
+func pins() f.Pins {
+	return f.Pins{Freeze: strings.Repeat("1", 64), Fixtures: strings.Repeat("2", 64), Captions: strings.Repeat("3", 64)}
+}
+
+func fakeStream(t *testing.T) []byte {
+	t.Helper()
+	var one, all bytes.Buffer
+	seq := uint16(0)
+	w, e := f.New(&one, func() (f.Ack, error) {
+		b := append([]byte(nil), one.Bytes()...)
+		if _, e := f.DecodeFrame(b); e != nil {
+			return f.Ack{}, e
+		}
+		all.Write(b)
+		one.Reset()
+		seq++
+		h := sha256.Sum256(b[:len(b)-1])
+		return f.Ack{V: f.Version, Q: seq, H: hex.EncodeToString(h[:])}, nil
+	}, pins())
+	if e != nil || w.Ready() != nil {
+		t.Fatal("fake ready", e)
+	}
+	for d := uint8(0); d < f.MaxRows; d++ {
+		_, e = w.Call(f.Row, d, 0, 0, func() f.Facts {
+			_, e := w.Call(f.Candidate, d, 0, 0, func() f.Facts {
+				if d == 0 {
+					_, e := w.Call(f.Method, d, f.Readdir, 0, func() f.Facts {
+						_, e := w.Call(f.Callback, d, 0, f.Merger, func() f.Facts {
+							_, e := w.Call(f.Method, d, f.Readdir, 0, func() f.Facts { return f.Facts{} })
+							if e != nil {
+								t.Fatal(e)
+							}
+							return f.Facts{}
+						})
+						if e != nil {
+							t.Fatal(e)
+						}
+						return f.Facts{}
+					})
+					if e != nil {
+						t.Fatal(e)
+					}
+				}
+				return f.Facts{}
+			})
+			if e != nil {
+				t.Fatal(e)
+			}
+			return f.Facts{}
+		})
+		if e != nil {
+			t.Fatal(e)
+		}
+	}
+	if e = w.Finish(true, f.NoStop); e != nil {
+		t.Fatal(e)
+	}
+	return append([]byte(nil), all.Bytes()...)
+}
+
+type trace struct {
+	bytes.Buffer
+	steps []string
+	mode  string
+	ackN  int
+}
+type fakeFile struct{ *trace }
+
+func (x fakeFile) Write(b []byte) (int, error) {
+	x.steps = append(x.steps, "write")
+	if x.mode == "write" {
+		return len(b) / 2, io.ErrClosedPipe
+	}
+	return x.Buffer.Write(b)
+}
+func (x fakeFile) Sync() error {
+	x.steps = append(x.steps, "sync")
+	if x.mode == "sync" {
+		return io.ErrClosedPipe
+	}
+	if x.mode == "panic" {
+		panic("owned sync panic")
+	}
+	if x.mode == "nilpanic" {
+		panic(nil)
+	}
+	return nil
+}
+
+type fakeACK struct{ *trace }
+
+func (x fakeACK) Write(b []byte) (int, error) {
+	x.steps = append(x.steps, "ack")
+	x.ackN++
+	if x.mode == "ack" {
+		return len(b) / 2, nil
+	}
+	if _, e := f.DecodeAck(b); e != nil {
+		return 0, e
+	}
+	return len(b), nil
+}
+func receiver(t *testing.T, x *trace) (*Receiver, *Journal) {
+	t.Helper()
+	j, e := NewJournal(fakeFile{x}, func() error {
+		x.steps = append(x.steps, "dir")
+		if x.mode == "dir" {
+			return io.ErrClosedPipe
+		}
+		return nil
+	})
+	if e != nil {
+		t.Fatal(e)
+	}
+	r, e := NewReceiver(pins(), j, fakeACK{x})
+	if e != nil {
+		t.Fatal(e)
+	}
+	return r, j
+}
+
+func TestFullSyntheticStreamSyncsBeforeEveryACK(t *testing.T) {
+	b := fakeStream(t)
+	x := &trace{}
+	r, j := receiver(t, x)
+	if e := r.Consume(bytes.NewReader(b)); e != nil {
+		t.Fatal(e)
+	}
+	z := r.Receipt()
+	if !z.GenuineEOF || !z.Acknowledged.Complete() || z.Stopped || z.ACKs != uint16(x.ackN) || z.Durable != j.Cursor() || !bytes.Equal(x.Bytes(), b) {
+		t.Fatal(z, x.ackN)
+	}
+	c := z.Acknowledged.Counts()
+	if c[f.Row] != [4]uint16{39, 39, 39, 0} || c[f.Candidate] != [4]uint16{39, 39, 39, 0} || c[f.Method] != [4]uint16{2, 2, 2, 0} || c[f.Callback] != [4]uint16{1, 1, 1, 0} {
+		t.Fatal(c)
+	}
+	if len(x.steps) != 4*x.ackN {
+		t.Fatal("trace length")
+	}
+	for i := 0; i < len(x.steps); i += 4 {
+		if x.steps[i] != "write" || x.steps[i+1] != "sync" || x.steps[i+2] != "dir" || x.steps[i+3] != "ack" {
+			t.Fatal(x.steps[i : i+4])
+		}
+	}
+}
+
+func TestJournalOrACKFailureIsStickyAndKeepsTwoPrefixes(t *testing.T) {
+	b := fakeStream(t)
+	for _, mode := range []string{"write", "sync", "dir", "ack", "panic", "nilpanic"} {
+		t.Run(mode, func(t *testing.T) {
+			x := &trace{mode: mode}
+			r, _ := receiver(t, x)
+			e := r.Consume(bytes.NewReader(b))
+			if e == nil {
+				t.Fatal("failure accepted")
+			}
+			z := r.Receipt()
+			if !z.Stopped || z.GenuineEOF || z.ACKs != 0 || z.Acknowledged.Sequence() != 0 {
+				t.Fatal(z)
+			}
+			if mode == "ack" {
+				if z.Durable.Sequence != 1 || x.ackN != 1 {
+					t.Fatal("durable ACK uncertainty", z)
+				}
+			} else if z.Durable.Sequence != 0 || x.ackN != 0 {
+				t.Fatal("ACK before durability", z)
+			}
+			n := len(x.steps)
+			if again := r.Consume(bytes.NewReader(b)); again != e || len(x.steps) != n {
+				t.Fatal("automatic reconsume", again)
+			}
+		})
+	}
+}
+
+func TestFinalRequiresActualEOFAndNoTrailingFrame(t *testing.T) {
+	b := fakeStream(t)
+	lines := bytes.SplitAfter(b, []byte{'\n'})
+	for _, mode := range []string{"empty", "ready-only", "partial-final", "trailing-ready"} {
+		t.Run(mode, func(t *testing.T) {
+			var input []byte
+			switch mode {
+			case "empty":
+			case "ready-only":
+				input = lines[0]
+			case "partial-final":
+				input = b[:len(b)-1]
+			case "trailing-ready":
+				input = append(append([]byte(nil), b...), lines[0]...)
+			}
+			x := &trace{}
+			r, _ := receiver(t, x)
+			if r.Consume(bytes.NewReader(input)) == nil || r.Receipt().GenuineEOF {
+				t.Fatal("forged genuine EOF")
+			}
+		})
+	}
+}
+
+func TestForgedCounterAndNestedSpanRejectedBeforeJournal(t *testing.T) {
+	lines := bytes.SplitAfter(fakeStream(t), []byte{'\n'})
+	for _, mode := range []string{"counter", "span", "null-normal", "same-normal-panic"} {
+		t.Run(mode, func(t *testing.T) {
+			x := &trace{}
+			r, _ := receiver(t, x)
+			var stream bytes.Buffer
+			index := 2 // candidate BEFORE has parent row span
+			if mode == "counter" {
+				index = 1
+			}
+			if mode == "null-normal" || mode == "same-normal-panic" {
+				index = 6
+			} // nested method AFTER
+			for i := 0; i < index; i++ {
+				stream.Write(lines[i])
+			}
+			v, e := f.DecodeFrame(lines[index])
+			if e != nil {
+				t.Fatal(e)
+			}
+			switch mode {
+			case "counter":
+				v.N[f.Row][0]++
+			case "span":
+				v.P = 1
+			case "null-normal":
+				v.F.Normal.N = true
+				v.F.Normal.V = false
+			case "same-normal-panic":
+				v.F.Panic.V = v.F.Normal.V
+			}
+			wire, e := json.Marshal(v)
+			if e != nil {
+				t.Fatal(e)
+			}
+			stream.Write(wire)
+			stream.WriteByte('\n')
+			if r.Consume(bytes.NewReader(stream.Bytes())) == nil {
+				t.Fatal("forged transition")
+			}
+			if r.Receipt().Durable.Sequence != uint16(index) {
+				t.Fatal("forged transition journaled", r.Receipt())
+			}
+		})
+	}
+}
+
+func TestMalformedAndOversizedWireHasNoACK(t *testing.T) {
+	ready := bytes.SplitAfter(fakeStream(t), []byte{'\n'})[0]
+	for _, input := range [][]byte{bytes.Replace(ready, []byte("\"v\""), []byte("\"V\""), 1), bytes.Replace(ready, []byte("{"), []byte("{\"v\":1,"), 1), []byte(strings.Repeat("x", f.MaxLineBytes) + "\n")} {
+		x := &trace{}
+		r, _ := receiver(t, x)
+		if r.Consume(bytes.NewReader(input)) == nil || x.ackN != 0 || len(x.steps) != 0 {
+			t.Fatal("malformed frame acknowledged")
+		}
+	}
+}
+
+func TestNoFreshReceiverOnExistingJournal(t *testing.T) {
+	b := fakeStream(t)
+	x := &trace{}
+	r, j := receiver(t, x)
+	if r.Consume(bytes.NewReader(b)) != nil {
+		t.Fatal("fake consume")
+	}
+	if _, e := NewReceiver(pins(), j, fakeACK{x}); e == nil {
+		t.Fatal("implicit resume")
+	}
+}

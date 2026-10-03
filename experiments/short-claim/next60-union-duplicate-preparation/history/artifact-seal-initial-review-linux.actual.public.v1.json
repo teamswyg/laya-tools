@@ -1,0 +1,47 @@
+{
+  "schema": "riido-artifact-seal-initial-peer-and-linux-v1",
+  "state": "INITIAL_BYTES_PRESERVED_CORRECTIONS_PENDING",
+  "linux_cross_vet": {
+    "target": "linux/amd64",
+    "CGO_ENABLED": 0,
+    "exit": 0,
+    "source": [
+      {
+        "path": "go.mod",
+        "bytes": 51,
+        "sha256": "413762a1ee161fc429bf612b6ec82dc6ce06ba58307166f56aa7e6486d94792f"
+      },
+      {
+        "path": "links.go",
+        "bytes": 218,
+        "sha256": "720961d91ba94fdad45ac14343d3f3e86ec7e82a03eae59f13ad4c601968e8bc"
+      },
+      {
+        "path": "seal.go",
+        "bytes": 3881,
+        "sha256": "c0d23ff14d9d32310ef8749f7e754a31efd2d351d60c6ddd292e04157475abf7"
+      },
+      {
+        "path": "seal_test.go",
+        "bytes": 2579,
+        "sha256": "d3c338404776ec0ca70ae358e5df41808ca22f49636649dc84ddbacb1f9d53a3"
+      }
+    ]
+  },
+  "peer": {
+    "reviewer": "gjson_saved_compare_peer_125",
+    "nonauthor": true,
+    "nonblind": true,
+    "source_pins_match": true,
+    "narrow_source_blockers": 0,
+    "findings": [
+      "Narrow never follows symlink comment to ordinary concurrent drift scope",
+      "Canonicalize separate outside-root TempDir to exercise actual boundary",
+      "Add same-length mutation with restored mtime to isolate digest mismatch"
+    ],
+    "writes": 0,
+    "Go_tests": 0,
+    "original_model_calls": 0
+  },
+  "prior_QA_unchanged": true
+}

@@ -1,0 +1,437 @@
+// Package frame contains only owned primitive DTOs. It imports no upstream package.
+// This is unexecuted source preparation, not a native ABI or durability approval.
+package frame
+
+import (
+	"bytes"
+	"encoding/json"
+	"errors"
+)
+
+const (
+	Version      = 1
+	MaxRows      = 39
+	MaxMethods   = 96
+	MaxCallbacks = 91
+	MaxFrames    = 640
+	MaxLineBytes = 2048
+	MaxAckBytes  = 128
+	MaxDepth     = 16
+)
+
+var (
+	ErrShape     = errors.New("frame shape")
+	ErrStopped   = errors.New("frame stopped")
+	ErrTransport = errors.New("frame transport")
+	ErrAck       = errors.New("frame ack")
+	ErrBound     = errors.New("frame bound")
+)
+
+// Unit and Stage numbers are stable wire IDs; zero is not an original method.
+type Unit uint8
+
+const (
+	Row Unit = iota
+	Candidate
+	Method
+	Callback
+)
+
+type Stage uint8
+
+const (
+	Ready Stage = iota
+	BeforeRow
+	AfterRow
+	BeforeCandidate
+	AfterCandidate
+	BeforeMethod
+	AfterMethod
+	BeforeCallback
+	AfterCallback
+	Final
+)
+
+type MethodID uint8
+
+const (
+	NoMethod MethodID = iota
+	Readdir
+	Valid
+	Parse
+	Map
+	ForEach
+)
+
+type CallbackID uint8
+
+const (
+	NoCallback CallbackID = iota
+	Layer
+	Base
+	Merger
+	Each
+)
+
+// Identity is a supplied primitive observation, never inferred from a type/text.
+type Identity uint8
+
+const (
+	UnknownIdentity Identity = iota
+	NilIdentity
+	EOFIdentity
+	LayerCauseIdentity
+	DuplicateIdentity
+	InvalidJSONIdentity
+	OtherIdentity
+)
+
+type Stop uint8
+
+const (
+	NoStop Stop = iota
+	SourceStop
+	BoundsStop
+	ObserverStop
+)
+
+// Available, Known, Null and Value are independent transport fields.
+// Unavailable or unknown values must have neutral padding. Null is known metadata.
+type Bool struct {
+	A bool `json:"a"`
+	K bool `json:"k"`
+	N bool `json:"n"`
+	V bool `json:"v"`
+}
+type Small struct {
+	A bool  `json:"a"`
+	K bool  `json:"k"`
+	N bool  `json:"n"`
+	V uint8 `json:"v"`
+}
+type ErrorFact struct {
+	A bool     `json:"a"`
+	K bool     `json:"k"`
+	P bool     `json:"p"`
+	I bool     `json:"i"`
+	V Identity `json:"v"`
+}
+
+// Entry is an owned descriptor: Name 1=a,2=b,3=c; Marker 1/2/3/20;
+// Layer 1=base,2=overlay. No FileInfo method or native object is transported.
+type Entry struct {
+	N uint8 `json:"n"`
+	M uint8 `json:"m"`
+	L uint8 `json:"l"`
+}
+type Entries struct {
+	A bool     `json:"a"`
+	K bool     `json:"k"`
+	N bool     `json:"n"`
+	C uint8    `json:"c"`
+	V [3]Entry `json:"v"`
+}
+
+// Path 1=root,2=/outer,3=/0,4=/1.
+// Key 1="",2=a,3=b,4=k,5=outer,6=z.
+// RawKey 1="",2="a",3="\\u0061",4="b",5="k",6="outer",7="z".
+// Kind 1=object member,2=array item. Index is an owned array ordinal.
+type Visit struct {
+	P uint8 `json:"p"`
+	K uint8 `json:"k"`
+	R uint8 `json:"r"`
+	T uint8 `json:"t"`
+	I uint8 `json:"i"`
+}
+type Visits struct {
+	A bool     `json:"a"`
+	K bool     `json:"k"`
+	N bool     `json:"n"`
+	C uint8    `json:"c"`
+	V [4]Visit `json:"v"`
+}
+
+// ParserType values are supplied exported primitive enum values 0..5.
+// Index is bounded 0..128. It is not used to infer source ordering.
+type Facts struct {
+	Normal               Bool      `json:"n"`
+	Panic                Bool      `json:"p"`
+	Error                ErrorFact `json:"e"`
+	Entries              Entries   `json:"d"`
+	Visits               Visits    `json:"l"`
+	Valid                Bool      `json:"v"`
+	Published            Bool      `json:"u"`
+	Duplicate            Bool      `json:"q"`
+	Complete             Bool      `json:"c"`
+	Unchanged            Bool      `json:"b"`
+	DescriptorsUnchanged Bool      `json:"g"`
+	SuffixStopped        Bool      `json:"s"`
+	Path                 Small     `json:"o"`
+	Key                  Small     `json:"k"`
+	Occurrence           Small     `json:"r"`
+	ParserType           Small     `json:"t"`
+	ParserIndex          Small     `json:"i"`
+}
+
+// Each unit has reserved/dispatched/returned/panicked counters.
+// These are owned boundary bookkeeping, not startup or nested native counters.
+type Counts [4][4]uint16
+type Pins struct {
+	Freeze   string `json:"f"`
+	Fixtures string `json:"i"`
+	Captions string `json:"c"`
+}
+type Terminal struct {
+	Complete bool    `json:"c"`
+	Reason   Stop    `json:"r"`
+	Startup  *uint64 `json:"s"`
+	Nested   *uint64 `json:"n"`
+}
+type Frame struct {
+	V uint8      `json:"v"`
+	Q uint16     `json:"q"`
+	K Stage      `json:"k"`
+	D uint8      `json:"d"`
+	X [4]uint8   `json:"x"` // request, fixture index, display, internal index
+	S uint16     `json:"s"` // opening sequence/span
+	P uint16     `json:"p"` // parent opening sequence; zero outside spans
+	M MethodID   `json:"m"`
+	C CallbackID `json:"c"`
+	N Counts     `json:"n"`
+	F *Facts     `json:"f"`
+	B *Pins      `json:"b"`
+	Z *Terminal  `json:"z"`
+}
+type Ack struct {
+	V uint8  `json:"v"`
+	Q uint16 `json:"q"`
+	H string `json:"h"` // SHA256 of canonical payload WITHOUT final LF
+}
+
+// Schedule preserves Root's request-major, fixture-major, display-major order.
+// Internal index equals display for these two frozen requests.
+func Schedule(d uint8) ([4]uint8, error) {
+	if d >= MaxRows {
+		return [4]uint8{}, ErrShape
+	}
+	if d < 18 {
+		return [4]uint8{0, d / 3, d % 3, d % 3}, nil
+	}
+	n := d - 18
+	return [4]uint8{1, n / 3, n % 3, n % 3}, nil
+}
+func Hex64(s string) bool {
+	if len(s) != 64 {
+		return false
+	}
+	for _, c := range s {
+		if !(c >= '0' && c <= '9' || c >= 'a' && c <= 'f') {
+			return false
+		}
+	}
+	return true
+}
+func validPins(p Pins) bool { return Hex64(p.Freeze) && Hex64(p.Fixtures) && Hex64(p.Captions) }
+func validBool(v Bool) bool { return (!v.K && !v.N && !v.V) || v.A && v.K && (!v.N || !v.V) }
+func validSmall(v Small, max uint8) bool {
+	if !v.K {
+		return !v.N && v.V == 0
+	}
+	return v.A && v.V <= max && (!v.N || v.V == 0)
+}
+func validError(v ErrorFact) bool {
+	if !v.K {
+		return !v.P && !v.I && v.V == UnknownIdentity
+	}
+	if !v.A {
+		return false
+	}
+	if !v.I {
+		return v.V == UnknownIdentity
+	}
+	if v.V == NilIdentity {
+		return !v.P
+	}
+	return v.P && v.V >= EOFIdentity && v.V <= OtherIdentity
+}
+func validEntries(v Entries) bool {
+	if !v.K {
+		return !v.N && v.C == 0 && v.V == [3]Entry{}
+	}
+	if !v.A || v.C > 3 || v.N && v.C != 0 {
+		return false
+	}
+	for i, e := range v.V {
+		if i >= int(v.C) {
+			if e != (Entry{}) {
+				return false
+			}
+			continue
+		}
+		if e.N < 1 || e.N > 3 || e.L < 1 || e.L > 2 {
+			return false
+		}
+		if e.M != 1 && e.M != 2 && e.M != 3 && e.M != 20 {
+			return false
+		}
+	}
+	return true
+}
+func validVisits(v Visits) bool {
+	if !v.K {
+		return !v.N && v.C == 0 && v.V == [4]Visit{}
+	}
+	if !v.A || v.C > 4 || v.N && v.C != 0 {
+		return false
+	}
+	for i, e := range v.V {
+		if i >= int(v.C) {
+			if e != (Visit{}) {
+				return false
+			}
+			continue
+		}
+		if e.P < 1 || e.P > 4 || e.T < 1 || e.T > 2 {
+			return false
+		}
+		if e.T == 1 && (e.K < 1 || e.K > 6 || e.R < 1 || e.R > 7 || e.I != 0) {
+			return false
+		}
+		if e.T == 2 && (e.K != 0 || e.R != 0 || e.I > 1) {
+			return false
+		}
+	}
+	return true
+}
+func ValidateFacts(f Facts) error {
+	for _, b := range [...]Bool{f.Normal, f.Panic, f.Valid, f.Published, f.Duplicate, f.Complete, f.Unchanged, f.DescriptorsUnchanged, f.SuffixStopped} {
+		if !validBool(b) {
+			return ErrShape
+		}
+	}
+	if !validError(f.Error) || !validEntries(f.Entries) || !validVisits(f.Visits) {
+		return ErrShape
+	}
+	if !validSmall(f.Path, 4) || !validSmall(f.Key, 6) || !validSmall(f.Occurrence, 8) ||
+		!validSmall(f.ParserType, 5) || !validSmall(f.ParserIndex, 128) {
+		return ErrShape
+	}
+	return nil
+}
+func validCounts(n Counts) bool {
+	max := [4]uint16{MaxRows, MaxRows, MaxMethods, MaxCallbacks}
+	for i, c := range n {
+		if c[0] > max[i] || c[1] > c[0] || uint32(c[2])+uint32(c[3]) > uint32(c[1]) {
+			return false
+		}
+	}
+	return true
+}
+
+// CanonicalFrame closes encoding to this DTO. No RawMessage, map or interface.
+func CanonicalFrame(f Frame) ([]byte, error) {
+	if f.V != Version || f.Q < 1 || f.Q > MaxFrames || !validCounts(f.N) {
+		return nil, ErrShape
+	}
+	if f.F != nil {
+		if err := ValidateFacts(*f.F); err != nil {
+			return nil, err
+		}
+	}
+	if f.K == Ready || f.K == Final {
+		if f.D != 255 || f.X != [4]uint8{} || f.S != 0 || f.P != 0 || f.M != 0 || f.C != 0 || f.F != nil || f.B == nil || !validPins(*f.B) {
+			return nil, ErrShape
+		}
+		if f.K == Ready && (f.Z != nil || f.N != (Counts{})) || f.K == Final && (f.Z == nil || f.Z.Startup != nil || f.Z.Nested != nil || f.Z.Reason > ObserverStop || f.Z.Complete && f.Z.Reason != NoStop || !f.Z.Complete && f.Z.Reason == NoStop) {
+			return nil, ErrShape
+		}
+		if f.K == Final && f.Z.Complete {
+			if f.N[Row][1] != MaxRows || f.N[Candidate][1] != MaxRows {
+				return nil, ErrShape
+			}
+			for _, n := range f.N {
+				if n[0] != n[1] || uint32(n[2])+uint32(n[3]) != uint32(n[1]) {
+					return nil, ErrShape
+				}
+			}
+		}
+	} else {
+		x, err := Schedule(f.D)
+		if err != nil || f.X != x || f.S < 1 || f.S > f.Q || f.P >= f.S || f.B != nil || f.Z != nil || f.K < BeforeRow || f.K > AfterCallback {
+			return nil, ErrShape
+		}
+		isBefore := f.K == BeforeRow || f.K == BeforeCandidate || f.K == BeforeMethod || f.K == BeforeCallback
+		if isBefore {
+			if f.F != nil || f.S != f.Q {
+				return nil, ErrShape
+			}
+		} else if f.F == nil || f.S >= f.Q || !f.F.Normal.A || !f.F.Normal.K || !f.F.Panic.A || !f.F.Panic.K {
+			return nil, ErrShape
+		}
+		switch f.K {
+		case BeforeRow, AfterRow:
+			if f.P != 0 || f.M != 0 || f.C != 0 {
+				return nil, ErrShape
+			}
+		case BeforeCandidate, AfterCandidate:
+			if f.P == 0 || f.M != 0 || f.C != 0 {
+				return nil, ErrShape
+			}
+		case BeforeMethod, AfterMethod:
+			if f.P == 0 || f.C != 0 || x[0] == 0 && f.M != Readdir || x[0] == 1 && (f.M < Valid || f.M > ForEach) {
+				return nil, ErrShape
+			}
+		case BeforeCallback, AfterCallback:
+			if f.P == 0 || f.M != 0 || x[0] == 0 && (f.C < Layer || f.C > Merger) || x[0] == 1 && f.C != Each {
+				return nil, ErrShape
+			}
+		}
+	}
+	b, err := json.Marshal(f)
+	if err != nil {
+		return nil, ErrShape
+	}
+	if len(b)+1 > MaxLineBytes {
+		return nil, ErrBound
+	}
+	return b, nil
+}
+func DecodeFrame(line []byte) (Frame, error) {
+	var f Frame
+	if len(line) == 0 || len(line) > MaxLineBytes || line[len(line)-1] != '\n' {
+		return f, ErrShape
+	}
+	raw := line[:len(line)-1]
+	if err := json.Unmarshal(raw, &f); err != nil {
+		return f, ErrShape
+	}
+	b, err := CanonicalFrame(f)
+	if err != nil || !bytes.Equal(b, raw) {
+		return Frame{}, ErrShape
+	}
+	return f, nil
+}
+func EncodeAck(a Ack) ([]byte, error) {
+	if a.V != Version || a.Q < 1 || a.Q > MaxFrames || !Hex64(a.H) {
+		return nil, ErrAck
+	}
+	b, err := json.Marshal(a)
+	if err != nil || len(b)+1 > MaxAckBytes {
+		return nil, ErrAck
+	}
+	return append(b, '\n'), nil
+}
+func DecodeAck(line []byte) (Ack, error) {
+	var a Ack
+	if len(line) == 0 || len(line) > MaxAckBytes || line[len(line)-1] != '\n' {
+		return a, ErrAck
+	}
+	if err := json.Unmarshal(line[:len(line)-1], &a); err != nil {
+		return Ack{}, ErrAck
+	}
+	b, err := EncodeAck(a)
+	if err != nil || !bytes.Equal(b, line) {
+		return Ack{}, ErrAck
+	}
+	return a, nil
+}
