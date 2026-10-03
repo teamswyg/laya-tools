@@ -1,0 +1,161 @@
+// SPDX-License-Identifier: Apache-2.0
+// This bridge is a separately bounded proposal. It does not bind Golden
+// qualification, choose roles, load a corpus, fit or publish a model.
+package maskplan
+
+import (
+	"crypto/sha256"
+	"encoding/binary"
+	"errors"
+	"math"
+	"unicode"
+	"unicode/utf8"
+	"unsafe"
+
+	"github.com/teamswyg/laya-tools/internal/hintlearn"
+	"github.com/teamswyg/laya-tools/internal/pairlearn"
+)
+
+const MaxSparsePayloadBytes = 8 << 20
+const MaxFeatureWords = 32
+
+var ErrFeatureBudget = errors.New("mask_bridge_feature_budget")
+var ErrFeatures = errors.New("mask_bridge_features")
+var ErrPayload = errors.New("mask_bridge_payload")
+
+type Sparse struct {
+	Development, Validation         pairlearn.Dataset
+	DevelopmentRefs, ValidationRefs []Row
+	PayloadBytes                    uint64
+	FeatureScans                    int
+	Audit                           [3]Audit
+}
+
+// Build materializes only rows admitted by the structural plan. The output is
+// owned SoA columns; unknown/ambiguous/ineligible/calibration text never enters
+// the feature extractor. Payload bounds cover returned arrays/headers, not
+// whole-process RSS or transient feature/plan/compiler memory.
+func Build(p Projection) (Sparse, error) {
+	return build(p, hintlearn.Features, MaxSparsePayloadBytes)
+}
+
+// The existing feature function builds every term cross product before merging
+// collisions. Bound words before that allocation; reject rather than truncate.
+func boundedFeatureText(s string) bool {
+	if !utf8.ValidString(s) {
+		return false
+	}
+	n, in := 0, false
+	for _, r := range s {
+		word := unicode.IsLetter(r) || unicode.IsDigit(r)
+		if word && !in {
+			n++
+			if n > MaxFeatureWords {
+				return false
+			}
+		}
+		in = word
+	}
+	return n > 0
+}
+
+func featurePin(fs []hintlearn.Feature) ([32]byte, bool) {
+	if len(fs) == 0 || len(fs) > hintlearn.Dimension {
+		return [32]byte{}, false
+	}
+	var seen [hintlearn.Dimension]bool
+	h := sha256.New()
+	var b [10]byte
+	for _, f := range fs {
+		if f.Index < 0 || f.Index >= hintlearn.Dimension || seen[f.Index] || math.IsNaN(f.Value) || math.IsInf(f.Value, 0) {
+			return [32]byte{}, false
+		}
+		seen[f.Index] = true
+		binary.LittleEndian.PutUint16(b[:2], uint16(f.Index))
+		binary.LittleEndian.PutUint64(b[2:], math.Float64bits(f.Value))
+		h.Write(b[:])
+	}
+	var out [32]byte
+	copy(out[:], h.Sum(nil))
+	return out, true
+}
+
+func sparsePayload(rows, features int) uint64 {
+	return uint64(rows+1)*uint64(unsafe.Sizeof(int(0))) + uint64(features)*10 + uint64(rows)*(16+uint64(unsafe.Sizeof(int(0)))+uint64(unsafe.Sizeof(Row{})))
+}
+
+func sparseDataset(name string, rows, features, excluded int) pairlearn.Dataset {
+	return pairlearn.Dataset{Split: name, Offsets: make([]int, rows+1), Indices: make([]uint16, features), Values: make([]float64, features), Labels: make([]float64, rows), Groups: make([]int, rows), SampleWeights: make([]float64, rows), Excluded: excluded}
+}
+
+func build(p Projection, extract func(string, string) []hintlearn.Feature, limit uint64) (Sparse, error) {
+	if !p.valid || extract == nil {
+		return Sparse{}, ErrShape
+	}
+	rows := [2]Rows{p.train, p.validation}
+	var pins [2][MaxRows][32]byte
+	var lengths [2][MaxRows]int
+	var features [2]int
+	base := uint64(unsafe.Sizeof(Sparse{}))
+	if base+sparsePayload(rows[0].Count, 0)+sparsePayload(rows[1].Count, 0) > limit {
+		return Sparse{}, ErrPayload
+	}
+	// Exact count/pin pass precedes all returned sparse column allocations.
+	for split := range rows {
+		for i := 0; i < rows[split].Count; i++ {
+			r := rows[split].Values[i]
+			parent := &p.parents[r.ParentIndex]
+			q, c := parent.Text.Request, parent.Text.Candidates[r.CandidateIndex]
+			if !boundedFeatureText(q) || !boundedFeatureText(c) {
+				return Sparse{}, ErrFeatureBudget
+			}
+			fs := extract(q, c)
+			pin, ok := featurePin(fs)
+			if !ok {
+				return Sparse{}, ErrFeatures
+			}
+			pins[split][i], lengths[split][i] = pin, len(fs)
+			features[split] += len(fs)
+			if base+sparsePayload(rows[0].Count, features[0])+sparsePayload(rows[1].Count, features[1]) > limit {
+				return Sparse{}, ErrPayload
+			}
+		}
+	}
+	var out Sparse
+	out.Audit = p.audit
+	out.PayloadBytes = base + sparsePayload(rows[0].Count, features[0]) + sparsePayload(rows[1].Count, features[1])
+	var data [2]pairlearn.Dataset
+	var refs [2][]Row
+	for split, name := range [2]string{"development", "validation"} {
+		a := p.audit[split]
+		// Excluded counts all omitted role candidates, not only unknown ones.
+		data[split] = sparseDataset(name, rows[split].Count, features[split], a.Candidates-rows[split].Count)
+		refs[split] = make([]Row, rows[split].Count)
+		at := 0
+		for i := 0; i < rows[split].Count; i++ {
+			r := rows[split].Values[i]
+			parent := &p.parents[r.ParentIndex]
+			fs := extract(parent.Text.Request, parent.Text.Candidates[r.CandidateIndex])
+			pin, ok := featurePin(fs)
+			if !ok || len(fs) != lengths[split][i] || pin != pins[split][i] {
+				return Sparse{}, ErrFeatures
+			}
+			for _, f := range fs {
+				data[split].Indices[at] = uint16(f.Index)
+				data[split].Values[at] = f.Value
+				at++
+			}
+			data[split].Offsets[i+1] = at
+			if r.Positive {
+				data[split].Labels[i] = 1
+			}
+			data[split].Groups[i] = parent.Group
+			data[split].SampleWeights[i] = 1
+			refs[split][i] = r
+		}
+		out.FeatureScans += rows[split].Count * 2
+	}
+	out.Development, out.Validation = data[0], data[1]
+	out.DevelopmentRefs, out.ValidationRefs = refs[0], refs[1]
+	return out, nil
+}

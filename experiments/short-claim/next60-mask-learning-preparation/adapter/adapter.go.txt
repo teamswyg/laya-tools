@@ -1,0 +1,163 @@
+// SPDX-License-Identifier: Apache-2.0
+// Package goldenmask is a source proposal connecting two structural prototypes.
+// Matching external pins does not establish semantic qualification or Fit rights.
+package goldenmask
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"io"
+
+	mask "github.com/teamswyg/laya-tools/internal/maskbridgeprototype"
+	reader "riido.local/goldenreaderprototype"
+)
+
+const SelectionSchema = "riido-golden-evaluation-binding-v1-proposed"
+const SelectionState = "Root_frozen_structure_only"
+const MaxSelectionBytes = 4096
+
+var ErrSelection = errors.New("golden_mask_selection")
+var ErrPin = errors.New("golden_mask_pin")
+
+// Selection canonical bytes and its digest are separately frozen by Root.
+// Reader eligible/weights remain gradient-only. This separate explicit mask
+// controls validation selection; calibration can never select an epoch.
+type Selection struct {
+	Schema              string  `json:"schema"`
+	State               string  `json:"state"`
+	QualificationSHA256 string  `json:"qualification_sha256"`
+	RolesGroupsSHA256   string  `json:"roles_groups_sha256"`
+	RowSHA256           string  `json:"row_sha256"`
+	Count               int     `json:"count"`
+	EvaluationEligible  [8]bool `json:"evaluation_eligible"`
+}
+
+type Pins struct {
+	Reader          reader.Pins
+	SelectionSHA256 string
+}
+
+// Bound preserves predicate-level evidence separately from feature text. A
+// known F may still contain U predicates; aggregate F must not erase that audit.
+// Accessors return value copies, including immutable string and fixed arrays.
+type Bound struct {
+	parent   mask.Parent
+	evidence reader.Supervision
+	metadata reader.Metadata
+	pins     Pins
+	ready    bool
+}
+
+func (b Bound) Valid() bool                  { return b.ready }
+func (b Bound) Parent() mask.Parent          { return b.parent }
+func (b Bound) Evidence() reader.Supervision { return b.evidence }
+func (b Bound) Metadata() reader.Metadata    { return b.metadata }
+func (b Bound) Pins() Pins                   { return b.pins }
+
+func hash(s string) bool {
+	if len(s) != 64 {
+		return false
+	}
+	for _, c := range []byte(s) {
+		if !(c >= '0' && c <= '9' || c >= 'a' && c <= 'f') {
+			return false
+		}
+	}
+	return true
+}
+func digest(b []byte) string { h := sha256.Sum256(b); return hex.EncodeToString(h[:]) }
+
+// CanonicalSelection is the unique encoding used by the synthetic controls.
+// A caller must separately freeze its digest before any Load; this encoder is
+// not evidence of provenance, role allocation or permission to train.
+func CanonicalSelection(s Selection) ([]byte, error) { return json.Marshal(s) }
+
+// Load checks a bounded canonical selection binding before either Reader input
+// is consumed. It then invokes the strict pinned Reader and copies raw text,
+// candidate-known masks and gradient eligibility into a structural mask parent.
+// It performs no feature extraction, corpus read, role assignment or Fit.
+func Load(row, authority, selection io.Reader, p Pins) (Bound, error) {
+	if !hash(p.SelectionSHA256) || !hash(p.Reader.AuthoritySHA256) || !hash(p.Reader.QualificationSHA256) || !hash(p.Reader.RolesGroupsSHA256) || !hash(p.Reader.RowSHA256) {
+		return Bound{}, ErrPin
+	}
+	if selection == nil {
+		return Bound{}, ErrSelection
+	}
+	b, e := io.ReadAll(io.LimitReader(selection, MaxSelectionBytes+1))
+	if e != nil || len(b) > MaxSelectionBytes {
+		return Bound{}, ErrSelection
+	}
+	if digest(b) != p.SelectionSHA256 {
+		return Bound{}, ErrPin
+	}
+	var s Selection
+	d := json.NewDecoder(bytes.NewReader(b))
+	d.DisallowUnknownFields()
+	if d.Decode(&s) != nil {
+		return Bound{}, ErrSelection
+	}
+	canonical, e := CanonicalSelection(s)
+	// Exact canonical bytes reject missing fields, duplicate/escaped-alias keys,
+	// wrong case, surplus array elements, noncanonical numbers and trailing data.
+	if e != nil || !bytes.Equal(b, canonical) || s.Schema != SelectionSchema || s.State != SelectionState || s.QualificationSHA256 != p.Reader.QualificationSHA256 || s.RolesGroupsSHA256 != p.Reader.RolesGroupsSHA256 || s.RowSHA256 != p.Reader.RowSHA256 || (s.Count != 5 && s.Count != 8) {
+		return Bound{}, ErrSelection
+	}
+	for i := s.Count; i < 8; i++ {
+		if s.EvaluationEligible[i] {
+			return Bound{}, ErrSelection
+		}
+	}
+	example, e := reader.Load(row, authority, p.Reader)
+	if e != nil {
+		return Bound{}, e
+	}
+	if !example.Valid() {
+		return Bound{}, ErrSelection
+	}
+	in, sup, meta := example.Input(), example.Supervision(), example.Metadata()
+	if in.Count != s.Count || sup.Count != s.Count {
+		return Bound{}, ErrSelection
+	}
+	var out mask.Parent
+	out.Text.Request = in.Request.Raw
+	out.Text.Count = in.Count
+	out.Group = meta.WholeGroup
+	out.Ambiguous = sup.ParentAmbiguous
+	switch meta.Role {
+	case "development_train":
+		out.Role = mask.Train
+	case "development_validation":
+		out.Role = mask.Validation
+	case "development_calibration":
+		out.Role = mask.Calibration
+	default:
+		return Bound{}, ErrSelection
+	}
+	for i := 0; i < in.Count; i++ {
+		out.Text.Candidates[i] = in.Candidates[i].Raw
+		switch sup.States[i] {
+		case "T":
+			out.States[i] = mask.T
+		case "F":
+			out.States[i] = mask.F
+		case "U":
+			out.States[i] = mask.U
+		default:
+			return Bound{}, ErrSelection
+		}
+		out.LabelKnown[i], out.Positive[i] = sup.LabelKnown[i], sup.Labels[i]
+		out.GradientEligible[i] = sup.Eligible[i]
+		// Selection masks are never inferred from a parent's truth/cohort.
+		if s.EvaluationEligible[i] && (out.Role != mask.Validation || !sup.LabelKnown[i] || sup.ParentAmbiguous) {
+			return Bound{}, ErrSelection
+		}
+		out.EvaluationEligible[i] = s.EvaluationEligible[i]
+	}
+	if _, e := mask.Project([]mask.Parent{out}); e != nil {
+		return Bound{}, e
+	}
+	return Bound{parent: out, evidence: sup, metadata: meta, pins: p, ready: true}, nil
+}
