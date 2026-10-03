@@ -1,0 +1,88 @@
+// Copy together with module/validate.go into a reviewable source-only directory
+// inside the laya-tools module. The pure preparation tests never compile this
+// bridge. Root may run it only against its frozen adoption and sixteen rows.
+package main
+
+import (
+	"bytes"
+	"encoding/json"
+	"flag"
+	"github.com/teamswyg/laya-tools/pkg/shortclaimdata"
+	"io"
+	"os"
+)
+
+func main() {
+	out := initialSummary()
+	flags := flag.NewFlagSet("sixteen-row-validation", flag.ContinueOnError)
+	flags.SetOutput(io.Discard)
+	data := flags.String("data", "", "")
+	dataSHA := flags.String("data-sha256", "", "")
+	previous := flags.String("previous-data", "", "")
+	cat := flags.String("catalog", "", "")
+	adopt := flags.String("adoption", "", "")
+	adoptSHA := flags.String("adoption-sha256", "", "")
+	proof := flags.String("finite-comparison", "", "")
+	// Exactly seven named options, each once in --name value form. Reject alias
+	// casing, positional values, equals syntax and duplicate options before I/O.
+	if len(os.Args) != 15 {
+		out.Failure = "validation_arguments"
+		emit(out, 2)
+	}
+	names := [7]string{"--data", "--data-sha256", "--previous-data", "--catalog", "--adoption", "--adoption-sha256", "--finite-comparison"}
+	var seen [7]bool
+	for i := 1; i < len(os.Args); i += 2 {
+		found := -1
+		for j, n := range names {
+			if os.Args[i] == n {
+				found = j
+				break
+			}
+		}
+		if found < 0 || seen[found] || os.Args[i+1] == "" {
+			out.Failure = "validation_arguments"
+			emit(out, 2)
+		}
+		seen[found] = true
+	}
+	if flags.Parse(os.Args[1:]) != nil || flags.NArg() != 0 || !digestOK(*dataSHA) || *adoptSHA != adoptionSHA {
+		out.Failure = "validation_arguments"
+		emit(out, 2)
+	}
+	var b bundle
+	var e error
+	b.Data, e = pinned(*data, *dataSHA, 0)
+	if e == nil {
+		b.Previous, e = pinned(*previous, previousSHA, previousBytes)
+	}
+	if e == nil {
+		b.Catalog, e = pinned(*cat, catalogSHA, catalogBytes)
+	}
+	if e == nil {
+		b.Adoption, e = pinned(*adopt, *adoptSHA, adoptionBytes)
+	}
+	if e == nil {
+		b.Comparison, e = pinned(*proof, comparisonSHA, comparisonBytes)
+	}
+	if e == nil {
+		e = validateBundle(b, pins{Data: *dataSHA, Adoption: *adoptSHA}, func(raw []byte) error {
+			ex, e := shortclaimdata.LoadDevelopmentRow(bytes.NewReader(raw))
+			if e != nil || !ex.Valid() {
+				return failure("project_reader_validation")
+			}
+			return nil
+		}, &out)
+	}
+	if e != nil {
+		out.Failure = e.Error()
+		emit(out, 1)
+	}
+	emit(out, 0)
+}
+func emit(out summary, code int) {
+	if json.NewEncoder(os.Stdout).Encode(out) != nil {
+		_, _ = io.WriteString(os.Stderr, "validation_output\n")
+		os.Exit(1)
+	}
+	os.Exit(code)
+}

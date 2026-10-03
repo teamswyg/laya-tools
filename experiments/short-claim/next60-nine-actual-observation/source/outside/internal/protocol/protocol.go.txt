@@ -1,0 +1,530 @@
+// Package protocol checks only the finite worker's structural observation
+// contract. It neither imports candidates nor evaluates any Want or label.
+package protocol
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"io"
+	"strings"
+)
+
+var Err = errors.New("catalog9_protocol_invalid")
+
+const CatalogSHA = "c7b0446710a6d629a584aac16f3723d439330a9684ac299491aa430edf33f80c"
+const CatalogBytes = 106576
+const CombinedCap = (1 << 20) - 1
+const JournalCap = 128 << 10
+
+var IDs = [9]string{
+	"go53-pflag-annotation-ownership", "go53-pflag-bounded-count",
+	"go53-pflag-single-assignment", "go53-pflag-sensitive-default",
+	"go53-pflag-deferred-function", "go53-pflag-text-error-value",
+	"go53-mapstructure-hooks-errors-is", "go53-mapstructure-remain-conflict",
+	"go53-mapstructure-tag-precedence",
+}
+var Counts = [9]int{5, 6, 5, 5, 5, 5, 5, 5, 5}
+
+// Object requires exact case-sensitive keys, each exactly once, without maps.
+// Values remain opaque until an operation-specific structural check needs them.
+func Object(raw []byte, names []string) ([]json.RawMessage, error) {
+	if len(names) > 64 {
+		return nil, Err
+	}
+	d := json.NewDecoder(bytes.NewReader(raw))
+	t, e := d.Token()
+	if e != nil || t != json.Delim('{') {
+		return nil, Err
+	}
+	out := make([]json.RawMessage, len(names))
+	var seen [64]bool
+	for d.More() {
+		t, e := d.Token()
+		if e != nil {
+			return nil, Err
+		}
+		key, ok := t.(string)
+		if !ok {
+			return nil, Err
+		}
+		index := -1
+		for i, name := range names {
+			if key == name {
+				index = i
+				break
+			}
+		}
+		if index < 0 || seen[index] {
+			return nil, Err
+		}
+		seen[index] = true
+		if d.Decode(&out[index]) != nil {
+			return nil, Err
+		}
+	}
+	t, e = d.Token()
+	if e != nil || t != json.Delim('}') {
+		return nil, Err
+	}
+	if _, e = d.Token(); e != io.EOF {
+		return nil, Err
+	}
+	for i := range names {
+		if !seen[i] {
+			return nil, Err
+		}
+	}
+	return out, nil
+}
+func Int(raw []byte) (int, error) {
+	var n int
+	if Null(raw) || json.Unmarshal(raw, &n) != nil || n < 0 {
+		return 0, Err
+	}
+	return n, nil
+}
+func Bool(raw []byte) (bool, error) {
+	raw = bytes.TrimSpace(raw)
+	if bytes.Equal(raw, []byte("true")) {
+		return true, nil
+	}
+	if bytes.Equal(raw, []byte("false")) {
+		return false, nil
+	}
+	return false, Err
+}
+func String(raw []byte) (string, error) {
+	var s string
+	if json.Unmarshal(raw, &s) != nil || bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
+		return "", Err
+	}
+	return s, nil
+}
+func Null(raw []byte) bool { return bytes.Equal(bytes.TrimSpace(raw), []byte("null")) }
+func SHA(s string) bool {
+	if len(s) != 64 {
+		return false
+	}
+	for _, c := range s {
+		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')) {
+			return false
+		}
+	}
+	return true
+}
+
+type Counters struct {
+	Reserved         int `json:"dispatch_reserved"`
+	Returned         int `json:"dispatch_returned"`
+	Completed        int `json:"observations_completed"`
+	Panics           int `json:"panics"`
+	ExplicitReserved int `json:"explicit_observer_calls_reserved"`
+	ExplicitReturned int `json:"explicit_observer_calls_returned"`
+	MethodReserved   int `json:"explicit_error_method_calls_reserved"`
+	MethodReturned   int `json:"explicit_error_method_calls_returned"`
+}
+
+var counterNames = []string{"dispatch_reserved", "dispatch_returned", "observations_completed", "panics", "explicit_observer_calls_reserved", "explicit_observer_calls_returned", "explicit_error_method_calls_reserved", "explicit_error_method_calls_returned"}
+
+func ReadCounters(raw []byte) (Counters, error) {
+	v, e := Object(raw, counterNames)
+	if e != nil {
+		return Counters{}, Err
+	}
+	var n [8]int
+	for i := range n {
+		n[i], e = Int(v[i])
+		if e != nil {
+			return Counters{}, Err
+		}
+	}
+	c := Counters{n[0], n[1], n[2], n[3], n[4], n[5], n[6], n[7]}
+	if c.Reserved > 138 || c.Returned > c.Reserved || c.Completed > c.Returned || c.Panics > c.Returned ||
+		c.Completed+c.Panics > c.Returned || c.ExplicitReserved > c.Returned*128 ||
+		c.ExplicitReturned > c.ExplicitReserved || c.MethodReserved > c.ExplicitReserved ||
+		c.MethodReturned > c.MethodReserved || c.MethodReturned > c.ExplicitReturned {
+		return Counters{}, Err
+	}
+	return c, nil
+}
+func schedule(n int) (r, f, c int) {
+	c = n % 3
+	input := n / 3
+	for r = 0; r < len(Counts); r++ {
+		if input < Counts[r] {
+			return r, input, c
+		}
+		input -= Counts[r]
+	}
+	return -1, -1, -1
+}
+
+type Journal struct {
+	Events           int      `json:"events"`
+	Bytes            int      `json:"bytes"`
+	LastSHA          string   `json:"last_sha256"`
+	Counters         Counters `json:"counters"`
+	HasInProgress    bool     `json:"has_in_progress"`
+	ReturnedPrefix   int      `json:"returned_prefix"`
+	CompleteSequence bool     `json:"complete_sequence"`
+	IncompleteTail   bool     `json:"incomplete_tail"`
+}
+
+func ReadJournal(raw []byte) (out Journal, retErr error) {
+	out = Journal{Bytes: len(raw), LastSHA: strings.Repeat("0", 64)}
+	defer func() {
+		out.HasInProgress = out.Events%2 != 0
+		out.CompleteSequence = retErr == nil && !out.IncompleteTail && out.Events == 276 && out.Counters.Reserved == 138 && out.Counters.Returned == 138 && out.Counters.Completed == 138 && out.Counters.Panics == 0
+	}()
+	if len(raw) > JournalCap {
+		return out, Err
+	}
+	lines := bytes.Split(raw, []byte{'\n'})
+	if len(lines) == 0 {
+		return out, Err
+	}
+	out.IncompleteTail = len(lines[len(lines)-1]) != 0
+	lines = lines[:len(lines)-1]
+	if len(lines) > 276 {
+		return out, Err
+	}
+	var stopped bool
+	for i, line := range lines {
+		if len(line) == 0 || len(line)+1 > 512 {
+			return out, Err
+		}
+		var frame []json.RawMessage
+		if json.Unmarshal(line, &frame) != nil || len(frame) != 2 {
+			return out, Err
+		}
+		var event []json.RawMessage
+		if json.Unmarshal(frame[0], &event) != nil || len(event) != 15 {
+			return out, Err
+		}
+		eventSHA, e := String(frame[1])
+		if e != nil || !SHA(eventSHA) {
+			return out, Err
+		}
+		compact := bytes.Buffer{}
+		if json.Compact(&compact, frame[0]) != nil {
+			return out, Err
+		}
+		sum := sha256.Sum256(compact.Bytes())
+		if hex.EncodeToString(sum[:]) != eventSHA {
+			return out, Err
+		}
+		var n [14]int
+		for k := range n {
+			n[k], e = Int(event[k])
+			if e != nil {
+				return out, Err
+			}
+		}
+		previous, e := String(event[14])
+		if e != nil || previous != out.LastSHA {
+			return out, Err
+		}
+		r, f, c := schedule(i / 2)
+		if n[0] != 1 || n[1] != i || n[2] != i%2 || n[3] != r || n[4] != f || n[5] != c || r < 0 {
+			return out, Err
+		}
+		now := Counters{n[6], n[7], n[8], n[9], n[10], n[11], n[12], n[13]}
+		check, e := json.Marshal(now)
+		if e != nil {
+			return out, Err
+		}
+		if _, e = ReadCounters(check); e != nil {
+			return out, Err
+		}
+		old := out.Counters
+		if i%2 == 0 {
+			if stopped || now.Reserved != old.Reserved+1 || now.Returned != old.Returned || now.Completed != old.Completed ||
+				now.Panics != old.Panics || now.ExplicitReserved != old.ExplicitReserved || now.ExplicitReturned != old.ExplicitReturned ||
+				now.MethodReserved != old.MethodReserved || now.MethodReturned != old.MethodReturned {
+				return out, Err
+			}
+		} else {
+			if now.Reserved != old.Reserved || now.Returned != old.Returned+1 ||
+				now.Completed < old.Completed || now.Completed > old.Completed+1 ||
+				now.Panics < old.Panics || now.Panics > old.Panics+1 ||
+				(now.Completed-old.Completed)+(now.Panics-old.Panics) > 1 ||
+				now.ExplicitReserved < old.ExplicitReserved || now.ExplicitReserved > old.ExplicitReserved+128 ||
+				now.ExplicitReturned < old.ExplicitReturned || now.ExplicitReturned-old.ExplicitReturned > now.ExplicitReserved-old.ExplicitReserved ||
+				now.MethodReserved < old.MethodReserved || now.MethodReserved-old.MethodReserved > now.ExplicitReserved-old.ExplicitReserved ||
+				now.MethodReturned < old.MethodReturned || now.MethodReturned-old.MethodReturned > now.MethodReserved-old.MethodReserved ||
+				now.MethodReturned-old.MethodReturned > now.ExplicitReturned-old.ExplicitReturned {
+				return out, Err
+			}
+			if now.Completed == old.Completed+1 && now.ExplicitReturned-old.ExplicitReturned != now.ExplicitReserved-old.ExplicitReserved {
+				return out, Err
+			}
+			stopped = now.Completed == old.Completed
+			out.ReturnedPrefix++
+		}
+		out.Events++
+		out.LastSHA = eventSHA
+		out.Counters = now
+	}
+	if out.IncompleteTail {
+		return out, Err
+	}
+	return out, nil
+}
+func isMethod(api string) bool {
+	return api == "error.Error(explicit-text-target)" || api == "authored.RedactedTextError.Error" ||
+		strings.Contains(api, ".Unwrap") || strings.Contains(api, ".GetFlag") || strings.Contains(api, ".GetSpecifiedName")
+}
+
+type Result struct {
+	State          string   `json:"state"`
+	FailureCode    *string  `json:"failure_code"`
+	Rows           int      `json:"rows"`
+	Counters       Counters `json:"counters"`
+	JournalEvents  int      `json:"journal_events"`
+	JournalBytes   int      `json:"journal_bytes"`
+	JournalLastSHA string   `json:"journal_last_sha256"`
+	Incomplete     bool     `json:"incomplete_counts_unknown"`
+}
+
+var resultNames = []string{
+	"schema", "state", "failure_code", "catalog_sha256", "catalog_bytes", "catalog_frozen_field",
+	"planned_requests", "planned_inputs", "planned_observations", "held_requests", "held_inputs",
+	"counters", "rows", "journal_events", "journal_bytes", "journal_last_sha256",
+	"explicit_counts_boundary", "uninstrumented_nested_calls", "startup_original_calls", "incomplete_counts_unknown",
+	"comparisons_performed", "labels_assigned", "weights_assigned", "roles_assigned", "training_ready", "model_calls", "fit_calls",
+}
+
+func ReadResult(raw []byte) (Result, error) {
+	var out Result
+	v, e := Object(raw, resultNames)
+	if e != nil {
+		return out, Err
+	}
+	s, e := String(v[0])
+	if e != nil || s != "riido-next60-catalog9-native-observation-v1" {
+		return out, Err
+	}
+	out.State, e = String(v[1])
+	if e != nil || (out.State != "complete" && out.State != "failed") {
+		return out, Err
+	}
+	if !Null(v[2]) {
+		s, e = String(v[2])
+		if e != nil || !failureCode(s) {
+			return out, Err
+		}
+		out.FailureCode = &s
+	}
+	s, e = String(v[3])
+	if e != nil || s != CatalogSHA {
+		return out, Err
+	}
+	expected := [6]int{CatalogBytes, 9, 46, 138, 1, 6}
+	positions := [6]int{4, 6, 7, 8, 9, 10}
+	for i, p := range positions {
+		n, e := Int(v[p])
+		if e != nil || n != expected[i] {
+			return out, Err
+		}
+	}
+	b, e := Bool(v[5])
+	if e != nil || b {
+		return out, Err
+	}
+	out.Counters, e = ReadCounters(v[11])
+	if e != nil {
+		return out, Err
+	}
+	out.JournalEvents, e = Int(v[13])
+	if e != nil || out.JournalEvents > 276 {
+		return out, Err
+	}
+	out.JournalBytes, e = Int(v[14])
+	if e != nil || out.JournalBytes > JournalCap {
+		return out, Err
+	}
+	out.JournalLastSHA, e = String(v[15])
+	if e != nil || !SHA(out.JournalLastSHA) {
+		return out, Err
+	}
+	s, e = String(v[16])
+	if e != nil || s != "instrumented application entries; returned row boundaries only" {
+		return out, Err
+	}
+	if !Null(v[17]) || !Null(v[18]) {
+		return out, Err
+	}
+	out.Incomplete, e = Bool(v[19])
+	if e != nil {
+		return out, Err
+	}
+	for _, i := range []int{20, 21, 22, 23, 24} {
+		b, e := Bool(v[i])
+		if e != nil || b {
+			return out, Err
+		}
+	}
+	for _, i := range []int{25, 26} {
+		n, e := Int(v[i])
+		if e != nil || n != 0 {
+			return out, Err
+		}
+	}
+	var rows []json.RawMessage
+	if json.Unmarshal(v[12], &rows) != nil || Null(v[12]) || len(rows) > 138 {
+		return out, Err
+	}
+	var count Counters
+	for i, row := range rows {
+		n, e := Object(row, []string{"request_index", "fixture_index", "candidate_index", "request_id", "supported", "panicked", "Got", "explicit_observer_calls", "label", "weight", "qualified"})
+		if e != nil {
+			return out, Err
+		}
+		r, f, c := schedule(i)
+		for k, want := range []int{r, f, c} {
+			got, e := Int(n[k])
+			if e != nil || got != want {
+				return out, Err
+			}
+		}
+		id, e := String(n[3])
+		if e != nil || id != IDs[r] {
+			return out, Err
+		}
+		supported, e := Bool(n[4])
+		if e != nil {
+			return out, Err
+		}
+		panicked, e := Bool(n[5])
+		if e != nil {
+			return out, Err
+		}
+		if panicked && supported {
+			return out, Err
+		}
+		if supported && !panicked {
+			if len(bytes.TrimSpace(n[6])) == 0 || bytes.TrimSpace(n[6])[0] != '{' {
+				return out, Err
+			}
+			count.Completed++
+		} else if !Null(n[6]) {
+			return out, Err
+		}
+		if panicked {
+			count.Panics++
+		}
+		for _, k := range []int{8, 9, 10} {
+			if !Null(n[k]) {
+				return out, Err
+			}
+		}
+		var calls []json.RawMessage
+		if json.Unmarshal(n[7], &calls) != nil || Null(n[7]) || len(calls) > 128 {
+			return out, Err
+		}
+		falseEntries := 0
+		for _, call := range calls {
+			fields, e := Object(call, []string{"api", "returned"})
+			if e != nil {
+				return out, Err
+			}
+			api, e := String(fields[0])
+			if e != nil || api == "" || len(api) > 128 {
+				return out, Err
+			}
+			returned, e := Bool(fields[1])
+			if e != nil {
+				return out, Err
+			}
+			count.ExplicitReserved++
+			if returned {
+				count.ExplicitReturned++
+			} else {
+				falseEntries++
+			}
+			if isMethod(api) {
+				count.MethodReserved++
+				if returned {
+					count.MethodReturned++
+				}
+			}
+		}
+		if supported && !panicked && falseEntries != 0 {
+			return out, Err
+		}
+		if (!supported || panicked) && i != len(rows)-1 {
+			return out, Err
+		}
+		count.Returned++
+	}
+	out.Rows = len(rows)
+	if out.Rows > out.Counters.Returned || out.Counters.Returned-out.Rows > 1 {
+		return out, Err
+	}
+	if count.Completed > out.Counters.Completed || count.Panics > out.Counters.Panics ||
+		count.ExplicitReserved > out.Counters.ExplicitReserved || count.ExplicitReturned > out.Counters.ExplicitReturned ||
+		count.MethodReserved > out.Counters.MethodReserved || count.MethodReturned > out.Counters.MethodReturned {
+		return out, Err
+	}
+	if out.Rows == out.Counters.Returned &&
+		(count.Completed != out.Counters.Completed || count.Panics != out.Counters.Panics ||
+			count.ExplicitReserved != out.Counters.ExplicitReserved || count.ExplicitReturned != out.Counters.ExplicitReturned ||
+			count.MethodReserved != out.Counters.MethodReserved || count.MethodReturned != out.Counters.MethodReturned) {
+		return out, Err
+	}
+	if out.State == "complete" {
+		if out.FailureCode != nil || out.Incomplete || out.Rows != 138 || out.Counters.Reserved != 138 ||
+			out.Counters.Returned != 138 || out.Counters.Completed != 138 || out.Counters.Panics != 0 {
+			return out, Err
+		}
+	} else if out.FailureCode == nil || !out.Incomplete {
+		return out, Err
+	}
+	return out, nil
+}
+func failureCode(s string) bool {
+	return s == "catalog9_input_invalid" || s == "catalog9_shape_invalid" || s == "catalog9_output_invalid" ||
+		s == "catalog9_output_cap" || s == "catalog9_observation_incomplete"
+}
+func ReadSummary(raw []byte) (Result, error) {
+	var out Result
+	v, e := Object(raw, []string{"schema", "state", "counters", "failure_code"})
+	if e != nil {
+		return out, Err
+	}
+	s, e := String(v[0])
+	if e != nil || s != "riido-next60-catalog9-worker-summary-v1" {
+		return out, Err
+	}
+	out.State, e = String(v[1])
+	if e != nil || (out.State != "complete" && out.State != "failed") {
+		return out, Err
+	}
+	out.Counters, e = ReadCounters(v[2])
+	if e != nil {
+		return out, Err
+	}
+	if !Null(v[3]) {
+		s, e := String(v[3])
+		if e != nil || !failureCode(s) {
+			return out, Err
+		}
+		out.FailureCode = &s
+	}
+	if out.State == "complete" && out.FailureCode != nil {
+		return out, Err
+	}
+	if out.State == "failed" && out.FailureCode == nil {
+		return out, Err
+	}
+	return out, nil
+}
+func Complete(result Result, journal Journal, summary Result) bool {
+	return result.State == "complete" && summary.State == "complete" && journal.CompleteSequence &&
+		result.Counters == journal.Counters && result.Counters == summary.Counters &&
+		result.JournalEvents == journal.Events && result.JournalBytes == journal.Bytes && result.JournalLastSHA == journal.LastSHA &&
+		result.FailureCode == nil && summary.FailureCode == nil
+}

@@ -41,6 +41,28 @@ case "$mode" in
       > "$check_dir/validation-seven.json"
     cmp "$check_dir/validation-seven.json" "$seven/INPUT-VALIDATION.v1.json"
     echo 'PASS: seven finite rows/twenty unit labels; preserved three-row prefix; no fit.'
+    sixteen="$repo_root/experiments/short-claim/next60-development-sixteen"
+    cp "$sixteen/source/materializer/main.go.txt" "$check_dir/materialize-sixteen.go"
+    go run -p=1 "$check_dir/materialize-sixteen.go" \
+      --previous-data "$seven/data/train.jsonl" \
+      --catalog "$repo_root/experiments/short-claim/next60-catalog10-literal-correction/CATALOG10.v2.json" \
+      --qualification "$sixteen/ROOT-QUALIFICATION.v1.json" \
+      --out "$check_dir/train-sixteen.jsonl" > "$check_dir/materialize-sixteen.json"
+    cmp "$check_dir/train-sixteen.jsonl" "$sixteen/data/train.jsonl"
+    cmp "$check_dir/materialize-sixteen.json" "$sixteen/MATERIALIZATION.v1.json"
+    cp "$sixteen/source/validator/validate.go.txt" "$check_dir/validate-sixteen.go"
+    cp "$sixteen/source/validator/reader-main.go.txt" "$check_dir/reader-sixteen.go"
+    go run -p=1 "$check_dir/validate-sixteen.go" "$check_dir/reader-sixteen.go" \
+      --data "$sixteen/data/train.jsonl" \
+      --data-sha256 3222e493f4b5bfaf4de008a115a3969209b493d85e115df209394b2e1f0077a4 \
+      --previous-data "$seven/data/train.jsonl" \
+      --catalog "$repo_root/experiments/short-claim/next60-catalog10-literal-correction/CATALOG10.v2.json" \
+      --adoption "$sixteen/ROOT-QUALIFICATION.v1.json" \
+      --adoption-sha256 b2d5a732d7f5d9238883060a881fc0c8b21b08c5b26004a0c27ef374be0aa9d4 \
+      --finite-comparison "$repo_root/experiments/short-claim/next60-nine-actual-observation/independent-semantic-review/FINITE-COMPARISON.v1.json" \
+      > "$check_dir/validation-sixteen.json"
+    cmp "$check_dir/validation-sixteen.json" "$sixteen/INPUT-VALIDATION.v1.json"
+    echo 'PASS: sixteen finite rows/47 unit labels; exact seven-row prefix and evidence; no fit.'
     ;;
   controller)
     # A separate Root command may select a real binary for static inspection.
@@ -93,8 +115,54 @@ case "$mode" in
     CGO_ENABLED=1 go vet -p=1 ./...
     echo 'PASS: fake lifecycle and metadata tests; no native worker or real child process.'
     ;;
+  catalog9)
+    archive="$repo_root/experiments/short-claim/next60-nine-actual-observation"
+    export RIIDO_CATALOG9_TEST_CATALOG="$repo_root/experiments/short-claim/next60-catalog10-literal-correction/CATALOG10.v2.json"
+    mkdir -p "$check_dir/outside/internal/protocol" "$check_dir/comparator"
+    for name in main.go main_test.go go.mod; do
+      cp "$archive/source/outside/$name.txt" "$check_dir/outside/$name"
+    done
+    for name in protocol.go protocol_test.go; do
+      cp "$archive/source/outside/internal/protocol/$name.txt" "$check_dir/outside/internal/protocol/$name"
+    done
+    for name in compare.go compare_test.go go.mod; do
+      cp "$archive/source/comparator/$name.txt" "$check_dir/comparator/$name"
+    done
+    # Both modules contain owned/std-library code only. These tests never
+    # launch the original worker or a real child process.
+    for part in outside comparator; do
+      cd "$check_dir/$part"
+      CGO_ENABLED=1 go test -race -p=1 -timeout=5m ./...
+      CGO_ENABLED=1 go vet -p=1 ./...
+    done
+    cd "$check_dir/comparator"
+    go run -p=1 . \
+      --catalog "$repo_root/experiments/short-claim/next60-catalog10-literal-correction/CATALOG10.v2.json" \
+      --results "$archive/evidence/SAVED-OBSERVATIONS.v1.json" \
+      --results-sha256 5b0634522473882a7823c33565d3db68a6f11efd28e2b3474a59f8d6d57bfb99 \
+      --output "$check_dir/recomparison.json"
+    cmp "$check_dir/recomparison.json" "$archive/independent-semantic-review/FINITE-COMPARISON.v1.json"
+    echo 'PASS: synthetic controls and exact saved-result comparison; no native worker or model.'
+    ;;
+  sixteen)
+    archive="$repo_root/experiments/short-claim/next60-development-sixteen/source"
+    for part in materializer validator; do
+      mkdir -p "$check_dir/$part"
+      for source_file in "$archive/$part/"*.go.txt "$archive/$part/go.mod.txt"; do
+        file_name=${source_file##*/}
+        # The reader bridge imports this repository and has a main function;
+        # the separate stdlib validator module tests its core without it.
+        [[ "$file_name" == reader-main.go.txt ]] && continue
+        cp "$source_file" "$check_dir/$part/${file_name%.txt}"
+      done
+      cd "$check_dir/$part"
+      CGO_ENABLED=1 go test -race -p=1 -timeout=5m ./...
+      CGO_ENABLED=1 go vet -p=1 ./...
+    done
+    echo 'PASS: synthetic sixteen-row generation and validation controls; no worker or model.'
+    ;;
   *)
-    echo 'Expected data, controller, checkpoint or outside mode.' >&2
+    echo 'Expected data, controller, checkpoint, outside, catalog9 or sixteen mode.' >&2
     exit 2
     ;;
 esac

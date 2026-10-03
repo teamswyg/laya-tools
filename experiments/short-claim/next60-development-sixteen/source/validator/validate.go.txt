@@ -1,0 +1,639 @@
+// Prospective finite input validation only. No feature, score, projection,
+// fitting, original candidate, oracle, or label-authority call is present.
+package main
+
+import (
+	"bufio"
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"io"
+	"os"
+	"strings"
+	"unicode/utf8"
+)
+
+const (
+	previousSHA      = "1ee18e02958953452bf4f4c0e072652aede266c095f1866a6e71209058b1c5bc"
+	previousBytes    = 9619
+	catalogSHA       = "c7b0446710a6d629a584aac16f3723d439330a9684ac299491aa430edf33f80c"
+	catalogBytes     = 106576
+	comparisonSHA    = "8d0965b1aa6f545477cc926f219c007301023acd698df3e58a3a44a18d0996c9"
+	comparisonBytes  = 86308
+	resultSHA        = "5b0634522473882a7823c33565d3db68a6f11efd28e2b3474a59f8d6d57bfb99"
+	adoptionSHA      = "b2d5a732d7f5d9238883060a881fc0c8b21b08c5b26004a0c27ef374be0aa9d4"
+	adoptionBytes    = 16030
+	maxInputBytes    = 128 << 10
+	maxRowBytes      = 16 << 10
+	textRevision     = "catalog9-finite-v2"
+	scopeDescription = "Only this request frozen finite inputs; saved first observation comparison supports these candidate positions. No all-input or unseen-source guarantee."
+)
+
+type failure string
+
+func (e failure) Error() string { return string(e) }
+
+type candidate struct {
+	ID     string `json:"metadata_id"`
+	Text   string `json:"text"`
+	Label  *bool  `json:"label"`
+	Weight int    `json:"sample_weight"`
+}
+type finiteScope struct {
+	Inputs       int    `json:"input_count"`
+	Observations int    `json:"candidate_observations"`
+	Description  string `json:"description"`
+	All          *bool  `json:"all_input_guarantee"`
+	Unseen       *bool  `json:"unseen_source_guarantee"`
+}
+type row struct {
+	Schema       string      `json:"schema"`
+	ID           string      `json:"stable_id"`
+	Request      string      `json:"request"`
+	Candidates   []candidate `json:"candidates"`
+	Role         string      `json:"role"`
+	Group        int         `json:"whole_group"`
+	Family       string      `json:"source_family"`
+	Revision     string      `json:"source_revision"`
+	Scope        finiteScope `json:"finite_scope"`
+	TextRevision string      `json:"text_revision"`
+	Policy       string      `json:"feature_policy"`
+}
+type catalogRequest struct {
+	Index    int      `json:"request_index"`
+	ID       string   `json:"id"`
+	Group    int      `json:"group_id"`
+	Family   string   `json:"family"`
+	Request  string   `json:"model_request_proposal"`
+	Order    []string `json:"candidate_order"`
+	Captions []struct {
+		Index int    `json:"candidate_index"`
+		Text  string `json:"text"`
+	} `json:"caption_proposals"`
+	Fixtures []json.RawMessage `json:"fixtures"`
+}
+type catalog struct {
+	Schema   string           `json:"schema"`
+	Requests []catalogRequest `json:"requests"`
+}
+type evidence struct {
+	Position  []int    `json:"position"`
+	RequestID string   `json:"request_id"`
+	Candidate string   `json:"candidate"`
+	State     string   `json:"state"`
+	Vector    []string `json:"row_vector"`
+	Known     []int    `json:"known_counterexample_fixture_positions"`
+	Unknown   []int    `json:"unknown_fixture_positions"`
+}
+type comparison struct {
+	Schema     string     `json:"schema"`
+	CatalogSHA string     `json:"catalog_sha256"`
+	ResultSHA  string     `json:"saved_result_sha256"`
+	Labels     *bool      `json:"labels_assigned"`
+	Qualified  *bool      `json:"qualified"`
+	Counts     []int      `json:"counts_rows_satisfied_unsatisfied_unknown"`
+	Predicates []int      `json:"predicate_counts_T_F_U"`
+	Candidates []evidence `json:"candidates"`
+}
+type adoptedCandidate struct {
+	Index   *int   `json:"candidate_index"`
+	ID      string `json:"candidate_id"`
+	Label   *bool  `json:"label"`
+	Weight  int    `json:"sample_weight"`
+	State   string `json:"evidence_state"`
+	AllTrue *bool  `json:"all_required_known_true"`
+	Known   []int  `json:"known_counterexample_fixture_positions"`
+	Unknown []int  `json:"unknown_fixture_positions"`
+}
+type adoptedRequest struct {
+	Index      *int               `json:"request_index"`
+	RequestID  string             `json:"request_id"`
+	StableID   string             `json:"stable_id"`
+	Group      int                `json:"whole_group"`
+	Family     string             `json:"source_family"`
+	Revision   string             `json:"source_revision"`
+	Count      int                `json:"fixture_count"`
+	Candidates []adoptedCandidate `json:"candidates"`
+}
+type adoption struct {
+	Schema            string           `json:"schema"`
+	State             string           `json:"state"`
+	Role              string           `json:"role"`
+	CatalogSHA        string           `json:"catalog_sha256"`
+	ResultSHA         string           `json:"saved_result_sha256"`
+	ComparisonSHA     string           `json:"finite_comparison_sha256"`
+	UnknownToFalse    *bool            `json:"unknown_to_false_conversion"`
+	QualifiedRequests int              `json:"qualified_requests"`
+	Labels            int              `json:"candidate_labels"`
+	Positive          int              `json:"positive_labels"`
+	Negative          int              `json:"negative_labels"`
+	Unit              *bool            `json:"unit_sample_weights"`
+	Inputs            int              `json:"finite_inputs"`
+	Observations      int              `json:"candidate_observations"`
+	Requests          []adoptedRequest `json:"requests"`
+}
+type bundle struct{ Data, Previous, Catalog, Adoption, Comparison []byte }
+type pins struct{ Data, Adoption string }
+type summary struct {
+	Schema           string `json:"schema"`
+	State            string `json:"state"`
+	Failure          string `json:"failure_code"`
+	Requests         int    `json:"requests"`
+	Labels           int    `json:"candidate_labels"`
+	Positive         int    `json:"positive_labels"`
+	Negative         int    `json:"negative_labels"`
+	Inputs           int    `json:"frozen_input_fixtures"`
+	Observations     int    `json:"candidate_observations"`
+	ReaderAttempts   int    `json:"LoadDevelopmentRow_attempts"`
+	ReaderLoads      int    `json:"LoadDevelopmentRow_calls_completed"`
+	Prefix           bool   `json:"first_seven_prefix_byte_exact"`
+	Texts            bool   `json:"first_nine_catalog_texts_IDs_metadata_exact"`
+	Adoption         bool   `json:"Root_adoption_pinned_and_evidence_exact"`
+	UnknownPreserved bool   `json:"unknown_not_converted_to_false"`
+	LabelsAssigned   bool   `json:"labels_assigned_by_validator"`
+	Qualified        bool   `json:"qualified_by_validator"`
+	Features         int    `json:"Features_calls"`
+	Score            int    `json:"Score_calls"`
+	Project          int    `json:"Project_calls"`
+	Fit              int    `json:"Fit_calls"`
+	Original         int    `json:"original_candidate_calls"`
+	Model            int    `json:"model_calls"`
+	Scope            string `json:"scope"`
+}
+
+func initialSummary() summary {
+	return summary{Schema: "riido-sixteen-finite-development-input-validation-v1", State: "failed_validation_only", Scope: "Pinned input shape, preserved seven-row bytes, catalog captions and Root-adopted finite evidence only; no label, qualification, inference, training, evaluation, rights or model-quality authority."}
+}
+func digest(raw []byte) string { h := sha256.Sum256(raw); return hex.EncodeToString(h[:]) }
+func digestOK(s string) bool {
+	if len(s) != 64 {
+		return false
+	}
+	for _, c := range s {
+		if !(c >= '0' && c <= '9' || c >= 'a' && c <= 'f') {
+			return false
+		}
+	}
+	return true
+}
+func pinned(path, sha string, exact int) ([]byte, error) {
+	if path == "" || !digestOK(sha) {
+		return nil, failure("validation_arguments")
+	}
+	before, e := os.Lstat(path)
+	if e != nil || !before.Mode().IsRegular() {
+		return nil, failure("input_regular")
+	}
+	f, e := os.Open(path)
+	if e != nil {
+		return nil, failure("input_open")
+	}
+	defer f.Close()
+	st, e := f.Stat()
+	if e != nil || !st.Mode().IsRegular() || !os.SameFile(before, st) {
+		return nil, failure("input_regular")
+	}
+	if st.Size() < 1 || st.Size() > maxInputBytes || exact > 0 && st.Size() != int64(exact) {
+		return nil, failure("input_bounds")
+	}
+	raw, e := io.ReadAll(io.LimitReader(f, maxInputBytes+1))
+	if e != nil || len(raw) != int(st.Size()) || len(raw) > maxInputBytes {
+		return nil, failure("input_read")
+	}
+	if digest(raw) != sha {
+		return nil, failure("input_pin")
+	}
+	return raw, nil
+}
+
+// Validates Unicode scalars before Go's decoder can replace an unpaired escape.
+// Derived from the project's Apache-2.0 shortclaimdata reader, source pinned in
+// the preparation ledger. json.Valid is a precondition for the indexed slices.
+func scalarEscapes(raw []byte) bool {
+	for i := 0; i < len(raw); i++ {
+		if raw[i] != '"' {
+			continue
+		}
+		for i++; i < len(raw) && raw[i] != '"'; i++ {
+			if raw[i] != '\\' {
+				continue
+			}
+			i++
+			if raw[i] != 'u' {
+				continue
+			}
+			u := hex4(raw[i+1 : i+5])
+			i += 4
+			if u >= 0xdc00 && u <= 0xdfff {
+				return false
+			}
+			if u >= 0xd800 && u <= 0xdbff {
+				if i+6 >= len(raw) || raw[i+1] != '\\' || raw[i+2] != 'u' {
+					return false
+				}
+				lo := hex4(raw[i+3 : i+7])
+				if lo < 0xdc00 || lo > 0xdfff {
+					return false
+				}
+				i += 6
+			}
+		}
+	}
+	return true
+}
+func hex4(b []byte) uint16 {
+	var v uint16
+	for _, c := range b {
+		v <<= 4
+		switch {
+		case c >= '0' && c <= '9':
+			v |= uint16(c - '0')
+		case c >= 'a' && c <= 'f':
+			v |= uint16(c - 'a' + 10)
+		case c >= 'A' && c <= 'F':
+			v |= uint16(c - 'A' + 10)
+		}
+	}
+	return v
+}
+
+// The complete JSON is checked for decoded duplicate/case-alias keys and bounded
+// shape before typed decoding. Arrays/slices track keys; no label-keyed maps.
+func checkedJSON(raw []byte, dst any, exactFields int) error {
+	if len(raw) < 1 || len(raw) > maxInputBytes || !utf8.Valid(raw) || !json.Valid(raw) || !scalarEscapes(raw) {
+		return failure("input_json_unicode_bounds")
+	}
+	d := json.NewDecoder(bytes.NewReader(raw))
+	d.UseNumber()
+	nodes := 0
+	fields, e := walk(d, 0, &nodes)
+	if e != nil {
+		return e
+	}
+	if exactFields >= 0 && fields != exactFields {
+		return failure("input_fields")
+	}
+	if _, e = d.Token(); !errors.Is(e, io.EOF) {
+		return failure("input_trailing")
+	}
+	if json.Unmarshal(raw, dst) != nil {
+		return failure("input_types")
+	}
+	return nil
+}
+func walk(d *json.Decoder, depth int, nodes *int) (int, error) {
+	*nodes++
+	if depth > 32 || *nodes > 65536 {
+		return 0, failure("input_shape_bounds")
+	}
+	t, e := d.Token()
+	if e != nil {
+		return 0, failure("input_json")
+	}
+	delim, ok := t.(json.Delim)
+	if !ok {
+		return -1, nil
+	}
+	if delim == '{' {
+		keys := make([]string, 0, 16)
+		for d.More() {
+			if len(keys) >= 128 {
+				return 0, failure("input_shape_bounds")
+			}
+			kt, e := d.Token()
+			key, ok := kt.(string)
+			if e != nil || !ok {
+				return 0, failure("input_json")
+			}
+			for _, old := range keys {
+				if strings.EqualFold(old, key) {
+					return 0, failure("input_duplicate")
+				}
+			}
+			keys = append(keys, key)
+			if _, e = walk(d, depth+1, nodes); e != nil {
+				return 0, e
+			}
+		}
+		end, e := d.Token()
+		if e != nil || end != json.Delim('}') {
+			return 0, failure("input_json")
+		}
+		return len(keys), nil
+	}
+	if delim == '[' {
+		n := 0
+		for d.More() {
+			n++
+			if n > 1024 {
+				return 0, failure("input_shape_bounds")
+			}
+			if _, e = walk(d, depth+1, nodes); e != nil {
+				return 0, e
+			}
+		}
+		end, e := d.Token()
+		if e != nil || end != json.Delim(']') {
+			return 0, failure("input_json")
+		}
+		return -1, nil
+	}
+	return 0, failure("input_json")
+}
+func exactObject(raw []byte, keys []string) error {
+	var fields []struct {
+		key   string
+		value json.RawMessage
+	}
+	d := json.NewDecoder(bytes.NewReader(raw))
+	t, e := d.Token()
+	if e != nil || t != json.Delim('{') {
+		return failure("row_fields")
+	}
+	for d.More() {
+		kt, e := d.Token()
+		k, ok := kt.(string)
+		if e != nil || !ok {
+			return failure("row_fields")
+		}
+		var value json.RawMessage
+		if d.Decode(&value) != nil {
+			return failure("row_fields")
+		}
+		fields = append(fields, struct {
+			key   string
+			value json.RawMessage
+		}{k, value})
+	}
+	if len(fields) != len(keys) {
+		return failure("row_fields")
+	}
+	for _, k := range keys {
+		found := false
+		for _, f := range fields {
+			if f.key == k {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return failure("row_fields")
+		}
+	}
+	return nil
+}
+func rowDecode(raw []byte) (row, error) {
+	var r row
+	if len(raw) > maxRowBytes {
+		return r, failure("row_bounds")
+	}
+	if e := checkedJSON(raw, &r, 11); e != nil {
+		return row{}, e
+	}
+	if e := exactObject(raw, []string{"schema", "stable_id", "request", "candidates", "role", "whole_group", "source_family", "source_revision", "finite_scope", "text_revision", "feature_policy"}); e != nil {
+		return row{}, e
+	}
+	var partial struct {
+		Candidates []json.RawMessage `json:"candidates"`
+		Scope      json.RawMessage   `json:"finite_scope"`
+	}
+	if json.Unmarshal(raw, &partial) != nil {
+		return row{}, failure("row_fields")
+	}
+	for _, c := range partial.Candidates {
+		if e := exactObject(c, []string{"metadata_id", "text", "label", "sample_weight"}); e != nil {
+			return row{}, e
+		}
+	}
+	if e := exactObject(partial.Scope, []string{"input_count", "candidate_observations", "description", "all_input_guarantee", "unseen_source_guarantee"}); e != nil {
+		return row{}, e
+	}
+	if r.Schema != "riido-finite-development-request-row-v1" || r.Role != "development_train" || r.Policy != "request_and_candidates_text_only" || len(r.Candidates) < 1 || len(r.Candidates) > 8 || r.Scope.Inputs < 1 || r.Scope.Inputs > 4096 || r.Scope.Observations != r.Scope.Inputs*len(r.Candidates) || r.Scope.All == nil || *r.Scope.All || r.Scope.Unseen == nil || *r.Scope.Unseen {
+		return row{}, failure("row_metadata_scope")
+	}
+	if !identifier(r.ID, 64) || !identifier(r.Family, 128) || !identifier(r.TextRevision, 128) || !revision(r.Revision) || r.Group < 1 || r.Group > 65535 || !textOK(r.Request) || !textOK(r.Scope.Description) {
+		return row{}, failure("row_metadata_text")
+	}
+	for _, c := range r.Candidates {
+		if !identifier(c.ID, 64) || !textOK(c.Text) || c.Label == nil || c.Weight != 1 {
+			return row{}, failure("row_candidate")
+		}
+	}
+	return r, nil
+}
+func textOK(s string) bool {
+	return len(s) > 0 && len(s) <= 512 && strings.TrimSpace(s) != "" && !strings.ContainsRune(s, 0)
+}
+func identifier(s string, max int) bool {
+	if len(s) < 1 || len(s) > max {
+		return false
+	}
+	for i, c := range []byte(s) {
+		if !(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9') && (i == 0 || c != '.' && c != '_' && c != '-') {
+			return false
+		}
+	}
+	return true
+}
+func revision(s string) bool {
+	if len(s) != 40 {
+		return false
+	}
+	for _, c := range s {
+		if !(c >= '0' && c <= '9' || c >= 'a' && c <= 'f') {
+			return false
+		}
+	}
+	return true
+}
+func intsEqual(a, b []int) bool {
+	if a == nil || b == nil || len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+func positions(a []int, n int) bool {
+	if a == nil {
+		return false
+	}
+	prev := -1
+	for _, i := range a {
+		if i < 0 || i >= n || i <= prev {
+			return false
+		}
+		prev = i
+	}
+	return true
+}
+func family(group int) (string, string) {
+	if group == 77 {
+		return "upstream53-cobra-pflag-connected", "c966cfef47379dcb01e7929504d66d94b540945b"
+	}
+	if group == 78 {
+		return "upstream53-mapstructure", "52aa5c6dc1d27226460807054ca2107b2d54fb2d"
+	}
+	return "", ""
+}
+
+// validateBundle checks frozen records only. Reader is supplied by the separate
+// project-reader bridge, never a feature/model function. Synthetic tests use a
+// declared stub and cannot be evidence of real reader execution or adoption.
+func validateBundle(b bundle, p pins, reader func([]byte) error, out *summary) error {
+	if reader == nil || !digestOK(p.Data) || p.Adoption != adoptionSHA {
+		return failure("validation_arguments")
+	}
+	if len(b.Data) < 1 || len(b.Data) > maxInputBytes || len(b.Adoption) < 1 || len(b.Adoption) > maxInputBytes || digest(b.Data) != p.Data || digest(b.Adoption) != p.Adoption {
+		return failure("prospective_input_pin")
+	}
+	if len(b.Previous) != previousBytes || digest(b.Previous) != previousSHA || len(b.Catalog) != catalogBytes || digest(b.Catalog) != catalogSHA || len(b.Comparison) != comparisonBytes || digest(b.Comparison) != comparisonSHA || len(b.Adoption) != adoptionBytes {
+		return failure("immutable_input_pin")
+	}
+	return validateBound(b, reader, out)
+}
+
+// validateBound is the shape/binding stage after exact public hashes. Its use
+// by synthetic controls is intentionally separate from production pin checks.
+func validateBound(b bundle, reader func([]byte) error, out *summary) error {
+	if len(b.Previous) < 1 || b.Previous[len(b.Previous)-1] != '\n' || len(b.Data) <= len(b.Previous) || b.Data[len(b.Data)-1] != '\n' || !bytes.HasPrefix(b.Data, b.Previous) {
+		return failure("seven_prefix")
+	}
+	out.Prefix = true
+	var c catalog
+	var a adoption
+	var proof comparison
+	if e := checkedJSON(b.Catalog, &c, -1); e != nil {
+		return e
+	}
+	if e := checkedJSON(b.Adoption, &a, -1); e != nil {
+		return e
+	}
+	if e := checkedJSON(b.Comparison, &proof, -1); e != nil {
+		return e
+	}
+	if c.Schema != "riido-next60-catalog10-literal-correction-proposal-v2" || len(c.Requests) != 10 {
+		return failure("catalog_shape")
+	}
+	if a.Schema != "riido-catalog9-root-finite-development-qualification-v1" || a.State != "qualified_for_finite_development_train_only" || a.Role != "development_train" || a.CatalogSHA != catalogSHA || a.ResultSHA != resultSHA || a.ComparisonSHA != comparisonSHA || a.UnknownToFalse == nil || *a.UnknownToFalse || a.QualifiedRequests != 9 || a.Labels != 27 || a.Positive != 9 || a.Negative != 18 || a.Unit == nil || !*a.Unit || a.Inputs != 46 || a.Observations != 138 || len(a.Requests) != 9 {
+		return failure("Root_adoption_header")
+	}
+	if proof.Schema != "riido-catalog9-finite-saved-comparison-v1" || proof.CatalogSHA != catalogSHA || proof.ResultSHA != resultSHA || proof.Labels == nil || *proof.Labels || proof.Qualified == nil || *proof.Qualified || !intsEqual(proof.Counts, []int{138, 102, 35, 1}) || !intsEqual(proof.Predicates, []int{1246, 72, 29}) || len(proof.Candidates) != 27 {
+		return failure("comparison_header")
+	}
+	ids := [9]string{"go53-pflag-annotation-ownership", "go53-pflag-bounded-count", "go53-pflag-single-assignment", "go53-pflag-sensitive-default", "go53-pflag-deferred-function", "go53-pflag-text-error-value", "go53-mapstructure-hooks-errors-is", "go53-mapstructure-remain-conflict", "go53-mapstructure-tag-precedence"}
+	counts := [9]int{5, 6, 5, 5, 5, 5, 5, 5, 5}
+	order := [3]string{"original", "authored_reference", "authored_negative"}
+	for i := 0; i < 9; i++ {
+		cr := c.Requests[i]
+		ar := a.Requests[i]
+		group := 77
+		if i >= 6 {
+			group = 78
+		}
+		fam, rev := family(group)
+		if cr.Index != i || cr.ID != ids[i] || cr.Group != group || len(cr.Fixtures) != counts[i] || len(cr.Captions) != 3 || len(cr.Order) != 3 || ar.Index == nil || *ar.Index != i || ar.RequestID != ids[i] || ar.StableID != "next60-"+ids[i] || ar.Group != group || ar.Family != fam || ar.Revision != rev || ar.Count != counts[i] || len(ar.Candidates) != 3 {
+			return failure("request_identity")
+		}
+		for j := 0; j < 3; j++ {
+			ac := ar.Candidates[j]
+			ev := proof.Candidates[i*3+j]
+			positive := j == 1
+			if cr.Order[j] != order[j] || cr.Captions[j].Index != j || ac.Index == nil || *ac.Index != j || ac.ID != order[j] || ac.Label == nil || *ac.Label != positive || ac.Weight != 1 || ac.AllTrue == nil || *ac.AllTrue != positive || ev.RequestID != ids[i] || ev.Candidate != order[j] || !intsEqual(ev.Position, []int{i, j}) || len(ev.Vector) != counts[i] || !positions(ev.Known, counts[i]) || !positions(ev.Unknown, counts[i]) || !intsEqual(ac.Known, ev.Known) || !intsEqual(ac.Unknown, ev.Unknown) || ac.State != ev.State {
+				return failure("candidate_evidence")
+			}
+			if positive {
+				if ev.State != "satisfied" || len(ev.Known) != 0 || len(ev.Unknown) != 0 {
+					return failure("positive_evidence")
+				}
+				for _, v := range ev.Vector {
+					if v != "satisfied" {
+						return failure("positive_evidence")
+					}
+				}
+			} else if ev.State != "unsatisfied" || len(ev.Known) < 1 {
+				return failure("negative_known_counterexample")
+			}
+			for _, v := range ev.Vector {
+				if v != "satisfied" && v != "unsatisfied" && v != "unknown" {
+					return failure("evidence_vector")
+				}
+			}
+			for _, k := range ev.Known {
+				if ev.Vector[k] != "unsatisfied" {
+					return failure("counterexample_vector")
+				}
+			}
+		}
+	}
+	out.Adoption = true
+	out.UnknownPreserved = true
+	oldIDs := [7]string{"next60-pflag-native-ipnet", "next60-mapstructure-native-or", "next60-humanize-precise-ftoa", "next60-humanize-strict-comma", "next60-mapstructure-key-collision", "next60-pflag-map-snapshot", "next60-humanize-fractional-bytes"}
+	var allIDs [16]string
+	newTexts := 0
+	scan := bufio.NewScanner(bytes.NewReader(b.Data))
+	scan.Buffer(make([]byte, 4096), maxRowBytes+1)
+	for scan.Scan() {
+		i := out.Requests
+		if i >= 16 || len(scan.Bytes()) == 0 {
+			return failure("row_count")
+		}
+		r, e := rowDecode(scan.Bytes())
+		if e != nil {
+			return e
+		}
+		for k := 0; k < i; k++ {
+			if allIDs[k] == r.ID {
+				return failure("duplicate_stable_id")
+			}
+		}
+		allIDs[i] = r.ID
+		if i < 7 {
+			if r.ID != oldIDs[i] {
+				return failure("previous_order")
+			}
+		} else {
+			k := i - 7
+			cr := c.Requests[k]
+			ar := a.Requests[k]
+			if r.ID != ar.StableID || r.Request != cr.Request || r.Group != ar.Group || r.Family != ar.Family || r.Revision != ar.Revision || r.TextRevision != textRevision || r.Scope.Description != scopeDescription || r.Scope.Inputs != counts[k] || r.Scope.Observations != counts[k]*3 || len(r.Candidates) != 3 {
+				return failure("new_row_correspondence")
+			}
+			for j := 0; j < 3; j++ {
+				rc := r.Candidates[j]
+				ac := ar.Candidates[j]
+				if rc.ID != ac.ID || rc.Text != cr.Captions[j].Text || *rc.Label != *ac.Label || rc.Weight != ac.Weight {
+					return failure("new_candidate_correspondence")
+				}
+			}
+			newTexts++
+		}
+		out.ReaderAttempts++
+		if reader(scan.Bytes()) != nil {
+			return failure("project_reader_validation")
+		}
+		out.ReaderLoads++
+		for _, rc := range r.Candidates {
+			out.Labels++
+			if *rc.Label {
+				out.Positive++
+			} else {
+				out.Negative++
+			}
+		}
+		out.Inputs += r.Scope.Inputs
+		out.Observations += r.Scope.Observations
+		out.Requests++
+	}
+	if scan.Err() != nil || out.Requests != 16 || out.ReaderLoads != 16 || out.Labels != 47 || out.Positive != 16 || out.Negative != 31 || out.Inputs != 80 || out.Observations != 236 || newTexts != 9 {
+		return failure("final_counts")
+	}
+	out.Texts = true
+	out.State = "complete_validation_only"
+	return nil
+}

@@ -1,0 +1,417 @@
+// Source-only finite observation worker proposal. No execution occurred during
+// authoring. Root must separately bind compiler/source/rights/resource/control.
+package main
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"flag"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
+
+	"example.com/riido-catalog9/internal/batch"
+)
+
+const (
+	catalogSHA   = "c7b0446710a6d629a584aac16f3723d439330a9684ac299491aa430edf33f80c"
+	catalogBytes = 106576
+	catalogCap   = 128 << 10
+	combinedCap  = (1 << 20) - 1
+	journalCap   = 128 << 10
+	recordCap    = 6144
+	rowCap       = 138
+	metadataCap  = 16 << 10
+)
+
+var ids = [10]string{
+	"go53-pflag-annotation-ownership",
+	"go53-pflag-bounded-count",
+	"go53-pflag-single-assignment",
+	"go53-pflag-sensitive-default",
+	"go53-pflag-deferred-function",
+	"go53-pflag-text-error-value",
+	"go53-mapstructure-hooks-errors-is",
+	"go53-mapstructure-remain-conflict",
+	"go53-mapstructure-tag-precedence",
+	"go53-pflag-unknown-token-report",
+}
+var counts = [10]int{5, 6, 5, 5, 5, 5, 5, 5, 5, 6}
+var candidateNames = [3]string{"original", "authored_reference", "authored_negative"}
+var errInput = errors.New("catalog9_input_invalid")
+var errShape = errors.New("catalog9_shape_invalid")
+var errOutput = errors.New("catalog9_output_invalid")
+var errCap = errors.New("catalog9_output_cap")
+var errObservation = errors.New("catalog9_observation_incomplete")
+
+type Counters struct {
+	DispatchReserved      int `json:"dispatch_reserved"`
+	DispatchReturned      int `json:"dispatch_returned"`
+	ObservationsCompleted int `json:"observations_completed"`
+	Panics                int `json:"panics"`
+	ExplicitReserved      int `json:"explicit_observer_calls_reserved"`
+	ExplicitReturned      int `json:"explicit_observer_calls_returned"`
+	ErrorMethodReserved   int `json:"explicit_error_method_calls_reserved"`
+	ErrorMethodReturned   int `json:"explicit_error_method_calls_returned"`
+}
+type Result struct {
+	Schema                    string         `json:"schema"`
+	State                     string         `json:"state"`
+	FailureCode               *string        `json:"failure_code"`
+	CatalogSHA                string         `json:"catalog_sha256"`
+	CatalogBytes              int            `json:"catalog_bytes"`
+	CatalogFrozenField        bool           `json:"catalog_frozen_field"`
+	PlannedRequests           int            `json:"planned_requests"`
+	PlannedInputs             int            `json:"planned_inputs"`
+	PlannedObservations       int            `json:"planned_observations"`
+	HeldRequests              int            `json:"held_requests"`
+	HeldInputs                int            `json:"held_inputs"`
+	Counters                  Counters       `json:"counters"`
+	Rows                      []batch.Record `json:"rows"`
+	JournalEvents             int            `json:"journal_events"`
+	JournalBytes              int            `json:"journal_bytes"`
+	JournalLastSHA            string         `json:"journal_last_sha256"`
+	ExplicitCountsBoundary    string         `json:"explicit_counts_boundary"`
+	UninstrumentedNestedCalls *int           `json:"uninstrumented_nested_calls"`
+	StartupOriginalCalls      *int           `json:"startup_original_calls"`
+	IncompleteCountsUnknown   bool           `json:"incomplete_counts_unknown"`
+	ComparisonsPerformed      bool           `json:"comparisons_performed"`
+	LabelsAssigned            bool           `json:"labels_assigned"`
+	WeightsAssigned           bool           `json:"weights_assigned"`
+	RolesAssigned             bool           `json:"roles_assigned"`
+	TrainingReady             bool           `json:"training_ready"`
+	ModelCalls                int            `json:"model_calls"`
+	FitCalls                  int            `json:"fit_calls"`
+}
+
+type journal struct {
+	file  *os.File
+	n     int
+	bytes int
+	last  [32]byte
+}
+
+// Frame format is [event,sha256(event)]. The event is a fixed index array:
+// [v,sequence,phase,request,fixture,candidate,dispatchReserved,dispatchReturned,
+// observationsCompleted,panics,explicitReserved,explicitReturned,
+// errorMethodReserved,errorMethodReturned,previousEventSHA].
+// Phase 0 is durably reserved before Observe; phase 1 records its return.
+// Explicit call counts are known only at returned row boundaries. A killed
+// phase-0 row does not prove zero nested, callback, method, or startup calls.
+func (j *journal) append(phase, r, f, c int, n Counters) error {
+	event := [15]any{1, j.n, phase, r, f, c, n.DispatchReserved, n.DispatchReturned,
+		n.ObservationsCompleted, n.Panics, n.ExplicitReserved, n.ExplicitReturned,
+		n.ErrorMethodReserved, n.ErrorMethodReturned, hex.EncodeToString(j.last[:])}
+	body, e := json.Marshal(event)
+	if e != nil {
+		return errOutput
+	}
+	sum := sha256.Sum256(body)
+	frame, e := json.Marshal([2]any{event, hex.EncodeToString(sum[:])})
+	if e != nil {
+		return errOutput
+	}
+	frame = append(frame, '\n')
+	if len(frame) > 512 || j.bytes+len(frame) > journalCap {
+		return errCap
+	}
+	written, e := j.file.Write(frame)
+	j.bytes += written
+	if e != nil || written != len(frame) {
+		return errOutput
+	}
+	if j.file.Sync() != nil {
+		return errOutput
+	}
+	j.n++
+	j.last = sum
+	return nil
+}
+
+func loadCatalog(path string) (batch.Catalog, error) {
+	var c batch.Catalog
+	st, e := os.Lstat(path)
+	if e != nil || !st.Mode().IsRegular() || st.Size() != catalogBytes {
+		return c, errInput
+	}
+	f, e := os.Open(path)
+	if e != nil {
+		return c, errInput
+	}
+	defer f.Close()
+	opened, e := f.Stat()
+	if e != nil || !opened.Mode().IsRegular() || !os.SameFile(st, opened) {
+		return c, errInput
+	}
+	raw, e := io.ReadAll(io.LimitReader(f, catalogCap+1))
+	if e != nil || len(raw) != catalogBytes {
+		return c, errInput
+	}
+	sum := sha256.Sum256(raw)
+	if hex.EncodeToString(sum[:]) != catalogSHA {
+		return c, errInput
+	}
+	// Hash-bound full v2 includes Wants and proposals. Only input/shape fields
+	// are decoded by batch.Catalog; Wants/labels are not used by observation.
+	if json.Unmarshal(raw, &c) != nil {
+		return c, errInput
+	}
+	if c.Schema != "riido-next60-catalog10-literal-correction-proposal-v2" || c.Frozen || len(c.Requests) != 10 {
+		return c, errShape
+	}
+	for i, r := range c.Requests {
+		group := 77
+		family := "pflag"
+		if i >= 6 && i <= 8 {
+			group = 78
+			family = "mapstructure"
+		}
+		if r.Index != i || r.ID != ids[i] || r.Group != group || r.Family != family ||
+			len(r.CandidateOrder) != 3 || len(r.Captions) != 3 || len(r.Fixtures) != counts[i] {
+			return c, errShape
+		}
+		for k := 0; k < 3; k++ {
+			if r.CandidateOrder[k] != candidateNames[k] || r.Captions[k].Index != k {
+				return c, errShape
+			}
+		}
+		for k, fixture := range r.Fixtures {
+			if fixture.Index != k || len(fixture.Input) == 0 || len(fixture.Input) > 8192 {
+				return c, errShape
+			}
+		}
+	}
+	return c, nil
+}
+func isErrorMethod(api string) bool {
+	return api == "error.Error(explicit-text-target)" || api == "authored.RedactedTextError.Error" ||
+		strings.Contains(api, ".Unwrap") || strings.Contains(api, ".GetFlag") || strings.Contains(api, ".GetSpecifiedName")
+}
+func addReturned(n *Counters, r batch.Record) {
+	n.DispatchReturned++
+	if r.Panicked {
+		n.Panics++
+	}
+	if r.Supported && !r.Panicked {
+		n.ObservationsCompleted++
+	}
+	for _, call := range r.ExplicitCalls {
+		n.ExplicitReserved++
+		if call.Returned {
+			n.ExplicitReturned++
+		}
+		if isErrorMethod(call.API) {
+			n.ErrorMethodReserved++
+			if call.Returned {
+				n.ErrorMethodReturned++
+			}
+		}
+	}
+}
+func baseResult() Result {
+	return Result{Schema: "riido-next60-catalog9-native-observation-v1", State: "failed",
+		CatalogSHA: catalogSHA, CatalogBytes: catalogBytes, PlannedRequests: 9, PlannedInputs: 46,
+		PlannedObservations: 138, HeldRequests: 1, HeldInputs: 6,
+		Rows:                    make([]batch.Record, 0, rowCap),
+		ExplicitCountsBoundary:  "instrumented application entries; returned row boundaries only",
+		IncompleteCountsUnknown: true}
+}
+func code(e error) string {
+	switch {
+	case errors.Is(e, errInput):
+		return errInput.Error()
+	case errors.Is(e, errShape):
+		return errShape.Error()
+	case errors.Is(e, errCap):
+		return errCap.Error()
+	case errors.Is(e, errObservation):
+		return errObservation.Error()
+	default:
+		return errOutput.Error()
+	}
+}
+func writeResult(f *os.File, j *journal, out Result) error {
+	if j != nil {
+		out.JournalEvents = j.n
+		out.JournalBytes = j.bytes
+		out.JournalLastSHA = hex.EncodeToString(j.last[:])
+	}
+	body, e := json.Marshal(out)
+	if e != nil {
+		return errOutput
+	}
+	body = append(body, '\n')
+	journalBytes := 0
+	if j != nil {
+		journalBytes = j.bytes
+	}
+	if len(body) > combinedCap-journalBytes {
+		return errCap
+	}
+	n, e := f.Write(body)
+	if e != nil || n != len(body) {
+		return errOutput
+	}
+	if f.Sync() != nil {
+		return errOutput
+	}
+	return nil
+}
+
+func syncDirectory(directory string) error {
+	f, err := os.Open(directory)
+	if err != nil {
+		return errOutput
+	}
+	defer f.Close()
+	if err := f.Sync(); err != nil {
+		return errOutput
+	}
+	return nil
+}
+
+func run(catalogPath, attempt string) (out Result, retErr error) {
+	out = baseResult()
+	c, e := loadCatalog(catalogPath)
+	if e != nil {
+		return out, e
+	}
+	out.CatalogFrozenField = c.Frozen
+	// The outer controller checks exact artifact/binary/source bindings and
+	// records process Start/Wait. This worker requires a new absent directory.
+	if os.Mkdir(attempt, 0700) != nil {
+		return out, errOutput
+	}
+	root, e := os.OpenRoot(attempt)
+	if e != nil {
+		return out, errOutput
+	}
+	defer root.Close()
+	resultFile, e := root.OpenFile("results.json", os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if e != nil {
+		return out, errOutput
+	}
+	defer resultFile.Close()
+	journalFile, e := root.OpenFile("journal.jsonl", os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if e != nil {
+		v := errOutput.Error()
+		out.FailureCode = &v
+		// Preserve a fixed failure result when the result reservation exists.
+		// A write failure leaves the partial file; no replacement or retry.
+		_ = writeResult(resultFile, nil, out)
+		return out, errOutput
+	}
+	defer journalFile.Close()
+	j := journal{file: journalFile}
+	// On failure keep the newly reserved outputs and fixed counters; never
+	// retry or overwrite any prior attempt. A partial IO write is incomplete.
+	defer func() {
+		if retErr != nil {
+			value := code(retErr)
+			out.FailureCode = &value
+			out.State = "failed"
+			out.IncompleteCountsUnknown = true
+		}
+		out.JournalEvents = j.n
+		out.JournalBytes = j.bytes
+		out.JournalLastSHA = hex.EncodeToString(j.last[:])
+		if e := writeResult(resultFile, &j, out); e != nil {
+			retErr = e
+			out.State = "failed"
+			v := code(e)
+			out.FailureCode = &v
+			out.IncompleteCountsUnknown = true
+		}
+	}()
+	// Persist the empty output files and their new directory entries before
+	// entering any candidate. Successful Sync calls are filesystem acknowledgments,
+	// not proof against every hardware or power-loss failure.
+	if resultFile.Sync() != nil || journalFile.Sync() != nil {
+		return out, errOutput
+	}
+	if syncDirectory(attempt) != nil || syncDirectory(filepath.Dir(attempt)) != nil {
+		return out, errOutput
+	}
+	encodedRows := 0
+	for ri := 0; ri < 9; ri++ {
+		r := c.Requests[ri]
+		for fi, f := range r.Fixtures {
+			for candidate := 0; candidate < 3; candidate++ {
+				out.Counters.DispatchReserved++
+				if e := j.append(0, ri, fi, candidate, out.Counters); e != nil {
+					return out, e
+				}
+				record := batch.Observe(r, f, candidate)
+				addReturned(&out.Counters, record)
+				if e := j.append(1, ri, fi, candidate, out.Counters); e != nil {
+					return out, e
+				}
+				encoded, e := json.Marshal(record)
+				if e != nil {
+					return out, errOutput
+				}
+				if len(encoded) > recordCap || encodedRows+len(encoded) > rowCap*recordCap {
+					return out, errCap
+				}
+				encodedRows += len(encoded)
+				out.Rows = append(out.Rows, record)
+				if !record.Supported || record.Panicked {
+					return out, errObservation
+				}
+			}
+		}
+	}
+	// Static record/journal/metadata allowance fits one combined cap.
+	if rowCap*recordCap+journalCap+metadataCap >= combinedCap {
+		return out, errCap
+	}
+	if out.Counters.DispatchReturned != 138 || out.Counters.ObservationsCompleted != 138 {
+		return out, errObservation
+	}
+	out.State = "complete"
+	out.IncompleteCountsUnknown = false
+	return out, nil
+}
+func main() {
+	runtime.GOMAXPROCS(1)
+	flags := flag.NewFlagSet("riido-catalog9-observe", flag.ContinueOnError)
+	flags.SetOutput(io.Discard)
+	catalog := flags.String("catalog", "", "exact v2 catalog file")
+	attempt := flags.String("attempt", "", "fresh absent attempt directory")
+	if flags.Parse(os.Args[1:]) != nil || flags.NArg() != 0 || *catalog == "" || *attempt == "" {
+		fmt.Fprintln(os.Stderr, "catalog9_arguments_invalid")
+		os.Exit(2)
+	}
+	out, e := run(*catalog, *attempt)
+	// Stdout is a small fixed summary with no inputs, host paths, errors, or
+	// source bodies. The controller's process/resource observations are separate.
+	summary := struct {
+		Schema      string   `json:"schema"`
+		State       string   `json:"state"`
+		Counters    Counters `json:"counters"`
+		FailureCode *string  `json:"failure_code"`
+	}{Schema: "riido-next60-catalog9-worker-summary-v1", State: out.State, Counters: out.Counters, FailureCode: out.FailureCode}
+	if e != nil {
+		v := code(e)
+		summary.FailureCode = &v
+		summary.State = "failed"
+	}
+	raw, marshalErr := json.Marshal(summary)
+	if marshalErr != nil {
+		fmt.Fprintln(os.Stderr, "catalog9_summary_invalid")
+		os.Exit(1)
+	}
+	raw = append(raw, '\n')
+	if _, writeErr := io.Copy(os.Stdout, bytes.NewReader(raw)); writeErr != nil {
+		os.Exit(1)
+	}
+	if e != nil {
+		os.Exit(1)
+	}
+}
