@@ -1,0 +1,213 @@
+// SPDX-License-Identifier: Apache-2.0
+package audit
+
+import (
+	"bytes"
+	"encoding/json"
+	"errors"
+	"math"
+	"strings"
+	"testing"
+
+	"github.com/teamswyg/laya-tools/pkg/shortclaim"
+	"github.com/teamswyg/laya-tools/pkg/shortclaimdata"
+)
+
+// Authored synthetic supervision only. This is not the real33 dataset.
+type candidate struct {
+	ID     string `json:"metadata_id"`
+	Text   string `json:"text"`
+	Label  bool   `json:"label"`
+	Weight int    `json:"sample_weight"`
+}
+type scope struct {
+	Inputs       int    `json:"input_count"`
+	Observations int    `json:"candidate_observations"`
+	Description  string `json:"description"`
+	All          bool   `json:"all_input_guarantee"`
+	Unseen       bool   `json:"unseen_source_guarantee"`
+}
+type row struct {
+	Schema       string      `json:"schema"`
+	ID           string      `json:"stable_id"`
+	Request      string      `json:"request"`
+	Candidates   []candidate `json:"candidates"`
+	Role         string      `json:"role"`
+	Group        int         `json:"whole_group"`
+	Family       string      `json:"source_family"`
+	Revision     string      `json:"source_revision"`
+	Scope        scope       `json:"finite_scope"`
+	TextRevision string      `json:"text_revision"`
+	Policy       string      `json:"feature_policy"`
+}
+
+func fixture(t *testing.T) []byte {
+	t.Helper()
+	var out []byte
+	for i := 0; i < Rows; i++ {
+		n := 3
+		if i < 3 {
+			n = 2
+		}
+		positive := 1
+		if i < 4 {
+			positive = 0
+		}
+		if i == 32 {
+			positive = 2
+		}
+		r := row{Schema: shortclaimdata.Schema, ID: "synthetic-" + strings.Repeat("x", i+1), Request: "Choose a suitable option", Role: shortclaimdata.Role, Group: 82 + i%2, Family: "synthetic", Revision: strings.Repeat("a", 40), Scope: scope{Inputs: 1, Observations: n, Description: "Only owned synthetic controls."}, TextRevision: "synthetic-v1", Policy: shortclaimdata.FeaturePolicy}
+		for j := 0; j < n; j++ {
+			r.Candidates = append(r.Candidates, candidate{ID: "choice-" + string(rune('a'+j)), Text: "Candidate option " + string(rune('a'+j)), Label: j == positive, Weight: 1})
+		}
+		b, e := json.Marshal(r)
+		if e != nil {
+			t.Fatal(e)
+		}
+		out = append(out, b...)
+		out = append(out, '\n')
+	}
+	return out
+}
+func fixed(p shortclaim.Prepared) ([4]shortclaim.Ranking, error) {
+	var out [4]shortclaim.Ranking
+	for b, k := range kinds() {
+		out[b].Kind = k
+		out[b].Count = p.Count
+		for j := 0; j < p.Count; j++ {
+			out[b].Order[j] = j
+		}
+	}
+	return out, nil
+}
+func TestIndependentCountAndTieArithmetic(t *testing.T) {
+	raw := fixture(t)
+	calls := 0
+	r, e := run(bytes.NewReader(raw), sha(raw), func(p shortclaim.Prepared) ([4]shortclaim.Ranking, error) { calls++; return fixed(p) })
+	if e != nil || r.State != "complete" || calls != 219 || r.Counts.ReaderReturned != 33 || r.Counts.RankingRecords != 876 || len(r.Cases) != 219 {
+		t.Fatalf("counts %v %#v", e, r.Counts)
+	}
+	// Independent arithmetic:4 first-position positives,28 second,1 third.
+	// Primary visits=4+56+3=63. Exhaustive orders:30 parents*12+3 parents*3.
+	for _, a := range r.Primary {
+		if a.Cases != 33 || a.CandidateVisitsWithoutOrdering != 96 || a.SimulatedVisitsToFirstPositive != 63 || a.Top1KnownPositive != 4 {
+			t.Fatal("primary arithmetic")
+		}
+	}
+	for _, a := range r.Permuted {
+		if a.Cases != 186 || a.CandidateVisitsWithoutOrdering != 552 || a.SimulatedVisitsToFirstPositive != 369 || a.Top1KnownPositive != 63 {
+			t.Fatal("permutation arithmetic")
+		}
+	}
+	if r.PositionIndexOneHits != 28 {
+		t.Fatal("synthetic position control")
+	}
+	for _, c := range r.Cases {
+		for _, v := range c.Ranks {
+			for j := 0; j < c.Count; j++ {
+				if v.DisplayOrder[j] != j || v.SelectedOrder[j] != c.DisplayToSelected[j] {
+					t.Fatal("ties/candidate loss")
+				}
+			}
+		}
+	}
+}
+func TestInvalidRanksFailClosed(t *testing.T) {
+	for _, name := range []string{"duplicate", "count", "nonfinite", "unstable-tie", "unused-slot"} {
+		t.Run(name, func(t *testing.T) {
+			raw := fixture(t)
+			r, e := run(bytes.NewReader(raw), sha(raw), func(p shortclaim.Prepared) ([4]shortclaim.Ranking, error) {
+				v, _ := fixed(p)
+				switch name {
+				case "duplicate":
+					v[0].Order[1] = 0
+				case "count":
+					v[0].Count = 1
+				case "nonfinite":
+					v[0].Scores[0] = math.NaN()
+				case "unstable-tie":
+					v[0].Order[0], v[0].Order[1] = 1, 0
+				case "unused-slot":
+					v[0].Scores[p.Count] = 1
+				}
+				return v, nil
+			})
+			if e != ErrRanking || r.State == "complete" || len(r.Cases) != 0 {
+				t.Fatal("invalid ranking accepted")
+			}
+		})
+	}
+}
+func TestDataPinAndExtraRowsKeepBaselinesAtZero(t *testing.T) {
+	raw := fixture(t)
+	for _, name := range []string{"pin", "extra", "missing", "unknown-label"} {
+		t.Run(name, func(t *testing.T) {
+			b := append([]byte(nil), raw...)
+			pin := sha(b)
+			switch name {
+			case "pin":
+				pin = strings.Repeat("f", 64)
+			case "extra":
+				b = append(b, []byte("{}\n")...)
+				pin = sha(b)
+			case "missing":
+				b = b[:bytes.LastIndexByte(b[:len(b)-1], '\n')+1]
+				pin = sha(b)
+			case "unknown-label":
+				b = bytes.Replace(b, []byte(`"label":true`), []byte(`"label":null`), 1)
+				pin = sha(b)
+			}
+			calls := 0
+			r, e := run(bytes.NewReader(b), pin, func(p shortclaim.Prepared) ([4]shortclaim.Ranking, error) { calls++; return fixed(p) })
+			if e == nil || calls != 0 || r.Counts.BaselinesAttempts != 0 || r.State == "complete" {
+				t.Fatal("invalid data reached ranker")
+			}
+		})
+	}
+}
+func TestMetadataMetamorphismUsingUnchangedBaselines(t *testing.T) {
+	v, e := shortclaim.ValidateInput(shortclaim.Input{Schema: shortclaim.Schema, Request: "Keep unchanged text", Candidates: []shortclaim.Candidate{{ID: "a", Text: "Keep unchanged text"}, {ID: "b", Text: "Keep unchanged text"}}, Provenance: "synthetic"})
+	if e != nil {
+		t.Fatal(e)
+	}
+	p := v.Prepared()
+	a, e := shortclaim.Baselines(p)
+	if e != nil {
+		t.Fatal(e)
+	}
+	p.Provenance = "other-metadata"
+	p.Candidates[0].ID = "changed-a"
+	p.Candidates[1].ID = "changed-b"
+	b, e := shortclaim.Baselines(p)
+	if e != nil || a != b {
+		t.Fatal("metadata influenced baseline")
+	}
+	for _, rank := range b {
+		if rank.Order[0] != 0 || rank.Order[1] != 1 || rank.Scores[0] != rank.Scores[1] {
+			t.Fatal("stable equal-text tie")
+		}
+	}
+}
+
+type broken struct{}
+
+func (broken) Read([]byte) (int, error) { return 0, errors.New("supplied private error") }
+func TestBoundedReadAndReturnedError(t *testing.T) {
+	calls := 0
+	r, e := run(broken{}, strings.Repeat("a", 64), func(p shortclaim.Prepared) ([4]shortclaim.Ranking, error) { calls++; return fixed(p) })
+	if e != ErrInput || calls != 0 || r.Counts.ReaderAttempts != 0 {
+		t.Fatal("read error")
+	}
+	b := bytes.Repeat([]byte{'x'}, MaxDataBytes+1)
+	r, e = run(bytes.NewReader(b), sha(b), fixed)
+	if e != ErrInput || r.Counts.BaselinesAttempts != 0 {
+		t.Fatal("input cap")
+	}
+	raw := fixture(t)
+	r, e = run(bytes.NewReader(raw), sha(raw), func(shortclaim.Prepared) ([4]shortclaim.Ranking, error) {
+		return [4]shortclaim.Ranking{}, errors.New("private baseline error")
+	})
+	if e != ErrRanking || r.Counts.BaselinesAttempts != 1 || r.Counts.BaselinesReturned != 1 || r.State == "complete" {
+		t.Fatal("returned error bookkeeping")
+	}
+}

@@ -1,0 +1,15 @@
+Keep33 requests/96 labels as narrow development evidence. One positive among2/3 candidates makes Top3 trivial; position2 wins28/33 and186 permutations repeat33 parents. Existing33/79 data, labels, roles and seals remain unchanged.
+
+Propose10 cells:5/8 candidates × verified0/1/many answers, unknown-containing, ambiguous policy. Allocate2/cell for20 development parents,6/cell for60,240/cell for a separately acquired protected2400 per claimed domain. Targets are not acquired labels. Zero requires counterexamples for every finite candidate; U is not no-answer. Split U cells equally into all-U and mixed T/F+U. F+U retains both evidence channels. Keep ambiguous interpretations under one parent; abstain/clarify absent a prior policy. Hold padded5/8 sets of paraphrases, type substitutions or obvious distractors.
+
+Cross60 with six behaviors,10 each. Final preserves public600/480/480/360/240/240 quotas, divided by10 cells. Inspected20/60 never become protected final.2400 linked rows do not establish independent or effective N.
+
+Freeze position blocks, two faithful styles/length bins and lexical controls before outcomes. Final one-answer intended exposure targets48/position at5,30/position at8; never move observed positives to enforce quotas. Small-stage coverage gaps remain visible. Four audit presentations on20 parents remain20 parents. No index/source/ID/Want/Got/role/check features. Every known cohort needs a plausible semantic hard negative, never forced failure.
+
+Audit whole transitive source/helper/template/fork/alias and negative-candidate edges, parents/children/siblings/translations before role/scores. PDCA6group/3-2-1 targets do not replace historical group policy or reassign old roles. Separate Root authority/schema must support0/1/many/U, interpretation, eligibility/mask and pinned roles/groups; do not silently widen one-positive33 contracts.
+
+20 checks observability/leakage/duplication;60 checks family-held-out headroom. If the strongest nonlearned control is optimal or oracle maximum check gain<5%, use scoped Go rules/verifiers without fitting. No automatic Fit at60/2400. Saved-label simulations only bound checks. A separately admitted paired study must include hint preparation/inference, verification, failures, abstention/fallback/escalation and integration. Keep observed checks/calls/wall/CPU/tokens/currency separate, unknown=null. Propose>=5% total measured verification-work reduction in addition to existing check/quality gates; this extra condition is not adopted yet.
+
+Separate FP32 fitted parent, INT8/PTQ children and trained ternary-STE sibling; preserve failures/fit consumption. Storage, packed RSS and ternary utility are separate experiments. Candidate truth is not profile-routing/repository/decomposition truth: each claimed domain needs separate protected2400 parents/oracle and whole costs; children/siblings/repeats add no parents.
+
+Prefer20→60 coverage; Go-only is better when no useful headroom remains. Immediate fitting/final execution is unsupported. Public documents/Root summary only; protected/Go/Reader/Baselines/API/native/model/network/Fit0; new truth/role/weight/group0.

@@ -1,0 +1,132 @@
+{
+  "schema": "riido-ci125-portable-checker-independent-source-review-v1",
+  "state": "WRITE_STOP_source_review_only",
+  "source_identifier": "next125-bias-portable-reproduction-preparation125-v1",
+  "source_pins": [
+    {
+      "path": "HANDOFF.v1.json",
+      "bytes": 1092,
+      "sha256": "de9b90b6afb819ec5d5d3ea39d650fa2fc314d43a2b009391d5576cd7988afbc"
+    },
+    {
+      "path": "MANIFEST.v1.json",
+      "bytes": 692,
+      "sha256": "e48dc04813a87277e067b4ca97e64638ff4acc3429d63268f9bc14837e7e1995"
+    },
+    {
+      "path": "public_frozen_test.go.txt",
+      "bytes": 22956,
+      "sha256": "7ddf722631066733ea5aee9e84440190755e2a9ebbb9bbb61859529fbb748cb4"
+    },
+    {
+      "path": "PLAN.public.v1.md",
+      "bytes": 3048,
+      "sha256": "0cd74698bf7696f0402dbc63859341393ced4e700e8d10652aff933dbf483c34"
+    },
+    {
+      "path": "SHA256SUMS",
+      "bytes": 346,
+      "sha256": "8a01b82d8b021957586185ffa78877fda83f6d9bc7460b3d0f51484c23417573"
+    }
+  ],
+  "result": {
+    "concrete_source_blockers": 0,
+    "required_source_patches": 0,
+    "execution_admission": false,
+    "compilation_or_test_success_claim": false
+  },
+  "relationships": {
+    "reviewer": "checkpoint_native_peer_114",
+    "implementation_author": "gjson_saved_compare_peer_125",
+    "current_implementation_authored_by_reviewer": false,
+    "reviewer_authored_prior_bias_source_preparation": true,
+    "reviewer_authored_prior_cross_platform_contract_recommendation": true,
+    "nonblind": true,
+    "independent_scope": "Current checker implementation source assessment. This is not independent validation of the reviewer's older bias implementation, a scientific oracle, or Root execution authority."
+  },
+  "observations": [
+    {
+      "id": "scope-and-input",
+      "source": "TestPublicDevelopment33FrozenReproduction; portableRecompute",
+      "finding": "Missing frozen/data environment is fatal. The Mac frozen document must match 242297 bytes and exact SHA. Run still receives the same public development file and frozen data SHA. Typed actual Report is obtained from unchanged Run, not an untrusted external decoder. The fixed frozen bytes make a separate duplicate-key decoder unnecessary in this test boundary."
+    },
+    {
+      "id": "raw-score-preservation",
+      "source": "TestPublicDevelopment33FrozenReproduction; portableCompare",
+      "finding": "The complete actual Report is JSON encoded before reproduction checks. Scores remain actual; the source does not replace them with frozen scores or clear ties, orders, visits or aggregate fields."
+    },
+    {
+      "id": "scope-and-cardinality",
+      "source": "portableRecompute; portableFixedMetadata",
+      "finding": "All 33 fixed Parent array entries are checked, selected arity is 2 or 3, IDs are nonempty and unique within declared scopes, active style measures are positive, inactive parent/candidate slots are zero, and exactly one frozen positive is required only for this current33 scope. Total candidates96, exhaustive permutations186 and Cases219 are enforced. All unchanged Report metadata and Parents, including frozen known labels, style, counters and position facts, are compared exactly to Mac."
+    },
+    {
+      "id": "case-schedule",
+      "source": "portableRecompute",
+      "finding": "Each parent has a separate identity primary case and the declared lexicographic 2! or 3! permutation cases. Parent index, primary flag, count and display-to-selected mapping are exact. Four ranking kinds occupy fixed positions; fallback is prohibited outside narrow_rule and the reason is compared exactly to frozen."
+    },
+    {
+      "id": "actual-ranking",
+      "source": "portableRecompute",
+      "finding": "Each active score is finite, every display index occurs exactly once, scores descend strictly except exact equality, and exact equality retains the smaller display index first. Inactive order/selected/score fields are zero. TiedPairs are independently reconstructed with exact == for active pairs and false for inactive pairs. SelectedOrder is reconstructed from DisplayToSelected and actual display order."
+    },
+    {
+      "id": "actual-visits-and-aggregates",
+      "source": "portableRecompute",
+      "finding": "FirstPositiveVisit is independently derived from actual order and immutable frozen supervision. All primary/permuted cases, unordered visits, visits to first positive, Top1, Top3 and fallback totals are accumulated independently. SimulatedReduction uses the same integer numerator and denominator formula. Recomputed aggregates, counters, primary positive positions and position-one hits must equal the actual report exactly."
+    },
+    {
+      "id": "cross-platform-bound",
+      "source": "portableBound; portableCompare; portableRobustOrder",
+      "finding": "Each raw actual score keeps abs(actual-frozen) <= 1e-12*max(1,abs(frozen)). Frozen score pairs with a gap greater than the sum of their two bounds retain their relative order. Overlapping intervals may have different actual orders or exact ties, but still pass actual strict/stable ordering and all derived evidence checks. This is a comparison-only rule, not a tolerance tie in production."
+    },
+    {
+      "id": "difference-retention",
+      "source": "portableStartDiff; portableCompare",
+      "finding": "Every changed rank retains both score vectors, both display/selected orders, ties, first-positive visit and overlap-pair flags. Frozen and actual aggregates plus independently recalculated actual aggregates are retained. Validation errors set failed state, preserve all already collected differences, and distinguish whether actual recalculation completed."
+    },
+    {
+      "id": "durable-artifacts",
+      "source": "portableJSON; portableExclusive; TestPublicDevelopment33FrozenReproduction",
+      "finding": "The full report is individually limited to the existing 512KiB report bound and sidecar to512KiB, with combined maximum1MiB checked. Nonempty RIIDOLAYA_BIAS_ACTUAL causes a fresh O_EXCL0600 full report write, explicit mode, checked length, file Sync, Close, and parent-directory Sync before validation. Sidecar is then exclusively persisted before a validation error is raised. Existing or partial files are preserved with no cleanup/overwrite/retry. Successful filesystem Sync calls do not prove hardware power-loss durability."
+    },
+    {
+      "id": "synthetic-controls",
+      "source": "portableSynthetic and three TestPortableSynthetic functions",
+      "finding": "Controls fabricate33 parents and219 cases without Reader/ranker/production evaluate calls. A valid overlap pair changes ties/order/visit/aggregate and is accepted while immutable scores are retained. Corrupt strict/stable ties, mapping, visits, aggregates, reduction, style, labels, schedule, fallback, counts, inactive slots and nonfinite scores are rejected. The robust inversion control is supplemented by a direct robust-pair gate check. Exclusive persistence preserves a failed actual report and rejects overwrite. These controls were read, not executed by this reviewer."
+    }
+  ],
+  "prospective_ci_wiring": {
+    "reviewed_as_plan_only": true,
+    "required_environment": "RIIDOLAYA_BIAS_ACTUAL points to a fresh actual.json under the job runner temporary directory; parent must exist before the verification script",
+    "preservation": "That directory must stay outside verify-next60-learning-preparation.sh task_tmp, whose exit trap removes its staging directory. The provided runner.temp directory plan satisfies this separation.",
+    "script": "Current script exports frozen/data variables only for the bias module and passes inherited actual-artifact env through the test subprocess; vet does not rerun test functions.",
+    "upload": "Use existing pinned upload-artifact action with always(), exactly actual.json and actual.json.diff.json, a name unique per OS/run ID/attempt, retention14, missingwarn. Test/persistence/encoding failure must still fail the job; artifact upload errors must not be suppressed.",
+    "source_only": "No prospective YAML was materialized or parsed here. Root remains responsible for applying and validating actual workflow syntax."
+  },
+  "limits": [
+    "This is a source-only review of an uncompiled/unexecuted replacement. Root must format, compile and run meaningful controls and real CI.",
+    "The actual report env is optional in source; the described CI must supply it to obtain full Linux evidence. Empty env emits only the bounded diff.",
+    "A Run failure occurs before complete-report persistence; the promise is preservation after Run succeeds, matching the source plan.",
+    "No new Linux full report or current GJSON outcomes were read. The earlier first Linux tie diagnostic is context, not a complete ranking result.",
+    "Source-level aggregate verification does not independently rerun the BM25 arithmetic function, Reader or original APIs. It validates actual rankings against pinned Mac numeric bounds and declared score-order rules.",
+    "No source/function/threshold/frozenMac/quality-gate edits or new labels, roles, qualification, Fit, model or work-savings claim are made."
+  ],
+  "attempts": {
+    "current_review_prewrite_guard_failures": 0,
+    "read_command_path_misses": [
+      "A named historical verifier script did not exist; the current verify-next60-learning-preparation.sh was read instead.",
+      "One current script read initially used the sealed preparation cwd; no files were written and the exact repository path was used next."
+    ],
+    "Go": 0,
+    "Reader": 0,
+    "Baselines": 0,
+    "original_API": 0,
+    "native": 0,
+    "model": 0,
+    "Fit": 0,
+    "network": 0,
+    "shared_repo_writes": 0,
+    "author_source_writes": 0
+  }
+}

@@ -1,0 +1,185 @@
+// SPDX-License-Identifier: Apache-2.0
+// Package bridge transfers externally frozen development supervision. It does
+// not establish truth, allocate roles, extract features, project or fit a model.
+package bridge
+
+import (
+	"github.com/teamswyg/laya-tools/internal/claimfit"
+	"github.com/teamswyg/laya-tools/internal/roleplan"
+	"github.com/teamswyg/laya-tools/pkg/shortclaim"
+	"github.com/teamswyg/laya-tools/pkg/shortclaimdata"
+)
+
+const (
+	Schema       = "riido-variable-development-input-plan-v1"
+	State        = "Root_frozen_input_admission_only"
+	MaxPlanBytes = 1 << 20
+	MaxDataBytes = 1 << 20
+	MaxRows      = 256
+	MaxRegistry  = 512
+)
+
+type Error string
+
+func (e Error) Error() string { return string(e) }
+
+const (
+	ErrRead     Error = "input_bridge_read_failed"
+	ErrBounds   Error = "input_bridge_bounds"
+	ErrPin      Error = "input_bridge_pin_mismatch"
+	ErrPlan     Error = "input_bridge_invalid_plan"
+	ErrRole     Error = "input_bridge_role_conflict"
+	ErrUnknown  Error = "input_bridge_unknown_supervision"
+	ErrRow      Error = "input_bridge_row_mismatch"
+	ErrConsumer Error = "input_bridge_consumer_failed"
+)
+
+// Pins come from Root's separate frozen invocation, never from the input plan.
+// Matching opaque pins binds bytes, not semantic evidence or training readiness.
+type Pins struct{ PlanSHA256, RootAdmissionSHA256, DataSHA256 string }
+
+type GroupRole struct {
+	WholeGroup int    `json:"whole_group"`
+	Role       string `json:"role"`
+}
+type FamilyRole struct {
+	SourceFamily string `json:"source_family"`
+	WholeGroup   int    `json:"whole_group"`
+	Role         string `json:"role"`
+}
+type Scope struct {
+	InputCount            int    `json:"input_count"`
+	CandidateObservations int    `json:"candidate_observations"`
+	Description           string `json:"description"`
+	AllInputGuarantee     bool   `json:"all_input_guarantee"`
+	UnseenSourceGuarantee bool   `json:"unseen_source_guarantee"`
+}
+type CandidatePlan struct {
+	MetadataID        string `json:"metadata_id"`
+	Text              string `json:"text"`
+	SourceIndex       int    `json:"source_index"`
+	Supervision       string `json:"supervision"`
+	Label             *bool  `json:"label"`
+	SampleWeight      *int   `json:"sample_weight"`
+	RootEvidence      string `json:"root_evidence"`
+	UnknownPredicates int    `json:"unknown_predicates"`
+}
+type ExcludedPlan struct {
+	MetadataID   string `json:"metadata_id"`
+	SourceIndex  int    `json:"source_index"`
+	Supervision  string `json:"supervision"`
+	Label        *bool  `json:"label"`
+	SampleWeight *int   `json:"sample_weight"`
+	Reason       string `json:"reason"`
+}
+type RowPlan struct {
+	RawSHA256            string          `json:"raw_sha256"`
+	StableID             string          `json:"stable_id"`
+	Request              string          `json:"request"`
+	Role                 string          `json:"role"`
+	WholeGroup           int             `json:"whole_group"`
+	SourceFamily         string          `json:"source_family"`
+	SourceRevision       string          `json:"source_revision"`
+	TextRevision         string          `json:"text_revision"`
+	FeaturePolicy        string          `json:"feature_policy"`
+	FiniteScope          Scope           `json:"finite_scope"`
+	RootTruth            string          `json:"root_truth"`
+	SourceCandidateCount int             `json:"source_candidate_count"`
+	Candidates           []CandidatePlan `json:"candidates"`
+	Excluded             []ExcludedPlan  `json:"excluded"`
+}
+type Plan struct {
+	Schema              string       `json:"schema"`
+	State               string       `json:"state"`
+	RootAdmissionSHA256 string       `json:"root_admission_sha256"`
+	DataSHA256          string       `json:"data_sha256"`
+	FeaturePolicy       string       `json:"feature_policy"`
+	GroupRoles          []GroupRole  `json:"group_roles"`
+	FamilyRoles         []FamilyRole `json:"family_roles"`
+	Rows                []RowPlan    `json:"rows"`
+}
+
+type CandidateAudit struct {
+	MetadataID                     string
+	SourceIndex, UnknownPredicates int
+}
+type ExcludedAudit struct {
+	MetadataID, Reason string
+	SourceIndex        int
+}
+type Audit struct {
+	RootTruth                                  string
+	SourceCandidateCount, Count, ExcludedCount int
+	Candidates                                 [shortclaim.MaxCandidates]CandidateAudit
+	Excluded                                   [shortclaim.MaxCandidates]ExcludedAudit
+}
+type admittedRow struct {
+	example shortclaimdata.Example
+	audit   Audit
+}
+
+// Batch has no exported mutable supervision or membership. Input exposes only
+// the existing validated request/caption value; metadata is accessed separately.
+type Batch struct {
+	rows   []admittedRow
+	groups []GroupRole
+}
+
+func (b Batch) Len() int { return len(b.rows) }
+func (b Batch) Input(i int) (shortclaim.ValidatedInput, bool) {
+	if i < 0 || i >= len(b.rows) {
+		return shortclaim.ValidatedInput{}, false
+	}
+	return b.rows[i].example.Input(), true
+}
+func (b Batch) Metadata(i int) (shortclaimdata.Metadata, bool) {
+	if i < 0 || i >= len(b.rows) {
+		return shortclaimdata.Metadata{}, false
+	}
+	return b.rows[i].example.Metadata(), true
+}
+func (b Batch) Supervision(i int) (shortclaimdata.Supervision, bool) {
+	if i < 0 || i >= len(b.rows) {
+		return shortclaimdata.Supervision{}, false
+	}
+	return b.rows[i].example.Supervision(), true
+}
+func (b Batch) Audit(i int) (Audit, bool) {
+	if i < 0 || i >= len(b.rows) {
+		return Audit{}, false
+	}
+	return b.rows[i].audit, true
+}
+func (b Batch) GroupRoles() []GroupRole { return append([]GroupRole(nil), b.groups...) }
+
+// Parent only copies Root-admitted supervision into the unchanged claimfit DTO.
+// It does not call claimfit.Project or any feature, score or training method.
+func (b Batch) Parent(i int) (claimfit.Parent, bool) {
+	if i < 0 || i >= len(b.rows) {
+		return claimfit.Parent{}, false
+	}
+	r := b.rows[i]
+	s := r.example.Supervision()
+	p := claimfit.Parent{Text: r.example.Input().Prepared(), Role: roleplan.DevelopmentTrain,
+		WholeGroup: r.example.Metadata().WholeGroup, Truth: claimfit.Known}
+	if r.audit.RootTruth == "no_answer" {
+		p.Truth = claimfit.NoAnswer
+	}
+	for j := 0; j < s.Count; j++ {
+		p.LossEligible[j] = true
+		if s.Labels[j] {
+			p.Acceptable = append(p.Acceptable, j)
+		}
+	}
+	return p, true
+}
+
+// Counts are returned-call bookkeeping, not durable checkpoints or a readiness
+// certificate. A consumer panic is outside this adapter's recovery contract.
+type Counts struct {
+	PlanBytes, DataBytes, RowsExpected                    int
+	ReaderAttempts, ReaderReturned, ReaderSucceeded       int
+	RowsAdmitted, Candidates, Positive, Negative          int
+	UnknownExcluded, SelectedUnknownPredicates            int
+	ConsumerAttempts, ConsumerReturned, ConsumerSucceeded int
+}

@@ -1,0 +1,112 @@
+{
+  "schema": "riido-variable-Go-fit-input-bridge-preparation-v1",
+  "state": "SOURCE_ONLY_ROOT_REVIEW_AND_COMPILATION_PENDING",
+  "scope": "One bounded development_train input handoff; no model or Fit execution",
+  "public_module": "github.com/teamswyg/laya-tools/experiments/variablefitbridge",
+  "toolchain": "go1.27.1",
+  "actual_data_read": false,
+  "actual_reader_calls": 0,
+  "go_format_test_build_calls": 0,
+  "features_project_score_fit_calls": 0,
+  "model_calls": 0,
+  "root_admission_plan_created": false,
+  "labels_roles_groups_assigned": false,
+  "current33_or_later60_readiness_adopted": false,
+  "portable_layout": "Materialize module files in a directory with a pinned local project at ../laya-tools; Root may author a private modfile instead. No module download or implicit absolute replacement is included.",
+  "api": "bridge.Admit(planReader, dataReader, externalPins, consume) (Counts,error)",
+  "external_pins": "Root separately freezes exact plan_sha256, root_admission_sha256 and data_sha256 in the invocation. Embedded claims and matching pins are byte bindings, not proofs of Root evidence/readiness. Root must create/review this new schema admission plan before execution.",
+  "limits": {
+    "plan_bytes": 1048576,
+    "data_bytes": 1048576,
+    "row_bytes_excluding_LF": 16384,
+    "rows": 256,
+    "group_and_family_registry_entries": 512,
+    "selected_and_source_candidates": 8,
+    "whole_group_max": 65535
+  },
+  "plan_rules": [
+    "All fields required; exact case-sensitive decoded JSON keys, duplicates/extra/missing/null containers, malformed UTF-8 and surrogate escapes fail.",
+    "Plan candidates preserve selected order, ID/text/label/unit weight; source_index preserves prior ordinal independently of selected index. Selected supervision must be known; positive requires all_required_known_true and zero unknown predicates; known negative requires known_counterexample and can retain unknown_predicates.",
+    "Excluded unknown source candidates require explicit null label/weight plus reason. Full source ordinal coverage and unique IDs are verified; U never becomes a negative or zero-weight selected row.",
+    "Root truth known requires one or more selected positives. Root truth no_answer must be explicit and requires no positives; never inferred from all-negative data.",
+    "Sorted sparse group roles and lexically sorted family roles join by search, independent of parent count. Same group/family conflicting roles fail; historical roles can appear in registry only. New JSONL rows remain development_train because unchanged Reader supports that role only.",
+    "Source revision, text revision, scope and feature policy are exact Root plan fields. Per-row SHA includes exactly one terminal LF; whole data SHA pins row order and prefix if Root preserves previous pins. The bridge does not independently certify a previous corpus prefix or source genealogy."
+  ],
+  "failure_contract": [
+    "Invalid plan/authority pins keep Reader0 and consumer0.",
+    "Data hash mismatch keeps Reader0 and consumer0. Later row mismatch can have completed Reader calls, but consumer remains0.",
+    "ReaderReturned includes error returns; raw Reader/consumer diagnostics are never formatted. Consumer is attempted only once after all rows pass; its error is fixed diagnostic, no retry.",
+    "No file I/O paths are opened, no outputs or durable checkpoints are created. Consumer panic is not recovered. Root later supplies durable wrapper/resource limits, not this source module."
+  ],
+  "feature_separation": "Batch.Input returns only unchanged shortclaim.ValidatedInput. Metadata/supervision/source ordinals have separate value accessors. Batch.Parent copies the pinned supervision into claimfit.Parent without Project/Features/Fit. Prepared metadata IDs remain present in the DTO but unchanged Project uses request/caption text only; any future consumer must preserve that boundary.",
+  "sparse_example_groups": [
+    82,
+    83,
+    65535
+  ],
+  "synthetic_control_source": [
+    "variable row counts 1/7/33/60 and selected counts2/3",
+    "sparse registry joins; authority/state/unknown/missing-ID/source-ordinal/weight/role/family rejection",
+    "case aliases/duplicate/missing fields and invalid surrogate rejection",
+    "per-row exact text/metadata/raw SHA/order and extra-line rejection",
+    "U-only exclusion plus known-negative-and-U metadata preservation",
+    "explicit Root no_answer vs inferred all-negative rejection",
+    "bounded stream/error/final-LF controls",
+    "one consumer error return and independent value snapshots"
+  ],
+  "synthetic_tests_executed": false,
+  "next_steps": [
+    "Root/non-author source review against this seal.",
+    "Root separately materializes and pins portable local source/toolchain/module closure; runs owned synthetic tests only under a bounded offline preset.",
+    "Root creates a pinned exact admission plan from frozen public data and Root qualification/family roles, preserving previous bytes and source ordinals.",
+    "Root decides input-only Reader run separately. No automatic Fit at33; after~60 scientific/role/readiness and resource review remain separate. Historical Fit3/8 and logical models3/16 limits unchanged."
+  ],
+  "source_refs": [
+    {
+      "path": "pkg/shortclaimdata/reader.go",
+      "bytes": 11642,
+      "sha256": "08fc06419acaf22a07249c736f5dfb0b3aa8c8468a9735936048ca5bbcb89bae"
+    },
+    {
+      "path": "pkg/shortclaim/input.go",
+      "bytes": 10755,
+      "sha256": "834d66e6a0c63095d25b02659a1ddd5c5b8a9eef185b7a2bab5e938974370a80"
+    },
+    {
+      "path": "internal/claimfit/projection.go",
+      "bytes": 13216,
+      "sha256": "2e6dcc5e53d50ca315a59113c3493c8e08a2492979c5817b82563dd7e354e316"
+    },
+    {
+      "path": "internal/roleplan/role.go",
+      "bytes": 16123,
+      "sha256": "df8d53d0600e80c331c4912d90ff199aef753704f34c87e085fa738fe920ba0b"
+    },
+    {
+      "path": "internal/pairlearn/learn.go",
+      "bytes": 8115,
+      "sha256": "e25ca8e75b55b7dc1b91c3b29222835ca38e5399e7ba78a38be9207c671a8768"
+    },
+    {
+      "path": "go.mod",
+      "bytes": 166,
+      "sha256": "d3dac31b277d3945ff0333c5099e5e5c47807bd8310b0c9d71d29dbdeff8e9ec"
+    }
+  ],
+  "basis_refs": [
+    {
+      "id": "variable-fit-independent-review",
+      "relative_reference": "next60-variable-Go-fit-independent-review114-v1/HANDOFF.v1.json",
+      "bytes": 584,
+      "sha256": "f11cea5317e099a9d381f6e12925244662b2989e6800da306ee6a893250928b5"
+    },
+    {
+      "id": "variable-fit-author-plan",
+      "relative_reference": "next60-variable-Go-fit-preparation45-v1/HANDOFF.v1.json",
+      "bytes": 2201,
+      "sha256": "af4fc8ebb92920d380ecb78a66806e15b5f3e9fba82b4999b6e47efb043c82f1"
+    }
+  ],
+  "relations": "Bridge author previously authored independent source reviews and earlier reader/finite comparison helpers; nonblind Root metadata context. No independent semantic oracle or execution authority claimed.",
+  "publication": "Only source snapshots, PLAN and bilingual README are prospective public-safe. PRIVATE-PINS and preparation manifests/handoff are control files; source rights are limited to owned Apache-2.0 project API use, no model/upstream blanket certificate."
+}

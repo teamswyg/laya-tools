@@ -1,0 +1,41 @@
+{
+  "schema": "riido-Root-archive-source-delta-review-v3",
+  "state": "SOURCE_ONLY_REVIEW_COMPLETE",
+  "blockers": 0,
+  "required_source_patches": 0,
+  "source_pin": {
+    "name": "archive-bridge.private.mjs",
+    "bytes": 16250,
+    "sha256": "4c25145c2a333eed676178e8171e3cb3298d4389f647a159053f4fcd660ab605"
+  },
+  "scope": "Root v3 delta only. Reviewer authored the preserved v2 base, not Root v3; nonblind, not independent approval of the whole base.",
+  "findings": [
+    "Lines89-108: partial archive/restore artifacts, present original or unacknowledged cleanup make net=null and goal=false; recoverable missing mappings remain separate.",
+    "Lines11-17,134,142:3MiB archive bound; comparer-reader-materialize-worker-outside order; initial first-leaf admission plus per-leaf fresh census.",
+    "Lines145-154: full verified restore and durable COMMIT before unlink, fresh original hash/metadata, separate cleanup ACK. No automatic retry."
+  ],
+  "arithmetic": {
+    "Root_reported_probe_before_controls": 8833329,
+    "control_reserve": 262144,
+    "expected_after_reserved_controls": 8571185,
+    "goal": 10485760,
+    "expected_goal_reached": false,
+    "first_leaf_additional_peak": 6258594,
+    "largest_later_leaf_additional_peak": 8491650
+  },
+  "nonblocking_caveat": "Test31-35 uses prior-order sums as general arithmetic controls; not new-order prefix validation. New first3 raw8471190 insufficient; first4 raw12966264 archive allowance2218360. No source patch or test repeat requested.",
+  "history": "Preserved v2 reclaim overstatement finding remains. Initial receipt draft metadata guard stopped on newer directory entries before any output write; corrected to exact five declared files.",
+  "executed": {
+    "binary_reads": 0,
+    "archive_compression_restore_delete": 0,
+    "census": 0,
+    "Go_API_model": 0,
+    "tests": 0
+  },
+  "Root_reported_tests": {
+    "passed": 5,
+    "runs": 1,
+    "reviewer_rerun": false
+  },
+  "limits": "All twenty old archives/67 roots and512MiB remain checked by immutable v4. Fresh admission/quiescence are Root responsibilities. Non-atomic scoped disk accounting; no machine or model-RAM claim."
+}

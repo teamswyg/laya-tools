@@ -1,0 +1,90 @@
+{
+  "schema": "riido-development33-bias-audit-independent-source-review-v1",
+  "state": "WRITE_STOP_source_only",
+  "ranking_core_blockers": 0,
+  "blocking_ranking_correctness_findings": [],
+  "execution_recording_recommendations": [
+    {
+      "id": "reserve-before-ranking",
+      "source": "module/cmd/biasaudit/main.go.txt:30",
+      "detail": "Run computes219 Baselines before canonical output-parent verification/fresh directory reservation at33-35. Existing/uncreatable output can therefore fail after rankings with only generic stderr. Minimum remedy: reserve fresh output+parent Sync before Run, or Root exclusive attempt wrapper. A failed result must not be recorded as Baselines0 or automatically retried.",
+      "original_seal_change_requested": false
+    }
+  ],
+  "pins": [
+    {
+      "file": "module/audit/audit.go.txt",
+      "bytes": 8383,
+      "sha256": "6d738d03cc9448e0eb73db97229918e682711208644faa4063b3057615122b28"
+    },
+    {
+      "file": "module/audit/audit_test.go.txt",
+      "bytes": 6099,
+      "sha256": "3a7bff361b4b192cf13db6848d729ab2184debf0fd64acf5024296c409342918"
+    },
+    {
+      "file": "module/cmd/biasaudit/main.go.txt",
+      "bytes": 2452,
+      "sha256": "d79ffe3c298c14d898fb02714928625c0614932fefe8f090abc1a7a96776498c"
+    }
+  ],
+  "source_handoff": {
+    "bytes": 578,
+    "sha256": "8a49e0d7c8287a2e318c3587c4737bea808ac41ddffa1583fc145083260faa44"
+  },
+  "source_pass": [
+    {
+      "at": "module/audit/audit.go.txt:98",
+      "evidence": "Reader receives each original selected row once;33 exact rows,96 known selected candidates,one positive per current row and unit weights checked before any ranker call. Role is development_train. No future one-positive qualification rule is granted."
+    },
+    {
+      "at": "module/audit/audit.go.txt:133",
+      "evidence": "Identity primary and exhaustive permutations are separate. Candidate raw and normalized text move together as Prepared value copies; labels reorder by same map only for simulated visit bookkeeping. Metadata never enters feature scoring."
+    },
+    {
+      "at": "module/audit/audit.go.txt:146",
+      "evidence": "Valid index permutation, finite scores, descending score/stable current-display ties and unused exactzero are checked. Scores stay display-indexed; returned order maps back to selected dataset candidate index."
+    },
+    {
+      "at": "module/audit/audit.go.txt:164",
+      "evidence": "30 three-candidate rows and3 two-candidate rows yield33 primary +186 exhaustive permutation cases.219 Baselines calls produce132 primary +744 permutation rankings=876. Identity also appears in permutation series."
+    }
+  ],
+  "interpretation_limits": [
+    "Top3 is guaranteed by2/3 candidates and exactly one known positive; it is not a discriminating ranking metric.",
+    "186 permutation cases repeat33 parents; they are not independent tasks, labels or confidence samples.",
+    "Pooled permutation aggregate weights a3-candidate parent6 times and a2-candidate parent2 times; it differs from equal-parent macro.",
+    "Simulated reduction is1 - first-positive visits/all-candidate full-scan visits. It is not measured verification work, best-baseline-relative5% utility, model quality or CPU/RAM/GPU inference.",
+    "Current33 unknown candidates are absent from selected train rows; no unknown-to-false conversion or source semantic truth recomputation is performed."
+  ],
+  "meaningful_control_source": [
+    "synthetic independent fixed-tie visit arithmetic",
+    "duplicate/count/nonfinite/unstable-tie/unused-slot ranking rejection",
+    "pin/missing/extra/null-label rejection before Baselines",
+    "metadata mutation and equal-text stable-tie control",
+    "bounded input/reader and ranker failure counters"
+  ],
+  "reviewer": {
+    "current_bias_code_or_tests_author": false,
+    "related_prior_materializer_comparer_and_controller_author": true,
+    "nonblind": true,
+    "actual_data_rows_or_labels_read": 0,
+    "Reader_calls": 0,
+    "Baselines_calls": 0,
+    "Go_test_compiler_native_original_model_Fit_network": 0,
+    "source_and_seals_modified": 0,
+    "source_metadata_hash_check": true
+  },
+  "status": {
+    "author_synthetic_controls_unexecuted_at_seal": true,
+    "Root_pure_control_execution_separate": true,
+    "Root_actual33_audit_execution": "pending",
+    "no_automatic_run_or_qualification_authority": true
+  },
+  "read_history": {
+    "metadata_query_missing_optional_normalize_file": 1,
+    "file_effects": 0,
+    "corrected_supporting_snippets_in_input_go": true
+  },
+  "remaining": "Root addresses output attempt guard and runs owned controls/one separately admitted actual development-only ranking; previous data and labels remain unchanged."
+}

@@ -56,6 +56,22 @@ jobs:
         run: bash scripts/verify-next60-thirty.sh
       - name: Thirty-three-row data, full reader values and saved predicate reproduction (offline; no training)
         run: bash scripts/verify-next60-thirtythree.sh
+      - name: Variable Go input controls and frozen nonlearned33 ranking reproduction (no training)
+        env:
+          RIIDOLAYA_BIAS_ACTUAL: ${{ runner.temp }}/riidolaya-bias-actual/actual.json
+        run: |
+          mkdir -p "$(dirname "$RIIDOLAYA_BIAS_ACTUAL")"
+          bash scripts/verify-next60-learning-preparation.sh
+      - name: Preserve actual nonlearned ranking and platform differences
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: bias33-${{ matrix.os }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/riidolaya-bias-actual/actual.json
+            ${{ runner.temp }}/riidolaya-bias-actual/actual.json.diff.json
+          if-no-files-found: warn
+          retention-days: 14
       # The suite runs multiple cold isolated compilers. This outer budget does
       # not change any candidate's verifier timeout, sandbox or acceptance gate.
       - run: go test -race -timeout=20m ./...

@@ -1,0 +1,297 @@
+{
+  "schema": "riido-gap11-independent-source-review114-v1",
+  "state": "WRITE_STOP_nonauthor_nonblind_source_only",
+  "inputs": [
+    {
+      "id": "proposal",
+      "bytes": 12960,
+      "sha256": "3f669c91130265d753d51b0dafffc0f8633439659bf984cac31e2a1228930695"
+    },
+    {
+      "id": "author-HH",
+      "bytes": 749,
+      "sha256": "7d6521f0dfb4f664b0742376919ca4162a7cf800bde999b121080432827805d4"
+    },
+    {
+      "id": "source-pins",
+      "bytes": 6116,
+      "sha256": "41fc82d1cd5a847795c3dcf43a33b90d46b60d6e539e7d5171b905096edc3cfd"
+    },
+    {
+      "id": "primary120",
+      "bytes": 341538,
+      "sha256": "e79cf90505fff4c636de99f322ab82001afd22516216cebcd8249b9b3d61cf67"
+    },
+    {
+      "id": "current33",
+      "bytes": 45390,
+      "sha256": "7b28ae6d119884c902b32ba781b3514f1d3774ca3a60cea16fe4ce11a3aad919"
+    },
+    {
+      "id": "old79-index",
+      "bytes": 98055,
+      "sha256": "d4a93c05ba50f001332f28cbd47ce43c972239d40549d59893dd5204cdfb24a8"
+    },
+    {
+      "id": "old76-families",
+      "bytes": 2694968,
+      "sha256": "4e9d36db9e151f807cc2c79da72d863308369d0708a86524b32f717a334f8c21"
+    },
+    {
+      "id": "old76-roles",
+      "bytes": 29864,
+      "sha256": "24de7b745747966107b00c6748a61dc920d97ed9cc9f98a8f22fd367cd8b6b70"
+    },
+    {
+      "id": "old79-append",
+      "bytes": 7456,
+      "sha256": "dc375daeddbd9dd744d28af5e72a63f532c6b332c1839154e1341aa4121249a5"
+    },
+    {
+      "id": "prior22",
+      "bytes": 98829,
+      "sha256": "1abd2a8c0bf89b19795e576810bd4282d52e63ddb11a58e0cac0f4ed4a9b9409"
+    },
+    {
+      "id": "role82-83",
+      "bytes": 3089,
+      "sha256": "1677d33aeb32c18c809e9ea717f375d5086d5b371e68f09f48fd24ae2f254b7f"
+    },
+    {
+      "id": "family-audit45",
+      "bytes": 24685,
+      "sha256": "beaebcdd748b0de6d8d1e49833f7dcc6c582d24f4fa1f926f46cc92f16d12bfd"
+    },
+    {
+      "id": "bitset",
+      "bytes": 50128,
+      "sha256": "450502e4569e3a876b9f4ab2e43a8d5ef82a87055c7a7a1c29a3bb56fae696e6"
+    },
+    {
+      "id": "gjson",
+      "bytes": 77773,
+      "sha256": "443d0db6fdb2cebf9c874b022e3d59f4904fab0aa03d99b072fdf39dce72697e"
+    },
+    {
+      "id": "chi-mux",
+      "bytes": 17308,
+      "sha256": "cc44c2d620e6306b16d6d80f5f6c70f02b5814b357a4f5823372818f355ae67d"
+    },
+    {
+      "id": "chi-tree",
+      "bytes": 22069,
+      "sha256": "f4b12b63b662fb8e36658172b36b35705cfb24eefae0665635f4fbd52e64fb79"
+    },
+    {
+      "id": "chi-context",
+      "bytes": 5788,
+      "sha256": "b19edcca252e2fe74e82802c4c7ce1a1c0855728f9ede1288f0224283dfc7e53"
+    },
+    {
+      "id": "union",
+      "bytes": 7118,
+      "sha256": "e17961497184f5690e764ed2616c85ccce5a038217cf0d6e90a06d3cd152332f"
+    },
+    {
+      "id": "cobra",
+      "bytes": 61142,
+      "sha256": "f79613721ad04c9b438dfb30fe0ac3deca85c487658b0aa04a1ae6e4395bfd90"
+    },
+    {
+      "id": "retry",
+      "bytes": 30677,
+      "sha256": "83a4d053293eeccf8288e172acda0e7ed40ec403663ac7e190462b63cf7c56b5"
+    },
+    {
+      "id": "ini",
+      "bytes": 24478,
+      "sha256": "a2935378dbfa3b84ca69f8714fad51f7fe008f5cbd4a562d64509912ee26e1ed"
+    }
+  ],
+  "priority_ids": [
+    "go53-afero-union-pagination",
+    "hyp52-gjson-duplicate-object-keys",
+    "hyp52-chi-per-mount-fallback"
+  ],
+  "priority_scope": "Investigation only, not admission: two source-policy candidates and one conditional Chi candidate. Qualified/labels0.",
+  "rows": [
+    {
+      "ordinal": 0,
+      "id": "hyp52-bitset-length-preserving-rightshift",
+      "proposed_contract": "Opt-in right shift retains original Len and zeroes vacated positions; default ShiftRight unchanged.",
+      "proposal_anchors": [
+        "bitset.go:1582-1626"
+      ],
+      "assessment": "secondary_shape_policy",
+      "independent_finding": "Whole-word ShiftRight decreases length at1602-1603; clear/nonword branches preserve it. Position transfer differs from current33 complement(index30), but length-only tests repeat that shape policy. Old train28 rotate-left is sequence rotation, not this source/API.",
+      "next_condition": "Freeze0/1/64/129, vacated bits and receiver policy. Existing fixed-width copy composition may fulfill the outputs; no invented no-allocation rescue. Family82."
+    },
+    {
+      "ordinal": 1,
+      "id": "hyp52-bitset-aliased-mask-deposit",
+      "proposed_contract": "Permit mask==dst using the pre-call mask for all positions; independent compact source and dst length retained. No general alias promise.",
+      "proposal_anchors": [
+        "bitset.go:1734-1802"
+      ],
+      "assessment": "convenience_HOLD",
+      "independent_finding": "Overwrite dst word1785 precedes mask count1786, so mask==dst changes later source offsets. Nonetheless mask.Clone() (850-855)+unchanged DepositTo satisfies the entire visible pre-mask request.",
+      "next_condition": "Retire/merge rather than invent allocation constraints. Previous Extract+CopyFull HOLD18 remains."
+    },
+    {
+      "ordinal": 2,
+      "id": "hyp52-gjson-duplicate-object-keys",
+      "proposed_contract": "Opt-in valid-JSON traversal rejects repeated decoded keys within each object before collapsed views; defaults retained.",
+      "proposal_anchors": [
+        "gjson.go:267-344",
+        "gjson.go:376-474"
+      ],
+      "assessment": "priority2_policy_candidate",
+      "independent_finding": "ForEach267-342 already emits decoded duplicate tokens. Map/Value465-470 discard later keys. New behavior must be reject-before-collapse. Current33 index4 MatchName ambiguity concerns distinct map keys matching a destination field; lexical same decoded-key multiplicity can disappear before that stage.",
+      "next_condition": "Freeze object-local/recursive scope, escaped-equivalent keys and separate-object controls, depth/token bounds, own identity/path and known prefix/U suffix. Valid syntax is not uniqueness. Family83 with Match/Pretty."
+    },
+    {
+      "ordinal": 3,
+      "id": "hyp52-gjson-number-lexeme-value-tree",
+      "proposed_contract": "Opt-in structured Value tree retains tagged numeric lexemes, preserving other JSON types and array order; default Value unchanged.",
+      "proposal_anchors": [
+        "gjson.go:704-726",
+        "gjson.go:376-474"
+      ],
+      "assessment": "overlap_refinement_HOLD",
+      "independent_finding": "Value704-726 turns Number into float64 Num, including nested fractions/exponents. Checked root integer(current33 index31), decimal/uint parsing and source53/tasks70 are neighbors.",
+      "next_condition": "Bounded tagged structured fractional/exponent output may distinguish it; integer-only cases merge. Freeze duplicate-key policy. No float64 exact-number oracle or per-node parent inflation."
+    },
+    {
+      "ordinal": 4,
+      "id": "hyp52-chi-per-mount-fallback",
+      "proposed_contract": "Opt-in mount resolves absent child404/405 fallback per parent edge without permanently installing it on a reusable child.",
+      "proposal_anchors": [
+        "mux.go:295-355"
+      ],
+      "assessment": "priority3_conditional_policy_candidate",
+      "independent_finding": "Mount316-320 changes a shared child fallback from nil to the first parent. A later parent can retain that state. Per-edge404/405 resolution is not a generic slice-copy task. Old56 calibration owned-snapshot is a semantic watch only.",
+      "next_condition": "Freeze custom-child versus absent fallback precedence. Status/body/owned trace are public; private nil-handler state is not a public getter, unavailable snapshot staysU or is excluded before observation. Chi retains prospective_validation/Armon/closure HOLD, not train admission."
+    },
+    {
+      "ordinal": 5,
+      "id": "hyp52-chi-replace-owned-path-values",
+      "proposed_contract": "Opt-in dispatch clears declared router-owned PathValue keys absent from the matched route, sets current captures and preserves unrelated caller keys.",
+      "proposal_anchors": [
+        "mux.go:455-494",
+        "tree.go:383-408"
+      ],
+      "assessment": "secondary_namespace_HOLD",
+      "independent_finding": "routeHTTP455-491 sets matched PathValues; FindRoute383-402 clears local routeParams then appends public URLParams. Preloaded id can remain on a static route. Distinct from earlier escaped matching/duplicate registration12/13.",
+      "next_condition": "Freeze exact router-owned namespace; blanket deletion destroys unrelated caller state. Empty visible value is not proof of internal key deletion. No reuse frequency claim; same Chi role HOLD."
+    },
+    {
+      "ordinal": 6,
+      "id": "go53-afero-union-pagination",
+      "proposed_contract": "Mixed positive-count/read-all UnionFile cursor advancement with stable layer precedence and no duplicate entries.",
+      "proposal_anchors": [
+        "primary120:/tasks/19"
+      ],
+      "assessment": "priority1_existing_catalog_candidate",
+      "independent_finding": "Exact UnionFile197-199 returns read-all files without consuming off, while209 increments only positive reads. Mixed1,0,1 can deliver names twice. Layer precedence139-149 exists, but default map iteration gives no stable ordering. Current33 Sub/read-limit/exclusive-write differ.",
+      "next_condition": "Freeze consuming read-all, repeated EOF, merger order/layer precedence and available layer read errors. Existing primary120/tasks19 ID adds no new catalog entry. Family79."
+    },
+    {
+      "ordinal": 7,
+      "id": "go53-cobra-checked-tree-insertion",
+      "proposed_contract": "CheckedAddCommand rejects ancestor cycles/already-parented children before mutation; legacy unchanged.",
+      "proposal_anchors": [
+        "primary120:/tasks/30"
+      ],
+      "assessment": "graph_neighbor_HOLD_existing_catalog",
+      "independent_finding": "Exact AddCommand1342-1367 rejects immediate self only, then sets parent before CommandPath and append. Ancestor insertion creates a cycle before a snapshot; foreign parent consistency is another graph condition. Current33 Cobra lifecycle/annotations differ; old68 calibration ancestor-cycle is a strong semantic neighbor.",
+      "next_condition": "Settle dedup through permitted metadata and freeze multi-child atomicity/public graph capture before execution. Never run dangerous baseline unbounded. No automatic source union to68; family77."
+    },
+    {
+      "ordinal": 8,
+      "id": "go53-retryhttp-idempotent-policy",
+      "proposed_contract": "Opt-in retry permits declared safe methods or idempotency key; declines unsafe mutation without key; defaults retained.",
+      "proposal_anchors": [
+        "primary120:/tasks/45"
+      ],
+      "assessment": "permission_policy_HOLD_existing_catalog",
+      "independent_finding": "DefaultRetryPolicy472-541 inspects context/status/error, not method/key; Do719-725 calls configurable CheckRetry. Repetition permission differs from current33 body snapshot(index24)/deadline. Old79 source index already exposed this exact selector for navigation, while admitted79 additions were UUID/humanize.",
+      "next_condition": "Freeze safe-method/key emptiness/duplicates/context/error precedence and deterministic no-sleep fake transport. Preserve family80 and MPL file scope/closure. Existing catalog ID, not newly discovered source."
+    },
+    {
+      "ordinal": 9,
+      "id": "go53-ini-interpolation-cycle",
+      "proposed_contract": "Strict interpolation returns a finite cycle path across keys; legacy String behavior unchanged.",
+      "proposal_anchors": [
+        "primary120:/tasks/78"
+      ],
+      "assessment": "graph_neighbor_HOLD_existing_catalog",
+      "independent_finding": "The depthValues loop142-175 calls nk.String recursively before its outer iteration returns: not a cross-key stack guard. Explicit cycle paths can add a bounded config-resolution policy beyond current33 quote/index/byte budgets; old68 ancestor-cycle remains a semantic neighbor.",
+      "next_condition": "Freeze section/key/DEFAULT/self identity, escaping, shared acyclic chains and bounds. No observed stack failure claim. Existing primary120/tasks78 ID; family81."
+    },
+    {
+      "ordinal": 10,
+      "id": "hyp52-atomic-multihunk-diff",
+      "proposed_contract": "Explore exact-context all-or-nothing patch application: validate every hunk against one input before committed edits; retain existing modes if any.",
+      "proposal_anchors": [
+        "unconfirmed; no fetched source pin"
+      ],
+      "assessment": "unconfirmed_HOLD",
+      "independent_finding": "Repository name alone supplies no pinned version/API/hunk semantics/license or missing source behavior. Old48 atomic Config/current33 decode transaction/source53/tasks17,81,106 are neighbors.",
+      "next_condition": "Root acquisition/source/ABI needed; no new external research here. Patch-specific behavior before counting, not a rollback rename."
+    }
+  ],
+  "count_policy": "Six source anchors+four existing primary120 IDs+one unconfirmed=eleven hypotheses. No+4 new catalog IDs; old22/retired5/HOLD18/19/20 and new2 seals unchanged. Fixtures/paraphrases/permutations are not parents.",
+  "families": {
+    "retained_development_train": {
+      "82": "Bitset",
+      "83": "GJSON+Match+Pretty",
+      "79": "Afero",
+      "80": "Retry",
+      "81": "INI",
+      "77": "Cobra+pflag"
+    },
+    "chi": "Prior audit prospective_validation; actual role/group and Armon closure HOLD. No implicit new train family.",
+    "watch_only": "Old48 atomic Config(train),56 owned-snapshot(calibration),60 cancellation(validation),68 ancestor-cycle(calibration). Similar mechanism alone is not a copied-source/helper/fork edge or automatic union.",
+    "numeric_assignments": 0
+  },
+  "method": {
+    "source": "Anchored reads; five primary original body SHA/size/Git-blob pins and four catalog bodies Git-blob pins directly match. Full primary120 now directly read at exact e79cf pin; four selectors match zero-based tasks19/30/45/78.",
+    "old79": "Public source index/lineage/roles/three append metadata only. Public train request text only; calibration/validation request/candidate bodies not opened.",
+    "current33": "Public JSON requests/captions/source fields. Candidate label fields encountered during JSON display; no scoring or new adoption.",
+    "scope_exception": "Initial broad nested old76 group/role prints accidentally included saved_truth_state/reference metadata and were truncated. No score/model prediction/protected or validation request/candidate body interpreted. Follow-ups used explicit allowlists and train-only request selection. Not label-blind.",
+    "lookup_correction": "Initial one-based catalog lookup corrected to zero-based pointers; no proposal pointer mismatch remains.",
+    "registry_caveat": "ADDITIVE-REGISTRY is resource path metadata, not scientific family/role registry."
+  },
+  "relations": "Nonauthor of author52 proposal. Nonblind earlier22 critique, role/worker/comparer/Reader preparation and Root outcome context. Own prior code not independently self-reviewed.",
+  "not_claimed": [
+    "global uniqueness",
+    "whole-genealogy independence",
+    "rights approval",
+    "ABI/runtime pass",
+    "observed source failures",
+    "model utility/savings",
+    "Fit readiness"
+  ],
+  "actuals": {
+    "Go_Reader_original_API_init_native_model_Fit_network": 0,
+    "new_truth_labels_roles_weights_groups_qualified": 0,
+    "protected_raw_validation_reads": 0,
+    "upstream_body_copies": 0,
+    "other_seal_changes": 0
+  },
+  "prewrite_history": [
+    {
+      "bytes": 23886,
+      "old_cap": 16384,
+      "files": 0,
+      "directory_created": 0,
+      "result": "cap guard rejected"
+    },
+    {
+      "result": "Ruby numeric-key syntax parse error in unexecuted assembly; files0"
+    },
+    {
+      "result": "Root prospectively authorized32KiB, no old failure rewritten"
+    }
+  ]
+}

@@ -1,0 +1,328 @@
+// SPDX-License-Identifier: Apache-2.0
+package bridge
+
+import (
+	"bytes"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"strings"
+	"testing"
+
+	"github.com/teamswyg/laya-tools/internal/claimfit"
+	"github.com/teamswyg/laya-tools/pkg/shortclaimdata"
+)
+
+// All literals below are authored synthetic controls, not real supervision.
+// No original package, historical labels, protected records or model is loaded.
+type testCandidate struct {
+	MetadataID   string `json:"metadata_id"`
+	Text         string `json:"text"`
+	Label        bool   `json:"label"`
+	SampleWeight int    `json:"sample_weight"`
+}
+type testRow struct {
+	Schema         string          `json:"schema"`
+	StableID       string          `json:"stable_id"`
+	Request        string          `json:"request"`
+	Candidates     []testCandidate `json:"candidates"`
+	Role           string          `json:"role"`
+	WholeGroup     int             `json:"whole_group"`
+	SourceFamily   string          `json:"source_family"`
+	SourceRevision string          `json:"source_revision"`
+	FiniteScope    Scope           `json:"finite_scope"`
+	TextRevision   string          `json:"text_revision"`
+	FeaturePolicy  string          `json:"feature_policy"`
+}
+
+func ptr[T any](v T) *T { return &v }
+func encode(t *testing.T, p Plan, data []byte) ([]byte, Pins) {
+	t.Helper()
+	p.DataSHA256 = digest(data)
+	raw, err := json.Marshal(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return raw, Pins{PlanSHA256: digest(raw), RootAdmissionSHA256: p.RootAdmissionSHA256, DataSHA256: digest(data)}
+}
+func fixture(t *testing.T, rows, candidates int) (Plan, []byte) {
+	t.Helper()
+	p := Plan{Schema: Schema, State: State, RootAdmissionSHA256: strings.Repeat("a", 64), FeaturePolicy: shortclaimdata.FeaturePolicy,
+		GroupRoles:  []GroupRole{{82, "development_train"}, {83, "development_train"}, {65535, "development_calibration"}},
+		FamilyRoles: []FamilyRole{{"synthetic-a", 82, "development_train"}, {"synthetic-b", 83, "development_train"}, {"synthetic-held", 65535, "development_calibration"}}}
+	var data []byte
+	for i := 0; i < rows; i++ {
+		group := 82 + i%2
+		family := "synthetic-a"
+		if group == 83 {
+			family = "synthetic-b"
+		}
+		r := testRow{Schema: shortclaimdata.Schema, StableID: fmt.Sprintf("synthetic-%d", i), Request: "Choose a safe option.", Role: shortclaimdata.Role,
+			WholeGroup: group, SourceFamily: family, SourceRevision: strings.Repeat("b", 40), TextRevision: "synthetic-v1", FeaturePolicy: shortclaimdata.FeaturePolicy,
+			FiniteScope: Scope{InputCount: 2, CandidateObservations: 2 * candidates, Description: "Only authored synthetic inputs."}}
+		w := RowPlan{StableID: r.StableID, Request: r.Request, Role: r.Role, WholeGroup: group, SourceFamily: family, SourceRevision: r.SourceRevision,
+			TextRevision: r.TextRevision, FeaturePolicy: r.FeaturePolicy, FiniteScope: r.FiniteScope, RootTruth: "known", SourceCandidateCount: candidates,
+			Excluded: []ExcludedPlan{}}
+		for j := 0; j < candidates; j++ {
+			id := fmt.Sprintf("choice-%d", j)
+			text := fmt.Sprintf("Candidate option %d", j)
+			positive := j == i%candidates
+			r.Candidates = append(r.Candidates, testCandidate{id, text, positive, 1})
+			evidence := "known_counterexample"
+			if positive {
+				evidence = "all_required_known_true"
+			}
+			w.Candidates = append(w.Candidates, CandidatePlan{MetadataID: id, Text: text, SourceIndex: j, Supervision: "known", Label: ptr(positive), SampleWeight: ptr(1), RootEvidence: evidence})
+		}
+		line, err := json.Marshal(r)
+		if err != nil {
+			t.Fatal(err)
+		}
+		line = append(line, '\n')
+		w.RawSHA256 = digest(line)
+		p.Rows = append(p.Rows, w)
+		data = append(data, line...)
+	}
+	return p, data
+}
+func run(t *testing.T, p Plan, data []byte, consume func(Batch) error) (Counts, error) {
+	t.Helper()
+	raw, pins := encode(t, p, data)
+	return Admit(bytes.NewReader(raw), bytes.NewReader(data), pins, consume)
+}
+func TestGenericCountsAndSparseRegistry(t *testing.T) {
+	for _, size := range []struct{ rows, candidates int }{{1, 2}, {7, 3}, {33, 2}, {60, 3}} {
+		t.Run(fmt.Sprintf("%d-%d", size.rows, size.candidates), func(t *testing.T) {
+			p, data := fixture(t, size.rows, size.candidates)
+			calls := 0
+			c, err := run(t, p, data, func(b Batch) error {
+				calls++
+				if b.Len() != size.rows {
+					t.Fatal("row count")
+				}
+				for i := 0; i < b.Len(); i++ {
+					parent, ok := b.Parent(i)
+					if !ok || parent.WholeGroup != 82+i%2 || len(parent.Acceptable) != 1 || parent.Acceptable[0] != i%size.candidates {
+						t.Fatal("sparse group or supervision")
+					}
+				}
+				if b.GroupRoles()[2].WholeGroup != 65535 {
+					t.Fatal("registry truncated")
+				}
+				return nil
+			})
+			if err != nil || calls != 1 || c.ReaderReturned != size.rows || c.Candidates != size.rows*size.candidates || c.ConsumerSucceeded != 1 {
+				t.Fatalf("unexpected %v %#v", err, c)
+			}
+		})
+	}
+}
+func TestInvalidPlanNeverReachesReaderOrConsumer(t *testing.T) {
+	for _, name := range []string{"state", "selected-unknown", "missing-label", "missing-id", "role-conflict", "family-conflict", "duplicate-source", "zero-weight", "unknown-positive"} {
+		t.Run(name, func(t *testing.T) {
+			p, data := fixture(t, 1, 3)
+			switch name {
+			case "state":
+				p.State = "unknown"
+			case "selected-unknown":
+				p.Rows[0].Candidates[1].Supervision = "unknown"
+			case "missing-label":
+				p.Rows[0].Candidates[1].Label = nil
+			case "missing-id":
+				p.Rows[0].Candidates[1].MetadataID = ""
+			case "role-conflict":
+				p.GroupRoles[0].Role = "development_validation"
+			case "family-conflict":
+				p.FamilyRoles[0].WholeGroup = 83
+			case "duplicate-source":
+				p.Rows[0].Candidates[1].SourceIndex = 0
+			case "zero-weight":
+				p.Rows[0].Candidates[1].SampleWeight = ptr(0)
+			case "unknown-positive":
+				p.Rows[0].Candidates[0].UnknownPredicates = 1
+			}
+			calls := 0
+			c, err := run(t, p, data, func(Batch) error { calls++; return nil })
+			if err == nil || calls != 0 || c.ReaderAttempts != 0 {
+				t.Fatal("invalid plan crossed boundary")
+			}
+		})
+	}
+}
+func TestStrictFieldsAndExternalPins(t *testing.T) {
+	p, data := fixture(t, 1, 2)
+	raw, pins := encode(t, p, data)
+	for _, name := range []string{"root-pin", "data-pin", "duplicate", "case-alias", "missing", "surrogate"} {
+		t.Run(name, func(t *testing.T) {
+			x := append([]byte(nil), raw...)
+			q := pins
+			switch name {
+			case "root-pin":
+				q.RootAdmissionSHA256 = strings.Repeat("c", 64)
+			case "data-pin":
+				q.DataSHA256 = strings.Repeat("c", 64)
+			case "duplicate":
+				x = bytes.Replace(x, []byte(`"schema":`), []byte(`"schema":"extra","schema":`), 1)
+			case "case-alias":
+				x = bytes.Replace(x, []byte(`"schema":`), []byte(`"Schema":`), 1)
+			case "missing":
+				x = bytes.Replace(x, []byte(`"excluded":[],`), nil, 1)
+				if bytes.Equal(x, raw) {
+					x = bytes.Replace(x, []byte(`,"excluded":[]`), nil, 1)
+				}
+			case "surrogate":
+				x = bytes.Replace(x, []byte(`"synthetic-v1"`), []byte(`"\ud800"`), 1)
+			}
+			q.PlanSHA256 = digest(x)
+			calls := 0
+			c, err := Admit(bytes.NewReader(x), bytes.NewReader(data), q, func(Batch) error { calls++; return nil })
+			if err == nil || calls != 0 || c.ReaderAttempts != 0 {
+				t.Fatal("wire or pin admitted")
+			}
+		})
+	}
+}
+func TestRowBindingsCheckedBeforeConsumer(t *testing.T) {
+	for _, name := range []string{"request", "caption", "stable-id", "candidate-id", "scope", "raw-row", "extra-line"} {
+		t.Run(name, func(t *testing.T) {
+			p, data := fixture(t, 2, 3)
+			switch name {
+			case "request":
+				p.Rows[1].Request = "Choose another option."
+			case "caption":
+				p.Rows[1].Candidates[0].Text = "Changed option"
+			case "stable-id":
+				p.Rows[1].StableID = "changed-id"
+			case "candidate-id":
+				p.Rows[1].Candidates[0].MetadataID = "changed-choice"
+			case "scope":
+				p.Rows[1].FiniteScope.Description = "Changed scope."
+			case "raw-row":
+				p.Rows[1].RawSHA256 = strings.Repeat("c", 64)
+			case "extra-line":
+				data = append(data, []byte("{}\n")...)
+			}
+			calls := 0
+			c, err := run(t, p, data, func(Batch) error { calls++; return nil })
+			if err == nil || calls != 0 || c.ReaderAttempts < 1 || c.ConsumerAttempts != 0 {
+				t.Fatal("row drift reached consumer")
+			}
+		})
+	}
+}
+func TestExcludedUnknownAndKnownNegativeWithUnknown(t *testing.T) {
+	p, data := fixture(t, 1, 2)
+	r := &p.Rows[0]
+	r.SourceCandidateCount = 3
+	r.Candidates[1].SourceIndex = 2
+	r.Candidates[1].UnknownPredicates = 2
+	r.Excluded = []ExcludedPlan{{MetadataID: "unobserved-original", SourceIndex: 1, Supervision: "unknown", Reason: "Unobserved required channel."}}
+	c, err := run(t, p, data, func(b Batch) error {
+		a, ok := b.Audit(0)
+		s, _ := b.Supervision(0)
+		if !ok || a.Candidates[1].SourceIndex != 2 || a.Excluded[0].SourceIndex != 1 || a.Candidates[1].UnknownPredicates != 2 || s.Count != 2 || s.Weights[2] != 0 || s.Labels[1] {
+			t.Fatal("unknown/source position lost")
+		}
+		return nil
+	})
+	if err != nil || c.UnknownExcluded != 1 || c.SelectedUnknownPredicates != 2 || c.Candidates != 2 {
+		t.Fatal("finite unknown handling")
+	}
+}
+func TestAllNegativeNeedsExplicitRootNoAnswer(t *testing.T) {
+	p, data := fixture(t, 1, 2)
+	var r testRow
+	if json.Unmarshal(bytes.TrimSpace(data), &r) != nil {
+		t.Fatal("fixture")
+	}
+	r.Candidates[0].Label = false
+	p.Rows[0].Candidates[0].Label = ptr(false)
+	p.Rows[0].Candidates[0].RootEvidence = "known_counterexample"
+	data, _ = json.Marshal(r)
+	data = append(data, '\n')
+	p.Rows[0].RawSHA256 = digest(data)
+	calls := 0
+	c, err := run(t, p, data, func(Batch) error { calls++; return nil })
+	if err == nil || calls != 0 || c.ReaderAttempts != 0 {
+		t.Fatal("inferred no-answer")
+	}
+	p.Rows[0].RootTruth = "no_answer"
+	_, err = run(t, p, data, func(b Batch) error {
+		v, _ := b.Parent(0)
+		if v.Truth != claimfit.NoAnswer || len(v.Acceptable) != 0 {
+			t.Fatal("explicit no-answer transfer")
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+type failingReader struct{}
+
+func (failingReader) Read([]byte) (int, error) {
+	return 0, errors.New("private diagnostic must not escape")
+}
+func TestBoundedStreamsAndReadFailure(t *testing.T) {
+	p, data := fixture(t, 1, 2)
+	raw, pins := encode(t, p, data)
+	for _, name := range []string{"plan-large", "data-large", "read-failure", "no-final-LF"} {
+		t.Run(name, func(t *testing.T) {
+			pr := bytes.NewReader(raw)
+			var dr interface{ Read([]byte) (int, error) } = bytes.NewReader(data)
+			q := pins
+			if name == "plan-large" {
+				pr = bytes.NewReader(bytes.Repeat([]byte{' '}, MaxPlanBytes+1))
+			}
+			if name == "data-large" {
+				dr = bytes.NewReader(bytes.Repeat([]byte{'x'}, MaxDataBytes+1))
+			}
+			if name == "read-failure" {
+				dr = failingReader{}
+			}
+			if name == "no-final-LF" {
+				d := data[:len(data)-1]
+				x := p
+				x.DataSHA256 = digest(d)
+				raw2, q2 := encode(t, x, d)
+				pr = bytes.NewReader(raw2)
+				q = q2
+				dr = bytes.NewReader(d)
+			}
+			calls := 0
+			c, err := Admit(pr, dr, q, func(Batch) error { calls++; return nil })
+			if err == nil || calls != 0 || c.ReaderAttempts != 0 {
+				t.Fatal("bounded input crossed boundary")
+			}
+			if name == "read-failure" && err != ErrRead {
+				t.Fatal("raw error escaped")
+			}
+		})
+	}
+}
+func TestConsumerFailureCountsAndValueCopies(t *testing.T) {
+	p, data := fixture(t, 1, 3)
+	calls := 0
+	c, err := run(t, p, data, func(b Batch) error {
+		calls++
+		s, _ := b.Supervision(0)
+		s.Labels[0] = false
+		g := b.GroupRoles()
+		g[0].WholeGroup = 1
+		a, _ := b.Audit(0)
+		a.Candidates[0].SourceIndex = 7
+		parent, _ := b.Parent(0)
+		parent.Acceptable[0] = 2
+		s2, _ := b.Supervision(0)
+		a2, _ := b.Audit(0)
+		p2, _ := b.Parent(0)
+		if !s2.Labels[0] || b.GroupRoles()[0].WholeGroup != 82 || a2.Candidates[0].SourceIndex != 0 || p2.Acceptable[0] != 0 {
+			t.Fatal("mutable snapshot aliased")
+		}
+		return errors.New("private consumer failure")
+	})
+	if err != ErrConsumer || calls != 1 || c.ConsumerAttempts != 1 || c.ConsumerReturned != 1 || c.ConsumerSucceeded != 0 || c.ReaderReturned != 1 {
+		t.Fatal("consumer return count or retry")
+	}
+}

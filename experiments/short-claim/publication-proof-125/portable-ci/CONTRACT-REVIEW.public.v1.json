@@ -1,0 +1,140 @@
+{
+  "schema": "riido-CI125-cross-platform-contract-review114-v1",
+  "state": "WRITE_STOP_source_actual_diagnostic_only",
+  "observed": {
+    "source_head_abbrev": "70a1043",
+    "run": "37118609232",
+    "Linux_job": "111190217061",
+    "diagnostic_pin": {
+      "bytes": 1115,
+      "sha256": "628b74aa4c3dbe3648c6e98e1063010f9b62476f71db9094d3c4b331b4e8b211"
+    },
+    "first_case": {
+      "case": 87,
+      "parent": 13,
+      "primary": true,
+      "mapping": [
+        0,
+        1,
+        2
+      ],
+      "kind": "bm25",
+      "Linux_scores": [
+        5.2687886049983,
+        5.2687886049983,
+        2.549657157215737
+      ],
+      "Mac_scores": [
+        5.268788604998299,
+        5.268788604998298,
+        2.549657157215737
+      ],
+      "Linux_bits": [
+        "4015133d51f00549",
+        "4015133d51f00549",
+        "400465b2a6d20808"
+      ],
+      "Mac_bits": [
+        "4015133d51f00548",
+        "4015133d51f00547",
+        "400465b2a6d20808"
+      ],
+      "Linux_ties": [
+        true,
+        false,
+        false
+      ],
+      "Mac_ties": [
+        false,
+        false,
+        false
+      ],
+      "same_order": [
+        0,
+        1,
+        2
+      ],
+      "same_first_positive_visit": 2
+    },
+    "scope": "The first actual Linux mismatch proves tie sensitivity within the score tolerance. It does not establish every case/order/aggregate difference or the precise compiler/FMA cause.",
+    "Linux_full_report_available": false
+  },
+  "unchanged": [
+    "Production score functions and exact floating equality/stable tie rules",
+    "Existing score tolerance1e-12*max(1,abs(Mac score))",
+    "Actual frozen Mac result bytes/history",
+    "Root supervision, family roles, quality gates and pendingFit policy"
+  ],
+  "alternatives": [
+    {
+      "id": "A",
+      "name": "Separate pinned platform goldens plus invariant audit",
+      "fit": "Strong platform-specific reproducibility; less portable and more baseline maintenance.",
+      "method": "Retain Mac report unchanged; capture complete Linux report under exact Go/GOARCH/GOAMD64/source/data pins, review it separately, then add a versioned platform-specific expectation. Each report still passes independent score-order/tie/mapping/visit/aggregate checks.",
+      "advantages": [
+        "All fields can remain exact within one pinned platform recipe",
+        "Platform differences remain explicit historical evidence"
+      ],
+      "costs": [
+        "No legitimate Linux golden yet: first actual full report must be captured and reviewed",
+        "Go/GOAMD64/compiler upgrades can require new expectations; risk of blindly updating to failing output",
+        "Architecture-specific report pairs do not prove architecture-independent ranks"
+      ],
+      "condition": "Never overwrite Mac or silently bless Linux outcomes. A raw golden refresh alone is insufficient."
+    },
+    {
+      "id": "B",
+      "name": "One Mac numerical reference plus strict actual-report invariants and robust pair order",
+      "recommended": true,
+      "fit": "Most direct correction of the wrong architecture-exactness requirement while retaining strong checks and production behavior.",
+      "method": "Preserve every raw Linux/Mac score and exact within-report consequence. Compare all raw scores to Mac under the existing tolerance. Validate actual structure/arithmetic independently. Cross-platform rank constraints apply exactly to robust separated pairs; overlapping score intervals are explicitly architecture-sensitive, with all differing ties/orders/visits/aggregates recorded.",
+      "advantages": [
+        "Does not redefine production ties or round scores",
+        "No widening of existing epsilon or discarded diagnostics",
+        "Works with future platform/compiler variance while detecting changed far-apart ranks and forged consequences"
+      ],
+      "costs": [
+        "Cross-platform exact ranking equivalence is no longer claimed for near pairs",
+        "Needs a dedicated independent bookkeeping validator and meaningful tamper controls",
+        "Full actual report preservation is required, not just the first mismatch log"
+      ],
+      "condition": "Do not erase TiedPairs/orders/visits/aggregate fields before comparison or use a blanket ignore. Freeze this corrected test contract and retain failed runs."
+    }
+  ],
+  "recommended_contract": {
+    "score_check": "For each active score i, ε_i=1e-12*max(1,abs(Mac_i)); require finite raw actual and abs(actual_i-Mac_i)<=ε_i. All inactive scores/order slots must be zero. Compare before any temporary normalization.",
+    "robust_pair_check": "For every active pair i,j with Mac_i-Mac_j > ε_i+ε_j, actual ordering must keep i ahead of j. The opposite case is symmetric. Overlap means cross-platform numeric order may be sensitive; it is not a new tolerance tie for production.",
+    "within_actual_checks": [
+      "Exact data pin/schema/state/33parents/96selected/219cases/876ranks/counts and fixed lexicographic primary/permutation schedule",
+      "Case n2/3, exact parent IDs/labels/styles/mapping/fallback/kind; every active candidate exactly once, no omitted U reinsertion or new supervision",
+      "For each raw actual score pair, descending score order; equal actual scores use smaller display index first. TiedPairs equals exact actual score== on active pairs; unused pairs stay false. Use elementary independent comparisons, not Baselines/rank helper calls.",
+      "SelectedOrder[j]=DisplayToSelected[DisplayOrder[j]]; FirstPositiveVisit computed from immutable selected known labels after mapping",
+      "Recompute all Primary/Permuted integer totals from every case: case count, n visits without order, first-positive visits, top1/top3 and fallbacks. Recompute reduction=(unord-visits)/unord from those integers and require exact within-report value.",
+      "Existing per-score Mac bound validates ranking numerical values without recomputing the score functions. For an added independent fixed/lexical arithmetic checker, derive token integer counts from pinned public text; do not call Features/model or silently change the numerical recipe."
+    ],
+    "cross_platform_bookkeeping": "If within-actual checks and raw-score/robust-pair checks pass, retain differences as architecture-sensitive evidence. An aggregate difference is permitted only if exactly derived from recorded actual case changes, not ignored. The first log alone cannot establish that.",
+    "artifact_requirement": "Persist the complete raw actual Report from the existing audit call before test comparison:219cases/876rankings, source/data/runtime/GOAMD64 pins, bounded report output. Upload the safe report and difference summary even when the test fails. No additional audit/Reader/Baselines replay is necessary just to capture it.",
+    "meaningful_controls": [
+      "Forged TiedPairs inconsistent with raw equal/unequal scores is rejected",
+      "Far-separated rank inversion, unstable exact tie, duplicate order or wrong mapped index is rejected",
+      "Near-pair valid stable raw ordering can differ from Mac while all actual consequences are correctly recorded",
+      "Incorrect first visit, aggregate integer total or reduction is rejected",
+      "Score outside unchanged epsilon, metadata drift, missing/extra case or unused slot contamination is rejected"
+    ]
+  },
+  "not_recommended": [
+    "Changing baseline mathematical formula or production tie comparator to force this golden",
+    "Quantizing scores/forcing Mac ties under a near-equality comparator",
+    "Ignoring every tie/order/aggregate difference or accepting a new golden without actual invariant review",
+    "Treating simulated candidate checks as real validation-cost/model-quality improvement"
+  ],
+  "relation": "Reviewer wrote the original bias-preparation helper and has prior source/Root scalar context, so nonblind. This is assessment of Root test contract and observed platform evidence; not independent reexecution/certification of own baseline code.",
+  "actuals": {
+    "Go_Reader_Baselines_original_native_model_Fit_network": 0,
+    "sharedrepo_scoring_edits": 0,
+    "new_labels_roles_qualification": 0,
+    "new_GJSON_outcome_reads": 0,
+    "Linux_full_report_reads": 0
+  },
+  "limit": "FMA remains an implementation hypothesis, not independently confirmed actual Linux cause. No protected or historical raw validation inputs read."
+}

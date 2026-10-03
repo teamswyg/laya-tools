@@ -1,0 +1,147 @@
+// SPDX-License-Identifier: Apache-2.0
+package bridge
+
+import (
+	"bytes"
+	"crypto/sha256"
+	hexencoding "encoding/hex"
+	"io"
+
+	"github.com/teamswyg/laya-tools/pkg/shortclaimdata"
+)
+
+func digest(raw []byte) string { s := sha256.Sum256(raw); return hexencoding.EncodeToString(s[:]) }
+func bounded(r io.Reader, limit int) ([]byte, error) {
+	if r == nil {
+		return nil, ErrRead
+	}
+	raw, err := io.ReadAll(io.LimitReader(r, int64(limit)+1))
+	if err != nil {
+		return nil, ErrRead
+	}
+	if len(raw) > limit {
+		return nil, ErrBounds
+	}
+	return raw, nil
+}
+
+// Admit reads only the supplied bounded streams. It opens no path, calls no
+// original package, feature extractor, projection or trainer, and writes nothing.
+// The sole consumer is reached once, after all rows and authority bytes match.
+// This is an input handoff, not a Fit checkpoint or automatic execution admission.
+func Admit(planReader, dataReader io.Reader, pins Pins, consume func(Batch) error) (Counts, error) {
+	var count Counts
+	if consume == nil || !sha(pins.PlanSHA256) || !sha(pins.RootAdmissionSHA256) || !sha(pins.DataSHA256) {
+		return count, ErrPin
+	}
+	rawPlan, err := bounded(planReader, MaxPlanBytes)
+	if err != nil {
+		return count, err
+	}
+	count.PlanBytes = len(rawPlan)
+	if digest(rawPlan) != pins.PlanSHA256 {
+		return count, ErrPin
+	}
+	plan, err := decodePlan(rawPlan)
+	if err != nil {
+		return count, err
+	}
+	if err = validatePlan(plan, pins); err != nil {
+		return count, err
+	}
+	count.RowsExpected = len(plan.Rows)
+	rawData, err := bounded(dataReader, MaxDataBytes)
+	if err != nil {
+		return count, err
+	}
+	count.DataBytes = len(rawData)
+	if digest(rawData) != pins.DataSHA256 {
+		return count, ErrPin
+	}
+	if len(rawData) == 0 || rawData[len(rawData)-1] != '\n' {
+		return count, ErrRow
+	}
+	// Exact LF-terminated row pins preserve old prefix bytes and row order if
+	// Root includes those expected pins. Prefix provenance is not inferred here.
+	batch := Batch{rows: make([]admittedRow, 0, len(plan.Rows)), groups: append([]GroupRole(nil), plan.GroupRoles...)}
+	pos := 0
+	for i, want := range plan.Rows {
+		if pos >= len(rawData) {
+			return count, ErrRow
+		}
+		end := bytes.IndexByte(rawData[pos:], '\n')
+		if end < 0 || end == 0 || end > shortclaimdata.MaxRowBytes {
+			return count, ErrBounds
+		}
+		line := rawData[pos : pos+end+1]
+		pos += end + 1
+		if digest(line) != want.RawSHA256 {
+			return count, ErrRow
+		}
+		count.ReaderAttempts++
+		example, e := shortclaimdata.LoadDevelopmentRow(bytes.NewReader(line[:len(line)-1]))
+		count.ReaderReturned++
+		if e != nil || !example.Valid() {
+			return count, ErrRow
+		}
+		count.ReaderSucceeded++
+		if !matches(example, want) {
+			return count, ErrRow
+		}
+		audit := Audit{RootTruth: want.RootTruth, SourceCandidateCount: want.SourceCandidateCount, Count: len(want.Candidates), ExcludedCount: len(want.Excluded)}
+		for j, c := range want.Candidates {
+			audit.Candidates[j] = CandidateAudit{MetadataID: c.MetadataID, SourceIndex: c.SourceIndex, UnknownPredicates: c.UnknownPredicates}
+			count.Candidates++
+			if *c.Label {
+				count.Positive++
+			} else {
+				count.Negative++
+			}
+			count.SelectedUnknownPredicates += c.UnknownPredicates
+		}
+		for j, c := range want.Excluded {
+			audit.Excluded[j] = ExcludedAudit{MetadataID: c.MetadataID, SourceIndex: c.SourceIndex, Reason: c.Reason}
+			count.UnknownExcluded++
+		}
+		batch.rows = append(batch.rows, admittedRow{example: example, audit: audit})
+		count.RowsAdmitted = i + 1
+	}
+	if pos != len(rawData) {
+		return count, ErrRow
+	}
+	count.ConsumerAttempts++
+	err = consume(batch)
+	count.ConsumerReturned++
+	if err != nil {
+		return count, ErrConsumer
+	}
+	count.ConsumerSucceeded++
+	return count, nil
+}
+func matches(e shortclaimdata.Example, want RowPlan) bool {
+	m := e.Metadata()
+	s := e.Supervision()
+	input := e.Input().Prepared()
+	if m.StableID != want.StableID || m.Role != want.Role || m.WholeGroup != want.WholeGroup ||
+		m.SourceFamily != want.SourceFamily || m.SourceRevision != want.SourceRevision || m.TextRevision != want.TextRevision ||
+		m.FeaturePolicy != want.FeaturePolicy || input.Request != want.Request || input.Count != len(want.Candidates) || s.Count != input.Count {
+		return false
+	}
+	x := m.FiniteScope
+	w := want.FiniteScope
+	if x.InputCount != w.InputCount || x.CandidateObservations != w.CandidateObservations || x.Description != w.Description ||
+		x.AllInputGuarantee != w.AllInputGuarantee || x.UnseenSourceGuarantee != w.UnseenSourceGuarantee {
+		return false
+	}
+	for i, c := range want.Candidates {
+		if input.Candidates[i].ID != c.MetadataID || input.Candidates[i].Text != c.Text || s.Labels[i] != *c.Label || s.Weights[i] != *c.SampleWeight {
+			return false
+		}
+	}
+	for i := input.Count; i < len(s.Labels); i++ {
+		if s.Labels[i] || s.Weights[i] != 0 || input.Candidates[i].ID != "" || input.Candidates[i].Text != "" || input.Candidates[i].NormalizedText != "" {
+			return false
+		}
+	}
+	return true
+}

@@ -1,0 +1,34 @@
+{
+  "schema": "riido-variable-Go-fit-profile-design-v1",
+  "execution": false,
+  "environment": {
+    "Go": "go1.27.1",
+    "GOTOOLCHAIN": "local",
+    "GOPROXY": "off",
+    "GOSUMDB": "off",
+    "CGO_ENABLED": "0",
+    "GOMAXPROCS": 1,
+    "GOMEMLIMIT": "256MiB",
+    "whole_worker_wall_seconds_max": 300,
+    "observed_OS_peak_RSS_budget_bytes": 268435456
+  },
+  "fair_comparison": [
+    "Freeze exact joined row order, old held-out roles/denominator, baselines/ties and encoder/core source before evaluation. More rows change shuffle sequence and batches; that is data effect, not equal per-epoch compute.",
+    "Preserve zero-weight rows: removing them changes global normalization, shuffle/batch divisors and L2. New Root unit weights remain1.",
+    "Expose positive-position/shared negative-caption style bias; IDs/labels/ordinal never become features. Training-origin diagnostics stay separate from validation.",
+    "No warm-start, new seed, precision rewrite or optimizer tuning; failed historical models stay inactive."
+  ],
+  "memory": {
+    "layout": "Reuse owned CSR offsets/uint16indices/float64values +contiguous coefficients/gradients; one worker, no new locks/maps. Group-role slices preserve numeric IDs.",
+    "precision": "fp32 coefficients rounded before scoring; shadow weights/gradients/losses and CSR values are float64. Not an all-FP32-memory or native1.58-bit trainer.",
+    "format_estimates_not_measurements": {
+      "FP32_hbin_bytes": 32792,
+      "decoded_FP64_weights_bytes": 65536
+    },
+    "measure": "Record actual row/nonzero/CSR-owned bytes, peakGoheap/allocations, whole-child OS RSS/time and stage clocks. Softheap/postRSS are not OS hard enforcement."
+  },
+  "inference": "Later repeatable text normalization+Features+Score+ranking cold/warm latency/allocations/RSS requires its own frozen workload and same weights; training wall time or model file size is not inference/GPU quality.",
+  "profiling": "First actualFit may use bounded stage clocks. Optional pprof changes overhead/retained controls and needs a separate frozen workload/reservation; repeated corpus Fit still counts. Private profiles are not automatically public.",
+  "archive": "Fresh archive-aware scoped512MiB retained census with model/trace/controller/readback reservations; old disk pass does not prove RAM/current admission. Named executables stay fully charged.",
+  "GPU_MPS_Laya_backbone_used": false
+}
