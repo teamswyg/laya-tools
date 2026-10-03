@@ -1,0 +1,277 @@
+package pure
+
+import (
+	"io"
+	"io/fs"
+	"os"
+)
+
+func (f *FakeFS) syncView() {
+	f.o.DestinationExistsKnown = true
+	f.o.DestinationExists = f.exists
+	f.o.Contents = f.contents
+}
+func (f *FakeFS) emit(stage string, step int) error {
+	if f.failure != nil {
+		return f.failure
+	}
+	f.syncView()
+	e := Event{Ordinal: f.o.Fixture*CandidateCount + f.o.Candidate, Fixture: f.o.Fixture, Candidate: f.o.Candidate, Stage: stage, Step: step, Snapshot: f.o, Local: f.c, Cumulative: sum(f.base, f.c)}
+	pan, _ := capture(func() {
+		if f.checkpoint == nil || f.checkpoint(e) != nil {
+			f.failure = ErrCheckpoint
+		}
+	})
+	if pan {
+		f.failure = ErrCheckpoint
+	}
+	if f.failure != nil {
+		f.c.Stopped = true
+	}
+	return f.failure
+}
+func (f *FakeFS) before(method, name string, flags int, mode os.FileMode) (int, error) {
+	if f.failure != nil {
+		return 0, f.failure
+	}
+	if f.o.Trace.N >= MaxCalls {
+		f.failure = ErrBounds
+		f.c.Stopped = true
+		return 0, f.failure
+	}
+	i := f.o.Trace.N
+	if e := f.emit("before_"+method, i); e != nil {
+		return 0, e
+	}
+	f.o.Trace.Calls[i] = Call{Method: method, Name: name, Flags: flags, Mode: uint32(mode)}
+	f.o.Trace.N++
+	switch method {
+	case "mkdir_all":
+		f.o.Trace.MkdirAll++
+	case "stat":
+		f.o.Trace.Stat++
+	case "create":
+		f.o.Trace.Create++
+	case "open_file":
+		f.o.Trace.OpenFile++
+	case "read":
+		f.o.Trace.Read++
+	case "write":
+		f.o.Trace.Write++
+	case "close":
+		f.o.Trace.Close++
+	case "truncate":
+		f.o.Trace.Truncate++
+	default:
+		f.o.Trace.Unsupported = true
+	}
+	return i, nil
+}
+func (f *FakeFS) after(i, n int, hasN bool, b []byte, e error) error {
+	v := &f.o.Trace.Calls[i]
+	v.N = n
+	v.NKnown = hasN
+	v.ReturnedKnown = true
+	v.Returned = true
+	v.Error = presence(e)
+	if b != nil {
+		if len(b) > MaxBytes {
+			f.failure = ErrBounds
+			f.c.Stopped = true
+			return f.failure
+		}
+		v.Bytes = bytesOf(b)
+	}
+	return f.emit("after_"+v.Method, i)
+}
+func (f *FakeFS) hook() error {
+	if f.hookAttempted {
+		return nil
+	}
+	// Attempt is one per fresh candidate Fs; no Create/OpenFile delegation and
+	// no goroutine/sleep. The same rule applies to every candidate.
+	f.hookAttempted = true
+	if !f.fixture.Competition {
+		return nil
+	}
+	if e := f.emit("before_competition", -1); e != nil {
+		return e
+	}
+	f.exists = true
+	f.contents = bytesOf([]byte("old"))
+	f.o.Trace.HookRuns++
+	return f.emit("after_competition", -1)
+}
+func (f *FakeFS) MkdirAll(n string, m os.FileMode) error {
+	i, e := f.before("mkdir_all", n, 0, m)
+	if e != nil {
+		return e
+	}
+	if n != "data/" && n != "data" {
+		e = ErrUnsupported
+		f.o.Trace.Unsupported = true
+	}
+	if x := f.after(i, 0, false, nil, e); x != nil {
+		return x
+	}
+	return e
+}
+func (f *FakeFS) Stat(n string) (os.FileInfo, error) {
+	i, e := f.before("stat", n, 0, 0)
+	if e != nil {
+		return nil, e
+	}
+	if n != "data/item" {
+		e = ErrUnsupported
+		f.o.Trace.Unsupported = true
+	} else if !f.exists {
+		e = &os.PathError{Op: "stat", Path: n, Err: fs.ErrNotExist}
+	}
+	if x := f.after(i, 0, false, nil, e); x != nil {
+		return nil, x
+	}
+	if e != nil {
+		return nil, e
+	}
+	return fileInfo{size: int64(f.contents.N)}, nil
+}
+func (f *FakeFS) Create(n string) (io.WriteCloser, error) {
+	if e := f.hook(); e != nil {
+		return nil, e
+	}
+	i, e := f.before("create", n, 0, 0)
+	if e != nil {
+		return nil, e
+	}
+	if n != "data/item" {
+		e = ErrUnsupported
+		f.o.Trace.Unsupported = true
+	} else {
+		if f.exists {
+			f.o.Trace.CreateReplacements++
+		}
+		f.exists = true
+		f.contents = bytesOf([]byte{})
+	}
+	if x := f.after(i, 0, false, nil, e); x != nil {
+		return nil, x
+	}
+	if e != nil {
+		return nil, e
+	}
+	return &Destination{fs: f}, nil
+}
+func (f *FakeFS) OpenFile(n string, flags int, m os.FileMode) (io.WriteCloser, error) {
+	if e := f.hook(); e != nil {
+		return nil, e
+	}
+	i, e := f.before("open_file", n, flags, m)
+	if e != nil {
+		return nil, e
+	}
+	f.o.Trace.ExclusiveKnown = true
+	f.o.Trace.Exclusive = flags&(os.O_WRONLY|os.O_CREATE|os.O_EXCL) == os.O_WRONLY|os.O_CREATE|os.O_EXCL && flags&os.O_TRUNC == 0
+	if n != "data/item" || !f.o.Trace.Exclusive {
+		e = ErrUnsupported
+		f.o.Trace.Unsupported = true
+	} else if f.exists {
+		e = &os.PathError{Op: "open", Path: n, Err: fs.ErrExist}
+	} else {
+		f.exists = true
+		f.contents = bytesOf([]byte{})
+	}
+	if x := f.after(i, 0, false, nil, e); x != nil {
+		return nil, x
+	}
+	if e != nil {
+		return nil, e
+	}
+	return &Destination{fs: f}, nil
+}
+func (r *Source) Read(p []byte) (int, error) {
+	f := r.fs
+	i, e := f.before("read", "", 0, 0)
+	if e != nil {
+		return 0, e
+	}
+	n := 0
+	if len(p) == 0 {
+		e = nil
+	} else if r.position >= 3 {
+		if f.fixture.FailCopy {
+			e = ErrCopyCause
+		} else {
+			e = io.EOF
+		}
+	} else {
+		n = copy(p, []byte("new")[r.position:])
+		r.position += n
+		f.o.Trace.BytesRead += n
+	}
+	if x := f.after(i, n, true, p[:n], e); x != nil {
+		return n, x
+	}
+	return n, e
+}
+func (d *Destination) Write(p []byte) (int, error) {
+	f := d.fs
+	i, e := f.before("write", "", 0, 0)
+	if e != nil {
+		return 0, e
+	}
+	n := 0
+	if d.closed || len(p) > MaxBytes-f.contents.N {
+		e = ErrBounds
+		f.o.Trace.Unsupported = true
+	} else {
+		n = copy(f.contents.Data[f.contents.N:], p)
+		f.contents.N += n
+		f.o.Trace.BytesWritten += n
+	}
+	if x := f.after(i, n, true, p[:n], e); x != nil {
+		return n, x
+	}
+	return n, e
+}
+func (d *Destination) Close() error {
+	f := d.fs
+	i, e := f.before("close", "", 0, 0)
+	if e != nil {
+		return e
+	}
+	if d.closed {
+		e = ErrUnsupported
+		f.o.Trace.Unsupported = true
+	} else if f.fixture.FailClose {
+		e = ErrCloseCause
+	}
+	d.closed = true
+	if x := f.after(i, 0, false, nil, e); x != nil {
+		return x
+	}
+	return e
+}
+func (d *Destination) Truncate(n int64) error {
+	f := d.fs
+	i, e := f.before("truncate", "", 0, 0)
+	if e != nil {
+		return e
+	}
+	// No chosen candidate requires this method. Count its actual invocation,
+	// then reject rather than pretending Create replacement called Truncate.
+	f.o.Trace.Unsupported = true
+	if x := f.after(i, 0, false, nil, ErrUnsupported); x != nil {
+		return x
+	}
+	return ErrUnsupported
+}
+func (f *FakeFS) Unsupported(method string) error {
+	i, e := f.before(method, "", 0, 0)
+	if e != nil {
+		return e
+	}
+	if x := f.after(i, 0, false, nil, ErrUnsupported); x != nil {
+		return x
+	}
+	return ErrUnsupported
+}

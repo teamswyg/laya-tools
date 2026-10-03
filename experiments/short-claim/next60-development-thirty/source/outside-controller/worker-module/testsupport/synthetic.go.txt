@@ -1,0 +1,79 @@
+// Package testsupport provides owned fake callbacks only. No upstream imports.
+package testsupport
+
+import (
+	"errors"
+	"io"
+	"riido.local/remainingthreeprep/batch"
+	ini "riido.local/remainingthreeprep/internal/ini"
+	read "riido.local/remainingthreeprep/internal/read"
+	safe "riido.local/remainingthreeprep/internal/safe"
+	"riido.local/remainingthreeprep/workerio"
+)
+
+type file struct{}
+type section struct{}
+type key string
+
+func (file) DefaultSection() (ini.SectionHandle, error) { return section{}, nil }
+func (section) GetKey(k string) (ini.KeyHandle, error)  { return key(k), nil }
+func (k key) String() string {
+	if k == "a" {
+		return "1"
+	}
+	return "2"
+}
+func Inputs() batch.Inputs {
+	var in batch.Inputs
+	limit, invalid := errors.New("synthetic_limit"), errors.New("synthetic_invalid")
+	for i := range in.INI {
+		in.INI[i] = ini.CandidateSpec{InputLimitTarget: limit, InvalidLimitTarget: invalid, Load: func(s [2]io.ReadCloser, n int, l int64) (ini.FileHandle, error) {
+			if l < 0 {
+				return nil, invalid
+			}
+			total := 0
+			for k := 0; k < n; k++ {
+				b, e := io.ReadAll(s[k])
+				total += len(b)
+				_ = s[k].Close()
+				if e != nil {
+					return nil, e
+				}
+			}
+			if l > 0 && int64(total) > l {
+				return nil, limit
+			}
+			return file{}, nil
+		}}
+	}
+	in.Read = read.OwnedCandidates(func(fs *read.FakeFS, name string, l int64) ([]byte, error) {
+		f, e := fs.Open(name)
+		if e != nil {
+			return nil, e
+		}
+		defer f.Close()
+		return io.ReadAll(f)
+	})
+	in.Safe = safe.OwnedCandidates(func(fs *safe.FakeFS, name string, r io.Reader) error {
+		if e := fs.MkdirAll("data", 0755); e != nil {
+			return e
+		}
+		w, e := fs.Create(name)
+		if e != nil {
+			return e
+		}
+		_, ce := io.Copy(w, r)
+		return errors.Join(ce, w.Close())
+	})
+	return in
+}
+func Save(dir, sha string) ([]byte, string) {
+	w, code := workerio.Open(workerio.Config{PlanSHA: sha, Attempt: dir})
+	if code != "" {
+		w.Close()
+		return nil, code
+	}
+	defer w.Close()
+	r := batch.Execute(Inputs(), w.Checkpoint)
+	return w.Finish(workerio.Result{Schema: workerio.Schema, State: "complete", RunnerReturned: true, Worker: &r})
+}

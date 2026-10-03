@@ -1,0 +1,199 @@
+package compare
+
+import (
+	"io"
+	"os"
+	"path/filepath"
+	"riido.local/remainingthreeprep/workerio"
+	"strings"
+)
+
+const ConfigCap = 16 << 10
+
+type FilePin struct {
+	Pin  Pin    `json:"pin"`
+	Path string `json:"path"`
+}
+
+// This is a private saved-evidence reader recipe. Frozen means only that Root
+// fixed these file pins; it grants no new native/semantic/label authority.
+type Config struct {
+	Schema    string    `json:"schema"`
+	Frozen    bool      `json:"frozen"`
+	PlanSHA   string    `json:"plan_sha256"`
+	Fixture   FilePin   `json:"fixture"`
+	Files     []FilePin `json:"saved_files"`
+	Labels    bool      `json:"labels_assigned"`
+	Qualified bool      `json:"qualified"`
+}
+
+func cleanAbs(p string) bool {
+	return filepath.IsAbs(p) && filepath.Clean(p) == p && !strings.ContainsAny(p, "\x00\r\n")
+}
+func components(p string) bool {
+	if !cleanAbs(p) {
+		return false
+	}
+	for q := p; ; q = filepath.Dir(q) {
+		s, e := os.Lstat(q)
+		if e != nil || s.Mode()&os.ModeSymlink != 0 {
+			return false
+		}
+		if q == filepath.Dir(q) {
+			return true
+		}
+	}
+}
+func readRegular(p string, cap int) ([]byte, error) {
+	if !components(p) {
+		return nil, ErrInput
+	}
+	st, e := os.Lstat(p)
+	if e != nil || !st.Mode().IsRegular() || st.Size() < 1 || st.Size() > int64(cap) {
+		return nil, ErrInput
+	}
+	f, e := os.Open(p)
+	if e != nil {
+		return nil, ErrInput
+	}
+	before, be := f.Stat()
+	b, re := io.ReadAll(io.LimitReader(f, int64(cap)+1))
+	after, ae := f.Stat()
+	ce := f.Close()
+	end, ee := os.Lstat(p)
+	if be != nil || re != nil || ae != nil || ce != nil || ee != nil || len(b) > cap || int64(len(b)) != st.Size() || !os.SameFile(st, before) || !os.SameFile(st, after) || !os.SameFile(st, end) || st.Size() != after.Size() || st.Size() != end.Size() || !st.ModTime().Equal(after.ModTime()) || !st.ModTime().Equal(end.ModTime()) {
+		return nil, ErrInput
+	}
+	return b, nil
+}
+func ReadConfig(path, sha string) (Config, error) {
+	var c Config
+	if !validSHA(sha) {
+		return c, ErrInput
+	}
+	b, e := readRegular(path, ConfigCap)
+	if e != nil || workerio.SHA(b) != sha || !workerio.StrictDecode(b, &c, true) {
+		return c, ErrInput
+	}
+	if !validConfig(c) {
+		return c, ErrInput
+	}
+	return c, nil
+}
+func validConfig(c Config) bool {
+	if c.Schema != "riido-remaining-three-saved-comparison-config-v1" || !c.Frozen || !validSHA(c.PlanSHA) || c.Labels || c.Qualified || len(c.Files) != 5 || c.Fixture.Pin != (Pin{ID: "fixture", Bytes: workerio.FixtureBytes, SHA: workerio.FixtureSHA}) {
+		return false
+	}
+	ids := [5]string{"worker-result", "worker-stdout", "worker-reservation", "outside-result", "Root-actual-trial"}
+	caps := [5]int{InputCap, InputCap, workerio.MaxReservation, OutsideCap, OutsideCap}
+	seen := map[string]bool{}
+	all := append([]FilePin{c.Fixture}, c.Files...)
+	for i, p := range all {
+		if !cleanAbs(p.Path) || seen[p.Path] || !validSHA(p.Pin.SHA) || p.Pin.Bytes < 1 {
+			return false
+		}
+		seen[p.Path] = true
+		if i > 0 && (p.Pin.ID != ids[i-1] || p.Pin.Bytes > caps[i-1]) {
+			return false
+		}
+	}
+	return true
+}
+func readPinned(p FilePin, cap int) ([]byte, error) {
+	b, e := readRegular(p.Path, cap)
+	if e != nil || len(b) != p.Pin.Bytes || workerio.SHA(b) != p.Pin.SHA {
+		return nil, ErrInput
+	}
+	return b, nil
+}
+func ReadInput(c Config) (Input, error) {
+	var in Input
+	if !validConfig(c) {
+		return in, ErrInput
+	}
+	var e error
+	in.Fixture, e = readPinned(c.Fixture, workerio.FixtureBytes)
+	if e != nil {
+		return in, e
+	}
+	caps := [5]int{InputCap, InputCap, workerio.MaxReservation, OutsideCap, OutsideCap}
+	dst := [5]*[]byte{&in.Saved.Result, &in.Saved.Stdout, &in.Saved.Reservation, &in.Saved.Outside, &in.Saved.Trial}
+	in.Saved.PlanSHA = c.PlanSHA
+	for i, p := range c.Files {
+		b, e := readPinned(p, caps[i])
+		if e != nil {
+			return Input{}, e
+		}
+		*dst[i] = b
+		in.Saved.Pins = append(in.Saved.Pins, p.Pin)
+	}
+	return in, nil
+}
+func syncDirectory(p string) error {
+	f, e := os.Open(p)
+	if e != nil {
+		return ErrOutput
+	}
+	se, ce := f.Sync(), f.Close()
+	if se != nil || ce != nil {
+		return ErrOutput
+	}
+	return nil
+}
+func exclusive(p string, b []byte, cap int) error {
+	if len(b) == 0 || len(b) > cap {
+		return ErrOutput
+	}
+	f, e := os.OpenFile(p, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if e != nil {
+		return ErrOutput
+	}
+	n, we := f.Write(b)
+	se, ce := f.Sync(), f.Close()
+	if n != len(b) || we != nil || se != nil || ce != nil {
+		return ErrOutput
+	}
+	return nil
+}
+
+// RunFiles is the future Root-only saved reader. Preparation never invokes it.
+// Failed input/binding comparison still leaves an exclusive rejection receipt;
+// an interrupted write has no implied acknowledgment or automatic retry.
+func RunFiles(cfg, sha, out string) error {
+	c, e := ReadConfig(cfg, sha)
+	if e != nil {
+		return e
+	}
+	parent := filepath.Dir(out)
+	if !cleanAbs(out) || !components(parent) {
+		return ErrOutput
+	}
+	for _, p := range append([]FilePin{c.Fixture}, c.Files...) {
+		if p.Path == out || strings.HasPrefix(p.Path, out+string(filepath.Separator)) {
+			return ErrOutput
+		}
+	}
+	if cfg == out || strings.HasPrefix(cfg, out+string(filepath.Separator)) {
+		return ErrOutput
+	}
+	if os.Mkdir(out, 0700) != nil {
+		return ErrOutput
+	}
+	reservation := []byte("{\"schema\":\"riido-remaining-three-comparison-reservation-v1\",\"config_sha256\":\"" + sha + "\",\"native_calls\":0,\"labels_assigned\":false,\"qualified\":false}\n")
+	if exclusive(filepath.Join(out, "reservation.json"), reservation, 4096) != nil || syncDirectory(out) != nil || syncDirectory(parent) != nil {
+		return ErrOutput
+	}
+	in, e := ReadInput(c)
+	r := Report{Schema: "riido-remaining-three-saved-literal-comparison-v1", State: "rejected_before_comparison", Scope: "Fixed input/binding rejection; candidate semantics not compared."}
+	if e == nil {
+		r, e = Compare(in)
+	}
+	b, me := Marshal(r)
+	if me != nil {
+		return me
+	}
+	if exclusive(filepath.Join(out, "comparison.json"), b, OutputCap) != nil || syncDirectory(out) != nil {
+		return ErrOutput
+	}
+	return e
+}

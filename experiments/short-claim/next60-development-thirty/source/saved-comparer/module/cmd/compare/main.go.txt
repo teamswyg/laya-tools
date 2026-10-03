@@ -1,0 +1,43 @@
+// Future Root-only saved comparison reader. This main imports no original
+// packages and starts no child, model, API, getter or error formatter.
+package main
+
+import (
+	"example.com/riido-remaining-three-saved-comparison/compare"
+	"os"
+)
+
+func args(a []string) (cfg, sha, out string, ok bool) {
+	if len(a) != 6 {
+		return
+	}
+	seen := map[string]bool{}
+	for i := 0; i < 6; i += 2 {
+		if seen[a[i]] || a[i+1] == "" {
+			return
+		}
+		seen[a[i]] = true
+		switch a[i] {
+		case "--config":
+			cfg = a[i+1]
+		case "--config-sha256":
+			sha = a[i+1]
+		case "--out":
+			out = a[i+1]
+		default:
+			return
+		}
+	}
+	return cfg, sha, out, true
+}
+func main() {
+	c, s, o, ok := args(os.Args[1:])
+	if !ok {
+		_, _ = os.Stderr.WriteString("remaining_three_compare_arguments\n")
+		os.Exit(2)
+	}
+	if compare.RunFiles(c, s, o) != nil {
+		_, _ = os.Stderr.WriteString("remaining_three_compare_failed\n")
+		os.Exit(1)
+	}
+}

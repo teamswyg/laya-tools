@@ -1,0 +1,211 @@
+// Project-owned source preparation; no upstream imports in this package.
+package pure
+
+import (
+	"errors"
+	"io"
+	"os"
+	"reflect"
+	"time"
+)
+
+const (
+	FixtureCount   = 4
+	CandidateCount = 3
+	MaxBytes       = 5 // Historical common4 is not used to truncate the abcde read vector.
+	MaxCalls       = 24
+)
+
+var (
+	ErrInput       = errors.New("safewrite_input")
+	ErrCheckpoint  = errors.New("safewrite_checkpoint")
+	ErrBounds      = errors.New("safewrite_bounds")
+	ErrUnsupported = errors.New("safewrite_unsupported")
+	ErrCopyCause   = errors.New("copyCause")
+	ErrCloseCause  = errors.New("closeCause")
+)
+
+type Bytes struct {
+	Known bool
+	Nil   bool
+	N     int
+	Data  [MaxBytes]byte
+}
+type ErrorView struct {
+	Known      bool
+	Nil        bool
+	TypeKnown  bool
+	Type       string
+	PathKnown  bool
+	Op         string
+	Path       string
+	ExistKnown bool
+	Exist      bool
+	CopyKnown  bool
+	Copy       bool
+	CloseKnown bool
+	Close      bool
+}
+
+func presence(e error) ErrorView {
+	v := ErrorView{Known: true, Nil: e == nil}
+	if e != nil {
+		v.TypeKnown = true
+		v.Type = reflect.TypeOf(e).String()
+		if p, ok := e.(*os.PathError); ok {
+			v.PathKnown = true
+			v.Op = p.Op
+			v.Path = p.Path
+		}
+	}
+	return v // No Error/String/Formatter, Is or Unwrap calls.
+}
+
+type Call struct {
+	Method        string
+	Name          string
+	Flags         int
+	Mode          uint32
+	NKnown        bool
+	N             int
+	ReturnedKnown bool
+	Returned      bool
+	Bytes         Bytes
+	Error         ErrorView
+}
+type Trace struct {
+	N                  int
+	Calls              [MaxCalls]Call
+	MkdirAll           int
+	Stat               int
+	Create             int
+	OpenFile           int
+	Read               int
+	Write              int
+	Close              int
+	Truncate           int
+	BytesRead          int
+	BytesWritten       int
+	HookRuns           int
+	CreateReplacements int
+	ExclusiveKnown     bool
+	Exclusive          bool
+	Unsupported        bool
+}
+type Observation struct {
+	Fixture                int
+	Candidate              int
+	ReturnedKnown          bool
+	Returned               bool
+	PanicKnown             bool
+	Panic                  bool
+	PanicTypeKnown         bool
+	PanicType              string
+	PanicTextKnown         bool
+	Error                  ErrorView
+	DestinationExistsKnown bool
+	DestinationExists      bool
+	InitialContents        Bytes
+	Contents               Bytes
+	Trace                  Trace
+	InnerOriginalCalls     *int
+	StartupCalls           *int
+	Truth                  *string
+	Role                   *string
+	Weight                 *float64
+	Group                  *int
+}
+type Counters struct {
+	Reserved     int
+	Dispatched   int
+	Returned     int
+	Panicked     int
+	Completed    int
+	IsReserved   int
+	IsDispatched int
+	IsReturned   int
+	IsPanicked   int
+	Stopped      bool
+}
+type Event struct {
+	Ordinal    int
+	Fixture    int
+	Candidate  int
+	Stage      string
+	Step       int
+	Snapshot   Observation
+	Local      Counters
+	Cumulative Counters
+}
+type Checkpoint func(Event) error
+type Fixture struct {
+	Index         int
+	InitialExists bool
+	Competition   bool
+	FailCopy      bool
+	FailClose     bool
+}
+type Candidate func(*FakeFS, string, io.Reader) error
+type Candidates [CandidateCount]Candidate
+type Result struct {
+	Rows      [FixtureCount * CandidateCount]Observation
+	N         int
+	Counters  Counters
+	Failure   string
+	Qualified bool
+}
+type FakeFS struct {
+	fixture       Fixture
+	o             Observation
+	c             Counters
+	base          Counters
+	checkpoint    Checkpoint
+	failure       error
+	exists        bool
+	contents      Bytes
+	hookAttempted bool
+}
+type Destination struct {
+	fs     *FakeFS
+	closed bool
+}
+type Source struct {
+	fs       *FakeFS
+	position int
+}
+type Mkdir func(string, os.FileMode) error
+type OpenDestination func(string, int, os.FileMode) (io.WriteCloser, error)
+type fileInfo struct{ size int64 }
+
+func (f fileInfo) Name() string       { return "item" }
+func (f fileInfo) Size() int64        { return f.size }
+func (f fileInfo) Mode() os.FileMode  { return 0666 }
+func (f fileInfo) ModTime() time.Time { return time.Time{} }
+func (f fileInfo) IsDir() bool        { return false }
+func (f fileInfo) Sys() any           { return nil }
+func sum(a, b Counters) Counters {
+	return Counters{a.Reserved + b.Reserved, a.Dispatched + b.Dispatched, a.Returned + b.Returned, a.Panicked + b.Panicked, a.Completed + b.Completed, a.IsReserved + b.IsReserved, a.IsDispatched + b.IsDispatched, a.IsReturned + b.IsReturned, a.IsPanicked + b.IsPanicked, a.Stopped || b.Stopped}
+}
+func capture(fn func()) (pan bool, p any) {
+	returned := false
+	defer func() {
+		if !returned {
+			pan = true
+			p = recover()
+		}
+	}()
+	fn()
+	returned = true
+	return false, nil
+}
+func bytesOf(b []byte) Bytes {
+	x := Bytes{Known: true, Nil: b == nil, N: len(b)}
+	copy(x.Data[:], b)
+	return x
+}
+func panicType(p any) (string, bool) {
+	if t := reflect.TypeOf(p); t != nil {
+		return t.String(), true
+	}
+	return "", false
+}

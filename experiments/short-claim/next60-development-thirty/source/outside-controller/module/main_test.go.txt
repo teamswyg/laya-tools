@@ -1,0 +1,294 @@
+package main
+
+import (
+	"bytes"
+	"encoding/json"
+	"errors"
+	"os"
+	"path/filepath"
+	"riido.local/remainingthreeprep/testsupport"
+	"riido.local/remainingthreeprep/workerio"
+	"runtime/debug"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+)
+
+type fakeChild struct {
+	startErr, waitErr, killErr error
+	exit                       *int
+	release                    chan struct{}
+	start, wait, kill          int
+}
+
+func (f *fakeChild) Start() error { f.start++; return f.startErr }
+func (f *fakeChild) Wait() error {
+	f.wait++
+	if f.release != nil {
+		<-f.release
+	}
+	return f.waitErr
+}
+func (f *fakeChild) Exit() *int  { return f.exit }
+func (f *fakeChild) Kill() error { f.kill++; close(f.release); return f.killErr }
+func TestCancellationAndReapEvidence(t *testing.T) {
+	zero := 0
+	for _, x := range []struct {
+		name                                    string
+		timer, overflow, killFail, missingState bool
+	}{{"timeout", true, false, false, false}, {"kill_failure_still_join", true, false, true, false}, {"capture_cap", false, true, false, false}, {"joined_missing_ProcessState", true, false, false, true}} {
+		t.Run(x.name, func(t *testing.T) {
+			f := &fakeChild{exit: &zero, release: make(chan struct{})}
+			if x.killFail {
+				f.killErr = errors.New("fake")
+			}
+			if x.missingState {
+				f.exit = nil
+			}
+			timer := make(chan time.Time, 1)
+			cap := make(chan struct{})
+			if x.timer {
+				timer <- time.Time{}
+			}
+			if x.overflow {
+				close(cap)
+			}
+			p, code := lifecycle(f, timer, cap)
+			if f.start != 1 || f.wait != 1 || f.kill != 1 || !p.WaitReturned || p.KillAttempts != 1 || code == "" || p.Reaped == x.missingState || p.KillSucceeded == nil || *p.KillSucceeded == x.killFail {
+				t.Fatal("once/join/unknown counter")
+			}
+		})
+	}
+	f := &fakeChild{startErr: errors.New("fake")}
+	p, code := lifecycle(f, nil, nil)
+	if f.start != 1 || f.wait != 1 || f.kill != 0 || p.Started || p.Reaped || p.ExitCode != nil || code != "Start_failed_no_reap" {
+		t.Fatal("failed Start cannot prove reap")
+	}
+}
+func TestSharedBoundedCaptureSignal(t *testing.T) {
+	signal := make(chan struct{})
+	once := new(sync.Once)
+	a, b := &bytes.Buffer{}, &bytes.Buffer{}
+	x := &capture{file: a, cap: 3, signal: signal, once: once}
+	y := &capture{file: b, cap: 2, signal: signal, once: once}
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() { defer wg.Done(); _, _ = x.Write([]byte("1234")) }()
+	go func() { defer wg.Done(); _, _ = y.Write([]byte("123")) }()
+	wg.Wait()
+	if !x.Overflow || !y.Overflow || a.String() != "123" || b.String() != "12" {
+		t.Fatal("capture retained bound")
+	}
+	select {
+	case <-signal:
+	default:
+		t.Fatal("no cancellation")
+	}
+}
+func fakeComplete(t *testing.T) (string, string, []byte) {
+	t.Helper()
+	sha := strings.Repeat("b", 64)
+	dir := filepath.Join(t.TempDir(), "child")
+	raw, code := testsupport.Save(dir, sha)
+	if code != "" {
+		t.Fatalf("synthetic owned flow: %s", code)
+	}
+	return dir, sha, raw
+}
+func completeProcess() Process {
+	zero := 0
+	return Process{StartAttempts: 1, Started: true, WaitAttempts: 1, WaitReturned: true, Reaped: true, ExitCode: &zero}
+}
+func validMetrics() Metrics {
+	r := int64(10485760)
+	v := .01
+	return Metrics{RSS: &r, Real: &v, User: &v, System: &v}
+}
+func TestFull42ACKSourceAndFinalAgreement(t *testing.T) {
+	dir, sha, raw := fakeComplete(t)
+	r := Result{PlanSHA: sha, Process: completeProcess(), Metrics: validMetrics()}
+	collect(dir, sha, &r)
+	if code := accept(&r, dir, raw); code != "" || r.KnownCompleted == nil || *r.KnownCompleted != 42 || r.KnownCounters == nil || r.KnownCounters.Source.Returned == 0 || !r.FinalACK {
+		t.Fatalf("new complete metadata binding: %s", code)
+	}
+	// Changing the reported Source counter must reject even when all42 rows
+	// and the journal byte-chain remain identical.
+	var changed workerio.Result
+	if !workerio.StrictDecode(raw, &changed, true) {
+		t.Fatal("decode")
+	}
+	changed.Worker.Counters.Source.Returned++
+	fake := encoded(changed)
+	if _, ok := workerio.AssessComplete(fake, *r.Prefix, sha); ok {
+		t.Fatal("Source equality lost")
+	}
+	if _, ok := workerio.AssessComplete(raw, *r.Prefix, strings.Repeat("c", 64)); ok {
+		t.Fatal("plan binding lost")
+	}
+}
+func TestPhysicalPrefixNeverAcknowledgesCompletion(t *testing.T) {
+	dir, sha, raw := fakeComplete(t)
+	b, e := os.ReadFile(filepath.Join(dir, "journal.jsonl"))
+	if e != nil {
+		t.Fatal(e)
+	}
+	end := bytes.IndexByte(b, '\n') + 1
+	j := workerio.ReadJournal(bytes.NewReader(b[:end+7]))
+	if j.Frames != 1 || j.Tail != "incomplete_frame" {
+		t.Fatal("physical prefix shape")
+	}
+	if _, ok := workerio.AssessComplete(raw, j, sha); ok {
+		t.Fatal("prefix acknowledged")
+	}
+	j = workerio.ReadJournal(bytes.NewReader(append([]byte{}, b[:len(b)-1]...)))
+	if j.Tail != "incomplete_frame" {
+		t.Fatal("missing LF not retained")
+	}
+	for _, mut := range []func(*workerio.Result){func(r *workerio.Result) { r.Transport.LastSequence-- }, func(r *workerio.Result) { r.Transport.JournalClosed = false }, func(r *workerio.Result) { r.Transport.Stopped = true }} {
+		var r workerio.Result
+		_ = json.Unmarshal(raw, &r)
+		mut(&r)
+		if _, ok := workerio.AssessComplete(encoded(r), workerio.ReadJournal(bytes.NewReader(b)), sha); ok {
+			t.Fatal("incomplete receipt accepted")
+		}
+	}
+}
+func TestStrictArraysKeysAndReservation(t *testing.T) {
+	dir, sha, raw := fakeComplete(t)
+	var m map[string]any
+	_ = json.Unmarshal(raw, &m)
+	w := m["worker"].(map[string]any)
+	w["Rows"] = append(w["Rows"].([]any), nil)
+	extra, _ := json.Marshal(m)
+	var r workerio.Result
+	if workerio.StrictDecode(append(extra, '\n'), &r, true) {
+		t.Fatal("array43 accepted")
+	}
+	// Case aliases and omitted null fields must not merge typed channels.
+	alias := bytes.Replace(raw, []byte(`"qualified":false`), []byte(`"Qualified":false`), 1)
+	if workerio.StrictDecode(alias, &r, true) {
+		t.Fatal("case alias")
+	}
+	missing := bytes.Replace(raw, []byte(`"inner_original_calls":null,`), nil, 1)
+	if workerio.StrictDecode(missing, &r, true) {
+		t.Fatal("missing null")
+	}
+	res, e := os.ReadFile(filepath.Join(dir, "reservation.json"))
+	if e != nil || !workerio.ValidateReservation(res, sha) || workerio.ValidateReservation(res, strings.Repeat("a", 64)) {
+		t.Fatal("reservation pin")
+	}
+}
+func TestUnknownProcessAndStdoutDoNotExposeCounts(t *testing.T) {
+	dir, sha, raw := fakeComplete(t)
+	for _, kind := range []string{"timeout", "missing_exit", "different_stdout"} {
+		r := Result{PlanSHA: sha, Process: completeProcess(), Metrics: validMetrics()}
+		collect(dir, sha, &r)
+		out := raw
+		switch kind {
+		case "timeout":
+			r.Process.Timeout = true
+		case "missing_exit":
+			r.Process.ExitCode = nil
+			r.Process.Reaped = false
+		case "different_stdout":
+			out = append([]byte{}, raw[:len(raw)-1]...)
+		}
+		if accept(&r, dir, out) == "" || r.KnownCounters != nil || r.KnownCompleted != nil || r.FinalACK {
+			t.Fatal("unknown count invented")
+		}
+	}
+}
+func TestFreshPhysicalSeparationAndExactArguments(t *testing.T) {
+	parent, e := filepath.EvalSymlinks(t.TempDir())
+	if e != nil {
+		t.Fatal("canonical temporary root")
+	}
+	source := filepath.Join(parent, "source")
+	_ = os.Mkdir(source, 0700)
+	if !separated(source, filepath.Join(parent, "attempt"), true) || separated(source, filepath.Join(source, "attempt"), true) || separated(source, filepath.Join(parent, "SOURCE"), true) {
+		t.Fatal("source/ancestor alias")
+	}
+	link := filepath.Join(parent, "alias")
+	if os.Symlink(source, link) != nil {
+		t.Fatal("symlink setup")
+	}
+	if separated(source, filepath.Join(link, "attempt"), true) {
+		t.Fatal("symlink parent")
+	}
+	good := []string{"--config", filepath.Join(parent, "config.json"), "--config-sha256", strings.Repeat("a", 64), "--out", filepath.Join(parent, "attempt")}
+	if _, _, _, ok := parseArgs(good); !ok {
+		t.Fatal("strict args")
+	}
+	good[4] = "--config"
+	if _, _, _, ok := parseArgs(good); ok {
+		t.Fatal("duplicate args")
+	}
+}
+func TestMetricsAndStaticBuildBoundary(t *testing.T) {
+	raw := []byte("0.87 real 0.01 user 0.04 sys\n18677760 maximum resident set size\n")
+	m := metrics(raw)
+	if m.RSS == nil || *m.RSS != 18677760 || m.Real == nil {
+		t.Fatal("metrics")
+	}
+	if metrics(append(raw, raw...)).RSS != nil || metrics([]byte("nan real 0 user 0 sys\n")).Real != nil {
+		t.Fatal("ambiguous/nonfinite metrics")
+	}
+	i := &debug.BuildInfo{GoVersion: "go1.27.1", Path: "pkg", Main: debug.Module{Path: "module"}, Settings: []debug.BuildSetting{{Key: "GOOS", Value: "darwin"}, {Key: "GOARCH", Value: "arm64"}, {Key: "CGO_ENABLED", Value: "0"}, {Key: "-trimpath", Value: "true"}, {Key: "-buildmode", Value: "exe"}}}
+	if !buildInfoOK(i, "module", "pkg") {
+		t.Fatal("static metadata")
+	}
+	i.Settings[2].Value = "1"
+	if buildInfoOK(i, "module", "pkg") {
+		t.Fatal("CGO mismatch")
+	}
+}
+
+func TestRootConfigArityCaseAndReservation(t *testing.T) {
+	c := Config{Schema: ConfigSchema, Frozen: true, ExecutionReady: true, SourceRoot: "/source", Child: "/attempt", WorkerModule: "riido.local/remainingthreeprep/native", WorkerPackage: "riido.local/remainingthreeprep/native/cmd/observe", WorkerOutputReserve: WorkerOutputReserve, OutsideOutputReserve: OutsideOutputReserve}
+	for _, id := range []string{"root/source", "root/compiler", "root/rights", "root/resource"} {
+		c.RootReceipts = append(c.RootReceipts, Pin{ID: id})
+	}
+	if _, ok := parseConfig(encoded(c)); !ok {
+		t.Fatal("declared fake config shape")
+	}
+	for _, n := range []int{0, 3, 5} {
+		copy := c
+		copy.RootReceipts = make([]Pin, n)
+		if _, ok := parseConfig(encoded(copy)); ok {
+			t.Fatal("receipt arity")
+		}
+	}
+	low := c
+	low.WorkerOutputReserve--
+	if _, ok := parseConfig(encoded(low)); ok {
+		t.Fatal("unreserved output")
+	}
+	if _, ok := parseConfig(bytes.Replace(encoded(c), []byte(`"frozen"`), []byte(`"Frozen"`), 1)); ok {
+		t.Fatal("case alias")
+	}
+	c.ExecutionReady = false
+	if _, ok := parseConfig(encoded(c)); ok {
+		t.Fatal("inactive intent")
+	}
+	j := workerio.ReadJournal(bytes.NewReader(bytes.Repeat([]byte{'x'}, workerio.MaxFrame+1)))
+	if j.Tail != "budget_overflow" || j.Completed != 0 {
+		t.Fatal("overlong row lost overflow/unknown")
+	}
+}
+
+func TestReturnedPartialAuthorityAndCounterShape(t *testing.T) {
+	dir, sha, raw := fakeComplete(t)
+	_ = dir
+	if workerio.PartialResult(raw, sha) != "saved_unaccepted_report_ACK_unknown" {
+		t.Fatal("unaccepted full report must remain ACK unknown")
+	}
+	for _, mut := range []func(*workerio.Result){func(r *workerio.Result) { r.Worker.Qualified = true }, func(r *workerio.Result) { r.Transport.Counters.Source.Returned = -1 }, func(r *workerio.Result) { r.Transport.Frames = 1903 }} {
+		var r workerio.Result
+		_ = json.Unmarshal(raw, &r)
+		mut(&r)
+		if workerio.PartialResult(encoded(r), sha) != "invalid" {
+			t.Fatal("malformed partial authority/counters accepted")
+		}
+	}
+}

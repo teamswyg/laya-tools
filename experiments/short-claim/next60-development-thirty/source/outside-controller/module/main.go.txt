@@ -1,0 +1,394 @@
+// Source preparation for one fixed remaining-three observation, stdlib and
+// copied owned pure DTOs only. Root must separately freeze/admit an executable.
+package main
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"io"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"riido.local/remainingthreeprep/batch"
+	"riido.local/remainingthreeprep/workerio"
+	"runtime"
+	"runtime/debug"
+	"sync"
+	"syscall"
+	"time"
+)
+
+const OutsideSchema = "riido-remaining-three-outside-result-v1"
+
+type FileFact struct {
+	ID       string  `json:"id"`
+	Present  bool    `json:"present"`
+	Regular  bool    `json:"regular"`
+	Bytes    *int64  `json:"bytes"`
+	SHA      *string `json:"sha256"`
+	Overflow bool    `json:"overflow"`
+}
+type Result struct {
+	Schema               string                      `json:"schema"`
+	State                string                      `json:"state"`
+	Failure              string                      `json:"failure_code"`
+	ConfigSHA            string                      `json:"config_sha256"`
+	PlanSHA              string                      `json:"plan_sha256"`
+	Process              Process                     `json:"process"`
+	Metrics              Metrics                     `json:"metrics"`
+	Bindings             []PinFact                   `json:"byte_bindings_not_approval"`
+	Artifacts            []FileFact                  `json:"physical_worker_artifacts"`
+	Prefix               *workerio.JournalAssessment `json:"physical_journal_prefix_not_ACK"`
+	SavedResultState     string                      `json:"saved_result_state"`
+	KnownCounters        *batch.Counters             `json:"accepted_complete_counters"`
+	KnownCompleted       *int                        `json:"accepted_completed_observations"`
+	FinalACK             bool                        `json:"final_ACK_accepted"`
+	StdoutEqual          bool                        `json:"full_stdout_equal_final"`
+	WorkerOutputReserve  int64                       `json:"worker_output_reserve_bytes"`
+	OutsideOutputReserve int64                       `json:"outside_output_reserve_bytes"`
+	InnerCalls           *int                        `json:"inner_original_calls"`
+	StartupCalls         *int                        `json:"startup_calls"`
+	Retries              int                         `json:"retries"`
+	LabelsAssigned       bool                        `json:"labels_assigned"`
+	Qualified            bool                        `json:"qualified"`
+	ExecutionReady       bool                        `json:"execution_ready"`
+}
+
+func syncDir(p string) error {
+	f, e := os.Open(p)
+	if e != nil {
+		return errOutside
+	}
+	s, c := f.Sync(), f.Close()
+	if s != nil || c != nil {
+		return errOutside
+	}
+	return nil
+}
+func writeExclusive(p string, b []byte, cap int) error {
+	if len(b) > cap {
+		return errOutside
+	}
+	f, e := os.OpenFile(p, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if e != nil {
+		return errOutside
+	}
+	n, w := f.Write(b)
+	s, c := f.Sync(), f.Close()
+	if n != len(b) || w != nil || s != nil || c != nil {
+		return errOutside
+	}
+	return nil
+}
+func encoded(v any) []byte {
+	b, e := json.Marshal(v)
+	if e != nil {
+		return nil
+	}
+	return append(b, '\n')
+}
+func parseArgs(a []string) (cfg, sha, out string, ok bool) {
+	if len(a) != 6 {
+		return
+	}
+	seen := map[string]bool{}
+	for i := 0; i < 6; i += 2 {
+		if seen[a[i]] || a[i+1] == "" {
+			return
+		}
+		seen[a[i]] = true
+		switch a[i] {
+		case "--config":
+			cfg = a[i+1]
+		case "--config-sha256":
+			sha = a[i+1]
+		case "--out":
+			out = a[i+1]
+		default:
+			return
+		}
+	}
+	ok = absClean(cfg) && validSHA(sha) && absClean(out)
+	return
+}
+
+type realChild struct{ cmd *exec.Cmd }
+
+func (h *realChild) Start() error { return h.cmd.Start() }
+func (h *realChild) Wait() error  { return h.cmd.Wait() }
+func (h *realChild) Exit() *int {
+	if h.cmd.ProcessState == nil {
+		return nil
+	}
+	x := h.cmd.ProcessState.ExitCode()
+	return &x
+}
+func (h *realChild) Kill() error {
+	if h.cmd.Process == nil {
+		return errOutside
+	}
+	return syscall.Kill(-h.cmd.Process.Pid, syscall.SIGKILL)
+}
+func artifact(path, id string, cap int64) (f FileFact) {
+	f.ID = id
+	s, e := os.Lstat(path)
+	if e != nil {
+		return
+	}
+	f.Present = true
+	f.Regular = s.Mode().IsRegular()
+	n := s.Size()
+	f.Bytes = &n
+	f.Overflow = n > cap
+	if f.Regular && !f.Overflow {
+		h := sha256.New()
+		in, e := os.Open(path)
+		if e == nil {
+			before, be := in.Stat()
+			n, e := io.Copy(h, io.LimitReader(in, cap+1))
+			after, ae := in.Stat()
+			ce := in.Close()
+			if e == nil && be == nil && ae == nil && ce == nil && os.SameFile(s, before) && os.SameFile(s, after) && n == s.Size() && after.Size() == s.Size() && s.ModTime().Equal(after.ModTime()) {
+				x := hex.EncodeToString(h.Sum(nil))
+				f.SHA = &x
+			}
+		}
+	}
+	return
+}
+func journal(path string) (workerio.JournalAssessment, bool) {
+	var z workerio.JournalAssessment
+	s, e := os.Lstat(path)
+	if e != nil || !s.Mode().IsRegular() || s.Size() > workerio.MaxJournal {
+		return z, false
+	}
+	f, e := os.Open(path)
+	if e != nil {
+		return z, false
+	}
+	o, e := f.Stat()
+	if e != nil || !os.SameFile(s, o) {
+		_ = f.Close()
+		return z, false
+	}
+	j := workerio.ReadJournal(io.LimitReader(f, workerio.MaxJournal+1))
+	a, ae := f.Stat()
+	ce := f.Close()
+	return j, ae == nil && ce == nil && os.SameFile(s, a) && s.Size() == a.Size() && s.ModTime().Equal(a.ModTime())
+}
+func collect(child, sha string, r *Result) {
+	for _, x := range []struct {
+		n   string
+		cap int64
+	}{{"reservation.json", workerio.MaxReservation}, {"journal.jsonl", workerio.MaxJournal}, {"results.json", workerio.MaxResult}} {
+		r.Artifacts = append(r.Artifacts, artifact(filepath.Join(child, x.n), x.n, x.cap))
+	}
+	if j, ok := journal(filepath.Join(child, "journal.jsonl")); ok {
+		r.Prefix = &j
+	}
+	raw, _, e := regular(filepath.Join(child, "results.json"), workerio.MaxResult, true)
+	if e == nil {
+		r.SavedResultState = workerio.PartialResult(raw, sha)
+	} else {
+		r.SavedResultState = "absent_oversize_or_unreadable"
+	}
+}
+func accept(r *Result, child string, stdout []byte) string {
+	if !r.Process.Started || r.Process.StartAttempts != 1 || r.Process.WaitAttempts != 1 || !r.Process.WaitReturned || !r.Process.Reaped || r.Process.ExitCode == nil || *r.Process.ExitCode != 0 || r.Process.Timeout || r.Process.Overflow {
+		return "process_incomplete_counts_unknown"
+	}
+	if r.Metrics.RSS == nil || r.Metrics.Real == nil || r.Metrics.User == nil || r.Metrics.System == nil {
+		return "OS_metrics_unknown"
+	}
+	if *r.Metrics.RSS > 268435456 {
+		return "observed_RSS_budget"
+	}
+	raw, _, e := regular(filepath.Join(child, "results.json"), workerio.MaxResult, false)
+	if e != nil || !bytes.Equal(raw, stdout) {
+		return "stdout_final_mismatch"
+	}
+	r.StdoutEqual = true
+	res, _, e := regular(filepath.Join(child, "reservation.json"), workerio.MaxReservation, false)
+	if e != nil || !workerio.ValidateReservation(res, r.PlanSHA) {
+		return "worker_reservation"
+	}
+	if r.Prefix == nil {
+		return "journal_unknown"
+	}
+	c, ok := workerio.AssessComplete(raw, *r.Prefix, r.PlanSHA)
+	if !ok {
+		return "worker_final_ACK_or_counts"
+	}
+	r.KnownCounters = &c
+	x := 42
+	r.KnownCompleted = &x
+	r.FinalACK = true
+	return ""
+}
+func run(args []string) int {
+	cfgPath, cfgSHA, out, ok := parseArgs(args)
+	if !ok {
+		return 2
+	}
+	raw, _, e := regular(cfgPath, EvidenceCap, false)
+	if e != nil || workerio.SHA(raw) != cfgSHA {
+		return 2
+	}
+	c, ok := parseConfig(raw)
+	if !ok {
+		return 2
+	}
+	self, e := os.Executable()
+	if e != nil {
+		return 2
+	}
+	self, e = filepath.EvalSymlinks(self)
+	if e != nil {
+		return 2
+	}
+	facts, code := gate(c, self, c.Plan.SHA, out, true)
+	if code != "" {
+		return 2
+	}
+	if !noSymlinks(cfgPath) || contains(out, cfgPath) || contains(c.Child, cfgPath) {
+		return 2
+	}
+	if os.Mkdir(out, 0700) != nil {
+		return 2
+	}
+	r := Result{Schema: OutsideSchema, State: "failed", Failure: "before_Start", ConfigSHA: cfgSHA, PlanSHA: c.Plan.SHA, Bindings: facts, WorkerOutputReserve: WorkerOutputReserve, OutsideOutputReserve: OutsideOutputReserve}
+	// Durable outside reservation and result placeholder precede any Start.
+	marker := encoded(struct {
+		Schema         string `json:"schema"`
+		ConfigSHA      string `json:"config_sha256"`
+		PlanSHA        string `json:"plan_sha256"`
+		WorkerReserve  int64  `json:"worker_output_reserve_bytes"`
+		OutsideReserve int64  `json:"outside_output_reserve_bytes"`
+	}{"riido-remaining-three-outside-reservation-v1", cfgSHA, c.Plan.SHA, WorkerOutputReserve, OutsideOutputReserve})
+	if writeExclusive(filepath.Join(out, "RESERVED.json"), marker, 4096) != nil || syncDir(out) != nil || syncDir(filepath.Dir(out)) != nil {
+		return 2
+	}
+	final, e := os.OpenFile(filepath.Join(out, "result.json"), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if e != nil {
+		return 2
+	}
+	if final.Sync() != nil {
+		_ = final.Close()
+		return 2
+	}
+	finish := func() int {
+		b := encoded(r)
+		if len(b) == 0 || len(b) > 64<<10 {
+			_ = final.Close()
+			return 2
+		}
+		n, w := final.Write(b)
+		s, ce := final.Sync(), final.Close()
+		de := syncDir(out)
+		if n != len(b) || w != nil || s != nil || ce != nil || de != nil {
+			return 2
+		}
+		if r.State == "complete_observation_transport" {
+			return 0
+		}
+		return 1
+	}
+	stdout, e := os.OpenFile(filepath.Join(out, "stdout.private"), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if e != nil {
+		r.Failure = "capture_reserve"
+		return finish()
+	}
+	stderr, e := os.OpenFile(filepath.Join(out, "stderr.private"), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if e != nil {
+		_ = stdout.Close()
+		r.Failure = "capture_reserve"
+		return finish()
+	}
+	stop := make(chan struct{})
+	once := new(sync.Once)
+	sc := &capture{file: stdout, cap: workerio.MaxResult, signal: stop, once: once}
+	ec := &capture{file: stderr, cap: 64 << 10, signal: stop, once: once}
+	intent := encoded(struct {
+		Schema        string `json:"schema"`
+		ConfigSHA     string `json:"config_sha256"`
+		PlanSHA       string `json:"plan_sha256"`
+		StartAttempts int    `json:"Start_dispatch_intent"`
+		Retry         int    `json:"retries"`
+	}{"riido-remaining-three-before-Start-v1", cfgSHA, c.Plan.SHA, 1, 0})
+	closeCaptures := func() bool {
+		a, b := stdout.Sync(), stderr.Sync()
+		x, y := stdout.Close(), stderr.Close()
+		return a == nil && b == nil && x == nil && y == nil
+	}
+	if stdout.Sync() != nil || stderr.Sync() != nil || writeExclusive(filepath.Join(out, "START-RESERVED.json"), intent, 4096) != nil || syncDir(out) != nil || syncDir(filepath.Dir(out)) != nil {
+		_ = closeCaptures()
+		r.Failure = "before_Start_Sync"
+		return finish()
+	}
+	// Rehash all declared bytes immediately before Start. Root must keep inputs
+	// stable through execution; cached compiler attestation remains Root-owned.
+	_, code = gate(c, self, c.Plan.SHA, out, false)
+	again, _, ae := regular(cfgPath, EvidenceCap, false)
+	if code != "" || ae != nil || !bytes.Equal(again, raw) {
+		_ = closeCaptures()
+		r.Failure = "before_Start_pin_changed"
+		return finish()
+	}
+	cmd := exec.Command(c.Time.Path, "-l", c.Worker.Path, "--plan", c.Plan.Path, "--plan-sha256", c.Plan.SHA, "--attempt-dir", c.Child)
+	cmd.Dir = c.SourceRoot
+	cmd.Env = []string{"PATH=/usr/bin:/bin", "LANG=C", "LC_ALL=C", "GOMAXPROCS=1", "GOMEMLIMIT=268435456", "GODEBUG=panicnil=0"}
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	cmd.WaitDelay = 2 * time.Second
+	cmd.Stdout = sc
+	cmd.Stderr = ec
+	timer := time.NewTimer(60 * time.Second)
+	r.Process, r.Failure = lifecycle(&realChild{cmd}, timer.C, stop)
+	timer.Stop()
+	// Wait and cap readiness can race. Retained cap evidence remains a failure
+	// even when the already-ready Wait branch won the select.
+	r.Process.Overflow = r.Process.Overflow || sc.Overflow || ec.Overflow
+	if r.Process.Overflow && r.Failure == "" {
+		r.Failure = "capture_overflow_prefix_unknown"
+	}
+	if !closeCaptures() || sc.WriteFailed || ec.WriteFailed {
+		r.Failure = "capture_persistence_unknown"
+	}
+	collect(c.Child, c.Plan.SHA, &r)
+	errraw, _, ee := regular(filepath.Join(out, "stderr.private"), 64<<10, true)
+	if ee == nil && r.Process.Started && r.Process.WaitReturned && r.Process.Reaped {
+		r.Metrics = metrics(errraw)
+	}
+	if r.Failure != "" {
+		return finish()
+	}
+	outRaw, _, oe := regular(filepath.Join(out, "stdout.private"), workerio.MaxResult, false)
+	if oe != nil {
+		r.Failure = "stdout_unreadable"
+		return finish()
+	}
+	// Post-join immutable input checks cannot require the now-existing child to
+	// remain absent, so reverify hashes/build metadata and exact worker preflight.
+	for i, p := range append([]Pin{c.Worker, c.Self, c.Plan, c.Time}, c.RootReceipts...) {
+		cap := int64(EvidenceCap)
+		if i == 0 || i == 1 || i == 3 {
+			cap = BinaryCap
+		}
+		if _, e := verify(p, cap); e != nil {
+			r.Failure = "post_join_pin_changed"
+			return finish()
+		}
+	}
+	again, _, ae = regular(cfgPath, EvidenceCap, false)
+	if ae != nil || !bytes.Equal(again, raw) || workerio.VerifyWorkerInputs(c.Plan.Path, c.Plan.SHA, c.Child) != "" {
+		r.Failure = "post_join_source_changed"
+		return finish()
+	}
+	r.Failure = accept(&r, c.Child, outRaw)
+	if r.Failure == "" {
+		r.State = "complete_observation_transport"
+	}
+	return finish()
+}
+func main() { runtime.GOMAXPROCS(1); debug.SetMemoryLimit(268435456); os.Exit(run(os.Args[1:])) }

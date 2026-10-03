@@ -1,0 +1,152 @@
+package thirtycontract
+
+import (
+	"encoding/json"
+	"strings"
+	"testing"
+)
+
+func ptr[T any](v T) *T { return &v }
+
+// Everything below is authored synthetic metadata, not a Root qualification.
+// There is no filesystem input reader or runtime corpus invocation in these tests.
+func synthetic() (Decision, Decision, Qualification, Pin) {
+	p := Pin{1, strings.Repeat("1", 64)}
+	c := Decision{Schema: "riido-next60-Root-whole-family-group-decision-v1", State: "Root_adopted", Authority: "Root synthetic", Mode: 27, Registry: registryPin, ExistingMax: 78, OldUnchanged: ptr(true), Previous: prefixPin, Sub: subPin, Ini: iniPin, Groups: append([]Group{}, families[:]...), Order: append([]string{}, appendIDs[:4]...), Allocated: 3}
+	d := c
+	d.Mode = 30
+	d.Order = append([]string{}, appendIDs[:]...)
+	d.Additional = &p
+	d.Groups = append([]Group{}, c.Groups...)
+	q := Qualification{Schema: "riido-remaining-three-Root-finite-development-qualification-v1", State: "Root_adopted_three_finite_semantic_requests_data_materialization_separate", UnknownNeverFalse: ptr(true)}
+	for i := range 3 {
+		g := families[familyIndex[i]]
+		r := Request{ID: appendIDs[i+4], Request: requests[i], Family: g.Family, Revision: g.Revision, Scope: "owned synthetic scope", Base: ptr(bases[i]), Inputs: inputs[i], Pending: ptr(true), TextRevision: "owned-synthetic-only", Observations: inputs[i] * 3, Excluded: []json.RawMessage{}}
+		for j := range 3 {
+			x := Selected{Index: ptr(j), ID: candidateIDs[j], Text: captions[i][j], Truth: ptr(j == 0), Role: "development_train", Weight: 1, Known: []int{}, Unknown: []int{}, Retained: []Unknown{}}
+			for f := range r.Inputs {
+				x.Ordinals = append(x.Ordinals, bases[i]+f*3+j)
+				x.Vector = append(x.Vector, "satisfied")
+			}
+			if j != 0 {
+				x.Vector[0] = "unsatisfied"
+				x.Known = []int{0}
+			}
+			r.Selected = append(r.Selected, x)
+		}
+		q.Requests = append(q.Requests, r)
+	}
+	return c, d, q, p
+}
+func TestConditionalCountsAndNoReferencePrivilege(t *testing.T) {
+	c, d, q, p := synthetic()
+	got, err := checkMetadata(c, d, q, p)
+	if err != nil || got != (Counts{Requests: 30, Labels: 88, Positive: 30, Negative: 58, Inputs: 146, Full: 434, Selected: 430, PositiveSelectedIndex1: 24}) {
+		t.Fatalf("synthetic correspondence: %+v %v", got, err)
+	}
+	// All positives are source position0; position1 is a known-F in this toy.
+	if *q.Requests[0].Selected[1].Truth {
+		t.Fatal("synthetic construction")
+	}
+}
+func TestKnownFalseWithUnknownIsRetained(t *testing.T) {
+	c, d, q, p := synthetic()
+	x := &q.Requests[0].Selected[1]
+	x.Vector[1] = "unknown"
+	x.Unknown = []int{1}
+	x.Retained = []Unknown{{1, "identity", "unavailable in owned synthetic"}}
+	got, err := checkMetadata(c, d, q, p)
+	if err != nil || got.RetainedUnknown != 1 || got.Negative != 58 {
+		t.Fatalf("F+U: %+v %v", got, err)
+	}
+}
+func TestUnknownOnlyCannotBecomeNegative(t *testing.T) {
+	c, d, q, p := synthetic()
+	x := &q.Requests[0].Selected[1]
+	x.Known = []int{}
+	x.Vector[0] = "unknown"
+	x.Unknown = []int{0}
+	if _, err := checkMetadata(c, d, q, p); err == nil {
+		t.Fatal("unknown-only false accepted")
+	}
+}
+func TestFilteredSourcePositionsKeepOriginalOrdinals(t *testing.T) {
+	c, d, q, p := synthetic()
+	for i := range q.Requests {
+		r := &q.Requests[i]
+		r.Selected = []Selected{r.Selected[0], r.Selected[2]}
+		r.Observations = r.Inputs * 2
+		r.Excluded = []json.RawMessage{json.RawMessage(`{"source_candidate_position":1,"reason":"owned synthetic exclusion; no actual decision"}`)}
+	}
+	got, err := checkMetadata(c, d, q, p)
+	if err != nil || got.Labels != 85 || got.Selected != 416 || got.Excluded != 3 {
+		t.Fatalf("filtered: %+v %v", got, err)
+	}
+	q.Requests[0].Selected[1].Ordinals[0] = 1
+	if _, err := checkMetadata(c, d, q, p); err == nil {
+		t.Fatal("renumbered source accepted")
+	}
+}
+func TestMetadataFaults(t *testing.T) {
+	tests := []struct {
+		name   string
+		change func(*Decision, *Decision, *Qualification, *Pin)
+	}{
+		{"current27_reused", func(c, d *Decision, q *Qualification, p *Pin) { *d = *c }},
+		{"missing_new_pin", func(c, d *Decision, q *Qualification, p *Pin) { d.Additional = nil }},
+		{"wrong_new_pin", func(c, d *Decision, q *Qualification, p *Pin) { x := *p; x.Bytes++; d.Additional = &x }},
+		{"changed_existing_role", func(c, d *Decision, q *Qualification, p *Pin) { d.Groups[0].Role = "validation" }},
+		{"changed_family_group", func(c, d *Decision, q *Qualification, p *Pin) { d.Groups[0].ID = 82 }},
+		{"wrong_append_order", func(c, d *Decision, q *Qualification, p *Pin) { d.Order[4], d.Order[5] = d.Order[5], d.Order[4] }},
+		{"request_rewrite", func(c, d *Decision, q *Qualification, p *Pin) { q.Requests[0].Request += "!" }},
+		{"caption_rewrite", func(c, d *Decision, q *Qualification, p *Pin) { q.Requests[0].Selected[0].Text += "!" }},
+		{"wrong_base", func(c, d *Decision, q *Qualification, p *Pin) { q.Requests[1].Base = ptr(0) }},
+		{"null_truth", func(c, d *Decision, q *Qualification, p *Pin) { q.Requests[0].Selected[0].Truth = nil }},
+		{"positive_unknown", func(c, d *Decision, q *Qualification, p *Pin) {
+			q.Requests[0].Selected[0].Retained = []Unknown{{0, "channel", "unavailable"}}
+		}},
+		{"nonunit_weight", func(c, d *Decision, q *Qualification, p *Pin) { q.Requests[0].Selected[1].Weight = 0 }},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c, d, q, p := synthetic()
+			tt.change(&c, &d, &q, &p)
+			if _, err := checkMetadata(c, d, q, p); err == nil {
+				t.Fatal("fault accepted")
+			}
+		})
+	}
+}
+func TestStrictMetadataShapes(t *testing.T) {
+	_, _, q, _ := synthetic()
+	raw, err := json.Marshal(q)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var decoded Qualification
+	if err = decodeView(raw, &decoded); err != nil {
+		t.Fatal(err)
+	}
+	for _, bad := range []string{
+		strings.Replace(string(raw), `"schema":`, `"Schema":`, 1),
+		strings.Replace(string(raw), `"schema":`, `"schema":"duplicate","schema":`, 1),
+		strings.Replace(string(raw), `"connected_group":null,`, ``, 1),
+		strings.Replace(string(raw), `"truth":true`, `"truth":"true"`, 1),
+		strings.Replace(string(raw), `"scope":"owned synthetic scope"`, `"scope":"\ud800"`, 1),
+	} {
+		if decodeView([]byte(bad), &decoded) == nil {
+			t.Fatal("malformed shape accepted")
+		}
+	}
+}
+func TestExternalPinsBeforeParsing(t *testing.T) {
+	// Synthetic data can exercise structural guards but cannot impersonate the
+	// fixed historical input pin. No actual current Root file is read here.
+	_, d, q, _ := synthetic()
+	dr, _ := json.Marshal(d)
+	qr, _ := json.Marshal(q)
+	e := Envelope{CurrentDecision: []byte(`{}`), FutureDecision: dr, RemainingQualification: qr, FutureDecisionPin: Pin{len(dr), digest(dr)}, RemainingPin: Pin{len(qr), digest(qr)}}
+	if _, err := Validate(e); err != failure("external_input_pin") {
+		t.Fatalf("pin gate: %v", err)
+	}
+}

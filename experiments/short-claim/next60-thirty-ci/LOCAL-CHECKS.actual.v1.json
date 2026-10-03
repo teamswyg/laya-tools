@@ -1,0 +1,128 @@
+{
+  "schema": "riido-thirty-local-verification-v1",
+  "created_utc": "2026-10-03T06:33:58.026Z",
+  "state": "actual_local_checks_passed_before_PR",
+  "Go_version": "1.27.1",
+  "source_base_commit": "37b4282316cfc5b8808f4d063164e15481fafbce",
+  "checks": {
+    "repository_race_exit": 0,
+    "repository_vet_exit": 0,
+    "owned_Go_format_unformatted_files": 0,
+    "redacted_gitleaks_exit": 0,
+    "redacted_gitleaks_findings": 0,
+    "offline_five_owned_modules_and_data30_reproduction_exit": 0,
+    "Reader30_and_saved111_exit": 0,
+    "finite_companion_synthetic_race_exit": 0
+  },
+  "verifier_source_pins": [
+    {
+      "path": "cmd/riido-developmentverify/finite.go",
+      "bytes": 11431,
+      "sha256": "36a3d5a322f3d514ba06168135cb888c43e814bf79ea6c00ffe0200c902252d9"
+    },
+    {
+      "path": "cmd/riido-developmentverify/finite_golden.go",
+      "bytes": 38880,
+      "sha256": "d1a6bfa59b0f7eafb04402f827b8ce4f24fa75f6a493ef38cf70838ab4dd0acc"
+    },
+    {
+      "path": "cmd/riido-developmentverify/finite_test.go",
+      "bytes": 4341,
+      "sha256": "4847b0e5db5d6ccb87c86c95765409f60a0cadb58d93834e45abaa2dcd8227b8"
+    },
+    {
+      "path": "cmd/riido-developmentverify/main.go",
+      "bytes": 13939,
+      "sha256": "aa04cf3d2a462164412dda8d7608fff248f0dde108dd69392b137d62e8a1a582"
+    },
+    {
+      "path": "cmd/riido-developmentverify/main_test.go",
+      "bytes": 4536,
+      "sha256": "892eb6b5c3c77536b7ad0cb63cc830450d2b94c09ffe34ee722bfbbb78ebacc2"
+    },
+    {
+      "path": "cmd/riido-developmentverify/metadata.go",
+      "bytes": 4604,
+      "sha256": "e2a69c3c252a146a65160d1ee01bfe04fff1b635d7c49c963fba1297dff6d51e"
+    },
+    {
+      "path": "cmd/riido-developmentverify/spec.go",
+      "bytes": 3814,
+      "sha256": "dd434f71cc421bd3c3794a3df42e3cb152b8b420da7982a419034c6be48948fc"
+    }
+  ],
+  "retained_private_log_pins": [
+    {
+      "id": "PUBLIC30-REPO-RACE.actual.v1.stdout",
+      "bytes": 7783,
+      "sha256": "685e64d5f83581eee47b0b6e6225f989040fbda7b9a181aa74e45131233575e4"
+    },
+    {
+      "id": "PUBLIC30-REPO-RACE.actual.v1.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "PUBLIC30-REPO-VET.actual.v1.stdout",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "PUBLIC30-REPO-VET.actual.v1.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "PUBLIC30-CI.actual.v2.stdout",
+      "bytes": 1884,
+      "sha256": "98928b4c9665a363b17989f546b3014fd54dec88642b564f09d3a54a807b2c23"
+    },
+    {
+      "id": "PUBLIC30-CI.actual.v2.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "PUBLIC111-TARGET-RACE.actual.v1.stdout",
+      "bytes": 71,
+      "sha256": "76d06b9c43c8b965173fd9e623dcd9784054d582c0910c03f174723bd6c4aacd"
+    },
+    {
+      "id": "PUBLIC30-SECRETS.actual.v2.json",
+      "bytes": 3,
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    }
+  ],
+  "Reader30_predicates111_public_pin": {
+    "path": "READER-PREDICATES.actual.v1.json",
+    "bytes": 3325,
+    "sha256": "82ddb456c701bfec6640503d389adf53c36efaa4a8d39cf52a16d0cabd8a6caa"
+  },
+  "source_review": {
+    "new_Reader_core_required_patches": 0,
+    "new_finite_companion_and_Root_wiring_required_patches": 0,
+    "nonblind_prior_helper_author_relations_disclosed": true
+  },
+  "preserved_first_local_CI_failure": {
+    "exit_code": 1,
+    "phase": "owned_workerio_synthetic_test",
+    "cause": "The reconstruction script omitted the pinned basis fixture from the temporary module tree.",
+    "correction": "Copy the same pinned public fixture into the expected basis directories; source and frozen data unchanged.",
+    "original_candidate_or_model_calls": 0
+  },
+  "new_finite_verifier_scope": {
+    "Reader_dispatches": 30,
+    "Reader_returns": 30,
+    "Reader_value_matches": 30,
+    "saved_rows": 42,
+    "saved_predicates": 111,
+    "retained_unknown_metadata": 8,
+    "original_worker_reexecution_verified": false,
+    "semantic_predicates_recomputed": false,
+    "new_corpus_Fit_calls": 0,
+    "new_logical_models": 0
+  },
+  "GitHub_CI_for_new_PR_pending": true,
+  "HF30_publication_pending": true,
+  "scope": "Local actual checks for finite development data and owned Go verification. No model quality, GPU, memory benchmark, unseen-source guarantee, role allocation or new label authority."
+}

@@ -1,0 +1,27 @@
+package thirtycontract
+
+var currentPin = Pin{8532, "0f40a95368cfaf19463eb02332c67201ba9f0666b435b8ac7f3e65002bcaa2f8"}
+var prefixPin = Pin{31493, "39edb1bb60e88d56cb2fec271b511a5ce09a0ff8bd33ce21d0dda7defb3ce362"}
+var subPin = Pin{11174, "bf6091b7bd2efb71c3500928de7fbfae1a881b9d0bc4a169e986dadb5e850f45"}
+var iniPin = Pin{12642, "af30996775580d777fa756f9308818e3ce3a3ad027ee08129f7a0c50e50b4969"}
+var registryPin = Pin{37421, "deca202ac5d457d67781257e8cab980979fc55e8fda32a23954f1caf6ff8b8b2"}
+var appendIDs = [7]string{"next60-afero-sub-validation", "go53-retryhttp-request-body-snapshot", "next60-ini-quoted-comments", "next60-ini-delete-index", "next60-ini-byte-budget", "next60-afero-bounded-read", "next60-afero-exclusive-write"}
+var families = [3]Group{
+	{"upstream53-afero", "eb6a92826ea568e3f40ab91fcbda8d2b38b61d3e", 79, "development_train"},
+	{"upstream53-retryablehttp", "fd004584a46724fae09e2f21d7c382e15c893f42", 80, "development_train"},
+	{"upstream53-ini", "e2db55b0e088fa4ee0c128aa4ade263cdc1d7f08", 81, "development_train"},
+}
+var familyIndex = [3]int{2, 0, 0}
+var inputs = [3]int{5, 5, 4}
+var bases = [3]int{0, 15, 30}
+var candidateIDs = [3]string{"baseline-design", "reference-design", "wrong-seed-design"}
+var requests = [3]string{
+	"Add an optional total input-byte limit across all INI sources, returning a distinct limit error instead of accepting a silently truncated configuration.",
+	"Add ReadFileLimit with a documented maximum byte count, distinguishing an oversized file from read failure without returning a silently truncated success.",
+	"Make SafeWriteReader acquire its destination with exclusive creation instead of an existence check followed by truncating Create.",
+}
+var captions = [3][3]string{
+	{"LoadSources converts all data sources then calls Reload; LoadOptions has buffer size but no total input-byte budget.", "Share a checked remaining-byte counter across sources, probe one extra byte to distinguish exact EOF/overflow, propagate read causes without silently truncated success.", "Use io.LimitReader without overflow detection, or reset the allowance for every source."},
+	{"ReadFile reads whole contents and uses Stat size only as a capacity estimate, not an enforceable caller limit.", "Check limit before opening, read at most limit+1 with bounded capacity independent of Stat, propagate reader errors and close exactly once.", "Trust Stat and allocate/read unbounded, or silently return the first limit bytes as success."},
+	{"SafeWriteReader calls Exists then Create, with deferred Close joined into the copy result; existence check and creation are distinct operations.", "OpenFile with O_WRONLY|O_CREATE|O_EXCL instead of relying on Exists+Create; preserve parent preparation, joined copy/close causes and declared existing-file refusal.", "Keep Exists+Create; or exclusive-create correctly but drop deferred close error."},
+}

@@ -1,0 +1,212 @@
+package compare
+
+import (
+	"bytes"
+	"encoding/json"
+	"math"
+	"reflect"
+	"riido.local/remainingthreeprep/batch"
+	"riido.local/remainingthreeprep/workerio"
+)
+
+type process struct {
+	StartAttempts int     `json:"Start_attempts"`
+	Started       bool    `json:"Start_succeeded"`
+	WaitAttempts  int     `json:"Wait_attempts"`
+	WaitReturned  bool    `json:"Wait_returned"`
+	Reaped        bool    `json:"reaped"`
+	Exit          *int    `json:"exit_code"`
+	Timeout       bool    `json:"timeout"`
+	Overflow      bool    `json:"capture_overflow"`
+	KillAttempts  int     `json:"group_kill_attempts"`
+	KillSucceeded *bool   `json:"group_kill_succeeded"`
+	Wall          float64 `json:"controller_wall_seconds"`
+}
+type metrics struct {
+	RSS    *int64   `json:"whole_child_maximum_RSS_bytes"`
+	Real   *float64 `json:"OS_real_seconds"`
+	User   *float64 `json:"OS_user_seconds"`
+	System *float64 `json:"OS_system_seconds"`
+	Scope  string   `json:"scope"`
+}
+type fact struct {
+	ID    string `json:"id"`
+	Bytes int64  `json:"bytes"`
+	SHA   string `json:"sha256"`
+	Match bool   `json:"match"`
+}
+type artifact struct {
+	ID       string  `json:"id"`
+	Present  bool    `json:"present"`
+	Regular  bool    `json:"regular"`
+	Bytes    *int64  `json:"bytes"`
+	SHA      *string `json:"sha256"`
+	Overflow bool    `json:"overflow"`
+}
+
+// Exact field order matches sealed outside main.go; canonical byte comparison
+// prevents fixed-array tails, missing nulls and case aliases from being merged.
+type outside struct {
+	Schema         string                      `json:"schema"`
+	State          string                      `json:"state"`
+	Failure        string                      `json:"failure_code"`
+	ConfigSHA      string                      `json:"config_sha256"`
+	PlanSHA        string                      `json:"plan_sha256"`
+	Process        process                     `json:"process"`
+	Metrics        metrics                     `json:"metrics"`
+	Bindings       []fact                      `json:"byte_bindings_not_approval"`
+	Artifacts      []artifact                  `json:"physical_worker_artifacts"`
+	Prefix         *workerio.JournalAssessment `json:"physical_journal_prefix_not_ACK"`
+	SavedState     string                      `json:"saved_result_state"`
+	Counters       *batch.Counters             `json:"accepted_complete_counters"`
+	Completed      *int                        `json:"accepted_completed_observations"`
+	ACK            bool                        `json:"final_ACK_accepted"`
+	StdoutEqual    bool                        `json:"full_stdout_equal_final"`
+	WorkerReserve  int64                       `json:"worker_output_reserve_bytes"`
+	OutsideReserve int64                       `json:"outside_output_reserve_bytes"`
+	Inner          *int                        `json:"inner_original_calls"`
+	Startup        *int                        `json:"startup_calls"`
+	Retries        int                         `json:"retries"`
+	Labels         bool                        `json:"labels_assigned"`
+	Qualified      bool                        `json:"qualified"`
+	Ready          bool                        `json:"execution_ready"`
+}
+type Trial struct {
+	Schema             string `json:"schema"`
+	PlanSHA            string `json:"plan_sha256"`
+	Result             Pin    `json:"worker_result"`
+	Stdout             Pin    `json:"worker_stdout"`
+	Reservation        Pin    `json:"worker_reservation"`
+	Outside            Pin    `json:"outside_result"`
+	OutsideExit        *int   `json:"outside_exit_code"`
+	OutsideInvocations int    `json:"outside_invocations"`
+}
+
+func validSHA(s string) bool {
+	if len(s) != 64 {
+		return false
+	}
+	for _, c := range s {
+		if !(c >= '0' && c <= '9' || c >= 'a' && c <= 'f') {
+			return false
+		}
+	}
+	return true
+}
+func goodFloat(x *float64) bool { return x != nil && !math.IsNaN(*x) && !math.IsInf(*x, 0) && *x >= 0 }
+func savedPins(s Saved) error {
+	if !validSHA(s.PlanSHA) || len(s.Pins) != 5 {
+		return ErrInput
+	}
+	raws := [5][]byte{s.Result, s.Stdout, s.Reservation, s.Outside, s.Trial}
+	caps := [5]int{InputCap, InputCap, workerio.MaxReservation, OutsideCap, OutsideCap}
+	ids := [5]string{"worker-result", "worker-stdout", "worker-reservation", "outside-result", "Root-actual-trial"}
+	for i, p := range s.Pins {
+		if p.ID != ids[i] || p.Bytes < 1 || p.Bytes > caps[i] || p.Bytes != len(raws[i]) || !validSHA(p.SHA) || workerio.SHA(raws[i]) != p.SHA {
+			return ErrInput
+		}
+	}
+	return nil
+}
+func bind(s Saved) ([42]batch.Snapshot, error) {
+	var none [42]batch.Snapshot
+	if savedPins(s) != nil {
+		return none, ErrInput
+	}
+	var t Trial
+	if !workerio.StrictDecode(s.Trial, &t, true) || t.Schema != "riido-remaining-three-actual-trial-binding-v1" || t.PlanSHA != s.PlanSHA || t.OutsideExit == nil || *t.OutsideExit != 0 || t.OutsideInvocations != 1 || t.Result != s.Pins[0] || t.Stdout != s.Pins[1] || t.Reservation != s.Pins[2] || t.Outside != s.Pins[3] {
+		return none, ErrBinding
+	}
+	if !bytes.Equal(s.Result, s.Stdout) || !workerio.ValidateReservation(s.Reservation, s.PlanSHA) {
+		return none, ErrBinding
+	}
+	r, ok := workerio.SavedFinal(s.Result, s.PlanSHA)
+	if !ok {
+		return none, ErrBinding
+	}
+	var o outside
+	if !workerio.StrictDecode(s.Outside, &o, true) || o.Schema != "riido-remaining-three-outside-result-v1" || o.State != "complete_observation_transport" || o.Failure != "" || !validSHA(o.ConfigSHA) || o.PlanSHA != s.PlanSHA || o.Completed == nil || *o.Completed != 42 || o.Counters == nil || *o.Counters != r.Worker.Counters || !o.ACK || !o.StdoutEqual || o.Inner != nil || o.Startup != nil || o.Labels || o.Qualified || o.Ready || o.Retries != 0 || o.WorkerReserve != 40005632 || o.OutsideReserve != 2097152 || o.SavedState != "saved_unaccepted_report_ACK_unknown" {
+		return none, ErrBinding
+	}
+	p, m := o.Process, o.Metrics
+	if p.StartAttempts != 1 || !p.Started || p.WaitAttempts != 1 || !p.WaitReturned || !p.Reaped || p.Exit == nil || *p.Exit != 0 || p.Timeout || p.Overflow || p.KillAttempts != 0 || p.KillSucceeded != nil || math.IsNaN(p.Wall) || math.IsInf(p.Wall, 0) || p.Wall < 0 || p.Wall > 60 || m.RSS == nil || *m.RSS < 1 || *m.RSS > 268435456 || !goodFloat(m.Real) || !goodFloat(m.User) || !goodFloat(m.System) {
+		return none, ErrBinding
+	}
+	if len(o.Bindings) != 8 || len(o.Artifacts) != 3 || o.Prefix == nil {
+		return none, ErrBinding
+	}
+	seen := map[string]bool{}
+	for i, f := range o.Bindings {
+		cap := int64(128 << 10)
+		if i == 0 || i == 1 || i == 3 {
+			cap = 8 << 20
+		}
+		if f.ID == "" || len(f.ID) > 128 || seen[f.ID] || f.Bytes < 1 || f.Bytes > cap || !validSHA(f.SHA) || !f.Match {
+			return none, ErrBinding
+		}
+		seen[f.ID] = true
+	}
+	// Source/compiler/rights/resource byte bindings must all exist. Their
+	// underlying meaning and original launch approval remain Root-owned.
+	for _, id := range []string{"root/source", "root/compiler", "root/rights", "root/resource"} {
+		if !seen[id] {
+			return none, ErrBinding
+		}
+	}
+	planMatches := 0
+	for _, f := range o.Bindings {
+		if f.SHA == s.PlanSHA {
+			planMatches++
+		}
+	}
+	if planMatches != 1 || o.Bindings[2].SHA != s.PlanSHA {
+		return none, ErrBinding
+	}
+	for _, f := range o.Bindings[4:] {
+		if f.ID != "root/source" && f.ID != "root/compiler" && f.ID != "root/rights" && f.ID != "root/resource" {
+			return none, ErrBinding
+		}
+	}
+	for i, id := range []string{"reservation.json", "journal.jsonl", "results.json"} {
+		a := o.Artifacts[i]
+		if a.ID != id || !a.Present || !a.Regular || a.Bytes == nil || a.SHA == nil || !validSHA(*a.SHA) || a.Overflow {
+			return none, ErrBinding
+		}
+		if i == 0 && (*a.Bytes != int64(s.Pins[2].Bytes) || *a.SHA != s.Pins[2].SHA) || i == 2 && (*a.Bytes != int64(s.Pins[0].Bytes) || *a.SHA != s.Pins[0].SHA) {
+			return none, ErrBinding
+		}
+		if i == 1 && (*a.Bytes < 1 || *a.Bytes > workerio.MaxJournal) {
+			return none, ErrBinding
+		}
+	}
+	j, a := o.Prefix, r.Transport
+	if j.Tail != "complete_physical_prefix_no_ACK" || j.Frames != a.Frames || j.Bytes != a.Bytes || j.SHA != a.LastSHA || j.Completed != 42 || j.Counters != a.Counters || a.Counters != r.Worker.Counters || *o.Artifacts[1].Bytes != int64(j.Bytes) || !reflect.DeepEqual(a.LastSnapshot, &r.Worker.Rows[41]) {
+		return none, ErrBinding
+	}
+	// This is a Root-pinned outside ACK, not independent journal replay: no
+	// journal is copied or rerun, and no physical row alone proves Sync.
+	return r.Worker.Rows, nil
+}
+func Compare(in Input) (Report, error) {
+	r := Report{Schema: "riido-remaining-three-saved-literal-comparison-v1", State: "rejected_before_comparison", Scope: "Binding/fixture rejection; no candidate semantics or qualification computed."}
+	w, e := documents(in.Fixture)
+	if e != nil {
+		return r, e
+	}
+	rows, e := bind(in.Saved)
+	if e != nil {
+		return r, e
+	}
+	r = compareRows(w, rows)
+	r.PlanSHA = in.Saved.PlanSHA
+	r.FixturePin = Pin{ID: "fixture", Bytes: workerio.FixtureBytes, SHA: workerio.FixtureSHA}
+	r.SavedPins = append([]Pin{}, in.Saved.Pins...)
+	return r, nil
+}
+func Marshal(r Report) ([]byte, error) {
+	b, e := json.Marshal(r)
+	if e != nil || len(b)+1 > OutputCap {
+		return nil, ErrOutput
+	}
+	return append(b, '\n'), nil
+}

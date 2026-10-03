@@ -1,0 +1,20 @@
+package pure
+
+// These realizations copy the five sealed objects; case04 supplies the separately
+// frozen abcd stream, two normal bytes followed by the owned sentinel. No old
+// Want predicate is added for the partial returned data in that error-only case.
+func Fixtures() [FixtureCount]Fixture {
+	return [FixtureCount]Fixture{
+		{Index: 0, Limit: 4, Contents: [MaxFileBytes]byte{'a', 'b', 'c', 'd'}, ContentN: 4, StatSize: 4, FailAfter: -1},
+		{Index: 1, Limit: 4, Contents: [MaxFileBytes]byte{'a', 'b', 'c', 'd', 'e'}, ContentN: 5, StatSize: 5, FailAfter: -1},
+		{Index: 2, Limit: 4, Contents: [MaxFileBytes]byte{'a', 'b', 'c', 'd', 'e'}, ContentN: 5, StatSize: 0, FailAfter: -1},
+		{Index: 3, Limit: 4, Contents: [MaxFileBytes]byte{'a', 'b', 'c', 'd'}, ContentN: 4, StatSize: 4, FailAfter: 2},
+		{Index: 4, Limit: -1, ContentN: 0, StatSize: 0, FailAfter: -1},
+	}
+}
+func validFixture(f Fixture) bool {
+	if f.Index < 0 || f.Index >= FixtureCount {
+		return false
+	}
+	return f == Fixtures()[f.Index]
+}

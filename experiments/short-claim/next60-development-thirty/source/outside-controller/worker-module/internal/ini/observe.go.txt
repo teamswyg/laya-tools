@@ -1,0 +1,446 @@
+package pure
+
+import (
+	"errors"
+	"io"
+	"reflect"
+)
+
+// The closed native binder supplies these three ABI wrappers. Pure tests use
+// owned callbacks only. None of these interfaces format an upstream error.
+type FileHandle interface{ DefaultSection() (SectionHandle, error) }
+type SectionHandle interface {
+	GetKey(string) (KeyHandle, error)
+}
+type KeyHandle interface{ String() string }
+type Loader func([MaxSources]io.ReadCloser, int, int64) (FileHandle, error)
+type CandidateSpec struct {
+	Load               Loader
+	InputLimitTarget   error // Actual fork sentinel, never the pure sentinel.
+	InvalidLimitTarget error // Actual fork sentinel, never an error-text match.
+}
+type Candidates [3]CandidateSpec
+
+const MaxSourceCalls = 16
+const MaxGetters = 5
+const MaxIdentityCalls = 2
+
+var ErrObserveInput = errors.New("ini_observe_input")
+var ErrObserveStopped = errors.New("ini_observe_stopped")
+
+type Boundary struct{ Reserved, Dispatched, Returned, Panicked int }
+type ObserveCounters struct {
+	Candidate, Source, Getter, Identity Boundary
+	Completed                           int
+	Stopped                             bool
+}
+type ErrorView struct {
+	Known, Nil, TypeKnown                                        bool
+	Type                                                         string
+	InputLimitKnown, InputLimit, InvalidLimitKnown, InvalidLimit bool
+	InjectedKnown, Injected                                      bool
+}
+type PanicView struct {
+	Known, Present, TypeKnown bool
+	Type                      string
+}
+type SourceCall struct {
+	Source, Requested, N            int
+	Method                          string
+	ReturnedKnown, Returned, NKnown bool
+	DataKnown                       bool
+	Data                            [MaxSourceBytes]byte
+	Error                           ErrorView
+	Panic                           PanicView
+}
+type GetterCall struct {
+	Method, Key             string
+	ReturnedKnown, Returned bool
+	ErrorAvailable          bool
+	Error                   ErrorView
+	Panic                   PanicView
+}
+type IdentityCall struct {
+	Target                                     string
+	ReturnedKnown, Returned, ValueKnown, Value bool
+	Panic                                      PanicView
+}
+type KeyView struct {
+	Known bool
+	Value string
+}
+type Observation struct {
+	Fixture, Candidate               int
+	ReturnedKnown, Returned          bool
+	Panic                            PanicView
+	FileKnown, FileNil               bool
+	Error                            ErrorView
+	A, B                             KeyView
+	SourceN                          int
+	Sources                          [MaxSourceCalls]SourceCall
+	Reads, Closes, Delivered         [MaxSources]int
+	GetterN                          int
+	Getters                          [MaxGetters]GetterCall
+	IdentityN                        int
+	Identities                       [MaxIdentityCalls]IdentityCall
+	InnerOriginalCalls, StartupCalls *int
+	Truth, Role                      *string
+	Weight                           *float64
+	Group                            *int
+}
+type Event struct {
+	Ordinal, Fixture, Candidate, Step int
+	Stage                             string
+	Snapshot                          Observation
+	Local, Cumulative                 ObserveCounters
+}
+type Checkpoint func(Event) error
+type Result struct {
+	Rows      [15]Observation
+	N         int
+	Counters  ObserveCounters
+	Failure   string
+	Qualified bool
+}
+
+func AddCounters(a, b ObserveCounters) ObserveCounters {
+	add := func(x, y Boundary) Boundary {
+		return Boundary{x.Reserved + y.Reserved, x.Dispatched + y.Dispatched, x.Returned + y.Returned, x.Panicked + y.Panicked}
+	}
+	return ObserveCounters{add(a.Candidate, b.Candidate), add(a.Source, b.Source), add(a.Getter, b.Getter), add(a.Identity, b.Identity), a.Completed + b.Completed, a.Stopped || b.Stopped}
+}
+func errorPresence(e error) ErrorView {
+	v := ErrorView{Known: true, Nil: e == nil}
+	if e != nil {
+		v.TypeKnown = true
+		v.Type = reflect.TypeOf(e).String()
+	}
+	return v
+}
+func captureCall(fn func()) (pan bool, p any) {
+	returned := false
+	defer func() {
+		if !returned {
+			pan = true
+			p = recover()
+		}
+	}()
+	fn()
+	returned = true
+	return false, nil
+}
+func panicView(pan bool, p any) PanicView {
+	v := PanicView{Known: true, Present: pan}
+	if pan {
+		if t := reflect.TypeOf(p); t != nil {
+			v.TypeKnown = true
+			v.Type = t.String()
+		}
+	}
+	return v // Never Error/String/Formatter or panic text.
+}
+
+type session struct {
+	o       Observation
+	c, base ObserveCounters
+	cp      Checkpoint
+	failure error
+	readers [MaxSources]*ScriptReader
+}
+
+func (s *session) emit(stage string, step int) error {
+	if s.failure != nil {
+		return s.failure
+	}
+	for i, r := range s.readers {
+		if r != nil {
+			s.o.Reads[i] = r.ReadCalls
+			s.o.Closes[i] = r.CloseCalls
+			s.o.Delivered[i] = r.BytesRead
+		}
+	}
+	if s.cp != nil {
+		var e error
+		pan, _ := captureCall(func() {
+			e = s.cp(Event{s.o.Fixture*3 + s.o.Candidate, s.o.Fixture, s.o.Candidate, step, stage, s.o, s.c, AddCounters(s.base, s.c)})
+		})
+		if pan || e != nil {
+			s.failure = ErrObserveStopped
+			s.c.Stopped = true
+			return s.failure
+		}
+	}
+	return nil
+}
+
+type sourceBoundary struct {
+	s     *session
+	index int
+}
+
+func (r *sourceBoundary) operation(p []byte, closing bool) (int, error) {
+	s := r.s
+	if s.failure != nil {
+		return 0, s.failure
+	}
+	if s.o.SourceN >= MaxSourceCalls {
+		s.failure = ErrObserveStopped
+		s.c.Stopped = true
+		return 0, s.failure
+	}
+	i := s.o.SourceN
+	s.o.SourceN++
+	method := "read"
+	if closing {
+		method = "close"
+	}
+	s.o.Sources[i] = SourceCall{Source: r.index, Requested: len(p), Method: method}
+	s.c.Source.Reserved++
+	if e := s.emit("before_source_method", i); e != nil {
+		return 0, e
+	}
+	s.c.Source.Dispatched++
+	n := 0
+	var e error
+	pan, pv := captureCall(func() {
+		if closing {
+			e = s.readers[r.index].Close()
+		} else {
+			n, e = s.readers[r.index].Read(p)
+		}
+	})
+	v := &s.o.Sources[i]
+	v.ReturnedKnown = true
+	v.Returned = !pan
+	v.Panic = panicView(pan, pv)
+	if pan {
+		s.c.Source.Panicked++
+		s.failure = ErrObserveStopped
+		s.c.Stopped = true
+		return 0, s.failure
+	}
+	s.c.Source.Returned++
+	v.Error = errorPresence(e)
+	if !closing {
+		v.NKnown = true
+		v.N = n
+		if n < 0 || n > len(p) || n > MaxSourceBytes {
+			s.failure = ErrObserveStopped
+			s.c.Stopped = true
+			return 0, s.failure
+		}
+		v.DataKnown = true
+		copy(v.Data[:], p[:n])
+	}
+	if x := s.emit("after_source_method", i); x != nil {
+		return 0, x
+	}
+	return n, e
+}
+func (r *sourceBoundary) Read(p []byte) (int, error) { return r.operation(p, false) }
+func (r *sourceBoundary) Close() error               { _, e := r.operation(nil, true); return e }
+func (s *session) identity(e, target error, name string) error {
+	if target == nil {
+		return nil
+	} // Original API has no owned limit sentinel.
+	if s.o.IdentityN >= MaxIdentityCalls {
+		return ErrObserveStopped
+	}
+	i := s.o.IdentityN
+	s.o.IdentityN++
+	s.o.Identities[i] = IdentityCall{Target: name}
+	s.c.Identity.Reserved++
+	if x := s.emit("before_error_is", i); x != nil {
+		return x
+	}
+	s.c.Identity.Dispatched++
+	v := false
+	pan, p := captureCall(func() { v = errors.Is(e, target) })
+	z := &s.o.Identities[i]
+	z.ReturnedKnown = true
+	z.Returned = !pan
+	z.Panic = panicView(pan, p)
+	if pan {
+		s.c.Identity.Panicked++
+		if x := s.emit("after_error_is", i); x != nil {
+			return x
+		}
+		s.c.Stopped = true
+		return ErrObserveStopped
+	}
+	s.c.Identity.Returned++
+	z.ValueKnown = true
+	z.Value = v
+	switch name {
+	case "input_byte_limit":
+		s.o.Error.InputLimitKnown = true
+		s.o.Error.InputLimit = v
+	case "invalid_limit":
+		s.o.Error.InvalidLimitKnown = true
+		s.o.Error.InvalidLimit = v
+	case "injected_reader_error":
+		s.o.Error.InjectedKnown = true
+		s.o.Error.Injected = v
+	}
+	return s.emit("after_error_is", i)
+}
+func (s *session) getter(method, key string, fn func() error) error {
+	if s.o.GetterN >= MaxGetters {
+		return ErrObserveStopped
+	}
+	i := s.o.GetterN
+	s.o.GetterN++
+	s.o.Getters[i] = GetterCall{Method: method, Key: key, ErrorAvailable: method != "String"}
+	s.c.Getter.Reserved++
+	if e := s.emit("before_getter", i); e != nil {
+		return e
+	}
+	s.c.Getter.Dispatched++
+	var e error
+	pan, p := captureCall(func() { e = fn() })
+	v := &s.o.Getters[i]
+	v.ReturnedKnown = true
+	v.Returned = !pan
+	v.Panic = panicView(pan, p)
+	if pan {
+		s.c.Getter.Panicked++
+	} else {
+		s.c.Getter.Returned++
+		if v.ErrorAvailable {
+			v.Error = errorPresence(e)
+		}
+	}
+	if x := s.emit("after_getter", i); x != nil {
+		return x
+	}
+	if pan || e != nil {
+		return ErrObserveStopped
+	}
+	return nil
+}
+func (s *session) keys(f FileHandle, needB bool) error {
+	var sec SectionHandle
+	if e := s.getter("GetSection", "DEFAULT", func() error { var e error; sec, e = f.DefaultSection(); return e }); e != nil {
+		return e
+	}
+	if sec == nil {
+		return ErrObserveStopped
+	}
+	for i, k := range [2]string{"a", "b"} {
+		if i == 1 && !needB {
+			break
+		}
+		var key KeyHandle
+		if e := s.getter("GetKey", k, func() error { var e error; key, e = sec.GetKey(k); return e }); e != nil {
+			return e
+		}
+		if key == nil {
+			return ErrObserveStopped
+		}
+		if e := s.getter("String", k, func() error {
+			v := key.String()
+			if len(v) > MaxSourceBytes {
+				return ErrObserveStopped
+			}
+			if i == 0 {
+				s.o.A = KeyView{true, v}
+			} else {
+				s.o.B = KeyView{true, v}
+			}
+			return nil
+		}); e != nil {
+			return e
+		}
+	}
+	return nil
+}
+
+// Observe performs no Want comparison or labels. The callback sees independent
+// value arrays, never an upstream error or source reader. ACK means callback
+// return only until a separate durable writer is bound.
+func Observe(f Fixture, index int, c CandidateSpec, base ObserveCounters, cp Checkpoint) (Observation, ObserveCounters, error) {
+	s := &session{o: Observation{Fixture: f.Index, Candidate: index}, base: base, cp: cp}
+	want, ok := FixtureAt(f.Index)
+	if !ok || f != want || index < 0 || index >= 3 || c.Load == nil {
+		return s.o, ObserveCounters{Stopped: true}, ErrObserveInput
+	}
+	rs, e := NewReaders(f)
+	if e != nil {
+		return s.o, ObserveCounters{Stopped: true}, ErrObserveInput
+	}
+	s.readers = rs
+	var streams [MaxSources]io.ReadCloser
+	for i := 0; i < f.N; i++ {
+		streams[i] = &sourceBoundary{s: s, index: i}
+	}
+	s.c.Candidate.Reserved = 1
+	if e = s.emit("before_candidate", -1); e != nil {
+		return s.o, s.c, e
+	}
+	s.c.Candidate.Dispatched = 1
+	var file FileHandle
+	var ret error
+	pan, p := captureCall(func() { file, ret = c.Load(streams, f.N, f.Limit) })
+	s.o.ReturnedKnown = true
+	s.o.Returned = !pan
+	s.o.Panic = panicView(pan, p)
+	if pan {
+		s.c.Candidate.Panicked = 1
+	} else {
+		s.c.Candidate.Returned = 1
+		s.o.FileKnown = true
+		s.o.FileNil = file == nil
+		s.o.Error = errorPresence(ret)
+	}
+	if s.failure != nil {
+		return s.o, s.c, s.failure
+	}
+	if !pan {
+		switch f.Index {
+		case 1:
+			e = s.identity(ret, c.InputLimitTarget, "input_byte_limit")
+		case 3:
+			e = s.identity(ret, c.InvalidLimitTarget, "invalid_limit")
+		case 4:
+			e = s.identity(ret, ErrInjectedReader, "injected_reader_error")
+			if e == nil {
+				e = s.identity(ret, c.InputLimitTarget, "input_byte_limit")
+			}
+		}
+		if e == nil && (f.Index == 0 || f.Index == 2) && ret == nil && file != nil {
+			e = s.keys(file, f.Index == 2)
+		}
+		if e != nil {
+			s.c.Stopped = true
+			return s.o, s.c, e
+		}
+	}
+	s.c.Completed = 1
+	if e = s.emit("after_candidate", -1); e != nil {
+		return s.o, s.c, e
+	}
+	return s.o, s.c, nil
+}
+func Execute(c Candidates, cp Checkpoint) Result {
+	var r Result
+	for f := 0; f < FixtureCount; f++ {
+		x, ok := FixtureAt(f)
+		if !ok {
+			r.Failure = "ini_fixture_invalid"
+			r.Counters.Stopped = true
+			return r
+		}
+		for i, spec := range c {
+			o, n, e := Observe(x, i, spec, r.Counters, cp)
+			r.Rows[r.N] = o
+			r.N++
+			r.Counters = AddCounters(r.Counters, n)
+			if e != nil {
+				r.Failure = "ini_adapter_stopped"
+				r.Counters.Stopped = true
+				return r
+			}
+		}
+	}
+	return r
+}

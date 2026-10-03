@@ -1,0 +1,173 @@
+package pure
+
+import (
+	"io"
+	"os"
+	"time"
+)
+
+func (f fileInfo) ModTime() time.Time { return time.Time{} }
+
+func (f *FakeFS) emit(stage string, call int) error {
+	if f.failure != nil {
+		return f.failure
+	}
+	e := Event{Ordinal: f.o.Fixture*CandidateCount + f.o.Candidate, Fixture: f.o.Fixture, Candidate: f.o.Candidate, Stage: stage, CallIndex: call, Snapshot: f.o, Local: f.c, Cumulative: sum(f.cumulative, f.c)}
+	pan, _ := capture(func() {
+		if f.checkpoint == nil || f.checkpoint(e) != nil {
+			f.failure = ErrCheckpoint
+		}
+	})
+	if pan {
+		f.failure = ErrCheckpoint
+	}
+	if f.failure != nil {
+		f.c.Stopped = true
+	}
+	return f.failure
+}
+func (f *FakeFS) before(method string, requested int) (int, error) {
+	if f.failure != nil {
+		return 0, f.failure
+	}
+	if f.o.Trace.N >= MaxCalls {
+		f.failure = ErrBounds
+		f.c.Stopped = true
+		return 0, f.failure
+	}
+	i := f.o.Trace.N
+	if e := f.emit("before_"+method, i); e != nil {
+		return 0, e
+	}
+	f.o.Trace.Calls[i] = Call{Method: method, RequestedBytes: requested}
+	f.o.Trace.N++
+	switch method {
+	case "open":
+		f.o.Trace.Open++
+	case "read":
+		f.o.Trace.Read++
+	case "stat":
+		f.o.Trace.Stat++
+	case "close":
+		f.o.Trace.Close++
+	default:
+		f.o.Trace.Unsupported = true
+	}
+	return i, nil
+}
+func (f *FakeFS) after(i int, n int, hasN bool, b []byte, e error) error {
+	v := &f.o.Trace.Calls[i]
+	v.ReturnedKnown = true
+	v.Returned = true
+	v.NKnown = hasN
+	v.N = n
+	v.Error = inspect(e)
+	if b != nil {
+		if len(b) > MaxFileBytes {
+			f.failure = ErrBounds
+			f.c.Stopped = true
+			return f.failure
+		}
+		v.Data = Bytes{Known: true, N: len(b)}
+		copy(v.Data.Data[:], b)
+	}
+	return f.emit("after_"+v.Method, i)
+}
+func (f *FakeFS) Open(name string) (Reader, error) {
+	i, e := f.before("open", 0)
+	if e != nil {
+		return nil, e
+	}
+	if name != "data/item" {
+		f.o.Trace.Unsupported = true
+		e = ErrUnsupported
+	}
+	if e == nil {
+		f.position = 0
+		f.closed = false
+	}
+	if x := f.after(i, 0, false, nil, e); x != nil {
+		return nil, x
+	}
+	if e != nil {
+		return nil, e
+	}
+	return &File{fs: f}, nil
+}
+func (f *File) Read(p []byte) (int, error) {
+	s := f.fs
+	i, e := s.before("read", len(p))
+	if e != nil {
+		return 0, e
+	}
+	n := 0
+	if s.closed {
+		e = ErrUnsupported
+		s.o.Trace.Unsupported = true
+	} else if len(p) == 0 {
+		e = nil
+	} else if s.fixture.FailAfter >= 0 && s.position >= s.fixture.FailAfter {
+		e = ErrReadCause
+	} else if s.position >= s.fixture.ContentN {
+		e = io.EOF
+	} else {
+		end := s.fixture.ContentN
+		if s.fixture.FailAfter >= 0 && end > s.fixture.FailAfter {
+			end = s.fixture.FailAfter
+		}
+		n = copy(p, s.fixture.Contents[s.position:end])
+		s.position += n
+		s.o.Trace.BytesDelivered += n
+	}
+	if x := s.after(i, n, true, p[:n], e); x != nil {
+		return n, x
+	}
+	return n, e
+}
+func (f *File) Close() error {
+	s := f.fs
+	i, e := s.before("close", 0)
+	if e != nil {
+		return e
+	}
+	if s.closed {
+		e = ErrUnsupported
+		s.o.Trace.Unsupported = true
+	}
+	s.closed = true
+	if x := s.after(i, 0, false, nil, e); x != nil {
+		return x
+	}
+	return e
+}
+func (f *File) Stat() (os.FileInfo, error) {
+	s := f.fs
+	i, e := s.before("stat", 0)
+	if e != nil {
+		return nil, e
+	}
+	if s.closed {
+		e = ErrUnsupported
+		s.o.Trace.Unsupported = true
+	}
+	if x := s.after(i, 0, false, nil, e); x != nil {
+		return nil, x
+	}
+	if e != nil {
+		return nil, e
+	}
+	return fileInfo{size: s.fixture.StatSize}, nil
+}
+
+// Unexpected methods have a known unsupported marker and fixed error. They do
+// not execute an OS method and never silently succeed. Later runner stops.
+func (f *FakeFS) Unsupported(method string) error {
+	i, e := f.before(method, 0)
+	if e != nil {
+		return e
+	}
+	if x := f.after(i, 0, false, nil, ErrUnsupported); x != nil {
+		return x
+	}
+	return ErrUnsupported
+}

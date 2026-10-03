@@ -1,0 +1,397 @@
+{
+  "schema": "riido-remaining-three-Root-finite-development-qualification-v1",
+  "state": "Root_adopted_three_finite_semantic_requests_data_materialization_separate",
+  "authority": "Root read all111 actual predicate outcomes, Want values, typed channels and observed values through a compact projection, plus fixed inputs and production semantics. Explicit finite judgments; reference identity is not a truth rule. This is nonblind development adoption, not held-out model quality.",
+  "prior_qualification_pin": {
+    "bytes": 12642,
+    "sha256": "af30996775580d777fa756f9308818e3ce3a3ad027ee08129f7a0c50e50b4969"
+  },
+  "prior_qualified_pool": {
+    "requests": 27,
+    "labels": 79,
+    "positive": 27,
+    "negative": 52,
+    "inputs": 132,
+    "original_evidence_observations": 392,
+    "selected_candidate_observations": 388
+  },
+  "qualified_pool": {
+    "requests": 30,
+    "labels": 88,
+    "positive": 30,
+    "negative": 58,
+    "inputs": 146,
+    "original_evidence_observations": 434,
+    "selected_candidate_observations": 430
+  },
+  "new_requests": 3,
+  "new_labels": 9,
+  "new_positive": 3,
+  "new_negative": 6,
+  "new_inputs": 14,
+  "new_original_observations": 42,
+  "new_selected_observations": 42,
+  "new_retained_unknown_predicates": 2,
+  "requests": [
+    {
+      "id": "next60-ini-byte-budget",
+      "request": "Add an optional total input-byte limit across all INI sources, returning a distinct limit error instead of accepting a silently truncated configuration.",
+      "source_family": "upstream53-ini",
+      "source_revision": "e2db55b0e088fa4ee0c128aa4ade263cdc1d7f08",
+      "source_reference": {
+        "artifact_id": "original20/drafts-v1",
+        "artifact_sha256": "c7bbf7bcc7912300fabdd6e671b0922df295299f00e5e7201df1ab5e824a2a9b",
+        "json_pointer": "/drafts/7"
+      },
+      "primary_catalog_id": "go53-ini-parse-byte-budget",
+      "scope": "Optional positive total input-byte limit across ordered sources, measured on raw bytes including whitespace/comments. Zero preserves unlimited default. Overflow returns typed limit error and no successful File; reader errors stay distinguishable.",
+      "finite_scope_addendum": "Only five fixed ordered-source inputs; exact EOF/overflow, shared budget and invalid-before-read witnesses, plus injected-reader cause. Zero/default/large-input cases are retained in source but not exhaustively executed.",
+      "evidence_ordinal_base": 0,
+      "finite_inputs": 5,
+      "connected_group": null,
+      "source_group_assignment_pending": true,
+      "text_revision": "remaining-three-finite-v1",
+      "selected_candidate_observations": 15,
+      "selected": [
+        {
+          "source_candidate_position": 0,
+          "metadata_id": "baseline-design",
+          "text": "LoadSources converts all data sources then calls Reload; LoadOptions has buffer size but no total input-byte budget.",
+          "truth": false,
+          "role": "development_train",
+          "weight": 1,
+          "known_counterexample_fixture_positions": [
+            1,
+            3
+          ],
+          "aggregate_unknown_fixture_positions": [
+            4
+          ],
+          "unknown_predicates_retained": [
+            {
+              "fixture": 4,
+              "field": "error_kind_not",
+              "reason": "unavailable_or_unobserved_saved_channel"
+            }
+          ],
+          "row_ordinals": [
+            0,
+            3,
+            6,
+            9,
+            12
+          ],
+          "row_vector": [
+            "satisfied",
+            "unsatisfied",
+            "satisfied",
+            "unsatisfied",
+            "unknown"
+          ]
+        },
+        {
+          "source_candidate_position": 1,
+          "metadata_id": "reference-design",
+          "text": "Share a checked remaining-byte counter across sources, probe one extra byte to distinguish exact EOF/overflow, propagate read causes without silently truncated success.",
+          "truth": true,
+          "role": "development_train",
+          "weight": 1,
+          "known_counterexample_fixture_positions": [],
+          "aggregate_unknown_fixture_positions": [],
+          "unknown_predicates_retained": [],
+          "row_ordinals": [
+            1,
+            4,
+            7,
+            10,
+            13
+          ],
+          "row_vector": [
+            "satisfied",
+            "satisfied",
+            "satisfied",
+            "satisfied",
+            "satisfied"
+          ]
+        },
+        {
+          "source_candidate_position": 2,
+          "metadata_id": "wrong-seed-design",
+          "text": "Use io.LimitReader without overflow detection, or reset the allowance for every source.",
+          "truth": false,
+          "role": "development_train",
+          "weight": 1,
+          "known_counterexample_fixture_positions": [
+            1
+          ],
+          "aggregate_unknown_fixture_positions": [],
+          "unknown_predicates_retained": [],
+          "row_ordinals": [
+            2,
+            5,
+            8,
+            11,
+            14
+          ],
+          "row_vector": [
+            "satisfied",
+            "unsatisfied",
+            "satisfied",
+            "satisfied",
+            "satisfied"
+          ]
+        }
+      ],
+      "excluded": [],
+      "fixture_pin": {
+        "bytes": 84658,
+        "sha256": "b8fb7a9f93b09f446ed3f92cb47c195442c10c6239b39c1bc36141af472d67f9"
+      },
+      "actual_comparison_pin": {
+        "bytes": 380995,
+        "sha256": "9ab9c49189be82cd984058792658766f3eb438f52308602245c144757fa67b8c"
+      }
+    },
+    {
+      "id": "next60-afero-bounded-read",
+      "request": "Add ReadFileLimit with a documented maximum byte count, distinguishing an oversized file from read failure without returning a silently truncated success.",
+      "source_family": "upstream53-afero",
+      "source_revision": "eb6a92826ea568e3f40ab91fcbda8d2b38b61d3e",
+      "source_reference": {
+        "artifact_id": "original20/drafts-v1",
+        "artifact_sha256": "c7bbf7bcc7912300fabdd6e671b0922df295299f00e5e7201df1ab5e824a2a9b",
+        "json_pointer": "/drafts/12"
+      },
+      "primary_catalog_id": "go53-afero-bounded-read",
+      "scope": "New ReadFileLimit using fake Fs/File only; positive max byte count; exact limit accepted, one extra byte rejects with typed size error; oversize returns no successful partial data, underlying read cause preserved.",
+      "finite_scope_addendum": "Only five fixed fake Fs/File inputs; exact/oversized/dishonest-Stat/read-cause/invalid-before-open witnesses. No real filesystem, unbounded size, overflow or exhaustive equivalence guarantee.",
+      "evidence_ordinal_base": 15,
+      "finite_inputs": 5,
+      "connected_group": null,
+      "source_group_assignment_pending": true,
+      "text_revision": "remaining-three-finite-v1",
+      "selected_candidate_observations": 15,
+      "selected": [
+        {
+          "source_candidate_position": 0,
+          "metadata_id": "baseline-design",
+          "text": "ReadFile reads whole contents and uses Stat size only as a capacity estimate, not an enforceable caller limit.",
+          "truth": false,
+          "role": "development_train",
+          "weight": 1,
+          "known_counterexample_fixture_positions": [
+            1,
+            2,
+            4
+          ],
+          "aggregate_unknown_fixture_positions": [],
+          "unknown_predicates_retained": [],
+          "row_ordinals": [
+            15,
+            18,
+            21,
+            24,
+            27
+          ],
+          "row_vector": [
+            "satisfied",
+            "unsatisfied",
+            "unsatisfied",
+            "satisfied",
+            "unsatisfied"
+          ]
+        },
+        {
+          "source_candidate_position": 1,
+          "metadata_id": "reference-design",
+          "text": "Check limit before opening, read at most limit+1 with bounded capacity independent of Stat, propagate reader errors and close exactly once.",
+          "truth": true,
+          "role": "development_train",
+          "weight": 1,
+          "known_counterexample_fixture_positions": [],
+          "aggregate_unknown_fixture_positions": [],
+          "unknown_predicates_retained": [],
+          "row_ordinals": [
+            16,
+            19,
+            22,
+            25,
+            28
+          ],
+          "row_vector": [
+            "satisfied",
+            "satisfied",
+            "satisfied",
+            "satisfied",
+            "satisfied"
+          ]
+        },
+        {
+          "source_candidate_position": 2,
+          "metadata_id": "wrong-seed-design",
+          "text": "Trust Stat and allocate/read unbounded, or silently return the first limit bytes as success.",
+          "truth": false,
+          "role": "development_train",
+          "weight": 1,
+          "known_counterexample_fixture_positions": [
+            1,
+            2
+          ],
+          "aggregate_unknown_fixture_positions": [],
+          "unknown_predicates_retained": [],
+          "row_ordinals": [
+            17,
+            20,
+            23,
+            26,
+            29
+          ],
+          "row_vector": [
+            "satisfied",
+            "unsatisfied",
+            "unsatisfied",
+            "satisfied",
+            "satisfied"
+          ]
+        }
+      ],
+      "excluded": [],
+      "fixture_pin": {
+        "bytes": 84658,
+        "sha256": "b8fb7a9f93b09f446ed3f92cb47c195442c10c6239b39c1bc36141af472d67f9"
+      },
+      "actual_comparison_pin": {
+        "bytes": 380995,
+        "sha256": "9ab9c49189be82cd984058792658766f3eb438f52308602245c144757fa67b8c"
+      }
+    },
+    {
+      "id": "next60-afero-exclusive-write",
+      "request": "Make SafeWriteReader acquire its destination with exclusive creation instead of an existence check followed by truncating Create.",
+      "source_family": "upstream53-afero",
+      "source_revision": "eb6a92826ea568e3f40ab91fcbda8d2b38b61d3e",
+      "source_reference": {
+        "artifact_id": "original20/drafts-v1",
+        "artifact_sha256": "c7bbf7bcc7912300fabdd6e671b0922df295299f00e5e7201df1ab5e824a2a9b",
+        "json_pointer": "/drafts/13"
+      },
+      "primary_catalog_id": "go53-afero-exclusive-safe-write",
+      "scope": "SafeWriteReader in a deterministic fake FS; a competitor creates the destination after the existence probe. Existing bytes must survive; successful exclusive creation writes exact input; copy and close errors remain inspectable.",
+      "finite_scope_addendum": "Only four fixed deterministic fake filesystem inputs; competitor creation and joined copy/close causes. No real race stress, filesystem-wide atomicity or general transactional guarantee.",
+      "evidence_ordinal_base": 30,
+      "finite_inputs": 4,
+      "connected_group": null,
+      "source_group_assignment_pending": true,
+      "text_revision": "remaining-three-finite-v1",
+      "selected_candidate_observations": 12,
+      "selected": [
+        {
+          "source_candidate_position": 0,
+          "metadata_id": "baseline-design",
+          "text": "SafeWriteReader calls Exists then Create, with deferred Close joined into the copy result; existence check and creation are distinct operations.",
+          "truth": false,
+          "role": "development_train",
+          "weight": 1,
+          "known_counterexample_fixture_positions": [
+            0,
+            2
+          ],
+          "aggregate_unknown_fixture_positions": [
+            1
+          ],
+          "unknown_predicates_retained": [
+            {
+              "fixture": 1,
+              "field": "exclusive_open",
+              "reason": "unavailable_or_unobserved_saved_channel"
+            }
+          ],
+          "row_ordinals": [
+            30,
+            33,
+            36,
+            39
+          ],
+          "row_vector": [
+            "unsatisfied",
+            "unknown",
+            "unsatisfied",
+            "satisfied"
+          ]
+        },
+        {
+          "source_candidate_position": 1,
+          "metadata_id": "reference-design",
+          "text": "OpenFile with O_WRONLY|O_CREATE|O_EXCL instead of relying on Exists+Create; preserve parent preparation, joined copy/close causes and declared existing-file refusal.",
+          "truth": true,
+          "role": "development_train",
+          "weight": 1,
+          "known_counterexample_fixture_positions": [],
+          "aggregate_unknown_fixture_positions": [],
+          "unknown_predicates_retained": [],
+          "row_ordinals": [
+            31,
+            34,
+            37,
+            40
+          ],
+          "row_vector": [
+            "satisfied",
+            "satisfied",
+            "satisfied",
+            "satisfied"
+          ]
+        },
+        {
+          "source_candidate_position": 2,
+          "metadata_id": "wrong-seed-design",
+          "text": "Keep Exists+Create; or exclusive-create correctly but drop deferred close error.",
+          "truth": false,
+          "role": "development_train",
+          "weight": 1,
+          "known_counterexample_fixture_positions": [
+            3
+          ],
+          "aggregate_unknown_fixture_positions": [],
+          "unknown_predicates_retained": [],
+          "row_ordinals": [
+            32,
+            35,
+            38,
+            41
+          ],
+          "row_vector": [
+            "satisfied",
+            "satisfied",
+            "satisfied",
+            "unsatisfied"
+          ]
+        }
+      ],
+      "excluded": [],
+      "fixture_pin": {
+        "bytes": 84658,
+        "sha256": "b8fb7a9f93b09f446ed3f92cb47c195442c10c6239b39c1bc36141af472d67f9"
+      },
+      "actual_comparison_pin": {
+        "bytes": 380995,
+        "sha256": "9ab9c49189be82cd984058792658766f3eb438f52308602245c144757fa67b8c"
+      }
+    }
+  ],
+  "unknown_never_false": true,
+  "unknown_only_candidate_may_not_be_negative": true,
+  "all_known_true_positive_required": true,
+  "known_counterexample_negative_required": true,
+  "source_candidate_order_preserved": true,
+  "reference_candidate_has_no_label_privilege": true,
+  "whole_source_group_decision_separate": true,
+  "public_materialization_and_HF_current": 23,
+  "local_materialized_current": 27,
+  "new_data30_materialization_pending": true,
+  "new_Fit_or_model": 0,
+  "protected_evaluation": 0,
+  "Laya_GPU_inference_or_token_money_savings_observed": false,
+  "source_body_or_model_publication_rights_not_certified": true,
+  "limits": "Finite fake-input development labels. Stored unknowns persist even when another fixture proves a negative. No generic source, licensing, model quality or production activation approval."
+}

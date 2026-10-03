@@ -1,0 +1,286 @@
+package workerio
+
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"riido.local/remainingthreeprep/batch"
+	"strings"
+)
+
+type sink interface {
+	Write([]byte) (int, error)
+	Sync() error
+	Close() error
+}
+type Writer struct {
+	config          Config
+	root            *os.Root
+	journal, result sink
+	cursor          cursor
+	receipt         Receipt
+	finished        bool
+	syncDirectory   func() error
+}
+
+func SHA(b []byte) string { x := sha256.Sum256(b); return hex.EncodeToString(x[:]) }
+func baseReceipt(c Config) Receipt {
+	return Receipt{Schema: "riido-remaining-three-transport-receipt-v1", PlanSHA: c.PlanSHA, FixtureSHA: FixtureSHA, LastSHA: strings.Repeat("0", 64), FinalACK: "A surviving complete journal row does not prove Sync returned. Final persistence requires identical full stdout/result and externally joined exit0 after file Sync/Close and output-directory Sync. In-flight callback/runner state remains unknown on kill."}
+}
+func syncDir(path string) error {
+	f, e := os.Open(path)
+	if e != nil {
+		return ErrTransport
+	}
+	s, c := f.Sync(), f.Close()
+	if s != nil || c != nil {
+		return ErrTransport
+	}
+	return nil
+}
+func Open(c Config) (*Writer, string) {
+	w := &Writer{config: c, receipt: baseReceipt(c)}
+	if !validSHA(c.PlanSHA) || !filepath.IsAbs(c.Attempt) || filepath.Clean(c.Attempt) != c.Attempt {
+		return w, "output_arguments"
+	}
+	parent := filepath.Dir(c.Attempt)
+	st, e := os.Lstat(parent)
+	if e != nil || !st.IsDir() || st.Mode()&os.ModeSymlink != 0 {
+		return w, "output_parent"
+	}
+	if os.Mkdir(c.Attempt, 0700) != nil {
+		return w, "output_reserve"
+	}
+	w.root, e = os.OpenRoot(c.Attempt)
+	if e != nil {
+		return w, "output_open"
+	}
+	j, e := w.root.OpenFile("journal.jsonl", os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if e != nil {
+		return w, "journal_reserve"
+	}
+	w.journal = j
+	f, e := w.root.OpenFile("results.json", os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if e != nil {
+		return w, "result_reserve"
+	}
+	w.result = f
+	raw, e := json.Marshal(Reservation{Schema: "riido-remaining-three-reservation-v1", PlanSHA: c.PlanSHA, FixtureSHA: FixtureSHA, MaxFrames: MaxFrames, MaxFrame: MaxFrame, MaxJournal: MaxJournal, MaxResult: MaxResult})
+	if e != nil || len(raw)+1 > MaxReservation {
+		return w, "reservation_bound"
+	}
+	raw = append(raw, '\n')
+	f, e = w.root.OpenFile("reservation.json", os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if e != nil {
+		return w, "reservation_reserve"
+	}
+	n, we := f.Write(raw)
+	se, ce := f.Sync(), f.Close()
+	if we != nil || n != len(raw) || se != nil || ce != nil {
+		return w, "reservation_write_Sync_Close"
+	}
+	w.syncDirectory = func() error { return syncDir(c.Attempt) }
+	if w.journal.Sync() != nil || w.result.Sync() != nil || w.syncDirectory() != nil || syncDir(parent) != nil {
+		return w, "initial_child_parent_Sync"
+	}
+	w.receipt.Initialized = true
+	return w, ""
+}
+func (w *Writer) stop(code string) error {
+	if w.receipt.Failure == "" {
+		w.receipt.Failure = code
+	}
+	w.receipt.Stopped = true
+	return ErrTransport
+}
+func (w *Writer) Checkpoint(e batch.Event) (err error) {
+	returned := false
+	defer func() {
+		if !returned {
+			_ = recover()
+			err = w.stop("checkpoint_panic")
+		}
+	}()
+	if w.finished || !w.receipt.Initialized || w.receipt.Stopped {
+		returned = true
+		return w.stop("checkpoint_stopped")
+	}
+	next, code := w.cursor.advance(e)
+	if code != "" {
+		returned = true
+		return w.stop(code)
+	}
+	if w.receipt.Frames >= MaxFrames {
+		returned = true
+		return w.stop("checkpoint_frame_bound")
+	}
+	raw, je := json.Marshal(Frame{Schema: FrameSchema, Sequence: w.receipt.LastSequence + 1, Previous: w.receipt.LastSHA, Event: e})
+	if je != nil || len(raw)+1 > MaxFrame || w.receipt.Bytes+len(raw)+1 > MaxJournal {
+		returned = true
+		return w.stop("checkpoint_byte_bound")
+	}
+	raw = append(raw, '\n')
+	n, we := w.journal.Write(raw)
+	if we != nil || n != len(raw) {
+		returned = true
+		return w.stop("checkpoint_write")
+	}
+	if w.journal.Sync() != nil {
+		returned = true
+		return w.stop("checkpoint_Sync")
+	}
+	// ACK state changes only after Write and Sync both returned successfully.
+	w.cursor = next
+	w.receipt.Frames++
+	w.receipt.LastSequence++
+	w.receipt.Bytes += len(raw)
+	w.receipt.LastSHA = SHA(raw)
+	w.receipt.Counters = e.Cumulative
+	w.receipt.Completed = next.Next
+	s := clone(e.Snapshot)
+	w.receipt.LastSnapshot = &s
+	returned = true
+	return nil
+}
+func (w *Writer) Receipt() Receipt {
+	r := w.receipt
+	if r.LastSnapshot != nil {
+		s := clone(*r.LastSnapshot)
+		r.LastSnapshot = &s
+	}
+	return r
+}
+func closeSink(s interface{ Close() error }) (err error) {
+	returned := false
+	defer func() {
+		if !returned {
+			_ = recover()
+			err = ErrTransport
+		}
+	}()
+	err = s.Close()
+	returned = true
+	return
+}
+func (w *Writer) Close() {
+	if w.journal != nil {
+		_ = closeSink(w.journal)
+		w.journal = nil
+	}
+	if w.result != nil {
+		_ = closeSink(w.result)
+		w.result = nil
+	}
+	if w.root != nil {
+		_ = closeSink(w.root)
+		w.root = nil
+	}
+}
+func (w *Writer) Finish(r Result) (raw []byte, code string) {
+	returned := false
+	defer func() {
+		if !returned {
+			_ = recover()
+			_ = w.stop("result_panic")
+			raw = nil
+			code = "result_panic"
+		}
+	}()
+	if w.finished {
+		returned = true
+		return nil, "result_already_finished"
+	}
+	w.finished = true
+	if r.State != "complete" {
+		r.State = "failed"
+		switch r.Failure {
+		case "adapter_or_transport_stopped", "runner_unexpected_panic":
+		default:
+			r.Failure = "worker_failure_unclassified"
+		}
+	}
+	if r.State == "complete" && (w.receipt.Stopped || w.receipt.Failure != "" || r.Failure != "" || !r.RunnerReturned || r.RunnerPanicked || r.Worker == nil || !w.cursor.matches(*r.Worker) || r.LabelsAssigned || r.Qualified || r.InnerCalls != nil || r.StartupCalls != nil) {
+		r.State = "failed"
+		r.Failure = "incomplete_or_changed_report"
+		_ = w.stop(r.Failure)
+	}
+	if w.journal != nil {
+		e := closeSink(w.journal)
+		w.journal = nil
+		if e != nil {
+			_ = w.stop("journal_Close")
+		} else {
+			w.receipt.JournalClosed = true
+		}
+	}
+	if w.receipt.Failure != "" {
+		r.State = "failed"
+		r.Failure = w.receipt.Failure
+	}
+	r.Schema = Schema
+	r.LabelsAssigned = false
+	r.Qualified = false
+	r.InnerCalls = nil
+	r.StartupCalls = nil
+	r.Transport = w.Receipt()
+	if r.Worker != nil && !validReturned(*r.Worker) {
+		r.State = "failed"
+		r.Failure = "returned_partial_invalid_or_bound"
+		r.Worker = nil
+	}
+	b, je := json.Marshal(r)
+	if je != nil || len(b)+1 > MaxResult {
+		returned = true
+		_ = w.stop("result_bound")
+		return nil, "result_bound"
+	}
+	raw = append(b, '\n')
+	if w.result == nil {
+		returned = true
+		_ = w.stop("result_not_reserved")
+		return nil, "result_not_reserved"
+	}
+	n, we := w.result.Write(raw)
+	if we != nil || n != len(raw) {
+		returned = true
+		_ = w.stop("result_write")
+		return nil, "result_write"
+	}
+	if w.result.Sync() != nil {
+		returned = true
+		_ = w.stop("result_Sync")
+		return nil, "result_Sync"
+	}
+	if closeSink(w.result) != nil {
+		w.result = nil
+		returned = true
+		_ = w.stop("result_Close")
+		return nil, "result_Close"
+	}
+	w.result = nil
+	if w.syncDirectory() == nil {
+		returned = true
+		return raw, ""
+	}
+	returned = true
+	_ = w.stop("result_directory_Sync")
+	return nil, "result_directory_Sync"
+}
+func validReturned(r batch.Result) bool {
+	if r.Schema != batch.Schema || r.N < 0 || r.N > 42 || r.InnerOriginalCalls != nil || r.StartupCalls != nil || r.Qualified || r.ParentCreated != 0 || r.LabelsCreated != 0 {
+		return false
+	}
+	for i := 0; i < r.N; i++ {
+		if !snapshot(r.Rows[i], batch.Schedule()[i]) {
+			return false
+		}
+	}
+	for i := r.N; i < 42; i++ {
+		if r.Rows[i] != (batch.Snapshot{}) {
+			return false
+		}
+	}
+	return r.Failure == "" || r.Failure == "remaining_three_stopped"
+}

@@ -1,0 +1,86 @@
+package workerio
+
+import (
+	"encoding/json"
+	"io"
+	"riido.local/remainingthreeprep/batch"
+)
+
+func baseResult(c Config) Result {
+	return Result{Schema: Schema, State: "failed", Transport: baseReceipt(c)}
+}
+func encode(r Result) []byte {
+	b, e := json.Marshal(r)
+	if e != nil || len(b)+1 > MaxResult {
+		r.Worker = nil
+		r.Transport.LastSnapshot = nil
+		r.State = "failed"
+		r.Failure = "result_encoding_bound"
+		b, _ = json.Marshal(r)
+	}
+	return append(b, '\n')
+}
+func invoke(run Runner, cp batch.Checkpoint) (r batch.Result, returned bool) {
+	defer func() {
+		if !returned {
+			_ = recover()
+		}
+	}()
+	r = run(cp)
+	returned = true
+	return
+}
+
+// The actual main links only the fixed native bindings. JSON cannot supply
+// scored features, a callback, an error object or a dynamically selected runner.
+func RunCLI(args []string, stdout io.Writer, run Runner) int {
+	c, path, code := parse(args)
+	out := baseResult(c)
+	writeFailure := func(code string) int { out.Failure = code; _, _ = stdout.Write(encode(out)); return 1 }
+	if code != "" { // Do not echo untrusted argument values even in provenance.
+		out = baseResult(Config{})
+		out.Failure = code
+		_, _ = stdout.Write(encode(out))
+		return 2
+	}
+	if run == nil {
+		return writeFailure("runner_missing")
+	}
+	if code = preflight(path, c); code != "" {
+		return writeFailure(code)
+	}
+	w, code := Open(c)
+	defer w.Close()
+	if code != "" {
+		_ = w.stop(code)
+		out.Transport = w.Receipt()
+		return writeFailure(code)
+	}
+	r, returned := invoke(run, w.Checkpoint)
+	out.RunnerReturned = returned
+	out.RunnerPanicked = !returned
+	if returned {
+		out.Worker = &r
+		if r.Failure == "" && !w.receipt.Stopped && w.cursor.matches(r) {
+			out.State = "complete"
+		} else {
+			out.Failure = "adapter_or_transport_stopped"
+		}
+	} else {
+		_ = w.stop("runner_unexpected_panic")
+		out.Failure = "runner_unexpected_panic"
+	}
+	raw, code := w.Finish(out)
+	if code != "" {
+		out.State = "failed"
+		out.Failure = code
+		out.Worker = nil
+		out.Transport = w.Receipt()
+		return writeFailure(code)
+	}
+	n, e := stdout.Write(raw)
+	if e != nil || n != len(raw) || out.State != "complete" || w.receipt.Stopped {
+		return 1
+	}
+	return 0
+}

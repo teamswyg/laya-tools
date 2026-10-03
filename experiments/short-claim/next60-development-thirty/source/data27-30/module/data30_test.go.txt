@@ -1,0 +1,396 @@
+package data30
+
+import (
+	"bytes"
+	"encoding/json"
+	"errors"
+	"os"
+	"path/filepath"
+	"testing"
+)
+
+func flag(v bool) *bool  { return &v }
+func integer(v int) *int { return &v }
+func marshal(v any) []byte {
+	b, e := json.Marshal(v)
+	if e != nil {
+		panic("owned marshal")
+	}
+	return b
+}
+func ownedPrefix() []byte {
+	raw := []byte{}
+	for i, id := range priorIDs {
+		n := 5
+		if i == 1 || i == 17 {
+			n = 4
+		}
+		nc := 3
+		if i == 1 || i == 17 {
+			nc = 2
+		}
+		pos := 1
+		if i == 0 || i == 17 || i == 20 {
+			pos = 0
+		}
+		r := Row{Schema: "riido-finite-development-request-row-v1", ID: id, Request: "Owned synthetic request.", Role: "development_train", Group: 77, Family: "owned-synthetic-family", Revision: familyRevs[0], TextRevision: "owned-control-v1", Policy: "request_and_candidates_text_only", Scope: finiteScope{n, n * nc, "Owned synthetic finite inputs.", flag(false), flag(false)}}
+		for j := 0; j < nc; j++ {
+			r.Candidates = append(r.Candidates, candidate{[3]string{"owned-a", "owned-b", "owned-c"}[j], "Owned synthetic claim.", flag(j == pos), 1})
+		}
+		raw = append(raw, marshal(r)...)
+		raw = append(raw, '\n')
+	}
+	return raw
+}
+func ownedRequest(i int) request {
+	n := inputsAt[i]
+	r := request{ID: appendIDs[i], Request: "Owned synthetic request.", Family: familyIDs[familyAt[i]], Revision: familyRevs[familyAt[i]], Scope: "Owned synthetic finite inputs.", Inputs: n, Pending: flag(true), TextRevision: "ini-two-finite-v1", Observations: n * 3, Excluded: []json.RawMessage{}}
+	if i < 2 {
+		r.TextRevision = "subbody-finite-v1"
+	}
+	if i >= 4 {
+		r.Request = futureRequests[i-4]
+		r.TextRevision = "remaining-three-finite-v1"
+		r.OrdinalBase = integer(0)
+	}
+	base := 0
+	if i == 1 {
+		base = 15
+	}
+	for j := 0; j < 3; j++ {
+		ids := [3]string{"baseline-design", "reference-design", "wrong-seed-design"}
+		if i < 2 {
+			ids = [3]string{"baseline_original", "reference_authored", "negative_authored"}
+		}
+		text := "Owned synthetic claim."
+		if i >= 4 {
+			text = futureCaptions[i-4][j]
+		}
+		c := selected{Index: integer(j), ID: ids[j], Text: text, Truth: flag(j == 1), Role: "development_train", Weight: 1, Known: []int{}, Unknown: []int{}, Retained: []unknownPredicate{}, Ordinals: []int{}, Vector: []string{}}
+		for k := 0; k < n; k++ {
+			c.Ordinals = append(c.Ordinals, base+k*3+j)
+			v := "satisfied"
+			if j != 1 && k == 0 {
+				v = "unsatisfied"
+				c.Known = append(c.Known, k)
+			}
+			c.Vector = append(c.Vector, v)
+		}
+		r.Selected = append(r.Selected, c)
+	}
+	return r
+}
+func ownedBundle(mode int) Bundle {
+	b := Bundle{Mode: mode, Previous: ownedPrefix()}
+	sub := qualification{Schema: "riido-subbody-Root-finite-development-qualification-v2", State: "Root_adopted_two_finite_semantic_requests_data_materialization_separate", Requests: []request{ownedRequest(0), ownedRequest(1)}, UnknownNeverFalse: flag(true)}
+	ini := qualification{Schema: "riido-ini-two-Root-finite-development-qualification-v1", State: sub.State, Requests: []request{ownedRequest(2), ownedRequest(3)}, UnknownNeverFalse: flag(true)}
+	b.Sub = marshal(sub)
+	b.Ini = marshal(ini)
+	d := GroupDecision{Schema: "riido-next60-Root-whole-family-group-decision-v1", State: "Root_adopted", Authority: "Root owned synthetic control", Mode: mode, Registry: Pin{37421, RegistrySHA}, ExistingMax: 78, OldUnchanged: flag(true), Previous: Pin{PreviousBytes, PreviousSHA}, Sub: Pin{SubBytes, SubSHA}, Ini: Pin{IniBytes, IniSHA}, Allocated: 3, Groups: []Group{}, RequestOrder: appendIDs[:mode-23]}
+	for i, f := range familyIDs {
+		d.Groups = append(d.Groups, Group{f, familyRevs[i], 79 + i, "development_train"})
+	}
+	if mode == 30 {
+		x := qualification{Schema: "riido-remaining-three-Root-finite-development-qualification-v1", State: "Root_adopted_three_finite_semantic_requests_data_materialization_separate", Requests: []request{ownedRequest(4), ownedRequest(5), ownedRequest(6)}, UnknownNeverFalse: flag(true)}
+		b.Additional = marshal(x)
+		d.Additional = &Pin{len(b.Additional), Digest(b.Additional)}
+	}
+	b.Decision = marshal(d)
+	b.DecisionSHA = Digest(b.Decision)
+	return b
+}
+func fakeRead(raw []byte) (LoadedView, error) {
+	r, e := rowDecode(raw)
+	if e != nil {
+		return LoadedView{}, e
+	}
+	v := LoadedView{Valid: true, ID: r.ID, Request: r.Request, Schema: "riido-short-behavior-claim-v1", Provenance: "finite-development-v1", Role: r.Role, Policy: r.Policy, Family: r.Family, Revision: r.Revision, TextRevision: r.TextRevision, ScopeDescription: r.Scope.Description, Group: r.Group, Inputs: r.Scope.Inputs, Observations: r.Scope.Observations, Count: len(r.Candidates), SupervisionCount: len(r.Candidates), UnusedZero: true}
+	for i, c := range r.Candidates {
+		v.Candidates[i] = LoadedCandidate{c.ID, c.Text, *c.Label, c.Weight}
+	}
+	return v, nil
+}
+func changeDecision(b *Bundle, f func(*GroupDecision)) {
+	var d GroupDecision
+	json.Unmarshal(b.Decision, &d)
+	f(&d)
+	b.Decision = marshal(d)
+	b.DecisionSHA = Digest(b.Decision)
+}
+func changeQualification(b *Bundle, which int, f func(*qualification)) {
+	raw := b.Sub
+	if which == 1 {
+		raw = b.Ini
+	}
+	if which == 2 {
+		raw = b.Additional
+	}
+	var q qualification
+	json.Unmarshal(raw, &q)
+	f(&q)
+	raw = marshal(q)
+	switch which {
+	case 0:
+		b.Sub = raw
+	case 1:
+		b.Ini = raw
+	case 2:
+		b.Additional = raw
+		changeDecision(b, func(d *GroupDecision) { d.Additional = &Pin{len(raw), Digest(raw)} })
+	}
+}
+func TestExternalDecisionRequired(t *testing.T) {
+	for _, mutate := range []func(*Bundle){func(b *Bundle) { b.Decision = nil }, func(b *Bundle) { changeDecision(b, func(d *GroupDecision) { d.State = "pending" }) }, func(b *Bundle) { changeDecision(b, func(d *GroupDecision) { d.Groups[0].ID = 77 }) }, func(b *Bundle) { changeDecision(b, func(d *GroupDecision) { d.Groups[1].ID = d.Groups[0].ID }) }, func(b *Bundle) { changeDecision(b, func(d *GroupDecision) { d.OldUnchanged = nil }) }, func(b *Bundle) { changeDecision(b, func(d *GroupDecision) { d.Sub.SHA = IniSHA }) }} {
+		b := ownedBundle(27)
+		mutate(&b)
+		if _, _, e := composeBound(b); e == nil {
+			t.Fatal("invalid external group decision accepted")
+		}
+	}
+	if _, _, e := ComposePinned(ownedBundle(27)); e == nil {
+		t.Fatal("public real-input entry accepted synthetic prefix/qualifiers")
+	}
+}
+func TestOwnedCompositionAndReader(t *testing.T) {
+	for _, mode := range []int{27, 30} {
+		b := ownedBundle(mode)
+		data, s, e := composeBound(b)
+		if e != nil {
+			t.Fatal(e)
+		}
+		if !bytes.HasPrefix(data, b.Previous) || s.Requests != mode || s.Positive != mode {
+			t.Fatal("prefix/count")
+		}
+		calls := 0
+		out := InitialSummary()
+		e = validateBound(b, data, func(raw []byte) (LoadedView, error) { calls++; return fakeRead(raw) }, func(s Summary) error { return nil }, &out)
+		if e != nil || calls != mode || out.ReaderMatches != mode || out.State != "complete_reader_value_correspondence_only" {
+			t.Fatalf("owned reader: %v %d %+v", e, calls, out)
+		}
+	}
+}
+func TestPrefixDriftBeforeReader(t *testing.T) {
+	b := ownedBundle(27)
+	data, _, e := composeBound(b)
+	if e != nil {
+		t.Fatal(e)
+	}
+	data[8] = 'X'
+	calls := 0
+	out := InitialSummary()
+	if validateBound(b, data, func([]byte) (LoadedView, error) { calls++; return LoadedView{}, nil }, func(Summary) error { return nil }, &out) == nil || calls != 0 {
+		t.Fatal("modified prefix reached reader")
+	}
+}
+func TestUnknownPositiveAndUnknownOnlyNegativeRejected(t *testing.T) {
+	for _, positive := range []bool{true, false} {
+		b := ownedBundle(27)
+		changeQualification(&b, 0, func(q *qualification) {
+			c := &q.Requests[0].Selected[0]
+			if positive {
+				c = &q.Requests[0].Selected[1]
+			}
+			c.Truth = flag(positive)
+			c.Known = []int{}
+			c.Unknown = []int{0}
+			c.Vector[0] = "unknown"
+			c.Retained = []unknownPredicate{{0, "owned-unavailable", "owned-control"}}
+		})
+		if _, _, e := composeBound(b); e == nil {
+			t.Fatal("unknown became a label")
+		}
+	}
+}
+func TestKnownNegativeRetainsUnknownAndSourceOrdinal(t *testing.T) {
+	b := ownedBundle(27)
+	changeQualification(&b, 0, func(q *qualification) {
+		c := &q.Requests[1].Selected[0]
+		c.Retained = []unknownPredicate{{0, "owned-extra-channel", "unavailable"}}
+	})
+	data, s, e := composeBound(b)
+	if e != nil || len(s.Unknowns) != 1 || s.Unknowns[0].SourceCandidate != 0 || s.Unknowns[0].Request != appendIDs[1] || !bytes.HasPrefix(data, b.Previous) {
+		t.Fatal("known F plus unknown not preserved", e)
+	}
+	changeQualification(&b, 0, func(q *qualification) { q.Requests[1].Selected[0].Ordinals[0] = 0 })
+	if _, _, e = composeBound(b); e == nil {
+		t.Fatal("body15 ordinal silently renumbered")
+	}
+}
+func TestFuture30NeedsSeparateQualification(t *testing.T) {
+	b := ownedBundle(27)
+	b.Mode = 30
+	if _, _, e := composeBound(b); e == nil {
+		t.Fatal("27-only decision created30")
+	}
+	b = ownedBundle(30)
+	b.Additional = nil
+	if _, _, e := composeBound(b); e == nil {
+		t.Fatal("missing future Root qualifier")
+	}
+	b = ownedBundle(30)
+	changeQualification(&b, 2, func(q *qualification) { q.State = "source_only" })
+	if _, _, e := composeBound(b); e == nil {
+		t.Fatal("source-only future document admitted")
+	}
+}
+
+func TestFutureUnknownBaselineExcludedWithoutReindexing(t *testing.T) {
+	b := ownedBundle(30)
+	changeQualification(&b, 2, func(q *qualification) {
+		r := &q.Requests[0]
+		r.Selected = r.Selected[1:]
+		r.Observations = r.Inputs * 2
+		r.Excluded = []json.RawMessage{json.RawMessage(`{"source_candidate_position":0,"metadata_id":"baseline-design","truth":null,"reason":"owned unknown control"}`)}
+	})
+	data, s, e := composeBound(b)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if s.Labels != 87 || s.Positive != 30 || s.Negative != 57 || s.Selected != 425 || s.Original != 434 {
+		t.Fatalf("excluded unknown arithmetic %+v", s)
+	}
+	lines := bytes.Split(bytes.TrimSuffix(data, []byte{'\n'}), []byte{'\n'})
+	r, e := rowDecode(lines[27])
+	if e != nil || len(r.Candidates) != 2 || r.Candidates[0].ID != "reference-design" || !*r.Candidates[0].Label {
+		t.Fatal("source index1 changed to baseline/false", e)
+	}
+	changeQualification(&b, 2, func(q *qualification) { q.Requests[0].Selected[0].Index = integer(0) })
+	if _, _, e = composeBound(b); e == nil {
+		t.Fatal("changed source index accepted")
+	}
+}
+func TestReaderFailureStopAndOwnedSnapshots(t *testing.T) {
+	b := ownedBundle(27)
+	data, _, e := composeBound(b)
+	if e != nil {
+		t.Fatal(e)
+	}
+	for _, kind := range []string{"checkpoint", "panic", "mismatch"} {
+		calls := 0
+		out := InitialSummary()
+		progress := func(s Summary) error {
+			if kind == "checkpoint" {
+				return errors.New("owned callback")
+			}
+			if len(s.Unknowns) > 0 {
+				s.Unknowns[0].Field = "mutated snapshot"
+			}
+			return nil
+		}
+		reader := func(raw []byte) (LoadedView, error) {
+			calls++
+			if kind == "panic" {
+				panic("owned")
+			}
+			v, e := fakeRead(raw)
+			if kind == "mismatch" {
+				v.Candidates[0].Weight = 0
+			}
+			return v, e
+		}
+		e = validateBound(b, data, reader, progress, &out)
+		if e == nil || calls > 1 || kind == "checkpoint" && calls != 0 || kind == "panic" && out.ReaderReturns != 0 {
+			t.Fatalf("failure stop %s %v %d", kind, e, calls)
+		}
+	}
+}
+func TestStrictNoDefaultsAndUnicode(t *testing.T) {
+	for _, raw := range []string{`{"x":1,"X":2}`, `{"x":"\ud800"}`, `{"x":1} {"x":2}`} {
+		var v any
+		if checkedJSON([]byte(raw), &v, -1) == nil {
+			t.Fatal("malformed/alias Unicode accepted")
+		}
+	}
+	if _, e := ParseOptions([]string{"--mode=27"}, []string{"--mode"}); e == nil {
+		t.Fatal("equals alias")
+	}
+	if _, e := ParseMode("027"); e == nil {
+		t.Fatal("implicit mode")
+	}
+	s := InitialSummary()
+	s.LabelsAssigned = true
+	if _, e := EncodeSummary(s); e == nil {
+		t.Fatal("authority summary")
+	}
+}
+func TestExclusiveAndUnacknowledgedFinish(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "owned-reader")
+	w, e := OpenReaderRecorder(root)
+	if e != nil {
+		t.Fatal(e)
+	}
+	s := InitialSummary()
+	s.State = "complete_reader_value_correspondence_only"
+	s.Requests = 27
+	s.ReaderAttempts = 27
+	s.ReaderReturns = 27
+	s.ReaderMatches = 27
+	if w.Finish(s) == nil {
+		t.Fatal("forged finish without checkpoints")
+	}
+	p := filepath.Join(t.TempDir(), "owned-output")
+	if WriteExclusive(p, []byte("owned\n"), 16, nil) != nil || WriteExclusive(p, []byte("again\n"), 16, nil) == nil {
+		t.Fatal("exclusive")
+	}
+	got, e := os.ReadFile(p)
+	if e != nil || string(got) != "owned\n" {
+		t.Fatal("overwrite")
+	}
+}
+
+func TestReaderRecorderRealOwnedFlowAndStickyFailure(t *testing.T) {
+	b := ownedBundle(27)
+	data, _, e := composeBound(b)
+	if e != nil {
+		t.Fatal(e)
+	}
+	w, e := OpenReaderRecorder(filepath.Join(t.TempDir(), "synthetic-recorder"))
+	if e != nil {
+		t.Fatal(e)
+	}
+	s := InitialSummary()
+	if e = validateBound(b, data, fakeRead, w.Checkpoint, &s); e != nil {
+		t.Fatal(e)
+	}
+	if e = w.Finish(s); e != nil {
+		t.Fatal(e)
+	}
+	if w.Checkpoint(s) == nil {
+		t.Fatal("post-final accepted")
+	}
+	w, e = OpenReaderRecorder(filepath.Join(t.TempDir(), "failure-recorder"))
+	if e != nil {
+		t.Fatal(e)
+	}
+	s = InitialSummary()
+	e = validateBound(b, data, func([]byte) (LoadedView, error) { panic("owned") }, w.Checkpoint, &s)
+	if e == nil {
+		t.Fatal("owned panic accepted")
+	}
+	s.State = "reader_correspondence_failed"
+	if e = w.Finish(s); e != nil {
+		t.Fatal("failure receipt", e)
+	}
+	w, e = OpenReaderRecorder(filepath.Join(t.TempDir(), "closed-recorder"))
+	if e != nil {
+		t.Fatal(e)
+	}
+	w.journal.Close()
+	s = InitialSummary()
+	s.State = "reader_correspondence_in_progress"
+	s.ReaderAttempts = 1
+	if w.Checkpoint(s) == nil || w.Checkpoint(s) == nil {
+		t.Fatal("closed write did not stop")
+	}
+	w.Close()
+}
+func TestTenFlagReaderContract(t *testing.T) {
+	names := []string{"--mode", "--previous-data", "--subbody-adoption", "--ini-adoption", "--group-decision", "--group-decision-sha256", "--additional-adoption", "--data", "--data-sha256", "--attempt-dir"}
+	args := []string{}
+	for _, name := range names {
+		args = append(args, name, "owned")
+	}
+	if _, e := ParseOptions(args, names); e != nil {
+		t.Fatal("reader CLI arity", e)
+	}
+}

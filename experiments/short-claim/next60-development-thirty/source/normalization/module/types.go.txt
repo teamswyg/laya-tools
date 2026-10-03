@@ -1,0 +1,105 @@
+// Package thirtycontract validates a future externally pinned Root adoption
+// envelope. It neither observes candidates nor emits corpus rows or authority.
+package thirtycontract
+
+import "encoding/json"
+
+const maxMetadataBytes = 1 << 20
+
+type failure string
+
+func (e failure) Error() string { return string(e) }
+
+type Pin struct {
+	Bytes int    `json:"bytes"`
+	SHA   string `json:"sha256"`
+}
+type Group struct {
+	Family   string `json:"family"`
+	Revision string `json:"source_revision"`
+	ID       int    `json:"whole_group"`
+	Role     string `json:"role"`
+}
+type Decision struct {
+	Schema       string   `json:"schema"`
+	State        string   `json:"state"`
+	Authority    string   `json:"authority"`
+	Mode         int      `json:"qualified_requests_current"`
+	Registry     Pin      `json:"registry_pin"`
+	ExistingMax  int      `json:"original_scoped_max"`
+	OldUnchanged *bool    `json:"old_roles_unchanged"`
+	Previous     Pin      `json:"current23_pin"`
+	Sub          Pin      `json:"subbody_qualification_pin"`
+	Ini          Pin      `json:"ini_two_qualification_pin"`
+	Additional   *Pin     `json:"remaining_three_qualification_pin"`
+	Groups       []Group  `json:"families"`
+	Order        []string `json:"materialization_admitted_request_ids"`
+	Allocated    int      `json:"groups_allocated"`
+	Reassigned   int      `json:"labels_roles_weights_reassigned"`
+	Model        int      `json:"new_model_or_Fit_or_protected_eval"`
+}
+type Unknown struct {
+	Fixture int    `json:"fixture"`
+	Field   string `json:"field"`
+	Reason  string `json:"reason"`
+}
+type Selected struct {
+	Index    *int      `json:"source_candidate_position"`
+	ID       string    `json:"metadata_id"`
+	Text     string    `json:"text"`
+	Truth    *bool     `json:"truth"`
+	Role     string    `json:"role"`
+	Weight   int       `json:"weight"`
+	Known    []int     `json:"known_counterexample_fixture_positions"`
+	Unknown  []int     `json:"aggregate_unknown_fixture_positions"`
+	Retained []Unknown `json:"unknown_predicates_retained"`
+	Ordinals []int     `json:"row_ordinals"`
+	Vector   []string  `json:"row_vector"`
+}
+type Request struct {
+	ID           string            `json:"id"`
+	Request      string            `json:"request"`
+	Family       string            `json:"source_family"`
+	Revision     string            `json:"source_revision"`
+	Scope        string            `json:"scope"`
+	Base         *int              `json:"evidence_ordinal_base"`
+	Inputs       int               `json:"finite_inputs"`
+	Group        *int              `json:"connected_group"`
+	Pending      *bool             `json:"source_group_assignment_pending"`
+	TextRevision string            `json:"text_revision"`
+	Observations int               `json:"selected_candidate_observations"`
+	Selected     []Selected        `json:"selected"`
+	Excluded     []json.RawMessage `json:"excluded"`
+}
+type Qualification struct {
+	Schema            string    `json:"schema"`
+	State             string    `json:"state"`
+	Requests          []Request `json:"requests"`
+	UnknownNeverFalse *bool     `json:"unknown_never_false"`
+}
+
+// Envelope contains caller-supplied bytes and their frozen pins. The future
+// pins have no defaults and cannot reuse the current mode-27 decision pin.
+// A SHA binds bytes, not the authority or meaning of the Root decision.
+type Envelope struct {
+	CurrentDecision        []byte
+	FutureDecision         []byte
+	RemainingQualification []byte
+	FutureDecisionPin      Pin
+	RemainingPin           Pin
+}
+
+// Counts is conditional correspondence metadata, never a qualification output.
+// Truths, groups and corpus rows are deliberately absent from this return type.
+type Counts struct {
+	Requests               int `json:"conditional_requests"`
+	Labels                 int `json:"conditional_candidate_labels"`
+	Positive               int `json:"conditional_positive_labels"`
+	Negative               int `json:"conditional_negative_labels"`
+	Inputs                 int `json:"conditional_input_fixtures"`
+	Full                   int `json:"conditional_full_observations"`
+	Selected               int `json:"conditional_selected_observations"`
+	PositiveSelectedIndex1 int `json:"conditional_positive_selected_index1"`
+	RetainedUnknown        int `json:"retained_unknown_predicates"`
+	Excluded               int `json:"excluded_candidate_records"`
+}

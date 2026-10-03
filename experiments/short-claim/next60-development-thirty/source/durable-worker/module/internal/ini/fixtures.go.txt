@@ -1,0 +1,101 @@
+package pure
+
+import (
+	"errors"
+	"io"
+)
+
+const MaxSources = 2
+const MaxSourceBytes = 4
+const FixtureCount = 5
+
+var ErrInjectedReader = errors.New("injected_reader_error")
+var errFixture = errors.New("ini_byte_fixture")
+
+type SourceSpec struct {
+	Data      [MaxSourceBytes]byte
+	N         int
+	Fail      bool
+	FailAfter int
+}
+
+type Fixture struct {
+	Index   int
+	Limit   int64
+	N       int
+	Sources [MaxSources]SourceSpec
+}
+
+// Raw source text is supplied through io.ReadCloser, never as a file name.
+// Values are copies; no maps, allocation-backed fixture aliases or labels.
+func FixtureAt(index int) (Fixture, bool) {
+	a := SourceSpec{Data: [4]byte{'a', '=', '1', '\n'}, N: 4}
+	b := SourceSpec{Data: [4]byte{'b', '=', '2', '\n'}, N: 4}
+	fixtures := [FixtureCount]Fixture{
+		{Index: 0, Limit: 4, N: 1, Sources: [2]SourceSpec{a}},
+		{Index: 1, Limit: 7, N: 2, Sources: [2]SourceSpec{a, b}},
+		{Index: 2, Limit: 8, N: 2, Sources: [2]SourceSpec{a, b}},
+		{Index: 3, Limit: -1, N: 1, Sources: [2]SourceSpec{a}},
+		{Index: 4, Limit: 8, N: 1, Sources: [2]SourceSpec{{Data: a.Data, N: 4, Fail: true, FailAfter: 2}}},
+	}
+	if index < 0 || index >= len(fixtures) {
+		return Fixture{}, false
+	}
+	return fixtures[index], true
+}
+
+// ScriptReader is an owned deterministic source, not an original INI observer.
+// Counters measure its own Read/Close calls and delivered bytes only.
+type ScriptReader struct {
+	spec       SourceSpec
+	position   int
+	closed     bool
+	ReadCalls  int
+	BytesRead  int
+	CloseCalls int
+}
+
+func NewReaders(f Fixture) ([MaxSources]*ScriptReader, error) {
+	var readers [MaxSources]*ScriptReader
+	if f.N < 1 || f.N > MaxSources {
+		return readers, errFixture
+	}
+	for i := 0; i < f.N; i++ {
+		s := f.Sources[i]
+		if s.N < 0 || s.N > MaxSourceBytes || (s.Fail && (s.FailAfter < 0 || s.FailAfter > s.N)) {
+			return [MaxSources]*ScriptReader{}, errFixture
+		}
+		readers[i] = &ScriptReader{spec: s}
+	}
+	return readers, nil
+}
+
+func (r *ScriptReader) Read(p []byte) (int, error) {
+	r.ReadCalls++
+	if len(p) == 0 {
+		return 0, nil
+	}
+	if r.closed {
+		return 0, io.ErrClosedPipe
+	}
+	if r.spec.Fail && r.position >= r.spec.FailAfter {
+		return 0, ErrInjectedReader
+	}
+	end := r.spec.N
+	if r.spec.Fail {
+		end = r.spec.FailAfter
+	}
+	if r.position == end {
+		return 0, io.EOF
+	}
+	n := copy(p, r.spec.Data[r.position:end])
+	r.position += n
+	r.BytesRead += n
+	return n, nil
+}
+
+func (r *ScriptReader) Close() error {
+	r.CloseCalls++
+	r.closed = true
+	return nil
+}

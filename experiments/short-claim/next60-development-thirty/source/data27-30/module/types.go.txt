@@ -1,0 +1,206 @@
+// Package data30 copies externally pinned Root-adopted development claims.
+// It never observes originals, assigns truth, encodes features or fits models.
+package data30
+
+import "encoding/json"
+
+const (
+	PreviousSHA     = "39edb1bb60e88d56cb2fec271b511a5ce09a0ff8bd33ce21d0dda7defb3ce362"
+	PreviousBytes   = 31493
+	SubSHA          = "bf6091b7bd2efb71c3500928de7fbfae1a881b9d0bc4a169e986dadb5e850f45"
+	SubBytes        = 11174
+	IniSHA          = "af30996775580d777fa756f9308818e3ce3a3ad027ee08129f7a0c50e50b4969"
+	IniBytes        = 12642
+	RegistrySHA     = "deca202ac5d457d67781257e8cab980979fc55e8fda32a23954f1caf6ff8b8b2"
+	maxInputBytes   = 1 << 20
+	maxRowBytes     = 16 << 10
+	maxDataBytes    = 128 << 10
+	maxSummaryBytes = 32 << 10
+)
+
+type failure string
+
+func (e failure) Error() string { return string(e) }
+func FailureCode(e error) string {
+	if e == nil {
+		return ""
+	}
+	if f, ok := e.(failure); ok {
+		return string(f)
+	}
+	return "data30_callback_failed"
+}
+
+type candidate struct {
+	ID     string `json:"metadata_id"`
+	Text   string `json:"text"`
+	Label  *bool  `json:"label"`
+	Weight int    `json:"sample_weight"`
+}
+type finiteScope struct {
+	Inputs       int    `json:"input_count"`
+	Observations int    `json:"candidate_observations"`
+	Description  string `json:"description"`
+	All          *bool  `json:"all_input_guarantee"`
+	Unseen       *bool  `json:"unseen_source_guarantee"`
+}
+type Row struct {
+	Schema       string      `json:"schema"`
+	ID           string      `json:"stable_id"`
+	Request      string      `json:"request"`
+	Candidates   []candidate `json:"candidates"`
+	Role         string      `json:"role"`
+	Group        int         `json:"whole_group"`
+	Family       string      `json:"source_family"`
+	Revision     string      `json:"source_revision"`
+	Scope        finiteScope `json:"finite_scope"`
+	TextRevision string      `json:"text_revision"`
+	Policy       string      `json:"feature_policy"`
+}
+type unknownPredicate struct {
+	Fixture int    `json:"fixture"`
+	Field   string `json:"field"`
+	Reason  string `json:"reason"`
+}
+type selected struct {
+	Index    *int               `json:"source_candidate_position"`
+	ID       string             `json:"metadata_id"`
+	Text     string             `json:"text"`
+	Truth    *bool              `json:"truth"`
+	Role     string             `json:"role"`
+	Weight   int                `json:"weight"`
+	Known    []int              `json:"known_counterexample_fixture_positions"`
+	Unknown  []int              `json:"aggregate_unknown_fixture_positions"`
+	Retained []unknownPredicate `json:"unknown_predicates_retained"`
+	Ordinals []int              `json:"row_ordinals"`
+	Vector   []string           `json:"row_vector"`
+}
+type request struct {
+	ID           string            `json:"id"`
+	Request      string            `json:"request"`
+	Family       string            `json:"source_family"`
+	Revision     string            `json:"source_revision"`
+	Scope        string            `json:"scope"`
+	OrdinalBase  *int              `json:"evidence_ordinal_base"`
+	Inputs       int               `json:"finite_inputs"`
+	Group        *int              `json:"connected_group"`
+	Pending      *bool             `json:"source_group_assignment_pending"`
+	TextRevision string            `json:"text_revision"`
+	Observations int               `json:"selected_candidate_observations"`
+	Selected     []selected        `json:"selected"`
+	Excluded     []json.RawMessage `json:"excluded"`
+}
+type qualification struct {
+	Schema            string    `json:"schema"`
+	State             string    `json:"state"`
+	Requests          []request `json:"requests"`
+	UnknownNeverFalse *bool     `json:"unknown_never_false"`
+}
+type Pin struct {
+	Bytes int    `json:"bytes"`
+	SHA   string `json:"sha256"`
+}
+type Group struct {
+	Family   string `json:"family"`
+	Revision string `json:"source_revision"`
+	ID       int    `json:"whole_group"`
+	Role     string `json:"role"`
+}
+
+// GroupDecision is an external caller-pinned Root decision, not a signature.
+// Its state must be explicit; no built-in 79/80/81 fallback may allocate groups.
+type GroupDecision struct {
+	Schema       string   `json:"schema"`
+	State        string   `json:"state"`
+	Authority    string   `json:"authority"`
+	Mode         int      `json:"qualified_requests_current"`
+	Registry     Pin      `json:"registry_pin"`
+	ExistingMax  int      `json:"original_scoped_max"`
+	OldUnchanged *bool    `json:"old_roles_unchanged"`
+	Previous     Pin      `json:"current23_pin"`
+	Sub          Pin      `json:"subbody_qualification_pin"`
+	Ini          Pin      `json:"ini_two_qualification_pin"`
+	Additional   *Pin     `json:"remaining_three_qualification_pin"`
+	Groups       []Group  `json:"families"`
+	RequestOrder []string `json:"materialization_admitted_request_ids"`
+	Allocated    int      `json:"groups_allocated"`
+	Reassigned   int      `json:"labels_roles_weights_reassigned"`
+	Model        int      `json:"new_model_or_Fit_or_protected_eval"`
+}
+type Bundle struct {
+	Mode                                     int
+	Previous, Sub, Ini, Decision, Additional []byte
+	DecisionSHA                              string
+}
+type Paths struct {
+	Mode                                                  int
+	Previous, Sub, Ini, Decision, Additional, DecisionSHA string
+}
+type LoadedCandidate struct {
+	ID, Text string
+	Label    bool
+	Weight   int
+}
+type LoadedView struct {
+	Valid                                                                                           bool
+	ID, Request, Schema, Provenance, Role, Policy, Family, Revision, TextRevision, ScopeDescription string
+	Group, Inputs, Observations, Count, SupervisionCount                                            int
+	All, Unseen, UnusedZero                                                                         bool
+	Candidates                                                                                      [8]LoadedCandidate
+}
+type Reader func([]byte) (LoadedView, error)
+type Progress func(Summary) error
+type RetainedUnknown struct {
+	Request         string `json:"request_id"`
+	SourceCandidate int    `json:"source_candidate_position"`
+	unknownPredicate
+}
+type Summary struct {
+	Schema           string            `json:"schema"`
+	State            string            `json:"state"`
+	Failure          string            `json:"failure_code"`
+	Requests         int               `json:"requests"`
+	Labels           int               `json:"candidate_labels"`
+	Positive         int               `json:"positive_labels"`
+	Negative         int               `json:"negative_labels"`
+	Inputs           int               `json:"frozen_input_fixtures"`
+	Selected         int               `json:"selected_candidate_observations"`
+	Original         int               `json:"original_evidence_observations"`
+	PositiveIndex1   int               `json:"positive_selected_index1_requests"`
+	PrefixExact      bool              `json:"prior23_prefix_byte_exact"`
+	CopiedRoot       bool              `json:"Root_adopted_supervision_copied"`
+	GroupDecisionSHA string            `json:"external_group_decision_sha256"`
+	Unknowns         []RetainedUnknown `json:"new_retained_unknown_predicates"`
+	UnknownFalse     bool              `json:"unknown_converted_to_false"`
+	DataSHA          string            `json:"data_sha256"`
+	DataBytes        int               `json:"data_bytes"`
+	ReaderAttempts   int               `json:"LoadDevelopmentRow_dispatch_intents"`
+	ReaderReturns    int               `json:"LoadDevelopmentRow_returns"`
+	ReaderMatches    int               `json:"LoadDevelopmentRow_value_matches"`
+	Reserved         bool              `json:"output_exclusively_reserved"`
+	Written          int               `json:"output_written_bytes"`
+	FileSynced       bool              `json:"output_file_sync_returned"`
+	DirectorySynced  bool              `json:"output_directory_sync_returned"`
+	LabelsAssigned   bool              `json:"labels_assigned_by_preparer"`
+	Qualified        bool              `json:"qualified_by_preparer"`
+	Features         int               `json:"Features_calls"`
+	Score            int               `json:"Score_calls"`
+	Project          int               `json:"Project_calls"`
+	Fit              int               `json:"Fit_calls"`
+	OriginalCalls    int               `json:"original_candidate_calls"`
+	Model            int               `json:"model_calls"`
+	Scope            string            `json:"scope"`
+}
+
+func InitialSummary() Summary {
+	return Summary{Schema: "riido-next60-27-or30-data-correspondence-v1", State: "not_completed", Unknowns: []RetainedUnknown{}, Scope: "Copy pinned Root finite supervision and external source-group decision only; no truth, rights, unseen-source or training-readiness authority."}
+}
+func ParseMode(s string) (int, error) {
+	if s == "27" {
+		return 27, nil
+	}
+	if s == "30" {
+		return 30, nil
+	}
+	return 0, failure("target_mode")
+}

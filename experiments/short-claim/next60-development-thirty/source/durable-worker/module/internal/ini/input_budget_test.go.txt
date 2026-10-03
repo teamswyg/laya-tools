@@ -1,0 +1,242 @@
+package pure
+
+import (
+	"bufio"
+	"errors"
+	"fmt"
+	"io"
+	"math"
+	"strings"
+	"sync"
+	"testing"
+)
+
+func fixtureReaders(t *testing.T, index int) (Fixture, [MaxSources]*ScriptReader) {
+	t.Helper()
+	f, ok := FixtureAt(index)
+	if !ok {
+		t.Fatal("fixture")
+	}
+	r, err := NewReaders(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return f, r
+}
+
+func TestSharedAllowanceBoundary(t *testing.T) {
+	for _, index := range []int{0, 1, 2} {
+		t.Run(fmt.Sprintf("case%d", index), func(t *testing.T) {
+			f, readers := fixtureReaders(t, index)
+			b, err := newInputByteBudget(f.Limit)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var loadErr error
+			for i := 0; i < f.N; i++ {
+				r := b.wrap(readers[i])
+				_, parseErr := io.ReadAll(r)
+				loadErr = b.parserResult(parseErr)
+				if err := r.Close(); err != nil {
+					t.Fatal(err)
+				}
+				if loadErr != nil {
+					break
+				}
+			}
+			if index == 1 {
+				if !errors.Is(loadErr, ErrInputByteLimit) || readers[0].BytesRead+readers[1].BytesRead != 8 {
+					t.Fatal("shared overflow and detecting byte")
+				}
+			} else if loadErr != nil || b.remaining != 0 {
+				t.Fatal("exact total EOF")
+			}
+			for i := 0; i < f.N; i++ {
+				if readers[i].CloseCalls != 1 {
+					t.Fatal("close ownership")
+				}
+			}
+		})
+	}
+}
+
+func TestOverflowIdentitySurvivesOwnedBOMFormatting(t *testing.T) {
+	f, readers := fixtureReaders(t, 1)
+	b, _ := newInputByteBudget(f.Limit)
+	first := b.wrap(readers[0])
+	if _, err := io.ReadAll(first); err != nil {
+		t.Fatal(err)
+	}
+	_ = first.Close()
+	second := b.wrap(readers[1])
+	peek := bufio.NewReaderSize(second, 4096)
+	_, err := peek.Peek(2)
+	if !errors.Is(err, ErrInputByteLimit) {
+		t.Fatal("overflow during Peek")
+	}
+	// This owned stand-in deliberately uses the original source's %v boundary.
+	// No original parser or LoadSources is imported or run.
+	formatted := fmt.Errorf("BOM: %v", err)
+	if errors.Is(formatted, ErrInputByteLimit) {
+		t.Fatal("stand-in unexpectedly wraps identity")
+	}
+	var typed *InputByteLimitError
+	if !errors.As(b.parserResult(formatted), &typed) || typed.Limit != 7 {
+		t.Fatal("captured typed cause lost")
+	}
+	_ = second.Close()
+}
+
+func TestInjectedCauseAfterTwoSuccessfulBytes(t *testing.T) {
+	f, readers := fixtureReaders(t, 4)
+	b, _ := newInputByteBudget(f.Limit)
+	r := b.wrap(readers[0])
+	peek := bufio.NewReaderSize(r, 4096)
+	first, err := peek.Peek(2)
+	if err != nil || string(first) != "a=" {
+		t.Fatal("two-byte BOM prefix")
+	}
+	_, readErr := peek.ReadBytes('\n')
+	if readErr != ErrInjectedReader || b.parserResult(readErr) != ErrInjectedReader || errors.Is(readErr, ErrInputByteLimit) {
+		t.Fatal("reader cause must stay distinct")
+	}
+	before := readers[0].ReadCalls
+	if _, err := r.Read(make([]byte, 8)); err != ErrInjectedReader || readers[0].ReadCalls != before {
+		t.Fatal("sticky cause reread")
+	}
+	_ = r.Close()
+	if readers[0].BytesRead != 2 || readers[0].CloseCalls != 1 {
+		t.Fatal("reader ownership")
+	}
+}
+
+func TestNegativeGuardHasNoSourceRead(t *testing.T) {
+	f, readers := fixtureReaders(t, 3)
+	b, err := newInputByteBudget(f.Limit)
+	var typed *InvalidLimitError
+	if b != nil || !errors.As(err, &typed) || !errors.Is(err, ErrInvalidLimit) || typed.Limit != -1 || readers[0].ReadCalls != 0 {
+		t.Fatal("negative validation boundary")
+	}
+}
+
+func TestPerSourceResetIsOnlyNegativeDifference(t *testing.T) {
+	f, readers := fixtureReaders(t, 1)
+	for i := 0; i < f.N; i++ {
+		b, _ := newInputByteBudget(f.Limit)
+		r := b.wrap(readers[i])
+		data, err := io.ReadAll(r)
+		if b.parserResult(err) != nil || len(data) != 4 {
+			t.Fatal("per-source reset control")
+		}
+		_ = r.Close()
+	}
+	// This is an owned primitive control, not an original candidate observation.
+}
+
+func TestEmptyReadDoesNotProbeOrClearCause(t *testing.T) {
+	f, readers := fixtureReaders(t, 0)
+	b, _ := newInputByteBudget(f.Limit)
+	r := b.wrap(readers[0])
+	if n, err := r.Read(nil); n != 0 || err != nil || readers[0].ReadCalls != 0 {
+		t.Fatal("empty read")
+	}
+	b.cause = ErrInjectedReader
+	if n, err := r.Read(nil); n != 0 || err != nil || b.cause != ErrInjectedReader {
+		t.Fatal("empty read sticky preservation")
+	}
+}
+
+func TestMaximumLimitAndByteSizedReads(t *testing.T) {
+	for _, limit := range []int64{1, math.MaxInt64} {
+		t.Run(fmt.Sprintf("limit%d", limit), func(t *testing.T) {
+			b, _ := newInputByteBudget(limit)
+			r := b.wrap(io.NopCloser(strings.NewReader("ab")))
+			var one [1]byte
+			if n, err := r.Read(one[:]); n != 1 || err != nil || one[0] != 'a' {
+				t.Fatal("first byte")
+			}
+			n, err := r.Read(one[:])
+			if limit == 1 {
+				if n != 0 || !errors.Is(err, ErrInputByteLimit) {
+					t.Fatal("one-byte overflow")
+				}
+			} else if n != 1 || err != nil || b.remaining != math.MaxInt64-2 {
+				t.Fatal("large limit arithmetic")
+			}
+		})
+	}
+}
+
+type resultReader struct {
+	n     int
+	err   error
+	calls int
+}
+
+func (r *resultReader) Read(p []byte) (int, error) {
+	r.calls++
+	if len(p) > 0 {
+		p[0] = 'x'
+	}
+	return r.n, r.err
+}
+func (*resultReader) Close() error { return nil }
+
+func TestMalformedCountAndReadFailurePriority(t *testing.T) {
+	for _, n := range []int{-1, 3} {
+		t.Run(fmt.Sprintf("malformed%d", n), func(t *testing.T) {
+			b, _ := newInputByteBudget(1)
+			s := &resultReader{n: n}
+			r := b.wrap(s)
+			if n, err := r.Read(make([]byte, 2)); n != 0 || err != errInvalidBudgetReader {
+				t.Fatal("malformed count")
+			}
+			_, _ = r.Read(make([]byte, 2))
+			if s.calls != 1 {
+				t.Fatal("malformed sticky boundary")
+			}
+		})
+	}
+	b, _ := newInputByteBudget(1)
+	s := &resultReader{n: 2, err: ErrInjectedReader}
+	n, err := b.wrap(s).Read(make([]byte, 2))
+	if n != 2 || err != ErrInjectedReader || b.parserResult(err) != ErrInjectedReader || b.remaining != 0 {
+		t.Fatal("n plus read error is kept, not misclassified")
+	}
+}
+
+func TestIndependentOwnersAndFixtureValues(t *testing.T) {
+	f, _ := FixtureAt(0)
+	f.Sources[0].Data[0] = 'z'
+	again, _ := FixtureAt(0)
+	if again.Sources[0].Data[0] != 'a' {
+		t.Fatal("fixture alias")
+	}
+	var wg sync.WaitGroup
+	for i := 0; i < 8; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			b, _ := newInputByteBudget(2)
+			r := b.wrap(io.NopCloser(strings.NewReader("ab")))
+			data, err := io.ReadAll(r)
+			if err != nil || string(data) != "ab" {
+				t.Error("independent owner")
+			}
+		}()
+	}
+	wg.Wait()
+}
+
+func TestZeroPrimitiveAndUnrelatedParserError(t *testing.T) {
+	b, _ := newInputByteBudget(0)
+	data, err := io.ReadAll(b.wrap(io.NopCloser(strings.NewReader("abcdefgh"))))
+	if err != nil || string(data) != "abcdefgh" {
+		t.Fatal("owned zero primitive")
+	}
+	other := errors.New("owned_syntax_standin")
+	if b.parserResult(other) != other {
+		t.Fatal("unrelated parser error replaced")
+	}
+	// The actual retained INI zero branch is source-preserved, not executed here.
+}

@@ -1,0 +1,2127 @@
+{
+  "schema": "riido-remaining-three-preserved-input-bindings-v1",
+  "state": "source_only_before_native",
+  "requests": [
+    {
+      "request_index": 0,
+      "request_exact": {
+        "candidate_order_exact": [
+          {
+            "description": "LoadSources converts all data sources then calls Reload; LoadOptions has buffer size but no total input-byte budget.",
+            "executable_prepared": false,
+            "id": "baseline-design",
+            "kind": "unmodified_baseline_or_declared_old_api_substitute",
+            "source_faithfulness": "reviewed_static_source"
+          },
+          {
+            "description": "Share a checked remaining-byte counter across sources, probe one extra byte to distinguish exact EOF/overflow, propagate read causes without silently truncated success.",
+            "executable_prepared": false,
+            "id": "reference-design",
+            "kind": "intended_correct_reference",
+            "source_faithfulness": "authored_planned_change_not_existing_implementation"
+          },
+          {
+            "description": "Use io.LimitReader without overflow detection, or reset the allowance for every source.",
+            "executable_prepared": false,
+            "id": "wrong-seed-design",
+            "kind": "seeded_wrong_reference",
+            "source_faithfulness": "authored_negative_control_not_existing_implementation"
+          }
+        ],
+        "fixtures_exact": [
+          {
+            "Got": null,
+            "Want_authorship": "project-authored finite specification inferred from pinned source or new API intent; not native observation",
+            "actual_original_call": false,
+            "case_id": "next60-ini-byte-budget-vector-01",
+            "input": {
+              "limit": 4,
+              "sources": [
+                "a=1\n"
+              ]
+            },
+            "want": {
+              "a": "1",
+              "error": null
+            }
+          },
+          {
+            "Got": null,
+            "Want_authorship": "project-authored finite specification inferred from pinned source or new API intent; not native observation",
+            "actual_original_call": false,
+            "case_id": "next60-ini-byte-budget-vector-02",
+            "input": {
+              "limit": 7,
+              "sources": [
+                "a=1\n",
+                "b=2\n"
+              ]
+            },
+            "want": {
+              "error_kind": "input_byte_limit",
+              "file": null
+            }
+          },
+          {
+            "Got": null,
+            "Want_authorship": "project-authored finite specification inferred from pinned source or new API intent; not native observation",
+            "actual_original_call": false,
+            "case_id": "next60-ini-byte-budget-vector-03",
+            "input": {
+              "limit": 8,
+              "sources": [
+                "a=1\n",
+                "b=2\n"
+              ]
+            },
+            "want": {
+              "a": "1",
+              "b": "2",
+              "error": null
+            }
+          },
+          {
+            "Got": null,
+            "Want_authorship": "project-authored finite specification inferred from pinned source or new API intent; not native observation",
+            "actual_original_call": false,
+            "case_id": "next60-ini-byte-budget-vector-04",
+            "input": {
+              "limit": -1,
+              "sources": [
+                "a=1\n"
+              ]
+            },
+            "want": {
+              "error_kind": "invalid_limit",
+              "source_reads": 0
+            }
+          },
+          {
+            "Got": null,
+            "Want_authorship": "project-authored finite specification inferred from pinned source or new API intent; not native observation",
+            "actual_original_call": false,
+            "case_id": "next60-ini-byte-budget-vector-05",
+            "input": {
+              "limit": 8,
+              "reader_error_after": 2
+            },
+            "want": {
+              "error_is": "injected_reader_error",
+              "error_kind_not": "input_byte_limit"
+            }
+          }
+        ],
+        "id": "next60-ini-byte-budget",
+        "original_ordinal": 7,
+        "primary120_catalog_id": "go53-ini-parse-byte-budget",
+        "qualified": false,
+        "reference": {
+          "artifact_id": "original20/drafts-v1",
+          "artifact_sha256": "c7bbf7bcc7912300fabdd6e671b0922df295299f00e5e7201df1ab5e824a2a9b",
+          "json_pointer": "/drafts/7"
+        },
+        "request_ascii_words": 22,
+        "request_bytes": 152,
+        "request_en": "Add an optional total input-byte limit across all INI sources, returning a distinct limit error instead of accepting a silently truncated configuration.",
+        "revision": "e2db55b0e088fa4ee0c128aa4ade263cdc1d7f08",
+        "role": null,
+        "runtime_literal_ready": false,
+        "runtime_literal_status": "historical input/Want exact preserved; source closure and explicitly listed realization gaps pending",
+        "scope_exact": "Optional positive total input-byte limit across ordered sources, measured on raw bytes including whitespace/comments. Zero preserves unlimited default. Overflow returns typed limit error and no successful File; reader errors stay distinguishable.",
+        "source_family": "upstream53-ini",
+        "source_only_realization_proposal": {
+          "baseline_api": "LoadSources/Reload",
+          "fixture_rules": [
+            "All ordered raw source bytes count against one allowance.",
+            "Case05 needs an explicit finite owned reader byte stream and sentinel before native freeze; reader_error_after alone is not a complete reader implementation.",
+            "Do not report parser line text as a typed size error."
+          ],
+          "hold": [
+            "exact INI closure/notices absent",
+            "case05 reader realization and new API/classifier pending"
+          ],
+          "source_lines": [
+            "ini.go:134-155",
+            "file.go:301-315"
+          ],
+          "typed_channels": [
+            "File nilness",
+            "a/b values",
+            "error nil/type/cause",
+            "owned source byte/read/close trace"
+          ]
+        },
+        "truth": null,
+        "weight": null
+      },
+      "Want_rows_exact": [
+        {
+          "request_index": 0,
+          "request_id": "next60-ini-byte-budget",
+          "fixture_index": 0,
+          "case_id": "next60-ini-byte-budget-vector-01",
+          "historical_fixture_pointer": "/original_requests/3/fixtures_exact/0",
+          "input": {
+            "limit": 4,
+            "sources": [
+              "a=1\n"
+            ]
+          },
+          "Want": {
+            "a": "1",
+            "error": null
+          },
+          "Got": null,
+          "role": null,
+          "truth": null,
+          "weight": null,
+          "acceptable": null
+        },
+        {
+          "request_index": 0,
+          "request_id": "next60-ini-byte-budget",
+          "fixture_index": 1,
+          "case_id": "next60-ini-byte-budget-vector-02",
+          "historical_fixture_pointer": "/original_requests/3/fixtures_exact/1",
+          "input": {
+            "limit": 7,
+            "sources": [
+              "a=1\n",
+              "b=2\n"
+            ]
+          },
+          "Want": {
+            "error_kind": "input_byte_limit",
+            "file": null
+          },
+          "Got": null,
+          "role": null,
+          "truth": null,
+          "weight": null,
+          "acceptable": null
+        },
+        {
+          "request_index": 0,
+          "request_id": "next60-ini-byte-budget",
+          "fixture_index": 2,
+          "case_id": "next60-ini-byte-budget-vector-03",
+          "historical_fixture_pointer": "/original_requests/3/fixtures_exact/2",
+          "input": {
+            "limit": 8,
+            "sources": [
+              "a=1\n",
+              "b=2\n"
+            ]
+          },
+          "Want": {
+            "a": "1",
+            "b": "2",
+            "error": null
+          },
+          "Got": null,
+          "role": null,
+          "truth": null,
+          "weight": null,
+          "acceptable": null
+        },
+        {
+          "request_index": 0,
+          "request_id": "next60-ini-byte-budget",
+          "fixture_index": 3,
+          "case_id": "next60-ini-byte-budget-vector-04",
+          "historical_fixture_pointer": "/original_requests/3/fixtures_exact/3",
+          "input": {
+            "limit": -1,
+            "sources": [
+              "a=1\n"
+            ]
+          },
+          "Want": {
+            "error_kind": "invalid_limit",
+            "source_reads": 0
+          },
+          "Got": null,
+          "role": null,
+          "truth": null,
+          "weight": null,
+          "acceptable": null
+        },
+        {
+          "request_index": 0,
+          "request_id": "next60-ini-byte-budget",
+          "fixture_index": 4,
+          "case_id": "next60-ini-byte-budget-vector-05",
+          "historical_fixture_pointer": "/original_requests/3/fixtures_exact/4",
+          "input": {
+            "limit": 8,
+            "reader_error_after": 2
+          },
+          "Want": {
+            "error_is": "injected_reader_error",
+            "error_kind_not": "input_byte_limit"
+          },
+          "Got": null,
+          "role": null,
+          "truth": null,
+          "weight": null,
+          "acceptable": null
+        }
+      ],
+      "realizations_exact": [
+        {
+          "request_index": 0,
+          "request_id": "next60-ini-byte-budget",
+          "fixture_index": 0,
+          "case_id": "next60-ini-byte-budget-vector-01",
+          "historical_input_and_Want_unchanged": true,
+          "fresh_state_per_candidate": true,
+          "candidate_order": [
+            "baseline-design",
+            "reference-design",
+            "wrong-seed-design"
+          ],
+          "Got": null,
+          "role": null,
+          "truth": null,
+          "weight": null,
+          "realization": {
+            "source_transport": "Ordered owned io.ReadCloser values supported by original parseDataSource; source strings become raw UTF8 bytes, never filenames.",
+            "sources": [
+              {
+                "bytes": [
+                  97,
+                  61,
+                  49,
+                  10
+                ],
+                "normal_prefix_bytes": 4,
+                "error_after_exhaustion": "io.EOF",
+                "EOF_with_positive_n": false,
+                "close_error": null
+              }
+            ],
+            "options": "Original default options except the proposed MaxInputBytes field for authored candidates. Loose=false, ShortCircuit=false, Python multiline=false.",
+            "source_reads": "Number of actual owned underlying Read calls, not bytes, parser calls, buffer operations or hidden original startup. Constructing a reader is not a read.",
+            "source_close_policy": "Each source whose ReadCloser is acquired is closed once by the original lifecycle; fixture Close returns nil. Broader error/ownership policies are outside this finite evidence.",
+            "lifetime": "One initial LoadSources attempt. Repeated Reload or Append behavior is not established.",
+            "budget_counting": "Raw bytes returned by the owned source readers, including whitespace, comments and newlines; one shared total allowance, plus a detecting byte when a positive allowance is exhausted.",
+            "case05_reason": null
+          }
+        },
+        {
+          "request_index": 0,
+          "request_id": "next60-ini-byte-budget",
+          "fixture_index": 1,
+          "case_id": "next60-ini-byte-budget-vector-02",
+          "historical_input_and_Want_unchanged": true,
+          "fresh_state_per_candidate": true,
+          "candidate_order": [
+            "baseline-design",
+            "reference-design",
+            "wrong-seed-design"
+          ],
+          "Got": null,
+          "role": null,
+          "truth": null,
+          "weight": null,
+          "realization": {
+            "source_transport": "Ordered owned io.ReadCloser values supported by original parseDataSource; source strings become raw UTF8 bytes, never filenames.",
+            "sources": [
+              {
+                "bytes": [
+                  97,
+                  61,
+                  49,
+                  10
+                ],
+                "normal_prefix_bytes": 4,
+                "error_after_exhaustion": "io.EOF",
+                "EOF_with_positive_n": false,
+                "close_error": null
+              },
+              {
+                "bytes": [
+                  98,
+                  61,
+                  50,
+                  10
+                ],
+                "normal_prefix_bytes": 4,
+                "error_after_exhaustion": "io.EOF",
+                "EOF_with_positive_n": false,
+                "close_error": null
+              }
+            ],
+            "options": "Original default options except the proposed MaxInputBytes field for authored candidates. Loose=false, ShortCircuit=false, Python multiline=false.",
+            "source_reads": "Number of actual owned underlying Read calls, not bytes, parser calls, buffer operations or hidden original startup. Constructing a reader is not a read.",
+            "source_close_policy": "Each source whose ReadCloser is acquired is closed once by the original lifecycle; fixture Close returns nil. Broader error/ownership policies are outside this finite evidence.",
+            "lifetime": "One initial LoadSources attempt. Repeated Reload or Append behavior is not established.",
+            "budget_counting": "Raw bytes returned by the owned source readers, including whitespace, comments and newlines; one shared total allowance, plus a detecting byte when a positive allowance is exhausted.",
+            "case05_reason": null
+          }
+        },
+        {
+          "request_index": 0,
+          "request_id": "next60-ini-byte-budget",
+          "fixture_index": 2,
+          "case_id": "next60-ini-byte-budget-vector-03",
+          "historical_input_and_Want_unchanged": true,
+          "fresh_state_per_candidate": true,
+          "candidate_order": [
+            "baseline-design",
+            "reference-design",
+            "wrong-seed-design"
+          ],
+          "Got": null,
+          "role": null,
+          "truth": null,
+          "weight": null,
+          "realization": {
+            "source_transport": "Ordered owned io.ReadCloser values supported by original parseDataSource; source strings become raw UTF8 bytes, never filenames.",
+            "sources": [
+              {
+                "bytes": [
+                  97,
+                  61,
+                  49,
+                  10
+                ],
+                "normal_prefix_bytes": 4,
+                "error_after_exhaustion": "io.EOF",
+                "EOF_with_positive_n": false,
+                "close_error": null
+              },
+              {
+                "bytes": [
+                  98,
+                  61,
+                  50,
+                  10
+                ],
+                "normal_prefix_bytes": 4,
+                "error_after_exhaustion": "io.EOF",
+                "EOF_with_positive_n": false,
+                "close_error": null
+              }
+            ],
+            "options": "Original default options except the proposed MaxInputBytes field for authored candidates. Loose=false, ShortCircuit=false, Python multiline=false.",
+            "source_reads": "Number of actual owned underlying Read calls, not bytes, parser calls, buffer operations or hidden original startup. Constructing a reader is not a read.",
+            "source_close_policy": "Each source whose ReadCloser is acquired is closed once by the original lifecycle; fixture Close returns nil. Broader error/ownership policies are outside this finite evidence.",
+            "lifetime": "One initial LoadSources attempt. Repeated Reload or Append behavior is not established.",
+            "budget_counting": "Raw bytes returned by the owned source readers, including whitespace, comments and newlines; one shared total allowance, plus a detecting byte when a positive allowance is exhausted.",
+            "case05_reason": null
+          }
+        },
+        {
+          "request_index": 0,
+          "request_id": "next60-ini-byte-budget",
+          "fixture_index": 3,
+          "case_id": "next60-ini-byte-budget-vector-04",
+          "historical_input_and_Want_unchanged": true,
+          "fresh_state_per_candidate": true,
+          "candidate_order": [
+            "baseline-design",
+            "reference-design",
+            "wrong-seed-design"
+          ],
+          "Got": null,
+          "role": null,
+          "truth": null,
+          "weight": null,
+          "realization": {
+            "source_transport": "Ordered owned io.ReadCloser values supported by original parseDataSource; source strings become raw UTF8 bytes, never filenames.",
+            "sources": [
+              {
+                "bytes": [
+                  97,
+                  61,
+                  49,
+                  10
+                ],
+                "normal_prefix_bytes": 4,
+                "error_after_exhaustion": "io.EOF",
+                "EOF_with_positive_n": false,
+                "close_error": null
+              }
+            ],
+            "options": "Original default options except the proposed MaxInputBytes field for authored candidates. Loose=false, ShortCircuit=false, Python multiline=false.",
+            "source_reads": "Number of actual owned underlying Read calls, not bytes, parser calls, buffer operations or hidden original startup. Constructing a reader is not a read.",
+            "source_close_policy": "Each source whose ReadCloser is acquired is closed once by the original lifecycle; fixture Close returns nil. Broader error/ownership policies are outside this finite evidence.",
+            "lifetime": "One initial LoadSources attempt. Repeated Reload or Append behavior is not established.",
+            "budget_counting": "Raw bytes returned by the owned source readers, including whitespace, comments and newlines; one shared total allowance, plus a detecting byte when a positive allowance is exhausted.",
+            "case05_reason": null
+          }
+        },
+        {
+          "request_index": 0,
+          "request_id": "next60-ini-byte-budget",
+          "fixture_index": 4,
+          "case_id": "next60-ini-byte-budget-vector-05",
+          "historical_input_and_Want_unchanged": true,
+          "fresh_state_per_candidate": true,
+          "candidate_order": [
+            "baseline-design",
+            "reference-design",
+            "wrong-seed-design"
+          ],
+          "Got": null,
+          "role": null,
+          "truth": null,
+          "weight": null,
+          "realization": {
+            "source_transport": "Ordered owned io.ReadCloser values supported by original parseDataSource; source strings become raw UTF8 bytes, never filenames.",
+            "sources": [
+              {
+                "bytes": [
+                  97,
+                  61,
+                  49,
+                  10
+                ],
+                "normal_prefix_bytes": 2,
+                "normal_read_returns_error": false,
+                "failure_next_read": "injected_reader_error",
+                "failure_return_n": 0,
+                "repeat_failure_until_close": true,
+                "bytes_after_failure_delivered": false,
+                "close_error": null
+              }
+            ],
+            "options": "Original default options except the proposed MaxInputBytes field for authored candidates. Loose=false, ShortCircuit=false, Python multiline=false.",
+            "source_reads": "Number of actual owned underlying Read calls, not bytes, parser calls, buffer operations or hidden original startup. Constructing a reader is not a read.",
+            "source_close_policy": "Each source whose ReadCloser is acquired is closed once by the original lifecycle; fixture Close returns nil. Broader error/ownership policies are outside this finite evidence.",
+            "lifetime": "One initial LoadSources attempt. Repeated Reload or Append behavior is not established.",
+            "budget_counting": "Raw bytes returned by the owned source readers, including whitespace, comments and newlines; one shared total allowance, plus a detecting byte when a positive allowance is exhausted.",
+            "case05_reason": "First Read returns exactly a= (2 bytes) with nil. The next nonempty Read returns the owned sentinel. BOM Peek(2) can finish before the sentinel; readUntil has a direct reader-error return. The frozen error_after=2 and Want are unchanged."
+          }
+        }
+      ],
+      "operational_text_exact": {
+        "request_id": "next60-ini-byte-budget",
+        "request_en": "Add an optional total input-byte limit across all INI sources, returning a distinct limit error instead of accepting a silently truncated configuration.",
+        "request_words": 22,
+        "request_bytes": 152,
+        "original_captions_preserved_in": "FROZEN-REQUESTS.v1.json",
+        "operational_captions_new_before_implementation": [
+          {
+            "candidate_index": 0,
+            "candidate_id": "baseline-design",
+            "text": "Load ordered INI sources without a total input byte limit.",
+            "words": 10,
+            "bytes": 58,
+            "label": null
+          },
+          {
+            "candidate_index": 1,
+            "candidate_id": "reference-design",
+            "text": "Share one input byte allowance across all sources, probe overflow, and preserve reader causes.",
+            "words": 14,
+            "bytes": 94,
+            "label": null
+          },
+          {
+            "candidate_index": 2,
+            "candidate_id": "wrong-seed-design",
+            "text": "Reset the input byte allowance for each source, with overflow probes and reader cause preservation.",
+            "words": 15,
+            "bytes": 99,
+            "label": null
+          }
+        ]
+      },
+      "API_policy_exact": {
+        "request_id": "next60-ini-byte-budget",
+        "proposed_API": "Add optional LoadOptions.MaxInputBytes int64 in a full retained INI fork; 0 disables the new budget, positive enables it, negative returns a declared owned invalid-limit error before any source Read. The old zero path must remain source-preserved.",
+        "reference": "Use one raw-byte allowance shared across the ordered sources for the initial LoadSources batch. Exact total EOF succeeds. Probe one extra byte before claiming overflow; return an owned InputByteLimitError and nil File on overflow. Preserve the underlying reader cause instead of classifying any parser error as a size error.",
+        "negative_single_branch": "Reset the allowance for every source. Keep negative validation, per-source overflow detection, reader-cause preservation and other reference behavior unchanged. Do not combine this with silent truncation.",
+        "error_types": [
+          "InvalidLimitError(kind=invalid_limit)",
+          "InputByteLimitError(kind=input_byte_limit)"
+        ],
+        "reader_error_caveat": "Original parser.go:362-364 formats a BOM failure with %v, so original error identity is not globally preserved. The frozen 2-byte-then-error reader reaches a later direct-return path. A new positive-limit wrapper may retain read causes explicitly; its implementation and broad behavior need separate review.",
+        "scope": "Initial load only. Disabled behavior and Reload/Append lifetime are design constraints, not newly observed compatibility proofs."
+      }
+    },
+    {
+      "request_index": 1,
+      "request_exact": {
+        "candidate_order_exact": [
+          {
+            "description": "ReadFile reads whole contents and uses Stat size only as a capacity estimate, not an enforceable caller limit.",
+            "executable_prepared": false,
+            "id": "baseline-design",
+            "kind": "unmodified_baseline_or_declared_old_api_substitute",
+            "source_faithfulness": "reviewed_static_source"
+          },
+          {
+            "description": "Check limit before opening, read at most limit+1 with bounded capacity independent of Stat, propagate reader errors and close exactly once.",
+            "executable_prepared": false,
+            "id": "reference-design",
+            "kind": "intended_correct_reference",
+            "source_faithfulness": "authored_planned_change_not_existing_implementation"
+          },
+          {
+            "description": "Trust Stat and allocate/read unbounded, or silently return the first limit bytes as success.",
+            "executable_prepared": false,
+            "id": "wrong-seed-design",
+            "kind": "seeded_wrong_reference",
+            "source_faithfulness": "authored_negative_control_not_existing_implementation"
+          }
+        ],
+        "fixtures_exact": [
+          {
+            "Got": null,
+            "Want_authorship": "project-authored finite specification inferred from pinned source or new API intent; not native observation",
+            "actual_original_call": false,
+            "case_id": "next60-afero-bounded-read-vector-01",
+            "input": {
+              "contents": "abcd",
+              "limit": 4,
+              "stat_size": 4
+            },
+            "want": {
+              "close_calls": 1,
+              "data": "abcd",
+              "error": null
+            }
+          },
+          {
+            "Got": null,
+            "Want_authorship": "project-authored finite specification inferred from pinned source or new API intent; not native observation",
+            "actual_original_call": false,
+            "case_id": "next60-afero-bounded-read-vector-02",
+            "input": {
+              "contents": "abcde",
+              "limit": 4,
+              "stat_size": 5
+            },
+            "want": {
+              "close_calls": 1,
+              "data": null,
+              "error_kind": "size_limit"
+            }
+          },
+          {
+            "Got": null,
+            "Want_authorship": "project-authored finite specification inferred from pinned source or new API intent; not native observation",
+            "actual_original_call": false,
+            "case_id": "next60-afero-bounded-read-vector-03",
+            "input": {
+              "contents": "abcde",
+              "limit": 4,
+              "stat_size": 0
+            },
+            "want": {
+              "bytes_read_max": 5,
+              "data": null,
+              "error_kind": "size_limit"
+            }
+          },
+          {
+            "Got": null,
+            "Want_authorship": "project-authored finite specification inferred from pinned source or new API intent; not native observation",
+            "actual_original_call": false,
+            "case_id": "next60-afero-bounded-read-vector-04",
+            "input": {
+              "limit": 4,
+              "reader_error_after": 2
+            },
+            "want": {
+              "close_calls": 1,
+              "error_is": "injected_reader_error"
+            }
+          },
+          {
+            "Got": null,
+            "Want_authorship": "project-authored finite specification inferred from pinned source or new API intent; not native observation",
+            "actual_original_call": false,
+            "case_id": "next60-afero-bounded-read-vector-05",
+            "input": {
+              "contents": "",
+              "limit": -1
+            },
+            "want": {
+              "error_kind": "invalid_limit",
+              "open_calls": 0
+            }
+          }
+        ],
+        "id": "next60-afero-bounded-read",
+        "original_ordinal": 12,
+        "primary120_catalog_id": "go53-afero-bounded-read",
+        "qualified": false,
+        "reference": {
+          "artifact_id": "original20/drafts-v1",
+          "artifact_sha256": "c7bbf7bcc7912300fabdd6e671b0922df295299f00e5e7201df1ab5e824a2a9b",
+          "json_pointer": "/drafts/12"
+        },
+        "request_ascii_words": 21,
+        "request_bytes": 154,
+        "request_en": "Add ReadFileLimit with a documented maximum byte count, distinguishing an oversized file from read failure without returning a silently truncated success.",
+        "revision": "eb6a92826ea568e3f40ab91fcbda8d2b38b61d3e",
+        "role": null,
+        "runtime_literal_ready": false,
+        "runtime_literal_status": "historical input/Want exact preserved; source closure and explicitly listed realization gaps pending",
+        "scope_exact": "New ReadFileLimit using fake Fs/File only; positive max byte count; exact limit accepted, one extra byte rejects with typed size error; oversize returns no successful partial data, underlying read cause preserved.",
+        "source_family": "upstream53-afero",
+        "source_only_realization_proposal": {
+          "baseline_api": "ReadFile",
+          "fixture_rules": [
+            "Fake Fs/File only; Stat is advisory, not a bound.",
+            "One extra byte is only a bound of the new implementation; distinguish tracked fake read calls from uninstrumented internals.",
+            "Case04 lacks finite source byte stream; freeze it before observing.",
+            "Choose the original wrong-seed alternative silently truncated limit bytes as success; do not combine multiple changing negative branches."
+          ],
+          "hold": [
+            "exact afero closure/notices absent",
+            "finite case04 reader realization and limit-error type pending"
+          ],
+          "source_lines": [
+            "ioutil.go:62-101"
+          ],
+          "typed_channels": [
+            "data nilness and bytes",
+            "error nil/type/cause",
+            "owned Open/Read/Stat/Close counts"
+          ]
+        },
+        "truth": null,
+        "weight": null
+      },
+      "Want_rows_exact": [
+        {
+          "request_index": 1,
+          "request_id": "next60-afero-bounded-read",
+          "fixture_index": 0,
+          "case_id": "next60-afero-bounded-read-vector-01",
+          "historical_fixture_pointer": "/original_requests/4/fixtures_exact/0",
+          "input": {
+            "contents": "abcd",
+            "limit": 4,
+            "stat_size": 4
+          },
+          "Want": {
+            "close_calls": 1,
+            "data": "abcd",
+            "error": null
+          },
+          "Got": null,
+          "role": null,
+          "truth": null,
+          "weight": null,
+          "acceptable": null
+        },
+        {
+          "request_index": 1,
+          "request_id": "next60-afero-bounded-read",
+          "fixture_index": 1,
+          "case_id": "next60-afero-bounded-read-vector-02",
+          "historical_fixture_pointer": "/original_requests/4/fixtures_exact/1",
+          "input": {
+            "contents": "abcde",
+            "limit": 4,
+            "stat_size": 5
+          },
+          "Want": {
+            "close_calls": 1,
+            "data": null,
+            "error_kind": "size_limit"
+          },
+          "Got": null,
+          "role": null,
+          "truth": null,
+          "weight": null,
+          "acceptable": null
+        },
+        {
+          "request_index": 1,
+          "request_id": "next60-afero-bounded-read",
+          "fixture_index": 2,
+          "case_id": "next60-afero-bounded-read-vector-03",
+          "historical_fixture_pointer": "/original_requests/4/fixtures_exact/2",
+          "input": {
+            "contents": "abcde",
+            "limit": 4,
+            "stat_size": 0
+          },
+          "Want": {
+            "bytes_read_max": 5,
+            "data": null,
+            "error_kind": "size_limit"
+          },
+          "Got": null,
+          "role": null,
+          "truth": null,
+          "weight": null,
+          "acceptable": null
+        },
+        {
+          "request_index": 1,
+          "request_id": "next60-afero-bounded-read",
+          "fixture_index": 3,
+          "case_id": "next60-afero-bounded-read-vector-04",
+          "historical_fixture_pointer": "/original_requests/4/fixtures_exact/3",
+          "input": {
+            "limit": 4,
+            "reader_error_after": 2
+          },
+          "Want": {
+            "close_calls": 1,
+            "error_is": "injected_reader_error"
+          },
+          "Got": null,
+          "role": null,
+          "truth": null,
+          "weight": null,
+          "acceptable": null
+        },
+        {
+          "request_index": 1,
+          "request_id": "next60-afero-bounded-read",
+          "fixture_index": 4,
+          "case_id": "next60-afero-bounded-read-vector-05",
+          "historical_fixture_pointer": "/original_requests/4/fixtures_exact/4",
+          "input": {
+            "contents": "",
+            "limit": -1
+          },
+          "Want": {
+            "error_kind": "invalid_limit",
+            "open_calls": 0
+          },
+          "Got": null,
+          "role": null,
+          "truth": null,
+          "weight": null,
+          "acceptable": null
+        }
+      ],
+      "realizations_exact": [
+        {
+          "request_index": 1,
+          "request_id": "next60-afero-bounded-read",
+          "fixture_index": 0,
+          "case_id": "next60-afero-bounded-read-vector-01",
+          "historical_input_and_Want_unchanged": true,
+          "fresh_state_per_candidate": true,
+          "candidate_order": [
+            "baseline-design",
+            "reference-design",
+            "wrong-seed-design"
+          ],
+          "Got": null,
+          "role": null,
+          "truth": null,
+          "weight": null,
+          "realization": {
+            "name": "data/item",
+            "filesystem": "Fresh deterministic owned Fs/File only; no disk access.",
+            "contents_bytes": [
+              97,
+              98,
+              99,
+              100
+            ],
+            "stat_size": 4,
+            "stat_error": null,
+            "open_error": null,
+            "reader": {
+              "normal_prefix_bytes": 4,
+              "error_after_exhaustion": "io.EOF",
+              "EOF_with_positive_n": false
+            },
+            "close_error": null,
+            "Read_bound_meaning": "bytes_read_max counts actual data bytes delivered by the fake Read, including an overflow probe; it is not an allocation or internal API counter.",
+            "close_calls_meaning": "Actual calls to the owned fake File.Close. Source errors must not skip deferred Close.",
+            "unsupported_interfaces": "Fake source/destination implement only required Fs/File methods; no extra WriterTo or ReaderFrom fast path. Unexpected fake methods are unsupported, not silent success.",
+            "outside_finite_scope": "Non-nil Close errors, open/Stat failures, zero-limit inputs, huge arithmetic limits and other files are not tested by the five frozen vectors."
+          }
+        },
+        {
+          "request_index": 1,
+          "request_id": "next60-afero-bounded-read",
+          "fixture_index": 1,
+          "case_id": "next60-afero-bounded-read-vector-02",
+          "historical_input_and_Want_unchanged": true,
+          "fresh_state_per_candidate": true,
+          "candidate_order": [
+            "baseline-design",
+            "reference-design",
+            "wrong-seed-design"
+          ],
+          "Got": null,
+          "role": null,
+          "truth": null,
+          "weight": null,
+          "realization": {
+            "name": "data/item",
+            "filesystem": "Fresh deterministic owned Fs/File only; no disk access.",
+            "contents_bytes": [
+              97,
+              98,
+              99,
+              100,
+              101
+            ],
+            "stat_size": 5,
+            "stat_error": null,
+            "open_error": null,
+            "reader": {
+              "normal_prefix_bytes": 5,
+              "error_after_exhaustion": "io.EOF",
+              "EOF_with_positive_n": false
+            },
+            "close_error": null,
+            "Read_bound_meaning": "bytes_read_max counts actual data bytes delivered by the fake Read, including an overflow probe; it is not an allocation or internal API counter.",
+            "close_calls_meaning": "Actual calls to the owned fake File.Close. Source errors must not skip deferred Close.",
+            "unsupported_interfaces": "Fake source/destination implement only required Fs/File methods; no extra WriterTo or ReaderFrom fast path. Unexpected fake methods are unsupported, not silent success.",
+            "outside_finite_scope": "Non-nil Close errors, open/Stat failures, zero-limit inputs, huge arithmetic limits and other files are not tested by the five frozen vectors."
+          }
+        },
+        {
+          "request_index": 1,
+          "request_id": "next60-afero-bounded-read",
+          "fixture_index": 2,
+          "case_id": "next60-afero-bounded-read-vector-03",
+          "historical_input_and_Want_unchanged": true,
+          "fresh_state_per_candidate": true,
+          "candidate_order": [
+            "baseline-design",
+            "reference-design",
+            "wrong-seed-design"
+          ],
+          "Got": null,
+          "role": null,
+          "truth": null,
+          "weight": null,
+          "realization": {
+            "name": "data/item",
+            "filesystem": "Fresh deterministic owned Fs/File only; no disk access.",
+            "contents_bytes": [
+              97,
+              98,
+              99,
+              100,
+              101
+            ],
+            "stat_size": 0,
+            "stat_error": null,
+            "open_error": null,
+            "reader": {
+              "normal_prefix_bytes": 5,
+              "error_after_exhaustion": "io.EOF",
+              "EOF_with_positive_n": false
+            },
+            "close_error": null,
+            "Read_bound_meaning": "bytes_read_max counts actual data bytes delivered by the fake Read, including an overflow probe; it is not an allocation or internal API counter.",
+            "close_calls_meaning": "Actual calls to the owned fake File.Close. Source errors must not skip deferred Close.",
+            "unsupported_interfaces": "Fake source/destination implement only required Fs/File methods; no extra WriterTo or ReaderFrom fast path. Unexpected fake methods are unsupported, not silent success.",
+            "outside_finite_scope": "Non-nil Close errors, open/Stat failures, zero-limit inputs, huge arithmetic limits and other files are not tested by the five frozen vectors."
+          }
+        },
+        {
+          "request_index": 1,
+          "request_id": "next60-afero-bounded-read",
+          "fixture_index": 3,
+          "case_id": "next60-afero-bounded-read-vector-04",
+          "historical_input_and_Want_unchanged": true,
+          "fresh_state_per_candidate": true,
+          "candidate_order": [
+            "baseline-design",
+            "reference-design",
+            "wrong-seed-design"
+          ],
+          "Got": null,
+          "role": null,
+          "truth": null,
+          "weight": null,
+          "realization": {
+            "name": "data/item",
+            "filesystem": "Fresh deterministic owned Fs/File only; no disk access.",
+            "contents_bytes": [
+              97,
+              98,
+              99,
+              100
+            ],
+            "stat_size": 4,
+            "stat_error": null,
+            "open_error": null,
+            "reader": {
+              "normal_prefix_bytes": 2,
+              "normal_read_returns_error": false,
+              "failure_next_read": "injected_reader_error",
+              "failure_return_n": 0,
+              "repeat_failure_until_close": true,
+              "bytes_after_failure_delivered": false
+            },
+            "close_error": null,
+            "Read_bound_meaning": "bytes_read_max counts actual data bytes delivered by the fake Read, including an overflow probe; it is not an allocation or internal API counter.",
+            "close_calls_meaning": "Actual calls to the owned fake File.Close. Source errors must not skip deferred Close.",
+            "unsupported_interfaces": "Fake source/destination implement only required Fs/File methods; no extra WriterTo or ReaderFrom fast path. Unexpected fake methods are unsupported, not silent success.",
+            "outside_finite_scope": "Non-nil Close errors, open/Stat failures, zero-limit inputs, huge arithmetic limits and other files are not tested by the five frozen vectors."
+          }
+        },
+        {
+          "request_index": 1,
+          "request_id": "next60-afero-bounded-read",
+          "fixture_index": 4,
+          "case_id": "next60-afero-bounded-read-vector-05",
+          "historical_input_and_Want_unchanged": true,
+          "fresh_state_per_candidate": true,
+          "candidate_order": [
+            "baseline-design",
+            "reference-design",
+            "wrong-seed-design"
+          ],
+          "Got": null,
+          "role": null,
+          "truth": null,
+          "weight": null,
+          "realization": {
+            "name": "data/item",
+            "filesystem": "Fresh deterministic owned Fs/File only; no disk access.",
+            "contents_bytes": [],
+            "stat_size": 0,
+            "stat_error": null,
+            "open_error": null,
+            "reader": {
+              "normal_prefix_bytes": 0,
+              "error_after_exhaustion": "io.EOF",
+              "EOF_with_positive_n": false
+            },
+            "close_error": null,
+            "Read_bound_meaning": "bytes_read_max counts actual data bytes delivered by the fake Read, including an overflow probe; it is not an allocation or internal API counter.",
+            "close_calls_meaning": "Actual calls to the owned fake File.Close. Source errors must not skip deferred Close.",
+            "unsupported_interfaces": "Fake source/destination implement only required Fs/File methods; no extra WriterTo or ReaderFrom fast path. Unexpected fake methods are unsupported, not silent success.",
+            "outside_finite_scope": "Non-nil Close errors, open/Stat failures, zero-limit inputs, huge arithmetic limits and other files are not tested by the five frozen vectors."
+          }
+        }
+      ],
+      "operational_text_exact": {
+        "request_id": "next60-afero-bounded-read",
+        "request_en": "Add ReadFileLimit with a documented maximum byte count, distinguishing an oversized file from read failure without returning a silently truncated success.",
+        "request_words": 21,
+        "request_bytes": 154,
+        "original_captions_preserved_in": "FROZEN-REQUESTS.v1.json",
+        "operational_captions_new_before_implementation": [
+          {
+            "candidate_index": 0,
+            "candidate_id": "baseline-design",
+            "text": "Read the complete file, using Stat only to estimate capacity.",
+            "words": 10,
+            "bytes": 61,
+            "label": null
+          },
+          {
+            "candidate_index": 1,
+            "candidate_id": "reference-design",
+            "text": "Read at most limit plus one byte, refuse overflow, preserve reader causes, and close once.",
+            "words": 15,
+            "bytes": 90,
+            "label": null
+          },
+          {
+            "candidate_index": 2,
+            "candidate_id": "wrong-seed-design",
+            "text": "Read only the first limit bytes and return them as successful file contents without an overflow probe.",
+            "words": 17,
+            "bytes": 102,
+            "label": null
+          }
+        ]
+      },
+      "API_policy_exact": {
+        "request_id": "next60-afero-bounded-read",
+        "proposed_API": "Add ReadFileLimit(Fs,name,max int64) as a new API; baseline remains original ReadFile(Fs,name), with max an explicit old-API substitute input it does not accept. Negative max is invalid before Open.",
+        "reference": "Do not trust Stat for a bound. Read at most max+1 bytes for the positive frozen maxima, return nil data and an owned SizeLimitError if the detecting byte exists, preserve injected read errors, and close an opened file exactly once.",
+        "negative_single_branch": "Use io.LimitReader at max and return those bytes as successful contents, without a max+1 overflow probe. Keep negative validation, reader-error propagation and single-close behavior unchanged. Do not combine with unbounded Stat allocation.",
+        "error_types": [
+          "InvalidLimitError(kind=invalid_limit)",
+          "SizeLimitError(kind=size_limit)"
+        ],
+        "close_error_policy": "All frozen fake Close results are nil. The new API may mirror the original deferred Close policy; this plan does not add a non-nil Close-error acceptance predicate or claim evidence for that policy.",
+        "scope": "Five fixed file/read vectors. Zero-limit and very large-limit arithmetic are outside the current evidence and must be documented if later implemented."
+      }
+    },
+    {
+      "request_index": 2,
+      "request_exact": {
+        "candidate_order_exact": [
+          {
+            "description": "SafeWriteReader calls Exists then Create, with deferred Close joined into the copy result; existence check and creation are distinct operations.",
+            "executable_prepared": false,
+            "id": "baseline-design",
+            "kind": "unmodified_baseline_or_declared_old_api_substitute",
+            "source_faithfulness": "reviewed_static_source"
+          },
+          {
+            "description": "OpenFile with O_WRONLY|O_CREATE|O_EXCL instead of relying on Exists+Create; preserve parent preparation, joined copy/close causes and declared existing-file refusal.",
+            "executable_prepared": false,
+            "id": "reference-design",
+            "kind": "intended_correct_reference",
+            "source_faithfulness": "authored_planned_change_not_existing_implementation"
+          },
+          {
+            "description": "Keep Exists+Create; or exclusive-create correctly but drop deferred close error.",
+            "executable_prepared": false,
+            "id": "wrong-seed-design",
+            "kind": "seeded_wrong_reference",
+            "source_faithfulness": "authored_negative_control_not_existing_implementation"
+          }
+        ],
+        "fixtures_exact": [
+          {
+            "Got": null,
+            "Want_authorship": "project-authored finite specification inferred from pinned source or new API intent; not native observation",
+            "actual_original_call": false,
+            "case_id": "next60-afero-exclusive-write-vector-01",
+            "input": {
+              "input": "new",
+              "name": "data/item",
+              "race_after_exists": "old"
+            },
+            "want": {
+              "contents": "old",
+              "error_is": "fs.ErrExist",
+              "truncate_calls": 0
+            }
+          },
+          {
+            "Got": null,
+            "Want_authorship": "project-authored finite specification inferred from pinned source or new API intent; not native observation",
+            "actual_original_call": false,
+            "case_id": "next60-afero-exclusive-write-vector-02",
+            "input": {
+              "exists": false,
+              "input": "new",
+              "name": "data/item"
+            },
+            "want": {
+              "close_calls": 1,
+              "contents": "new",
+              "error": null,
+              "exclusive_open": true
+            }
+          },
+          {
+            "Got": null,
+            "Want_authorship": "project-authored finite specification inferred from pinned source or new API intent; not native observation",
+            "actual_original_call": false,
+            "case_id": "next60-afero-exclusive-write-vector-03",
+            "input": {
+              "contents": "old",
+              "exists": true,
+              "input": "new",
+              "name": "data/item"
+            },
+            "want": {
+              "contents": "old",
+              "error_is": "fs.ErrExist",
+              "truncate_calls": 0
+            }
+          },
+          {
+            "Got": null,
+            "Want_authorship": "project-authored finite specification inferred from pinned source or new API intent; not native observation",
+            "actual_original_call": false,
+            "case_id": "next60-afero-exclusive-write-vector-04",
+            "input": {
+              "close_error": "closeCause",
+              "copy_error": "copyCause"
+            },
+            "want": {
+              "close_calls": 1,
+              "errors_is": [
+                "copyCause",
+                "closeCause"
+              ]
+            }
+          }
+        ],
+        "id": "next60-afero-exclusive-write",
+        "original_ordinal": 13,
+        "primary120_catalog_id": "go53-afero-exclusive-safe-write",
+        "qualified": false,
+        "reference": {
+          "artifact_id": "original20/drafts-v1",
+          "artifact_sha256": "c7bbf7bcc7912300fabdd6e671b0922df295299f00e5e7201df1ab5e824a2a9b",
+          "json_pointer": "/drafts/13"
+        },
+        "request_ascii_words": 17,
+        "request_bytes": 129,
+        "request_en": "Make SafeWriteReader acquire its destination with exclusive creation instead of an existence check followed by truncating Create.",
+        "revision": "eb6a92826ea568e3f40ab91fcbda8d2b38b61d3e",
+        "role": null,
+        "runtime_literal_ready": false,
+        "runtime_literal_status": "historical input/Want exact preserved; source closure and explicitly listed realization gaps pending",
+        "scope_exact": "SafeWriteReader in a deterministic fake FS; a competitor creates the destination after the existence probe. Existing bytes must survive; successful exclusive creation writes exact input; copy and close errors remain inspectable.",
+        "source_family": "upstream53-afero",
+        "source_only_realization_proposal": {
+          "baseline_api": "SafeWriteReader",
+          "fixture_rules": [
+            "Race hook creates old bytes before the candidate creation attempt, including for the exclusive path which does not call Exists. Record how the same scheduled fixture acts on each candidate.",
+            "Baseline existing-file fmt error is not automatically fs.ErrExist.",
+            "Original already joins copy and close errors; this is a retained compatibility case, not an invented baseline error-join gap.",
+            "Case04 needs fixed destination/input and a finite failing Reader/Close fixture before observation."
+          ],
+          "hold": [
+            "exact afero closure/notices absent",
+            "race hook/common fixture and case04 defaults not yet literalized"
+          ],
+          "source_lines": [
+            "util.go:70-106"
+          ],
+          "typed_channels": [
+            "destination before/after bytes",
+            "exclusive OpenFile flags",
+            "error nil/type and errors.Is causes",
+            "owned fake Create/Open/Close trace"
+          ]
+        },
+        "truth": null,
+        "weight": null
+      },
+      "Want_rows_exact": [
+        {
+          "request_index": 2,
+          "request_id": "next60-afero-exclusive-write",
+          "fixture_index": 0,
+          "case_id": "next60-afero-exclusive-write-vector-01",
+          "historical_fixture_pointer": "/original_requests/5/fixtures_exact/0",
+          "input": {
+            "input": "new",
+            "name": "data/item",
+            "race_after_exists": "old"
+          },
+          "Want": {
+            "contents": "old",
+            "error_is": "fs.ErrExist",
+            "truncate_calls": 0
+          },
+          "Got": null,
+          "role": null,
+          "truth": null,
+          "weight": null,
+          "acceptable": null
+        },
+        {
+          "request_index": 2,
+          "request_id": "next60-afero-exclusive-write",
+          "fixture_index": 1,
+          "case_id": "next60-afero-exclusive-write-vector-02",
+          "historical_fixture_pointer": "/original_requests/5/fixtures_exact/1",
+          "input": {
+            "exists": false,
+            "input": "new",
+            "name": "data/item"
+          },
+          "Want": {
+            "close_calls": 1,
+            "contents": "new",
+            "error": null,
+            "exclusive_open": true
+          },
+          "Got": null,
+          "role": null,
+          "truth": null,
+          "weight": null,
+          "acceptable": null
+        },
+        {
+          "request_index": 2,
+          "request_id": "next60-afero-exclusive-write",
+          "fixture_index": 2,
+          "case_id": "next60-afero-exclusive-write-vector-03",
+          "historical_fixture_pointer": "/original_requests/5/fixtures_exact/2",
+          "input": {
+            "contents": "old",
+            "exists": true,
+            "input": "new",
+            "name": "data/item"
+          },
+          "Want": {
+            "contents": "old",
+            "error_is": "fs.ErrExist",
+            "truncate_calls": 0
+          },
+          "Got": null,
+          "role": null,
+          "truth": null,
+          "weight": null,
+          "acceptable": null
+        },
+        {
+          "request_index": 2,
+          "request_id": "next60-afero-exclusive-write",
+          "fixture_index": 3,
+          "case_id": "next60-afero-exclusive-write-vector-04",
+          "historical_fixture_pointer": "/original_requests/5/fixtures_exact/3",
+          "input": {
+            "close_error": "closeCause",
+            "copy_error": "copyCause"
+          },
+          "Want": {
+            "close_calls": 1,
+            "errors_is": [
+              "copyCause",
+              "closeCause"
+            ]
+          },
+          "Got": null,
+          "role": null,
+          "truth": null,
+          "weight": null,
+          "acceptable": null
+        }
+      ],
+      "realizations_exact": [
+        {
+          "request_index": 2,
+          "request_id": "next60-afero-exclusive-write",
+          "fixture_index": 0,
+          "case_id": "next60-afero-exclusive-write-vector-01",
+          "historical_input_and_Want_unchanged": true,
+          "fresh_state_per_candidate": true,
+          "candidate_order": [
+            "baseline-design",
+            "reference-design",
+            "wrong-seed-design"
+          ],
+          "Got": null,
+          "role": null,
+          "truth": null,
+          "weight": null,
+          "realization": {
+            "name": "data/item",
+            "parent_directory": "data",
+            "parent_exists": true,
+            "MkdirAll_error": null,
+            "destination_initially_exists": false,
+            "destination_initial_bytes": null,
+            "input_bytes": [
+              110,
+              101,
+              119
+            ],
+            "reader": {
+              "normal_prefix_bytes": 3,
+              "error_after_exhaustion": "io.EOF",
+              "EOF_with_positive_n": false
+            },
+            "destination_write": "Accept every supplied byte with nil error, recording exact bytes.",
+            "destination_close_error": null,
+            "competition_hook": {
+              "enabled": true,
+              "trigger": "Immediately before the first candidate destination-acquisition operation, either Fs.Create(name) or Fs.OpenFile(name,...), after any existence probe and before that acquisition applies its flags.",
+              "scheduled_runs": 1,
+              "action": {
+                "create_bytes": [
+                  111,
+                  108,
+                  100
+                ],
+                "cause": null
+              },
+              "same_rule_for_all_candidates": true,
+              "no_goroutine_or_sleep": true,
+              "fires_again_on_internal_delegation": false,
+              "historical_race_after_exists_not_literal_requirement_for_exclusive_candidate": true
+            },
+            "fake_acquisition_rules": {
+              "Create": "Create replaces any existing destination contents; record this operation without pretending it calls File.Truncate.",
+              "OpenFile": "O_CREATE|O_EXCL on an existing destination returns an owned PathError carrying fs.ErrExist without replacing or writing bytes. On absent destination, create an empty file without O_TRUNC.",
+              "existing_Stat": "Known existing file; absent Stat is a PathError carrying fs.ErrNotExist.",
+              "truncate_calls": "Count actual calls to the fake File.Truncate. Existing-data replacement by Create has its own trace/effect; it is not invented as a Truncate method call.",
+              "exclusive_open": "Known flag predicate of the actual acquisition: O_WRONLY|O_CREATE|O_EXCL set and O_TRUNC clear."
+            },
+            "copy_error_and_close_error_are_distinct_owned_sentinels": true,
+            "copy_close_case": "Reader returns all three new bytes first, then copyCause. Close returns closeCause once. This is a retained original errors.Join compatibility case, not a fabricated baseline join failure.",
+            "unsupported_interfaces": "Neither the reader nor destination adds WriterTo or ReaderFrom; io.Copy follows the common owned Read/Write path.",
+            "content_projection": "Read owned fixture state after completion; not an additional original Fs call."
+          }
+        },
+        {
+          "request_index": 2,
+          "request_id": "next60-afero-exclusive-write",
+          "fixture_index": 1,
+          "case_id": "next60-afero-exclusive-write-vector-02",
+          "historical_input_and_Want_unchanged": true,
+          "fresh_state_per_candidate": true,
+          "candidate_order": [
+            "baseline-design",
+            "reference-design",
+            "wrong-seed-design"
+          ],
+          "Got": null,
+          "role": null,
+          "truth": null,
+          "weight": null,
+          "realization": {
+            "name": "data/item",
+            "parent_directory": "data",
+            "parent_exists": true,
+            "MkdirAll_error": null,
+            "destination_initially_exists": false,
+            "destination_initial_bytes": null,
+            "input_bytes": [
+              110,
+              101,
+              119
+            ],
+            "reader": {
+              "normal_prefix_bytes": 3,
+              "error_after_exhaustion": "io.EOF",
+              "EOF_with_positive_n": false
+            },
+            "destination_write": "Accept every supplied byte with nil error, recording exact bytes.",
+            "destination_close_error": null,
+            "competition_hook": {
+              "enabled": false,
+              "trigger": "Immediately before the first candidate destination-acquisition operation, either Fs.Create(name) or Fs.OpenFile(name,...), after any existence probe and before that acquisition applies its flags.",
+              "scheduled_runs": 0,
+              "action": null,
+              "same_rule_for_all_candidates": true,
+              "no_goroutine_or_sleep": true,
+              "fires_again_on_internal_delegation": false,
+              "historical_race_after_exists_not_literal_requirement_for_exclusive_candidate": true
+            },
+            "fake_acquisition_rules": {
+              "Create": "Create replaces any existing destination contents; record this operation without pretending it calls File.Truncate.",
+              "OpenFile": "O_CREATE|O_EXCL on an existing destination returns an owned PathError carrying fs.ErrExist without replacing or writing bytes. On absent destination, create an empty file without O_TRUNC.",
+              "existing_Stat": "Known existing file; absent Stat is a PathError carrying fs.ErrNotExist.",
+              "truncate_calls": "Count actual calls to the fake File.Truncate. Existing-data replacement by Create has its own trace/effect; it is not invented as a Truncate method call.",
+              "exclusive_open": "Known flag predicate of the actual acquisition: O_WRONLY|O_CREATE|O_EXCL set and O_TRUNC clear."
+            },
+            "copy_error_and_close_error_are_distinct_owned_sentinels": true,
+            "copy_close_case": "Reader returns all three new bytes first, then copyCause. Close returns closeCause once. This is a retained original errors.Join compatibility case, not a fabricated baseline join failure.",
+            "unsupported_interfaces": "Neither the reader nor destination adds WriterTo or ReaderFrom; io.Copy follows the common owned Read/Write path.",
+            "content_projection": "Read owned fixture state after completion; not an additional original Fs call."
+          }
+        },
+        {
+          "request_index": 2,
+          "request_id": "next60-afero-exclusive-write",
+          "fixture_index": 2,
+          "case_id": "next60-afero-exclusive-write-vector-03",
+          "historical_input_and_Want_unchanged": true,
+          "fresh_state_per_candidate": true,
+          "candidate_order": [
+            "baseline-design",
+            "reference-design",
+            "wrong-seed-design"
+          ],
+          "Got": null,
+          "role": null,
+          "truth": null,
+          "weight": null,
+          "realization": {
+            "name": "data/item",
+            "parent_directory": "data",
+            "parent_exists": true,
+            "MkdirAll_error": null,
+            "destination_initially_exists": true,
+            "destination_initial_bytes": [
+              111,
+              108,
+              100
+            ],
+            "input_bytes": [
+              110,
+              101,
+              119
+            ],
+            "reader": {
+              "normal_prefix_bytes": 3,
+              "error_after_exhaustion": "io.EOF",
+              "EOF_with_positive_n": false
+            },
+            "destination_write": "Accept every supplied byte with nil error, recording exact bytes.",
+            "destination_close_error": null,
+            "competition_hook": {
+              "enabled": false,
+              "trigger": "Immediately before the first candidate destination-acquisition operation, either Fs.Create(name) or Fs.OpenFile(name,...), after any existence probe and before that acquisition applies its flags.",
+              "scheduled_runs": 0,
+              "action": null,
+              "same_rule_for_all_candidates": true,
+              "no_goroutine_or_sleep": true,
+              "fires_again_on_internal_delegation": false,
+              "historical_race_after_exists_not_literal_requirement_for_exclusive_candidate": true
+            },
+            "fake_acquisition_rules": {
+              "Create": "Create replaces any existing destination contents; record this operation without pretending it calls File.Truncate.",
+              "OpenFile": "O_CREATE|O_EXCL on an existing destination returns an owned PathError carrying fs.ErrExist without replacing or writing bytes. On absent destination, create an empty file without O_TRUNC.",
+              "existing_Stat": "Known existing file; absent Stat is a PathError carrying fs.ErrNotExist.",
+              "truncate_calls": "Count actual calls to the fake File.Truncate. Existing-data replacement by Create has its own trace/effect; it is not invented as a Truncate method call.",
+              "exclusive_open": "Known flag predicate of the actual acquisition: O_WRONLY|O_CREATE|O_EXCL set and O_TRUNC clear."
+            },
+            "copy_error_and_close_error_are_distinct_owned_sentinels": true,
+            "copy_close_case": "Reader returns all three new bytes first, then copyCause. Close returns closeCause once. This is a retained original errors.Join compatibility case, not a fabricated baseline join failure.",
+            "unsupported_interfaces": "Neither the reader nor destination adds WriterTo or ReaderFrom; io.Copy follows the common owned Read/Write path.",
+            "content_projection": "Read owned fixture state after completion; not an additional original Fs call."
+          }
+        },
+        {
+          "request_index": 2,
+          "request_id": "next60-afero-exclusive-write",
+          "fixture_index": 3,
+          "case_id": "next60-afero-exclusive-write-vector-04",
+          "historical_input_and_Want_unchanged": true,
+          "fresh_state_per_candidate": true,
+          "candidate_order": [
+            "baseline-design",
+            "reference-design",
+            "wrong-seed-design"
+          ],
+          "Got": null,
+          "role": null,
+          "truth": null,
+          "weight": null,
+          "realization": {
+            "name": "data/item",
+            "parent_directory": "data",
+            "parent_exists": true,
+            "MkdirAll_error": null,
+            "destination_initially_exists": false,
+            "destination_initial_bytes": null,
+            "input_bytes": [
+              110,
+              101,
+              119
+            ],
+            "reader": {
+              "normal_prefix_bytes": 3,
+              "normal_read_returns_error": false,
+              "failure_next_read": "copyCause",
+              "failure_return_n": 0,
+              "repeat_failure_until_close": true
+            },
+            "destination_write": "Accept every supplied byte with nil error, recording exact bytes.",
+            "destination_close_error": "closeCause",
+            "competition_hook": {
+              "enabled": false,
+              "trigger": "Immediately before the first candidate destination-acquisition operation, either Fs.Create(name) or Fs.OpenFile(name,...), after any existence probe and before that acquisition applies its flags.",
+              "scheduled_runs": 0,
+              "action": null,
+              "same_rule_for_all_candidates": true,
+              "no_goroutine_or_sleep": true,
+              "fires_again_on_internal_delegation": false,
+              "historical_race_after_exists_not_literal_requirement_for_exclusive_candidate": true
+            },
+            "fake_acquisition_rules": {
+              "Create": "Create replaces any existing destination contents; record this operation without pretending it calls File.Truncate.",
+              "OpenFile": "O_CREATE|O_EXCL on an existing destination returns an owned PathError carrying fs.ErrExist without replacing or writing bytes. On absent destination, create an empty file without O_TRUNC.",
+              "existing_Stat": "Known existing file; absent Stat is a PathError carrying fs.ErrNotExist.",
+              "truncate_calls": "Count actual calls to the fake File.Truncate. Existing-data replacement by Create has its own trace/effect; it is not invented as a Truncate method call.",
+              "exclusive_open": "Known flag predicate of the actual acquisition: O_WRONLY|O_CREATE|O_EXCL set and O_TRUNC clear."
+            },
+            "copy_error_and_close_error_are_distinct_owned_sentinels": true,
+            "copy_close_case": "Reader returns all three new bytes first, then copyCause. Close returns closeCause once. This is a retained original errors.Join compatibility case, not a fabricated baseline join failure.",
+            "unsupported_interfaces": "Neither the reader nor destination adds WriterTo or ReaderFrom; io.Copy follows the common owned Read/Write path.",
+            "content_projection": "Read owned fixture state after completion; not an additional original Fs call."
+          }
+        }
+      ],
+      "operational_text_exact": {
+        "request_id": "next60-afero-exclusive-write",
+        "request_en": "Make SafeWriteReader acquire its destination with exclusive creation instead of an existence check followed by truncating Create.",
+        "request_words": 17,
+        "request_bytes": 129,
+        "original_captions_preserved_in": "FROZEN-REQUESTS.v1.json",
+        "operational_captions_new_before_implementation": [
+          {
+            "candidate_index": 0,
+            "candidate_id": "baseline-design",
+            "text": "Check existence, then Create the destination and join copy and close errors.",
+            "words": 12,
+            "bytes": 76,
+            "label": null
+          },
+          {
+            "candidate_index": 1,
+            "candidate_id": "reference-design",
+            "text": "Create the destination exclusively, preserve existing bytes, and join copy and close causes.",
+            "words": 13,
+            "bytes": 92,
+            "label": null
+          },
+          {
+            "candidate_index": 2,
+            "candidate_id": "wrong-seed-design",
+            "text": "Create the destination exclusively but return the copy result without joining a close error.",
+            "words": 14,
+            "bytes": 92,
+            "label": null
+          }
+        ]
+      },
+      "API_policy_exact": {
+        "request_id": "next60-afero-exclusive-write",
+        "proposed_API": "Authored exclusive SafeWriteReader behavior in a retained Afero fork or explicitly named new wrapper. Keep original baseline API and source separately; the legacy existence-error string is not silently rewritten in baseline.",
+        "reference": "Keep parent preparation and original copy/close joining. Acquire with OpenFile O_WRONLY|O_CREATE|O_EXCL and no O_TRUNC, allowing the fake returned PathError to preserve fs.ErrExist identity.",
+        "negative_single_branch": "Use the same exclusive acquisition as the reference but omit joining the Close error into the copy result. Keep all other behavior unchanged; do not also reintroduce Exists+Create.",
+        "error_types": [
+          "Original fs.ErrExist identity from the owned exclusive-open PathError",
+          "Owned copyCause and closeCause sentinel identities"
+        ],
+        "baseline_compatibility": "Original util.go:89-90 returns an untyped formatted existing-path error; do not pretend it satisfies errors.Is(fs.ErrExist). Original util.go:97-100 already joins Close errors.",
+        "scope": "One deterministic competing-creation hook and three compatibility cases in a fake FS. No probabilistic concurrency or race-detector correctness claim."
+      }
+    }
+  ],
+  "schedule": [
+    {
+      "ordinal": 0,
+      "request_index": 0,
+      "request_id": "next60-ini-byte-budget",
+      "fixture_index": 0,
+      "case_id": "next60-ini-byte-budget-vector-01",
+      "candidate_index": 0,
+      "candidate_id": "baseline-design",
+      "truth": null,
+      "role": null,
+      "weight": null,
+      "group": null
+    },
+    {
+      "ordinal": 1,
+      "request_index": 0,
+      "request_id": "next60-ini-byte-budget",
+      "fixture_index": 0,
+      "case_id": "next60-ini-byte-budget-vector-01",
+      "candidate_index": 1,
+      "candidate_id": "reference-design",
+      "truth": null,
+      "role": null,
+      "weight": null,
+      "group": null
+    },
+    {
+      "ordinal": 2,
+      "request_index": 0,
+      "request_id": "next60-ini-byte-budget",
+      "fixture_index": 0,
+      "case_id": "next60-ini-byte-budget-vector-01",
+      "candidate_index": 2,
+      "candidate_id": "wrong-seed-design",
+      "truth": null,
+      "role": null,
+      "weight": null,
+      "group": null
+    },
+    {
+      "ordinal": 3,
+      "request_index": 0,
+      "request_id": "next60-ini-byte-budget",
+      "fixture_index": 1,
+      "case_id": "next60-ini-byte-budget-vector-02",
+      "candidate_index": 0,
+      "candidate_id": "baseline-design",
+      "truth": null,
+      "role": null,
+      "weight": null,
+      "group": null
+    },
+    {
+      "ordinal": 4,
+      "request_index": 0,
+      "request_id": "next60-ini-byte-budget",
+      "fixture_index": 1,
+      "case_id": "next60-ini-byte-budget-vector-02",
+      "candidate_index": 1,
+      "candidate_id": "reference-design",
+      "truth": null,
+      "role": null,
+      "weight": null,
+      "group": null
+    },
+    {
+      "ordinal": 5,
+      "request_index": 0,
+      "request_id": "next60-ini-byte-budget",
+      "fixture_index": 1,
+      "case_id": "next60-ini-byte-budget-vector-02",
+      "candidate_index": 2,
+      "candidate_id": "wrong-seed-design",
+      "truth": null,
+      "role": null,
+      "weight": null,
+      "group": null
+    },
+    {
+      "ordinal": 6,
+      "request_index": 0,
+      "request_id": "next60-ini-byte-budget",
+      "fixture_index": 2,
+      "case_id": "next60-ini-byte-budget-vector-03",
+      "candidate_index": 0,
+      "candidate_id": "baseline-design",
+      "truth": null,
+      "role": null,
+      "weight": null,
+      "group": null
+    },
+    {
+      "ordinal": 7,
+      "request_index": 0,
+      "request_id": "next60-ini-byte-budget",
+      "fixture_index": 2,
+      "case_id": "next60-ini-byte-budget-vector-03",
+      "candidate_index": 1,
+      "candidate_id": "reference-design",
+      "truth": null,
+      "role": null,
+      "weight": null,
+      "group": null
+    },
+    {
+      "ordinal": 8,
+      "request_index": 0,
+      "request_id": "next60-ini-byte-budget",
+      "fixture_index": 2,
+      "case_id": "next60-ini-byte-budget-vector-03",
+      "candidate_index": 2,
+      "candidate_id": "wrong-seed-design",
+      "truth": null,
+      "role": null,
+      "weight": null,
+      "group": null
+    },
+    {
+      "ordinal": 9,
+      "request_index": 0,
+      "request_id": "next60-ini-byte-budget",
+      "fixture_index": 3,
+      "case_id": "next60-ini-byte-budget-vector-04",
+      "candidate_index": 0,
+      "candidate_id": "baseline-design",
+      "truth": null,
+      "role": null,
+      "weight": null,
+      "group": null
+    },
+    {
+      "ordinal": 10,
+      "request_index": 0,
+      "request_id": "next60-ini-byte-budget",
+      "fixture_index": 3,
+      "case_id": "next60-ini-byte-budget-vector-04",
+      "candidate_index": 1,
+      "candidate_id": "reference-design",
+      "truth": null,
+      "role": null,
+      "weight": null,
+      "group": null
+    },
+    {
+      "ordinal": 11,
+      "request_index": 0,
+      "request_id": "next60-ini-byte-budget",
+      "fixture_index": 3,
+      "case_id": "next60-ini-byte-budget-vector-04",
+      "candidate_index": 2,
+      "candidate_id": "wrong-seed-design",
+      "truth": null,
+      "role": null,
+      "weight": null,
+      "group": null
+    },
+    {
+      "ordinal": 12,
+      "request_index": 0,
+      "request_id": "next60-ini-byte-budget",
+      "fixture_index": 4,
+      "case_id": "next60-ini-byte-budget-vector-05",
+      "candidate_index": 0,
+      "candidate_id": "baseline-design",
+      "truth": null,
+      "role": null,
+      "weight": null,
+      "group": null
+    },
+    {
+      "ordinal": 13,
+      "request_index": 0,
+      "request_id": "next60-ini-byte-budget",
+      "fixture_index": 4,
+      "case_id": "next60-ini-byte-budget-vector-05",
+      "candidate_index": 1,
+      "candidate_id": "reference-design",
+      "truth": null,
+      "role": null,
+      "weight": null,
+      "group": null
+    },
+    {
+      "ordinal": 14,
+      "request_index": 0,
+      "request_id": "next60-ini-byte-budget",
+      "fixture_index": 4,
+      "case_id": "next60-ini-byte-budget-vector-05",
+      "candidate_index": 2,
+      "candidate_id": "wrong-seed-design",
+      "truth": null,
+      "role": null,
+      "weight": null,
+      "group": null
+    },
+    {
+      "ordinal": 15,
+      "request_index": 1,
+      "request_id": "next60-afero-bounded-read",
+      "fixture_index": 0,
+      "case_id": "next60-afero-bounded-read-vector-01",
+      "candidate_index": 0,
+      "candidate_id": "baseline-design",
+      "truth": null,
+      "role": null,
+      "weight": null,
+      "group": null
+    },
+    {
+      "ordinal": 16,
+      "request_index": 1,
+      "request_id": "next60-afero-bounded-read",
+      "fixture_index": 0,
+      "case_id": "next60-afero-bounded-read-vector-01",
+      "candidate_index": 1,
+      "candidate_id": "reference-design",
+      "truth": null,
+      "role": null,
+      "weight": null,
+      "group": null
+    },
+    {
+      "ordinal": 17,
+      "request_index": 1,
+      "request_id": "next60-afero-bounded-read",
+      "fixture_index": 0,
+      "case_id": "next60-afero-bounded-read-vector-01",
+      "candidate_index": 2,
+      "candidate_id": "wrong-seed-design",
+      "truth": null,
+      "role": null,
+      "weight": null,
+      "group": null
+    },
+    {
+      "ordinal": 18,
+      "request_index": 1,
+      "request_id": "next60-afero-bounded-read",
+      "fixture_index": 1,
+      "case_id": "next60-afero-bounded-read-vector-02",
+      "candidate_index": 0,
+      "candidate_id": "baseline-design",
+      "truth": null,
+      "role": null,
+      "weight": null,
+      "group": null
+    },
+    {
+      "ordinal": 19,
+      "request_index": 1,
+      "request_id": "next60-afero-bounded-read",
+      "fixture_index": 1,
+      "case_id": "next60-afero-bounded-read-vector-02",
+      "candidate_index": 1,
+      "candidate_id": "reference-design",
+      "truth": null,
+      "role": null,
+      "weight": null,
+      "group": null
+    },
+    {
+      "ordinal": 20,
+      "request_index": 1,
+      "request_id": "next60-afero-bounded-read",
+      "fixture_index": 1,
+      "case_id": "next60-afero-bounded-read-vector-02",
+      "candidate_index": 2,
+      "candidate_id": "wrong-seed-design",
+      "truth": null,
+      "role": null,
+      "weight": null,
+      "group": null
+    },
+    {
+      "ordinal": 21,
+      "request_index": 1,
+      "request_id": "next60-afero-bounded-read",
+      "fixture_index": 2,
+      "case_id": "next60-afero-bounded-read-vector-03",
+      "candidate_index": 0,
+      "candidate_id": "baseline-design",
+      "truth": null,
+      "role": null,
+      "weight": null,
+      "group": null
+    },
+    {
+      "ordinal": 22,
+      "request_index": 1,
+      "request_id": "next60-afero-bounded-read",
+      "fixture_index": 2,
+      "case_id": "next60-afero-bounded-read-vector-03",
+      "candidate_index": 1,
+      "candidate_id": "reference-design",
+      "truth": null,
+      "role": null,
+      "weight": null,
+      "group": null
+    },
+    {
+      "ordinal": 23,
+      "request_index": 1,
+      "request_id": "next60-afero-bounded-read",
+      "fixture_index": 2,
+      "case_id": "next60-afero-bounded-read-vector-03",
+      "candidate_index": 2,
+      "candidate_id": "wrong-seed-design",
+      "truth": null,
+      "role": null,
+      "weight": null,
+      "group": null
+    },
+    {
+      "ordinal": 24,
+      "request_index": 1,
+      "request_id": "next60-afero-bounded-read",
+      "fixture_index": 3,
+      "case_id": "next60-afero-bounded-read-vector-04",
+      "candidate_index": 0,
+      "candidate_id": "baseline-design",
+      "truth": null,
+      "role": null,
+      "weight": null,
+      "group": null
+    },
+    {
+      "ordinal": 25,
+      "request_index": 1,
+      "request_id": "next60-afero-bounded-read",
+      "fixture_index": 3,
+      "case_id": "next60-afero-bounded-read-vector-04",
+      "candidate_index": 1,
+      "candidate_id": "reference-design",
+      "truth": null,
+      "role": null,
+      "weight": null,
+      "group": null
+    },
+    {
+      "ordinal": 26,
+      "request_index": 1,
+      "request_id": "next60-afero-bounded-read",
+      "fixture_index": 3,
+      "case_id": "next60-afero-bounded-read-vector-04",
+      "candidate_index": 2,
+      "candidate_id": "wrong-seed-design",
+      "truth": null,
+      "role": null,
+      "weight": null,
+      "group": null
+    },
+    {
+      "ordinal": 27,
+      "request_index": 1,
+      "request_id": "next60-afero-bounded-read",
+      "fixture_index": 4,
+      "case_id": "next60-afero-bounded-read-vector-05",
+      "candidate_index": 0,
+      "candidate_id": "baseline-design",
+      "truth": null,
+      "role": null,
+      "weight": null,
+      "group": null
+    },
+    {
+      "ordinal": 28,
+      "request_index": 1,
+      "request_id": "next60-afero-bounded-read",
+      "fixture_index": 4,
+      "case_id": "next60-afero-bounded-read-vector-05",
+      "candidate_index": 1,
+      "candidate_id": "reference-design",
+      "truth": null,
+      "role": null,
+      "weight": null,
+      "group": null
+    },
+    {
+      "ordinal": 29,
+      "request_index": 1,
+      "request_id": "next60-afero-bounded-read",
+      "fixture_index": 4,
+      "case_id": "next60-afero-bounded-read-vector-05",
+      "candidate_index": 2,
+      "candidate_id": "wrong-seed-design",
+      "truth": null,
+      "role": null,
+      "weight": null,
+      "group": null
+    },
+    {
+      "ordinal": 30,
+      "request_index": 2,
+      "request_id": "next60-afero-exclusive-write",
+      "fixture_index": 0,
+      "case_id": "next60-afero-exclusive-write-vector-01",
+      "candidate_index": 0,
+      "candidate_id": "baseline-design",
+      "truth": null,
+      "role": null,
+      "weight": null,
+      "group": null
+    },
+    {
+      "ordinal": 31,
+      "request_index": 2,
+      "request_id": "next60-afero-exclusive-write",
+      "fixture_index": 0,
+      "case_id": "next60-afero-exclusive-write-vector-01",
+      "candidate_index": 1,
+      "candidate_id": "reference-design",
+      "truth": null,
+      "role": null,
+      "weight": null,
+      "group": null
+    },
+    {
+      "ordinal": 32,
+      "request_index": 2,
+      "request_id": "next60-afero-exclusive-write",
+      "fixture_index": 0,
+      "case_id": "next60-afero-exclusive-write-vector-01",
+      "candidate_index": 2,
+      "candidate_id": "wrong-seed-design",
+      "truth": null,
+      "role": null,
+      "weight": null,
+      "group": null
+    },
+    {
+      "ordinal": 33,
+      "request_index": 2,
+      "request_id": "next60-afero-exclusive-write",
+      "fixture_index": 1,
+      "case_id": "next60-afero-exclusive-write-vector-02",
+      "candidate_index": 0,
+      "candidate_id": "baseline-design",
+      "truth": null,
+      "role": null,
+      "weight": null,
+      "group": null
+    },
+    {
+      "ordinal": 34,
+      "request_index": 2,
+      "request_id": "next60-afero-exclusive-write",
+      "fixture_index": 1,
+      "case_id": "next60-afero-exclusive-write-vector-02",
+      "candidate_index": 1,
+      "candidate_id": "reference-design",
+      "truth": null,
+      "role": null,
+      "weight": null,
+      "group": null
+    },
+    {
+      "ordinal": 35,
+      "request_index": 2,
+      "request_id": "next60-afero-exclusive-write",
+      "fixture_index": 1,
+      "case_id": "next60-afero-exclusive-write-vector-02",
+      "candidate_index": 2,
+      "candidate_id": "wrong-seed-design",
+      "truth": null,
+      "role": null,
+      "weight": null,
+      "group": null
+    },
+    {
+      "ordinal": 36,
+      "request_index": 2,
+      "request_id": "next60-afero-exclusive-write",
+      "fixture_index": 2,
+      "case_id": "next60-afero-exclusive-write-vector-03",
+      "candidate_index": 0,
+      "candidate_id": "baseline-design",
+      "truth": null,
+      "role": null,
+      "weight": null,
+      "group": null
+    },
+    {
+      "ordinal": 37,
+      "request_index": 2,
+      "request_id": "next60-afero-exclusive-write",
+      "fixture_index": 2,
+      "case_id": "next60-afero-exclusive-write-vector-03",
+      "candidate_index": 1,
+      "candidate_id": "reference-design",
+      "truth": null,
+      "role": null,
+      "weight": null,
+      "group": null
+    },
+    {
+      "ordinal": 38,
+      "request_index": 2,
+      "request_id": "next60-afero-exclusive-write",
+      "fixture_index": 2,
+      "case_id": "next60-afero-exclusive-write-vector-03",
+      "candidate_index": 2,
+      "candidate_id": "wrong-seed-design",
+      "truth": null,
+      "role": null,
+      "weight": null,
+      "group": null
+    },
+    {
+      "ordinal": 39,
+      "request_index": 2,
+      "request_id": "next60-afero-exclusive-write",
+      "fixture_index": 3,
+      "case_id": "next60-afero-exclusive-write-vector-04",
+      "candidate_index": 0,
+      "candidate_id": "baseline-design",
+      "truth": null,
+      "role": null,
+      "weight": null,
+      "group": null
+    },
+    {
+      "ordinal": 40,
+      "request_index": 2,
+      "request_id": "next60-afero-exclusive-write",
+      "fixture_index": 3,
+      "case_id": "next60-afero-exclusive-write-vector-04",
+      "candidate_index": 1,
+      "candidate_id": "reference-design",
+      "truth": null,
+      "role": null,
+      "weight": null,
+      "group": null
+    },
+    {
+      "ordinal": 41,
+      "request_index": 2,
+      "request_id": "next60-afero-exclusive-write",
+      "fixture_index": 3,
+      "case_id": "next60-afero-exclusive-write-vector-04",
+      "candidate_index": 2,
+      "candidate_id": "wrong-seed-design",
+      "truth": null,
+      "role": null,
+      "weight": null,
+      "group": null
+    }
+  ],
+  "parents": 3,
+  "inputs": 14,
+  "candidate_positions_per_request": 3,
+  "proposed_dispatches": 42,
+  "Got": null,
+  "qualification": false,
+  "execution_ready": false
+}
