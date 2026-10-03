@@ -1,0 +1,475 @@
+package core
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"os"
+	frame "riido.local/unionduplicateframe"
+	"testing"
+)
+
+// These controls invoke owned fake functions and synthetic reference shapes.
+// They perform no original imports, source getters, filesystem Sync or native
+// execution. The copied testdata are the exact existing owned frozen carriers.
+func frozenControl(t *testing.T) ([]byte, []byte, []byte) {
+	t.Helper()
+	read := func(n string) []byte {
+		b, e := os.ReadFile("testdata/" + n + ".json")
+		if e != nil {
+			t.Fatal(e)
+		}
+		return b
+	}
+	return read("freeze"), read("fixtures"), read("captions")
+}
+
+type evidenceTransport struct {
+	bytes.Buffer
+	badStage frame.Stage
+	badD     uint8
+	frames   [frame.MaxFrames]frame.Frame
+	n        uint16
+}
+
+func newEvidenceTransport() *evidenceTransport {
+	return &evidenceTransport{badStage: 255}
+}
+
+func (x *evidenceTransport) ack() (frame.Ack, error) {
+	b := x.Bytes()
+	if len(b) == 0 || b[len(b)-1] != '\n' || x.n >= frame.MaxFrames {
+		return frame.Ack{}, frame.ErrAck
+	}
+	end := len(b) - 1
+	start := bytes.LastIndexByte(b[:end], '\n') + 1
+	f, e := frame.DecodeFrame(b[start:])
+	if e != nil {
+		return frame.Ack{}, e
+	}
+	x.frames[x.n] = f
+	x.n++
+	h := sha256.Sum256(b[start:end])
+	s := hex.EncodeToString(h[:])
+	if f.K == x.badStage && (f.D == x.badD || f.D == 255) {
+		s = string(bytes.Repeat([]byte{'0'}, 64))
+	}
+	return frame.Ack{V: frame.Version, Q: f.Q, H: s}, nil
+}
+
+func (x *evidenceTransport) has(k frame.Stage) bool {
+	for i := uint16(0); i < x.n; i++ {
+		if x.frames[i].K == k {
+			return true
+		}
+	}
+	return false
+}
+
+type evidenceFakeSink struct {
+	rows             [39]RowResult
+	refs             [39][5]uint16
+	attempts         uint8
+	accepted         uint8
+	finishes         uint8
+	finishedComplete bool
+	commitMode       string
+	finishMode       string
+	onCommit         func(RowResult, [5]uint16)
+}
+
+func (s *evidenceFakeSink) CommitRow(r RowResult, q [5]uint16) (frame.RowCommit, error) {
+	s.attempts++
+	if s.onCommit != nil {
+		s.onCommit(r, q)
+	}
+	switch s.commitMode {
+	case "error":
+		return frame.RowCommit{}, errors.New("owned synthetic commit failure")
+	case "nil-panic":
+		panic(nil)
+	}
+	if r.Ordinal != s.accepted || s.accepted >= 39 {
+		return frame.RowCommit{}, ErrObserver
+	}
+	s.rows[s.accepted], s.refs[s.accepted] = r, q
+	s.accepted++
+	ref := frame.RowCommit{O: 200 + uint32(r.Ordinal)*100, N: 100, H: FreezeSHA}
+	if s.commitMode == "bad-ref" {
+		ref.O = 0
+	}
+	return ref, nil
+}
+
+func (s *evidenceFakeSink) FinishEvidence(complete bool) (frame.FileCommit, error) {
+	s.finishes++
+	s.finishedComplete = complete
+	switch s.finishMode {
+	case "error":
+		return frame.FileCommit{}, errors.New("owned synthetic footer failure")
+	case "nil-panic":
+		panic(nil)
+	case "bad-ref":
+		return frame.FileCommit{N: 1, H: "invalid", C: s.accepted}, nil
+	}
+	return frame.FileCommit{N: 200 + uint32(s.accepted)*100 + 30, H: FixtureSHA, C: s.accepted}, nil
+}
+
+type evidenceFakeCalls struct{ factories, directories, valid int }
+type evidenceFakeDir struct {
+	calls *evidenceFakeCalls
+	fault func()
+	cause error
+	mode  string
+}
+
+func (d *evidenceFakeDir) Readdir(_ int, mark func(bool)) InfoReturn {
+	mark(false)
+	d.calls.directories++
+	if d.mode == "source-nil-panic" {
+		panic(nil)
+	}
+	mark(true)
+	if d.mode == "owned-copy-nil-panic" {
+		d.fault()
+		panic(nil)
+	}
+	return InfoReturn{Entries: InfoList{}, Error: d.cause}
+}
+
+type evidenceFakeAPI struct {
+	d     *evidenceFakeDir
+	calls *evidenceFakeCalls
+}
+
+func (a *evidenceFakeAPI) NewUnion(Provider, Provider, Merge) Dir {
+	if a.d.mode == "owned-candidate-nil-panic" {
+		panic(nil)
+	}
+	return a.d
+}
+func (a *evidenceFakeAPI) Valid(_ string, mark func(bool)) bool {
+	mark(false)
+	a.calls.valid++
+	mark(true)
+	return false
+}
+func (*evidenceFakeAPI) Parse(string, func(bool)) Value { panic(ErrObserver) }
+func (*evidenceFakeAPI) Map(Value, func(bool)) MapList  { panic(ErrObserver) }
+func (*evidenceFakeAPI) ForEach(Value, func(func() (Value, Value)) bool, func(bool)) {
+	panic(ErrObserver)
+}
+
+func evidenceFactory(c *evidenceFakeCalls, mode string) Factory {
+	return func(fault func()) API {
+		d := uint8(c.factories)
+		c.factories++
+		if mode == "factory-nil-panic" {
+			panic(nil)
+		}
+		x, _ := frame.Schedule(d)
+		dir := &evidenceFakeDir{calls: c, fault: fault, mode: mode}
+		// The fake returns a finite owned cause for the fixture with a one-call
+		// upper bound. It does not run providers or mimic an original Union.
+		if x[0] == 0 && x[1] == 5 {
+			dir.cause = ErrLayer
+		}
+		return &evidenceFakeAPI{d: dir, calls: c}
+	}
+}
+
+func TestRunEvidenceFullScheduleCapturesBeforeAfterAndStaysCompact(t *testing.T) {
+	f, i, c := frozenControl(t)
+	out := newEvidenceTransport()
+	sink := new(evidenceFakeSink)
+	calls := new(evidenceFakeCalls)
+	sink.onCommit = func(row RowResult, q [5]uint16) {
+		if row.AckKnown || row.Invocation != (frame.Facts{}) || row.ObserverFault || row.SourcePanic.K {
+			t.Fatal("captured late lifecycle or manufactured known false", row.Ordinal)
+		}
+		if out.frames[out.n-1].K != frame.AfterMethod {
+			t.Fatal("candidate AFTER preceded its owned capture")
+		}
+		for j := uint8(0); j < row.APIN; j++ {
+			if q[j] == 0 || !row.API[j].DurableOriginalOutcomeAvailable {
+				t.Fatal("missing matching method ACK reference")
+			}
+		}
+		for j := row.APIN; j < 5; j++ {
+			if q[j] != 0 {
+				t.Fatal("nonneutral reference padding")
+			}
+		}
+	}
+	r, e := RunEvidence(out, out.ack, evidenceFactory(calls, ""), sink, f, i, c)
+	if e != nil || !r.Complete || r.Completed != 39 || r.CommittedRows != 39 || r.Prefix.Rows != 39 ||
+		!r.FileAttempted || !r.FileReferenceAvailable || r.File.C != 39 || sink.accepted != 39 || sink.finishes != 1 || !sink.finishedComplete {
+		t.Fatal(e, r, sink.accepted, sink.finishes)
+	}
+	if calls.factories != 39 || calls.directories != 30 || calls.valid != 21 || out.n != 260 {
+		t.Fatal("owned schedule changed", calls, out.n)
+	}
+	for d := uint8(0); d < 39; d++ {
+		x, _ := frame.Schedule(d)
+		if sink.rows[d].Ordinal != d || sink.rows[d].IDs != x {
+			t.Fatal("dispatch order changed", d)
+		}
+	}
+	for j := uint16(0); j < out.n; j++ {
+		x := out.frames[j]
+		if x.K == frame.AfterCandidate && (x.R == nil || x.R.O != 200+uint32(x.D)*100 || x.F.Source.A) {
+			t.Fatal("unbound candidate or method-only source escaped")
+		}
+	}
+	last := out.frames[out.n-1]
+	if last.K != frame.Final || last.E == nil || *last.E != r.File || !last.Z.Complete || last.Z.Startup != nil || last.Z.Nested != nil {
+		t.Fatal("terminal correspondence or unknown native counters")
+	}
+	b, e := json.Marshal(r)
+	if e != nil || len(b) > 2048 {
+		t.Fatal("summary retained padded result", len(b), e)
+	}
+}
+
+func TestRunEvidenceObserverFaultIsCapturedBeforeCandidateAfter(t *testing.T) {
+	f, i, c := frozenControl(t)
+	out := newEvidenceTransport()
+	sink := new(evidenceFakeSink)
+	calls := new(evidenceFakeCalls)
+	r, e := RunEvidence(out, out.ack, evidenceFactory(calls, "owned-copy-nil-panic"), sink, f, i, c)
+	row := sink.rows[0]
+	if e != ErrObserver || sink.accepted != 1 || sink.finishedComplete || r.Complete || r.Completed != 1 ||
+		!row.ObserverFault || row.SourcePanic.K || row.AckKnown || row.Invocation != (frame.Facts{}) ||
+		!row.API[0].Returned || !row.API[0].ReturnKnown || row.API[0].Panic != known(false) || sink.refs[0][0] == 0 {
+		t.Fatal("owned copy interruption became source panic/late capture", e, r, row)
+	}
+	last := out.frames[out.n-1]
+	if last.K != frame.Final || last.Z.Reason != frame.ObserverStop || last.Z.Complete || last.E.C != 1 {
+		t.Fatal("partial observer binding", last)
+	}
+}
+
+func TestRunEvidenceBoundSourcePanicRemainsDistinctAndFinalizesPartial(t *testing.T) {
+	f, i, c := frozenControl(t)
+	out := newEvidenceTransport()
+	sink := new(evidenceFakeSink)
+	calls := new(evidenceFakeCalls)
+	r, e := RunEvidence(out, out.ack, evidenceFactory(calls, "source-nil-panic"), sink, f, i, c)
+	row := sink.rows[0]
+	if e != ErrSourcePanic || sink.accepted != 1 || r.Complete || sink.finishedComplete || row.ObserverFault ||
+		row.SourcePanic != known(true) || row.API[0].Returned || !row.API[0].ReturnKnown ||
+		row.API[0].Panic != known(true) || sink.refs[0][0] == 0 {
+		t.Fatal("bound fake source interruption was lost", e, r, row)
+	}
+	last := out.frames[out.n-1]
+	if last.K != frame.Final || last.Z.Reason != frame.SourceStop || last.Z.Complete || last.E.C != 1 {
+		t.Fatal("partial source binding", last)
+	}
+	for j := uint16(0); j < out.n; j++ {
+		x := out.frames[j]
+		if x.K == frame.AfterCandidate && (!x.F.Normal.V || x.F.Panic.V || x.R == nil) {
+			t.Fatal("captured original-shaped interruption confused with candidate panic")
+		}
+	}
+}
+
+func TestRunEvidenceFactoryPanicHasNoCandidateOrStoredRow(t *testing.T) {
+	f, i, c := frozenControl(t)
+	out := newEvidenceTransport()
+	sink := new(evidenceFakeSink)
+	calls := new(evidenceFakeCalls)
+	r, e := RunEvidence(out, out.ack, evidenceFactory(calls, "factory-nil-panic"), sink, f, i, c)
+	if e != ErrObserver || calls.factories != 1 || calls.directories != 0 || sink.attempts != 0 || sink.accepted != 0 ||
+		sink.finishes != 1 || sink.finishedComplete || r.Complete || r.Completed != 1 || out.has(frame.BeforeCandidate) || out.has(frame.BeforeMethod) {
+		t.Fatal("factory interruption created a candidate/source observation", e, r, calls)
+	}
+	last := out.frames[out.n-1]
+	if last.K != frame.Final || last.Z.Reason != frame.ObserverStop || last.E.C != 0 {
+		t.Fatal("zero-row partial footer", last)
+	}
+}
+
+func TestRunEvidenceCandidatePanicHasNoCommitOrSourceClassification(t *testing.T) {
+	f, i, c := frozenControl(t)
+	out := newEvidenceTransport()
+	sink := new(evidenceFakeSink)
+	calls := new(evidenceFakeCalls)
+	r, e := RunEvidence(out, out.ack, evidenceFactory(calls, "owned-candidate-nil-panic"), sink, f, i, c)
+	if e != ErrObserver || calls.factories != 1 || calls.directories != 0 || sink.attempts != 0 || sink.accepted != 0 ||
+		sink.finishes != 1 || r.Complete || r.CommittedRows != 0 || r.Prefix.Rows != 0 || r.Prefix.Counts[frame.Candidate][3] != 1 {
+		t.Fatal("candidate interruption fabricated row/source evidence", e, r)
+	}
+	for j := uint16(0); j < out.n; j++ {
+		x := out.frames[j]
+		if x.K == frame.AfterCandidate && (x.R != nil || x.F.Source.A || !x.F.Panic.V || x.F.Normal.V) {
+			t.Fatal("panicked candidate carried normal/source row evidence", x)
+		}
+	}
+	last := out.frames[out.n-1]
+	if last.K != frame.Final || last.Z.Reason != frame.ObserverStop || last.E.C != 0 {
+		t.Fatal("candidate partial footer", last)
+	}
+}
+
+func TestRunEvidenceBeforeACKLossPreventsOriginalAndCommit(t *testing.T) {
+	for _, stage := range []frame.Stage{frame.BeforeCandidate, frame.BeforeMethod} {
+		t.Run(string(rune('0'+stage)), func(t *testing.T) {
+			f, i, c := frozenControl(t)
+			out := newEvidenceTransport()
+			out.badStage = stage
+			sink := new(evidenceFakeSink)
+			calls := new(evidenceFakeCalls)
+			r, e := RunEvidence(out, out.ack, evidenceFactory(calls, ""), sink, f, i, c)
+			if e != frame.ErrAck || calls.factories != 1 || calls.directories != 0 || sink.attempts != 0 ||
+				sink.finishes != 0 || r.Complete || r.CommittedRows != 0 || r.Prefix.Rows != 0 || r.FileAttempted || out.has(frame.Final) {
+				t.Fatal("BEFORE loss dispatched/reconstructed an effect", stage, e, r, calls)
+			}
+		})
+	}
+}
+
+func TestRunEvidenceMethodAfterACKLossDoesNotBorrowReferenceOrRetry(t *testing.T) {
+	f, i, c := frozenControl(t)
+	out := newEvidenceTransport()
+	out.badStage = frame.AfterMethod
+	sink := new(evidenceFakeSink)
+	calls := new(evidenceFakeCalls)
+	r, e := RunEvidence(out, out.ack, evidenceFactory(calls, ""), sink, f, i, c)
+	last := out.frames[out.n-1]
+	if e != frame.ErrAck || calls.directories != 1 || sink.attempts != 0 || sink.finishes != 0 ||
+		r.CommittedRows != 0 || r.Prefix.Rows != 0 || !r.EffectMayHaveOccurred || r.FileAttempted ||
+		last.K != frame.AfterMethod || last.F.Source.Returned != known(true) || out.has(frame.AfterCandidate) || out.has(frame.Final) {
+		t.Fatal("unacknowledged original-shaped return erased or borrowed", e, r, last)
+	}
+}
+
+func TestRunEvidenceCandidateAfterACKLossKeepsAcceptedOrphanSeparate(t *testing.T) {
+	f, i, c := frozenControl(t)
+	out := newEvidenceTransport()
+	out.badStage = frame.AfterCandidate
+	sink := new(evidenceFakeSink)
+	calls := new(evidenceFakeCalls)
+	r, e := RunEvidence(out, out.ack, evidenceFactory(calls, ""), sink, f, i, c)
+	if e != frame.ErrAck || calls.directories != 1 || sink.accepted != 1 || sink.attempts != 1 || sink.finishes != 0 ||
+		r.CommittedRows != 1 || r.CommittedEnd != 300 || r.Prefix.Rows != 0 || r.Prefix.End != 0 ||
+		!r.EvidenceAttempted || !r.EffectMayHaveOccurred || r.Completed != 0 || r.FileAttempted || out.has(frame.Final) {
+		t.Fatal("accepted row became ACKed or was retried", e, r, sink.accepted)
+	}
+	last := out.frames[out.n-1]
+	if last.K != frame.AfterCandidate || last.R == nil || last.R.O != 200 || last.R.N != 100 {
+		t.Fatal("orphan reference erased", last)
+	}
+}
+
+func TestRunEvidenceRowAfterACKLossKeepsCandidateACKButNoRowCompletion(t *testing.T) {
+	f, i, c := frozenControl(t)
+	out := newEvidenceTransport()
+	out.badStage = frame.AfterRow
+	sink := new(evidenceFakeSink)
+	calls := new(evidenceFakeCalls)
+	r, e := RunEvidence(out, out.ack, evidenceFactory(calls, ""), sink, f, i, c)
+	if e != frame.ErrAck || sink.accepted != 1 || r.CommittedRows != 1 || r.Prefix.Rows != 1 || r.Prefix.End != 300 ||
+		r.Completed != 0 || sink.finishes != 0 || r.FileAttempted || out.has(frame.Final) {
+		t.Fatal("candidate ACK promoted to row/terminal acknowledgement", e, r)
+	}
+}
+
+func TestRunEvidenceCommitFailureIsOwnedStickyAndNeverFinalized(t *testing.T) {
+	for _, mode := range []string{"error", "nil-panic", "bad-ref"} {
+		t.Run(mode, func(t *testing.T) {
+			f, i, c := frozenControl(t)
+			out := newEvidenceTransport()
+			sink := &evidenceFakeSink{commitMode: mode}
+			calls := new(evidenceFakeCalls)
+			r, e := RunEvidence(out, out.ack, evidenceFactory(calls, ""), sink, f, i, c)
+			if e != frame.ErrEvidence || calls.directories != 1 || sink.attempts != 1 || sink.finishes != 0 ||
+				!r.EvidenceAttempted || r.CommittedRows != 0 || r.Prefix.Rows != 0 || r.FileAttempted ||
+				r.Prefix.Counts[frame.Candidate][3] != 0 || out.has(frame.AfterCandidate) || out.has(frame.Final) {
+				t.Fatal("hook failure became source/candidate panic or retry", e, r)
+			}
+			if mode == "bad-ref" && sink.accepted != 1 {
+				t.Fatal("possible pre-error orphan was erased")
+			}
+		})
+	}
+}
+
+func TestRunEvidenceFooterFailureCannotEmitFinalOrEscapeNilPanic(t *testing.T) {
+	for _, mode := range []string{"error", "nil-panic", "bad-ref"} {
+		t.Run(mode, func(t *testing.T) {
+			f, i, c := frozenControl(t)
+			out := newEvidenceTransport()
+			sink := &evidenceFakeSink{finishMode: mode}
+			calls := new(evidenceFakeCalls)
+			r, e := RunEvidence(out, out.ack, evidenceFactory(calls, ""), sink, f, i, c)
+			if e != frame.ErrEvidence || sink.accepted != 39 || sink.finishes != 1 || calls.factories != 39 ||
+				r.Complete || !r.FileAttempted || r.FileReferenceAvailable || r.Completed != 39 || out.has(frame.Final) {
+				t.Fatal("failed footer emitted FINAL or erased committed rows", e, r)
+			}
+		})
+	}
+}
+
+func TestRunEvidenceFinalACKLossKeepsFileReferenceWithoutComplete(t *testing.T) {
+	f, i, c := frozenControl(t)
+	out := newEvidenceTransport()
+	out.badStage = frame.Final
+	sink := new(evidenceFakeSink)
+	calls := new(evidenceFakeCalls)
+	r, e := RunEvidence(out, out.ack, evidenceFactory(calls, ""), sink, f, i, c)
+	if e != frame.ErrAck || r.Complete || r.Completed != 39 || r.Prefix.Rows != 39 || sink.finishes != 1 ||
+		!sink.finishedComplete || !r.FileAttempted || !r.FileReferenceAvailable || r.File.C != 39 || !out.has(frame.Final) {
+		t.Fatal("returned footer promoted to FINAL ACK", e, r)
+	}
+}
+
+func TestMethodReferencesStayAtReservationIndexWithNestedCallback(t *testing.T) {
+	w, _ := controlWriter(t, frame.Final)
+	x, _ := frame.Schedule(0)
+	c := context{w: w, d: 0, methodMax: 2, callbackMax: 1, row: RowResult{Ordinal: 0, IDs: x}}
+	var captured [5]uint16
+	_, e := w.Call(frame.Row, 0, 0, 0, func() frame.Facts {
+		_, ce := w.CallCandidate(0, func() frame.Facts {
+			c.direct(frame.Readdir, func(mark func(bool)) frame.Facts {
+				mark(false)
+				c.callback(frame.Merger, func() frame.Facts {
+					c.direct(frame.Readdir, func(inner func(bool)) frame.Facts { inner(false); inner(true); return frame.Facts{} })
+					return frame.Facts{}
+				})
+				mark(true)
+				return frame.Facts{}
+			})
+			return frame.Facts{}
+		}, func() (frame.RowCommit, error) {
+			captured = c.methodAfter
+			if c.row.Invocation != (frame.Facts{}) || c.row.AckKnown {
+				t.Fatal("late nested capture")
+			}
+			return frame.RowCommit{O: 200, N: 100, H: FreezeSHA}, nil
+		})
+		if ce != nil {
+			t.Fatal(ce)
+		}
+		return frame.Facts{}
+	})
+	if e != nil || c.fail != nil || c.row.APIN != 2 || captured[1] == 0 || captured[0] <= captured[1] ||
+		!c.row.API[0].DurableOriginalOutcomeAvailable || !c.row.API[1].DurableOriginalOutcomeAvailable {
+		t.Fatal("reservation order was confused with AFTER order", e, c.fail, captured)
+	}
+}
+
+func TestFrozenFailureAndLegacyRunCannotDispatch(t *testing.T) {
+	f, i, c := frozenControl(t)
+	out := newEvidenceTransport()
+	sink := new(evidenceFakeSink)
+	calls := new(evidenceFakeCalls)
+	f[0] ^= 1
+	if _, e := RunEvidence(out, out.ack, evidenceFactory(calls, ""), sink, f, i, c); e != ErrObserver || out.Len() != 0 || calls.factories != 0 || sink.attempts != 0 || sink.finishes != 0 {
+		t.Fatal("altered frozen bytes dispatched", e)
+	}
+	if _, e := Run(out, out.ack, evidenceFactory(calls, ""), f, i, c); e != ErrLegacyRun || out.Len() != 0 || calls.factories != 0 {
+		t.Fatal("legacy padded entry point silently ran under wire3", e)
+	}
+}

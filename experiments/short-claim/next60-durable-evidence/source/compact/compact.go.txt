@@ -1,0 +1,336 @@
+// Package compactevidence is an owned serialization prototype. It executes no
+// original calls and grants no file, process, native or model execution authority.
+package compactevidence
+
+import (
+	"encoding/json"
+	"errors"
+	frame "riido.local/unionduplicateframe"
+	core "riido.local/unionduplicatenativeprep/core"
+)
+
+const RowLineMax = 1536
+const WholeEvidenceMax = 65536
+const HeaderFooterReserve = 4096
+
+var ErrShape = errors.New("compact evidence shape")
+var ErrPending = errors.New("compact evidence adoption pending")
+
+func ExecutionGate() error { return ErrPending }
+
+// Availability/known/null/value are independent bits, in that order. Packing
+// preserves unavailable(0), available-unknown(1), known-false(3), known-true(11)
+// and known-null(7). A mask is a transport representation, never a label.
+func boolMask(b frame.Bool) uint8 {
+	var m uint8
+	for i, v := range [4]bool{b.A, b.K, b.N, b.V} {
+		if v {
+			m |= 1 << i
+		}
+	}
+	return m
+}
+func fromMask(m uint8) frame.Bool {
+	return frame.Bool{A: m&1 != 0, K: m&2 != 0, N: m&4 != 0, V: m&8 != 0}
+}
+
+type Small struct {
+	M uint8 `json:"m"`
+	V uint8 `json:"v"`
+}
+
+func small(v frame.Small) Small { return Small{boolMask(frame.Bool{A: v.A, K: v.K, N: v.N}), v.V} }
+func (v Small) expand() frame.Small {
+	m := fromMask(v.M)
+	return frame.Small{A: m.A, K: m.K, N: m.N, V: v.V}
+}
+
+type Error struct {
+	M uint8          `json:"m"`
+	V frame.Identity `json:"v"`
+}
+
+func errorFact(e frame.ErrorFact) Error {
+	return Error{boolMask(frame.Bool{A: e.A, K: e.K, N: e.P, V: e.I}), e.V}
+}
+func (v Error) expand() frame.ErrorFact {
+	m := fromMask(v.M)
+	return frame.ErrorFact{A: m.A, K: m.K, P: m.N, I: m.V, V: v.V}
+}
+
+type Entries struct {
+	M uint8      `json:"m"`
+	V [][3]uint8 `json:"v"`
+}
+
+func entries(v frame.Entries) (Entries, error) {
+	if v.C > 3 {
+		return Entries{}, ErrShape
+	}
+	for i := int(v.C); i < 3; i++ {
+		if v.V[i] != (frame.Entry{}) {
+			return Entries{}, ErrShape
+		}
+	}
+	x := Entries{M: boolMask(frame.Bool{A: v.A, K: v.K, N: v.N}), V: make([][3]uint8, v.C)}
+	for i := range x.V {
+		x.V[i] = [3]uint8{v.V[i].N, v.V[i].M, v.V[i].L}
+	}
+	return x, nil
+}
+func (v Entries) expand() frame.Entries {
+	m := fromMask(v.M)
+	e := frame.Entries{A: m.A, K: m.K, N: m.N, C: uint8(len(v.V))}
+	for i, x := range v.V {
+		e.V[i] = frame.Entry{N: x[0], M: x[1], L: x[2]}
+	}
+	return e
+}
+
+type Read struct {
+	C uint8    `json:"c"`
+	N int8     `json:"n"`
+	K bool     `json:"k"`
+	O [2]uint8 `json:"o"`
+	D Entries  `json:"d"`
+	E Error    `json:"e"`
+}
+type Union struct {
+	R []Read  `json:"r"`
+	C uint8   `json:"c"`
+	S uint8   `json:"s"`
+	D uint8   `json:"d"`
+	U []uint8 `json:"u"`
+}
+type Visit struct {
+	V [5]uint8 `json:"v"`
+	K [4]uint8 `json:"k"`
+	X [4]uint8 `json:"x"`
+}
+
+func primitive(v core.Primitive) [4]uint8 { return [4]uint8{v.Type, v.Index, v.RawID, v.DecodedID} }
+func fromPrimitive(v [4]uint8) core.Primitive {
+	return core.Primitive{Type: v[0], Index: v[1], RawID: v[2], DecodedID: v[3]}
+}
+
+type View struct {
+	P uint8    `json:"p"`
+	K uint8    `json:"k"`
+	V [4]uint8 `json:"v"`
+}
+type JSON struct {
+	B [6]uint8 `json:"b"`
+	E Error    `json:"e"`
+	O [3]Small `json:"o"`
+	P []Visit  `json:"p"`
+	K bool     `json:"k"`
+	V []View   `json:"v"`
+	H bool     `json:"h"`
+}
+
+// Local API assertions remain distinct from OriginalCall in the method frame.
+// Q is a proposed AFTERMethod sequence reference, not proof of acknowledgement.
+type API struct {
+	M frame.MethodID `json:"m"`
+	B uint8          `json:"b"`
+	P uint8          `json:"p"`
+	Q uint16         `json:"q"`
+}
+type Row struct {
+	D uint8    `json:"d"`
+	X [4]uint8 `json:"x"`
+	A []API    `json:"a"`
+	C uint8    `json:"c"`
+	P uint8    `json:"p"`
+	F bool     `json:"f"`
+	U *Union   `json:"u,omitempty"`
+	J *JSON    `json:"j,omitempty"`
+}
+
+// Snapshot captures only the pre-AFTERcandidate owned evidence. Later Invocation
+// and AckKnown are journal lifecycle fields, so nonzero values are rejected rather
+// than silently discarded. Unused padding must be neutral; U diagnostics inside
+// the active prefixes remain present. All slices below are independent copies.
+func Snapshot(r core.RowResult, refs []uint16) (Row, error) {
+	x, e := frame.Schedule(r.Ordinal)
+	if e != nil || r.IDs != x || r.AckKnown || r.Invocation != (frame.Facts{}) || r.APIN > 5 || len(refs) != int(r.APIN) {
+		return Row{}, ErrShape
+	}
+	for i := int(r.APIN); i < 5; i++ {
+		if r.API[i] != (core.APIOutcome{}) {
+			return Row{}, ErrShape
+		}
+	}
+	o := Row{D: r.Ordinal, X: r.IDs, A: make([]API, r.APIN), C: r.CallbackN, P: boolMask(r.SourcePanic), F: r.ObserverFault}
+	for i := range o.A {
+		a := r.API[i]
+		var b uint8
+		for j, v := range [6]bool{a.Entered, a.NativeDispatched, a.NativeDispatchKnown, a.Returned, a.ReturnKnown, a.DurableOriginalOutcomeAvailable} {
+			if v {
+				b |= 1 << j
+			}
+		}
+		o.A[i] = API{a.Method, b, boolMask(a.Panic), refs[i]}
+	}
+	if x[0] == 0 {
+		u := r.Union
+		if r.JSON != (core.JSONState{}) || u.N > 5 || u.SuffixN > 5 {
+			return Row{}, ErrShape
+		}
+		for i := int(u.N); i < 5; i++ {
+			if u.Reads[i] != (core.Read{}) {
+				return Row{}, ErrShape
+			}
+		}
+		for i := int(u.SuffixN); i < 5; i++ {
+			if u.Suffix[i] != 0 {
+				return Row{}, ErrShape
+			}
+		}
+		v := &Union{R: make([]Read, u.N), C: boolMask(u.Complete), S: boolMask(u.Stopped), D: boolMask(u.DescriptorsUnchanged), U: make([]uint8, u.SuffixN)}
+		copy(v.U, u.Suffix[:u.SuffixN])
+		for i := range v.R {
+			q := u.Reads[i]
+			d, err := entries(q.Entries)
+			if err != nil {
+				return Row{}, err
+			}
+			v.R[i] = Read{q.Call, q.Count, q.Known, [2]uint8{boolMask(q.Normal), boolMask(q.Panic)}, d, errorFact(q.Error)}
+		}
+		o.U = v
+	} else {
+		j := r.JSON
+		if r.Union != (core.UnionState{}) || j.N > 4 || j.ViewN > 6 {
+			return Row{}, ErrShape
+		}
+		for i := int(j.N); i < 4; i++ {
+			if j.Prefix[i] != (core.VisitRecord{}) {
+				return Row{}, ErrShape
+			}
+		}
+		for i := int(j.ViewN); i < 6; i++ {
+			if j.View[i] != (core.ViewEntry{}) {
+				return Row{}, ErrShape
+			}
+		}
+		v := &JSON{B: [6]uint8{boolMask(j.Valid), boolMask(j.Published), boolMask(j.Duplicate), boolMask(j.WalkComplete), boolMask(j.Unchanged), boolMask(j.SuffixStopped)}, E: errorFact(j.Error), O: [3]Small{small(j.Path), small(j.Key), small(j.Occurrence)}, P: make([]Visit, j.N), K: j.PrefixKnown, V: make([]View, j.ViewN), H: j.ViewKnown}
+		for i := range v.P {
+			q := j.Prefix[i]
+			v.P[i] = Visit{[5]uint8{q.Visit.P, q.Visit.K, q.Visit.R, q.Visit.T, q.Visit.I}, primitive(q.Key), primitive(q.Value)}
+		}
+		for i := range v.V {
+			q := j.View[i]
+			v.V[i] = View{q.Path, q.Key, primitive(q.Value)}
+		}
+		o.J = v
+	}
+	return o, nil
+}
+
+// EncodeRow is only a closed-shape prototype bound. It is not a native semantic
+// validator, strict external decoder, file commit, SHA correspondence or Start.
+func EncodeRow(r Row) ([]byte, error) {
+	x, e := frame.Schedule(r.D)
+	if e != nil || r.X != x || len(r.A) > 5 || (r.U == nil) == (r.J == nil) {
+		return nil, ErrShape
+	}
+	if r.U != nil && (x[0] != 0 || len(r.U.R) > 5 || len(r.U.U) > 5) {
+		return nil, ErrShape
+	}
+	if r.J != nil && (x[0] != 1 || len(r.J.P) > 4 || len(r.J.V) > 6) {
+		return nil, ErrShape
+	}
+	if r.U != nil {
+		for _, v := range r.U.R {
+			if len(v.D.V) > 3 {
+				return nil, ErrShape
+			}
+		}
+	}
+	if r.P > 15 {
+		return nil, ErrShape
+	}
+	for _, a := range r.A {
+		if a.B > 63 || a.P > 15 {
+			return nil, ErrShape
+		}
+	}
+	if r.U != nil {
+		if r.U.C > 15 || r.U.S > 15 || r.U.D > 15 {
+			return nil, ErrShape
+		}
+		for _, v := range r.U.R {
+			if v.O[0] > 15 || v.O[1] > 15 || v.D.M > 7 || v.E.M > 15 {
+				return nil, ErrShape
+			}
+		}
+	}
+	if r.J != nil {
+		for _, b := range r.J.B {
+			if b > 15 {
+				return nil, ErrShape
+			}
+		}
+		for _, s := range r.J.O {
+			if s.M > 7 {
+				return nil, ErrShape
+			}
+		}
+		if r.J.E.M > 15 {
+			return nil, ErrShape
+		}
+	}
+	b, e := json.Marshal(r)
+	if e != nil || len(b)+1 > RowLineMax {
+		return nil, ErrShape
+	}
+	return b, nil
+}
+
+// Expand is an owned codec round-trip helper, not an external decoder. Method
+// sequence references stay in Row.A; resolving them against a verified journal
+// and validating native/semantic invariants are separate pending work.
+func Expand(r Row) (core.RowResult, error) {
+	if _, e := EncodeRow(r); e != nil {
+		return core.RowResult{}, e
+	}
+	o := core.RowResult{Ordinal: r.D, IDs: r.X, APIN: uint8(len(r.A)), CallbackN: r.C, SourcePanic: fromMask(r.P), ObserverFault: r.F}
+	for i, v := range r.A {
+		o.API[i] = core.APIOutcome{Entered: v.B&1 != 0, NativeDispatched: v.B&2 != 0, NativeDispatchKnown: v.B&4 != 0, Returned: v.B&8 != 0, ReturnKnown: v.B&16 != 0, DurableOriginalOutcomeAvailable: v.B&32 != 0, Panic: fromMask(v.P), Method: v.M}
+	}
+	if u := r.U; u != nil {
+		o.Union.N = uint8(len(u.R))
+		o.Union.SuffixN = uint8(len(u.U))
+		copy(o.Union.Suffix[:], u.U)
+		o.Union.Complete = fromMask(u.C)
+		o.Union.Stopped = fromMask(u.S)
+		o.Union.DescriptorsUnchanged = fromMask(u.D)
+		for i, v := range u.R {
+			o.Union.Reads[i] = core.Read{Call: v.C, Count: v.N, Known: v.K, Normal: fromMask(v.O[0]), Panic: fromMask(v.O[1]), Entries: v.D.expand(), Error: v.E.expand()}
+		}
+	}
+	if j := r.J; j != nil {
+		s := &o.JSON
+		s.Valid = fromMask(j.B[0])
+		s.Published = fromMask(j.B[1])
+		s.Duplicate = fromMask(j.B[2])
+		s.WalkComplete = fromMask(j.B[3])
+		s.Unchanged = fromMask(j.B[4])
+		s.SuffixStopped = fromMask(j.B[5])
+		s.Error = j.E.expand()
+		s.Path = j.O[0].expand()
+		s.Key = j.O[1].expand()
+		s.Occurrence = j.O[2].expand()
+		s.PrefixKnown = j.K
+		s.ViewKnown = j.H
+		s.N = uint8(len(j.P))
+		s.ViewN = uint8(len(j.V))
+		for i, v := range j.P {
+			s.Prefix[i] = core.VisitRecord{Visit: frame.Visit{P: v.V[0], K: v.V[1], R: v.V[2], T: v.V[3], I: v.V[4]}, Key: fromPrimitive(v.K), Value: fromPrimitive(v.X)}
+		}
+		for i, v := range j.V {
+			s.View[i] = core.ViewEntry{Path: v.P, Key: v.K, Value: fromPrimitive(v.V)}
+		}
+	}
+	return o, nil
+}

@@ -1,0 +1,168 @@
+package core
+
+import (
+	"io"
+	frame "riido.local/unionduplicateframe"
+)
+
+func (c *context) union(i, display uint8) frame.Facts {
+	u := unionInput(i)
+	baseBefore, layerBefore := u.Base, u.Overlay
+	provider := func(v InfoList, layer bool) Provider {
+		consumed := false
+		return func(count int) InfoReturn {
+			out := InfoReturn{}
+			cb := frame.Base
+			if layer {
+				cb = frame.Layer
+			}
+			_, ok := c.callback(cb, func() frame.Facts {
+				if count != -1 {
+					c.fault()
+					return frame.Facts{}
+				}
+				if layer && u.LayerError {
+					out = InfoReturn{Entries: InfoList{Nil: true}, Error: ErrLayer}
+				} else if consumed {
+					out = InfoReturn{Entries: InfoList{}}
+				} else {
+					out = InfoReturn{Entries: v}
+					consumed = true
+				}
+				return frame.Facts{Entries: entriesFact(out.Entries), Error: errorFact(out.Error)}
+			})
+			if !ok {
+				return InfoReturn{Error: ErrObserver}
+			}
+			return out
+		}
+	}
+	merge := func(decode func() (InfoList, InfoList)) InfoReturn {
+		out := InfoReturn{}
+		_, ok := c.callback(frame.Merger, func() frame.Facts {
+			layer, base := decode()
+			if layer.N > 3 || base.N > 3 {
+				c.fault()
+				return frame.Facts{}
+			}
+			var slots [4]frame.Entry
+			for _, v := range [2]InfoList{layer, base} {
+				for j := uint8(0); j < v.N; j++ {
+					e := v.V[j]
+					if e.N < 1 || e.N > 3 {
+						c.fault()
+						return frame.Facts{}
+					}
+					if slots[e.N].N == 0 {
+						slots[e.N] = e
+					}
+				}
+			}
+			for n := uint8(1); n <= 3; n++ {
+				if slots[n].N != 0 {
+					out.Entries.V[out.Entries.N] = slots[n]
+					out.Entries.N++
+				}
+			}
+			return frame.Facts{Entries: entriesFact(out.Entries), Error: errorFact(nil)}
+		})
+		if !ok {
+			return InfoReturn{Error: ErrObserver}
+		}
+		return out
+	}
+	dir := c.api.NewUnion(provider(u.Overlay, true), provider(u.Base, false), merge)
+	readOriginal := func(count int) (InfoReturn, frame.Facts, bool) {
+		out := InfoReturn{}
+		f, ok := c.direct(frame.Readdir, func(mark func(bool)) frame.Facts {
+			out = dir.Readdir(count, mark)
+			return frame.Facts{Entries: entriesFact(out.Entries), Error: errorFact(out.Error)}
+		})
+		return out, f, ok
+	}
+	cache := InfoList{}
+	initialized := false
+	cursor := uint8(0)
+	for j := uint8(0); j < u.N; j++ {
+		var out InfoReturn
+		var facts frame.Facts
+		ok := true
+		count := u.Calls[j]
+		if display == 1 {
+			out, facts, ok = readOriginal(int(count))
+		} else {
+			if !initialized {
+				out, facts, ok = readOriginal(-1)
+				if !ok {
+					break
+				}
+				if out.Error != nil {
+					c.row.Union.Reads[j] = Read{j, count, true, facts.Normal, facts.Panic, facts.Entries, facts.Error}
+					c.row.Union.N = j + 1
+					stopUnion(&c.row.Union, u.N, j+1)
+					break
+				}
+				cache = out.Entries
+				cache.Nil = false // explicit owned nonnil-empty result policy
+				initialized = true
+			}
+			if count <= 0 {
+				start := cursor
+				if display == 2 {
+					start = 0
+				}
+				for k := start; k < cache.N; k++ {
+					out.Entries.V[out.Entries.N] = cache.V[k]
+					out.Entries.N++
+				}
+				cursor = cache.N
+			} else if cursor >= cache.N {
+				out = InfoReturn{Entries: InfoList{Nil: true}, Error: io.EOF}
+			} else {
+				n := uint8(count)
+				if n > cache.N-cursor {
+					n = cache.N - cursor
+				}
+				for k := uint8(0); k < n; k++ {
+					out.Entries.V[k] = cache.V[cursor+k]
+				}
+				out.Entries.N = n
+				cursor += n
+			}
+			facts = frame.Facts{Normal: known(true), Panic: known(false), Entries: entriesFact(out.Entries), Error: errorFact(out.Error)}
+		}
+		if !ok {
+			break
+		}
+		c.row.Union.Reads[j] = Read{j, count, true, facts.Normal, facts.Panic, facts.Entries, facts.Error}
+		c.row.Union.N = j + 1
+		if out.Error != nil && out.Error != io.EOF {
+			stopUnion(&c.row.Union, u.N, j+1)
+			break
+		}
+	}
+	if c.fail == nil && c.row.Union.N == u.N {
+		c.row.Union.Complete = known(true)
+		c.row.Union.Stopped = known(false)
+	}
+	if c.fail != nil {
+		c.row.Union.Complete = frame.Bool{A: true}
+		c.row.Union.Stopped = frame.Bool{A: true}
+	}
+	c.row.Union.DescriptorsUnchanged = known(u.Base == baseBefore && u.Overlay == layerBefore)
+	f := frame.Facts{Complete: c.row.Union.Complete, SuffixStopped: c.row.Union.Stopped, DescriptorsUnchanged: c.row.Union.DescriptorsUnchanged}
+	if c.row.Union.N > 0 {
+		r := c.row.Union.Reads[c.row.Union.N-1]
+		f.Entries = r.Entries
+		f.Error = r.Error
+	}
+	return f
+}
+func stopUnion(s *UnionState, n, done uint8) {
+	s.Complete = known(false)
+	s.Stopped = known(true)
+	for j := done; j < n; j++ {
+		s.Suffix[s.SuffixN] = j
+		s.SuffixN++
+	}
+}

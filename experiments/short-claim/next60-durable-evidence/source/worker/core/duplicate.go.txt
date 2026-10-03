@@ -1,0 +1,264 @@
+package core
+
+import frame "riido.local/unionduplicateframe"
+
+func container(v Value) uint8 {
+	if v.Type != 5 || v.RawN == 0 {
+		return 0
+	}
+	if v.Raw[0] == '{' {
+		return 1
+	}
+	if v.Raw[0] == '[' {
+		return 2
+	}
+	return 0
+}
+func childPath(path, key, index uint8, kind uint8) (uint8, bool) {
+	if path != 1 {
+		return 0, false
+	}
+	if kind == 1 && key == 5 {
+		return 2, true
+	}
+	if kind == 2 && index <= 1 {
+		return 3 + index, true
+	}
+	return 0, false
+}
+func (c *context) duplicate(i, display uint8) frame.Facts {
+	input := jsonInputs[i]
+	before := input
+	s := &c.row.JSON
+	valid := false
+	_, ok := c.direct(frame.Valid, func(mark func(bool)) frame.Facts {
+		valid = c.api.Valid(input, mark)
+		return frame.Facts{Valid: known(valid)}
+	})
+	if !ok {
+		return c.jsonFacts()
+	}
+	s.Valid = known(valid)
+	s.Unchanged = known(input == before)
+	if !valid {
+		s.Published = known(false)
+		s.PrefixKnown = true
+		s.WalkComplete = known(false)
+		if display != 0 {
+			s.Error = errorFact(ErrInvalidJSON)
+			s.Duplicate = known(false)
+			s.Path = nilSmall()
+			s.Key = nilSmall()
+			s.Occurrence = nilSmall()
+			s.SuffixStopped = known(true)
+		}
+		return c.jsonFacts()
+	}
+	var root Value
+	_, ok = c.direct(frame.Parse, func(mark func(bool)) frame.Facts {
+		root = c.api.Parse(input, mark)
+		return frame.Facts{ParserType: nullableSmall(root.Type), ParserIndex: nullableSmall(root.Index)}
+	})
+	if !ok {
+		return c.jsonFacts()
+	}
+	if container(root) == 0 {
+		c.fault()
+		return c.jsonFacts()
+	}
+	if display == 0 {
+		// Map has no duplicate/error/ordered-prefix channel. Only the published
+		// primitive view is recorded. Object map iteration is never source order.
+		c.mapView(root, 1, 0)
+		if c.fail == nil {
+			s.Published = known(true)
+			s.ViewKnown = true
+		}
+		return c.jsonFacts()
+	}
+	s.PrefixKnown = true
+	c.policyWalk(root, 1, 0, display)
+	if c.fail != nil {
+		s.PrefixKnown = false
+		s.WalkComplete = frame.Bool{A: true}
+		return c.jsonFacts()
+	}
+	if !s.Error.P {
+		s.Error = errorFact(nil)
+		s.Duplicate = known(false)
+		s.Path = nilSmall()
+		s.Key = nilSmall()
+		s.Occurrence = nilSmall()
+		s.Published = known(true)
+		s.WalkComplete = known(true)
+		s.SuffixStopped = known(false)
+	} else {
+		s.Published = known(false)
+		s.WalkComplete = known(false)
+		s.SuffixStopped = known(true)
+	}
+	return c.jsonFacts()
+}
+func (c *context) addView(path, key uint8, v Value) {
+	s := &c.row.JSON
+	p, ok := primitive(v, false)
+	if !ok || key == 0 || s.ViewN >= 6 {
+		c.fault()
+		return
+	}
+	s.View[s.ViewN] = ViewEntry{path, key, p}
+	s.ViewN++
+}
+func (c *context) mapView(v Value, path, depth uint8) {
+	if c.fail != nil {
+		return
+	}
+	if depth > 3 {
+		c.fault()
+		return
+	}
+	switch container(v) {
+	case 1:
+		var out MapList
+		_, ok := c.direct(frame.Map, func(mark func(bool)) frame.Facts {
+			out = c.api.Map(v, mark)
+			return frame.Facts{}
+		})
+		if !ok {
+			return
+		}
+		if out.N > 8 || out.Nil && out.N != 0 {
+			c.fault()
+			return
+		}
+		for j := uint8(0); j < out.N && c.fail == nil; j++ {
+			item := out.V[j]
+			if item.KeyN > 32 {
+				c.fault()
+				return
+			}
+			key := keyID(string(item.Key[:item.KeyN]))
+			c.addView(path, key, item.Value)
+			if container(item.Value) != 0 {
+				child, yes := childPath(path, key, 0, 1)
+				if !yes {
+					c.fault()
+					return
+				}
+				c.mapView(item.Value, child, depth+1)
+			}
+		}
+	case 2:
+		index := uint8(0)
+		c.direct(frame.ForEach, func(mark func(bool)) frame.Facts {
+			c.api.ForEach(v, func(decode func() (Value, Value)) bool {
+				_, yes := c.callback(frame.Each, func() frame.Facts {
+					key, value := decode()
+					kp, kok := primitive(key, true)
+					vp, vok := primitive(value, false)
+					if !kok || !vok || index > 1 {
+						c.fault()
+						return frame.Facts{}
+					}
+					// These callbacks are physical source callbacks, not a guessed
+					// object-member ordered prefix for Map.
+					child, ok := childPath(path, 0, index, 2)
+					index++
+					if !ok {
+						c.fault()
+						return frame.Facts{}
+					}
+					c.mapView(value, child, depth+1)
+					return frame.Facts{ParserType: nullableSmall(vp.Type), ParserIndex: nullableSmall(vp.Index), Key: nullableSmall(kp.DecodedID)}
+				})
+				return yes && c.fail == nil
+			}, mark)
+			return frame.Facts{}
+		})
+	default:
+		c.fault()
+	}
+}
+func (c *context) policyWalk(v Value, path, depth, display uint8) {
+	if c.fail != nil || c.row.JSON.Error.P {
+		return
+	}
+	kind := container(v)
+	if kind == 0 || depth > 3 {
+		c.fault()
+		return
+	}
+	var seen [8]uint8
+	var occurrences [8]uint8
+	index := uint8(0)
+	c.direct(frame.ForEach, func(mark func(bool)) frame.Facts {
+		c.api.ForEach(v, func(decode func() (Value, Value)) bool {
+			_, ok := c.callback(frame.Each, func() frame.Facts {
+				key, value := decode()
+				kp, kok := primitive(key, true)
+				vp, vok := primitive(value, false)
+				s := &c.row.JSON
+				if !kok || !vok || s.N >= 4 {
+					c.fault()
+					return frame.Facts{}
+				}
+				visit := frame.Visit{P: path, T: kind}
+				if kind == 1 {
+					visit.K = kp.DecodedID
+					visit.R = kp.RawID
+				} else {
+					if index > 1 {
+						c.fault()
+						return frame.Facts{}
+					}
+					visit.I = index
+					index++
+				}
+				// Copy the callback primitives before policy rejection or recursive
+				// calls. No native getter or formatter is used to make this copy.
+				s.Prefix[s.N] = VisitRecord{visit, kp, vp}
+				s.N++
+				if kind == 1 {
+					comparison := kp.DecodedID
+					if display == 1 {
+						comparison = kp.RawID
+					}
+					if comparison == 0 || comparison >= 8 {
+						c.fault()
+						return frame.Facts{}
+					}
+					occurrences[comparison]++
+					if seen[comparison] != 0 {
+						s.Error = errorFact(ErrDuplicate)
+						s.Duplicate = known(true)
+						s.Path = nullableSmall(path)
+						s.Key = nullableSmall(kp.DecodedID)
+						s.Occurrence = nullableSmall(occurrences[comparison])
+						return c.jsonFacts()
+					}
+					seen[comparison] = 1
+				}
+				if container(value) != 0 {
+					child, yes := childPath(path, visit.K, visit.I, kind)
+					if !yes {
+						c.fault()
+						return frame.Facts{}
+					}
+					c.policyWalk(value, child, depth+1, display)
+				}
+				f := c.jsonFacts()
+				f.ParserType = nullableSmall(value.Type)
+				f.ParserIndex = nullableSmall(value.Index)
+				return f
+			})
+			return ok && c.fail == nil && !c.row.JSON.Error.P
+		}, mark)
+		return c.jsonFacts()
+	})
+}
+func (c *context) jsonFacts() frame.Facts {
+	s := c.row.JSON
+	return frame.Facts{Valid: s.Valid, Published: s.Published, Error: s.Error, Duplicate: s.Duplicate,
+		Path: s.Path, Key: s.Key, Occurrence: s.Occurrence, Visits: prefixFacts(s),
+		Complete: s.WalkComplete, Unchanged: s.Unchanged, SuffixStopped: s.SuffixStopped}
+}

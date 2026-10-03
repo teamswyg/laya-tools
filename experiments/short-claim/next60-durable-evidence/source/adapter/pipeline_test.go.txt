@@ -1,0 +1,115 @@
+package evidenceadapter
+
+import (
+	"bufio"
+	"io"
+	"os"
+	"path/filepath"
+	"testing"
+	"time"
+
+	file "riido.local/evidencefileprototype"
+	frame "riido.local/unionduplicateframe"
+	core "riido.local/unionduplicatenativeprep/core"
+	durable "riido.local/uniondurable"
+)
+
+// Actual owned files and Sync with two bounded pipe loops; all APIs remain
+// fakes. Neither process launch nor original execution is represented here.
+func TestOwnedPipelineValidatesBeforeDurableACKAndJoins(t *testing.T) {
+	frozen := carriers(t)
+	dir := canonicalTemp(t)
+	w, err := file.Create(filepath.Join(dir, "evidence.jsonl"), evidencePins())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer w.Close()
+	evidence, err := os.Open(filepath.Join(dir, "evidence.jsonl"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer evidence.Close()
+	jf, err := os.OpenFile(filepath.Join(dir, "journal.jsonl"), os.O_RDWR|os.O_CREATE|os.O_EXCL, 0600)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer jf.Close()
+	parent, err := os.Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer parent.Close()
+	j, err := durable.NewJournal(jf, parent.Sync)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fr, fw := io.Pipe()
+	ar, aw := io.Pipe()
+	defer fr.Close()
+	defer fw.Close()
+	defer ar.Close()
+	defer aw.Close()
+	pins := frame.Pins{Freeze: core.FreezeSHA, Fixtures: core.FixtureSHA, Captions: core.CaptionSHA}
+	r, err := durable.NewReceiver(pins, j, aw, evidence)
+	if err != nil {
+		t.Fatal(err)
+	}
+	received := make(chan error, 1)
+	go func() { e := r.Consume(fr); _ = aw.Close(); received <- e }()
+	type result struct {
+		summary core.EvidenceSummary
+		err     error
+	}
+	finished := make(chan result, 1)
+	go func() {
+		reader := bufio.NewReaderSize(ar, frame.MaxAckBytes)
+		ack := func() (frame.Ack, error) {
+			b, e := reader.ReadSlice('\n')
+			if e != nil {
+				return frame.Ack{}, e
+			}
+			return frame.DecodeAck(b)
+		}
+		s, e := core.RunEvidence(fw, ack, fakeFactory(), Sink{w}, frozen[0], frozen[1], frozen[2])
+		_ = fw.Close()
+		finished <- result{s, e}
+	}()
+	// Closing all pipes on failure releases both owned loops. Receive each result
+	// before reading receiver/file state; no lock or concurrent state inspection.
+	timer := time.NewTimer(5 * time.Second)
+	defer timer.Stop()
+	var got result
+	select {
+	case got = <-finished:
+	case <-timer.C:
+		_ = fr.Close()
+		_ = fw.Close()
+		_ = ar.Close()
+		_ = aw.Close()
+		got = <-finished
+		_ = <-received
+		t.Fatal("owned pipeline timeout")
+	}
+	var receiveErr error
+	select {
+	case receiveErr = <-received:
+	case <-timer.C:
+		_ = fr.Close()
+		_ = fw.Close()
+		_ = ar.Close()
+		_ = aw.Close()
+		_ = <-received
+		t.Fatal("owned receiver timeout")
+	}
+	if got.err != nil || receiveErr != nil || !got.summary.Complete {
+		t.Fatalf("pipeline: %v / %v", got.err, receiveErr)
+	}
+	s := r.Receipt()
+	if !s.GenuineEOF || s.Stopped || !s.Acknowledged.Complete() || s.ACKs != 260 || s.Durable.Sequence != 260 || s.Durable.Bytes != j.Cursor().Bytes || s.Acknowledged.EvidenceRows() != 39 {
+		t.Fatalf("owned receipt: %+v", s)
+	}
+	st, err := jf.Stat()
+	if err != nil || st.Size() != s.Durable.Bytes || st.Size() > durable.JournalCapBytes {
+		t.Fatal("journal bytes", err)
+	}
+}

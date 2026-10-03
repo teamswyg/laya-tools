@@ -1,0 +1,209 @@
+package compactevidence
+
+import (
+	"bytes"
+	"encoding/json"
+	"io"
+	frame "riido.local/unionduplicateframe"
+)
+
+// DecodeRow accepts exactly one canonical payload WITHOUT its framing LF.
+// This validates the owned transport shape only. Native ABI, provenance,
+// journal ancestry, ACK durability and fixture Wants require outside evidence.
+// EncodeRow remains the unchanged superset-size bound and round-trip helper.
+func DecodeRow(payload []byte) (Row, error) {
+	if len(payload) == 0 || len(payload) >= RowLineMax {
+		return Row{}, ErrShape
+	}
+	var r Row
+	d := json.NewDecoder(bytes.NewReader(payload))
+	d.DisallowUnknownFields()
+	if err := d.Decode(&r); err != nil {
+		return Row{}, ErrShape
+	}
+	var tail any
+	if err := d.Decode(&tail); err != io.EOF {
+		return Row{}, ErrShape
+	}
+	if !strictRow(r) {
+		return Row{}, ErrShape
+	}
+	canonical, err := json.Marshal(r)
+	if err != nil || !bytes.Equal(canonical, payload) {
+		return Row{}, ErrShape
+	}
+	return r, nil
+}
+
+func strictBool(m uint8, nullable bool) bool {
+	switch m {
+	case 0, 1, 3, 11:
+		return true
+	case 7:
+		return nullable
+	}
+	return false
+}
+
+func strictSmall(s Small, max uint8) bool {
+	switch s.M {
+	case 0, 1, 7:
+		return s.V == 0
+	case 3:
+		return s.V <= max
+	}
+	return false
+}
+
+// Error bits mean availability/known/present/identity, not Bool's null/value.
+// Known presence with unidentified error identity remains transportable as U.
+func strictError(e Error) bool {
+	switch e.M {
+	case 0, 1, 3, 7:
+		return e.V == frame.UnknownIdentity
+	case 11:
+		return e.V == frame.NilIdentity
+	case 15:
+		return e.V >= frame.EOFIdentity && e.V <= frame.OtherIdentity
+	}
+	return false
+}
+
+func strictEntries(d Entries) bool {
+	if d.V == nil || len(d.V) > 3 {
+		return false
+	}
+	switch d.M {
+	case 0, 1, 7:
+		return len(d.V) == 0
+	case 3:
+		for _, e := range d.V {
+			if e[0] < 1 || e[0] > 3 || e[2] < 1 || e[2] > 2 {
+				return false
+			}
+			if e[1] != 1 && e[1] != 2 && e[1] != 3 && e[1] != 20 {
+				return false
+			}
+		}
+		return true
+	}
+	return false
+}
+
+func strictAPI(a API, domain uint8) bool {
+	if a.B > 63 || !strictBool(a.P, false) || a.Q > frame.MaxFrames {
+		return false
+	}
+	if domain == 0 && a.M != frame.Readdir || domain == 1 && (a.M < frame.Valid || a.M > frame.ForEach) {
+		return false
+	}
+	entered, dispatched, dispatchKnown := a.B&1 != 0, a.B&2 != 0, a.B&4 != 0
+	returned, returnKnown, acknowledged := a.B&8 != 0, a.B&16 != 0, a.B&32 != 0
+	if dispatched && (!dispatchKnown || !entered) || returned && !returnKnown {
+		return false
+	}
+	if returned && (!entered || !dispatchKnown || !dispatched) {
+		return false
+	}
+	if a.P == 11 && (!dispatchKnown || !dispatched || !returnKnown || returned) {
+		return false
+	}
+	if dispatchKnown && dispatched && returnKnown && (a.P == 3 || a.P == 11) && returned == (a.P == 11) {
+		return false
+	}
+	return !acknowledged || entered && a.Q != 0
+}
+
+func strictRow(r Row) bool {
+	x, err := frame.Schedule(r.D)
+	if err != nil || x != r.X || r.A == nil || len(r.A) > 5 || r.C > 9 || !strictBool(r.P, false) {
+		return false
+	}
+	if (r.U == nil) == (r.J == nil) {
+		return false
+	}
+	for i, a := range r.A {
+		if !strictAPI(a, x[0]) {
+			return false
+		}
+		// Reservation slots stay in their supplied order. Nested methods can
+		// have decreasing AFTER references. Only nonzero references are unique.
+		if a.Q != 0 {
+			for _, prev := range r.A[:i] {
+				if prev.Q == a.Q {
+					return false
+				}
+			}
+		}
+	}
+	if x[0] == 0 {
+		return r.U != nil && r.J == nil && strictUnion(*r.U)
+	}
+	return r.J != nil && r.U == nil && strictJSON(*r.J)
+}
+
+func strictUnion(u Union) bool {
+	// U is an existing []uint8 DTO: canonical JSON uses base64, including ""
+	// for nonnil empty. A nil/null suffix is rejected without changing codecs.
+	if u.R == nil || u.U == nil || len(u.R) > 5 || len(u.U) > 5 || !strictBool(u.C, true) || !strictBool(u.S, true) || !strictBool(u.D, true) {
+		return false
+	}
+	for i, r := range u.R {
+		if r.C != uint8(i) || r.N < -1 || r.N > 2 || !strictBool(r.O[0], false) || !strictBool(r.O[1], false) || !strictEntries(r.D) || !strictError(r.E) {
+			return false
+		}
+		if r.K && (r.O[0] == 3 || r.O[0] == 11) && (r.O[1] == 3 || r.O[1] == 11) && r.O[0] == r.O[1] {
+			return false
+		}
+	}
+	for i, q := range u.U {
+		if q > 4 || int(q) < len(u.R) || i > 0 && q <= u.U[i-1] {
+			return false
+		}
+	}
+	return true
+}
+
+func strictValue(v [4]uint8) bool {
+	return v[0] <= 5 && v[1] <= 128 && v[2] >= 1 && v[2] <= 14 && v[3] == 0
+}
+
+func strictVisit(v Visit) bool {
+	if v.V[0] < 1 || v.V[0] > 4 || v.K[0] > 5 || v.K[1] > 128 || !strictValue(v.X) {
+		return false
+	}
+	switch v.V[3] {
+	case 1:
+		return v.V[1] >= 1 && v.V[1] <= 6 && v.V[2] >= 1 && v.V[2] <= 7 && v.V[4] == 0 && v.K[0] == 3 && v.K[2] == v.V[2] && v.K[3] == v.V[1]
+	case 2:
+		return v.V[1] == 0 && v.V[2] == 0 && v.V[4] <= 1 && v.K[0] == 2 && v.K[2] == 1 && v.K[3] == 0
+	}
+	return false
+}
+
+func strictJSON(j JSON) bool {
+	if j.P == nil || j.V == nil || len(j.P) > 4 || len(j.V) > 6 || !strictError(j.E) {
+		return false
+	}
+	for _, b := range j.B {
+		if !strictBool(b, true) {
+			return false
+		}
+	}
+	if !strictSmall(j.O[0], 4) || !strictSmall(j.O[1], 6) || !strictSmall(j.O[2], 8) {
+		return false
+	}
+	for _, v := range j.P {
+		if !strictVisit(v) {
+			return false
+		}
+	}
+	for _, v := range j.V {
+		if v.P < 1 || v.P > 4 || v.K < 1 || v.K > 6 || !strictValue(v.V) {
+			return false
+		}
+	}
+	// K/H are observations. Active diagnostics may exist while either is false.
+	// Raw IDs never imply an expected parser type/value or sorted map order.
+	return true
+}

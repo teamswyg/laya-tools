@@ -1,0 +1,372 @@
+// Package evidencefile implements an owned byte correspondence protocol.
+// It executes no originals or models. Payload semantics, journal ancestry,
+// rights, compiler closure and native lifecycle are separate admission gates.
+package evidencefile
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"hash"
+	"io"
+	"os"
+	"path/filepath"
+)
+
+const (
+	Version     = 1
+	MaxRows     = 39
+	MaxRowLine  = 1536
+	MaxFile     = 65536
+	MaxEnvelope = 4096
+)
+
+var (
+	ErrShape   = errors.New("evidence shape")
+	ErrIO      = errors.New("evidence io")
+	ErrStopped = errors.New("evidence stopped")
+)
+
+type Pins struct {
+	Freeze   string `json:"f"`
+	Fixtures string `json:"i"`
+	Captions string `json:"c"`
+}
+type header struct {
+	V    uint8 `json:"v"`
+	Pins Pins  `json:"p"`
+}
+type footer struct {
+	V        uint8 `json:"v"`
+	Rows     uint8 `json:"r"`
+	Complete bool  `json:"c"`
+}
+
+// Length includes LF; SHA hashes the payload without LF. Offsets are file bytes.
+type RowRef struct {
+	D      uint8  `json:"d"`
+	Offset uint32 `json:"o"`
+	Length uint16 `json:"l"`
+	SHA256 string `json:"h"`
+}
+
+// FileRef hashes every byte, including the header, footer and all final LFs.
+// This byte pin cannot certify original execution or semantic correctness.
+type FileRef struct {
+	Bytes  uint32 `json:"n"`
+	SHA256 string `json:"h"`
+}
+type Sink interface {
+	io.Writer
+	Sync() error
+	Close() error
+}
+type Status struct {
+	Physical       uint32
+	PhysicalKnown  bool
+	Durable        uint32
+	Rows           uint8 // rows whose file Sync completed, never a journal ACK count
+	ParentSynced   bool
+	Finished       bool
+	Stopped        bool
+	CloseAttempted bool
+	CloseSucceeded bool
+}
+
+// Writer is owned by one goroutine. It has no lock, map or retry mechanism.
+// After a failure retain the file as it stands; never reconstruct a missing row.
+type Writer struct {
+	f        Sink
+	h        hash.Hash
+	s        Status
+	stop     error
+	envelope uint32
+}
+
+func hex64(s string) bool {
+	if len(s) != 64 {
+		return false
+	}
+	for _, c := range s {
+		if !(c >= '0' && c <= '9' || c >= 'a' && c <= 'f') {
+			return false
+		}
+	}
+	return true
+}
+func validPins(p Pins) bool  { return hex64(p.Freeze) && hex64(p.Fixtures) && hex64(p.Captions) }
+func digest(b []byte) string { h := sha256.Sum256(b); return hex.EncodeToString(h[:]) }
+func line(v any) ([]byte, error) {
+	b, e := json.Marshal(v)
+	if e != nil {
+		return nil, ErrShape
+	}
+	return append(b, '\n'), nil
+}
+func validPayload(b []byte) bool {
+	return len(b) > 1 && len(b)+1 <= MaxRowLine && b[0] == '{' && b[len(b)-1] == '}' && !bytes.ContainsAny(b, "\r\n") && json.Valid(b)
+}
+func (w *Writer) Status() Status { return w.s }
+func (w *Writer) fail(e error) error {
+	if w.stop == nil {
+		w.stop = e
+		w.s.Stopped = true
+	}
+	return w.stop
+}
+
+// New requires a fresh, exclusively reserved sink and its parent's Sync hook.
+// These injected capabilities are not proof of a filesystem or its durability.
+// It returns the partial writer on failure so accepted-byte facts remain visible.
+func New(f Sink, parentSync func() error, p Pins) (w *Writer, err error) {
+	if f == nil || parentSync == nil || !validPins(p) {
+		return nil, ErrShape
+	}
+	w = &Writer{f: f, h: sha256.New(), s: Status{PhysicalKnown: true}}
+	completed := false
+	defer func() {
+		if !completed {
+			_ = recover()
+			err = w.fail(ErrIO)
+		}
+	}()
+	b, e := line(header{Version, p})
+	if e != nil || len(b) > MaxEnvelope {
+		completed = true
+		return w, w.fail(ErrShape)
+	}
+	if e = w.writeSync(b); e != nil {
+		completed = true
+		return w, e
+	}
+	w.envelope = uint32(len(b))
+	if e = parentSync(); e != nil {
+		completed = true
+		return w, w.fail(ErrIO)
+	}
+	w.s.ParentSynced = true
+	completed = true
+	return w, nil
+}
+
+// Create requires a canonical existing parent and creates exactly one 0600 file.
+// Failed files are preserved. Checks assume ordinary, non-hostile concurrency.
+func Create(p string, pins Pins) (*Writer, error) {
+	if !validPins(pins) || len(p) > 512 || !filepath.IsAbs(p) || filepath.Clean(p) != p {
+		return nil, ErrShape
+	}
+	parent := filepath.Dir(p)
+	canonical, e := filepath.EvalSymlinks(parent)
+	if e != nil || canonical != parent {
+		return nil, ErrShape
+	}
+	d, e := os.Open(parent)
+	if e != nil {
+		return nil, ErrIO
+	}
+	defer d.Close()
+	di, e := d.Stat()
+	if e != nil || !di.IsDir() {
+		return nil, ErrShape
+	}
+	f, e := os.OpenFile(p, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if e != nil {
+		return nil, ErrIO
+	}
+	// OpenFile's mode is filtered by umask. Set and observe the exact owned mode
+	// before writing the header; keep an exclusively created failed file intact.
+	if e = f.Chmod(0600); e != nil {
+		_ = f.Close()
+		return nil, ErrIO
+	}
+	fi, e := f.Stat()
+	if e != nil || !fi.Mode().IsRegular() || fi.Mode().Perm() != 0600 {
+		_ = f.Close()
+		return nil, ErrIO
+	}
+	w, e := New(f, d.Sync, pins)
+	if e != nil {
+		if w != nil {
+			_ = w.Close()
+		} else {
+			_ = f.Close()
+		}
+	}
+	return w, e
+}
+
+// Physical advances by accepted Write counts, including counts returned with an
+// error. A panic or impossible count makes the exact physical prefix unknown.
+// Durable advances only after Sync returns successfully. Neither is an ACK.
+func (w *Writer) writeSync(b []byte) (err error) {
+	if w.stop != nil {
+		return w.stop
+	}
+	if w.s.CloseAttempted || w.s.Finished {
+		return w.fail(ErrStopped)
+	}
+	if uint64(w.s.Physical)+uint64(len(b)) > MaxFile {
+		return w.fail(ErrShape)
+	}
+	writing := false
+	completed := false
+	defer func() {
+		if !completed {
+			_ = recover()
+			if writing {
+				w.s.PhysicalKnown = false
+			}
+			err = w.fail(ErrIO)
+		}
+	}()
+	for len(b) > 0 {
+		writing = true
+		n, e := w.f.Write(b)
+		writing = false
+		if n < 0 || n > len(b) {
+			w.s.PhysicalKnown = false
+			completed = true
+			return w.fail(ErrIO)
+		}
+		if n > 0 {
+			_, _ = w.h.Write(b[:n])
+			w.s.Physical += uint32(n)
+			b = b[n:]
+		}
+		if e != nil || n == 0 {
+			completed = true
+			return w.fail(ErrIO)
+		}
+	}
+	if e := w.f.Sync(); e != nil {
+		completed = true
+		return w.fail(ErrIO)
+	}
+	w.s.Durable = w.s.Physical
+	completed = true
+	return nil
+}
+
+// Append freezes the supplied bytes before I/O. It accepts only bounded JSON
+// objects, not a semantic row DTO; a strict compact decoder is still required.
+// Call before candidate AFTER. Never treat a failed append as a reusable ref.
+func (w *Writer) Append(d uint8, payload []byte) (ref RowRef, err error) {
+	if w.stop != nil {
+		return ref, w.stop
+	}
+	if !w.s.ParentSynced || d != w.s.Rows || d >= MaxRows || !validPayload(payload) {
+		return ref, w.fail(ErrShape)
+	}
+	b := make([]byte, len(payload)+1)
+	copy(b, payload)
+	b[len(payload)] = '\n'
+	ref = RowRef{d, w.s.Physical, uint16(len(b)), digest(b[:len(b)-1])}
+	if err = w.writeSync(b); err != nil {
+		return RowRef{}, err
+	}
+	w.s.Rows++
+	return ref, nil
+}
+
+// Finish persists the footer before returning a whole-file hash. Complete means
+// all 39 row bytes were stored, not that a FINAL frame was ACKed or Want matched.
+// The file does not include the FINAL journal hash, avoiding a circular pin.
+func (w *Writer) Finish(complete bool) (ref FileRef, err error) {
+	if w.stop != nil {
+		return ref, w.stop
+	}
+	if !w.s.ParentSynced || complete && w.s.Rows != MaxRows {
+		return ref, w.fail(ErrShape)
+	}
+	b, e := line(footer{Version, w.s.Rows, complete})
+	if e != nil || w.envelope+uint32(len(b)) > MaxEnvelope {
+		return ref, w.fail(ErrShape)
+	}
+	if e = w.writeSync(b); e != nil {
+		return ref, e
+	}
+	w.s.Finished = true
+	return FileRef{w.s.Physical, hex.EncodeToString(w.h.Sum(nil))}, nil
+}
+func (w *Writer) Close() (err error) {
+	if w.s.CloseAttempted {
+		return ErrStopped
+	}
+	w.s.CloseAttempted = true
+	completed := false
+	defer func() {
+		if !completed {
+			_ = recover()
+			err = w.fail(ErrIO)
+		}
+	}()
+	err = w.f.Close()
+	completed = true
+	if err != nil {
+		return w.fail(ErrIO)
+	}
+	w.s.CloseSucceeded = true
+	return nil
+}
+
+type Checked struct {
+	Rows     [MaxRows]RowRef
+	Count    uint8
+	Complete bool
+}
+
+func strict(b []byte, v any) bool {
+	d := json.NewDecoder(bytes.NewReader(b))
+	d.DisallowUnknownFields()
+	if d.Decode(v) != nil {
+		return false
+	}
+	var extra any
+	if d.Decode(&extra) != io.EOF {
+		return false
+	}
+	c, e := json.Marshal(v)
+	return e == nil && bytes.Equal(c, b)
+}
+
+// Check verifies a complete persisted file against independently supplied row
+// refs and FINAL file bytes/SHA. It cannot resolve journal ancestry, native source
+// markers, row field semantics or a missing FINAL. All those remain external.
+// A failed check does not mutate, delete, repair or replay any evidence.
+func Check(r io.Reader, p Pins, refs []RowRef, final FileRef) (Checked, error) {
+	var out Checked
+	if r == nil || !validPins(p) || len(refs) > MaxRows || final.Bytes > MaxFile || final.Bytes == 0 || !hex64(final.SHA256) {
+		return out, ErrShape
+	}
+	b, e := io.ReadAll(io.LimitReader(r, MaxFile+1))
+	if e != nil || len(b) > MaxFile || len(b) != int(final.Bytes) || digest(b) != final.SHA256 || len(b) == 0 || b[len(b)-1] != '\n' {
+		return out, ErrShape
+	}
+	parts := bytes.Split(b[:len(b)-1], []byte{'\n'})
+	if len(parts) != len(refs)+2 {
+		return out, ErrShape
+	}
+	var h header
+	var f footer
+	if !strict(parts[0], &h) || h.V != Version || h.Pins != p || !strict(parts[len(parts)-1], &f) || f.V != Version || int(f.Rows) != len(refs) || f.Complete && f.Rows != MaxRows || len(parts[0])+len(parts[len(parts)-1])+2 > MaxEnvelope {
+		return out, ErrShape
+	}
+	offset := uint32(len(parts[0]) + 1)
+	for i, ref := range refs {
+		payload := parts[i+1]
+		want := RowRef{uint8(i), offset, uint16(len(payload) + 1), digest(payload)}
+		if !validPayload(payload) || ref != want {
+			return Checked{}, ErrShape
+		}
+		out.Rows[i] = want
+		offset += uint32(len(payload) + 1)
+	}
+	if offset+uint32(len(parts[len(parts)-1])+1) != final.Bytes {
+		return Checked{}, ErrShape
+	}
+	out.Count = f.Rows
+	out.Complete = f.Complete
+	return out, nil
+}

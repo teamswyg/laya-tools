@@ -1,0 +1,437 @@
+// SPDX-License-Identifier: Apache-2.0
+package frame
+
+import (
+	"bytes"
+	"encoding/json"
+	"errors"
+	"strings"
+	"testing"
+)
+
+func TestCandidateCommitRunsOnceBeforeAfterInsideOpenSpan(t *testing.T) {
+	w, f := newFake(t)
+	bodies, hooks := 0, 0
+	_, err := w.Call(Row, 0, 0, 0, func() Facts {
+		got, e := w.CallCandidate(0, func() Facts {
+			bodies++
+			_, e := w.Call(Method, 0, Readdir, 0, func() Facts { return Facts{Source: nativeReturned(true)} })
+			if e != nil {
+				t.Fatal(e)
+			}
+			return Facts{Complete: known(true)}
+		}, func() (RowCommit, error) {
+			hooks++
+			s := w.Status()
+			if bodies != 1 || s.Acknowledged.Counts[Candidate][1] != 1 ||
+				s.Acknowledged.Counts[Candidate][2] != 0 || s.Acknowledged.Rows != 0 ||
+				s.AttemptedStage != AfterMethod || !s.EvidenceAttempted || w.depth != 2 {
+				t.Fatal("hook outside intended open span", s, w.depth)
+			}
+			return fakeRow(0), nil
+		})
+		if e != nil || !got.Normal.V || got.Panic.V || !got.Complete.V {
+			t.Fatal(e, got)
+		}
+		return Facts{}
+	})
+	if err != nil || bodies != 1 || hooks != 1 || w.Status().Acknowledged.Rows != 1 || w.Status().CommittedRows != 1 {
+		t.Fatal(err, bodies, hooks, w.Status())
+	}
+	var after Frame
+	for _, line := range f.lines {
+		x, e := DecodeFrame(line)
+		if e != nil {
+			t.Fatal(e)
+		}
+		if x.K == AfterCandidate {
+			after = x
+		}
+	}
+	if after.R == nil || *after.R != fakeRow(0) || after.E != nil || !after.F.Normal.V || after.F.Source.A {
+		t.Fatal("candidate reference or source scope", after)
+	}
+}
+
+func TestGenericCandidateAndNilHookCannotDispatch(t *testing.T) {
+	for _, mode := range []string{"generic", "nil-hook"} {
+		t.Run(mode, func(t *testing.T) {
+			w, f := newFake(t)
+			bodies := 0
+			_, e := w.Call(Row, 0, 0, 0, func() Facts {
+				if mode == "generic" {
+					_, _ = w.Call(Candidate, 0, 0, 0, func() Facts { bodies++; return Facts{} })
+				} else {
+					_, _ = w.CallCandidate(0, func() Facts { bodies++; return Facts{} }, nil)
+				}
+				return Facts{}
+			})
+			if e == nil || bodies != 0 || !w.Status().Stopped || w.Status().EvidenceAttempted || len(f.lines) != 2 {
+				t.Fatal(e, bodies, w.Status(), len(f.lines))
+			}
+		})
+	}
+}
+
+func TestCandidateBeforeAckFailurePreventsBodyAndCommit(t *testing.T) {
+	w, f := newFake(t)
+	bodies, hooks := 0, 0
+	_, e := w.Call(Row, 0, 0, 0, func() Facts {
+		f.badHash = true
+		_, _ = w.CallCandidate(0, func() Facts { bodies++; return Facts{} }, func() (RowCommit, error) { hooks++; return fakeRow(0), nil })
+		return Facts{}
+	})
+	if e == nil || bodies != 0 || hooks != 0 || w.Status().EvidenceAttempted || w.Status().Acknowledged.Seq != 2 {
+		t.Fatal(e, bodies, hooks, w.Status())
+	}
+}
+
+// Hook failures are transport/evidence interruptions, including compatibility
+// panic(nil). They never emit a false candidate/source panic or retry effects.
+func TestCommitFailuresAreStickyOwnedEvidenceStops(t *testing.T) {
+	for _, mode := range []string{"error", "panic", "nil-panic", "reentrant-method", "reentrant-candidate", "reentrant-ready", "reentrant-final", "reentrant-legacy-final"} {
+		t.Run(mode, func(t *testing.T) {
+			w, f := newFake(t)
+			bodies, hooks, extra := 0, 0, 0
+			_, e := w.Call(Row, 0, 0, 0, func() Facts {
+				_, _ = w.CallCandidate(0, func() Facts { bodies++; return Facts{} }, func() (RowCommit, error) {
+					hooks++
+					switch mode {
+					case "error":
+						return RowCommit{}, errors.New("owned synthetic write failed after possible prefix")
+					case "panic":
+						panic("owned evidence interruption")
+					case "nil-panic":
+						panic(nil)
+					case "reentrant-method":
+						_, _ = w.Call(Method, 0, Readdir, 0, func() Facts { extra++; return Facts{} })
+					case "reentrant-candidate":
+						_, _ = w.CallCandidate(0, func() Facts { extra++; return Facts{} }, func() (RowCommit, error) { extra++; return fakeRow(0), nil })
+					case "reentrant-ready":
+						_ = w.Ready()
+					case "reentrant-final":
+						_ = w.FinishWithEvidence(false, ObserverStop, fakeFile(0))
+					case "reentrant-legacy-final":
+						_ = w.Finish(false, ObserverStop)
+					}
+					// A swallowed nested error may not clear the writer's sticky stop.
+					return fakeRow(0), nil
+				})
+				return Facts{}
+			})
+			s := w.Status()
+			if e != ErrEvidence || bodies != 1 || hooks != 1 || extra != 0 || !s.Stopped || !s.EvidenceAttempted || s.CommittedRows != 0 || s.Acknowledged.Rows != 0 || s.Acknowledged.Counts[Candidate][3] != 0 || len(f.lines) != 3 {
+				t.Fatal(e, bodies, hooks, extra, s, len(f.lines))
+			}
+			_, _ = w.CallCandidate(0, func() Facts { bodies++; return Facts{} }, func() (RowCommit, error) { hooks++; return fakeRow(0), nil })
+			if bodies != 1 || hooks != 1 {
+				t.Fatal("ambiguous evidence/body retried")
+			}
+		})
+	}
+}
+
+func TestCandidatePanicHasNoCommitAndCannotComplete(t *testing.T) {
+	for _, mode := range []string{"panic", "nil-panic"} {
+		t.Run(mode, func(t *testing.T) {
+			w, f := newFake(t)
+			hooks := 0
+			_, e := w.Call(Row, 0, 0, 0, func() Facts {
+				v, err := w.CallCandidate(0, func() Facts {
+					if mode == "nil-panic" {
+						panic(nil)
+					}
+					panic("owned candidate")
+				}, func() (RowCommit, error) { hooks++; return fakeRow(0), nil })
+				if err != nil || !v.Panic.V || v.Normal.V {
+					t.Fatal(err, v)
+				}
+				return Facts{}
+			})
+			if e != nil || hooks != 0 || w.Status().EvidenceAttempted || w.Status().CommittedRows != 0 {
+				t.Fatal(e, hooks, w.Status())
+			}
+			a, e := DecodeFrame(f.lines[3])
+			if e != nil || a.K != AfterCandidate || a.R != nil || !a.F.Panic.V || a.F.Source.A {
+				t.Fatal(e, a)
+			}
+			if e := w.FinishWithEvidence(false, SourceStop, fakeFile(0)); e != nil {
+				t.Fatal("partial file binding rejected", e)
+			}
+			fin, e := DecodeFrame(f.lines[len(f.lines)-1])
+			if e != nil || fin.E == nil || fin.E.C != 0 || fin.Z.Complete {
+				t.Fatal(e, fin)
+			}
+			// A separately shaped complete frame cannot borrow the partial file.
+			fin.Z = &Terminal{Complete: true, Reason: NoStop}
+			fin.N = Counts{{39, 39, 39, 0}, {39, 39, 38, 1}, {0, 0, 0, 0}, {0, 0, 0, 0}}
+			fin.E = &FileCommit{N: 100, H: fakePins().Freeze, C: 39}
+			if _, e := CanonicalFrame(fin); e != ErrShape {
+				t.Fatal("candidate panic certified complete", e)
+			}
+		})
+	}
+}
+
+func TestCommitBoundsContiguityAndOrdinalCannotBeBypassed(t *testing.T) {
+	for _, mode := range []string{"zero-offset", "zero-length", "lf-only", "overlength", "end-over-cap", "offset-over-cap", "uint32-overflow", "bad-hash", "gap", "overlap", "reused"} {
+		t.Run(mode, func(t *testing.T) {
+			w, _ := newFake(t)
+			d := uint8(0)
+			if mode == "gap" || mode == "overlap" || mode == "reused" {
+				if e := nested(t, w, 0, empty); e != nil {
+					t.Fatal(e)
+				}
+				d = 1
+			}
+			ref := fakeRow(d)
+			switch mode {
+			case "zero-offset":
+				ref.O = 0
+			case "zero-length":
+				ref.N = 0
+			case "lf-only":
+				ref.N = 1
+			case "overlength":
+				ref.N = MaxRowBytes + 1
+			case "end-over-cap":
+				ref.O = MaxFileBytes - 1
+			case "offset-over-cap":
+				ref.O = MaxFileBytes + 1
+			case "uint32-overflow":
+				ref.O = 4294967295
+			case "bad-hash":
+				ref.H = strings.Repeat("A", 64)
+			case "gap":
+				ref.O++
+			case "overlap":
+				ref.O--
+			case "reused":
+				ref = fakeRow(0)
+			}
+			_, e := w.Call(Row, d, 0, 0, func() Facts {
+				_, _ = w.CallCandidate(d, empty, func() (RowCommit, error) { return ref, nil })
+				return Facts{}
+			})
+			if e != ErrEvidence || w.Status().CommittedRows != d || w.Status().Acknowledged.Rows != d || !w.Status().EvidenceAttempted {
+				t.Fatal(mode, e, w.Status())
+			}
+		})
+	}
+	// A previous panic created no row: ordinal 1 cannot silently take row 0's slot.
+	w, _ := newFake(t)
+	if e := nested(t, w, 0, func() Facts { panic(nil) }); e != nil {
+		t.Fatal(e)
+	}
+	_, e := w.Call(Row, 1, 0, 0, func() Facts {
+		_, _ = w.CallCandidate(1, empty, func() (RowCommit, error) { return fakeRow(0), nil })
+		return Facts{}
+	})
+	if e != ErrEvidence || w.Status().CommittedRows != 0 {
+		t.Fatal("missing ordinal reconstructed", e, w.Status())
+	}
+	if !validRowCommit(RowCommit{O: MaxFileBytes - MaxRowBytes, N: MaxRowBytes, H: fakePins().Freeze}) {
+		t.Fatal("closed end bound rejected")
+	}
+}
+
+func TestCandidateAfterAckLossKeepsReportedCommitSeparateFromAck(t *testing.T) {
+	w, f := newFake(t)
+	bodies, hooks := 0, 0
+	_, e := w.Call(Row, 0, 0, 0, func() Facts {
+		_, _ = w.CallCandidate(0, func() Facts { bodies++; return Facts{} }, func() (RowCommit, error) { hooks++; f.badHash = true; return fakeRow(0), nil })
+		return Facts{}
+	})
+	s := w.Status()
+	if e != ErrAck || bodies != 1 || hooks != 1 || s.Acknowledged.Seq != 3 || s.Acknowledged.Rows != 0 || s.CommittedRows != 1 || s.CommittedEnd != 96 || !s.EvidenceAttempted || !s.EffectMayHaveOccurred {
+		t.Fatal(e, bodies, hooks, s)
+	}
+	a, e := DecodeFrame(f.lines[len(f.lines)-1])
+	if e != nil || a.K != AfterCandidate || a.R == nil || *a.R != fakeRow(0) {
+		t.Fatal("attempted reference erased", e, a)
+	}
+	_, _ = w.CallCandidate(0, func() Facts { bodies++; return Facts{} }, func() (RowCommit, error) { hooks++; return fakeRow(0), nil })
+	if bodies != 1 || hooks != 1 {
+		t.Fatal("orphan evidence retried")
+	}
+	if w.FinishWithEvidence(false, ObserverStop, fakeFile(1)) != ErrAck {
+		t.Fatal("sticky lost ACK bypassed")
+	}
+}
+
+func TestEvidenceRefsHaveClosedStageAndCanonicalShape(t *testing.T) {
+	w, f := newFake(t)
+	if e := nested(t, w, 0, empty); e != nil {
+		t.Fatal(e)
+	}
+	base, e := DecodeFrame(f.lines[3])
+	if e != nil {
+		t.Fatal(e)
+	}
+	for _, mode := range []string{"missing-normal-row", "panic-with-row", "file-on-candidate", "row-on-method", "row-on-before", "row-on-ready", "bad-row-sha", "bad-row-size"} {
+		t.Run(mode, func(t *testing.T) {
+			v := base
+			facts := *base.F
+			v.F = &facts
+			ref := *base.R
+			v.R = &ref
+			switch mode {
+			case "missing-normal-row":
+				v.R = nil
+			case "panic-with-row":
+				facts.Normal = known(false)
+				facts.Panic = known(true)
+			case "file-on-candidate":
+				e := fakeFile(1)
+				v.E = &e
+			case "row-on-method":
+				v.K = AfterMethod
+				v.M = Readdir
+			case "row-on-before":
+				v.K = BeforeCandidate
+				v.Q = v.S
+				v.F = nil
+			case "row-on-ready":
+				v = Frame{V: Version, Q: 1, K: Ready, D: 255, B: &w.pins, R: &ref}
+			case "bad-row-sha":
+				ref.H = "sha"
+			case "bad-row-size":
+				ref.N = MaxRowBytes + 1
+			}
+			if _, e := CanonicalFrame(v); e != ErrShape {
+				t.Fatal("mis-staged/malformed ref accepted", mode, e)
+			}
+		})
+	}
+	// Duplicate keys, case aliases, extra LF and old wire2 remain rejected.
+	b, e := CanonicalFrame(base)
+	if e != nil {
+		t.Fatal(e)
+	}
+	for _, bad := range [][]byte{
+		append(bytes.Replace(b, []byte("\"r\":"), []byte("\"R\":"), 1), '\n'),
+		append(bytes.Replace(b, []byte("{"), []byte("{\"r\":null,"), 1), '\n'),
+		append(append(append([]byte{}, b...), '\n'), '\n'),
+	} {
+		if _, e := DecodeFrame(bad); e != ErrShape {
+			t.Fatal("noncanonical row envelope accepted", e)
+		}
+	}
+	base.V = 2
+	b, e = json.Marshal(base)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if _, e := DecodeFrame(append(b, '\n')); e != ErrShape {
+		t.Fatal("wire2 gained row-binding authority", e)
+	}
+	if _, e := EncodeAck(Ack{V: 2, Q: 1, H: fakePins().Freeze}); e != ErrAck {
+		t.Fatal("wire2 ACK accepted", e)
+	}
+}
+
+func TestFinalRequiresFileBindingMatchingCountAndBytes(t *testing.T) {
+	for _, mode := range []string{"legacy-final", "count-mismatch", "no-footer-bytes", "over-cap", "zero-bytes", "bad-hash", "invalid-count"} {
+		t.Run(mode, func(t *testing.T) {
+			w, _ := newFake(t)
+			if e := nested(t, w, 0, empty); e != nil {
+				t.Fatal(e)
+			}
+			evidence := fakeFile(1)
+			switch mode {
+			case "legacy-final":
+				if e := w.Finish(false, ObserverStop); e != ErrShape {
+					t.Fatal(e)
+				}
+				return
+			case "count-mismatch":
+				evidence.C = 0
+			case "no-footer-bytes":
+				evidence.N = w.Status().CommittedEnd
+			case "over-cap":
+				evidence.N = MaxFileBytes + 1
+			case "zero-bytes":
+				evidence.N = 0
+			case "bad-hash":
+				evidence.H = "invalid"
+			case "invalid-count":
+				evidence.C = MaxRows + 1
+			}
+			before := w.Status().Acknowledged.Seq
+			if e := w.FinishWithEvidence(false, ObserverStop, evidence); e != ErrShape || w.Status().Acknowledged.Seq != before || !w.Status().Stopped {
+				t.Fatal(e, w.Status())
+			}
+		})
+	}
+	w, f := newFake(t)
+	if e := nested(t, w, 0, empty); e != nil {
+		t.Fatal(e)
+	}
+	if e := w.FinishWithEvidence(false, ObserverStop, fakeFile(1)); e != nil {
+		t.Fatal(e)
+	}
+	fin, e := DecodeFrame(f.lines[len(f.lines)-1])
+	if e != nil || fin.E == nil || *fin.E != fakeFile(1) || fin.R != nil || fin.Z.Complete {
+		t.Fatal(e, fin)
+	}
+	for _, mode := range []string{"missing", "count-over-returned", "row-on-final", "zero-file"} {
+		v := fin
+		ev := *fin.E
+		v.E = &ev
+		switch mode {
+		case "missing":
+			v.E = nil
+		case "count-over-returned":
+			ev.C = 2
+		case "row-on-final":
+			r := fakeRow(0)
+			v.R = &r
+		case "zero-file":
+			ev.N = 0
+		}
+		if _, e := CanonicalFrame(v); e != ErrShape {
+			t.Fatal("forged final ref accepted", mode, e)
+		}
+	}
+}
+
+func TestMethodAfterReferencesRetainReservationOrderWithNesting(t *testing.T) {
+	w, _ := newFake(t)
+	if q, e := w.MethodAfterReference(); q != 0 || e != ErrShape {
+		t.Fatal("READY became method ref", q, e)
+	}
+	var refs [2]uint16
+	err := nested(t, w, 0, func() Facts {
+		_, e := w.Call(Method, 0, Readdir, 0, func() Facts {
+			_, e := w.Call(Callback, 0, 0, Merger, func() Facts {
+				_, e := w.Call(Method, 0, Readdir, 0, empty)
+				if e != nil {
+					t.Fatal(e)
+				}
+				refs[1], e = w.MethodAfterReference()
+				if e != nil {
+					t.Fatal(e)
+				}
+				return Facts{}
+			})
+			if e != nil {
+				t.Fatal(e)
+			}
+			return Facts{}
+		})
+		if e != nil {
+			t.Fatal(e)
+		}
+		refs[0], e = w.MethodAfterReference()
+		if e != nil {
+			t.Fatal(e)
+		}
+		return Facts{}
+	})
+	if err != nil || refs[0] <= refs[1] || refs[1] == 0 {
+		t.Fatal("AFTER refs incorrectly forced monotonic in reservation order", err, refs)
+	}
+	if q, e := w.MethodAfterReference(); q != 0 || e != ErrShape {
+		t.Fatal("later row AFTER borrowed method identity", q, e)
+	}
+}

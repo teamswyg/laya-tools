@@ -1,0 +1,464 @@
+// SPDX-License-Identifier: Apache-2.0
+package durable
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"io"
+	"strings"
+	"testing"
+
+	c "riido.local/compactevidenceprototype"
+	ef "riido.local/evidencefileprototype"
+	f "riido.local/unionduplicateframe"
+	core "riido.local/unionduplicatenativeprep/core"
+)
+
+func pins() f.Pins {
+	return f.Pins{Freeze: strings.Repeat("1", 64), Fixtures: strings.Repeat("2", 64), Captions: strings.Repeat("3", 64)}
+}
+
+func testDigest(b []byte) string {
+	h := sha256.Sum256(b)
+	return hex.EncodeToString(h[:])
+}
+
+func testKnown(v bool) f.Bool { return f.Bool{A: true, K: true, V: v} }
+
+func testSourceReturned() f.OriginalCall {
+	return f.OriginalCall{A: true, Entered: testKnown(true), Dispatched: testKnown(true), Returned: testKnown(true), Panicked: testKnown(false), Copied: testKnown(true)}
+}
+
+// This sink and stream contain owned synthetic bytes only. Sync records the
+// injected boundary; it is neither a filesystem durability nor original-call
+// assertion. No native API, model, compiler, fixture Want or source getter runs.
+type memoryEvidence struct {
+	bytes.Buffer
+	syncs int
+}
+
+func (m *memoryEvidence) Sync() error  { m.syncs++; return nil }
+func (m *memoryEvidence) Close() error { return nil }
+
+type ownedFixture struct {
+	wire, evidence []byte
+	frames         []f.Frame
+	rows           [f.MaxRows]c.Row
+	nested         [2]uint16
+	fileSyncs      int
+}
+
+// Reservation index 0 is the outer method, while its AFTER occurs later than
+// reservation index 1's nested AFTER. This is a legal decreasing reference pair.
+func fakeStream(t *testing.T) ownedFixture {
+	return fakeStreamVariant(t, "")
+}
+
+func fakeStreamVariant(t *testing.T, overrun string) ownedFixture {
+	t.Helper()
+	var one, all bytes.Buffer
+	x := ownedFixture{}
+	p := pins()
+	mem := &memoryEvidence{}
+	store, err := ef.New(mem, func() error { return nil }, ef.Pins{Freeze: p.Freeze, Fixtures: p.Fixtures, Captions: p.Captions})
+	if err != nil {
+		t.Fatal(err)
+	}
+	w, err := f.New(&one, func() (f.Ack, error) {
+		b := append([]byte(nil), one.Bytes()...)
+		v, e := f.DecodeFrame(b)
+		if e != nil {
+			return f.Ack{}, e
+		}
+		all.Write(b)
+		x.frames = append(x.frames, v)
+		one.Reset()
+		return f.Ack{V: f.Version, Q: v.Q, H: testDigest(b[:len(b)-1])}, nil
+	}, p)
+	if err != nil || w.Ready() != nil {
+		t.Fatal("fake ready", err)
+	}
+	for d := uint8(0); d < f.MaxRows; d++ {
+		ids, e := f.Schedule(d)
+		if e != nil {
+			t.Fatal(e)
+		}
+		r := core.RowResult{Ordinal: d, IDs: ids}
+		var refs [5]uint16
+		reserve := func(m f.MethodID) int {
+			i := int(r.APIN)
+			r.APIN++
+			r.API[i] = core.APIOutcome{Entered: true, NativeDispatched: true, NativeDispatchKnown: true, Returned: true, ReturnKnown: true, Panic: testKnown(false), Method: m, DurableOriginalOutcomeAvailable: true}
+			return i
+		}
+		call := func(m f.MethodID) {
+			i := reserve(m)
+			_, e := w.Call(f.Method, d, m, 0, func() f.Facts { return f.Facts{Source: testSourceReturned()} })
+			if e != nil {
+				t.Fatal(e)
+			}
+			refs[i], e = w.MethodAfterReference()
+			if e != nil {
+				t.Fatal(e)
+			}
+		}
+		_, e = w.Call(f.Row, d, 0, 0, func() f.Facts {
+			_, e := w.CallCandidate(d, func() f.Facts {
+				switch d {
+				case 0:
+					if overrun == "callback-upper" {
+						i := reserve(f.Readdir)
+						_, e := w.Call(f.Method, d, f.Readdir, 0, func() f.Facts {
+							for k := 0; k < 4; k++ {
+								_, e := w.Call(f.Callback, d, 0, f.Merger, func() f.Facts { r.CallbackN++; return f.Facts{} })
+								if e != nil {
+									t.Fatal(e)
+								}
+							}
+							return f.Facts{Source: testSourceReturned()}
+						})
+						if e != nil {
+							t.Fatal(e)
+						}
+						refs[i], e = w.MethodAfterReference()
+						if e != nil {
+							t.Fatal(e)
+						}
+					} else {
+						call(f.Readdir)
+						if overrun == "method-upper" {
+							call(f.Readdir)
+						}
+					}
+				case 1:
+					i := reserve(f.Readdir)
+					_, e := w.Call(f.Method, d, f.Readdir, 0, func() f.Facts {
+						_, e := w.Call(f.Callback, d, 0, f.Merger, func() f.Facts {
+							r.CallbackN++
+							call(f.Readdir)
+							return f.Facts{}
+						})
+						if e != nil {
+							t.Fatal(e)
+						}
+						return f.Facts{Source: testSourceReturned()}
+					})
+					if e != nil {
+						t.Fatal(e)
+					}
+					refs[i], e = w.MethodAfterReference()
+					if e != nil {
+						t.Fatal(e)
+					}
+					x.nested = [2]uint16{refs[0], refs[1]}
+				case 18:
+					call(f.Valid)
+				}
+				return f.Facts{}
+			}, func() (f.RowCommit, error) {
+				row, e := c.Snapshot(r, refs[:r.APIN])
+				if e != nil {
+					return f.RowCommit{}, e
+				}
+				payload, e := c.EncodeRow(row)
+				if e != nil {
+					return f.RowCommit{}, e
+				}
+				if _, e = c.DecodeRow(payload); e != nil {
+					return f.RowCommit{}, e
+				}
+				x.rows[d] = row
+				ref, e := store.Append(d, payload)
+				if e != nil {
+					return f.RowCommit{}, e
+				}
+				return f.RowCommit{O: ref.Offset, N: ref.Length, H: ref.SHA256}, nil
+			})
+			if e != nil {
+				t.Fatal(e)
+			}
+			return f.Facts{}
+		})
+		if e != nil {
+			t.Fatal(e)
+		}
+	}
+	file, err := store.Finish(true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = w.FinishWithEvidence(true, f.NoStop, f.FileCommit{N: file.Bytes, H: file.SHA256, C: f.MaxRows}); err != nil {
+		t.Fatal(err)
+	}
+	if err = store.Close(); err != nil {
+		t.Fatal(err)
+	}
+	x.wire = append([]byte(nil), all.Bytes()...)
+	x.evidence = append([]byte(nil), mem.Bytes()...)
+	x.fileSyncs = mem.syncs
+	return x
+}
+
+type trace struct {
+	bytes.Buffer
+	steps    []string
+	mode     string
+	ackN     int
+	failACKQ uint16
+}
+type fakeFile struct{ *trace }
+
+func (x fakeFile) Write(b []byte) (int, error) {
+	x.steps = append(x.steps, "write")
+	if x.mode == "write" {
+		n := len(b) / 2
+		x.Buffer.Write(b[:n])
+		return n, io.ErrClosedPipe
+	}
+	switch x.mode {
+	case "writepanic":
+		panic("owned write interruption")
+	case "writenilpanic":
+		panic(nil)
+	case "invalidcount":
+		return len(b) + 1, nil
+	case "full-write-error":
+		x.Buffer.Write(b)
+		return len(b), io.ErrClosedPipe
+	case "zero-write":
+		return 0, nil
+	}
+	return x.Buffer.Write(b)
+}
+func (x fakeFile) Sync() error {
+	x.steps = append(x.steps, "sync")
+	switch x.mode {
+	case "sync":
+		return io.ErrClosedPipe
+	case "panic":
+		panic("owned sync panic")
+	case "nilpanic":
+		panic(nil)
+	}
+	return nil
+}
+
+type fakeACK struct{ *trace }
+
+func (x fakeACK) Write(b []byte) (int, error) {
+	x.steps = append(x.steps, "ack")
+	x.ackN++
+	a, e := f.DecodeAck(b)
+	if e != nil {
+		return 0, e
+	}
+	if x.mode == "ack" || x.failACKQ != 0 && a.Q == x.failACKQ {
+		return len(b) / 2, nil
+	}
+	return len(b), nil
+}
+
+func receiver(t *testing.T, x *trace, evidence []byte) (*Receiver, *Journal) {
+	t.Helper()
+	j, e := NewJournal(fakeFile{x}, func() error {
+		x.steps = append(x.steps, "dir")
+		if x.mode == "dir" {
+			return io.ErrClosedPipe
+		}
+		return nil
+	})
+	if e != nil {
+		t.Fatal(e)
+	}
+	r, e := NewReceiver(pins(), j, fakeACK{x}, bytes.NewReader(evidence))
+	if e != nil {
+		t.Fatal(e)
+	}
+	return r, j
+}
+
+func TestFullSyntheticStreamSyncsBeforeEveryACK(t *testing.T) {
+	b := fakeStream(t)
+	x := &trace{}
+	r, j := receiver(t, x, b.evidence)
+	if e := r.Consume(bytes.NewReader(b.wire)); e != nil {
+		t.Fatal(e)
+	}
+	z := r.Receipt()
+	if !z.GenuineEOF || !z.Acknowledged.Complete() || z.Stopped || z.ACKs != uint16(x.ackN) || z.Durable != j.Cursor() || !bytes.Equal(x.Bytes(), b.wire) {
+		t.Fatal(z, x.ackN)
+	}
+	if z.Physical.Bytes != int64(len(b.wire)) || !z.Physical.Known || z.Physical.CompleteSequence != z.ACKs || z.FileSynced != z.Durable || z.Validated.Sequence() != z.ACKs {
+		t.Fatal("prefixes", z)
+	}
+	if z.VerifiedRows != f.MaxRows || !z.VerifiedFinal || z.Acknowledged.EvidenceRows() != f.MaxRows || z.Acknowledged.EvidenceEnd() != z.VerifiedEnd {
+		t.Fatal("evidence prefixes", z)
+	}
+	counters := z.Acknowledged.Counts()
+	if counters[f.Row] != [4]uint16{39, 39, 39, 0} || counters[f.Candidate] != [4]uint16{39, 39, 39, 0} || counters[f.Method] != [4]uint16{4, 4, 4, 0} || counters[f.Callback] != [4]uint16{1, 1, 1, 0} {
+		t.Fatal(counters)
+	}
+	if b.nested[0] <= b.nested[1] || b.fileSyncs != 41 {
+		t.Fatal("nested reference order or owned file syncs", b.nested, b.fileSyncs)
+	}
+	if len(x.steps) != 4*x.ackN {
+		t.Fatal("trace length")
+	}
+	for i := 0; i < len(x.steps); i += 4 {
+		if x.steps[i] != "write" || x.steps[i+1] != "sync" || x.steps[i+2] != "dir" || x.steps[i+3] != "ack" {
+			t.Fatal(x.steps[i : i+4])
+		}
+	}
+}
+
+func TestJournalOrACKFailureIsStickyAndKeepsTwoPrefixes(t *testing.T) {
+	b := fakeStream(t)
+	for _, mode := range []string{"write", "sync", "dir", "ack", "panic", "nilpanic", "writepanic", "writenilpanic", "invalidcount", "full-write-error", "zero-write"} {
+		t.Run(mode, func(t *testing.T) {
+			x := &trace{mode: mode}
+			r, _ := receiver(t, x, b.evidence)
+			e := r.Consume(bytes.NewReader(b.wire))
+			if e == nil {
+				t.Fatal("failure accepted")
+			}
+			z := r.Receipt()
+			if !z.Stopped || z.GenuineEOF || z.ACKs != 0 || z.Acknowledged.Sequence() != 0 {
+				t.Fatal(z)
+			}
+			if mode == "ack" {
+				if z.Durable.Sequence != 1 || x.ackN != 1 {
+					t.Fatal("durable ACK uncertainty", z)
+				}
+			} else if z.Durable.Sequence != 0 || x.ackN != 0 {
+				t.Fatal("ACK before durability", z)
+			}
+			if mode == "dir" && z.FileSynced.Sequence != 1 {
+				t.Fatal("file sync must remain distinct from parent sync", z)
+			}
+			if mode == "write" && (z.Physical.Bytes != int64(x.Len()) || !z.Physical.Known || z.Physical.CompleteSequence != 0) {
+				t.Fatal("partial accepted bytes lost", z)
+			}
+			if (mode == "writepanic" || mode == "writenilpanic" || mode == "invalidcount") && z.Physical.Known {
+				t.Fatal("unknown write outcome invented", z)
+			}
+			if mode == "full-write-error" && (z.Physical.Bytes != int64(x.Len()) || z.Physical.CompleteSequence != 1 || z.FileSynced.Sequence != 0) {
+				t.Fatal("full accepted write with error treated as durable", z)
+			}
+			n := len(x.steps)
+			if again := r.Consume(bytes.NewReader(b.wire)); again != e || len(x.steps) != n {
+				t.Fatal("automatic reconsume", again)
+			}
+		})
+	}
+}
+
+func TestFinalRequiresActualEOFAndNoTrailingFrame(t *testing.T) {
+	b := fakeStream(t)
+	lines := bytes.SplitAfter(b.wire, []byte{'\n'})
+	for _, mode := range []string{"empty", "ready-only", "partial-final", "trailing-ready"} {
+		t.Run(mode, func(t *testing.T) {
+			var input []byte
+			switch mode {
+			case "ready-only":
+				input = lines[0]
+			case "partial-final":
+				input = b.wire[:len(b.wire)-1]
+			case "trailing-ready":
+				input = append(append([]byte(nil), b.wire...), lines[0]...)
+			}
+			x := &trace{}
+			r, _ := receiver(t, x, b.evidence)
+			if r.Consume(bytes.NewReader(input)) == nil || r.Receipt().GenuineEOF {
+				t.Fatal("forged genuine EOF")
+			}
+		})
+	}
+}
+
+func TestForgedCounterAndNestedSpanRejectedBeforeJournal(t *testing.T) {
+	b := fakeStream(t)
+	for _, mode := range []string{"counter", "span", "null-normal", "same-normal-panic"} {
+		t.Run(mode, func(t *testing.T) {
+			frames := append([]f.Frame(nil), b.frames...)
+			index := 2
+			if mode == "counter" {
+				index = 1
+			}
+			if mode == "null-normal" || mode == "same-normal-panic" {
+				for i, v := range frames {
+					if v.K == f.AfterMethod {
+						index = i
+						break
+					}
+				}
+			}
+			v := frames[index]
+			if v.F != nil {
+				facts := *v.F
+				v.F = &facts
+			}
+			switch mode {
+			case "counter":
+				v.N[f.Row][0]++
+			case "span":
+				v.P = 1
+			case "null-normal":
+				v.F.Normal.N = true
+				v.F.Normal.V = false
+			case "same-normal-panic":
+				v.F.Panic.V = v.F.Normal.V
+			}
+			frames[index] = v
+			x := &trace{}
+			r, _ := receiver(t, x, b.evidence)
+			if r.Consume(bytes.NewReader(testWire(t, frames[:index+1]))) == nil {
+				t.Fatal("forged transition")
+			}
+			if r.Receipt().Durable.Sequence != uint16(index) || x.ackN != index {
+				t.Fatal("forged transition journaled", r.Receipt())
+			}
+		})
+	}
+}
+
+func TestMalformedAndOversizedWireHasNoACK(t *testing.T) {
+	b := fakeStream(t)
+	ready := bytes.SplitAfter(b.wire, []byte{'\n'})[0]
+	for _, input := range [][]byte{bytes.Replace(ready, []byte("\"v\""), []byte("\"V\""), 1), bytes.Replace(ready, []byte("{"), []byte("{\"v\":3,"), 1), []byte(strings.Repeat("x", f.MaxLineBytes) + "\n")} {
+		x := &trace{}
+		r, _ := receiver(t, x, b.evidence)
+		if r.Consume(bytes.NewReader(input)) == nil || x.ackN != 0 || len(x.steps) != 0 {
+			t.Fatal("malformed frame acknowledged")
+		}
+	}
+}
+
+func TestNoFreshReceiverOnExistingJournal(t *testing.T) {
+	b := fakeStream(t)
+	x := &trace{}
+	r, j := receiver(t, x, b.evidence)
+	if r.Consume(bytes.NewReader(b.wire)) != nil {
+		t.Fatal("fake consume")
+	}
+	if _, e := NewReceiver(pins(), j, fakeACK{x}, bytes.NewReader(b.evidence)); e == nil {
+		t.Fatal("implicit resume")
+	}
+}
+
+// JSON marshaling deliberately does not prevalidate mutated frames: the outside
+// reader is responsible for rejecting a valid-JSON but illegal transition.
+func testWire(t *testing.T, frames []f.Frame) []byte {
+	t.Helper()
+	var out bytes.Buffer
+	for _, v := range frames {
+		b, e := json.Marshal(v)
+		if e != nil {
+			t.Fatal(e)
+		}
+		out.Write(b)
+		out.WriteByte('\n')
+	}
+	return out.Bytes()
+}

@@ -1,0 +1,191 @@
+// Owned source preparation. No original package is imported by core.
+package core
+
+import (
+	"errors"
+	frame "riido.local/unionduplicateframe"
+)
+
+var (
+	ErrObserver    = errors.New("owned observer bound")
+	ErrSourcePanic = errors.New("captured source panic")
+	ErrLayer       = errors.New("owned layer cause")
+	ErrDuplicate   = errors.New("owned duplicate key")
+	ErrInvalidJSON = errors.New("owned invalid JSON")
+	ErrLegacyRun   = errors.New("legacy padded runner requires evidence adoption")
+)
+
+const FreezeSHA = "dac90a4be5acaa26e289c90451701462b74d7b7c437af5144f4ce84a970f58b8"
+const FixtureSHA = "a12a05374ba8b67390c3b779ec2d9485ce14fc00a6ca9ff7aa1534c0d7efb0db"
+const CaptionSHA = "a459a046db273e684d6558daea4b1675d24235094a86fe9b3cf778ebe0c22f4d"
+
+// Value is an owned copy. Handle refers only to the private per-row native
+// adapter registry, never to an object transported in a frame or final result.
+type Value struct {
+	Handle uint8
+	Type   uint8
+	Raw    [128]byte
+	RawN   uint8
+	Str    [32]byte
+	StrN   uint8
+	Index  uint8
+}
+type InfoList struct {
+	Nil bool
+	N   uint8
+	V   [3]frame.Entry
+}
+type MapItem struct {
+	Key   [32]byte
+	KeyN  uint8
+	Value Value
+}
+type MapList struct {
+	Nil bool
+	N   uint8
+	V   [8]MapItem
+}
+type Dir interface {
+	Readdir(int, func(bool)) InfoReturn
+}
+type InfoReturn struct {
+	Entries InfoList
+	Error   error
+}
+type Provider func(int) InfoReturn
+
+// decode executes owned type assertions/copies only, inside the callback ACK.
+type Merge func(decode func() (InfoList, InfoList)) InfoReturn
+type API interface {
+	NewUnion(Provider, Provider, Merge) Dir // owned struct construction, not a source call
+	Valid(string, func(bool)) bool
+	Parse(string, func(bool)) Value
+	Map(Value, func(bool)) MapList
+	ForEach(Value, func(decode func() (Value, Value)) bool, func(bool))
+}
+type Factory func(fault func()) API
+
+type APIOutcome struct {
+	Entered                         bool           `json:"e"` // owned method thunk entered
+	NativeDispatched                bool           `json:"g"`
+	NativeDispatchKnown             bool           `json:"h"`
+	Returned                        bool           `json:"r"`
+	ReturnKnown                     bool           `json:"k"`
+	Panic                           frame.Bool     `json:"p"`
+	Method                          frame.MethodID `json:"m"`
+	DurableOriginalOutcomeAvailable bool           `json:"a"` // matching AFTER ACK; does not describe durable-only tail
+}
+type Read struct {
+	Call    uint8           `json:"c"`
+	Count   int8            `json:"n"`
+	Known   bool            `json:"k"`
+	Normal  frame.Bool      `json:"r"`
+	Panic   frame.Bool      `json:"p"`
+	Entries frame.Entries   `json:"d"`
+	Error   frame.ErrorFact `json:"e"`
+}
+
+// primitive callback copies are acceptance-relevant finite IDs; no native handle,
+// borrowed map, arbitrary Raw string or source Indexes slice is serialized.
+type Primitive struct {
+	Type      uint8 `json:"t"`
+	Index     uint8 `json:"i"`
+	RawID     uint8 `json:"r"`
+	DecodedID uint8 `json:"s"`
+}
+type VisitRecord struct {
+	Visit frame.Visit `json:"v"`
+	Key   Primitive   `json:"k"`
+	Value Primitive   `json:"x"`
+}
+type UnionState struct {
+	Reads                [5]Read    `json:"v"`
+	N                    uint8      `json:"n"`
+	Complete             frame.Bool `json:"c"`
+	Stopped              frame.Bool `json:"s"`
+	Suffix               [5]uint8   `json:"u"`
+	SuffixN              uint8      `json:"l"`
+	DescriptorsUnchanged frame.Bool `json:"d"`
+}
+type ViewEntry struct {
+	Path  uint8     `json:"p"`
+	Key   uint8     `json:"k"`
+	Value Primitive `json:"v"`
+}
+type JSONState struct {
+	Valid         frame.Bool      `json:"v"`
+	Published     frame.Bool      `json:"p"`
+	Error         frame.ErrorFact `json:"e"`
+	Duplicate     frame.Bool      `json:"d"`
+	Path          frame.Small     `json:"o"`
+	Key           frame.Small     `json:"k"`
+	Occurrence    frame.Small     `json:"r"`
+	Prefix        [4]VisitRecord  `json:"l"`
+	N             uint8           `json:"n"`
+	PrefixKnown   bool            `json:"a"`
+	WalkComplete  frame.Bool      `json:"c"`
+	Unchanged     frame.Bool      `json:"b"`
+	SuffixStopped frame.Bool      `json:"s"`
+	View          [6]ViewEntry    `json:"y"`
+	ViewN         uint8           `json:"z"`
+	ViewKnown     bool            `json:"h"`
+}
+type RowResult struct {
+	Ordinal       uint8         `json:"d"`
+	IDs           [4]uint8      `json:"x"`
+	AckKnown      bool          `json:"a"` // row-boundary ACK, not ACK of every local RowResult field
+	Invocation    frame.Facts   `json:"f"`
+	API           [5]APIOutcome `json:"m"`
+	APIN          uint8         `json:"n"`
+	CallbackN     uint8         `json:"c"`
+	SourcePanic   frame.Bool    `json:"p"`
+	ObserverFault bool          `json:"b"`
+	Union         UnionState    `json:"u"`
+	JSON          JSONState     `json:"j"`
+}
+type Result struct {
+	Schema                            string        `json:"schema"`
+	Pins                              frame.Pins    `json:"pins"`
+	Rows                              [39]RowResult `json:"rows"`
+	Completed                         uint8         `json:"completed"`
+	Complete                          bool          `json:"complete"`
+	Prefix                            frame.Prefix  `json:"prefix"`
+	EffectMayHaveOccurred             bool          `json:"effect_may_have_occurred"`
+	OriginalOutcomeTransportAvailable bool          `json:"original_outcome_transport_available"`
+	Startup                           *uint64       `json:"startup"`
+	Nested                            *uint64       `json:"nested"`
+}
+
+// EvidenceSink is an injected owned capability, not a durability assertion.
+// CommitRow receives independent fixed-size values before candidate AFTER. Its
+// implementation must freeze, write and Sync the payload before returning its
+// reference. FinishEvidence must persist the footer before returning its hash.
+// Core deliberately imports neither the compact codec nor a filesystem package.
+type EvidenceSink interface {
+	CommitRow(RowResult, [5]uint16) (frame.RowCommit, error)
+	FinishEvidence(complete bool) (frame.FileCommit, error)
+}
+
+// EvidenceSummary retains no padded rows. CommittedRows/End are references
+// accepted by the frame writer; Prefix.Rows/End require a matching external ACK.
+// A returned file reference is distinct from FINAL acknowledgement. The sink's
+// physical/durable/close facts and outside EOF/reap remain separate observations.
+type EvidenceSummary struct {
+	Schema                 string           `json:"schema"`
+	Pins                   frame.Pins       `json:"pins"`
+	Completed              uint8            `json:"completed"`
+	Complete               bool             `json:"complete"`
+	Prefix                 frame.Prefix     `json:"prefix"`
+	EffectMayHaveOccurred  bool             `json:"effect_may_have_occurred"`
+	EvidenceAttempted      bool             `json:"evidence_attempted"`
+	CommittedRows          uint8            `json:"committed_rows"`
+	CommittedEnd           uint32           `json:"committed_end"`
+	FileAttempted          bool             `json:"file_attempted"`
+	FileReferenceAvailable bool             `json:"file_reference_available"`
+	File                   frame.FileCommit `json:"file"`
+}
+
+func known(v bool) frame.Bool           { return frame.Bool{A: true, K: true, V: v} }
+func nullableSmall(v uint8) frame.Small { return frame.Small{A: true, K: true, V: v} }
+func nilSmall() frame.Small             { return frame.Small{A: true, K: true, N: true} }
+func unavailableError() frame.ErrorFact { return frame.ErrorFact{} }

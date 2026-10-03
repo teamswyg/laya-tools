@@ -1,0 +1,551 @@
+{
+  "schema": "riido-Root-union-duplicate-literal-freeze-v1",
+  "state": "Root_literally_frozen_before_any_new_original_execution",
+  "authority": "Root adoption of input/Want/caption/order only; no labels, compiler rights approval or preStart admission",
+  "basis_pins": [
+    {
+      "id": "literal-v1/HANDOFF.v1.json",
+      "bytes": 1339,
+      "sha256": "1d4abacd6064620f116ff6f98339104b848a9bd5fa387815a3aace2a19c1741b"
+    },
+    {
+      "id": "literal-v1/MANIFEST.v1.json",
+      "bytes": 1361,
+      "sha256": "586ae8187aa5b2c8e6daad310a33be04d57d1a914578fb99baac70e290db8a76"
+    },
+    {
+      "id": "literal-v1/FIXTURES-WANTS.proposed.v1.json",
+      "bytes": 11940,
+      "sha256": "a12a05374ba8b67390c3b779ec2d9485ce14fc00a6ca9ff7aa1534c0d7efb0db"
+    },
+    {
+      "id": "literal-v1/REQUESTS-CAPTIONS.proposed.v1.json",
+      "bytes": 3155,
+      "sha256": "a459a046db273e684d6558daea4b1675d24235094a86fe9b3cf778ebe0c22f4d"
+    },
+    {
+      "id": "literal-v1/METHOD-PLAN.proposed.v1.json",
+      "bytes": 3391,
+      "sha256": "b5e54a3b3228c9bcfa7c6b9e3d89727629e903159197213d647204b5b9f91168"
+    },
+    {
+      "id": "literal-v1/API-ABI-KNOWNNESS.proposed.v1.json",
+      "bytes": 4965,
+      "sha256": "5ff9ab612974a75e73f8e0597c3d40ed3220bcfa448454bf64c5ffc49d4e110c"
+    },
+    {
+      "id": "literal-v1/SOURCE-PINS.v1.json",
+      "bytes": 3906,
+      "sha256": "16c93743667796f72e8c557e229fbcfedd039746b558884e1ff9d7833411cc62"
+    },
+    {
+      "id": "correction/HANDOFF.v1.json",
+      "bytes": 883,
+      "sha256": "262fbfe6945f2de8a16dcf0b51bde165217ee5b8c7c50c3afa91f1402ab3c258"
+    },
+    {
+      "id": "correction/MANIFEST.v1.json",
+      "bytes": 541,
+      "sha256": "bc82d3f53ab39b5b4636653477cb6a08968a17b69914a479c2a3b1cb5a0f1074"
+    },
+    {
+      "id": "correction/CORRECTION.public.v1.json",
+      "bytes": 6788,
+      "sha256": "88e6ba366ac7eb8fedeb45a59be820caa538da171f53a02006fcfa265bcd931c"
+    },
+    {
+      "id": "independent45/REVIEW.public.v1.json",
+      "bytes": 7620,
+      "sha256": "80f4776291ff06b52f19c06c292941e248b624c0c2b910fb3ecba844aca20b63"
+    }
+  ],
+  "requests": [
+    {
+      "ordinal": 0,
+      "id": "go53-afero-union-pagination",
+      "request": "Define and implement cursor advancement for mixed positive-count and read-all UnionFile directory calls, with stable layer precedence and no duplicate entries.",
+      "display_to_internal": [
+        "cached_cursor",
+        "original_union",
+        "read_all_from_zero"
+      ],
+      "captions": [
+        {
+          "display": 0,
+          "text": "Cache one merged view, preserve overlay entries, and advance one cursor for positive and read-all calls, including empty directories and repeated EOF.",
+          "bytes": 150,
+          "space_words": 22
+        },
+        {
+          "display": 1,
+          "text": "Delegate mixed directory reads to UnionFile.Readdir, retaining the original cached merge and positive-count cursor handling.",
+          "bytes": 124,
+          "space_words": 15
+        },
+        {
+          "display": 2,
+          "text": "Cache a merged view, but serve every read-all call from entry zero before marking the view consumed.",
+          "bytes": 100,
+          "space_words": 17
+        }
+      ],
+      "family_context": {
+        "existing_group": 79,
+        "existing_role": "development_train",
+        "new_assignment": null
+      },
+      "realization": "Consuming read-all and positive calls share one merged snapshot/cursor. Same owned public Merger fixes order and overlay precedence for all candidates. Original default ordering is excluded."
+    },
+    {
+      "ordinal": 1,
+      "id": "hyp52-gjson-duplicate-object-keys",
+      "request": "Add an opt-in valid-JSON policy that rejects repeated decoded keys in each object before publishing collapsed views, including nested objects and arrays; preserve existing parsing defaults.",
+      "display_to_internal": [
+        "original_map_view",
+        "raw_spelling_policy",
+        "decoded_local_policy"
+      ],
+      "captions": [
+        {
+          "display": 0,
+          "text": "Validate JSON syntax, then publish recursive Map views without a duplicate rejection channel; retain the first decoded value for each key.",
+          "bytes": 138,
+          "space_words": 21
+        },
+        {
+          "display": 1,
+          "text": "Walk valid JSON before publication and reject repeated raw key spellings within each object, including nested objects and arrays.",
+          "bytes": 129,
+          "space_words": 19
+        },
+        {
+          "display": 2,
+          "text": "Walk valid JSON before publication and reject repeated decoded keys within each object, stopping at the first duplicate and preserving its object path.",
+          "bytes": 151,
+          "space_words": 23
+        }
+      ],
+      "family_context": {
+        "existing_group": 83,
+        "existing_members": [
+          "GJSON",
+          "Match",
+          "Pretty"
+        ],
+        "existing_role": "development_train",
+        "new_assignment": null
+      },
+      "realization": "ForEach already exposes duplicates; this is rejection-before-collapse via an owned wrapper policy, not a missing iteration or syntax-validation API."
+    }
+  ],
+  "frozen_fixture_ids": [
+    "union-00",
+    "union-01",
+    "union-02",
+    "union-03",
+    "union-04",
+    "union-05",
+    "duplicate-00",
+    "duplicate-01",
+    "duplicate-02",
+    "duplicate-03",
+    "duplicate-04",
+    "duplicate-05",
+    "duplicate-06"
+  ],
+  "dispatches": [
+    {
+      "ordinal": 0,
+      "request_ordinal": 0,
+      "fixture_index": 0,
+      "fixture_id": "union-00",
+      "display": 0,
+      "internal": "cached_cursor"
+    },
+    {
+      "ordinal": 1,
+      "request_ordinal": 0,
+      "fixture_index": 0,
+      "fixture_id": "union-00",
+      "display": 1,
+      "internal": "original_union"
+    },
+    {
+      "ordinal": 2,
+      "request_ordinal": 0,
+      "fixture_index": 0,
+      "fixture_id": "union-00",
+      "display": 2,
+      "internal": "read_all_from_zero"
+    },
+    {
+      "ordinal": 3,
+      "request_ordinal": 0,
+      "fixture_index": 1,
+      "fixture_id": "union-01",
+      "display": 0,
+      "internal": "cached_cursor"
+    },
+    {
+      "ordinal": 4,
+      "request_ordinal": 0,
+      "fixture_index": 1,
+      "fixture_id": "union-01",
+      "display": 1,
+      "internal": "original_union"
+    },
+    {
+      "ordinal": 5,
+      "request_ordinal": 0,
+      "fixture_index": 1,
+      "fixture_id": "union-01",
+      "display": 2,
+      "internal": "read_all_from_zero"
+    },
+    {
+      "ordinal": 6,
+      "request_ordinal": 0,
+      "fixture_index": 2,
+      "fixture_id": "union-02",
+      "display": 0,
+      "internal": "cached_cursor"
+    },
+    {
+      "ordinal": 7,
+      "request_ordinal": 0,
+      "fixture_index": 2,
+      "fixture_id": "union-02",
+      "display": 1,
+      "internal": "original_union"
+    },
+    {
+      "ordinal": 8,
+      "request_ordinal": 0,
+      "fixture_index": 2,
+      "fixture_id": "union-02",
+      "display": 2,
+      "internal": "read_all_from_zero"
+    },
+    {
+      "ordinal": 9,
+      "request_ordinal": 0,
+      "fixture_index": 3,
+      "fixture_id": "union-03",
+      "display": 0,
+      "internal": "cached_cursor"
+    },
+    {
+      "ordinal": 10,
+      "request_ordinal": 0,
+      "fixture_index": 3,
+      "fixture_id": "union-03",
+      "display": 1,
+      "internal": "original_union"
+    },
+    {
+      "ordinal": 11,
+      "request_ordinal": 0,
+      "fixture_index": 3,
+      "fixture_id": "union-03",
+      "display": 2,
+      "internal": "read_all_from_zero"
+    },
+    {
+      "ordinal": 12,
+      "request_ordinal": 0,
+      "fixture_index": 4,
+      "fixture_id": "union-04",
+      "display": 0,
+      "internal": "cached_cursor"
+    },
+    {
+      "ordinal": 13,
+      "request_ordinal": 0,
+      "fixture_index": 4,
+      "fixture_id": "union-04",
+      "display": 1,
+      "internal": "original_union"
+    },
+    {
+      "ordinal": 14,
+      "request_ordinal": 0,
+      "fixture_index": 4,
+      "fixture_id": "union-04",
+      "display": 2,
+      "internal": "read_all_from_zero"
+    },
+    {
+      "ordinal": 15,
+      "request_ordinal": 0,
+      "fixture_index": 5,
+      "fixture_id": "union-05",
+      "display": 0,
+      "internal": "cached_cursor"
+    },
+    {
+      "ordinal": 16,
+      "request_ordinal": 0,
+      "fixture_index": 5,
+      "fixture_id": "union-05",
+      "display": 1,
+      "internal": "original_union"
+    },
+    {
+      "ordinal": 17,
+      "request_ordinal": 0,
+      "fixture_index": 5,
+      "fixture_id": "union-05",
+      "display": 2,
+      "internal": "read_all_from_zero"
+    },
+    {
+      "ordinal": 18,
+      "request_ordinal": 1,
+      "fixture_index": 0,
+      "fixture_id": "duplicate-00",
+      "display": 0,
+      "internal": "original_map_view"
+    },
+    {
+      "ordinal": 19,
+      "request_ordinal": 1,
+      "fixture_index": 0,
+      "fixture_id": "duplicate-00",
+      "display": 1,
+      "internal": "raw_spelling_policy"
+    },
+    {
+      "ordinal": 20,
+      "request_ordinal": 1,
+      "fixture_index": 0,
+      "fixture_id": "duplicate-00",
+      "display": 2,
+      "internal": "decoded_local_policy"
+    },
+    {
+      "ordinal": 21,
+      "request_ordinal": 1,
+      "fixture_index": 1,
+      "fixture_id": "duplicate-01",
+      "display": 0,
+      "internal": "original_map_view"
+    },
+    {
+      "ordinal": 22,
+      "request_ordinal": 1,
+      "fixture_index": 1,
+      "fixture_id": "duplicate-01",
+      "display": 1,
+      "internal": "raw_spelling_policy"
+    },
+    {
+      "ordinal": 23,
+      "request_ordinal": 1,
+      "fixture_index": 1,
+      "fixture_id": "duplicate-01",
+      "display": 2,
+      "internal": "decoded_local_policy"
+    },
+    {
+      "ordinal": 24,
+      "request_ordinal": 1,
+      "fixture_index": 2,
+      "fixture_id": "duplicate-02",
+      "display": 0,
+      "internal": "original_map_view"
+    },
+    {
+      "ordinal": 25,
+      "request_ordinal": 1,
+      "fixture_index": 2,
+      "fixture_id": "duplicate-02",
+      "display": 1,
+      "internal": "raw_spelling_policy"
+    },
+    {
+      "ordinal": 26,
+      "request_ordinal": 1,
+      "fixture_index": 2,
+      "fixture_id": "duplicate-02",
+      "display": 2,
+      "internal": "decoded_local_policy"
+    },
+    {
+      "ordinal": 27,
+      "request_ordinal": 1,
+      "fixture_index": 3,
+      "fixture_id": "duplicate-03",
+      "display": 0,
+      "internal": "original_map_view"
+    },
+    {
+      "ordinal": 28,
+      "request_ordinal": 1,
+      "fixture_index": 3,
+      "fixture_id": "duplicate-03",
+      "display": 1,
+      "internal": "raw_spelling_policy"
+    },
+    {
+      "ordinal": 29,
+      "request_ordinal": 1,
+      "fixture_index": 3,
+      "fixture_id": "duplicate-03",
+      "display": 2,
+      "internal": "decoded_local_policy"
+    },
+    {
+      "ordinal": 30,
+      "request_ordinal": 1,
+      "fixture_index": 4,
+      "fixture_id": "duplicate-04",
+      "display": 0,
+      "internal": "original_map_view"
+    },
+    {
+      "ordinal": 31,
+      "request_ordinal": 1,
+      "fixture_index": 4,
+      "fixture_id": "duplicate-04",
+      "display": 1,
+      "internal": "raw_spelling_policy"
+    },
+    {
+      "ordinal": 32,
+      "request_ordinal": 1,
+      "fixture_index": 4,
+      "fixture_id": "duplicate-04",
+      "display": 2,
+      "internal": "decoded_local_policy"
+    },
+    {
+      "ordinal": 33,
+      "request_ordinal": 1,
+      "fixture_index": 5,
+      "fixture_id": "duplicate-05",
+      "display": 0,
+      "internal": "original_map_view"
+    },
+    {
+      "ordinal": 34,
+      "request_ordinal": 1,
+      "fixture_index": 5,
+      "fixture_id": "duplicate-05",
+      "display": 1,
+      "internal": "raw_spelling_policy"
+    },
+    {
+      "ordinal": 35,
+      "request_ordinal": 1,
+      "fixture_index": 5,
+      "fixture_id": "duplicate-05",
+      "display": 2,
+      "internal": "decoded_local_policy"
+    },
+    {
+      "ordinal": 36,
+      "request_ordinal": 1,
+      "fixture_index": 6,
+      "fixture_id": "duplicate-06",
+      "display": 0,
+      "internal": "original_map_view"
+    },
+    {
+      "ordinal": 37,
+      "request_ordinal": 1,
+      "fixture_index": 6,
+      "fixture_id": "duplicate-06",
+      "display": 1,
+      "internal": "raw_spelling_policy"
+    },
+    {
+      "ordinal": 38,
+      "request_ordinal": 1,
+      "fixture_index": 6,
+      "fixture_id": "duplicate-06",
+      "display": 2,
+      "internal": "decoded_local_policy"
+    }
+  ],
+  "counts": {
+    "requests": 2,
+    "inputs": 13,
+    "dispatches": 39,
+    "captions": 6,
+    "new_source_families": 0
+  },
+  "Want_immutable_after_outcomes": true,
+  "correction_precedence": {
+    "C1": "display-associated Union upper totals [6,18,6], not historical original-first indexing",
+    "C2": "Expected exhausted positive io.EOF records error+nil entries but continues next frozen call; other source failure stops fixture suffix",
+    "C3": "Unavailable original Map error/key/location or ordered object prefix is U. Availability=false alone is notF. Independently known published-view mismatch may be F while U retained"
+  },
+  "bounds_proposed_only": {
+    "direct_original_methods": 96,
+    "owned_callbacks": 91,
+    "RAW_frames": 532,
+    "hard_frames": 640,
+    "raw_frame_plus_LF_bytes": 2048,
+    "output_reserved_bytes": 1507328,
+    "compiled_size_proven": false,
+    "admitted": false,
+    "rule": "Additional getters/events require new pre-outcome maxima; existing bounds cannot authorize them"
+  },
+  "family_roles": {
+    "whole_existing_family_groups": [
+      79,
+      83
+    ],
+    "existing_context": "development_train",
+    "new_numeric_group_or_role_assignments": 0,
+    "no_source_independence_claim": true
+  },
+  "coverage_HOLD": [
+    {
+      "id": "G1",
+      "gap": "Array-child duplicate rejection untested; duplicate03 only accepts separate siblings.",
+      "limit": "No arbitrary nested-array certification; new fixture needs separate freeze/budget."
+    },
+    {
+      "id": "G2",
+      "gap": "Parent/child same-name key independence untested; existing outer/k differs.",
+      "limit": "Sibling-local evidence is not ancestor/child coverage."
+    },
+    {
+      "id": "G3",
+      "gap": "Trailing second value or malformed duplicate-containing syntax untested; duplicate06 incomplete value only.",
+      "limit": "No general syntax/duplicate precedence certification."
+    }
+  ],
+  "ABI_guards": [
+    "fresh owned File providers and merger per display/fixture; no reflection or hidden Union fields",
+    "validate JSON before Parse; source-ordered ForEach for owned policies; Map return has no duplicate error channel",
+    "before/after primitive captures and external ACK for methods/callbacks; invocation separate",
+    "nil vs empty slices preserved; known panic F with unavailable suffixU; unclassified identityU",
+    "sticky transport/overflow failures prevent further original dispatch; no automatic retry; unknown init/nested calls remain null"
+  ],
+  "pending": [
+    "Independent correction/Root-freeze source review",
+    "Owned Go native ABI/transport and closed DTO implementation",
+    "New compiler closure and copied-Go ancestry/rights review",
+    "Live resource admission and full serialized frame bound before Start"
+  ],
+  "resource_snapshot": {
+    "current_bytes": 535348749,
+    "cap_bytes": 536870912,
+    "output_reservation_only_leaves_bytes": 14835,
+    "execution_admitted": false,
+    "note": "No new binaries/output allocated. Additional recoverable archives and fresh admission are necessary."
+  },
+  "actuals": {
+    "new_original_dispatches": 0,
+    "new_labels": 0,
+    "new_qualification": 0,
+    "new_Reader": 0,
+    "new_models_or_Fit": 0
+  },
+  "metadata_path_read_correction": {
+    "first_attempt": "Filename abbreviations from handoff were not exact names; metadata reads failed without mutations",
+    "resolved": "Discovered canonical filenames before reads; no fixture/caption/Want/scientific changes"
+  }
+}

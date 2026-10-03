@@ -1,0 +1,44 @@
+// Package evidenceadapter joins owned observation and persistence.
+// Native/compiler/lifecycle admission is separate; no model is loaded here.
+package evidenceadapter
+
+import (
+	compact "riido.local/compactevidenceprototype"
+	file "riido.local/evidencefileprototype"
+	frame "riido.local/unionduplicateframe"
+	core "riido.local/unionduplicatenativeprep/core"
+)
+
+// Sink is owned by the worker loop. It borrows no row slice or native handle.
+// The caller owns Close; footer persistence is independent of FINAL ACK.
+type Sink struct{ Writer *file.Writer }
+
+func (s Sink) CommitRow(row core.RowResult, refs [5]uint16) (frame.RowCommit, error) {
+	if s.Writer == nil || row.APIN > uint8(len(refs)) {
+		return frame.RowCommit{}, frame.ErrEvidence
+	}
+	r, err := compact.Snapshot(row, refs[:row.APIN])
+	if err != nil {
+		return frame.RowCommit{}, err
+	}
+	b, err := compact.EncodeRow(r)
+	if err != nil {
+		return frame.RowCommit{}, err
+	}
+	ref, err := s.Writer.Append(row.Ordinal, b)
+	if err != nil {
+		return frame.RowCommit{}, err
+	}
+	return frame.RowCommit{O: ref.Offset, N: ref.Length, H: ref.SHA256}, nil
+}
+
+func (s Sink) FinishEvidence(complete bool) (frame.FileCommit, error) {
+	if s.Writer == nil {
+		return frame.FileCommit{}, frame.ErrEvidence
+	}
+	r, err := s.Writer.Finish(complete)
+	if err != nil {
+		return frame.FileCommit{}, err
+	}
+	return frame.FileCommit{N: r.Bytes, H: r.SHA256, C: s.Writer.Status().Rows}, nil
+}

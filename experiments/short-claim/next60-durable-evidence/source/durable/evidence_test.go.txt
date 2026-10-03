@@ -1,0 +1,481 @@
+// SPDX-License-Identifier: Apache-2.0
+package durable
+
+import (
+	"bytes"
+	"io"
+	"testing"
+
+	c "riido.local/compactevidenceprototype"
+	f "riido.local/unionduplicateframe"
+)
+
+type lineEdit func([]byte) []byte
+
+// Rebind all length/hash references after editing synthetic evidence. These
+// negative controls deliberately have correct integrity pins, so acceptance
+// cannot be attributed to a hash check alone. No file is repaired or replayed.
+func rebuildOwned(t *testing.T, b ownedFixture, rowEdit func(uint8, *c.Row), payloadEdit func(uint8, []byte) []byte, headerEdit, footerEdit lineEdit) ownedFixture {
+	t.Helper()
+	x := b
+	x.frames = append([]f.Frame(nil), b.frames...)
+	parts := bytes.Split(b.evidence[:len(b.evidence)-1], []byte{'\n'})
+	if len(parts) != f.MaxRows+2 {
+		t.Fatal("owned fixture envelope")
+	}
+	header := append([]byte(nil), parts[0]...)
+	footer := append([]byte(nil), parts[len(parts)-1]...)
+	if headerEdit != nil {
+		header = headerEdit(header)
+	}
+	if footerEdit != nil {
+		footer = footerEdit(footer)
+	}
+	var file bytes.Buffer
+	file.Write(header)
+	file.WriteByte('\n')
+	var refs [f.MaxRows]f.RowCommit
+	for d := uint8(0); d < f.MaxRows; d++ {
+		x.rows[d] = b.rows[d]
+		x.rows[d].A = append(make([]c.API, 0, len(b.rows[d].A)), b.rows[d].A...)
+		if rowEdit != nil {
+			rowEdit(d, &x.rows[d])
+		}
+		payload, e := c.EncodeRow(x.rows[d])
+		if e != nil {
+			t.Fatal("negative control could not encode superset", e)
+		}
+		if payloadEdit != nil {
+			payload = payloadEdit(d, payload)
+		}
+		if len(payload)+1 > f.MaxRowBytes {
+			t.Fatal("negative control row exceeds admitted bound")
+		}
+		refs[d] = f.RowCommit{O: uint32(file.Len()), N: uint16(len(payload) + 1), H: testDigest(payload)}
+		file.Write(payload)
+		file.WriteByte('\n')
+	}
+	file.Write(footer)
+	file.WriteByte('\n')
+	x.evidence = append([]byte(nil), file.Bytes()...)
+	for i, v := range x.frames {
+		if v.K == f.AfterCandidate && v.R != nil {
+			ref := refs[v.D]
+			v.R = &ref
+		}
+		if v.K == f.Final {
+			v.E = &f.FileCommit{N: uint32(file.Len()), H: testDigest(file.Bytes()), C: f.MaxRows}
+		}
+		x.frames[i] = v
+	}
+	x.wire = testWire(t, x.frames)
+	return x
+}
+
+func frameIndex(t *testing.T, b ownedFixture, k f.Stage, d uint8) int {
+	t.Helper()
+	for i, v := range b.frames {
+		if v.K == k && (k == f.Final || v.D == d) {
+			return i
+		}
+	}
+	t.Fatal("owned stage not found", k, d)
+	return -1
+}
+
+func rejectedBefore(t *testing.T, b ownedFixture, index int) Receipt {
+	t.Helper()
+	x := &trace{}
+	r, _ := receiver(t, x, b.evidence)
+	if e := r.Consume(bytes.NewReader(b.wire)); e == nil {
+		t.Fatal("negative owned evidence accepted")
+	}
+	z := r.Receipt()
+	if !z.Stopped || z.GenuineEOF || z.Durable.Sequence != uint16(index) || z.Acknowledged.Sequence() != uint16(index) || z.ACKs != uint16(index) || x.ackN != index {
+		t.Fatal("invalid evidence journaled or acknowledged", index, z, x.ackN)
+	}
+	if z.Validated.Sequence() != uint16(index) {
+		t.Fatal("invalid evidence entered validated prefix", z)
+	}
+	want := testWire(t, b.frames[:index])
+	if !bytes.Equal(x.Bytes(), want) {
+		t.Fatal("journal contains failing frame or loses accepted prefix")
+	}
+	return z
+}
+
+func TestRowIntegrityAndReadFailureStopBeforeJournalOrACK(t *testing.T) {
+	base := fakeStream(t)
+	i := frameIndex(t, base, f.AfterCandidate, 0)
+	row := base.frames[i].R
+	for _, mode := range []string{"tampered", "truncated-row", "missing-lf", "short-reader"} {
+		t.Run(mode, func(t *testing.T) {
+			b := base
+			b.evidence = append([]byte(nil), base.evidence...)
+			switch mode {
+			case "tampered":
+				b.evidence[row.O+5] ^= 1
+			case "truncated-row":
+				b.evidence = b.evidence[:int(row.O)+int(row.N)-2]
+			case "missing-lf":
+				b.evidence[int(row.O)+int(row.N)-1] = ' '
+			case "short-reader":
+				b.evidence = b.evidence[:row.O]
+			}
+			z := rejectedBefore(t, b, i)
+			if z.VerifiedRows != 0 || z.VerifiedEnd != 0 || z.VerifiedFinal {
+				t.Fatal("missing row reconstructed", z)
+			}
+		})
+	}
+}
+
+func TestHashCorrectNoncanonicalAndIllegalRowRemainRejected(t *testing.T) {
+	base := fakeStream(t)
+	for _, mode := range []string{"leading-space", "field-whitespace", "duplicate-field", "unknown-field", "typed-null", "illegal-bool-mask"} {
+		t.Run(mode, func(t *testing.T) {
+			b := rebuildOwned(t, base, func(d uint8, r *c.Row) {
+				if d == 0 && mode == "illegal-bool-mask" {
+					r.P = 2
+				}
+			}, func(d uint8, p []byte) []byte {
+				if d != 0 {
+					return p
+				}
+				switch mode {
+				case "leading-space":
+					return append([]byte{' '}, p...)
+				case "field-whitespace":
+					return bytes.Replace(p, []byte("\"d\":0"), []byte("\"d\": 0"), 1)
+				case "duplicate-field":
+					return append([]byte("{\"d\":0,"), p[1:]...)
+				case "unknown-field":
+					return append([]byte("{\"unknown\":0,"), p[1:]...)
+				case "typed-null":
+					return bytes.Replace(p, []byte("\"u\":\"\""), []byte("\"u\":null"), 1)
+				}
+				return p
+			}, nil, nil)
+			i := frameIndex(t, b, f.AfterCandidate, 0)
+			payload := b.evidence[b.frames[i].R.O : b.frames[i].R.O+uint32(b.frames[i].R.N)-1]
+			if testDigest(payload) != b.frames[i].R.H {
+				t.Fatal("negative control pin is not correct")
+			}
+			if _, e := c.DecodeRow(payload); e == nil {
+				t.Fatal("noncanonical control accidentally became canonical", mode)
+			}
+			rejectedBefore(t, b, i)
+		})
+	}
+}
+
+func TestMethodReferencesRequireSameCandidateFullReservationCoverage(t *testing.T) {
+	base := fakeStream(t)
+	if base.rows[1].A[0].Q <= base.rows[1].A[1].Q {
+		t.Fatal("fixture must exercise reverse AFTER order")
+	}
+	for _, mode := range []string{"prior-candidate", "future-method", "duplicate-reference", "uncovered-method", "reservation-swapped", "callback-uncovered", "wrong-method"} {
+		t.Run(mode, func(t *testing.T) {
+			d := uint8(1)
+			if mode == "future-method" {
+				d = 0
+			}
+			if mode == "wrong-method" {
+				d = 18
+			}
+			b := rebuildOwned(t, base, func(ord uint8, r *c.Row) {
+				if ord != d {
+					return
+				}
+				switch mode {
+				case "prior-candidate":
+					r.A[0].Q = base.rows[0].A[0].Q
+				case "future-method":
+					r.A[0].Q = base.rows[1].A[0].Q
+				case "duplicate-reference":
+					r.A[1].Q = r.A[0].Q
+				case "uncovered-method":
+					r.A = r.A[:1]
+				case "reservation-swapped":
+					r.A[0], r.A[1] = r.A[1], r.A[0]
+				case "callback-uncovered":
+					r.C = 0
+				case "wrong-method":
+					r.A[0].M = f.Parse
+				}
+			}, nil, nil, nil)
+			z := rejectedBefore(t, b, frameIndex(t, b, f.AfterCandidate, d))
+			if z.VerifiedRows != d {
+				t.Fatal("failed row counted verified", z)
+			}
+		})
+	}
+}
+
+func TestFrozenFixtureCapsAndCandidateScopeRejectBeforeJournal(t *testing.T) {
+	for _, mode := range []string{"method-upper", "callback-upper"} {
+		t.Run(mode, func(t *testing.T) {
+			b := fakeStreamVariant(t, mode)
+			seen, index := 0, -1
+			stage, want := f.BeforeMethod, 2
+			if mode == "callback-upper" {
+				stage, want = f.BeforeCallback, 4
+			}
+			for i, v := range b.frames {
+				if v.D == 0 && v.K == stage {
+					seen++
+					if seen == want {
+						index = i
+						break
+					}
+				}
+			}
+			if index < 0 {
+				t.Fatal("owned overrun frame missing")
+			}
+			z := rejectedBefore(t, b, index)
+			if z.VerifiedRows != 0 {
+				t.Fatal("overrun row entered verified evidence", z)
+			}
+		})
+	}
+	t.Run("row-method-without-candidate", func(t *testing.T) {
+		b := fakeStream(t)
+		v := b.frames[3]
+		if v.K != f.BeforeMethod {
+			t.Fatal("owned method index")
+		}
+		v.Q = 3
+		v.S = 3
+		v.P = 2
+		v.N[f.Candidate] = [4]uint16{}
+		b.frames = append(append([]f.Frame(nil), b.frames[:2]...), v)
+		b.wire = testWire(t, b.frames)
+		rejectedBefore(t, b, 2)
+	})
+}
+
+func TestSourceCorrespondenceDoesNotBorrowThunkNormal(t *testing.T) {
+	base := fakeStream(t)
+	for _, mode := range []string{"dispatch-claim", "return-claim", "panic-unknown", "availability-claim", "late-row-ack-knowledge"} {
+		t.Run(mode, func(t *testing.T) {
+			b := rebuildOwned(t, base, func(d uint8, r *c.Row) {
+				if d != 0 {
+					return
+				}
+				switch mode {
+				case "dispatch-claim":
+					r.A[0].B = 53 // entered, known not dispatched/returned, AFTER available
+				case "return-claim":
+					r.A[0].B = 55
+					r.A[0].P = 1 // a shaped unknown-panic claim still disagrees with the source marker
+				case "panic-unknown":
+					r.A[0].P = 1
+				case "availability-claim":
+					r.A[0].B = 31
+				case "late-row-ack-knowledge":
+					r.P = 3
+				}
+			}, nil, nil, nil)
+			i := frameIndex(t, b, f.AfterCandidate, 0)
+			payload := b.evidence[b.frames[i].R.O : b.frames[i].R.O+uint32(b.frames[i].R.N)-1]
+			if _, e := c.DecodeRow(payload); e != nil {
+				t.Fatal("correspondence control must have valid compact shape", mode, e)
+			}
+			rejectedBefore(t, b, i)
+		})
+	}
+}
+
+func TestSourcePanicAndUnavailableMarkerKeepTheirOwnMeaning(t *testing.T) {
+	base := fakeStream(t)
+	for _, mode := range []string{"source-panic-with-normal-owned-thunk", "source-unavailable"} {
+		t.Run(mode, func(t *testing.T) {
+			b := rebuildOwned(t, base, func(d uint8, r *c.Row) {
+				if d != 0 {
+					return
+				}
+				if mode == "source-panic-with-normal-owned-thunk" {
+					r.A[0].B = 55
+					r.A[0].P = 11
+					r.P = 11
+				} else {
+					r.A[0].B = 31
+					r.P = 0
+				}
+			}, nil, nil, nil)
+			for i, v := range b.frames {
+				if v.K == f.AfterMethod && v.D == 0 {
+					facts := *v.F
+					v.F = &facts
+					if mode == "source-panic-with-normal-owned-thunk" {
+						facts.Source.Returned = testKnown(false)
+						facts.Source.Panicked = testKnown(true)
+						facts.Source.Copied = testKnown(false)
+					} else {
+						facts.Source = f.OriginalCall{}
+					}
+					if !facts.Normal.V || facts.Panic.V {
+						t.Fatal("owned thunk must remain normal")
+					}
+					b.frames[i] = v
+				}
+			}
+			b.wire = testWire(t, b.frames)
+			x := &trace{}
+			r, _ := receiver(t, x, b.evidence)
+			if e := r.Consume(bytes.NewReader(b.wire)); e != nil {
+				t.Fatal("distinct source observation rejected", mode, e)
+			}
+			z := r.Receipt()
+			if !z.GenuineEOF || !z.VerifiedFinal || z.VerifiedRows != f.MaxRows {
+				t.Fatal(z)
+			}
+			if mode == "source-unavailable" && (b.rows[0].P != 0 || b.rows[0].A[0].B&32 != 0) {
+				t.Fatal("unavailable marker borrowed known source result")
+			}
+		})
+	}
+}
+
+func TestEnvelopeAndFinalHashCheckedBeforeFinalJournal(t *testing.T) {
+	base := fakeStream(t)
+	for _, mode := range []string{"header-pin", "header-space", "footer-count", "footer-complete", "footer-space", "whole-hash", "whole-length", "trailing-byte"} {
+		t.Run(mode, func(t *testing.T) {
+			var header, footer lineEdit
+			switch mode {
+			case "header-pin":
+				header = func(p []byte) []byte { return bytes.Replace(p, []byte(pins().Freeze), []byte(pins().Captions), 1) }
+			case "header-space":
+				header = func(p []byte) []byte { return append([]byte{' '}, p...) }
+			case "footer-count":
+				footer = func(p []byte) []byte { return bytes.Replace(p, []byte("\"r\":39"), []byte("\"r\":38"), 1) }
+			case "footer-complete":
+				footer = func(p []byte) []byte { return bytes.Replace(p, []byte("true"), []byte("false"), 1) }
+			case "footer-space":
+				footer = func(p []byte) []byte { return append([]byte{' '}, p...) }
+			}
+			b := rebuildOwned(t, base, nil, nil, header, footer)
+			i := frameIndex(t, b, f.Final, 0)
+			if mode == "header-pin" || mode == "header-space" {
+				i = frameIndex(t, b, f.AfterCandidate, 0)
+			}
+			if mode == "whole-hash" || mode == "whole-length" || mode == "trailing-byte" {
+				fi := frameIndex(t, b, f.Final, 0)
+				v := b.frames[fi]
+				commit := *v.E
+				v.E = &commit
+				if mode == "whole-hash" {
+					commit.H = pins().Freeze
+				}
+				if mode == "whole-length" {
+					commit.N++
+				}
+				if mode == "trailing-byte" {
+					b.evidence = append(b.evidence, '\n')
+					commit.N = uint32(len(b.evidence))
+					commit.H = testDigest(b.evidence)
+				}
+				b.frames[fi] = v
+				b.wire = testWire(t, b.frames)
+			}
+			z := rejectedBefore(t, b, i)
+			if z.VerifiedFinal {
+				t.Fatal("bad file certified", z)
+			}
+			if i == frameIndex(t, b, f.Final, 0) && z.VerifiedRows != f.MaxRows {
+				t.Fatal("row evidence prefix should survive final failure", z)
+			}
+		})
+	}
+}
+
+func TestCandidateACKLossRetainsVerifiedAndDurableOrphanPrefixes(t *testing.T) {
+	b := fakeStream(t)
+	i := frameIndex(t, b, f.AfterCandidate, 0)
+	q := b.frames[i].Q
+	x := &trace{failACKQ: q}
+	r, _ := receiver(t, x, b.evidence)
+	e := r.Consume(bytes.NewReader(b.wire))
+	if e == nil {
+		t.Fatal("lost ACK accepted")
+	}
+	z := r.Receipt()
+	if !z.Stopped || z.GenuineEOF || z.Durable.Sequence != q || z.FileSynced.Sequence != q || z.Physical.CompleteSequence != q || z.Validated.Sequence() != q || z.Acknowledged.Sequence() != q-1 || z.ACKs != q-1 {
+		t.Fatal("orphan prefix collapsed", z)
+	}
+	if z.VerifiedRows != 1 || z.VerifiedEnd != b.frames[i].R.O+uint32(b.frames[i].R.N) || z.Acknowledged.EvidenceRows() != 0 || z.Validated.EvidenceRows() != 1 || z.VerifiedFinal {
+		t.Fatal("verified row borrowed ACK", z)
+	}
+	before := append([]byte(nil), x.Bytes()...)
+	steps := len(x.steps)
+	if r.Consume(bytes.NewReader(b.wire)) != e || len(x.steps) != steps || !bytes.Equal(before, x.Bytes()) {
+		t.Fatal("orphan row reconsumed")
+	}
+}
+
+type boundedEvidenceReader struct {
+	*bytes.Reader
+	calls, max int
+	failAt     int64
+	mode       string
+}
+
+func (b *boundedEvidenceReader) ReadAt(p []byte, off int64) (int, error) {
+	b.calls++
+	if len(p) > b.max {
+		b.max = len(p)
+	}
+	if off >= b.failAt {
+		switch b.mode {
+		case "error":
+			return 0, io.ErrClosedPipe
+		case "panic":
+			panic("owned evidence read interruption")
+		case "nilpanic":
+			panic(nil)
+		case "impossible-count":
+			return len(p) + 1, nil
+		case "negative-count":
+			return -1, nil
+		case "short-success":
+			return len(p) - 1, nil
+		}
+	}
+	return b.Reader.ReadAt(p, off)
+}
+
+func TestEvidenceReaderFailuresAreStickyWithoutRowACKOrRepair(t *testing.T) {
+	b := fakeStream(t)
+	i := frameIndex(t, b, f.AfterCandidate, 0)
+	ref := b.frames[i].R
+	for _, mode := range []string{"error", "panic", "nilpanic", "impossible-count", "negative-count", "short-success"} {
+		t.Run(mode, func(t *testing.T) {
+			x := &trace{}
+			j, e := NewJournal(fakeFile{x}, func() error { x.steps = append(x.steps, "dir"); return nil })
+			if e != nil {
+				t.Fatal(e)
+			}
+			reader := &boundedEvidenceReader{Reader: bytes.NewReader(b.evidence), failAt: int64(ref.O), mode: mode}
+			r, e := NewReceiver(pins(), j, fakeACK{x}, reader)
+			if e != nil {
+				t.Fatal(e)
+			}
+			e = r.Consume(bytes.NewReader(b.wire))
+			if e == nil {
+				t.Fatal("read interruption accepted")
+			}
+			z := r.Receipt()
+			if z.Durable.Sequence != uint16(i) || z.ACKs != uint16(i) || z.VerifiedRows != 0 || z.VerifiedFinal || !z.Stopped {
+				t.Fatal(z)
+			}
+			if reader.max > f.MaxFileBytes || reader.calls == 0 {
+				t.Fatal("unbounded or missing reader use", reader.max, reader.calls)
+			}
+			calls, steps := reader.calls, len(x.steps)
+			if r.Consume(bytes.NewReader(b.wire)) != e || reader.calls != calls || len(x.steps) != steps {
+				t.Fatal("failed evidence retried")
+			}
+		})
+	}
+}
