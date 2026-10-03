@@ -14,8 +14,8 @@ bash scripts/verify-next60-mask-learning.sh
 The offline check uses newly owned synthetic inputs. It runs no original observer,
 Golden corpus reader, training, model download or publication. Sources stay as
 `.go.txt`; verification creates a disposable module. An independent read-only
-review found no concrete logic blockers. Real Reader integration and semantic
-dataset adoption review remain pending.
+review found no concrete logic blockers. Reader integration is also an owned
+synthetic proposal; real semantic qualification and training authority remain pending.
 
 For `[true, false, false, false, unknown]`, only the first four candidates become
 learning or evaluation rows. Unknown candidates never become label-zero,
@@ -35,9 +35,12 @@ is a synthetic structural bound, not evidence of 60 actual semantic requests.
 The existing 35-request development corpus and earlier failed models stay intact.
 
 State, label, role and group are not feature-function arguments. Only original
-request and candidate text produce features. A separate reviewed adapter must
-connect Reader-validated examples to this structure. Structural validation alone
-cannot establish source provenance or semantic correctness.
+request and candidate text produce features. The adapter proposal connects strict
+Reader examples to this structure. It first checks a separately pinned canonical
+evaluation binding, tying it to the same row, qualification and roles digests
+before consuming Reader input. Known-F candidates retain residual U predicates
+in a separate fixed evidence array. Structural binding alone establishes no
+semantic qualification. The Reader's all-positive cohort restriction stays intact.
 
 Fixed arrays plan rows. A count and SHA-256 pass precedes exact allocation of
 contiguous columns; altered values on the second feature pass are rejected.
@@ -71,7 +74,14 @@ experiments. Model79 is a scratch linear feature-hash model, not a Laya finetune
 or a 1.58-bit training result. The newly published 35-request corpus trained none
 of them. These three are not the entire JooYoon model workspace.
 
-Next: the Reader adapter; independent role/group and unknown-semantics review;
+Six synthetic Reader-adapter controls and a separate read-only source review
+found no concrete blockers. An initial fixture serialized empty predicate arrays
+as null, causing three failures. The fixture was corrected while the strict
+Reader stayed intact, and initial failure evidence remains. A single successful
+Load does not establish multi-parent group/role isolation or nonempty eligible
+training/validation splits; full Project and dataset checks are still required.
+
+Next: actual semantic qualification, ancestry, role/group and unknown-semantics review;
 new semantic examples; protected 2,400-request evaluation; measured whole
 verification-work improvement. Structural all-positive support does not revise
 the existing Reader cohort policy. GitHub contains owned Apache-2.0 sources and

@@ -1,0 +1,269 @@
+// SPDX-License-Identifier: Apache-2.0
+package goldenmask
+
+import (
+	"bytes"
+	"encoding/json"
+	"io"
+	"math"
+	"strings"
+	"testing"
+
+	"github.com/teamswyg/laya-tools/internal/hintlearn"
+	mask "github.com/teamswyg/laya-tools/internal/maskbridgeprototype"
+	"github.com/teamswyg/laya-tools/internal/pairlearn"
+	reader "riido.local/goldenreaderprototype"
+)
+
+type candidate struct {
+	MetadataID   string             `json:"metadata_id"`
+	Text         string             `json:"text"`
+	State        string             `json:"state"`
+	Eligible     bool               `json:"eligible"`
+	Label        *bool              `json:"label"`
+	SampleWeight *int               `json:"sample_weight"`
+	Predicates   []reader.Predicate `json:"predicates"`
+}
+type row struct {
+	Schema         string       `json:"schema"`
+	StableID       string       `json:"stable_id"`
+	Request        string       `json:"request"`
+	Candidates     [8]candidate `json:"candidates"`
+	Count          int          `json:"count"`
+	Role           string       `json:"role"`
+	WholeGroup     int          `json:"whole_group"`
+	SourceFamily   string       `json:"source_family"`
+	SourceRevision string       `json:"source_revision"`
+	TextRevision   string       `json:"text_revision"`
+	FeaturePolicy  string       `json:"feature_policy"`
+	Cohort         string       `json:"cohort"`
+	ParentState    string       `json:"parent_state"`
+}
+type authority struct {
+	Schema              string `json:"schema"`
+	State               string `json:"state"`
+	QualificationSHA256 string `json:"qualification_sha256"`
+	RolesGroupsSHA256   string `json:"roles_groups_sha256"`
+	RowSHA256           string `json:"row_sha256"`
+	StableID            string `json:"stable_id"`
+	Role                string `json:"role"`
+	WholeGroup          int    `json:"whole_group"`
+	SourceFamily        string `json:"source_family"`
+	SourceRevision      string `json:"source_revision"`
+	TextRevision        string `json:"text_revision"`
+	Cohort              string `json:"cohort"`
+	ParentState         string `json:"parent_state"`
+	Count               int    `json:"count"`
+}
+
+func owned(role string) row {
+	w := row{Schema: reader.Schema, StableID: "owned-synthetic", Request: "Owned synthetic semantic request", Count: 5, Role: role, WholeGroup: 17, SourceFamily: "owned-fake-family", SourceRevision: strings.Repeat("a", 40), TextRevision: "owned-fake-text", FeaturePolicy: reader.FeaturePolicy, Cohort: "unknown_containing", ParentState: "decided"}
+	for i := range w.Candidates {
+		w.Candidates[i].Predicates = []reader.Predicate{}
+	}
+	for i := 0; i < 5; i++ {
+		state := "F"
+		if i == 0 {
+			state = "T"
+		}
+		if i == 4 {
+			state = "U"
+		}
+		c := candidate{MetadataID: string(rune('a' + i)), Text: "Owned synthetic candidate text", State: state, Predicates: []reader.Predicate{{Key: "owned-predicate", State: state, Available: state != "U", Known: state != "U"}}}
+		if state != "U" {
+			y := state == "T"
+			c.Label = &y
+			if role == "development_train" {
+				one := 1
+				c.Eligible = true
+				c.SampleWeight = &one
+			}
+		}
+		w.Candidates[i] = c
+	}
+	return w
+}
+func bound(t *testing.T, w row, eval [8]bool) ([]byte, []byte, []byte, Pins) {
+	t.Helper()
+	rb, e := json.Marshal(w)
+	if e != nil {
+		t.Fatal(e)
+	}
+	rp := reader.Pins{QualificationSHA256: strings.Repeat("b", 64), RolesGroupsSHA256: strings.Repeat("c", 64), RowSHA256: digest(rb)}
+	a := authority{reader.AuthoritySchema, reader.AuthorityState, rp.QualificationSHA256, rp.RolesGroupsSHA256, rp.RowSHA256, w.StableID, w.Role, w.WholeGroup, w.SourceFamily, w.SourceRevision, w.TextRevision, w.Cohort, w.ParentState, w.Count}
+	ab, e := json.Marshal(a)
+	if e != nil {
+		t.Fatal(e)
+	}
+	rp.AuthoritySHA256 = digest(ab)
+	sb, e := CanonicalSelection(Selection{SelectionSchema, SelectionState, rp.QualificationSHA256, rp.RolesGroupsSHA256, rp.RowSHA256, w.Count, eval})
+	if e != nil {
+		t.Fatal(e)
+	}
+	return rb, ab, sb, Pins{rp, digest(sb)}
+}
+
+type counted struct{ reads int }
+
+func (c *counted) Read([]byte) (int, error) { c.reads++; return 0, io.EOF }
+
+func TestBoundReaderValidationReachesActualLossWithoutGradient(t *testing.T) {
+	w := owned("development_validation")
+	rb, ab, sb, p := bound(t, w, [8]bool{true, true, true, true})
+	loaded, e := Load(bytes.NewReader(rb), bytes.NewReader(ab), bytes.NewReader(sb), p)
+	if e != nil {
+		t.Fatal(e)
+	}
+	parent := loaded.Parent()
+	if parent.LabelKnown[4] || parent.GradientEligible[0] || parent.States[4] != mask.U || parent.Positive[1] {
+		t.Fatal("candidate masks")
+	}
+	plan, e := mask.Project([]mask.Parent{parent})
+	if e != nil {
+		t.Fatal(e)
+	}
+	out, e := mask.Build(plan)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if len(out.Development.Labels) != 0 || len(out.Validation.Labels) != 4 || out.Validation.Excluded != 1 {
+		t.Fatal("known validation rows")
+	}
+	weights := make([]float64, hintlearn.Dimension)
+	if got := pairlearn.NLL(out.Validation, weights); math.IsNaN(got) || math.Abs(got-math.Log(2)) > 1e-15 {
+		t.Fatal("actual loss", got)
+	}
+}
+
+func TestSelectionPinsAndShapeCheckedBeforeReader(t *testing.T) {
+	w := owned("development_validation")
+	_, _, sb, p := bound(t, w, [8]bool{true, true, true, true})
+	var s Selection
+	if json.Unmarshal(sb, &s) != nil {
+		t.Fatal("fixture")
+	}
+	changed := s
+	changed.RowSHA256 = strings.Repeat("d", 64)
+	badBinding, _ := CanonicalSelection(changed)
+	changed = s
+	changed.Count = 6
+	badCount, _ := CanonicalSelection(changed)
+	changed = s
+	changed.EvaluationEligible[7] = true
+	badPadding, _ := CanonicalSelection(changed)
+	variants := [][]byte{append(append([]byte(nil), sb...), byte(' ')), []byte(strings.Replace(string(sb), "\"count\":5", "\"count\":5,\"count\":5", 1)), []byte(strings.Replace(string(sb), "\"count\":5", "\"Count\":5", 1)), []byte(strings.Replace(string(sb), "\"count\":5,", "", 1)), badBinding, badCount, badPadding, bytes.Repeat([]byte("x"), MaxSelectionBytes+1)}
+	for _, b := range variants {
+		rowRead, authRead := &counted{}, &counted{}
+		q := p
+		q.SelectionSHA256 = digest(b)
+		out, e := Load(rowRead, authRead, bytes.NewReader(b), q)
+		if e == nil || rowRead.reads != 0 || authRead.reads != 0 || out != (Bound{}) {
+			t.Fatal("invalid selection consumed reader")
+		}
+	}
+	q := p
+	q.SelectionSHA256 = strings.Repeat("e", 64)
+	r, a := &counted{}, &counted{}
+	if _, e := Load(r, a, bytes.NewReader(sb), q); e != ErrPin || r.reads != 0 || a.reads != 0 {
+		t.Fatal("selection hash")
+	}
+}
+
+func TestUnknownAmbiguousAndCalibrationCannotSelect(t *testing.T) {
+	for _, kind := range []string{"unknown", "ambiguous", "calibration", "train"} {
+		w := owned("development_validation")
+		eval := [8]bool{true, true, true, true}
+		switch kind {
+		case "unknown":
+			eval[4] = true
+		case "calibration":
+			w = owned("development_calibration")
+		case "train":
+			w = owned("development_train")
+		case "ambiguous":
+			w.ParentState = "ambiguous"
+			w.Cohort = "ambiguous_policy"
+			for i := 0; i < 5; i++ {
+				w.Candidates[i].Label = nil
+			}
+		}
+		rb, ab, sb, p := bound(t, w, eval)
+		if out, e := Load(bytes.NewReader(rb), bytes.NewReader(ab), bytes.NewReader(sb), p); e != ErrSelection || out != (Bound{}) {
+			t.Fatal("invalid epoch selection", kind)
+		}
+	}
+}
+
+func TestReaderErrorsAndConservativeCohortsPreserved(t *testing.T) {
+	w := owned("development_validation")
+	rb, ab, sb, p := bound(t, w, [8]bool{})
+	rb[0] = '['
+	if _, e := Load(bytes.NewReader(rb), bytes.NewReader(ab), bytes.NewReader(sb), p); e != reader.ErrPin {
+		t.Fatal("reader hash changed")
+	}
+	w = owned("development_train")
+	w.Cohort = "verified_many"
+	for i := 0; i < 5; i++ {
+		yes, one := true, 1
+		w.Candidates[i].State = "T"
+		w.Candidates[i].Label = &yes
+		w.Candidates[i].Eligible = true
+		w.Candidates[i].SampleWeight = &one
+		w.Candidates[i].Predicates = []reader.Predicate{{Key: "owned-predicate", State: "T", Available: true, Known: true}}
+	}
+	rb, ab, sb, p = bound(t, w, [8]bool{})
+	if _, e := Load(bytes.NewReader(rb), bytes.NewReader(ab), bytes.NewReader(sb), p); e != reader.ErrCohort {
+		t.Fatal("all-positive Reader policy changed")
+	}
+}
+
+func TestTrainingMaskAndTextStaySeparateFromMetadata(t *testing.T) {
+	w := owned("development_train")
+	rb, ab, sb, p := bound(t, w, [8]bool{})
+	loaded, e := Load(bytes.NewReader(rb), bytes.NewReader(ab), bytes.NewReader(sb), p)
+	if e != nil {
+		t.Fatal(e)
+	}
+	parent := loaded.Parent()
+	if parent.Text.Request != w.Request || parent.Text.Candidates[0] != w.Candidates[0].Text || parent.Group != 17 || !parent.GradientEligible[0] || parent.EvaluationEligible[0] || parent.LabelKnown[4] {
+		t.Fatal("projection")
+	}
+	plan, e := mask.Project([]mask.Parent{parent})
+	if e != nil {
+		t.Fatal(e)
+	}
+	out, e := mask.Build(plan)
+	if e != nil || len(out.Development.Labels) != 4 || len(out.Validation.Labels) != 0 {
+		t.Fatal("training columns")
+	}
+	// The input metadata is not retained by the text projection; modifying the
+	// caller's source fixture cannot mutate the returned fixed arrays.
+	w.Candidates[0].Text = "mutated external fixture"
+	if parent.Text.Candidates[0] == w.Candidates[0].Text {
+		t.Fatal("mutable alias")
+	}
+}
+
+func TestKnownFalseKeepsUnknownPredicateAudit(t *testing.T) {
+	w := owned("development_train")
+	w.Cohort = "verified1"
+	no, one := false, 1
+	w.Candidates[4].State = "F"
+	w.Candidates[4].Label = &no
+	w.Candidates[4].Eligible = true
+	w.Candidates[4].SampleWeight = &one
+	w.Candidates[4].Predicates = []reader.Predicate{{Key: "owned-false", State: "F", Available: true, Known: true}, {Key: "owned-missing-channel", State: "U"}}
+	rb, ab, sb, p := bound(t, w, [8]bool{})
+	loaded, e := Load(bytes.NewReader(rb), bytes.NewReader(ab), bytes.NewReader(sb), p)
+	if e != nil {
+		t.Fatal(e)
+	}
+	parent, proof := loaded.Parent(), loaded.Evidence()
+	if !loaded.Valid() || !parent.LabelKnown[4] || parent.Positive[4] || parent.States[4] != mask.F || proof.PredicateCounts[4] != 2 || proof.Predicates[4][1].State != "U" || proof.Predicates[4][1].Available || proof.Predicates[4][1].Known {
+		t.Fatal("known-F erased predicate U")
+	}
+	proof.Predicates[4][1].State = "F"
+	if loaded.Evidence().Predicates[4][1].State != "U" || loaded.Pins() != p || loaded.Metadata().WholeGroup != 17 {
+		t.Fatal("audit alias or binding lost")
+	}
+}

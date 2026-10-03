@@ -1,0 +1,30 @@
+{
+  "schema": "riido-golden-mask-adapter-initial-QA-failure-v1",
+  "state": "OWNED_SYNTHETIC_FIXTURE_FAILURE_PRESERVED",
+  "source": [
+    {
+      "path": "adapter.go",
+      "bytes": 5106,
+      "sha256": "ba943a6869b44f711c9511def474cea0197ced7561eb51f270fb78d2ee54b3bd"
+    },
+    {
+      "path": "adapter_test.go",
+      "bytes": 8876,
+      "sha256": "015214fad32b689a4180895dd5c3a93a7c647987665204cbfc2f3524ab531bc2"
+    }
+  ],
+  "race_exit": 1,
+  "failed_tests": [
+    "TestBoundReaderValidationReachesActualLossWithoutGradient",
+    "TestReaderErrorsAndConservativeCohortsPreserved",
+    "TestTrainingMaskAndTextStaySeparateFromMetadata"
+  ],
+  "first_error": "golden_reader_json",
+  "vet_exit": 0,
+  "cause": "Synthetic padding candidates serialized predicates as null. The existing strict Reader requires an array, including the empty padding array. Reader guards stay unchanged.",
+  "correction": "Initialize all eight predicate arrays in the owned fixture and require specific errors so Reader rejection cannot accidentally satisfy selection-policy controls.",
+  "further_source_review": "Retain Reader predicate-level U metadata alongside the returned mask parent so known-F plus missing-predicate evidence is not lost.",
+  "real_corpus": 0,
+  "model": 0,
+  "corpus_Fit": 0
+}
