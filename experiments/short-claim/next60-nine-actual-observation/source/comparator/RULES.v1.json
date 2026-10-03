@@ -1,0 +1,28 @@
+{
+  "schema":"riido-catalog9-predeclared-saved-comparison-rules-v1",
+  "state":"source_preparation_before_actual_saved_comparison",
+  "catalog_sha256":"c7b0446710a6d629a584aac16f3723d439330a9684ac299491aa430edf33f80c",
+  "Root_V2_worker_main_sha256":"4da2963c0616066125f1f14a3ac833ba7df9ccf25d87623a2c2dcf1dcd56a181",
+  "planned":{"requests":9,"inputs":46,"candidates_per_input":3,"rows":138,"held_inputs":6},
+  "comparison":{
+    "object_projection":"Compare Wanted keys; ignore extra observation metadata. Want empty object{} is an empty object value. /maps/A and /maps/B compare complete sorted key sets and values.",
+    "arrays":"Ordered items and exact lengths; distinguish null from empty array.",
+    "scalars":"Compare JSON types and literal values. Numeric representations follow the fixed worker's integer JSON output; no float64 conversion.",
+    "missing":"Unknown with field-present=false; never treat a missing field as explicit null or automatically false.",
+    "getter_unavailable":"For request0, getter_available=false or absent/invalid masks getter_values, key_present, getter_error and mutated_getter_result, including snapshot getter channels. Setter errors and known flag state remain independently comparable.",
+    "error_unavailable":"error.available=false or absent/invalid masks that error object's Wanted predicates. Error kind_available=false masks only kind. A known wrong type instead of an error object is a known mismatch.",
+    "flag_identity_unavailable":"For request5, flag_identity_available=false or absent/invalid masks the root flag_name channel.",
+    "metadata":"Wanted message_observed=false/message:null is observation metadata equality, not evidence of zero original nested Error calls.",
+    "row":"Any known false => unsatisfied while preserving unknown predicates; every Wanted predicate known true => satisfied; otherwise unknown.",
+    "candidate":"Preserve ordered five/six-row vectors, row ordinals, known counterexample fixture positions and all fixture positions containing unknown predicates. Aggregate uses the same false-first three-state rule."
+  },
+  "output_tuples":{"predicate":["JSON pointer","T/F/U","Want","observed Got or null","field-present","reason"],"row_position":["row ordinal","request index","fixture index","candidate index"],"counts":["T","F","U"]},
+  "input_binding":"Regular bounded files; exact catalog bytes+SHA and explicit exact saved-result SHA; exact IDs/positions/counts and complete unqualified observation header. Duplicate JSON keys, trailing data, invalid UTF8 and bounded structural excess are rejected.",
+  "bounds":{"each_input_bytes":1048576,"output_bytes":131072,"folder_bytes":262144,"JSON_depth":32,"JSON_nodes":65536,"array_items":1024,"object_fields":1024,"total_predicates":8192},
+  "authority":"Finite satisfied/unsatisfied/unknown only. Labels, roles, qualification and adoption belong to Root. Source-basis hash is a declared reference; this comparator does not establish external native Start/Wait, journal, compiler or binary proof.",
+  "actual_saved_comparison":0,
+  "original_imports_API_or_init":0,
+  "model_or_Fit":0,
+  "nonblind":true,
+  "comparator_author":"checkpoint_native_peer_114; independent of candidate/Want/source authors, but author of this comparator; Root source review required before actual comparison"
+}

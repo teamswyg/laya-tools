@@ -1,0 +1,309 @@
+package main
+
+import (
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
+
+func syntheticNode(t *testing.T, raw string) *node {
+	t.Helper()
+	n, err := parse([]byte(raw))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return n
+}
+func syntheticRow(t *testing.T, request int, want, got string) rowComparison {
+	t.Helper()
+	w, g := syntheticNode(t, want), syntheticNode(t, got)
+	r := rowComparison{Predicates: []predicate{}}
+	c := comparer{request: request, rootGot: g, row: &r}
+	if err := c.compare("", w, g, true, ""); err != nil {
+		t.Fatal(err)
+	}
+	r.State = state(r.Counts)
+	return r
+}
+func predicateAt(t *testing.T, r rowComparison, path string) predicate {
+	t.Helper()
+	for _, p := range r.Predicates {
+		if p[0] == path {
+			return p
+		}
+	}
+	t.Fatalf("missing predicate %s", path)
+	return predicate{}
+}
+func TestSyntheticProjectionIgnoresExtraMetadata(t *testing.T) {
+	r := syntheticRow(t, 2, `{"values":{"name":"a"}}`, `{"values":{"name":"a","unused":"extra"},"metadata":false}`)
+	if r.State != "satisfied" || r.Counts != [3]int{1, 0, 0} {
+		t.Fatal(r)
+	}
+}
+func TestSyntheticMissingAndExplicitNull(t *testing.T) {
+	null := syntheticRow(t, 2, `{"value":null}`, `{"value":null}`)
+	missing := syntheticRow(t, 2, `{"value":null}`, `{}`)
+	if null.State != "satisfied" || missing.State != "unknown" {
+		t.Fatal(null, missing)
+	}
+	if predicateAt(t, null, "/value")[4] != true || predicateAt(t, missing, "/value")[4] != false {
+		t.Fatal("lost presence")
+	}
+}
+func TestSyntheticArraysAndMapKeys(t *testing.T) {
+	for _, tc := range []struct {
+		want, got string
+		status    string
+	}{
+		{`{"values":[]}`, `{"values":null}`, "unsatisfied"},
+		{`{"values":[]}`, `{"values":[]}`, "satisfied"},
+		{`{"values":["a"]}`, `{"values":["a","b"]}`, "unsatisfied"},
+		{`{"maps":{"A":{}}}`, `{"maps":{"A":{"x":"one"}}}`, "unsatisfied"},
+		{`{"maps":{"A":{"x":"one"}}}`, `{"maps":{"A":{"x":"one","extra":"two"}}}`, "unsatisfied"},
+		{`{"maps":{"A":{"x":"one"}}}`, `{"maps":{"A":{"x":"one"}},"metadata":7}`, "satisfied"},
+	} {
+		if r := syntheticRow(t, 7, tc.want, tc.got); r.State != tc.status {
+			t.Fatal(tc, r)
+		}
+	}
+}
+func TestSyntheticGetterAvailabilityKeepsKnownState(t *testing.T) {
+	want := `{"getter_values":null,"key_present":false,"getter_error":{"present":true,"kind":"annotation_flag_unknown"},"known_flag_state":{"owned":["keep"]}}`
+	got := `{"getter_available":false,"getter_values":null,"key_present":null,"getter_error":{"present":false,"kind":"nil","available":true,"kind_available":true},"known_flag_state":{"owned":["keep"]}}`
+	r := syntheticRow(t, 0, want, got)
+	if r.State != "unknown" || r.Counts[1] != 0 || r.Counts[2] != 4 || r.Counts[0] != 2 {
+		t.Fatal(r)
+	}
+	got = strings.Replace(got, `"keep"`, `"changed"`, 1)
+	r = syntheticRow(t, 0, want, got)
+	if r.State != "unsatisfied" || r.Counts[1] != 1 || r.Counts[2] != 4 {
+		t.Fatal(r)
+	}
+}
+func TestSyntheticErrorAvailabilityAndKnownFalseDominance(t *testing.T) {
+	want := `{"error":{"present":true,"kind":"joined_causes","fields":null}}`
+	unavailable := syntheticRow(t, 6, want, `{"error":{"available":false,"kind_available":true,"present":false,"kind":"nil","fields":null}}`)
+	if unavailable.State != "unknown" || unavailable.Counts != [3]int{0, 0, 3} {
+		t.Fatal(unavailable)
+	}
+	partial := syntheticRow(t, 6, want, `{"error":{"available":true,"kind_available":false,"present":false,"kind":null,"fields":null}}`)
+	if partial.State != "unsatisfied" || partial.Counts != [3]int{1, 1, 1} {
+		t.Fatal(partial)
+	}
+	if p := predicateAt(t, partial, "/error/kind"); p[1] != "U" || p[5] != "kind_unavailable" {
+		t.Fatal(p)
+	}
+	typeMismatch := syntheticRow(t, 6, want, `{"error":"wrong type"}`)
+	if typeMismatch.State != "unsatisfied" {
+		t.Fatal(typeMismatch)
+	}
+}
+func TestSyntheticFlagIdentityAndKnownLiteralType(t *testing.T) {
+	r := syntheticRow(t, 5, `{"flag_name":"payload","receiver":"initial"}`, `{"flag_identity_available":false,"flag_name":null,"receiver":"initial"}`)
+	if r.State != "unknown" || r.Counts != [3]int{1, 0, 1} {
+		t.Fatal(r)
+	}
+	r = syntheticRow(t, 2, `{"value":"1"}`, `{"value":1}`)
+	if r.State != "unsatisfied" {
+		t.Fatal(r)
+	}
+}
+func TestSyntheticParserRejectsDuplicateAndBounds(t *testing.T) {
+	for _, raw := range [][]byte{[]byte(`{"x":1,"x":2}`), []byte(`null null`), []byte{0xff}, []byte(strings.Repeat("[", 34) + "0" + strings.Repeat("]", 34)), []byte(strings.Repeat(" ", inputCap+1))} {
+		if _, err := parse(raw); err == nil {
+			t.Fatal("accepted invalid bounded JSON")
+		}
+	}
+	n := syntheticNode(t, `{"x":null,"y":[],"z":{}}`)
+	if string(rawValue(n)) != `{"x":null,"y":[],"z":{}}` {
+		t.Fatal("changed null/empty")
+	}
+}
+func syntheticSaved(t *testing.T) (*node, [46]fixture) {
+	t.Helper()
+	fixtures := [46]fixture{}
+	rows := make([]any, 0, 138)
+	ordinal := 0
+	for r := 0; r < 9; r++ {
+		for f := 0; f < fixtureCounts[r]; f++ {
+			fixtures[ordinal] = fixture{r, f, syntheticNode(t, `{"value":"synthetic"}`)}
+			ordinal++
+			for c := 0; c < 3; c++ {
+				rows = append(rows, map[string]any{"request_index": r, "fixture_index": f, "candidate_index": c, "request_id": requestIDs[r], "supported": true, "panicked": false, "label": nil, "weight": nil, "qualified": nil, "Got": map[string]any{"value": "synthetic"}})
+			}
+		}
+	}
+	root := map[string]any{"schema": "riido-next60-catalog9-native-observation-v1", "state": "complete", "catalog_sha256": catalogSHA, "catalog_bytes": catalogBytes, "catalog_frozen_field": false, "planned_requests": 9, "planned_inputs": 46, "planned_observations": 138, "held_requests": 1, "held_inputs": 6, "model_calls": 0, "fit_calls": 0, "comparisons_performed": false, "labels_assigned": false, "weights_assigned": false, "roles_assigned": false, "training_ready": false, "incomplete_counts_unknown": false, "failure_code": nil, "uninstrumented_nested_calls": nil, "startup_original_calls": nil, "counters": map[string]any{"dispatch_reserved": 138, "dispatch_returned": 138, "observations_completed": 138, "panics": 0}, "rows": rows}
+	raw, err := json.Marshal(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return syntheticNode(t, string(raw)), fixtures
+}
+func TestSyntheticExact138PositionAndAuthorityBinding(t *testing.T) {
+	root, fixtures := syntheticSaved(t)
+	rows, err := validateSaved(root, fixtures)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, got := range rows {
+		c := comparer{request: fixtures[i/3].request, rootGot: got, row: &rowComparison{}}
+		if err := c.compare("", fixtures[i/3].want, got, true, ""); err != nil || state(c.row.Counts) != "satisfied" {
+			t.Fatal(i, err)
+		}
+	}
+	for _, mutation := range []string{"position", "authority", "presence", "rowcount"} {
+		t.Run(mutation, func(t *testing.T) {
+			root, fixtures := syntheticSaved(t)
+			switch mutation {
+			case "position":
+				list, _ := root.get("rows")
+				value, _ := list.items[0].get("candidate_index")
+				value.scalar = json.Number("1")
+			case "authority":
+				value, _ := root.get("labels_assigned")
+				value.scalar = true
+			case "presence":
+				list, _ := root.get("rows")
+				row := list.items[0]
+				for i, field := range row.fields {
+					if field.key == "label" {
+						row.fields = append(row.fields[:i], row.fields[i+1:]...)
+						break
+					}
+				}
+			case "rowcount":
+				list, _ := root.get("rows")
+				list.items = list.items[:137]
+			}
+			if _, err := validateSaved(root, fixtures); err == nil {
+				t.Fatal("accepted forged positions/authority/presence/count")
+			}
+		})
+	}
+}
+func TestSyntheticHashAndFreshOutput(t *testing.T) {
+	if _, err := compareInputs([]byte(`{}`), []byte(`{}`), strings.Repeat("0", 64)); err == nil {
+		t.Fatal("accepted wrong catalog/hash")
+	}
+	if validSHA(strings.Repeat("A", 64)) || validSHA("short") {
+		t.Fatal("bad digest accepted")
+	}
+	file := filepath.Join(t.TempDir(), "result.json")
+	if err := writeFresh(file, []byte("{}\n")); err != nil {
+		t.Fatal(err)
+	}
+	if err := writeFresh(file, []byte("changed")); err == nil {
+		t.Fatal("overwrote old result")
+	}
+	data, err := os.ReadFile(file)
+	if err != nil || string(data) != "{}\n" {
+		t.Fatal("altered original output")
+	}
+	if err := writeFresh(filepath.Join(t.TempDir(), "large"), make([]byte, outputCap+1)); err == nil {
+		t.Fatal("ignored output cap")
+	}
+}
+
+func setSyntheticField(n *node, key string, value *node) {
+	for i := range n.fields {
+		if n.fields[i].key == key {
+			n.fields[i].value = value
+			return
+		}
+	}
+	n.fields = append(n.fields, member{key, value})
+}
+func syntheticAvailability(n *node) {
+	if n.kind == 'o' {
+		for _, field := range n.fields {
+			if (field.key == "error" || field.key == "getter_error" || field.key == "setter_error") && field.value.kind == 'o' {
+				setSyntheticField(field.value, "available", marker(true))
+				setSyntheticField(field.value, "kind_available", marker(true))
+			}
+			syntheticAvailability(field.value)
+		}
+	} else if n.kind == 'a' {
+		for _, item := range n.items {
+			syntheticAvailability(item)
+		}
+	}
+}
+func TestSyntheticFullLiteralCatalogControl(t *testing.T) {
+	// Wants copied into synthetic Got are projection/size controls only. They
+	// are not implementation runs, source-faithful candidates or model evidence.
+	catalogPath := os.Getenv("RIIDO_CATALOG9_TEST_CATALOG")
+	if catalogPath == "" {
+		t.Fatal("explicit literal catalog path required for synthetic control")
+	}
+	raw, err := readBounded(catalogPath)
+	if err != nil || hash(raw) != catalogSHA {
+		t.Fatal("literal catalog binding", err)
+	}
+	catalog, err := parse(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fixtures, err := catalogFixtures(catalog)
+	if err != nil {
+		t.Fatal(err)
+	}
+	saved, _ := syntheticSaved(t)
+	rows, _ := saved.get("rows")
+	for i, row := range rows.items {
+		got, err := parse(rawValue(fixtures[i/3].want))
+		if err != nil {
+			t.Fatal(err)
+		}
+		syntheticAvailability(got)
+		if fixtures[i/3].request == 0 {
+			setSyntheticField(got, "getter_available", marker(true))
+		}
+		if fixtures[i/3].request == 5 {
+			setSyntheticField(got, "flag_identity_available", marker(true))
+		}
+		setSyntheticField(row, "Got", got)
+	}
+	savedRaw := rawValue(saved)
+	out, err := compareInputs(raw, savedRaw, hash(savedRaw))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out.Counts != [4]int{138, 138, 0, 0} || out.Qualified || out.LabelsAssigned {
+		t.Fatal("synthetic projection failed")
+	}
+	for _, candidate := range out.Candidates {
+		if len(candidate.Vector) != fixtureCounts[candidate.Position[0]] || candidate.State != "satisfied" {
+			t.Fatal("candidate vector shape")
+		}
+	}
+	encoded, err := json.Marshal(out)
+	if err != nil || len(encoded)+1 > outputCap {
+		t.Fatal("full literal synthetic report cap", len(encoded), err)
+	}
+	t.Logf("synthetic_only_rows=138 predicates=%d compact_report_bytes=%d", out.PredicateCounts[0], len(encoded)+1)
+	// A known mismatch and a simultaneous missing Wanted field remain distinct.
+	got, _ := rows.items[0].get("Got")
+	setSyntheticField(got, "stored_values", marker([]string{"wrong"}))
+	for i, field := range got.fields {
+		if field.key == "key_present" {
+			got.fields = append(got.fields[:i], got.fields[i+1:]...)
+			break
+		}
+	}
+	savedRaw = rawValue(saved)
+	out, err = compareInputs(raw, savedRaw, hash(savedRaw))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out.Rows[0].State != "unsatisfied" || out.Rows[0].Counts[1] == 0 || out.Rows[0].Counts[2] == 0 {
+		t.Fatal("false/unknown collapsed")
+	}
+	candidate := out.Candidates[0]
+	if len(candidate.Counterexamples) != 1 || candidate.Counterexamples[0] != 0 || len(candidate.Unknowns) != 1 || candidate.Unknowns[0] != 0 || candidate.State != "unsatisfied" {
+		t.Fatal("lost concurrent counterexample/unknown position")
+	}
+}

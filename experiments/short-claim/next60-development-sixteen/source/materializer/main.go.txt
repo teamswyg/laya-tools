@@ -1,0 +1,395 @@
+// Materializes adopted public development annotations. No original, oracle,
+// model, reader, feature, score, projection or fit import/call is present.
+package main
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"flag"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"runtime"
+	"runtime/debug"
+	"strings"
+	"unicode/utf8"
+)
+
+const previousSHA = "1ee18e02958953452bf4f4c0e072652aede266c095f1866a6e71209058b1c5bc"
+const previousBytes = 9619
+const catalogSHA = "c7b0446710a6d629a584aac16f3723d439330a9684ac299491aa430edf33f80c"
+const catalogBytes = 106576
+const qualificationSHA = "b2d5a732d7f5d9238883060a881fc0c8b21b08c5b26004a0c27ef374be0aa9d4"
+const qualificationBytes = 16030
+const rowSchema = "riido-finite-development-request-row-v1"
+const role = "development_train"
+const featurePolicy = "request_and_candidates_text_only"
+const description = "Only this request frozen finite inputs; saved first observation comparison supports these candidate positions. No all-input or unseen-source guarantee."
+const maxData = 128 << 10
+const maxRow = 16 << 10
+const heapLimit = 256 << 20
+
+var previousIDs = [7]string{"next60-pflag-native-ipnet", "next60-mapstructure-native-or", "next60-humanize-precise-ftoa", "next60-humanize-strict-comma", "next60-mapstructure-key-collision", "next60-pflag-map-snapshot", "next60-humanize-fractional-bytes"}
+var requestIDs = [9]string{"go53-pflag-annotation-ownership", "go53-pflag-bounded-count", "go53-pflag-single-assignment", "go53-pflag-sensitive-default", "go53-pflag-deferred-function", "go53-pflag-text-error-value", "go53-mapstructure-hooks-errors-is", "go53-mapstructure-remain-conflict", "go53-mapstructure-tag-precedence"}
+var fixtureCounts = [9]int{5, 6, 5, 5, 5, 5, 5, 5, 5}
+var candidateIDs = [3]string{"original", "authored_reference", "authored_negative"}
+
+type Candidate struct {
+	ID     string `json:"metadata_id"`
+	Text   string `json:"text"`
+	Label  bool   `json:"label"`
+	Weight int    `json:"sample_weight"`
+}
+type FiniteScope struct {
+	Inputs       int    `json:"input_count"`
+	Observations int    `json:"candidate_observations"`
+	Description  string `json:"description"`
+	AllInputs    bool   `json:"all_input_guarantee"`
+	Unseen       bool   `json:"unseen_source_guarantee"`
+}
+type Row struct {
+	Schema        string      `json:"schema"`
+	StableID      string      `json:"stable_id"`
+	Request       string      `json:"request"`
+	Candidates    []Candidate `json:"candidates"`
+	Role          string      `json:"role"`
+	Group         int         `json:"whole_group"`
+	Family        string      `json:"source_family"`
+	Revision      string      `json:"source_revision"`
+	Scope         FiniteScope `json:"finite_scope"`
+	TextRevision  string      `json:"text_revision"`
+	FeaturePolicy string      `json:"feature_policy"`
+}
+
+// Projections read only the exact, fully pinned artifacts' required fields.
+// Omitted metadata is not recomputed or promoted to model text or supervision.
+type caption struct {
+	Index int    `json:"candidate_index"`
+	Text  string `json:"text"`
+}
+type proposal struct {
+	Index    int       `json:"request_index"`
+	ID       string    `json:"id"`
+	Group    int       `json:"group_id"`
+	Request  string    `json:"model_request_proposal"`
+	Order    []string  `json:"candidate_order"`
+	Captions []caption `json:"caption_proposals"`
+}
+type catalog struct {
+	Schema   string     `json:"schema"`
+	Requests []proposal `json:"requests"`
+}
+type adoptedCandidate struct {
+	Index  int    `json:"candidate_index"`
+	ID     string `json:"candidate_id"`
+	Label  *bool  `json:"label"`
+	Weight int    `json:"sample_weight"`
+}
+type adoptedRequest struct {
+	Index      int                `json:"request_index"`
+	ID         string             `json:"request_id"`
+	StableID   string             `json:"stable_id"`
+	Group      int                `json:"whole_group"`
+	Family     string             `json:"source_family"`
+	Revision   string             `json:"source_revision"`
+	Fixtures   int                `json:"fixture_count"`
+	Candidates []adoptedCandidate `json:"candidates"`
+}
+type totals struct {
+	Requests     int   `json:"qualified_requests"`
+	Labels       int   `json:"candidate_labels"`
+	Positive     int   `json:"positive_labels"`
+	Negative     int   `json:"negative_labels"`
+	Inputs       int   `json:"finite_inputs"`
+	Observations int   `json:"candidate_observations"`
+	NewGroups    int   `json:"new_unseen_source_groups"`
+	Groups       []int `json:"connected_groups_reused"`
+}
+type qualification struct {
+	Schema         string           `json:"schema"`
+	State          string           `json:"state"`
+	Actor          string           `json:"actor"`
+	Role           string           `json:"role"`
+	CatalogSHA     string           `json:"catalog_sha256"`
+	UnknownToFalse bool             `json:"unknown_to_false_conversion"`
+	Requests       int              `json:"qualified_requests"`
+	Labels         int              `json:"candidate_labels"`
+	Positive       int              `json:"positive_labels"`
+	Negative       int              `json:"negative_labels"`
+	UnitWeights    bool             `json:"unit_sample_weights"`
+	Inputs         int              `json:"finite_inputs"`
+	Observations   int              `json:"candidate_observations"`
+	Rows           []adoptedRequest `json:"requests"`
+	Combined       totals           `json:"combined_round"`
+}
+type Summary struct {
+	Schema              string `json:"schema"`
+	State               string `json:"state"`
+	FailureCode         string `json:"failure_code"`
+	PinReadsCompleted   int    `json:"pin_reads_completed"`
+	PreviousRows        int    `json:"previous_rows_preserved"`
+	RowsAppended        int    `json:"rows_appended"`
+	Requests            int    `json:"requests"`
+	Labels              int    `json:"candidate_labels"`
+	Positive            int    `json:"positive_labels"`
+	Negative            int    `json:"negative_labels"`
+	Inputs              int    `json:"finite_inputs"`
+	Observations        int    `json:"candidate_observations"`
+	PreviousPrefixExact bool   `json:"previous_seven_prefix_byte_exact"`
+	Bytes               int    `json:"output_bytes"`
+	SHA                 string `json:"output_sha256"`
+	OutputReserved      bool   `json:"output_exclusive_reserved"`
+	BytesWritten        int    `json:"output_bytes_written"`
+	FileSynced          bool   `json:"output_file_synced"`
+	DirectorySynced     bool   `json:"output_parent_directory_synced"`
+	NewQualification    bool   `json:"new_qualification_assigned"`
+	UnknownToFalse      bool   `json:"unknown_to_false_conversion"`
+	ReaderCalls         int    `json:"reader_calls"`
+	OriginalCalls       int    `json:"original_calls"`
+	OracleCalls         int    `json:"oracle_calls"`
+	Features            int    `json:"feature_calls"`
+	Score               int    `json:"score_calls"`
+	Project             int    `json:"project_calls"`
+	Fit                 int    `json:"fit_calls"`
+	Model               int    `json:"model_calls"`
+	TrainingReady       bool   `json:"training_ready"`
+}
+
+func invalid(s string) error   { return errors.New(s) }
+func digest(raw []byte) string { h := sha256.Sum256(raw); return hex.EncodeToString(h[:]) }
+func pinned(file, want string, size int) ([]byte, os.FileInfo, error) {
+	st, e := os.Lstat(file)
+	if e != nil || !st.Mode().IsRegular() || st.Size() != int64(size) || size < 1 || size > maxData {
+		return nil, nil, invalid("materializer_input_regular_or_bounds")
+	}
+	f, e := os.Open(file)
+	if e != nil {
+		return nil, nil, invalid("materializer_input_open")
+	}
+	defer f.Close()
+	now, e := f.Stat()
+	if e != nil || !os.SameFile(st, now) || now.Size() != st.Size() {
+		return nil, nil, invalid("materializer_input_changed")
+	}
+	raw, e := io.ReadAll(io.LimitReader(f, int64(size)+1))
+	after, se := f.Stat()
+	if e != nil || se != nil || len(raw) != size || after.Size() != st.Size() || !os.SameFile(st, after) {
+		return nil, nil, invalid("materializer_input_read")
+	}
+	if digest(raw) != want {
+		return nil, nil, invalid("materializer_input_pin")
+	}
+	return raw, st, nil
+}
+func decodeProjection(raw []byte, v any) error {
+	if !utf8.Valid(raw) {
+		return invalid("materializer_input_json")
+	}
+	d := json.NewDecoder(bytes.NewReader(raw))
+	if d.Decode(v) != nil {
+		return invalid("materializer_input_json")
+	}
+	var trailing any
+	if d.Decode(&trailing) != io.EOF {
+		return invalid("materializer_input_json")
+	}
+	return nil
+}
+func boundedText(s string) bool {
+	return s != "" && len(s) <= 512 && utf8.ValidString(s) && len(strings.Fields(s)) <= 32
+}
+func inspectPrefix(previous []byte) (int, int, int, error) {
+	if len(previous) < 1 || len(previous) > maxData || previous[len(previous)-1] != '\n' || !utf8.Valid(previous) {
+		return 0, 0, 0, invalid("materializer_previous_shape")
+	}
+	lines := bytes.Split(previous[:len(previous)-1], []byte{'\n'})
+	if len(lines) != 7 {
+		return 0, 0, 0, invalid("materializer_previous_count")
+	}
+	labels, inputs, observations := 0, 0, 0
+	for i, line := range lines {
+		var r Row
+		if len(line) == 0 || len(line) > maxRow || decodeProjection(line, &r) != nil || r.Schema != rowSchema || r.StableID != previousIDs[i] || r.Role != role || r.FeaturePolicy != featurePolicy || r.Scope.AllInputs || r.Scope.Unseen || len(r.Candidates) < 2 || len(r.Candidates) > 8 {
+			return 0, 0, 0, invalid("materializer_previous_shape")
+		}
+		labels += len(r.Candidates)
+		inputs += r.Scope.Inputs
+		observations += r.Scope.Observations
+	}
+	if labels != 20 || inputs != 34 || observations != 98 {
+		return 0, 0, 0, invalid("materializer_previous_totals")
+	}
+	return labels, inputs, observations, nil
+}
+
+// compose moves Root's existing labels and metadata; it never derives truth
+// from Wants, Gets, captions, candidate position, unknowns or comparison scores.
+func compose(previous []byte, c catalog, q qualification) ([]byte, Summary, error) {
+	out := Summary{Schema: "riido-sixteen-development-materialization-v1", State: "failed"}
+	oldLabels, oldInputs, oldObs, e := inspectPrefix(previous)
+	if e != nil {
+		return nil, out, e
+	}
+	if c.Schema != "riido-next60-catalog10-literal-correction-proposal-v2" || len(c.Requests) != 10 {
+		return nil, out, invalid("materializer_catalog_shape")
+	}
+	if q.Schema != "riido-catalog9-root-finite-development-qualification-v1" || q.State != "qualified_for_finite_development_train_only" || q.Actor != "Root" || q.Role != role || q.CatalogSHA != catalogSHA || q.UnknownToFalse || q.Requests != 9 || q.Labels != 27 || q.Positive != 9 || q.Negative != 18 || !q.UnitWeights || q.Inputs != 46 || q.Observations != 138 || len(q.Rows) != 9 {
+		return nil, out, invalid("materializer_qualification_shape")
+	}
+	t := q.Combined
+	if t.Requests != 16 || t.Labels != 47 || t.Positive != 16 || t.Negative != 31 || t.Inputs != 80 || t.Observations != 236 || t.NewGroups != 0 || len(t.Groups) != 3 || t.Groups[0] != 76 || t.Groups[1] != 77 || t.Groups[2] != 78 {
+		return nil, out, invalid("materializer_combined_shape")
+	}
+	data := make([]byte, len(previous), maxData)
+	copy(data, previous)
+	for i, id := range requestIDs {
+		p, a := c.Requests[i], q.Rows[i]
+		group, family, revision := 77, "upstream53-cobra-pflag-connected", "c966cfef47379dcb01e7929504d66d94b540945b"
+		if i >= 6 {
+			group = 78
+			family = "upstream53-mapstructure"
+			revision = "52aa5c6dc1d27226460807054ca2107b2d54fb2d"
+		}
+		if p.Index != i || p.ID != id || p.Group != group || !boundedText(p.Request) || len(p.Order) != 3 || len(p.Captions) != 3 || a.Index != i || a.ID != id || a.StableID != "next60-"+id || a.Group != group || a.Family != family || a.Revision != revision || a.Fixtures != fixtureCounts[i] || len(a.Candidates) != 3 {
+			return nil, out, invalid("materializer_request_binding")
+		}
+		r := Row{Schema: rowSchema, StableID: a.StableID, Request: p.Request, Candidates: make([]Candidate, 3), Role: q.Role, Group: a.Group, Family: a.Family, Revision: a.Revision, Scope: FiniteScope{Inputs: a.Fixtures, Observations: a.Fixtures * 3, Description: description}, TextRevision: "catalog9-finite-v2", FeaturePolicy: featurePolicy}
+		for j, cid := range candidateIDs {
+			text, label := p.Captions[j], a.Candidates[j]
+			if p.Order[j] != cid || text.Index != j || !boundedText(text.Text) || label.Index != j || label.ID != cid || label.Label == nil || label.Weight != 1 || *label.Label != (j == 1) {
+				return nil, out, invalid("materializer_candidate_binding")
+			}
+			// The fixed boolean pattern is checked only for frozen adoption binding.
+			// Output labels come from the Root artifact, never from this position check.
+			r.Candidates[j] = Candidate{ID: label.ID, Text: text.Text, Label: *label.Label, Weight: label.Weight}
+		}
+		raw, e := json.Marshal(r)
+		if e != nil || len(raw) > maxRow || len(data)+len(raw)+1 > maxData {
+			return nil, out, invalid("materializer_output_bounds")
+		}
+		data = append(data, raw...)
+		data = append(data, '\n')
+		out.RowsAppended++
+	}
+	out.PreviousRows = 7
+	out.PreviousPrefixExact = bytes.HasPrefix(data, previous)
+	out.Requests = 16
+	out.Labels = oldLabels + q.Labels
+	out.Positive = 7 + q.Positive
+	out.Negative = 13 + q.Negative
+	out.Inputs = oldInputs + q.Inputs
+	out.Observations = oldObs + q.Observations
+	out.Bytes = len(data)
+	out.SHA = digest(data)
+	return data, out, nil
+}
+func writeExclusive(file string, raw []byte, out *Summary) error {
+	if !filepath.IsAbs(file) || filepath.Clean(file) != file || len(raw) > maxData || len(raw) == 0 {
+		return invalid("materializer_output_arguments")
+	}
+	parent := filepath.Dir(file)
+	st, e := os.Lstat(parent)
+	if e != nil || !st.IsDir() || st.Mode()&os.ModeSymlink != 0 {
+		return invalid("materializer_output_parent")
+	}
+	root, e := os.OpenRoot(parent)
+	if e != nil {
+		return invalid("materializer_output_parent")
+	}
+	defer root.Close()
+	f, e := root.OpenFile(filepath.Base(file), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if e != nil {
+		return invalid("materializer_output_exclusive")
+	}
+	out.OutputReserved = true
+	n, we := f.Write(raw)
+	out.BytesWritten = n
+	if we != nil || n != len(raw) {
+		f.Close()
+		return invalid("materializer_output_write")
+	}
+	if f.Sync() != nil {
+		f.Close()
+		return invalid("materializer_output_sync")
+	}
+	out.FileSynced = true
+	if f.Close() != nil {
+		return invalid("materializer_output_close")
+	}
+	d, e := os.Open(parent)
+	if e != nil {
+		return invalid("materializer_directory_sync")
+	}
+	defer d.Close()
+	now, e := d.Stat()
+	if e != nil || !os.SameFile(st, now) || d.Sync() != nil {
+		return invalid("materializer_directory_sync")
+	}
+	out.DirectorySynced = true
+	return nil
+}
+func run(previous, catalogFile, qualificationFile, file string) (out Summary, err error) {
+	out = Summary{Schema: "riido-sixteen-development-materialization-v1", State: "failed"}
+	names := [3]string{previous, catalogFile, qualificationFile}
+	shas := [3]string{previousSHA, catalogSHA, qualificationSHA}
+	sizes := [3]int{previousBytes, catalogBytes, qualificationBytes}
+	var raw [3][]byte
+	var info [3]os.FileInfo
+	for i := range raw {
+		raw[i], info[i], err = pinned(names[i], shas[i], sizes[i])
+		if err != nil {
+			return out, err
+		}
+		out.PinReadsCompleted++
+		for j := 0; j < i; j++ {
+			if os.SameFile(info[i], info[j]) {
+				return out, invalid("materializer_input_alias")
+			}
+		}
+	}
+	var c catalog
+	var q qualification
+	if decodeProjection(raw[1], &c) != nil || decodeProjection(raw[2], &q) != nil {
+		return out, invalid("materializer_input_json")
+	}
+	data, composed, e := compose(raw[0], c, q)
+	composed.PinReadsCompleted = out.PinReadsCompleted
+	out = composed
+	if e != nil {
+		return out, e
+	}
+	if err = writeExclusive(file, data, &out); err != nil {
+		return out, err
+	}
+	out.State = "complete"
+	return out, nil
+}
+func main() {
+	runtime.GOMAXPROCS(1)
+	debug.SetMemoryLimit(heapLimit)
+	f := flag.NewFlagSet("riido-sixteen-materializer", flag.ContinueOnError)
+	f.SetOutput(io.Discard)
+	previous := f.String("previous-data", "", "pinned previous seven rows")
+	catalog := f.String("catalog", "", "pinned literal proposal")
+	qualification := f.String("qualification", "", "pinned Root adoption")
+	outFile := f.String("out", "", "new exclusive JSONL path")
+	if f.Parse(os.Args[1:]) != nil || f.NArg() != 0 || *previous == "" || *catalog == "" || *qualification == "" || *outFile == "" {
+		fmt.Fprintln(os.Stderr, "materializer_arguments")
+		os.Exit(2)
+	}
+	out, e := run(*previous, *catalog, *qualification, *outFile)
+	if e != nil {
+		out.FailureCode = e.Error()
+		out.State = "failed"
+	}
+	if json.NewEncoder(os.Stdout).Encode(out) != nil {
+		os.Exit(1)
+	}
+	if e != nil {
+		os.Exit(1)
+	}
+}

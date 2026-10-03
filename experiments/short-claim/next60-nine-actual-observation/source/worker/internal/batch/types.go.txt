@@ -1,0 +1,277 @@
+// Package batch contains finite source-read adapter proposals. It observes only;
+// it never compares Wants, assigns labels, computes features, or runs models.
+package batch
+
+import (
+	"encoding/json"
+	"errors"
+	"github.com/spf13/pflag"
+	"strconv"
+)
+
+type Catalog struct {
+	Schema   string    `json:"schema"`
+	Frozen   bool      `json:"frozen"`
+	Requests []Request `json:"requests"`
+}
+type Request struct {
+	Index          int       `json:"request_index"`
+	ID             string    `json:"id"`
+	Group          int       `json:"group_id"`
+	Family         string    `json:"family"`
+	CandidateOrder []string  `json:"candidate_order"`
+	Captions       []Caption `json:"caption_proposals"`
+	Fixtures       []Fixture `json:"fixtures"`
+}
+type Caption struct {
+	Index int    `json:"candidate_index"`
+	Text  string `json:"text"`
+}
+type Fixture struct {
+	Index int             `json:"fixture_index"`
+	Input json.RawMessage `json:"input"`
+}
+type Op struct {
+	Kind   string   `json:"kind"`
+	Index  int      `json:"index"`
+	Value  string   `json:"value"`
+	Values []string `json:"values"`
+}
+type HookInput struct {
+	ID     int     `json:"id"`
+	Result *int    `json:"result"`
+	Error  *string `json:"error"`
+}
+type Input struct {
+	RegisteredValues  []string       `json:"registered_values"`
+	ReplacementValues []string       `json:"replacement_values"`
+	Operations        []Op           `json:"operations"`
+	SetName           string         `json:"set_name"`
+	GetName           string         `json:"get_name"`
+	Start             int            `json:"registered_then_start"`
+	Value             string         `json:"value"`
+	OptIn             bool           `json:"opt_in"`
+	Argv              []string       `json:"argv"`
+	Annotated         bool           `json:"annotated"`
+	AnnotatedFlags    []string       `json:"annotated_flags"`
+	Hidden            bool           `json:"hidden"`
+	NoOptDefVal       string         `json:"NoOptDefVal"`
+	Deferred          bool           `json:"deferred"`
+	Name              string         `json:"name"`
+	Hooks             []HookInput    `json:"hooks"`
+	Data              map[string]any `json:"data"`
+	Mode              string         `json:"mode"`
+	TagName           string         `json:"TagName"`
+	StructTag         string         `json:"struct_tag"`
+}
+type Call struct {
+	API      string `json:"api"`
+	Returned bool   `json:"returned"`
+}
+type TraceItem struct {
+	Hook  int `json:"hook"`
+	Input int `json:"input"`
+}
+type ErrorFields struct {
+	FlagName string `json:"flag_name,omitempty"`
+	Func     string `json:"Func,omitempty"`
+	Num      string `json:"Num,omitempty"`
+	Err      string `json:"Err,omitempty"`
+}
+type ErrorObservation struct {
+	Present         *bool        `json:"present"`
+	Kind            *string      `json:"kind"`
+	SentinelMatches []string     `json:"sentinel_matches"`
+	Fields          *ErrorFields `json:"fields"`
+	MessageObserved bool         `json:"message_observed"`
+	Message         *string      `json:"message"`
+	Available       bool         `json:"available"`
+	KindAvailable   bool         `json:"kind_available"`
+}
+type Record struct {
+	RequestIndex   int    `json:"request_index"`
+	FixtureIndex   int    `json:"fixture_index"`
+	CandidateIndex int    `json:"candidate_index"`
+	RequestID      string `json:"request_id"`
+	Supported      bool   `json:"supported"`
+	Panicked       bool   `json:"panicked"`
+	Got            any    `json:"Got"`
+	ExplicitCalls  []Call `json:"explicit_observer_calls"`
+	Label          *bool  `json:"label"`
+	Weight         *int   `json:"weight"`
+	Qualified      *bool  `json:"qualified"`
+}
+type Context struct {
+	Calls         [128]Call
+	CallCount     int
+	Sentinels     [5]error
+	Names         [5]string
+	SentinelCount int
+	TypedText     *LiteralTextCause
+	TypedHook     *LiteralHookCause
+}
+
+func ptr[T any](v T) *T { return &v }
+func call[T any](c *Context, api string, fn func() T) T {
+	if c.CallCount == len(c.Calls) {
+		panic("explicit_call_bounds")
+	}
+	i := c.CallCount
+	c.Calls[i] = Call{API: api}
+	c.CallCount++
+	result := fn()
+	c.Calls[i].Returned = true
+	return result
+}
+func (c *Context) sentinel(name, message string) error {
+	if c.SentinelCount == len(c.Sentinels) {
+		panic("sentinel_bounds")
+	}
+	e := errors.New(message)
+	c.Names[c.SentinelCount], c.Sentinels[c.SentinelCount] = name, e
+	c.SentinelCount++
+	return e
+}
+func copied(v []string) []string {
+	if v == nil {
+		return nil
+	}
+	out := make([]string, len(v))
+	copy(out, v)
+	return out
+}
+func newFlags(c *Context) *pflag.FlagSet {
+	return call(c, "pflag.NewFlagSet", func() *pflag.FlagSet { return pflag.NewFlagSet("finite-catalog9", pflag.ContinueOnError) })
+}
+func errorObservation(c *Context, e error) ErrorObservation {
+	out := ErrorObservation{Present: ptr(e != nil), SentinelMatches: make([]string, 0), Available: true}
+	if e == nil {
+		out.Kind = ptr("nil")
+		out.KindAvailable = true
+		return out
+	}
+	for i := 0; i < c.SentinelCount; i++ {
+		match := call(c, "errors.Is", func() bool { return errors.Is(e, c.Sentinels[i]) })
+		if match {
+			out.SentinelMatches = append(out.SentinelMatches, c.Names[i])
+		}
+	}
+	var absent *pflag.NotExistError
+	if call(c, "errors.As(pflag.NotExistError)", func() bool { return errors.As(e, &absent) }) {
+		out.Kind = ptr("pflag_not_exist")
+		out.KindAvailable = true
+		name := call(c, "pflag.NotExistError.GetSpecifiedName", func() string { return absent.GetSpecifiedName() })
+		out.Fields = &ErrorFields{FlagName: name}
+		return out
+	}
+	var missing *pflag.ValueRequiredError
+	if call(c, "errors.As(pflag.ValueRequiredError)", func() bool { return errors.As(e, &missing) }) {
+		out.Kind = ptr("pflag_value_required")
+		out.KindAvailable = true
+		name := call(c, "pflag.ValueRequiredError.GetSpecifiedName", func() string { return missing.GetSpecifiedName() })
+		out.Fields = &ErrorFields{FlagName: name}
+		return out
+	}
+	var num *strconv.NumError
+	if call(c, "errors.As(strconv.NumError)", func() bool { return errors.As(e, &num) }) {
+		out.Kind = ptr("strconv_num_error")
+		out.KindAvailable = true
+		cause := ""
+		if call(c, "errors.Is(strconv.ErrRange)", func() bool { return errors.Is(e, strconv.ErrRange) }) {
+			cause = "strconv.ErrRange"
+			out.SentinelMatches = append(out.SentinelMatches, cause)
+		}
+		out.Fields = &ErrorFields{Func: num.Func, Num: num.Num, Err: cause}
+		return out
+	}
+	switch v := e.(type) {
+	case *RedactedTextError:
+		out.Kind = ptr("redacted_text")
+		out.KindAvailable = true
+		_ = v
+	case interface{ Unwrap() []error }:
+		out.Kind = ptr("joined_causes")
+		out.KindAvailable = true
+	default:
+		// Owned sentinel identity is designated, not inferred from Error().
+		for i := 0; i < c.SentinelCount; i++ {
+			if e == c.Sentinels[i] {
+				kinds := [5]string{}
+				for j := 0; j < c.SentinelCount; j++ {
+					switch c.Names[j] {
+					case "ErrCountRange":
+						kinds[j] = "count_range"
+					case "ErrDuplicateAssignment":
+						kinds[j] = "duplicate_assignment"
+					case "ErrCallback":
+						kinds[j] = "callback"
+					case "ErrAnnotationFlagUnknown":
+						kinds[j] = "annotation_flag_unknown"
+					case "ErrNoHooks":
+						kinds[j] = "no_hooks"
+					case "ErrRemainConflict":
+						kinds[j] = "remain_conflict"
+					}
+				}
+				if kinds[i] != "" {
+					out.Kind = ptr(kinds[i])
+					out.KindAvailable = true
+				}
+			}
+		}
+	}
+	if !out.KindAvailable {
+		var invalid *pflag.InvalidValueError
+		if call(c, "errors.As(pflag.InvalidValueError)", func() bool { return errors.As(e, &invalid) }) {
+			out.Kind = ptr("pflag_invalid_value")
+			out.KindAvailable = true
+		}
+	}
+	// Unclassified original error kind remains null/unavailable. Error presence
+	// and designated Is/As results remain independent known observables.
+	return out
+}
+func unavailableError() ErrorObservation { return ErrorObservation{} }
+
+func Observe(r Request, f Fixture, candidate int) (out Record) {
+	out = Record{RequestIndex: r.Index, FixtureIndex: f.Index, CandidateIndex: candidate, RequestID: r.ID}
+	ctx := Context{}
+	defer func() {
+		if recover() != nil {
+			out.Panicked = true
+			out.Supported = false
+			out.Got = nil
+		}
+		out.ExplicitCalls = make([]Call, ctx.CallCount)
+		copy(out.ExplicitCalls, ctx.Calls[:ctx.CallCount])
+	}()
+	if candidate < 0 || candidate > 2 || r.Index < 0 || r.Index > 8 {
+		return out
+	}
+	var in Input
+	if json.Unmarshal(f.Input, &in) != nil {
+		return out
+	}
+	out.Supported = true
+	switch r.Index {
+	case 0:
+		out.Got = annotation(&ctx, in, f.Index, candidate)
+	case 1:
+		out.Got = count(&ctx, in, candidate)
+	case 2:
+		out.Got = assignment(&ctx, in, f.Index, candidate)
+	case 3:
+		out.Got = help(&ctx, in, candidate)
+	case 4:
+		out.Got = callbacks(&ctx, in, candidate)
+	case 5:
+		out.Got = text(&ctx, in, candidate)
+	case 6:
+		out.Got = hooks(&ctx, in, candidate)
+	case 7:
+		out.Got = remain(&ctx, in, f.Index, candidate)
+	case 8:
+		out.Got = tags(&ctx, in, candidate)
+	}
+	return out
+}

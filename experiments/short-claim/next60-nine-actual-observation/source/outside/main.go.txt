@@ -1,0 +1,727 @@
+// Source-only outside controller proposal; it imports no original candidate.
+// Root must independently adopt and bind its frozen source/rights/compiler/
+// resource evidence. Hash equality here is not approval of those conclusions.
+package main
+
+import (
+	"crypto/sha256"
+	"debug/buildinfo"
+	"debug/macho"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"flag"
+	"fmt"
+	"io"
+	"math"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
+	"runtime/debug"
+	"strconv"
+	"strings"
+	"syscall"
+	"time"
+
+	"example.com/riido-catalog9-outside/internal/protocol"
+)
+
+const binaryCap = 8 << 20
+const evidenceCap = 2 << 20
+const configCap = 128 << 10
+const receiptCap = 64 << 10
+const heapLimit = 256 << 20
+const stdoutCap = 4096
+const stderrCap = 128 << 10
+const schema = "riido-next60-catalog9-outside-config-v1"
+
+type Pin struct {
+	ID    string
+	Path  string
+	Bytes int
+	SHA   string
+}
+type Config struct {
+	Directory                   string
+	Attempt                     string
+	Worker, Self, Catalog, Time Pin
+	Evidence                    []Pin
+	Wall                        int
+}
+type PinFact struct {
+	ID       string `json:"id"`
+	Bytes    int    `json:"bytes"`
+	SHA      string `json:"sha256"`
+	Verified bool   `json:"verified"`
+}
+type Process struct {
+	StartAttempts      int     `json:"start_attempts"`
+	StartSucceeded     bool    `json:"start_succeeded"`
+	WaitAttempts       int     `json:"wait_attempts"`
+	WaitReturned       bool    `json:"wait_returned"`
+	Reaped             bool    `json:"started_process_reaped"`
+	ExitCode           *int    `json:"exit_code"`
+	DeadlineExceeded   bool    `json:"deadline_exceeded"`
+	CaptureCapExceeded bool    `json:"capture_cap_exceeded"`
+	GroupKillAttempted bool    `json:"group_kill_attempted"`
+	GroupKillSucceeded *bool   `json:"group_kill_succeeded"`
+	WallSeconds        float64 `json:"controller_start_wait_wall_seconds"`
+}
+type Metrics struct {
+	MaximumRSSBytes *int64   `json:"darwin_maximum_resident_set_size_bytes"`
+	RealSeconds     *float64 `json:"time_real_seconds"`
+	UserSeconds     *float64 `json:"time_user_seconds"`
+	SystemSeconds   *float64 `json:"time_system_seconds"`
+	Valid           bool     `json:"valid"`
+	Scope           string   `json:"scope"`
+}
+type Artifact struct {
+	Name      string `json:"name"`
+	Bytes     int    `json:"bytes"`
+	SHA       string `json:"sha256"`
+	ReadValid bool   `json:"read_valid"`
+}
+type Receipt struct {
+	Schema                         string            `json:"schema"`
+	State                          string            `json:"state"`
+	FailureCode                    *string           `json:"failure_code"`
+	ConfigSHA                      string            `json:"config_sha256"`
+	Pins                           []PinFact         `json:"pins"`
+	StaticBuildInfoValid           bool              `json:"static_build_info_valid"`
+	EvidenceHashesVerified         bool              `json:"external_root_evidence_hashes_verified"`
+	EvidenceConclusionsInterpreted bool              `json:"external_root_evidence_conclusions_interpreted"`
+	Process                        Process           `json:"process"`
+	Metrics                        Metrics           `json:"metrics"`
+	Artifacts                      []Artifact        `json:"artifacts"`
+	Journal                        *protocol.Journal `json:"saved_journal_prefix"`
+	JournalValid                   bool              `json:"journal_fully_valid"`
+	WorkerResult                   *protocol.Result  `json:"worker_result_structure"`
+	WorkerSummary                  *protocol.Result  `json:"worker_stdout_summary"`
+	StructuralCompletion           bool              `json:"structural_completion"`
+	ActualObservationCount         *int              `json:"actual_completed_observation_count"`
+	IncompleteActualCountsUnknown  bool              `json:"incomplete_actual_counts_unknown"`
+	OriginalStartupCalls           *int              `json:"original_startup_calls"`
+	OriginalNestedCalls            *int              `json:"original_nested_calls"`
+	CaptureStdoutBytes             int               `json:"capture_stdout_bytes"`
+	CaptureStderrBytes             int               `json:"capture_stderr_bytes"`
+	SourceBindingsStillMatch       bool              `json:"post_wait_source_bindings_still_match"`
+	Controls                       string            `json:"controls"`
+	ContinuousRSSHardLimit         bool              `json:"continuous_rss_hard_limit"`
+	CPUQuotaOrAffinity             bool              `json:"cpu_quota_or_affinity"`
+	Comparisons                    bool              `json:"Want_comparisons_performed"`
+	Labels                         bool              `json:"labels_assigned"`
+	Roles                          bool              `json:"roles_assigned"`
+	Weights                        bool              `json:"weights_assigned"`
+	TrainingReady                  bool              `json:"training_ready"`
+	Models                         int               `json:"model_calls"`
+	Fits                           int               `json:"fit_calls"`
+	AutomaticRetry                 bool              `json:"automatic_retry"`
+}
+
+func failure(s string) error { return errors.New(s) }
+func fixedCode(e error) string {
+	if e == nil {
+		return ""
+	}
+	s := e.Error()
+	allowed := [14]string{"catalog9_outside_config_invalid", "catalog9_outside_pin_invalid", "catalog9_outside_build_invalid",
+		"catalog9_outside_path_invalid", "catalog9_outside_output_invalid", "catalog9_outside_start_failed",
+		"catalog9_outside_wait_failed", "catalog9_outside_deadline", "catalog9_outside_capture_cap",
+		"catalog9_outside_worker_artifacts_invalid", "catalog9_outside_worker_protocol_invalid",
+		"catalog9_outside_metrics_invalid", "catalog9_outside_rss_limit", "catalog9_outside_bindings_changed"}
+	for _, a := range allowed {
+		if s == a {
+			return a
+		}
+	}
+	return "catalog9_outside_output_invalid"
+}
+func path(s string) bool { return s != "" && filepath.IsAbs(s) && filepath.Clean(s) == s }
+func contains(parent, child string) bool {
+	rel, e := filepath.Rel(parent, child)
+	return e == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
+}
+func regularRead(path string, cap int) ([]byte, os.FileInfo, error) {
+	st, e := os.Lstat(path)
+	if e != nil || !st.Mode().IsRegular() || st.Size() < 0 || st.Size() > int64(cap) {
+		return nil, nil, failure("catalog9_outside_pin_invalid")
+	}
+	f, e := os.Open(path)
+	if e != nil {
+		return nil, nil, failure("catalog9_outside_pin_invalid")
+	}
+	defer f.Close()
+	now, e := f.Stat()
+	if e != nil || !now.Mode().IsRegular() || !os.SameFile(st, now) || now.Size() != st.Size() {
+		return nil, nil, failure("catalog9_outside_pin_invalid")
+	}
+	raw, e := io.ReadAll(io.LimitReader(f, int64(cap)+1))
+	after, se := f.Stat()
+	if e != nil || se != nil || len(raw) > cap || int64(len(raw)) != st.Size() || after.Size() != st.Size() || !os.SameFile(st, after) {
+		return nil, nil, failure("catalog9_outside_pin_invalid")
+	}
+	return raw, st, nil
+}
+func sum(raw []byte) string { s := sha256.Sum256(raw); return hex.EncodeToString(s[:]) }
+func verify(p Pin, cap int) (PinFact, os.FileInfo, error) {
+	fact := PinFact{ID: p.ID, Bytes: p.Bytes, SHA: p.SHA}
+	if p.ID == "" || !path(p.Path) || p.Bytes <= 0 || p.Bytes > cap || !protocol.SHA(p.SHA) {
+		return fact, nil, failure("catalog9_outside_pin_invalid")
+	}
+	raw, st, e := regularRead(p.Path, cap)
+	if e != nil || len(raw) != p.Bytes || sum(raw) != p.SHA {
+		return fact, nil, failure("catalog9_outside_pin_invalid")
+	}
+	fact.Verified = true
+	return fact, st, nil
+}
+func pin(raw []byte) (Pin, error) {
+	v, e := protocol.Object(raw, []string{"id", "path", "bytes", "sha256"})
+	if e != nil {
+		return Pin{}, failure("catalog9_outside_config_invalid")
+	}
+	var p Pin
+	p.ID, e = protocol.String(v[0])
+	if e != nil {
+		return p, failure("catalog9_outside_config_invalid")
+	}
+	p.Path, e = protocol.String(v[1])
+	if e != nil {
+		return p, failure("catalog9_outside_config_invalid")
+	}
+	p.Bytes, e = protocol.Int(v[2])
+	if e != nil {
+		return p, failure("catalog9_outside_config_invalid")
+	}
+	p.SHA, e = protocol.String(v[3])
+	if e != nil {
+		return p, failure("catalog9_outside_config_invalid")
+	}
+	return p, nil
+}
+func readConfig(file, sha, out string) (Config, error) {
+	var c Config
+	raw, _, e := regularRead(file, configCap)
+	if e != nil || !protocol.SHA(sha) || sum(raw) != sha {
+		return c, failure("catalog9_outside_config_invalid")
+	}
+	v, e := protocol.Object(raw, []string{"schema", "controller_directory", "worker_attempt_directory", "worker_binary",
+		"controller_binary", "catalog", "time_binary", "root_receipts", "max_wall_seconds",
+		"max_rss_bytes", "heap_limit_bytes", "max_stdout_bytes", "max_stderr_bytes"})
+	if e != nil {
+		return c, failure("catalog9_outside_config_invalid")
+	}
+	s, e := protocol.String(v[0])
+	if e != nil || s != schema {
+		return c, failure("catalog9_outside_config_invalid")
+	}
+	c.Directory, e = protocol.String(v[1])
+	if e != nil || c.Directory != out || !path(c.Directory) {
+		return c, failure("catalog9_outside_config_invalid")
+	}
+	c.Attempt, e = protocol.String(v[2])
+	if e != nil || !path(c.Attempt) || contains(c.Directory, c.Attempt) || contains(c.Attempt, c.Directory) {
+		return c, failure("catalog9_outside_path_invalid")
+	}
+	pins := [4]*Pin{&c.Worker, &c.Self, &c.Catalog, &c.Time}
+	for i, p := range pins {
+		*p, e = pin(v[3+i])
+		if e != nil {
+			return c, e
+		}
+	}
+	if c.Worker.ID != "catalog9/worker" || c.Self.ID != "catalog9/controller" ||
+		c.Catalog.ID != "catalog9/catalog-v2" || c.Time.ID != "catalog9/system-time" ||
+		c.Catalog.Bytes != protocol.CatalogBytes || c.Catalog.SHA != protocol.CatalogSHA || c.Time.Path != "/usr/bin/time" {
+		return c, failure("catalog9_outside_config_invalid")
+	}
+	var evidence []json.RawMessage
+	if json.Unmarshal(v[7], &evidence) != nil || len(evidence) != 4 {
+		return c, failure("catalog9_outside_config_invalid")
+	}
+	required := [4]string{"catalog9/root-source", "catalog9/root-compiler", "catalog9/root-rights", "catalog9/root-resource"}
+	c.Evidence = make([]Pin, 4)
+	for i, r := range evidence {
+		c.Evidence[i], e = pin(r)
+		if e != nil || c.Evidence[i].ID != required[i] {
+			return c, failure("catalog9_outside_config_invalid")
+		}
+	}
+	c.Wall, e = protocol.Int(v[8])
+	if e != nil || c.Wall < 1 || c.Wall > 300 {
+		return c, failure("catalog9_outside_config_invalid")
+	}
+	expected := [4]int{heapLimit, heapLimit, stdoutCap, stderrCap}
+	for i, want := range expected {
+		n, e := protocol.Int(v[9+i])
+		if e != nil || n != want {
+			return c, failure("catalog9_outside_config_invalid")
+		}
+	}
+	executable, e := os.Executable()
+	if e != nil || filepath.Clean(executable) != c.Self.Path {
+		return c, failure("catalog9_outside_pin_invalid")
+	}
+	all := []Pin{c.Worker, c.Self, c.Catalog, c.Time}
+	all = append(all, c.Evidence...)
+	for i, p := range all {
+		if contains(c.Directory, p.Path) || contains(c.Attempt, p.Path) {
+			return c, failure("catalog9_outside_path_invalid")
+		}
+		for j := 0; j < i; j++ {
+			if p.Path == all[j].Path {
+				return c, failure("catalog9_outside_path_invalid")
+			}
+		}
+	}
+	if contains(c.Directory, file) || contains(c.Attempt, file) {
+		return c, failure("catalog9_outside_path_invalid")
+	}
+	return c, nil
+}
+func build(file, module, pkg string) error {
+	m, e := macho.Open(file)
+	if e != nil {
+		return failure("catalog9_outside_build_invalid")
+	}
+	ok := m.Magic == macho.Magic64 && m.Cpu == macho.CpuArm64 && m.Type == macho.TypeExec
+	m.Close()
+	if !ok {
+		return failure("catalog9_outside_build_invalid")
+	}
+	info, e := buildinfo.ReadFile(file)
+	if e != nil || info.GoVersion != "go1.27.1" || info.Path != pkg || info.Main.Path != module {
+		return failure("catalog9_outside_build_invalid")
+	}
+	required := [5][2]string{{"GOOS", "darwin"}, {"GOARCH", "arm64"}, {"CGO_ENABLED", "0"}, {"-trimpath", "true"}, {"-buildmode", "exe"}}
+	for _, r := range required {
+		found := false
+		for _, s := range info.Settings {
+			if s.Key == r[0] {
+				if s.Value != r[1] {
+					return failure("catalog9_outside_build_invalid")
+				}
+				found = true
+			}
+		}
+		if !found {
+			return failure("catalog9_outside_build_invalid")
+		}
+	}
+	return nil
+}
+func verifyAll(c Config) ([]PinFact, error) {
+	pins := []Pin{c.Worker, c.Self, c.Catalog, c.Time}
+	pins = append(pins, c.Evidence...)
+	facts := make([]PinFact, 0, len(pins))
+	info := make([]os.FileInfo, 0, len(pins))
+	for i, p := range pins {
+		cap := binaryCap
+		if i == 2 {
+			cap = configCap
+		}
+		if i >= 4 {
+			cap = evidenceCap
+		}
+		f, st, e := verify(p, cap)
+		facts = append(facts, f)
+		if e != nil {
+			return facts, e
+		}
+		for _, old := range info {
+			if os.SameFile(st, old) {
+				return facts, failure("catalog9_outside_path_invalid")
+			}
+		}
+		info = append(info, st)
+	}
+	return facts, nil
+}
+
+type capture struct {
+	file     *os.File
+	cap, n   int
+	exceeded bool
+	signal   chan<- struct{}
+}
+
+func (w *capture) Write(p []byte) (int, error) {
+	if len(p) > w.cap-w.n {
+		left := w.cap - w.n
+		if left > 0 {
+			n, e := w.file.Write(p[:left])
+			w.n += n
+			if e != nil {
+				return n, e
+			}
+		}
+		w.exceeded = true
+		select {
+		case w.signal <- struct{}{}:
+		default:
+		}
+		return left, failure("catalog9_outside_capture_cap")
+	}
+	n, e := w.file.Write(p)
+	w.n += n
+	return n, e
+}
+func write(f *os.File, v any, cap int) error {
+	raw, e := json.Marshal(v)
+	if e != nil {
+		return failure("catalog9_outside_output_invalid")
+	}
+	raw = append(raw, '\n')
+	if len(raw) > cap {
+		return failure("catalog9_outside_output_invalid")
+	}
+	n, e := f.Write(raw)
+	if e != nil || n != len(raw) || f.Sync() != nil {
+		return failure("catalog9_outside_output_invalid")
+	}
+	return nil
+}
+func syncDirectory(path string) error {
+	before, e := os.Lstat(path)
+	if e != nil || !before.IsDir() || before.Mode()&os.ModeSymlink != 0 {
+		return failure("catalog9_outside_output_invalid")
+	}
+	f, e := os.Open(path)
+	if e != nil {
+		return failure("catalog9_outside_output_invalid")
+	}
+	defer f.Close()
+	now, e := f.Stat()
+	if e != nil || !now.IsDir() || !os.SameFile(before, now) || f.Sync() != nil {
+		return failure("catalog9_outside_output_invalid")
+	}
+	return nil
+}
+
+type waitOutcome struct {
+	Err                   error
+	Deadline, Cap, Killed bool
+	KillOK                *bool
+}
+
+func await(done <-chan error, deadline <-chan time.Time, capSignal <-chan struct{}, kill func() bool) waitOutcome {
+	var out waitOutcome
+	select {
+	case out.Err = <-done:
+		return out
+	case <-deadline:
+		out.Deadline = true
+	case <-capSignal:
+		out.Cap = true
+	}
+	out.Killed = true
+	ok := kill()
+	out.KillOK = &ok
+	// One existing Wait goroutine reaps the started wrapper after termination.
+	// SIGKILL/reaping is an OS operation, not a formal whole-kernel time proof.
+	out.Err = <-done
+	return out
+}
+func parseMetrics(raw []byte) Metrics {
+	out := Metrics{Scope: "Darwin /usr/bin/time -l worker child process, including startup; not model or GPU"}
+	rssN, timeN := 0, 0
+	for _, line := range strings.Split(string(raw), "\n") {
+		f := strings.Fields(line)
+		if len(f) == 5 && f[1] == "maximum" && f[2] == "resident" && f[3] == "set" && f[4] == "size" {
+			n, e := strconv.ParseInt(f[0], 10, 64)
+			if e != nil || n <= 0 {
+				return out
+			}
+			out.MaximumRSSBytes = &n
+			rssN++
+		}
+		if len(f) == 6 && f[1] == "real" && f[3] == "user" && f[5] == "sys" {
+			var vals [3]float64
+			for i := range vals {
+				n, e := strconv.ParseFloat(f[i*2], 64)
+				if e != nil || math.IsNaN(n) || math.IsInf(n, 0) || n < 0 {
+					return out
+				}
+				vals[i] = n
+			}
+			out.RealSeconds = &vals[0]
+			out.UserSeconds = &vals[1]
+			out.SystemSeconds = &vals[2]
+			timeN++
+		}
+	}
+	out.Valid = rssN == 1 && timeN == 1
+	return out
+}
+func artifact(file, name string, cap int) ([]byte, Artifact, error) {
+	raw, _, e := regularRead(file, cap)
+	a := Artifact{Name: name}
+	if e != nil {
+		return nil, a, failure("catalog9_outside_worker_artifacts_invalid")
+	}
+	a.Bytes = len(raw)
+	a.SHA = sum(raw)
+	a.ReadValid = true
+	return raw, a, nil
+}
+func run(configFile, configSHA, outPath string) (r Receipt, retErr error) {
+	r = Receipt{Schema: "riido-next60-catalog9-outside-receipt-v1", State: "failed", ConfigSHA: configSHA,
+		IncompleteActualCountsUnknown: true,
+		Controls:                      "GOMAXPROCS1; GOMEMLIMIT256MiB soft; process-group wall deadline<=300s; post-run Darwin maxRSS<=256MiB"}
+	if !path(outPath) || !path(configFile) || !protocol.SHA(configSHA) {
+		return r, failure("catalog9_outside_config_invalid")
+	}
+	// This fresh directory/tombstone is invocation-scoped; it is not a global
+	// guarantee against an operator supplying a different config/attempt.
+	if os.Mkdir(outPath, 0700) != nil {
+		return r, failure("catalog9_outside_output_invalid")
+	}
+	if syncDirectory(outPath) != nil || syncDirectory(filepath.Dir(outPath)) != nil {
+		return r, failure("catalog9_outside_output_invalid")
+	}
+	root, e := os.OpenRoot(outPath)
+	if e != nil {
+		return r, failure("catalog9_outside_output_invalid")
+	}
+	defer root.Close()
+	tomb, e := root.OpenFile("RESERVED.json", os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if e != nil {
+		return r, failure("catalog9_outside_output_invalid")
+	}
+	if e = write(tomb, struct {
+		Schema    string `json:"schema"`
+		ConfigSHA string `json:"config_sha256"`
+		Started   bool   `json:"started"`
+	}{
+		"riido-next60-catalog9-outside-reservation-v1", configSHA, false}, 4096); e != nil {
+		tomb.Close()
+		return r, e
+	}
+	tomb.Close()
+	if syncDirectory(outPath) != nil {
+		return r, failure("catalog9_outside_output_invalid")
+	}
+	report, e := root.OpenFile("result.json", os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if e != nil {
+		return r, failure("catalog9_outside_output_invalid")
+	}
+	defer report.Close()
+	defer func() {
+		if retErr != nil {
+			s := fixedCode(retErr)
+			r.FailureCode = &s
+			r.State = "failed"
+			r.ActualObservationCount = nil
+			r.IncompleteActualCountsUnknown = true
+		}
+		if e := write(report, r, receiptCap); e != nil {
+			retErr = e
+			r.State = "failed"
+			s := fixedCode(e)
+			r.FailureCode = &s
+			r.StructuralCompletion = false
+			r.ActualObservationCount = nil
+			r.IncompleteActualCountsUnknown = true
+		}
+	}()
+	c, e := readConfig(configFile, configSHA, outPath)
+	if e != nil {
+		return r, e
+	}
+	r.Pins, e = verifyAll(c)
+	if e != nil {
+		return r, e
+	}
+	r.EvidenceHashesVerified = true
+	if build(c.Worker.Path, "example.com/riido-catalog9", "example.com/riido-catalog9/cmd/observe") != nil ||
+		build(c.Self.Path, "example.com/riido-catalog9-outside", "example.com/riido-catalog9-outside") != nil {
+		return r, failure("catalog9_outside_build_invalid")
+	}
+	r.StaticBuildInfoValid = true
+	if _, e = os.Lstat(c.Attempt); !os.IsNotExist(e) {
+		return r, failure("catalog9_outside_path_invalid")
+	}
+	stdout, e := root.OpenFile("stdout.private.bin", os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if e != nil {
+		return r, failure("catalog9_outside_output_invalid")
+	}
+	defer stdout.Close()
+	stderr, e := root.OpenFile("stderr-time.private.bin", os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if e != nil {
+		return r, failure("catalog9_outside_output_invalid")
+	}
+	defer stderr.Close()
+	startFile, e := root.OpenFile("START-RESERVED.json", os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if e != nil {
+		return r, failure("catalog9_outside_output_invalid")
+	}
+	if e = write(startFile, struct {
+		ConfigSHA     string `json:"config_sha256"`
+		StartAttempts int    `json:"start_attempts"`
+		WorkerSHA     string `json:"worker_sha256"`
+		CatalogSHA    string `json:"catalog_sha256"`
+	}{
+		configSHA, 1, c.Worker.SHA, c.Catalog.SHA}, 4096); e != nil {
+		startFile.Close()
+		return r, e
+	}
+	startFile.Close()
+	if stdout.Sync() != nil || stderr.Sync() != nil || report.Sync() != nil || syncDirectory(outPath) != nil {
+		return r, failure("catalog9_outside_output_invalid")
+	}
+	// Repeat the pinned regular-file byte checks immediately before Start.
+	if _, e = verifyAll(c); e != nil {
+		return r, e
+	}
+	capSignal := make(chan struct{}, 2)
+	o := capture{file: stdout, cap: stdoutCap, signal: capSignal}
+	d := capture{file: stderr, cap: stderrCap, signal: capSignal}
+	cmd := exec.Command(c.Time.Path, "-l", c.Worker.Path, "--catalog", c.Catalog.Path, "--attempt", c.Attempt)
+	cmd.Env = []string{"PATH=/usr/bin:/bin", "LANG=C", "LC_ALL=C", "GOMAXPROCS=1", "GOMEMLIMIT=268435456"}
+	cmd.Dir = filepath.Dir(c.Worker.Path)
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	cmd.WaitDelay = 2 * time.Second // bound pipe-copy delay after the process exits
+	cmd.Stdout = &o
+	cmd.Stderr = &d
+	began := time.Now()
+	r.Process.StartAttempts = 1
+	startErr := cmd.Start()
+	r.Process.StartSucceeded = startErr == nil
+	r.Process.WaitAttempts = 1
+	if startErr != nil {
+		_ = cmd.Wait() // exactly one Wait call, returns not-started; no reap claim
+		r.Process.WaitReturned = true
+		r.Process.WallSeconds = time.Since(began).Seconds()
+		return r, failure("catalog9_outside_start_failed")
+	}
+	done := make(chan error, 1)
+	go func() { done <- cmd.Wait() }()
+	timer := time.NewTimer(time.Duration(c.Wall) * time.Second)
+	w := await(done, timer.C, capSignal, func() bool { return syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL) == nil })
+	waitErr := w.Err
+	r.Process.DeadlineExceeded = w.Deadline
+	r.Process.CaptureCapExceeded = w.Cap
+	r.Process.GroupKillAttempted = w.Killed
+	r.Process.GroupKillSucceeded = w.KillOK
+	timer.Stop()
+	r.Process.WaitReturned = true
+	r.Process.Reaped = true
+	r.Process.WallSeconds = time.Since(began).Seconds()
+	if cmd.ProcessState != nil {
+		n := cmd.ProcessState.ExitCode()
+		r.Process.ExitCode = &n
+	}
+	r.CaptureStdoutBytes = o.n
+	r.CaptureStderrBytes = d.n
+	if o.exceeded || d.exceeded {
+		r.Process.CaptureCapExceeded = true
+	}
+	// Command.Wait has finished both capture-copy goroutines; files/counters
+	// are now read sequentially. Each writer owns its stream; no shared locks.
+	if stdout.Sync() != nil || stderr.Sync() != nil {
+		return r, failure("catalog9_outside_output_invalid")
+	}
+	savedOut, a, e := artifact(filepath.Join(outPath, "stdout.private.bin"), "stdout.private.bin", stdoutCap)
+	r.Artifacts = append(r.Artifacts, a)
+	if e != nil {
+		return r, e
+	}
+	savedErr, a, e := artifact(filepath.Join(outPath, "stderr-time.private.bin"), "stderr-time.private.bin", stderrCap)
+	r.Artifacts = append(r.Artifacts, a)
+	if e != nil {
+		return r, e
+	}
+	r.Metrics = parseMetrics(savedErr)
+	attemptInfo, attemptErr := os.Lstat(c.Attempt)
+	attemptDirectoryValid := attemptErr == nil && attemptInfo.IsDir() && attemptInfo.Mode()&os.ModeSymlink == 0
+	// Preserve parseable saved prefixes on failure. They are not complete
+	// actual call totals, qualification, or an acknowledgement of success.
+	rawJournal, a, je := artifact(filepath.Join(c.Attempt, "journal.jsonl"), "worker/journal.jsonl", protocol.JournalCap)
+	r.Artifacts = append(r.Artifacts, a)
+	if je == nil {
+		j, e := protocol.ReadJournal(rawJournal)
+		r.Journal = &j
+		r.JournalValid = e == nil
+	}
+	rawResult, a, re := artifact(filepath.Join(c.Attempt, "results.json"), "worker/results.json", protocol.CombinedCap)
+	r.Artifacts = append(r.Artifacts, a)
+	if re == nil {
+		v, e := protocol.ReadResult(rawResult)
+		if e == nil {
+			r.WorkerResult = &v
+		}
+	}
+	if s, e := protocol.ReadSummary(savedOut); e == nil {
+		r.WorkerSummary = &s
+	}
+	_, pe := verifyAll(c)
+	r.SourceBindingsStillMatch = pe == nil
+	if r.Process.DeadlineExceeded {
+		return r, failure("catalog9_outside_deadline")
+	}
+	if r.Process.CaptureCapExceeded {
+		return r, failure("catalog9_outside_capture_cap")
+	}
+	if waitErr != nil || r.Process.ExitCode == nil || *r.Process.ExitCode != 0 {
+		return r, failure("catalog9_outside_wait_failed")
+	}
+	if pe != nil {
+		return r, failure("catalog9_outside_bindings_changed")
+	}
+	if !attemptDirectoryValid || je != nil || re != nil || len(rawJournal)+len(rawResult) > protocol.CombinedCap {
+		return r, failure("catalog9_outside_worker_artifacts_invalid")
+	}
+	if !r.JournalValid || r.Journal == nil || r.WorkerResult == nil || r.WorkerSummary == nil ||
+		!protocol.Complete(*r.WorkerResult, *r.Journal, *r.WorkerSummary) {
+		return r, failure("catalog9_outside_worker_protocol_invalid")
+	}
+	if !r.Metrics.Valid || r.Process.WallSeconds > float64(c.Wall) {
+		return r, failure("catalog9_outside_metrics_invalid")
+	}
+	if *r.Metrics.MaximumRSSBytes > heapLimit {
+		return r, failure("catalog9_outside_rss_limit")
+	}
+	r.StructuralCompletion = true
+	r.State = "complete"
+	n := 138
+	r.ActualObservationCount = &n
+	r.IncompleteActualCountsUnknown = false
+	return r, nil
+}
+func main() {
+	runtime.GOMAXPROCS(1)
+	debug.SetMemoryLimit(heapLimit)
+	f := flag.NewFlagSet("riido-catalog9-outside", flag.ContinueOnError)
+	f.SetOutput(io.Discard)
+	config := f.String("config", "", "frozen exact config")
+	sha := f.String("config-sha256", "", "frozen config SHA")
+	out := f.String("out", "", "fresh exclusive controller directory")
+	if f.Parse(os.Args[1:]) != nil || f.NArg() != 0 || *config == "" || *sha == "" || *out == "" {
+		fmt.Fprintln(os.Stderr, "catalog9_outside_arguments_invalid")
+		os.Exit(2)
+	}
+	r, e := run(*config, *sha, *out)
+	if e != nil {
+		s := fixedCode(e)
+		r.FailureCode = &s
+	}
+	summary := struct {
+		Schema        string  `json:"schema"`
+		State         string  `json:"state"`
+		FailureCode   *string `json:"failure_code"`
+		StartAttempts int     `json:"start_attempts"`
+		WaitAttempts  int     `json:"wait_attempts"`
+		Actual        *int    `json:"actual_completed_observation_count"`
+	}{"riido-next60-catalog9-outside-summary-v1", r.State, r.FailureCode, r.Process.StartAttempts, r.Process.WaitAttempts, r.ActualObservationCount}
+	raw, me := json.Marshal(summary)
+	if me != nil {
+		os.Exit(1)
+	}
+	if _, we := os.Stdout.Write(append(raw, '\n')); we != nil {
+		os.Exit(1)
+	}
+	if e != nil {
+		os.Exit(1)
+	}
+}

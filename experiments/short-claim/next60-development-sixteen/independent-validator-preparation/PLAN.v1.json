@@ -1,0 +1,57 @@
+{
+  "schema": "riido-sixteen-reader-independent-preparation-plan-v1",
+  "state": "prospective_source_and_synthetic_controls_only",
+  "reviewer": "checkpoint_native_peer_114",
+  "nonblind": true,
+  "candidate_Want_observer_Root_adoption_or_data_author": false,
+  "validator_author": true,
+  "authority": "Root authored and froze adoption. Validator checks its exact pin and data correspondence; it assigns no labels or qualification.",
+  "source_read_basis": [
+    {"public_path": "pkg/shortclaimdata/reader.go", "bytes": 11642, "sha256": "08fc06419acaf22a07249c736f5dfb0b3aa8c8468a9735936048ca5bbcb89bae", "fields": 11},
+    {"public_path": "experiments/short-claim/next60-development-seven/source/validate.go.txt", "bytes": 10860, "sha256": "4acccc8b8846f3251d559eefad48e81b6ef32eb10a59c1d42aaf8f195c60f5bd"}
+  ],
+  "immutable_inputs": [
+    {"name": "previous-seven-train", "bytes": 9619, "sha256": "1ee18e02958953452bf4f4c0e072652aede266c095f1866a6e71209058b1c5bc"},
+    {"name": "catalog10-v2", "bytes": 106576, "sha256": "c7b0446710a6d629a584aac16f3723d439330a9684ac299491aa430edf33f80c"},
+    {"name": "saved-catalog9-comparison", "bytes": 86308, "sha256": "8d0965b1aa6f545477cc926f219c007301023acd698df3e58a3a44a18d0996c9"},
+    {"name": "Root-catalog9-adoption", "bytes": 16030, "sha256": "b2d5a732d7f5d9238883060a881fc0c8b21b08c5b26004a0c27ef374be0aa9d4"}
+  ],
+  "checks_in_order": [
+    "All five inputs regular, bounded and SHA-pinned; data pin supplied only after Root materializes it.",
+    "Exact previous seven bytes including final LF are the new file prefix; exactly sixteen nonblank bounded JSONL rows.",
+    "Complete JSON has valid Unicode scalars, no decoded duplicate/case-alias keys, bounded depth/nodes/arrays/objects and no trailing value.",
+    "Row has precisely eleven exact names; candidates four and finite_scope five mandatory names. Explicit false and empty arrays are not inferred from missing/null.",
+    "Root adoption header, nine ordered requests and three candidates match pinned comparison identities, states, known counterexamples and retained unknown positions.",
+    "Reference positive requires all rows satisfied and no unknown; each adopted negative requires a known counterexample, while its unknown positions remain identical.",
+    "New rows exactly match first nine catalog request/caption texts and candidate order; stable_id is next60- plus catalog ID.",
+    "Existing connected groups and exact families/revisions retained; all rows development_train, unit weights, finite guarantees false.",
+    "Project reader LoadDevelopmentRow invoked sixteen times by the separate bridge; no feature, score, projection, Fit, model or original call.",
+    "Final deterministic counts sixteen requests, forty-seven labels, sixteen positive, thirty-one negative, eighty finite inputs and two hundred thirty-six observations."
+  ],
+  "prospective_constants": {
+    "text_revision": "catalog9-finite-v2",
+    "scope_description": "Only this request frozen finite inputs; saved first observation comparison supports these candidate positions. No all-input or unseen-source guarantee.",
+    "new_labels_only_from_frozen_Root_adoption": [false, true, false],
+    "groups_77_78_76_request_counts": [8, 5, 3],
+    "new_source_families": 0,
+    "new_evaluation_or_unseen_roles": 0
+  },
+  "synthetic_controls": {
+    "stdlib_only_module": true,
+    "Go_test_runs": 1,
+    "test_top_pass": 9,
+    "test_sub_pass": 31,
+    "failed": 0,
+    "skipped": 0,
+    "Go_vet_runs": 1,
+    "vet_exit": 0,
+    "stderr_bytes": 0,
+    "fake_production_hashes_rejected": true,
+    "stub_reader_calls_are_not_actual_LoadDevelopmentRow_calls": true,
+    "actual_data16_validation_runs": 0,
+    "actual_project_reader_calls": 0,
+    "actual_semantic_recomparisons_or_worker_replays": 0
+  },
+  "failure_scope": "Fixed diagnostic enum only, no supplied path/text/error body. Validation stops on missing evidence, unknown-to-false conversion, absent label or changed prefix/text/metadata.",
+  "future_actual_gate": "Root independently reviews the sealed validator, materializes data, freezes its hash, and separately uses the bridge with the reviewed project reader. This preparation is not a completed actual input validation."
+}

@@ -1,0 +1,24 @@
+{
+  "schema": "riido-sixteen-prospective-position-style-leakage-review-v1",
+  "state": "source_and_frozen_metadata_analysis_only",
+  "no_model_scoring_or_training": true,
+  "metadata_feature_policy": "Reader separates labels, weights, IDs, groups, role, revision and finite scope from the validated request/caption input; only request/caption text normalization is called. Metadata separation does not remove caption style or fixed ordering.",
+  "candidate_position": {
+    "new_nine_positive_candidate_index": 1,
+    "prospective_sixteen_positive_at_index_one": 14,
+    "fixed_index_one_top1_arithmetic": "14/16 = 87.5% on the frozen ordered development rows; arithmetic baseline, not a measured model or heldout score",
+    "majority_false_label_arithmetic": "31/47 = approximately 66.0% candidate-label accuracy; arithmetic baseline, not a measured classifier",
+    "claim": "A high development score alone can reflect candidate-position or majority-label shortcuts."
+  },
+  "caption_style": {
+    "source_observation": "Reference captions closely restate the request's desired behavior; negative captions often contain phrases such as but, losing, ignores, exposes or continues after. This is visible in the immutable first-nine catalog captions.",
+    "claim": "A text model could learn phrasing cues without learning the broader execution contract. Fixed finite observations justify these labels only within their declared scope."
+  },
+  "proposed_later_controls_not_performed": [
+    "Use a separate immutable evaluation artifact with candidate permutations and labels/IDs permuted together; preserve the original sixteen training rows.",
+    "Report fixed-order, majority-label and lexical baselines beside model scores; do not use this training set as heldout evidence.",
+    "Create independently reviewed paraphrases that reduce reference-versus-negative style cues, retaining exact evidence references and assigning a separate text revision.",
+    "Keep all connected source-family groups together when selecting later evaluation roles; splitting rows from groups77/78 into nominal train/test would not establish unseen-source generalization."
+  ],
+  "scope": "No relabeling, role changes, family creation, paraphrase adoption, shuffled evaluation, model run or accuracy claim was performed here."
+}

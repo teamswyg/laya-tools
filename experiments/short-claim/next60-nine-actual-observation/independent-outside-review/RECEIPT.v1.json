@@ -1,0 +1,151 @@
+{
+  "schema": "riido-catalog9-outside-independent-source-peer-receipt-v1",
+  "state": "sealed_source_review_completed",
+  "reviewer": "task_expansion_52",
+  "implementation_author": "experiment_audit_45",
+  "identity": {
+    "controller_protocol_author": false,
+    "catalog_or_worker_author": false,
+    "independent_implementation_source_reader": true,
+    "nonblind": true,
+    "prior_related_source_adapter_and_other_controller_authorship": true,
+    "human_blind_or_independent_semantic_oracle_claim": false
+  },
+  "author_handoff": {
+    "path": "HANDOFF.v1.json",
+    "bytes": 6009,
+    "sha256": "a6f855e8d0c394e8b413d730447d82201595cf6ad823bd868eadf8d985154a3e"
+  },
+  "verified_payload": [
+    {
+      "path": "CONFIG-RECIPE.v1.json",
+      "bytes": 5279,
+      "sha256": "223e8a830b58f9af7749a75858783d18541f18b72c0036100d8567f93be493e0"
+    },
+    {
+      "path": "module/go.mod",
+      "bytes": 53,
+      "sha256": "653fa1cb5b3634faa25fe270ae429dd6119bfbc67114a45e8b9a60b4ad735be9"
+    },
+    {
+      "path": "module/internal/protocol/protocol_test.go",
+      "bytes": 7359,
+      "sha256": "1cf81d86d0a599f8f12574b437bf08e2d4f962ccfa4f55405d11ac8576c5e5ec"
+    },
+    {
+      "path": "module/internal/protocol/protocol.go",
+      "bytes": 13666,
+      "sha256": "67b00572b9c44d722050c995176c0a8be290671b36422d13b5496c04e43c289b"
+    },
+    {
+      "path": "module/main_test.go",
+      "bytes": 3989,
+      "sha256": "b56c15b93c3540f2552df2068f72ceb2126df6a8ad9dbeecc4d1b8c5f8cd0c80"
+    },
+    {
+      "path": "module/main.go",
+      "bytes": 22017,
+      "sha256": "3358875ed104bc218aa53786b3bc9dbdcc0b1fed15c95fa5d903fd7b22d6648e"
+    },
+    {
+      "path": "README.en.md",
+      "bytes": 3818,
+      "sha256": "24f5e74613e897aac1908128bc6c6d25c9015bcdfd5dfb90e9a7466e5786425a"
+    },
+    {
+      "path": "README.ko.md",
+      "bytes": 4428,
+      "sha256": "0b78d918445603c5e902744a026061ecaba21d5db6ea1f472fb1ad54c2734155"
+    }
+  ],
+  "checksum_checks": {
+    "author_handoff": 1,
+    "author_payload_regular_bytes_sha": 8,
+    "author_folder_files": 9,
+    "author_folder_bytes": 66618,
+    "worker_reference_source_pins": 2,
+    "mismatches": 0
+  },
+  "source_reference_only": [
+    {
+      "path": "module/cmd/observe/main.go",
+      "bytes": 11346,
+      "sha256": "a31a8f2aa6ec9938542d8b7c8de9bce967ab6dc4111b700dedd3c263acb64536"
+    },
+    {
+      "path": "module/internal/batch/types.go",
+      "bytes": 7707,
+      "sha256": "3cb3b7d15e773048eeeb8a300129709a8b6c6e74b26bba897111fe371ce385fb"
+    }
+  ],
+  "reviewed_contract": {
+    "existing_requests": 9,
+    "finite_inputs": 46,
+    "planned_dispatches": 138,
+    "journal_frame_arity": 2,
+    "journal_event_arity": 15,
+    "complete_events": 276,
+    "held_requests": 1,
+    "held_inputs": 6,
+    "actual_worker_dispatches_by_reviewer": 0
+  },
+  "checks": [
+    {
+      "id": "before_start_durability",
+      "source": "module/main.go:289-325",
+      "finding": "fresh outside directory/parent synced; exclusive reservation/result/capture/start-intent files; file and directory Sync successful before Start; fresh worker directory stays absent"
+    },
+    {
+      "id": "pins_and_static_build",
+      "source": "module/main.go:158-215",
+      "finding": "Root exact config SHA; ordered four Root receipts plus worker/self/catalog/time valid pins; regular-file and same-inode checks; exact catalog C7b; Go1.27.1 Darwin arm64 MachO/CGO0/trimpath/module checks; byte identity does not interpret Root source/compiler/rights/resource conclusions"
+    },
+    {
+      "id": "process_lifecycle",
+      "source": "module/main.go:327-357",
+      "finding": "one Start attempt; one Wait also after failed Start without reap claim; after started process one existing Wait; deadline/capture limit kill process group then consume same Wait; pipe-copy delay2s; minimal nonauth environment; no retry"
+    },
+    {
+      "id": "journal_schedule",
+      "source": "module/internal/protocol/protocol.go:88-154",
+      "finding": "fixed9 IDs/46 input histogram/3 candidate ordering; 2/15 arities; integer/null rejection; sequence/hash predecessor/phase/counter deltas; max138/276; continuation after unsupported/panic stopped; valid physical prefix retained on truncated or invalid later frame"
+    },
+    {
+      "id": "result_summary_crosscheck",
+      "source": "module/internal/protocol/protocol.go:177-264",
+      "finding": "exact headers and null startup/nested/labels/weights/qualification; row schedule and supported/panicked/Got shape; explicit method classification matches referenced worker; complete result/summary/journal counters, events, bytes and final hash must agree"
+    },
+    {
+      "id": "post_wait_resources",
+      "source": "module/main.go:357-387",
+      "finding": "metrics parsed only after joined Wait; unique finite nonnegative Darwin time fields and positive RSS bytes; post-exit RSS gate256MiB, no continuous RSS kill/CPU quota claim; successful complete requires exit0, post-Wait pins and validated artifacts"
+    },
+    {
+      "id": "failure_unknowns",
+      "source": "module/main.go:300-310,369-388",
+      "finding": "failed/incomplete actual total remains null; parseable journal prefix is separate physical evidence and not a surviving-tail Sync acknowledgement; startup/nested remain null; no labels/roles/weights/Want/fit claims"
+    }
+  ],
+  "concrete_blockers": [],
+  "limitations": [
+    "No Go/compile/test/native/worker/model execution by reviewer; Root separate controlled fork checks are not counted here.",
+    "Parent directory ancestry/case/symlink physical separation is not established by lexical contains or pinned-leaf inode checks; Root must bind actual fresh distinct physical output/source roots.",
+    "Actual formatted/built Root worker v2 and binary/full compiler/source/rights/resource evidence are later config inputs. Two worker v1 files are reference contract evidence, not substitutes for actual binary pins.",
+    "Timeout/SIGKILL/reap kernel latency is not formally bounded; pipe WaitDelay bounds pipe-copy delay after process exit.",
+    "Got payload semantic fidelity and literal Want satisfaction are outside this controller review; completion is structural only."
+  ],
+  "execution": {
+    "Go": 0,
+    "gofmt": 0,
+    "build": 0,
+    "test": 0,
+    "worker_or_controller": 0,
+    "original_init_API": 0,
+    "model_Features_Project_Fit": 0,
+    "labels_roles_weights": 0,
+    "protected_reads": 0,
+    "network_HF_shared_Git": 0
+  },
+  "runtime_or_training_authority_created": false,
+  "source_write_stop": true
+}

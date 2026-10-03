@@ -1,0 +1,205 @@
+package main
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
+
+// All data below is owned synthetic text and synthetic adoption metadata.
+// No real input paths, fixture bodies, old data, original APIs or models load.
+func owned(t *testing.T) ([]byte, catalog, qualification) {
+	t.Helper()
+	var previous bytes.Buffer
+	counts := [7]int{3, 2, 3, 3, 3, 3, 3}
+	inputs := [7]int{5, 4, 6, 6, 4, 4, 5}
+	for i, id := range previousIDs {
+		r := Row{Schema: rowSchema, StableID: id, Request: fmt.Sprintf("Owned previous request %d.", i), Candidates: make([]Candidate, counts[i]), Role: role, Group: 76, Family: "owned-family", Revision: strings.Repeat("a", 40), Scope: FiniteScope{Inputs: inputs[i], Observations: inputs[i] * counts[i], Description: "Owned finite scope."}, TextRevision: "owned", FeaturePolicy: featurePolicy}
+		for j := range r.Candidates {
+			r.Candidates[j] = Candidate{ID: fmt.Sprintf("owned-%d", j), Text: fmt.Sprintf("Owned previous candidate %d.", j), Label: j == 0, Weight: 1}
+		}
+		b, e := json.Marshal(r)
+		if e != nil {
+			t.Fatal(e)
+		}
+		previous.Write(b)
+		previous.WriteByte('\n')
+	}
+	c := catalog{Schema: "riido-next60-catalog10-literal-correction-proposal-v2", Requests: make([]proposal, 10)}
+	q := qualification{Schema: "riido-catalog9-root-finite-development-qualification-v1", State: "qualified_for_finite_development_train_only", Actor: "Root", Role: role, CatalogSHA: catalogSHA, Requests: 9, Labels: 27, Positive: 9, Negative: 18, UnitWeights: true, Inputs: 46, Observations: 138, Rows: make([]adoptedRequest, 9), Combined: totals{16, 47, 16, 31, 80, 236, 0, []int{76, 77, 78}}}
+	for i, id := range requestIDs {
+		group, family, revision := 77, "upstream53-cobra-pflag-connected", "c966cfef47379dcb01e7929504d66d94b540945b"
+		if i >= 6 {
+			group = 78
+			family = "upstream53-mapstructure"
+			revision = "52aa5c6dc1d27226460807054ca2107b2d54fb2d"
+		}
+		c.Requests[i] = proposal{Index: i, ID: id, Group: group, Request: fmt.Sprintf("  Owned request %d; preserve spaces.  ", i), Order: append([]string{}, candidateIDs[:]...), Captions: make([]caption, 3)}
+		q.Rows[i] = adoptedRequest{Index: i, ID: id, StableID: "next60-" + id, Group: group, Family: family, Revision: revision, Fixtures: fixtureCounts[i], Candidates: make([]adoptedCandidate, 3)}
+		for j, cid := range candidateIDs {
+			v := j == 1
+			c.Requests[i].Captions[j] = caption{j, fmt.Sprintf("Owned exact candidate %d/%d.", i, j)}
+			q.Rows[i].Candidates[j] = adoptedCandidate{j, cid, &v, 1}
+		}
+	}
+	c.Requests[9] = proposal{Index: 9, ID: "owned-HOLD-not-copied", Request: "Do not append this hold."}
+	return previous.Bytes(), c, q
+}
+func TestOwnedComposePreservesPrefixExactTextAndAdoptedOrder(t *testing.T) {
+	previous, c, q := owned(t)
+	got, s, e := compose(previous, c, q)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if !bytes.HasPrefix(got, previous) || s.RowsAppended != 9 || s.Requests != 16 || s.Labels != 47 || s.Positive != 16 || s.Negative != 31 || s.Inputs != 80 || s.Observations != 236 || s.SHA != digest(got) {
+		t.Fatal("wrong composition")
+	}
+	lines := bytes.Split(bytes.TrimSuffix(got, []byte{'\n'}), []byte{'\n'})
+	if len(lines) != 16 {
+		t.Fatal("wrong row count")
+	}
+	for i := range requestIDs {
+		var r Row
+		if json.Unmarshal(lines[7+i], &r) != nil {
+			t.Fatal("bad JSON row")
+		}
+		if r.Request != c.Requests[i].Request || r.StableID != q.Rows[i].StableID || r.Role != role || r.Group != q.Rows[i].Group || r.Family != q.Rows[i].Family || r.Revision != q.Rows[i].Revision || r.TextRevision != "catalog9-finite-v2" || r.FeaturePolicy != featurePolicy || r.Scope.Description != description || r.Scope.AllInputs || r.Scope.Unseen {
+			t.Fatal("text/metadata changed")
+		}
+		for j, cid := range candidateIDs {
+			a := r.Candidates[j]
+			if a.ID != cid || a.Text != c.Requests[i].Captions[j].Text || a.Label != *q.Rows[i].Candidates[j].Label || a.Weight != q.Rows[i].Candidates[j].Weight {
+				t.Fatal("candidate mapping changed")
+			}
+		}
+	}
+	if bytes.Contains(got, []byte("owned-HOLD-not-copied")) {
+		t.Fatal("appended tenth hold")
+	}
+	if s.NewQualification || s.UnknownToFalse || s.ReaderCalls+s.OriginalCalls+s.OracleCalls+s.Features+s.Score+s.Project+s.Fit+s.Model != 0 || s.TrainingReady {
+		t.Fatal("granted unrelated authority")
+	}
+}
+func TestOwnedComposeRejectsMisbindings(t *testing.T) {
+	for _, kind := range []string{"request", "catalog-order", "caption-index", "qualification-index", "stable-id", "group", "family", "revision", "fixtures", "missing-label", "changed-label", "weight", "unknown-to-false", "aggregate", "role", "catalog-sha", "short-order", "extra-candidate", "text-cap", "previous-count", "previous-missing-lf"} {
+		t.Run(kind, func(t *testing.T) {
+			previous, c, q := owned(t)
+			switch kind {
+			case "request":
+				c.Requests[0].ID = "other"
+			case "catalog-order":
+				c.Requests[0].Order[0], c.Requests[0].Order[1] = c.Requests[0].Order[1], c.Requests[0].Order[0]
+			case "caption-index":
+				c.Requests[0].Captions[0].Index = 1
+			case "qualification-index":
+				q.Rows[0].Candidates[0].Index = 1
+			case "stable-id":
+				q.Rows[0].StableID = "next60-other"
+			case "group":
+				q.Rows[0].Group = 76
+			case "family":
+				q.Rows[0].Family = "other"
+			case "revision":
+				q.Rows[0].Revision = strings.Repeat("b", 40)
+			case "fixtures":
+				q.Rows[0].Fixtures++
+			case "missing-label":
+				q.Rows[0].Candidates[0].Label = nil
+			case "changed-label":
+				v := true
+				q.Rows[0].Candidates[0].Label = &v
+			case "weight":
+				q.Rows[0].Candidates[0].Weight = 2
+			case "unknown-to-false":
+				q.UnknownToFalse = true
+			case "aggregate":
+				q.Combined.Requests++
+			case "role":
+				q.Role = "validation"
+			case "catalog-sha":
+				q.CatalogSHA = strings.Repeat("a", 64)
+			case "short-order":
+				c.Requests[0].Order = c.Requests[0].Order[:2]
+			case "extra-candidate":
+				q.Rows[0].Candidates = append(q.Rows[0].Candidates, q.Rows[0].Candidates[0])
+			case "text-cap":
+				c.Requests[0].Request = strings.Repeat("x", 513)
+			case "previous-count":
+				previous = append(previous, []byte("{}\n")...)
+			case "previous-missing-lf":
+				previous = previous[:len(previous)-1]
+			}
+			if _, _, e := compose(previous, c, q); e == nil {
+				t.Fatal("accepted altered binding")
+			}
+		})
+	}
+}
+func TestOwnedPinAndRegularBounds(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "owned")
+	raw := []byte("owned")
+	if os.WriteFile(path, raw, 0600) != nil {
+		t.Fatal("write fixture")
+	}
+	got, _, e := pinned(path, digest(raw), len(raw))
+	if e != nil || !bytes.Equal(got, raw) {
+		t.Fatal("exact pin failed", e)
+	}
+	if _, _, e := pinned(path, strings.Repeat("a", 64), len(raw)); e == nil {
+		t.Fatal("changed SHA accepted")
+	}
+	if _, _, e := pinned(path, digest(raw), len(raw)-1); e == nil {
+		t.Fatal("wrong size accepted")
+	}
+	if _, _, e := pinned(dir, digest(raw), len(raw)); e == nil {
+		t.Fatal("directory accepted")
+	}
+	link := filepath.Join(dir, "link")
+	if os.Symlink(path, link) != nil {
+		t.Fatal("link fixture")
+	}
+	if _, _, e := pinned(link, digest(raw), len(raw)); e == nil {
+		t.Fatal("symlink leaf accepted")
+	}
+}
+func TestOwnedExclusiveWriteSyncAndExistingPreservation(t *testing.T) {
+	dir := t.TempDir()
+	file := filepath.Join(dir, "owned.jsonl")
+	raw := []byte("owned\n")
+	s := Summary{}
+	if e := writeExclusive(file, raw, &s); e != nil {
+		t.Fatal(e)
+	}
+	if !s.OutputReserved || s.BytesWritten != len(raw) || !s.FileSynced || !s.DirectorySynced {
+		t.Fatal("lost durable write facts")
+	}
+	if e := writeExclusive(file, []byte("replacement\n"), &Summary{}); e == nil {
+		t.Fatal("overwrote existing output")
+	}
+	got, e := os.ReadFile(file)
+	if e != nil || !bytes.Equal(got, raw) {
+		t.Fatal("changed previous output")
+	}
+	if e := writeExclusive(filepath.Join(dir, "oversize"), make([]byte, maxData+1), &Summary{}); e == nil {
+		t.Fatal("oversize accepted")
+	}
+	if _, e := os.Lstat(filepath.Join(dir, "oversize")); !os.IsNotExist(e) {
+		t.Fatal("created oversize output")
+	}
+}
+func TestOwnedProjectionRejectsTrailingAndUTF8(t *testing.T) {
+	for _, raw := range [][]byte{[]byte("{}{}"), []byte("{bad"), {0xff}} {
+		var c catalog
+		if decodeProjection(raw, &c) == nil {
+			t.Fatal("invalid JSON accepted")
+		}
+	}
+	if boundedText(strings.Repeat("a ", 33)) || boundedText("") || boundedText(string([]byte{0xff})) {
+		t.Fatal("invalid text accepted")
+	}
+}

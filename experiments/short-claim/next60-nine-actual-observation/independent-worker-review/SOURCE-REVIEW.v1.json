@@ -1,0 +1,102 @@
+{
+  "schema": "riido-catalog9-independent-adapter-source-review-v1",
+  "state": "source_review_complete_Root_V2_directory_Sync_diff_read_back",
+  "reviewer": "checkpoint_native_peer_114",
+  "implementation_or_Want_author": false,
+  "nonblind": true,
+  "scope": "Source-only finite API, receiver, callback and output completion review; no original/model execution or semantic label qualification",
+  "author_handoff": {"bytes":6628,"sha256":"3a3eff2c77594e872c1c29ad95accc82d32467add460df49939c3f149fb0f401","write_stop":true,"regular_asset_bytes_and_sha_checks":15,"mismatches":0,"private_source_schedule_content_copied":false},
+  "catalog": {"bytes":106576,"sha256":"c7b0446710a6d629a584aac16f3723d439330a9684ac299491aa430edf33f80c","hash_bound_field_frozen":false,"original_catalog_modified":false},
+  "counts": {"requests":9,"finite_inputs":46,"candidates_each":3,"planned_observations":138,"held_requests":1,"held_inputs":6,"source_groups":[77,78],"actual_observations":0},
+  "own_author_source_pins": [
+    {"file":"module/internal/batch/types.go","bytes":7707,"sha256":"3cb3b7d15e773048eeeb8a300129709a8b6c6e74b26bba897111fe371ce385fb"},
+    {"file":"module/internal/batch/pflag.go","bytes":14587,"sha256":"bf5ad9ccdf7b2b9c0d64d4c3abf5295a206617aa53245d1c3e21bb19c83e7331"},
+    {"file":"module/internal/batch/mapstructure.go","bytes":7407,"sha256":"7dc7cdc4c0b45b2829f3bded9058a60bdf2b00182f9c71a5f79f1721395c8cee"},
+    {"file":"module/cmd/observe/main.go","bytes":11346,"sha256":"a31a8f2aa6ec9938542d8b7c8de9bce967ab6dc4111b700dedd3c263acb64536"}
+  ],
+  "Root_derived_byte_binding": {
+    "formatted_V1_main":{"bytes":12904,"sha256":"63f1a388c996e4de3aac36c3ceed2d55f73312d6e67b5423d2495a6e2459560c"},
+    "formatted_V2_main":{"bytes":13536,"sha256":"4da2963c0616066125f1f14a3ac833ba7df9ccf25d87623a2c2dcf1dcd56a181"},
+    "V1_to_V2_private_diff":{"bytes":1121,"sha256":"e19ecf6a51b1503d76dacb8fecf7bf584b7831c685151e11c7cbc6d6ecc0e15c","raw_diff_not_copied":true},
+    "other_three_formatted_files_same_V1_V2": [
+      {"file":"module/internal/batch/types.go","bytes":8805,"sha256":"bc840765db9adeba66b96b8124238609cf577d6aee3edf0f8161f5393ebfadf3"},
+      {"file":"module/internal/batch/pflag.go","bytes":16520,"sha256":"e988b840ab3b6cbbbb251750eaf1b890249d4bd00239185a5f39bd6edb06778e"},
+      {"file":"module/internal/batch/mapstructure.go","bytes":8293,"sha256":"09730523db9c5818d52b8265405f9cfb1cf58f39abab7281c728fe93f0b947c4"}
+    ],
+    "author_to_Root_V1_gofmt":"Root-reported separate activity, not re-executed by this reviewer",
+    "narrow_V2_change":"Add filepath import and syncDirectory helper, then sync empty reserved results/journal files and attempt/parent directories after failure-finalizer installation but before the first candidate reservation and Observe.",
+    "failure_path":"Any initial Sync/Open directory failure returns errOutput before DispatchReserved increments. The existing installed defer preserves failed fixed-code output with0candidate dispatches; no candidate replay.",
+    "scope":"Successful filesystem Sync acknowledgments, not a guarantee against every power-loss or hardware failure."
+  },
+  "exact_upstream_basis": {
+    "pflag_revision":"c966cfef47379dcb01e7929504d66d94b540945b",
+    "pflag_flag_go_sha256":"07c3af1500f870079899627f868978336a291fe615d6e85ff7f532d3b7f7107f",
+    "pflag_text_go_sha256":"8503607c058136326c8f3337c5350b98f785105bed1b2cd167fecdad243e4607",
+    "mapstructure_revision":"52aa5c6dc1d27226460807054ca2107b2d54fb2d",
+    "mapstructure_go_sha256":"87d01b09fcb2ca148ef722ba52baf6851c35357c49d9f2e918d8551c7c03f1ee",
+    "mapstructure_decode_hooks_go_sha256":"cb863229ef96129bc899a25852f9f21d506353224b01606538c375a1b392285a",
+    "method":"Read retained exact staged original source only; Root reported the48 originals unchanged. No original entry point or package initialization was executed by this reviewer."
+  },
+  "finite_adapter_assessments": [
+    {
+      "request_index":0,"id":"go53-pflag-annotation-ownership","inputs":5,
+      "source_assessment":"Original SetAnnotation stores the supplied slice, so edits can change flag metadata. Reference copies at set/get while preserving nil versus nonnil empty and replacement ownership. Negative copies only at set. Registration, replacement and retrieval mutations correspond to the frozen operations. A missing original Lookup has no new getter-error API; its availability remains false instead of synthesizing nil/error. Missing reference get uses its declared owned sentinel; the original setter still exposes actual NotExistError."
+    },
+    {
+      "request_index":1,"id":"go53-pflag-bounded-count","inputs":6,
+      "source_assessment":"Original CountVarP initializes receiver0 and NoOptDefVal+1, then fixture start is explicitly assigned. Direct opt-in Value.Set exposes original parsed-value mutation even on range error. Reference commits only successful0..2 parses or allowed increment, preserving strconv cause objects. Negative commits explicit values before checking. Option-off -vv still uses original Parse and increments twice. The selected arm64 worker is required for the frozen9223372036854775808 overflow boundary."
+    },
+    {
+      "request_index":2,"id":"go53-pflag-single-assignment","inputs":5,
+      "source_assessment":"Reference uses original ParseAll callbacks and rejects repeated annotated *Flag identity before original Set, so long and shorthand spellings share ownership. Unannotated repeats and separate annotated flags remain independent. Negative compares raw spellings. Its lexical helper also exists in the reference but the exact five vectors fit it; this is not a general parser or prepared unknown-token-report implementation."
+    },
+    {
+      "request_index":3,"id":"go53-pflag-sensitive-default","inputs":5,
+      "source_assessment":"Original FlagUsagesWrapped uses DefValue and NoOptDefVal and suppresses hidden flags. Reference renders a shallow Flag copy with redacted display fields while the actual original flag and live Value stay unchanged; it redacts both display defaults and optional value. Negative leaves optional display value exposed. Getter reads the actual parsed flag, preserving PUBLIC_DEFAULT/PUBLIC_OPTION and changed values."
+    },
+    {
+      "request_index":4,"id":"go53-pflag-deferred-function","inputs":5,
+      "source_assessment":"Original FuncP invokes callback through Value.Set during Parse. Reference queues fixed public values through the actual parser and flushes only when parsing succeeded, stopping at first callback failure. Option-off mode remains immediate. Negative flushes from deferred cleanup even on parser failure, while retaining that parse error. Fixed3 queue/trace covers the longest frozen vector; each new row gets fresh state."
+    },
+    {
+      "request_index":5,"id":"go53-pflag-text-error-value","inputs":5,
+      "source_assessment":"Exact TextVar newTextValue copies the complete default struct through reflect, preserving Failure/Typed pointers in the actual receiver. UnmarshalText returns before receiver mutation on the two failure literals and commits public-text on success. Original Set wraps cause with InvalidValueError and exposes original GetFlag/Unwrap. Reference replaces only opt-in invalid-value errors with an owned redacted wrapper preserving actual flag/cause; negative reconstructs a string error and loses those identities. Unknown flag and opt-out paths remain original."
+    },
+    {
+      "request_index":6,"id":"go53-mapstructure-hooks-errors-is","inputs":5,
+      "source_assessment":"Original OrCompose calls alternatives on the original reflected input3 and stops on nil error, including nil output; on total failure it constructs a concatenated error string and loses original causes. Reference invokes original DecodeHookExec for each fixed typed hook, joins cause objects, accepts nil successful output and returns a declared no-hooks sentinel. Negative continues after nil output. Is/As observations preserve typed hook code7 without uncontrolled generic Error formatting."
+    },
+    {
+      "request_index":7,"id":"go53-mapstructure-remain-conflict","inputs":5,
+      "source_assessment":"Receiver types match the frozen direct, exported squashed, single-remain and ordinary-map schemas and initial states. Original effective discovery keeps the last remain field and later assigns unmatched keys. Reference counts direct and squashed remain tags before Decode and rejects conflicts even on empty data. Negative checks direct fields only. Single-remain and ordinary maps still use original NewDecoder/Decode with declared config values. Captured map values are row-owned and are not reused for later dispatches."
+    },
+    {
+      "request_index":8,"id":"go53-mapstructure-tag-precedence","inputs":5,
+      "source_assessment":"Original getTagValue chooses the first nonempty configured tag. Reference present_first uses reflect.StructTag.Lookup to distinguish empty-present from absent and selects the matching single tag name; a present '-' skips Decode and preserves initial field. Legacy first_nonempty and negative remain original. The reflected one-field receiver is exported/addressable and matches the literal tag/data fixture."
+    }
+  ],
+  "tracked_calls_and_unknowns": {
+    "per_row_context":"Fresh fixed128 entries record call reservation before invocation and Returned only after invocation returns.",
+    "returned_boundary":"Counters aggregate known explicit call entries only when Observe returns. Recovered panics remain separate from supported nonpanic completions.",
+    "methods":"Only explicit Error/GetFlag/GetSpecifiedName/Unwrap entries are counted as direct error-method calls. Nested methods inside errors.Is/As, original parser formatting, redacted Cause.Error and original OrCompose are uninstrumented and remain null.",
+    "message_channels":"Generic ErrorObservation intentionally leaves message unknown. Explicit text contract has a separate error_message channel and flag identity; unknown generic original error kind remains unavailable, not a negative label.",
+    "startup":"Native imports can initialize before main; original package startup counts remain null. Source review cannot attest outside runtime/RSS or a safe native Start.",
+    "supervision":"Record labels/weights/qualified are nil; result comparison/labels/weights/roles/training flags remain false and model/Fit counts0."
+  },
+  "journal_and_final_source_assessment": {
+    "arity":"Compact frame is exactly[event,sha] with a15-element event; previous event SHA chains compact event bytes.",
+    "sequence":"Closed run appends phase0 reservation before each Observe and phase1 after returned counters in request/fixture/candidate order. Sequence begins0 and reaches275 only on all138 returned rows.",
+    "acknowledgment":"Journal event count/hash advance only after complete write and Sync. Partial-written bytes are charged; surviving complete row existence by itself does not prove Sync returned.",
+    "failure":"Any row marshal/cap, journal or unsupported/panic failure returns and preserves prior typed rows. The latest returned boundary can be present in journal even if its row was not appended, so stored row count can be smaller than DispatchReturned.",
+    "completion":"The closed loop reaches complete only after138 stored supported nonpanic observations and counters138/138, then deferred result write and Sync. A failed final Sync changes the returned summary to failed; an interrupted or failed process must not be promoted merely from a physical complete result file.",
+    "bounds":"Maximum276 frames,512B each under128Ki journal; each record<=6144B,138 records; combined actual results/journal bytes checked<=1MiB-1. stdout is a separate small summary requiring its outer cap.",
+    "V1_concrete_issue":"Fresh directory entries are not synced before Observe. File journal.Sync alone does not establish the declared durable reservation for results.json/journal.jsonl or the new attempt directory. Root accepted a narrow V2 fix syncing reserved files, attempt and parent directory before the first Observe.",
+    "V2_diff_review":"Exact1121-byte diff and changed source region read back; source-level issue closed. Other three adapter source files unchanged between RootV1 and RootV2."
+  },
+  "concrete_API_receiver_callback_blockers": [],
+  "concrete_storage_findings": [{"id":"fresh_directory_entry_Sync","status":"closed_at_source_level_in_bound_Root_V2"}],
+  "concrete_blockers_remaining_in_reviewed_source_scope": [],
+  "read_limits":"One parallel output was truncated; subsequent narrow request4/5/6 and original-source reads recovered the omitted sections. Conclusions do not rely on the truncated region.",
+  "execution": {"Go_build_test_or_runs":0,"original_or_model_runs":0,"protected_reads":0,"shared_writes":0,"network":0,"new_labels_roles_or_weights":0},
+  "authority":"No saved-observation satisfaction, supervision, model quality, generic parser/API correctness, rights guarantee or native start approval is established. This review is nonblind and source-specific. Root's GoList/formatting reports are separate activities, not this reviewer's tests."
+}

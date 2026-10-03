@@ -38,6 +38,10 @@ jobs:
         run: bash scripts/verify-next60-development.sh checkpoint
       - name: Four-task outside controller (fake lifecycle and metadata only)
         run: bash scripts/verify-next60-development.sh outside
+      - name: Nine-task controller and comparator (synthetic controls; no worker launch)
+        run: bash scripts/verify-next60-development.sh catalog9
+      - name: Sixteen-row materializer and validator (synthetic controls only)
+        run: bash scripts/verify-next60-development.sh sixteen
       # The suite runs multiple cold isolated compilers. This outer budget does
       # not change any candidate's verifier timeout, sandbox or acceptance gate.
       - run: go test -race -timeout=20m ./...

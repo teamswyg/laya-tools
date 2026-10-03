@@ -1,0 +1,507 @@
+package batch
+
+import (
+	"errors"
+	"strconv"
+	"strings"
+
+	"github.com/spf13/pflag"
+)
+
+type AnnotationSnapshot struct {
+	Stored     []string         `json:"stored_values"`
+	Getter     []string         `json:"getter_values"`
+	KeyPresent bool             `json:"key_present"`
+	Error      ErrorObservation `json:"error"`
+}
+type AnnotationOutput struct {
+	Stored          []string              `json:"stored_values"`
+	Getter          []string              `json:"getter_values"`
+	MutatedGetter   []string              `json:"mutated_getter_result"`
+	KeyPresent      *bool                 `json:"key_present"`
+	Error           ErrorObservation      `json:"error"`
+	SetterError     *ErrorObservation     `json:"setter_error"`
+	GetterError     *ErrorObservation     `json:"getter_error"`
+	KnownFlagState  *AnnotationKnownState `json:"known_flag_state"`
+	Snapshots       []AnnotationSnapshot  `json:"snapshots"`
+	GetterAvailable bool                  `json:"getter_available"`
+}
+type AnnotationKnownState struct {
+	Owned []string `json:"owned"`
+}
+
+func annotation(c *Context, in Input, index, which int) AnnotationOutput {
+	fs := newFlags(c)
+	value := "initial"
+	call(c, "pflag.FlagSet.StringVar", func() bool { fs.StringVar(&value, "name", "initial", ""); return true })
+	set := func(name string, values []string) error {
+		if which != 0 {
+			values = copied(values)
+		}
+		return call(c, "pflag.FlagSet.SetAnnotation", func() error { return fs.SetAnnotation(name, "owned", values) })
+	}
+	unknown := c.sentinel("ErrAnnotationFlagUnknown", "annotation flag not found")
+	get := func(name string) ([]string, bool, error, bool) {
+		flag := call(c, "pflag.FlagSet.Lookup", func() *pflag.Flag { return fs.Lookup(name) })
+		if flag == nil {
+			if which == 0 {
+				return nil, false, nil, false
+			}
+			return nil, false, unknown, true
+		}
+		result, present := flag.Annotations["owned"]
+		if which == 1 {
+			result = copied(result)
+		}
+		return result, present, nil, true
+	}
+	out := AnnotationOutput{}
+	if index == 3 {
+		_ = set("name", []string{"keep"})
+		setErr := set(in.SetName, in.RegisteredValues)
+		got, present, getErr, available := get(in.GetName)
+		out.SetterError = ptr(errorObservation(c, setErr))
+		out.Getter = got
+		out.GetterAvailable = available
+		if available {
+			out.KeyPresent = ptr(present)
+			out.GetterError = ptr(errorObservation(c, getErr))
+		} else {
+			out.GetterError = ptr(unavailableError())
+		}
+		known := call(c, "pflag.FlagSet.Lookup", func() *pflag.Flag { return fs.Lookup("name") })
+		out.KnownFlagState = &AnnotationKnownState{Owned: copied(known.Annotations["owned"])}
+		return out
+	}
+	if index == 4 {
+		out.Snapshots = make([]AnnotationSnapshot, 0, 2)
+		for _, op := range in.Operations {
+			if op.Kind == "register" {
+				_ = set("name", op.Values)
+			}
+			if op.Kind == "get" {
+				v, present, e, available := get("name")
+				flag := call(c, "pflag.FlagSet.Lookup", func() *pflag.Flag { return fs.Lookup("name") })
+				out.Snapshots = append(out.Snapshots, AnnotationSnapshot{Stored: copied(flag.Annotations["owned"]), Getter: copied(v), KeyPresent: present, Error: errorObservation(c, e)})
+				out.GetterAvailable = available
+			}
+		}
+		return out
+	}
+	_ = set("name", in.RegisteredValues)
+	if index == 2 {
+		_ = set("name", in.ReplacementValues)
+	}
+	for _, op := range in.Operations {
+		switch op.Kind {
+		case "mutate_registration_input", "mutate_old_input":
+			if op.Index < 0 || op.Index >= len(in.RegisteredValues) {
+				panic("annotation_index")
+			}
+			in.RegisteredValues[op.Index] = op.Value
+		case "mutate_replacement_input":
+			if op.Index < 0 || op.Index >= len(in.ReplacementValues) {
+				panic("annotation_index")
+			}
+			in.ReplacementValues[op.Index] = op.Value
+		case "get_then_mutate_result":
+			v, present, e, available := get("name")
+			if op.Index < 0 || op.Index >= len(v) {
+				panic("annotation_index")
+			}
+			v[op.Index] = op.Value
+			out.MutatedGetter = copied(v)
+			out.KeyPresent = ptr(present)
+			out.Error = errorObservation(c, e)
+			out.GetterAvailable = available
+		default:
+			panic("annotation_operation")
+		}
+	}
+	v, present, e, available := get("name")
+	flag := call(c, "pflag.FlagSet.Lookup", func() *pflag.Flag { return fs.Lookup("name") })
+	out.Stored = copied(flag.Annotations["owned"])
+	out.Getter = copied(v)
+	out.KeyPresent = ptr(present)
+	out.Error = errorObservation(c, e)
+	out.GetterAvailable = available
+	return out
+}
+
+type checkedCount struct {
+	base     pflag.Value
+	n        *int
+	bad      error
+	negative bool
+}
+
+func (v *checkedCount) Type() string   { return v.base.Type() }
+func (v *checkedCount) String() string { return v.base.String() }
+func (v *checkedCount) Set(s string) error {
+	if s == "+1" {
+		if *v.n >= 2 {
+			return v.bad
+		}
+		*v.n = *v.n + 1
+		return nil
+	}
+	n, e := strconv.ParseInt(s, 0, 0)
+	if v.negative {
+		*v.n = int(n)
+		if e != nil {
+			return e
+		}
+		if n < 0 || n > 2 {
+			return v.bad
+		}
+		return nil
+	}
+	if e != nil {
+		return e
+	}
+	if n < 0 || n > 2 {
+		return v.bad
+	}
+	*v.n = int(n)
+	return nil
+}
+
+type CountOutput struct {
+	Count string           `json:"count_decimal"`
+	Error ErrorObservation `json:"error"`
+}
+
+func count(c *Context, in Input, which int) CountOutput {
+	fs := newFlags(c)
+	n := 0
+	call(c, "pflag.FlagSet.CountVarP", func() bool { fs.CountVarP(&n, "verbose", "v", ""); return true })
+	n = in.Start
+	flag := call(c, "pflag.FlagSet.Lookup", func() *pflag.Flag { return fs.Lookup("verbose") })
+	bad := c.sentinel("ErrCountRange", "count out of range")
+	if in.OptIn && which != 0 {
+		flag.Value = &checkedCount{base: flag.Value, n: &n, bad: bad, negative: which == 2}
+	}
+	var e error
+	if in.OptIn {
+		e = call(c, "pflag.Value.Set", func() error { return flag.Value.Set(in.Value) })
+	} else {
+		e = call(c, "pflag.FlagSet.Parse", func() error { return fs.Parse(in.Argv) })
+	}
+	return CountOutput{Count: strconv.Itoa(n), Error: errorObservation(c, e)}
+}
+
+type AssignmentValues struct {
+	Name  string  `json:"name"`
+	Other *string `json:"other,omitempty"`
+}
+type AssignmentOutput struct {
+	Values AssignmentValues `json:"values"`
+	Error  ErrorObservation `json:"error"`
+}
+
+func assignment(c *Context, in Input, index, which int) AssignmentOutput {
+	fs := newFlags(c)
+	values := [2]string{}
+	call(c, "pflag.FlagSet.StringVarP(name)", func() bool { fs.StringVarP(&values[0], "name", "n", "initial", ""); return true })
+	if index == 4 {
+		call(c, "pflag.FlagSet.StringVarP(other)", func() bool { fs.StringVarP(&values[1], "other", "o", "other-initial", ""); return true })
+	}
+	name := call(c, "pflag.FlagSet.Lookup", func() *pflag.Flag { return fs.Lookup("name") })
+	if in.Annotated {
+		_ = call(c, "pflag.FlagSet.SetAnnotation", func() error { return fs.SetAnnotation("name", "single_assignment", []string{"true"}) })
+	}
+	for _, s := range in.AnnotatedFlags {
+		_ = call(c, "pflag.FlagSet.SetAnnotation", func() error { return fs.SetAnnotation(s, "single_assignment", []string{"true"}) })
+	}
+	bad := c.sentinel("ErrDuplicateAssignment", "flag assigned more than once")
+	var e error
+	if which == 0 {
+		e = call(c, "pflag.FlagSet.Parse", func() error { return fs.Parse(in.Argv) })
+	} else {
+		var seen [2]*pflag.Flag
+		var spellingSeen [2]string
+		seenN := 0
+		spellingN := 0
+		assignmentN := 0
+		// Negative-only lexical spellings for these fixed string-flag vectors.
+		// This is not unknown-token instrumentation or a general parser.
+		spellings := make([]string, 0, 2)
+		for i := 0; i < len(in.Argv); i++ {
+			token := in.Argv[i]
+			if strings.HasPrefix(token, "--") {
+				spelling, _, eq := strings.Cut(token, "=")
+				spellings = append(spellings, spelling)
+				if !eq {
+					i++
+				}
+			} else if token == "-n" || token == "-o" {
+				spellings = append(spellings, token)
+				i++
+			}
+		}
+		e = call(c, "pflag.FlagSet.ParseAll", func() error {
+			return fs.ParseAll(in.Argv, func(flag *pflag.Flag, value string) error {
+				if assignmentN >= len(spellings) {
+					panic("assignment_spelling")
+				}
+				spelling := spellings[assignmentN]
+				assignmentN++
+				if len(flag.Annotations["single_assignment"]) != 0 {
+					if which == 1 {
+						for j := 0; j < seenN; j++ {
+							if seen[j] == flag {
+								return bad
+							}
+						}
+						if seenN == len(seen) {
+							panic("assignment_bound")
+						}
+						seen[seenN] = flag
+						seenN++
+					} else {
+						for j := 0; j < spellingN; j++ {
+							if spellingSeen[j] == spelling {
+								return bad
+							}
+						}
+						if spellingN == len(spellingSeen) {
+							panic("assignment_bound")
+						}
+						spellingSeen[spellingN] = spelling
+						spellingN++
+					}
+				}
+				return call(c, "pflag.FlagSet.Set", func() error { return fs.Set(flag.Name, value) })
+			})
+		})
+	}
+	out := AssignmentOutput{Values: AssignmentValues{Name: values[0]}, Error: errorObservation(c, e)}
+	if index == 4 {
+		out.Values.Other = ptr(values[1])
+	}
+	_ = name
+	return out
+}
+
+type HelpOutput struct {
+	Help        string           `json:"help"`
+	Value       string           `json:"value"`
+	DefValue    string           `json:"DefValue"`
+	NoOptDefVal string           `json:"NoOptDefVal"`
+	Error       ErrorObservation `json:"error"`
+}
+
+func help(c *Context, in Input, which int) HelpOutput {
+	fs := newFlags(c)
+	value := "PUBLIC_DEFAULT"
+	call(c, "pflag.FlagSet.StringVar", func() bool { fs.StringVar(&value, "name", "PUBLIC_DEFAULT", "public usage"); return true })
+	f := call(c, "pflag.FlagSet.Lookup", func() *pflag.Flag { return fs.Lookup("name") })
+	f.Hidden = in.Hidden
+	f.NoOptDefVal = in.NoOptDefVal
+	if in.Annotated {
+		_ = call(c, "pflag.FlagSet.SetAnnotation", func() error { return fs.SetAnnotation("name", "sensitive_default", []string{"true"}) })
+	}
+	e := call(c, "pflag.FlagSet.Parse", func() error { return fs.Parse(in.Argv) })
+	display := fs
+	if which != 0 && in.Annotated {
+		copyFlag := *f
+		copyFlag.DefValue = "[redacted]"
+		if which == 1 && copyFlag.NoOptDefVal != "" {
+			copyFlag.NoOptDefVal = "[redacted]"
+		}
+		display = newFlags(c)
+		call(c, "pflag.FlagSet.AddFlag(display-copy)", func() bool { display.AddFlag(&copyFlag); return true })
+	}
+	rendered := call(c, "pflag.FlagSet.FlagUsagesWrapped", func() string { return display.FlagUsagesWrapped(0) })
+	getter := call(c, "pflag.FlagSet.GetString", func() struct {
+		Value string
+		Err   error
+	} { v, err := fs.GetString("name"); return struct {
+		Value string
+		Err   error
+	}{v, err} })
+	if getter.Err != nil {
+		panic("help_getter")
+	}
+	return HelpOutput{Help: rendered, Value: getter.Value, DefValue: f.DefValue, NoOptDefVal: f.NoOptDefVal, Error: errorObservation(c, e)}
+}
+
+type CallbackOutput struct {
+	Trace []string         `json:"trace"`
+	Error ErrorObservation `json:"error"`
+}
+
+func callbacks(c *Context, in Input, which int) (out CallbackOutput) {
+	fs := newFlags(c)
+	var trace, queue [3]string
+	traceN, queueN := 0, 0
+	bad := c.sentinel("ErrCallback", "callback failed")
+	callback := func(v string) error {
+		return call(c, "authored.Callback", func() error {
+			if traceN == len(trace) {
+				panic("callback_trace_bounds")
+			}
+			trace[traceN] = v
+			traceN++
+			if v == "cause-error" {
+				return bad
+			}
+			return nil
+		})
+	}
+	queueing := in.Deferred && which != 0
+	registered := callback
+	if queueing {
+		registered = func(v string) error {
+			return call(c, "authored.QueueCallback", func() error {
+				if queueN == len(queue) {
+					panic("callback_queue_bounds")
+				}
+				queue[queueN] = v
+				queueN++
+				return nil
+			})
+		}
+	}
+	call(c, "pflag.FlagSet.FuncP", func() bool { fs.FuncP("job", "j", "", registered); return true })
+	flush := func() error {
+		for i := 0; i < queueN; i++ {
+			if e := callback(queue[i]); e != nil {
+				return e
+			}
+		}
+		return nil
+	}
+	if queueing && which == 2 {
+		var parseErr error
+		defer func() {
+			cbErr := flush()
+			if parseErr == nil {
+				out.Error = errorObservation(c, cbErr)
+			}
+			out.Trace = copied(trace[:traceN])
+		}()
+		parseErr = call(c, "pflag.FlagSet.Parse", func() error { return fs.Parse(in.Argv) })
+		out.Error = errorObservation(c, parseErr)
+		return out
+	}
+	e := call(c, "pflag.FlagSet.Parse", func() error { return fs.Parse(in.Argv) })
+	if queueing && e == nil {
+		e = flush()
+	}
+	return CallbackOutput{Trace: copied(trace[:traceN]), Error: errorObservation(c, e)}
+}
+
+type TextValue struct {
+	Text    string
+	Failure error
+	Typed   *LiteralTextCause
+}
+
+func (v TextValue) MarshalText() ([]byte, error) { return []byte(v.Text), nil }
+func (v *TextValue) UnmarshalText(raw []byte) error {
+	switch string(raw) {
+	case "SYNTHETIC_BAD":
+		return v.Failure
+	case "SYNTHETIC_TYPED":
+		return v.Typed
+	case "public-text":
+		v.Text = string(raw)
+		return nil
+	default:
+		return errors.New("unsupported text fixture")
+	}
+}
+
+type LiteralTextCause struct{ Code string }
+
+func (v *LiteralTextCause) Error() string { return "typed text fixture failure" }
+
+type RedactedTextError struct {
+	Flag  *pflag.Flag
+	Cause error
+}
+
+func (v *RedactedTextError) Error() string {
+	return "invalid value for --" + v.Flag.Name + ": " + v.Cause.Error()
+}
+func (v *RedactedTextError) Unwrap() error { return v.Cause }
+
+type TextCauseObservation struct {
+	Matches bool   `json:"matches"`
+	Code    string `json:"code"`
+}
+type TextOutput struct {
+	Receiver              string                `json:"receiver"`
+	FlagName              *string               `json:"flag_name"`
+	FlagIdentityAvailable bool                  `json:"flag_identity_available"`
+	Error                 ErrorObservation      `json:"error"`
+	Message               *string               `json:"error_message"`
+	ContainsSuppliedValue *bool                 `json:"contains_supplied_value"`
+	TypedCause            *TextCauseObservation `json:"typed_cause"`
+}
+
+func text(c *Context, in Input, which int) TextOutput {
+	fs := newFlags(c)
+	failure := c.sentinel("ErrTextFailure", "text fixture failure")
+	typed := &LiteralTextCause{Code: "synthetic_failure"}
+	target := TextValue{}
+	defaultValue := TextValue{Text: "initial", Failure: failure, Typed: typed}
+	call(c, "pflag.FlagSet.TextVar", func() bool { fs.TextVar(&target, "payload", defaultValue, ""); return true })
+	e := call(c, "pflag.FlagSet.Set", func() error { return fs.Set(in.Name, in.Value) })
+	if in.OptIn && which != 0 && e != nil {
+		var invalid *pflag.InvalidValueError
+		if call(c, "errors.As(pflag.InvalidValueError)", func() bool { return errors.As(e, &invalid) }) {
+			flag := call(c, "pflag.InvalidValueError.GetFlag", func() *pflag.Flag { return invalid.GetFlag() })
+			cause := call(c, "pflag.InvalidValueError.Unwrap", func() error { return invalid.Unwrap() })
+			redacted := &RedactedTextError{Flag: flag, Cause: cause}
+			if which == 1 {
+				e = redacted
+			} else {
+				message := call(c, "authored.RedactedTextError.Error", func() string { return redacted.Error() })
+				e = errors.New(message)
+			}
+		}
+	}
+	out := TextOutput{Receiver: target.Text, Error: errorObservation(c, e)}
+	// This contract observes actual flag identity in the separate flag_name
+	// channel; it does not request fields from the generic error object.
+	out.Error.Fields = nil
+	if e == nil {
+		flag := call(c, "pflag.FlagSet.Lookup", func() *pflag.Flag { return fs.Lookup(in.Name) })
+		if flag != nil {
+			out.FlagName = ptr(flag.Name)
+			out.FlagIdentityAvailable = true
+		}
+	} else if redacted, ok := e.(*RedactedTextError); ok {
+		out.FlagName = ptr(redacted.Flag.Name)
+		out.FlagIdentityAvailable = true
+	} else {
+		var invalid *pflag.InvalidValueError
+		var absent *pflag.NotExistError
+		if call(c, "errors.As(pflag.InvalidValueError identity)", func() bool { return errors.As(e, &invalid) }) {
+			flag := call(c, "pflag.InvalidValueError.GetFlag", func() *pflag.Flag { return invalid.GetFlag() })
+			out.FlagName = ptr(flag.Name)
+			out.FlagIdentityAvailable = true
+		} else if call(c, "errors.As(pflag.NotExistError identity)", func() bool { return errors.As(e, &absent) }) {
+			name := call(c, "pflag.NotExistError.GetSpecifiedName", func() string { return absent.GetSpecifiedName() })
+			out.FlagName = ptr(name)
+			out.FlagIdentityAvailable = true
+		}
+	}
+	if e != nil && in.Name == "payload" {
+		message := call(c, "error.Error(explicit-text-target)", func() string { return e.Error() })
+		out.Message = ptr(message)
+		out.ContainsSuppliedValue = ptr(strings.Contains(message, in.Value))
+	}
+	if in.Value == "SYNTHETIC_TYPED" && e != nil {
+		var got *LiteralTextCause
+		match := call(c, "errors.As(LiteralTextCause)", func() bool { return errors.As(e, &got) })
+		observation := TextCauseObservation{Matches: match}
+		if match {
+			observation.Code = got.Code
+		}
+		out.TypedCause = &observation
+	}
+	return out
+}

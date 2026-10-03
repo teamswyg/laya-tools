@@ -1,0 +1,713 @@
+// This stdlib-only tool compares saved finite observations. It imports no
+// upstream library or model and assigns no labels, roles or qualification.
+package main
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"sort"
+	"strconv"
+	"strings"
+	"unicode/utf8"
+)
+
+const catalogSHA = "c7b0446710a6d629a584aac16f3723d439330a9684ac299491aa430edf33f80c"
+const catalogBytes = 106576
+const rootWorkerMainSHA = "4da2963c0616066125f1f14a3ac833ba7df9ccf25d87623a2c2dcf1dcd56a181"
+const inputCap = 1 << 20
+const outputCap = 128 << 10
+const maxPredicates = 8192
+
+var requestIDs = [10]string{
+	"go53-pflag-annotation-ownership", "go53-pflag-bounded-count",
+	"go53-pflag-single-assignment", "go53-pflag-sensitive-default",
+	"go53-pflag-deferred-function", "go53-pflag-text-error-value",
+	"go53-mapstructure-hooks-errors-is", "go53-mapstructure-remain-conflict",
+	"go53-mapstructure-tag-precedence", "go53-pflag-unknown-token-report",
+}
+var fixtureCounts = [10]int{5, 6, 5, 5, 5, 5, 5, 5, 5, 6}
+var candidateNames = [3]string{"original", "authored_reference", "authored_negative"}
+var errInvalid = errors.New("comparison_input_invalid")
+var errLimit = errors.New("comparison_bounds")
+
+// Objects retain ordered fields in slices, including explicit null values.
+// Duplicate keys are refused instead of being silently overwritten in a map.
+type member struct {
+	key   string
+	value *node
+}
+type node struct {
+	kind   byte
+	scalar any
+	fields []member
+	items  []*node
+}
+type parser struct {
+	decoder *json.Decoder
+	nodes   int
+}
+
+func parse(raw []byte) (*node, error) {
+	if len(raw) == 0 || len(raw) > inputCap || !utf8.Valid(raw) {
+		return nil, errLimit
+	}
+	d := json.NewDecoder(bytes.NewReader(raw))
+	d.UseNumber()
+	p := parser{decoder: d}
+	n, err := p.read(0)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := d.Token(); err != io.EOF {
+		return nil, errInvalid
+	}
+	return n, nil
+}
+func (p *parser) read(depth int) (*node, error) {
+	p.nodes++
+	if depth > 32 || p.nodes > 65536 {
+		return nil, errLimit
+	}
+	token, err := p.decoder.Token()
+	if err != nil {
+		return nil, errInvalid
+	}
+	n := &node{}
+	switch value := token.(type) {
+	case nil:
+		n.kind = 'z'
+	case bool:
+		n.kind, n.scalar = 'b', value
+	case string:
+		if len(value) > 65536 {
+			return nil, errLimit
+		}
+		n.kind, n.scalar = 's', value
+	case json.Number:
+		n.kind, n.scalar = 'n', value
+	case json.Delim:
+		switch value {
+		case '{':
+			n.kind = 'o'
+			for p.decoder.More() {
+				if len(n.fields) >= 1024 {
+					return nil, errLimit
+				}
+				keyToken, err := p.decoder.Token()
+				if err != nil {
+					return nil, errInvalid
+				}
+				key, ok := keyToken.(string)
+				if !ok || len(key) > 1024 {
+					return nil, errInvalid
+				}
+				if _, exists := n.get(key); exists {
+					return nil, errInvalid
+				}
+				child, err := p.read(depth + 1)
+				if err != nil {
+					return nil, err
+				}
+				n.fields = append(n.fields, member{key, child})
+			}
+			end, err := p.decoder.Token()
+			if err != nil || end != json.Delim('}') {
+				return nil, errInvalid
+			}
+		case '[':
+			n.kind = 'a'
+			for p.decoder.More() {
+				if len(n.items) >= 1024 {
+					return nil, errLimit
+				}
+				child, err := p.read(depth + 1)
+				if err != nil {
+					return nil, err
+				}
+				n.items = append(n.items, child)
+			}
+			end, err := p.decoder.Token()
+			if err != nil || end != json.Delim(']') {
+				return nil, errInvalid
+			}
+		default:
+			return nil, errInvalid
+		}
+	default:
+		return nil, errInvalid
+	}
+	return n, nil
+}
+func (n *node) get(key string) (*node, bool) {
+	if n == nil || n.kind != 'o' {
+		return nil, false
+	}
+	for _, field := range n.fields {
+		if field.key == key {
+			return field.value, true
+		}
+	}
+	return nil, false
+}
+func (n *node) keys() []string {
+	keys := make([]string, 0, len(n.fields))
+	for _, field := range n.fields {
+		keys = append(keys, field.key)
+	}
+	sort.Strings(keys)
+	return keys
+}
+func isString(n *node, value string) bool {
+	return n != nil && n.kind == 's' && n.scalar.(string) == value
+}
+func isBool(n *node, value bool) bool { return n != nil && n.kind == 'b' && n.scalar.(bool) == value }
+func isInt(n *node, value int) bool {
+	return n != nil && n.kind == 'n' && n.scalar.(json.Number).String() == strconv.Itoa(value)
+}
+func fieldString(n *node, key, value string) bool {
+	child, _ := n.get(key)
+	return isString(child, value)
+}
+func fieldBool(n *node, key string, value bool) bool {
+	child, _ := n.get(key)
+	return isBool(child, value)
+}
+func fieldInt(n *node, key string, value int) bool {
+	child, _ := n.get(key)
+	return isInt(child, value)
+}
+func fieldNull(n *node, key string) bool {
+	child, exists := n.get(key)
+	return exists && child.kind == 'z'
+}
+func fieldsArray(n *node, key string, count int) (*node, bool) {
+	child, _ := n.get(key)
+	return child, child != nil && child.kind == 'a' && len(child.items) == count
+}
+func rawValue(n *node) json.RawMessage {
+	if n == nil {
+		return json.RawMessage("null")
+	}
+	var buffer bytes.Buffer
+	n.write(&buffer)
+	return json.RawMessage(buffer.Bytes())
+}
+func (n *node) write(buffer *bytes.Buffer) {
+	switch n.kind {
+	case 'o':
+		buffer.WriteByte('{')
+		for i, field := range n.fields {
+			if i != 0 {
+				buffer.WriteByte(',')
+			}
+			key, _ := json.Marshal(field.key)
+			buffer.Write(key)
+			buffer.WriteByte(':')
+			field.value.write(buffer)
+		}
+		buffer.WriteByte('}')
+	case 'a':
+		buffer.WriteByte('[')
+		for i, child := range n.items {
+			if i != 0 {
+				buffer.WriteByte(',')
+			}
+			child.write(buffer)
+		}
+		buffer.WriteByte(']')
+	case 'z':
+		buffer.WriteString("null")
+	default:
+		raw, _ := json.Marshal(n.scalar)
+		buffer.Write(raw)
+	}
+}
+
+type fixture struct {
+	request, index int
+	want           *node
+}
+
+func catalogFixtures(root *node) ([46]fixture, error) {
+	var out [46]fixture
+	if !fieldString(root, "schema", "riido-next60-catalog10-literal-correction-proposal-v2") || !fieldBool(root, "frozen", false) {
+		return out, errInvalid
+	}
+	requests, ok := fieldsArray(root, "requests", 10)
+	if !ok {
+		return out, errInvalid
+	}
+	ordinal := 0
+	for i, request := range requests.items {
+		group, family := 77, "pflag"
+		if i >= 6 && i <= 8 {
+			group, family = 78, "mapstructure"
+		}
+		if !fieldInt(request, "request_index", i) || !fieldString(request, "id", requestIDs[i]) || !fieldInt(request, "group_id", group) || !fieldString(request, "family", family) {
+			return out, errInvalid
+		}
+		order, ok := fieldsArray(request, "candidate_order", 3)
+		if !ok {
+			return out, errInvalid
+		}
+		captions, ok := fieldsArray(request, "caption_proposals", 3)
+		if !ok {
+			return out, errInvalid
+		}
+		for j := 0; j < 3; j++ {
+			if !isString(order.items[j], candidateNames[j]) || !fieldInt(captions.items[j], "candidate_index", j) {
+				return out, errInvalid
+			}
+		}
+		fixtures, ok := fieldsArray(request, "fixtures", fixtureCounts[i])
+		if !ok {
+			return out, errInvalid
+		}
+		for j, item := range fixtures.items {
+			if !fieldInt(item, "fixture_index", j) {
+				return out, errInvalid
+			}
+			want, exists := item.get("Want")
+			if !exists || want.kind != 'o' || len(want.fields) == 0 {
+				return out, errInvalid
+			}
+			if i < 9 {
+				out[ordinal] = fixture{i, j, want}
+				ordinal++
+			}
+		}
+	}
+	if ordinal != len(out) {
+		return out, errInvalid
+	}
+	return out, nil
+}
+func validateSaved(root *node, fixtures [46]fixture) ([138]*node, error) {
+	var out [138]*node
+	if !fieldString(root, "schema", "riido-next60-catalog9-native-observation-v1") || !fieldString(root, "state", "complete") || !fieldString(root, "catalog_sha256", catalogSHA) || !fieldInt(root, "catalog_bytes", catalogBytes) || !fieldBool(root, "catalog_frozen_field", false) {
+		return out, errInvalid
+	}
+	for _, item := range []struct {
+		key   string
+		value int
+	}{{"planned_requests", 9}, {"planned_inputs", 46}, {"planned_observations", 138}, {"held_requests", 1}, {"held_inputs", 6}, {"model_calls", 0}, {"fit_calls", 0}} {
+		if !fieldInt(root, item.key, item.value) {
+			return out, errInvalid
+		}
+	}
+	for _, key := range []string{"comparisons_performed", "labels_assigned", "weights_assigned", "roles_assigned", "training_ready", "incomplete_counts_unknown"} {
+		if !fieldBool(root, key, false) {
+			return out, errInvalid
+		}
+	}
+	for _, key := range []string{"failure_code", "uninstrumented_nested_calls", "startup_original_calls"} {
+		if !fieldNull(root, key) {
+			return out, errInvalid
+		}
+	}
+	counters, _ := root.get("counters")
+	for _, key := range []string{"dispatch_reserved", "dispatch_returned", "observations_completed"} {
+		if !fieldInt(counters, key, 138) {
+			return out, errInvalid
+		}
+	}
+	if !fieldInt(counters, "panics", 0) {
+		return out, errInvalid
+	}
+	rows, ok := fieldsArray(root, "rows", 138)
+	if !ok {
+		return out, errInvalid
+	}
+	for i, row := range rows.items {
+		f := fixtures[i/3]
+		candidate := i % 3
+		if !fieldInt(row, "request_index", f.request) || !fieldInt(row, "fixture_index", f.index) || !fieldInt(row, "candidate_index", candidate) || !fieldString(row, "request_id", requestIDs[f.request]) || !fieldBool(row, "supported", true) || !fieldBool(row, "panicked", false) {
+			return out, errInvalid
+		}
+		for _, key := range []string{"label", "weight", "qualified"} {
+			if !fieldNull(row, key) {
+				return out, errInvalid
+			}
+		}
+		got, present := row.get("Got")
+		if !present || got.kind != 'o' {
+			return out, errInvalid
+		}
+		out[i] = got
+	}
+	return out, nil
+}
+
+// Predicate tuple: [JSON-pointer, T/F/U, Want, observed Got, field-present,
+// reason]. Missing and explicit null have different field-present values.
+type predicate [6]any
+type rowComparison struct {
+	Position   [4]int      `json:"position"`
+	State      string      `json:"state"`
+	Counts     [3]int      `json:"counts_T_F_U"`
+	Predicates []predicate `json:"predicates"`
+}
+type candidateComparison struct {
+	Position        [2]int   `json:"position"`
+	RequestID       string   `json:"request_id"`
+	Candidate       string   `json:"candidate"`
+	State           string   `json:"state"`
+	Vector          []string `json:"row_vector"`
+	RowOrdinals     []int    `json:"row_ordinals"`
+	Counterexamples []int    `json:"known_counterexample_fixture_positions"`
+	Unknowns        []int    `json:"unknown_fixture_positions"`
+}
+type report struct {
+	Schema          string                  `json:"schema"`
+	CatalogSHA      string                  `json:"catalog_sha256"`
+	SavedSHA        string                  `json:"saved_result_sha256"`
+	SourceBasis     string                  `json:"source_basis_Root_V2_main_sha256"`
+	RuleVersion     string                  `json:"rule_version"`
+	Counts          [4]int                  `json:"counts_rows_satisfied_unsatisfied_unknown"`
+	PredicateCounts [3]int                  `json:"predicate_counts_T_F_U"`
+	Rows            [138]rowComparison      `json:"rows"`
+	Candidates      [27]candidateComparison `json:"candidates"`
+	LabelsAssigned  bool                    `json:"labels_assigned"`
+	Qualified       bool                    `json:"qualified"`
+	Nonblind        bool                    `json:"nonblind"`
+}
+
+func pointerPart(value string) string {
+	return strings.ReplaceAll(strings.ReplaceAll(value, "~", "~0"), "/", "~1")
+}
+func marker(value any) *node { raw, _ := json.Marshal(value); n, _ := parse(raw); return n }
+func state(counts [3]int) string {
+	if counts[1] != 0 {
+		return "unsatisfied"
+	}
+	if counts[2] != 0 {
+		return "unknown"
+	}
+	return "satisfied"
+}
+
+type comparer struct {
+	request int
+	rootGot *node
+	row     *rowComparison
+}
+
+func (c *comparer) add(path, status string, want, got *node, present bool, reason string) error {
+	if len(c.row.Predicates) >= maxPredicates {
+		return errLimit
+	}
+	index := 0
+	if status == "F" {
+		index = 1
+	}
+	if status == "U" {
+		index = 2
+	}
+	c.row.Counts[index]++
+	c.row.Predicates = append(c.row.Predicates, predicate{path, status, rawValue(want), rawValue(got), present, reason})
+	return nil
+}
+func availability(got *node, key, reason string) string {
+	value, present := got.get(key)
+	if !present || value.kind != 'b' {
+		return reason + "_unknown"
+	}
+	if !value.scalar.(bool) {
+		return reason
+	}
+	return ""
+}
+func (c *comparer) compare(path string, want, got *node, present bool, forced string) error {
+	if forced == "" && c.request == 0 {
+		parts := strings.Split(path, "/")
+		name := parts[len(parts)-1]
+		switch name {
+		case "getter_values", "getter_error", "mutated_getter_result", "key_present":
+			forced = availability(c.rootGot, "getter_available", "getter_unavailable")
+		}
+	}
+	if forced == "" && path == "/flag_name" && c.request == 5 {
+		forced = availability(c.rootGot, "flag_identity_available", "flag_identity_unavailable")
+	}
+	if forced == "" && got != nil && got.kind == 'o' && (strings.HasSuffix(path, "/error") || strings.HasSuffix(path, "/getter_error") || strings.HasSuffix(path, "/setter_error")) {
+		forced = availability(got, "available", "error_unavailable")
+	}
+	if !present && forced == "" {
+		forced = "missing_field"
+	}
+	if forced != "" {
+		return c.unknown(path, want, got, present, forced)
+	}
+	if want.kind != got.kind {
+		return c.add(path, "F", want, got, true, "type_mismatch")
+	}
+	switch want.kind {
+	case 'o':
+		if len(want.fields) == 0 || path == "/maps/A" || path == "/maps/B" {
+			w, g := marker(want.keys()), marker(got.keys())
+			status := "T"
+			if string(rawValue(w)) != string(rawValue(g)) {
+				status = "F"
+			}
+			if err := c.add(path+"/@keys", status, w, g, true, ""); err != nil {
+				return err
+			}
+		}
+		for _, field := range want.fields {
+			child, present := got.get(field.key)
+			reason := ""
+			if field.key == "kind" && (strings.HasSuffix(path, "/error") || strings.HasSuffix(path, "/getter_error") || strings.HasSuffix(path, "/setter_error")) {
+				reason = availability(got, "kind_available", "kind_unavailable")
+			}
+			if err := c.compare(path+"/"+pointerPart(field.key), field.value, child, present, reason); err != nil {
+				return err
+			}
+		}
+	case 'a':
+		status := "T"
+		if len(want.items) != len(got.items) {
+			status = "F"
+		}
+		if err := c.add(path+"/@length", status, marker(len(want.items)), marker(len(got.items)), true, ""); err != nil {
+			return err
+		}
+		for i, child := range want.items {
+			var value *node
+			present := i < len(got.items)
+			if present {
+				value = got.items[i]
+			}
+			if err := c.compare(path+"/"+strconv.Itoa(i), child, value, present, ""); err != nil {
+				return err
+			}
+		}
+	default:
+		status := "T"
+		if string(rawValue(want)) != string(rawValue(got)) {
+			status = "F"
+		}
+		return c.add(path, status, want, got, true, "")
+	}
+	return nil
+}
+func (c *comparer) unknown(path string, want, got *node, present bool, reason string) error {
+	switch want.kind {
+	case 'o':
+		if len(want.fields) == 0 || path == "/maps/A" || path == "/maps/B" {
+			if err := c.add(path+"/@keys", "U", marker(want.keys()), nil, present, reason); err != nil {
+				return err
+			}
+		}
+		for _, field := range want.fields {
+			value, childPresent := got.get(field.key)
+			if err := c.unknown(path+"/"+pointerPart(field.key), field.value, value, childPresent, reason); err != nil {
+				return err
+			}
+		}
+	case 'a':
+		var actual *node
+		if present && got != nil && got.kind == 'a' {
+			actual = marker(len(got.items))
+		}
+		if err := c.add(path+"/@length", "U", marker(len(want.items)), actual, present, reason); err != nil {
+			return err
+		}
+		for i, child := range want.items {
+			var value *node
+			childPresent := present && got != nil && got.kind == 'a' && i < len(got.items)
+			if childPresent {
+				value = got.items[i]
+			}
+			if err := c.unknown(path+"/"+strconv.Itoa(i), child, value, childPresent, reason); err != nil {
+				return err
+			}
+		}
+	default:
+		return c.add(path, "U", want, got, present, reason)
+	}
+	return nil
+}
+func compareInputs(catalogRaw, savedRaw []byte, savedSHA string) (report, error) {
+	out := report{Schema: "riido-catalog9-finite-saved-comparison-v1", CatalogSHA: catalogSHA, SavedSHA: savedSHA, SourceBasis: rootWorkerMainSHA, RuleVersion: "Wanted-projection-and-availability-v1", Nonblind: true}
+	if len(catalogRaw) != catalogBytes || hash(catalogRaw) != catalogSHA || !validSHA(savedSHA) || hash(savedRaw) != savedSHA {
+		return out, errInvalid
+	}
+	catalog, err := parse(catalogRaw)
+	if err != nil {
+		return out, err
+	}
+	fixtures, err := catalogFixtures(catalog)
+	if err != nil {
+		return out, err
+	}
+	saved, err := parse(savedRaw)
+	if err != nil {
+		return out, err
+	}
+	rows, err := validateSaved(saved, fixtures)
+	if err != nil {
+		return out, err
+	}
+	for i, got := range rows {
+		f := fixtures[i/3]
+		row := rowComparison{Position: [4]int{i, f.request, f.index, i % 3}, Predicates: make([]predicate, 0, 16)}
+		c := comparer{request: f.request, rootGot: got, row: &row}
+		if err := c.compare("", f.want, got, true, ""); err != nil {
+			return out, err
+		}
+		if len(row.Predicates) == 0 {
+			return out, errInvalid
+		}
+		row.State = state(row.Counts)
+		out.Rows[i] = row
+		out.Counts[0]++
+		switch row.State {
+		case "satisfied":
+			out.Counts[1]++
+		case "unsatisfied":
+			out.Counts[2]++
+		case "unknown":
+			out.Counts[3]++
+		}
+		for j := 0; j < 3; j++ {
+			out.PredicateCounts[j] += row.Counts[j]
+		}
+		if out.PredicateCounts[0]+out.PredicateCounts[1]+out.PredicateCounts[2] > maxPredicates {
+			return out, errLimit
+		}
+	}
+	rowStart := 0
+	for r := 0; r < 9; r++ {
+		for candidate := 0; candidate < 3; candidate++ {
+			v := candidateComparison{Position: [2]int{r, candidate}, RequestID: requestIDs[r], Candidate: candidateNames[candidate], Vector: make([]string, 0, fixtureCounts[r]), RowOrdinals: make([]int, 0, fixtureCounts[r]), Counterexamples: []int{}, Unknowns: []int{}}
+			counts := [3]int{}
+			for f := 0; f < fixtureCounts[r]; f++ {
+				i := rowStart + f*3 + candidate
+				row := out.Rows[i]
+				v.Vector = append(v.Vector, row.State)
+				v.RowOrdinals = append(v.RowOrdinals, i)
+				switch row.State {
+				case "satisfied":
+					counts[0]++
+				case "unsatisfied":
+					counts[1]++
+					v.Counterexamples = append(v.Counterexamples, f)
+				case "unknown":
+					counts[2]++
+				}
+				if row.Counts[2] > 0 {
+					v.Unknowns = append(v.Unknowns, f)
+				}
+			}
+			v.State = state(counts)
+			out.Candidates[r*3+candidate] = v
+		}
+		rowStart += fixtureCounts[r] * 3
+	}
+	return out, nil
+}
+func hash(raw []byte) string { sum := sha256.Sum256(raw); return hex.EncodeToString(sum[:]) }
+func validSHA(value string) bool {
+	if len(value) != 64 {
+		return false
+	}
+	for _, c := range value {
+		if !(c >= '0' && c <= '9' || c >= 'a' && c <= 'f') {
+			return false
+		}
+	}
+	return true
+}
+func readBounded(path string) ([]byte, error) {
+	st, err := os.Lstat(path)
+	if err != nil || !st.Mode().IsRegular() || st.Size() > inputCap {
+		return nil, errInvalid
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, errInvalid
+	}
+	defer f.Close()
+	opened, err := f.Stat()
+	if err != nil || !os.SameFile(st, opened) {
+		return nil, errInvalid
+	}
+	raw, err := io.ReadAll(io.LimitReader(f, inputCap+1))
+	if err != nil || len(raw) > inputCap {
+		return nil, errLimit
+	}
+	return raw, nil
+}
+func writeFresh(path string, raw []byte) error {
+	if !filepath.IsAbs(path) || filepath.Clean(path) != path || len(raw) > outputCap {
+		return errLimit
+	}
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if err != nil {
+		return errInvalid
+	}
+	n, err := f.Write(raw)
+	if err == nil && n != len(raw) {
+		err = io.ErrShortWrite
+	}
+	if err == nil {
+		err = f.Sync()
+	}
+	closeErr := f.Close()
+	if err == nil {
+		err = closeErr
+	}
+	return err
+}
+func main() {
+	if len(os.Args) != 9 {
+		fmt.Fprintln(os.Stderr, "comparison_arguments_invalid")
+		os.Exit(2)
+	}
+	var values [4]string
+	names := [4]string{"--catalog", "--results", "--results-sha256", "--output"}
+	for i := 0; i < 4; i++ {
+		if os.Args[1+2*i] != names[i] || os.Args[2+2*i] == "" {
+			fmt.Fprintln(os.Stderr, "comparison_arguments_invalid")
+			os.Exit(2)
+		}
+		values[i] = os.Args[2+2*i]
+	}
+	catalog, err := readBounded(values[0])
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "comparison_catalog_invalid")
+		os.Exit(1)
+	}
+	saved, err := readBounded(values[1])
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "comparison_saved_invalid")
+		os.Exit(1)
+	}
+	out, err := compareInputs(catalog, saved, values[2])
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "comparison_input_invalid")
+		os.Exit(1)
+	}
+	raw, err := json.Marshal(out)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "comparison_output_invalid")
+		os.Exit(1)
+	}
+	raw = append(raw, '\n')
+	if len(raw) > outputCap {
+		fmt.Fprintln(os.Stderr, "comparison_output_bounds")
+		os.Exit(1)
+	}
+	if err := writeFresh(values[3], raw); err != nil {
+		fmt.Fprintln(os.Stderr, "comparison_output_failed")
+		os.Exit(1)
+	}
+	fmt.Printf("comparison_saved rows=%d satisfied=%d unsatisfied=%d unknown=%d bytes=%d\n", out.Counts[0], out.Counts[1], out.Counts[2], out.Counts[3], len(raw))
+}

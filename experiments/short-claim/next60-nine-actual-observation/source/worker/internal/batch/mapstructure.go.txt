@@ -1,0 +1,288 @@
+package batch
+
+import (
+	"errors"
+	"reflect"
+	"strings"
+
+	mapstructure "github.com/go-viper/mapstructure/v2"
+)
+
+type LiteralHookCause struct{ Code int }
+
+func (v *LiteralHookCause) Error() string { return "typed hook failure" }
+
+type HookCauseObservation struct {
+	Matches bool `json:"matches"`
+	Code    int  `json:"code"`
+}
+type HookOutput struct {
+	Output     *int                  `json:"output"`
+	Error      ErrorObservation      `json:"error"`
+	Trace      []TraceItem           `json:"trace"`
+	TypedCause *HookCauseObservation `json:"typed_cause"`
+}
+
+func hooks(c *Context, in Input, which int) HookOutput {
+	e1 := c.sentinel("E1", "first failure")
+	e2 := c.sentinel("E2", "second failure")
+	empty := c.sentinel("ErrNoHooks", "no decode hooks")
+	typed := &LiteralHookCause{Code: 7}
+	var trace [2]TraceItem
+	traceN := 0
+	list := make([]mapstructure.DecodeHookFunc, 0, len(in.Hooks))
+	for _, literal := range in.Hooks {
+		h := literal
+		fn := mapstructure.DecodeHookFuncType(func(from, to reflect.Type, input any) (any, error) {
+			result := call(c, "authored.DecodeHookFuncType", func() struct {
+				Value any
+				Err   error
+			} { n, ok := input.(int); if !ok || from.Kind() != reflect.Int || to.Kind() != reflect.Int {
+				panic("hook_fixture_type")
+			}; if traceN == len(trace) {
+				panic("hook_trace_bounds")
+			}; trace[traceN] = TraceItem{Hook: h.ID, Input: n}; traceN++; if h.Error != nil {
+				switch *h.Error {
+				case "E1":
+					return struct {
+						Value any
+						Err   error
+					}{nil, e1}
+				case "E2":
+					return struct {
+						Value any
+						Err   error
+					}{nil, e2}
+				case "ETyped":
+					return struct {
+						Value any
+						Err   error
+					}{nil, typed}
+				default:
+					panic("hook_fixture_error")
+				}
+			}; if h.Result == nil {
+				return struct {
+					Value any
+					Err   error
+				}{}
+			}; return struct {
+				Value any
+				Err   error
+			}{*h.Result, nil} })
+			return result.Value, result.Err
+		})
+		list = append(list, fn)
+	}
+	var composed mapstructure.DecodeHookFunc
+	if which == 0 {
+		composed = call(c, "mapstructure.OrComposeDecodeHookFunc", func() mapstructure.DecodeHookFunc { return mapstructure.OrComposeDecodeHookFunc(list...) })
+	} else {
+		composed = mapstructure.DecodeHookFuncValue(func(from, to reflect.Value) (any, error) {
+			if len(list) == 0 {
+				return nil, empty
+			}
+			var failures [2]error
+			failureN := 0
+			for _, hook := range list {
+				observed := call(c, "mapstructure.DecodeHookExec(inner)", func() struct {
+					Value any
+					Err   error
+				} { v, e := mapstructure.DecodeHookExec(hook, from, to); return struct {
+					Value any
+					Err   error
+				}{v, e} })
+				if observed.Err == nil {
+					if which == 1 || observed.Value != nil {
+						return observed.Value, nil
+					}
+					continue
+				}
+				if failureN == len(failures) {
+					panic("hook_failure_bounds")
+				}
+				failures[failureN] = observed.Err
+				failureN++
+			}
+			return nil, call(c, "errors.Join", func() error { return errors.Join(failures[:failureN]...) })
+		})
+	}
+	observed := call(c, "mapstructure.DecodeHookExec(outer)", func() struct {
+		Value any
+		Err   error
+	} { v, e := mapstructure.DecodeHookExec(composed, reflect.ValueOf(3), reflect.ValueOf(0)); return struct {
+		Value any
+		Err   error
+	}{v, e} })
+	traceCopy := make([]TraceItem, traceN)
+	copy(traceCopy, trace[:traceN])
+	out := HookOutput{Error: errorObservation(c, observed.Err), Trace: traceCopy}
+	if observed.Value != nil {
+		v, ok := observed.Value.(int)
+		if !ok {
+			panic("hook_output_type")
+		}
+		out.Output = ptr(v)
+	}
+	hasTyped := false
+	for _, h := range in.Hooks {
+		if h.Error != nil && *h.Error == "ETyped" {
+			hasTyped = true
+		}
+	}
+	if hasTyped && observed.Err != nil {
+		var got *LiteralHookCause
+		match := call(c, "errors.As(LiteralHookCause)", func() bool { return errors.As(observed.Err, &got) })
+		out.TypedCause = &HookCauseObservation{Matches: match}
+		if match {
+			out.TypedCause.Code = got.Code
+		}
+	}
+	return out
+}
+
+type DirectRemain struct {
+	Name string
+	A    map[string]string `mapstructure:",remain"`
+	B    map[string]string `mapstructure:",remain"`
+}
+type RemainingEmbedded struct {
+	B map[string]string `mapstructure:",remain"`
+}
+type SquashedRemain struct {
+	Name     string
+	A        map[string]string `mapstructure:",remain"`
+	Embedded RemainingEmbedded `mapstructure:",squash"`
+}
+type OneRemain struct {
+	Name string
+	A    map[string]string `mapstructure:",remain"`
+}
+type OrdinaryMaps struct{ A, B map[string]string }
+type RemainMaps struct {
+	A map[string]string  `json:"A"`
+	B *map[string]string `json:"B,omitempty"`
+}
+type NormalState struct {
+	Name string `json:"Name"`
+}
+type RemainOutput struct {
+	Error  ErrorObservation `json:"error"`
+	Maps   RemainMaps       `json:"maps"`
+	Normal *NormalState     `json:"normal_field_state"`
+}
+
+func decoder(c *Context, result any, tagName string) (*mapstructure.Decoder, error) {
+	out := call(c, "mapstructure.NewDecoder", func() struct {
+		Decoder *mapstructure.Decoder
+		Err     error
+	} { v, e := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
+		Result: result, TagName: tagName, Squash: false,
+		IgnoreUntaggedFields: false, ZeroFields: false, ErrorUnused: false, ErrorUnset: false,
+		WeaklyTypedInput: false,
+	}); return struct {
+		Decoder *mapstructure.Decoder
+		Err     error
+	}{v, e} })
+	return out.Decoder, out.Err
+}
+func effectiveRemain(t reflect.Type, includeSquashed bool, depth int) int {
+	if depth > 2 || t.Kind() != reflect.Struct {
+		panic("remain_fixture_type")
+	}
+	count := 0
+	for i := 0; i < t.NumField(); i++ {
+		field := t.Field(i)
+		tag := field.Tag.Get("mapstructure")
+		parts := strings.Split(tag, ",")
+		for _, option := range parts[1:] {
+			if option == "remain" {
+				count++
+			}
+			if option == "squash" && includeSquashed {
+				count += effectiveRemain(field.Type, true, depth+1)
+			}
+		}
+	}
+	return count
+}
+func remain(c *Context, in Input, index, which int) RemainOutput {
+	direct := DirectRemain{Name: "initial", A: map[string]string{}, B: map[string]string{}}
+	squashed := SquashedRemain{Name: "initial", A: map[string]string{}, Embedded: RemainingEmbedded{B: map[string]string{}}}
+	one := OneRemain{Name: "initial", A: map[string]string{}}
+	ordinary := OrdinaryMaps{A: map[string]string{}, B: map[string]string{}}
+	var receiver any
+	switch index {
+	case 0, 4:
+		receiver = &direct
+	case 1:
+		receiver = &squashed
+	case 2:
+		receiver = &one
+	case 3:
+		receiver = &ordinary
+	default:
+		panic("remain_fixture_index")
+	}
+	bad := c.sentinel("ErrRemainConflict", "multiple remain fields")
+	var e error
+	if which != 0 && effectiveRemain(reflect.TypeOf(receiver).Elem(), which == 1, 0) > 1 {
+		e = bad
+	} else {
+		d, construct := decoder(c, receiver, "mapstructure")
+		if construct != nil {
+			e = construct
+		} else {
+			e = call(c, "mapstructure.Decoder.Decode", func() error { return d.Decode(in.Data) })
+		}
+	}
+	out := RemainOutput{Error: errorObservation(c, e)}
+	switch index {
+	case 0, 4:
+		out.Maps = RemainMaps{A: direct.A, B: ptr(direct.B)}
+	case 1:
+		out.Maps = RemainMaps{A: squashed.A, B: ptr(squashed.Embedded.B)}
+	case 2:
+		out.Maps = RemainMaps{A: one.A}
+		out.Normal = &NormalState{Name: one.Name}
+	case 3:
+		out.Maps = RemainMaps{A: ordinary.A, B: ptr(ordinary.B)}
+	}
+	return out
+}
+
+type TagOutput struct {
+	Field string           `json:"field"`
+	Error ErrorObservation `json:"error"`
+}
+
+func tags(c *Context, in Input, which int) TagOutput {
+	t := reflect.StructOf([]reflect.StructField{{Name: "Field", Type: reflect.TypeOf(""), Tag: reflect.StructTag(in.StructTag)}})
+	receiver := reflect.New(t)
+	receiver.Elem().Field(0).SetString("initial")
+	tagName := in.TagName
+	skip := false
+	if which == 1 && in.Mode == "present_first" {
+		for _, name := range strings.Split(in.TagName, ",") {
+			name = strings.TrimSpace(name)
+			if name == "" {
+				continue
+			}
+			if value, present := t.Field(0).Tag.Lookup(name); present {
+				tagName = name
+				skip = strings.SplitN(value, ",", 2)[0] == "-"
+				break
+			}
+		}
+	}
+	var e error
+	if !skip {
+		d, construct := decoder(c, receiver.Interface(), tagName)
+		if construct != nil {
+			e = construct
+		} else {
+			e = call(c, "mapstructure.Decoder.Decode", func() error { return d.Decode(in.Data) })
+		}
+	}
+	return TagOutput{Field: receiver.Elem().Field(0).String(), Error: errorObservation(c, e)}
+}

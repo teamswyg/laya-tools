@@ -1,0 +1,241 @@
+package protocol
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"strings"
+	"testing"
+)
+
+func fakeJournal(rows int, panicLast bool) []byte {
+	var out []byte
+	var previous [32]byte
+	c := Counters{}
+	seq := 0
+	appendFrame := func(phase, r, f, k int) {
+		event := [15]any{1, seq, phase, r, f, k, c.Reserved, c.Returned, c.Completed, c.Panics,
+			c.ExplicitReserved, c.ExplicitReturned, c.MethodReserved, c.MethodReturned, hex.EncodeToString(previous[:])}
+		body, _ := json.Marshal(event)
+		h := sha256.Sum256(body)
+		frame, _ := json.Marshal([2]any{event, hex.EncodeToString(h[:])})
+		out = append(out, frame...)
+		out = append(out, '\n')
+		previous = h
+		seq++
+	}
+	for i := 0; i < rows; i++ {
+		r, f, k := schedule(i)
+		c.Reserved++
+		appendFrame(0, r, f, k)
+		c.Returned++
+		c.ExplicitReserved++
+		if panicLast && i == rows-1 {
+			c.Panics++
+		} else {
+			c.Completed++
+			c.ExplicitReturned++
+		}
+		appendFrame(1, r, f, k)
+	}
+	return out
+}
+
+type fakeCall struct {
+	API      string `json:"api"`
+	Returned bool   `json:"returned"`
+}
+type fakeRow struct {
+	R         int             `json:"request_index"`
+	F         int             `json:"fixture_index"`
+	C         int             `json:"candidate_index"`
+	ID        string          `json:"request_id"`
+	Supported bool            `json:"supported"`
+	Panicked  bool            `json:"panicked"`
+	Got       json.RawMessage `json:"Got"`
+	Calls     []fakeCall      `json:"explicit_observer_calls"`
+	Label     *bool           `json:"label"`
+	Weight    *int            `json:"weight"`
+	Qualified *bool           `json:"qualified"`
+}
+type fakeResult struct {
+	Schema       string    `json:"schema"`
+	State        string    `json:"state"`
+	Failure      *string   `json:"failure_code"`
+	SHA          string    `json:"catalog_sha256"`
+	Bytes        int       `json:"catalog_bytes"`
+	Frozen       bool      `json:"catalog_frozen_field"`
+	Requests     int       `json:"planned_requests"`
+	Inputs       int       `json:"planned_inputs"`
+	Observations int       `json:"planned_observations"`
+	HeldRequests int       `json:"held_requests"`
+	HeldInputs   int       `json:"held_inputs"`
+	Counters     Counters  `json:"counters"`
+	Rows         []fakeRow `json:"rows"`
+	Events       int       `json:"journal_events"`
+	JournalBytes int       `json:"journal_bytes"`
+	LastSHA      string    `json:"journal_last_sha256"`
+	Boundary     string    `json:"explicit_counts_boundary"`
+	Nested       *int      `json:"uninstrumented_nested_calls"`
+	Startup      *int      `json:"startup_original_calls"`
+	Incomplete   bool      `json:"incomplete_counts_unknown"`
+	Comparison   bool      `json:"comparisons_performed"`
+	Labels       bool      `json:"labels_assigned"`
+	Weights      bool      `json:"weights_assigned"`
+	Roles        bool      `json:"roles_assigned"`
+	Training     bool      `json:"training_ready"`
+	Models       int       `json:"model_calls"`
+	Fits         int       `json:"fit_calls"`
+}
+
+func fakeComplete() ([]byte, []byte, []byte) {
+	journal := fakeJournal(138, false)
+	j, _ := ReadJournal(journal)
+	result := fakeResult{Schema: "riido-next60-catalog9-native-observation-v1", State: "complete", SHA: CatalogSHA, Bytes: CatalogBytes,
+		Requests: 9, Inputs: 46, Observations: 138, HeldRequests: 1, HeldInputs: 6, Counters: j.Counters,
+		Events: j.Events, JournalBytes: len(journal), LastSHA: j.LastSHA,
+		Boundary: "instrumented application entries; returned row boundaries only"}
+	for i := 0; i < 138; i++ {
+		r, f, c := schedule(i)
+		result.Rows = append(result.Rows, fakeRow{r, f, c, IDs[r], true, false, json.RawMessage(`{"synthetic_control":true}`),
+			[]fakeCall{{"synthetic.instrumented.entry", true}}, nil, nil, nil})
+	}
+	raw, _ := json.Marshal(result)
+	summary, _ := json.Marshal(struct {
+		Schema   string   `json:"schema"`
+		State    string   `json:"state"`
+		Counters Counters `json:"counters"`
+		Failure  *string  `json:"failure_code"`
+	}{"riido-next60-catalog9-worker-summary-v1", "complete", j.Counters, nil})
+	return raw, journal, summary
+}
+func TestSyntheticCompleteOnlyStructural(t *testing.T) {
+	raw, journal, summary := fakeComplete()
+	r, e := ReadResult(raw)
+	if e != nil {
+		t.Fatal(e)
+	}
+	j, e := ReadJournal(journal)
+	if e != nil {
+		t.Fatal(e)
+	}
+	s, e := ReadSummary(summary)
+	if e != nil || !Complete(r, j, s) {
+		t.Fatal("complete structural control failed", e)
+	}
+	if r.Rows != 138 || j.Events != 276 {
+		t.Fatal("wrong fixed denominator")
+	}
+	// Got is deliberately a synthetic control object, not real fixture truth.
+}
+func TestObjectAndNullNumericControls(t *testing.T) {
+	for _, raw := range []string{`{"a":1,"a":2}`, `{"A":1}`, `{}`, `{"a":1,"other":2}`, `{"a":1}{}`} {
+		if _, e := Object([]byte(raw), []string{"a"}); e == nil {
+			t.Fatal("accepted malformed object", raw)
+		}
+	}
+	for _, raw := range []string{"null", "-1", "1.0", "1e0", "true", "\"\""} {
+		if _, e := Int([]byte(raw)); e == nil {
+			t.Fatal("accepted invalid int", raw)
+		}
+	}
+	if _, e := Object([]byte(`{"a":1}`), []string{"a"}); e != nil {
+		t.Fatal(e)
+	}
+}
+func TestJournalArityChainOrderAndTail(t *testing.T) {
+	good := fakeJournal(2, false)
+	lines := bytes.Split(good, []byte{'\n'})
+	var frame []json.RawMessage
+	_ = json.Unmarshal(lines[0], &frame)
+	var event []json.RawMessage
+	_ = json.Unmarshal(frame[0], &event)
+	cases := [][]byte{
+		[]byte(`[[], "bad"]` + "\n"),
+		[]byte(`[[], "bad", 3]` + "\n"),
+		append(append([]byte{}, lines[1]...), '\n'),
+		bytes.Replace(good, []byte(`"0000000000000000000000000000000000000000000000000000000000000000"`), []byte(`"1000000000000000000000000000000000000000000000000000000000000000"`), 1),
+	}
+	for _, raw := range cases {
+		if _, e := ReadJournal(raw); e == nil {
+			t.Fatal("accepted malformed journal")
+		}
+	}
+	tail := append(append([]byte{}, good...), []byte("[partial")...)
+	j, e := ReadJournal(tail)
+	if e == nil || !j.IncompleteTail || j.Events != 4 || j.ReturnedPrefix != 2 || j.CompleteSequence {
+		t.Fatal("lost valid prefix or accepted tail")
+	}
+	inProgress := append(append([]byte{}, lines[0]...), '\n')
+	j, e = ReadJournal(inProgress)
+	if e != nil || !j.HasInProgress || j.Counters.Reserved != 1 || j.ReturnedPrefix != 0 || j.CompleteSequence {
+		t.Fatal("reserved prefix is not complete")
+	}
+	if len(event) != 15 {
+		t.Fatal("bad synthetic event arity")
+	}
+}
+func TestPanicCannotContinueOrComplete(t *testing.T) {
+	raw := fakeJournal(1, true)
+	j, e := ReadJournal(raw)
+	if e != nil || j.Counters.Panics != 1 || j.CompleteSequence {
+		t.Fatal("panic prefix", e)
+	}
+	// Forge a correctly chained next reservation after a stopped row.
+	r, f, k := schedule(1)
+	c := j.Counters
+	c.Reserved++
+	ev := [15]any{1, 2, 0, r, f, k, c.Reserved, c.Returned, c.Completed, c.Panics, c.ExplicitReserved, c.ExplicitReturned, c.MethodReserved, c.MethodReturned, j.LastSHA}
+	body, _ := json.Marshal(ev)
+	h := sha256.Sum256(body)
+	line, _ := json.Marshal([2]any{ev, hex.EncodeToString(h[:])})
+	raw = append(raw, line...)
+	raw = append(raw, '\n')
+	if _, e = ReadJournal(raw); e == nil {
+		t.Fatal("accepted continuation after panic")
+	}
+}
+func TestResultNoLabelsWrongCountsMissingAndCaseKeys(t *testing.T) {
+	raw, _, _ := fakeComplete()
+	mutations := []struct{ old, new string }{
+		{`"label":null`, `"label":false`},
+		{`"weight":null`, `"weight":1`},
+		{`"qualified":null`, `"qualified":true`},
+		{`"catalog_frozen_field":false`, `"catalog_frozen_field":true`},
+		{`"planned_inputs":46`, `"planned_inputs":47`},
+		{`"request_index":0`, `"request_index":1`},
+		{`"returned":true`, `"returned":false`},
+		{`"model_calls":0`, `"model_calls":1`},
+		{`"startup_original_calls":null`, `"startup_original_calls":0`},
+		{`"schema":`, `"Schema":`},
+	}
+	for _, m := range mutations {
+		if !bytes.Contains(raw, []byte(m.old)) {
+			t.Fatal("bad control", m.old)
+		}
+		if _, e := ReadResult(bytes.Replace(raw, []byte(m.old), []byte(m.new), 1)); e == nil {
+			t.Fatal("accepted", m.old)
+		}
+	}
+	if _, e := ReadResult([]byte(`{"schema":"only"}`)); e == nil {
+		t.Fatal("accepted missing keys")
+	}
+	r, e := ReadResult(raw)
+	if e != nil {
+		t.Fatal(e)
+	}
+	j, _ := ReadJournal(fakeJournal(138, false))
+	_, _, summary := fakeComplete()
+	s, _ := ReadSummary(summary)
+	s.Counters.ExplicitReserved--
+	if Complete(r, j, s) {
+		t.Fatal("accepted summary mismatch")
+	}
+	j.LastSHA = strings.Repeat("0", 64)
+	_, _, summary = fakeComplete()
+	s, _ = ReadSummary(summary)
+	if Complete(r, j, s) {
+		t.Fatal("accepted final ack mismatch")
+	}
+}
