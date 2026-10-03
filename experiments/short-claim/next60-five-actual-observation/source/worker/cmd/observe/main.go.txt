@@ -1,0 +1,362 @@
+// This native command must never be invoked before Root's outside source,
+// compiler, executable and once-attempt gates. Original package initialization
+// precedes main and is uninstrumented here.
+package main
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"runtime"
+	"runtime/debug"
+	"strings"
+
+	"riido.local/nextfive/internal/adapters"
+	"riido.local/nextfive/pure"
+	"riido.local/nextfive/writer"
+)
+
+type Pin struct {
+	ID     string `json:"id"`
+	Path   string `json:"path"`
+	Bytes  int64  `json:"bytes"`
+	SHA256 string `json:"sha256"`
+}
+
+// Exactly 18 fields. This template is not executable: Root supplies final
+// compiled selection/review refs and binary identity before freezing it.
+type Plan struct {
+	Schema            string `json:"schema"`
+	Frozen            bool   `json:"frozen"`
+	SourceRoot        string `json:"source_root"`
+	Manifest          Pin    `json:"manifest"`
+	Fixtures          Pin    `json:"fixtures"`
+	Wants             Pin    `json:"wants"`
+	Readiness         Pin    `json:"readiness"`
+	BinarySHA256      string `json:"binary_sha256"`
+	GoVersion         string `json:"go_version"`
+	CGO               string `json:"cgo_enabled"`
+	GOOS              string `json:"goos"`
+	GOARCH            string `json:"goarch"`
+	CPU               int    `json:"cpu"`
+	SoftHeapBytes     int64  `json:"soft_heap_bytes"`
+	WallSeconds       int    `json:"wall_seconds"`
+	OutputCapBytes    int    `json:"output_cap_bytes"`
+	PlannedDispatches int    `json:"planned_dispatches"`
+	Retries           int    `json:"retries"`
+}
+type Manifest struct {
+	Schema        string   `json:"schema"`
+	Files         []Pin    `json:"files"`
+	GoDirectories []string `json:"go_directories"`
+}
+type Readiness struct {
+	Schema                    string `json:"schema"`
+	SourceReview              Pin    `json:"source_review"`
+	CompilerReview            Pin    `json:"compiler_review"`
+	NoticeReview              Pin    `json:"notice_review"`
+	OutsideReview             Pin    `json:"outside_review"`
+	SourceReviewed            bool   `json:"source_reviewed"`
+	CompilerSelectionReviewed bool   `json:"compiler_selection_reviewed"`
+	NoticeBoundaryReviewed    bool   `json:"notice_boundary_reviewed"`
+	OutsideOnceGateReviewed   bool   `json:"outside_once_gate_reviewed"`
+	BinarySHA256              string `json:"binary_sha256"`
+}
+
+var errInput = errors.New("input_binding")
+
+func validSHA(s string) bool {
+	b, err := hex.DecodeString(s)
+	return err == nil && len(b) == 32 && strings.ToLower(s) == s
+}
+func safePath(s string) bool {
+	return s != "" && !filepath.IsAbs(s) && filepath.Clean(s) == s && s != "." && s != ".." && !strings.HasPrefix(s, "../") && !strings.ContainsAny(s, "\\:\x00")
+}
+func validPin(p Pin) bool {
+	return p.ID != "" && len(p.ID) <= 128 && safePath(p.Path) && p.Bytes >= 0 && p.Bytes <= 1<<20 && validSHA(p.SHA256)
+}
+func read(path string, capBytes int64) ([]byte, error) {
+	st, err := os.Lstat(path)
+	if err != nil || !st.Mode().IsRegular() || st.Size() < 0 || st.Size() > capBytes {
+		return nil, errInput
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, errInput
+	}
+	defer f.Close()
+	b, err := io.ReadAll(io.LimitReader(f, capBytes+1))
+	if err != nil || int64(len(b)) > capBytes {
+		return nil, errInput
+	}
+	return b, nil
+}
+func readPin(root string, p Pin) ([]byte, error) {
+	if !validPin(p) {
+		return nil, errInput
+	}
+	cur := root
+	for _, part := range strings.Split(p.Path, "/") {
+		cur = filepath.Join(cur, part)
+		st, err := os.Lstat(cur)
+		if err != nil || st.Mode()&os.ModeSymlink != 0 {
+			return nil, errInput
+		}
+	}
+	b, err := read(cur, p.Bytes)
+	if err != nil || int64(len(b)) != p.Bytes {
+		return nil, errInput
+	}
+	h := sha256.Sum256(b)
+	if hex.EncodeToString(h[:]) != p.SHA256 {
+		return nil, errInput
+	}
+	return b, nil
+}
+func decode(b []byte, v any) error {
+	d := json.NewDecoder(bytes.NewReader(b))
+	d.DisallowUnknownFields()
+	if d.Decode(v) != nil {
+		return errInput
+	}
+	var trailing any
+	if d.Decode(&trailing) != io.EOF {
+		return errInput
+	}
+	// Canonical marshal equality closes duplicate-key and extra-array input
+	// acceptance. Root plan/manifest/fixtures use this exact encoding + LF.
+	c, err := json.MarshalIndent(v, "", "  ")
+	if err != nil || !bytes.Equal(append(c, '\n'), b) {
+		return errInput
+	}
+	return nil
+}
+func checkPlan(p Plan) bool {
+	return p.Schema == "riido-next-five-execution-plan-v1" && p.Frozen && filepath.IsAbs(p.SourceRoot) && filepath.Clean(p.SourceRoot) == p.SourceRoot && validPin(p.Manifest) && p.Manifest.Bytes > 0 && validPin(p.Fixtures) && p.Fixtures.Bytes > 0 && validPin(p.Wants) && p.Wants.Bytes > 0 && validPin(p.Readiness) && p.Readiness.Bytes > 0 && validSHA(p.BinarySHA256) && p.GoVersion == "go1.27.1" && p.CGO == "0" && p.GOOS == "darwin" && p.GOARCH == "arm64" && p.CPU == 1 && p.SoftHeapBytes == 268435456 && p.WallSeconds == 60 && p.OutputCapBytes == pure.OutputCap && p.PlannedDispatches == pure.Planned && p.Retries == 0
+}
+func checkManifest(root string, m Manifest) error {
+	if m.Schema != "riido-next-five-declared-source-manifest-v1" || len(m.Files) == 0 || len(m.Files) > 1024 || len(m.GoDirectories) < 5 || len(m.GoDirectories) > 64 {
+		return errInput
+	}
+	total := int64(0)
+	for i, p := range m.Files {
+		if !validPin(p) {
+			return errInput
+		}
+		for j := 0; j < i; j++ {
+			if m.Files[j].ID == p.ID || m.Files[j].Path == p.Path {
+				return errInput
+			}
+		}
+		total += p.Bytes
+		if total > 64<<20 {
+			return errInput
+		}
+		if _, err := readPin(root, p); err != nil {
+			return err
+		}
+	}
+	for i, dir := range m.GoDirectories {
+		if !safePath(dir) {
+			return errInput
+		}
+		for j := 0; j < i; j++ {
+			if dir == m.GoDirectories[j] {
+				return errInput
+			}
+		}
+		// Verify the directory itself and ancestors do not redirect through links.
+		cur := root
+		for _, part := range strings.Split(dir, "/") {
+			cur = filepath.Join(cur, part)
+			st, err := os.Lstat(cur)
+			if err != nil || !st.IsDir() || st.Mode()&os.ModeSymlink != 0 {
+				return errInput
+			}
+		}
+		entries, err := os.ReadDir(cur)
+		if err != nil {
+			return errInput
+		}
+		for _, entry := range entries {
+			if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".go") {
+				continue
+			}
+			path := filepath.ToSlash(filepath.Join(dir, entry.Name()))
+			found := false
+			for _, p := range m.Files {
+				if p.Path == path {
+					found = true
+					break
+				}
+			}
+			if !found {
+				return errInput
+			}
+		}
+	}
+	return nil
+}
+func args(a []string) (string, string, string, error) {
+	if len(a) != 6 {
+		return "", "", "", errInput
+	}
+	values := [3]string{}
+	for i := 0; i < 6; i += 2 {
+		k := -1
+		switch a[i] {
+		case "--plan":
+			k = 0
+		case "--plan-sha256":
+			k = 1
+		case "--attempt-dir":
+			k = 2
+		}
+		if k < 0 || a[i+1] == "" || values[k] != "" {
+			return "", "", "", errInput
+		}
+		values[k] = a[i+1]
+	}
+	if !filepath.IsAbs(values[0]) || !validSHA(values[1]) || !filepath.IsAbs(values[2]) || filepath.Clean(values[2]) != values[2] {
+		return "", "", "", errInput
+	}
+	return values[0], values[1], values[2], nil
+}
+func buildIdentity(p Plan) error {
+	if runtime.Version() != p.GoVersion || runtime.GOOS != p.GOOS || runtime.GOARCH != p.GOARCH {
+		return errInput
+	}
+	info, ok := debug.ReadBuildInfo()
+	if !ok {
+		return errInput
+	}
+	cgo, trim := "", ""
+	for _, s := range info.Settings {
+		switch s.Key {
+		case "CGO_ENABLED":
+			cgo = s.Value
+		case "-trimpath":
+			trim = s.Value
+		}
+	}
+	if cgo != "0" || trim != "true" {
+		return errInput
+	}
+	path, err := os.Executable()
+	if err != nil {
+		return errInput
+	}
+	b, err := read(path, 8<<20)
+	if err != nil {
+		return errInput
+	}
+	sum := sha256.Sum256(b)
+	if hex.EncodeToString(sum[:]) != p.BinarySHA256 {
+		return errInput
+	}
+	return nil
+}
+func run() error {
+	planPath, planSHA, output, err := args(os.Args[1:])
+	if err != nil {
+		return err
+	}
+	b, err := read(planPath, 128<<10)
+	if err != nil {
+		return err
+	}
+	sum := sha256.Sum256(b)
+	if hex.EncodeToString(sum[:]) != planSHA {
+		return errInput
+	}
+	var p Plan
+	if decode(b, &p) != nil || !checkPlan(p) {
+		return errInput
+	}
+	if _, err := os.Lstat(p.SourceRoot); err != nil {
+		return errInput
+	}
+	realRoot, err := filepath.EvalSymlinks(p.SourceRoot)
+	if err != nil || realRoot != p.SourceRoot {
+		return errInput
+	}
+	if output == p.SourceRoot || strings.HasPrefix(output, p.SourceRoot+string(os.PathSeparator)) {
+		return errInput
+	}
+	if buildIdentity(p) != nil {
+		return errInput
+	}
+	rawManifest, err := readPin(p.SourceRoot, p.Manifest)
+	if err != nil {
+		return err
+	}
+	var m Manifest
+	if decode(rawManifest, &m) != nil || checkManifest(p.SourceRoot, m) != nil {
+		return errInput
+	}
+	rawReady, err := readPin(p.SourceRoot, p.Readiness)
+	if err != nil {
+		return err
+	}
+	var ready Readiness
+	if decode(rawReady, &ready) != nil || ready.Schema != "riido-next-five-root-readiness-v1" || !ready.SourceReviewed || !ready.CompilerSelectionReviewed || !ready.NoticeBoundaryReviewed || !ready.OutsideOnceGateReviewed || ready.BinarySHA256 != p.BinarySHA256 {
+		return errInput
+	}
+	for _, ref := range [4]Pin{ready.SourceReview, ready.CompilerReview, ready.NoticeReview, ready.OutsideReview} {
+		if _, err := readPin(p.SourceRoot, ref); err != nil {
+			return err
+		}
+	}
+	// Review meaning, cached compiler/tool/stdlib completeness and pre-init
+	// resource/physical-dir gates are Root's declared outside trust boundary.
+	rawFixtures, err := readPin(p.SourceRoot, p.Fixtures)
+	if err != nil {
+		return err
+	}
+	if _, err := readPin(p.SourceRoot, p.Wants); err != nil {
+		return err
+	}
+	var f pure.FixtureFile
+	// The exact SHA-pinned historical fixture ends with two LF bytes. Keep
+	// those bytes unchanged; remove only its additional LF for the ordinary
+	// strict Go canonical decoder. Plan/manifest/readiness keep one LF.
+	if !bytes.HasSuffix(rawFixtures, []byte("\n\n")) || decode(rawFixtures[:len(rawFixtures)-1], &f) != nil || pure.CheckFixtures(f) != nil {
+		return errInput
+	}
+	runtime.GOMAXPROCS(1)
+	debug.SetMemoryLimit(p.SoftHeapBytes)
+	w, err := writer.Open(output)
+	if err != nil {
+		return err
+	}
+	defer w.Close()
+	// Only install owned callbacks after durable reservation; original package
+	// initialization already happened before main and remains unknown.
+	adapters.InstallInitializers()
+	r := pure.Observe(f, adapters.Factory, w.Emit)
+	r.PlanSHA256, r.FixtureSHA256, r.WantSHA256 = planSHA, p.Fixtures.SHA256, p.Wants.SHA256
+	final, err := w.Finish(r)
+	if err != nil {
+		return errors.New("result_write")
+	}
+	n, err := os.Stdout.Write(final)
+	if err != nil || n != len(final) {
+		return errors.New("stdout_write")
+	}
+	if r.State != "completed_finite_observations" {
+		return errors.New("observation_incomplete")
+	}
+	return nil
+}
+func main() {
+	if err := run(); err != nil {
+		fmt.Fprintln(os.Stderr, "next_five_failed")
+		os.Exit(1)
+	}
+}

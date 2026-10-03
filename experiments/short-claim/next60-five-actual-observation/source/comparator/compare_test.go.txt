@@ -1,0 +1,419 @@
+package main
+
+import (
+	"bytes"
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
+
+func mustParse(t *testing.T, s string) *node {
+	t.Helper()
+	n, e := parse([]byte(s))
+	if e != nil {
+		t.Fatal(e)
+	}
+	return n
+}
+func put(n *node, k string, v *node) {
+	for i := range n.fields {
+		if n.fields[i].key == k {
+			n.fields[i].value = v
+			return
+		}
+	}
+	n.fields = append(n.fields, member{k, v})
+}
+func obj() *node               { return &node{kind: 'o'} }
+func knownValue(v *node) *node { x := obj(); put(x, "known", nb(true)); put(x, "value", v); return x }
+func unknownValue(v *node) *node {
+	x := obj()
+	put(x, "known", nb(false))
+	put(x, "value", v)
+	return x
+}
+func clone(t *testing.T, n *node) *node {
+	t.Helper()
+	v, e := parse(encodeNode(n))
+	if e != nil {
+		t.Fatal(e)
+	}
+	return v
+}
+func testRecord(t *testing.T, ch string, panic bool) *node {
+	r := obj()
+	put(r, "channels", mustParse(t, ch))
+	put(r, "returned", knownValue(nb(!panic)))
+	put(r, "panic_present", knownValue(nb(panic)))
+	return r
+}
+func testWant(t *testing.T, w string, r *node) rowResult {
+	t.Helper()
+	rr := rowResult{Predicates: []predicate{}}
+	if e := compareWant(&rr, mustParse(t, w), r); e != nil {
+		t.Fatal(e)
+	}
+	return rr
+}
+
+func TestPanicIndependentOfUnavailableError(t *testing.T) {
+	r := testRecord(t, `{"error_channel_available":{"known":false,"value":false},"error_present":{"known":false,"value":false}}`, true)
+	rr := testWant(t, `{"error_kind":"invalid_config","panic":false}`, r)
+	if rr.State != "unsatisfied" || rr.Counts != [3]int{0, 1, 1} {
+		t.Fatalf("%+v", rr)
+	}
+}
+func TestUnavailableIsNotNilOrFalse(t *testing.T) {
+	for _, ch := range []string{`{}`, `{"error_channel_available":{"known":false,"value":true}}`, `{"error_channel_available":{"known":true,"value":false}}`, `{"error_channel_available":{"known":true,"value":true},"error_present":{"known":false,"value":false}}`} {
+		rr := testWant(t, `{"error":null}`, testRecord(t, ch, false))
+		if rr.State != "unknown" || rr.Counts != [3]int{0, 0, 1} {
+			t.Fatalf("%+v", rr)
+		}
+	}
+	rr := testWant(t, `{"error_kind":"annotation"}`, testRecord(t, `{"error_channel_available":{"known":true,"value":true},"error_present":{"known":true,"value":false}}`, false))
+	if rr.State != "unsatisfied" {
+		t.Fatal("known nil accepted as nonnil kind")
+	}
+}
+func TestMissingRequiredTextIsNotGoIdentity(t *testing.T) {
+	base := `{"error_channel_available":{"known":true,"value":true},"error_present":{"known":true,"value":true},"error_kind":{"known":true,"value":"missing_required"},"error_type":{"known":true,"value":"*errors.errorString"},"error_method_returned":{"known":true,"value":true},"error_text":{"known":true,"value":"required flag(s) \"item\" not set"}}`
+	r := testRecord(t, base, false)
+	rr := testWant(t, `{"error_kind":"missing_required"}`, r)
+	if rr.State != "satisfied" || rr.Counts != [3]int{2, 0, 0} || !bytes.Contains(rr.ErrorType, []byte("errors.errorString")) {
+		t.Fatal("source predicate failure")
+	}
+	ch, _ := r.get("channels")
+	put(ch, "error_text", unknownValue(ns("")))
+	put(ch, "error_kind", knownValue(ns("unclassified_error")))
+	rr = testWant(t, `{"error_kind":"missing_required"}`, r)
+	if rr.State != "unknown" || rr.Counts[1] != 0 {
+		t.Fatal("unobserved text converted to mismatch")
+	}
+	put(ch, "error_method_returned", knownValue(nb(false)))
+	rr = testWant(t, `{"error_kind":"missing_required"}`, r)
+	if rr.State != "unknown" {
+		t.Fatal("Error panic converted to Go identity counterexample")
+	}
+	put(ch, "error_method_returned", knownValue(nb(true)))
+	put(ch, "error_text", knownValue(ns("different text")))
+	rr = testWant(t, `{"error_kind":"missing_required"}`, r)
+	if rr.State != "unsatisfied" {
+		t.Fatal("known unexpected text accepted")
+	}
+}
+func TestSourceEnumIdentityMappings(t *testing.T) {
+	for _, pair := range [][2]string{{"io.ErrShortWrite", "io_short_write"}, {"cause", "writer_cause"}, {"context.Canceled", "context_canceled"}} {
+		ch := obj()
+		put(ch, "error_channel_available", knownValue(nb(true)))
+		put(ch, "error_present", knownValue(nb(true)))
+		put(ch, "error_kind", knownValue(ns(pair[1])))
+		r := testRecord(t, string(encodeNode(ch)), false)
+		w := obj()
+		put(w, "error_is", ns(pair[0]))
+		rr := rowResult{}
+		if compareWant(&rr, w, r) != nil || rr.State != "satisfied" {
+			t.Fatal(pair)
+		}
+		put(ch, "error_kind", knownValue(ns("different")))
+		r = testRecord(t, string(encodeNode(ch)), false)
+		rr = rowResult{}
+		if compareWant(&rr, w, r) != nil || rr.State != "unsatisfied" {
+			t.Fatal("different enum accepted")
+		}
+	}
+}
+func TestSnapshotMismatchRetainsUnknownComponents(t *testing.T) {
+	ch := obj()
+	put(ch, "flag_known", nb(true))
+	before := mustParse(t, `{"value":"initial","changed":false,"annotation_present":true,"annotation_nil":false,"annotation_count":0,"annotation":["",""]}`)
+	after := clone(t, before)
+	put(after, "value", ns("changed"))
+	for i, m := range after.fields {
+		if m.key == "annotation_nil" {
+			after.fields = append(after.fields[:i], after.fields[i+1:]...)
+			break
+		}
+	}
+	put(ch, "flag_before", before)
+	put(ch, "flag_after", after)
+	rr := testWant(t, `{"flag_unchanged":true}`, testRecord(t, string(encodeNode(ch)), false))
+	if rr.State != "unsatisfied" || rr.Counts != [3]int{4, 1, 1} {
+		t.Fatalf("%+v", rr)
+	}
+}
+func TestMetadataNilnessNotJustLength(t *testing.T) {
+	r := testRecord(t, `{"config_known":true,"config_before":{"metadata_present":true,"keys_nil":true,"unused_nil":true,"unset_nil":true,"keys_len":0,"unused_len":0,"unset_len":0},"config_after":{"metadata_present":true,"keys_nil":false,"unused_nil":true,"unset_nil":true,"keys_len":0,"unused_len":0,"unset_len":0}}`, false)
+	rr := testWant(t, `{"metadata_unchanged":true}`, r)
+	if rr.State != "unsatisfied" || rr.Counts != [3]int{6, 1, 0} {
+		t.Fatal(rr.Counts)
+	}
+}
+func TestUnderlyingWriterCountNotSubstituted(t *testing.T) {
+	r := testRecord(t, `{"n":{"known":false,"value":0},"writer_known":true,"writer":{"bytes":"abc","underlying_n":{"known":true,"value":3}}}`, false)
+	rr := testWant(t, `{"bytes":"abc","n":3}`, r)
+	if rr.State != "unknown" || rr.Counts != [3]int{1, 0, 1} {
+		t.Fatal(rr.Counts)
+	}
+}
+func TestKnownLiteralTypesAndMissing(t *testing.T) {
+	for _, ch := range []string{`{"text":{"known":true,"value":null}}`, `{"text":{"known":true,"value":false}}`, `{"text":{"known":true,"value":[]}}`} {
+		rr := testWant(t, `{"text":"0 B"}`, testRecord(t, ch, false))
+		if rr.State != "unsatisfied" {
+			t.Fatal("known type mismatch not false")
+		}
+	}
+	for _, ch := range []string{`{}`, `{"text":{"known":true}}`, `{"text":{"known":false,"value":"0 B"}}`} {
+		rr := testWant(t, `{"text":"0 B"}`, testRecord(t, ch, false))
+		if rr.State != "unknown" {
+			t.Fatal("missing/unavailable mistaken for known")
+		}
+	}
+}
+func TestIntegerAndOptOutLiteral(t *testing.T) {
+	r := testRecord(t, `{"integer_before":{"known":true,"value":"1500"},"integer_after":{"known":true,"value":"1"}}`, false)
+	if rr := testWant(t, `{"input_unchanged":true}`, r); rr.State != "unsatisfied" {
+		t.Fatal("mutation accepted")
+	}
+	r = testRecord(t, `{"error_channel_available":{"known":true,"value":true},"error_present":{"known":true,"value":false},"hooks_known":true,"hooks":{"initializer_calls":1,"pre_run_calls":1,"run_calls":1,"help_calls":0}}`, false)
+	rr := testWant(t, `{"behavior":"legacy execution retained"}`, r)
+	if rr.State != "satisfied" || rr.Counts != [3]int{7, 0, 0} {
+		t.Fatal(rr.Counts)
+	}
+}
+func TestStrictJSONBoundaries(t *testing.T) {
+	for _, s := range []string{`{"a":1,"a":2}`, `{"a":1,"\u0061":2}`, `{"a":1,"A":2}`, `{"a":"\ud800"}`, `{"a":"\udc00"}`, `{} {}`, strings.Repeat("[", 34) + "0" + strings.Repeat("]", 34)} {
+		if _, e := parse([]byte(s)); e == nil {
+			t.Fatal("bad JSON accepted")
+		}
+	}
+	for _, s := range []string{`{"a":"\ud83d\ude00"}`, `{"a":"\\ud800"}`, `{"a":"�"}`} {
+		if _, e := parse([]byte(s)); e != nil {
+			t.Fatal(e)
+		}
+	}
+}
+
+// This full-shape control reads only public frozen fixture/Wanted metadata.
+// Artificial channels are constructed directly; no callback or candidate runs.
+func fakeComplete(t *testing.T) ([]byte, []byte, *node, string) {
+	t.Helper()
+	fp := os.Getenv("RIIDO_FIVE_TEST_FIXTURES")
+	wp := os.Getenv("RIIDO_FIVE_TEST_WANTS")
+	if fp == "" || wp == "" {
+		t.Fatal("synthetic metadata path required")
+	}
+	fb, e := readPinned(fp, fixtureSHA, fixtureBytes)
+	if e != nil {
+		t.Fatal(e)
+	}
+	wb, e := readPinned(wp, wantsSHA, wantsBytes)
+	if e != nil {
+		t.Fatal(e)
+	}
+	f, e := parse(fb)
+	if e != nil {
+		t.Fatal(e)
+	}
+	w, e := parse(wb)
+	if e != nil {
+		t.Fatal(e)
+	}
+	fs, _ := f.get("records")
+	ws, _ := w.get("wants")
+	rs := &node{kind: 'a'}
+	errs := 0
+	for i := 0; i < 69; i++ {
+		fi := fs.items[i/3]
+		wi := ws.items[i/3]
+		wa, _ := wi.get("Want")
+		ch := obj()
+		put(ch, "error_channel_available", knownValue(nb(true)))
+		put(ch, "error_present", knownValue(nb(false)))
+		put(ch, "error_kind", unknownValue(ns("")))
+		put(ch, "error_type", unknownValue(ns("")))
+		put(ch, "error_text", unknownValue(ns("")))
+		put(ch, "error_method_returned", unknownValue(nb(false)))
+		put(ch, "n", knownValue(ni(0)))
+		put(ch, "text", knownValue(ns("")))
+		config := mustParse(t, `{"metadata_present":true,"keys_nil":true,"unused_nil":true,"unset_nil":true,"keys_len":0,"unused_len":0,"unset_len":0,"tag_name":"mapstructure","decoder_present":{"known":true,"value":true}}`)
+		put(ch, "config_known", nb(true))
+		put(ch, "config_before", clone(t, config))
+		put(ch, "config_after", clone(t, config))
+		flag := mustParse(t, `{"value":"initial","changed":false,"annotation_present":true,"annotation_nil":false,"annotation_count":0,"annotation":["",""]}`)
+		put(ch, "flag_known", nb(true))
+		put(ch, "flag_before", clone(t, flag))
+		put(ch, "flag_after", clone(t, flag))
+		writer := mustParse(t, `{"bytes":"abc","parent_bytes":"abc","child_bytes":""}`)
+		put(ch, "writer_known", nb(true))
+		put(ch, "writer", writer)
+		hooks := mustParse(t, `{"initializer_calls":1,"pre_run_calls":1,"run_calls":1,"help_calls":0}`)
+		put(ch, "hooks_known", nb(true))
+		put(ch, "hooks", hooks)
+		inp, _ := fi.get("realized_input")
+		integer, _ := inp.get("integer")
+		put(ch, "integer_before", knownValue(integer))
+		put(ch, "integer_after", knownValue(clone(t, integer)))
+		for _, m := range wa.fields {
+			switch m.key {
+			case "error_kind":
+				put(ch, "error_present", knownValue(nb(true)))
+				put(ch, "error_kind", knownValue(m.value))
+			case "error_is":
+				target := "writer_cause"
+				if isString(m.value, "io.ErrShortWrite") {
+					target = "io_short_write"
+				}
+				if isString(m.value, "context.Canceled") {
+					target = "context_canceled"
+				}
+				put(ch, "error_present", knownValue(nb(true)))
+				put(ch, "error_kind", knownValue(ns(target)))
+			case "n", "text":
+				put(ch, m.key, knownValue(m.value))
+			case "bytes", "parent_bytes", "child_bytes":
+				put(writer, m.key, m.value)
+			case "initializer_calls", "pre_run_calls", "run_calls":
+				put(hooks, m.key, m.value)
+			case "help_displayed":
+				put(hooks, "help_calls", ni(1))
+			}
+		}
+		if p := errorAccess(ch); p.known && isBool(p.value, true) {
+			errs++
+			put(ch, "error_type", knownValue(ns("synthetic.error")))
+			put(ch, "error_method_returned", knownValue(nb(true)))
+			text := "synthetic failure"
+			if fieldKind, _ := ch.get("error_kind"); fieldString(fieldKind, "value", "missing_required") {
+				text = `required flag(s) "item" not set`
+			}
+			put(ch, "error_text", knownValue(ns(text)))
+		}
+		rec := obj()
+		put(rec, "ordinal", ni(i))
+		put(rec, "fixture_ordinal", ni(i/3))
+		g, _ := fi.get("request_index")
+		put(rec, "request_index", g)
+		caseID, _ := fi.get("case_id")
+		put(rec, "case_id", caseID)
+		put(rec, "candidate_index", ni(i%3))
+		put(rec, "candidate_id", ns(candidates[i%3]))
+		put(rec, "dispatched", nb(true))
+		put(rec, "returned", knownValue(nb(true)))
+		put(rec, "panic_present", knownValue(nb(false)))
+		put(rec, "channels", ch)
+		put(rec, "truth", nz())
+		put(rec, "role", nz())
+		put(rec, "weight", nz())
+		rs.items = append(rs.items, rec)
+	}
+	co := obj()
+	for _, p := range []struct {
+		k string
+		n int
+	}{{"candidate_reserved", 69}, {"candidate_dispatched", 69}, {"candidate_returned", 69}, {"candidate_panicked", 0}, {"error_reserved", errs}, {"error_dispatched", errs}, {"error_returned", errs}, {"error_panicked", 0}, {"completed_dispatches", 69}} {
+		put(co, p.k, ni(p.n))
+	}
+	put(co, "checkpoint_stopped", nb(false))
+	put(co, "inner_original_api_calls", nz())
+	put(co, "original_startup_calls", nz())
+	r := obj()
+	plan := strings.Repeat("a", 64)
+	put(r, "schema", ns("riido-next-five-observations-v1"))
+	put(r, "state", ns("completed_finite_observations"))
+	put(r, "failure", ns(""))
+	put(r, "plan_sha256", ns(plan))
+	put(r, "fixture_sha256", ns(fixtureSHA))
+	put(r, "want_sha256", ns(wantsSHA))
+	put(r, "counters", co)
+	put(r, "records", rs)
+	put(r, "last_synced_sequence", ni(138+2*errs))
+	put(r, "qualified", ni(0))
+	put(r, "parents_created", ni(0))
+	put(r, "training_ready", nb(false))
+	put(r, "source_selection_complete", nb(false))
+	return fb, wb, r, plan
+}
+func TestFrozen69SyntheticShape(t *testing.T) {
+	f, w, r, p := fakeComplete(t)
+	out, e := compareInputs(f, w, encodeNode(r), p, sha(encodeNode(r)))
+	if e != nil {
+		t.Fatal(e)
+	}
+	if out.Counts != [4]int{69, 69, 0, 0} || len(out.Candidates) != 15 || out.Labels || out.Qualified {
+		t.Fatal(out.Counts)
+	}
+	for _, c := range out.Candidates {
+		if c.State != "satisfied" || len(c.Unknown) != 0 || len(c.Known) != 0 {
+			t.Fatal(c)
+		}
+	}
+	b, e := json.Marshal(out)
+	if e != nil || len(b)+1 > outputCap {
+		t.Fatal("report bound")
+	}
+	t.Logf("artificial69 shape bytes=%d predicates=%d; no candidate observations", len(b)+1, out.Predicates[0])
+}
+func TestResultIdentityAuthorityAndCounters(t *testing.T) {
+	for _, mode := range []string{"ordinal", "candidate", "case", "authority", "counter", "startup", "plan"} {
+		t.Run(mode, func(t *testing.T) {
+			f, w, r, p := fakeComplete(t)
+			rs, _ := r.get("records")
+			co, _ := r.get("counters")
+			switch mode {
+			case "ordinal":
+				put(rs.items[0], "ordinal", ni(1))
+			case "candidate":
+				put(rs.items[0], "candidate_id", ns("other"))
+			case "case":
+				put(rs.items[0], "case_id", ns("other"))
+			case "authority":
+				put(rs.items[0], "truth", ns("false"))
+			case "counter":
+				put(co, "candidate_returned", ni(68))
+			case "startup":
+				put(co, "original_startup_calls", ni(0))
+			case "plan":
+				put(r, "plan_sha256", ns(strings.Repeat("b", 64)))
+			}
+			if _, e := compareInputs(f, w, encodeNode(r), p, sha(encodeNode(r))); e == nil {
+				t.Fatal("bad saved identity accepted")
+			}
+		})
+	}
+}
+func TestOutputExclusiveAndPinBounds(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "report.json")
+	if _, e := save(path, report{Schema: "synthetic"}); e != nil {
+		t.Fatal(e)
+	}
+	if _, e := save(path, report{}); e == nil {
+		t.Fatal("overwritten")
+	}
+	if _, e := save("relative.json", report{}); e == nil {
+		t.Fatal("relative")
+	}
+	input := filepath.Join(dir, "input")
+	b := []byte("{}\n")
+	if os.WriteFile(input, b, 0600) != nil {
+		t.Fatal("write")
+	}
+	if _, e := readPinned(input, sha(b), len(b)); e != nil {
+		t.Fatal(e)
+	}
+	if _, e := readPinned(input, strings.Repeat("0", 64), len(b)); e == nil {
+		t.Fatal("bad digest")
+	}
+	link := filepath.Join(dir, "link")
+	if os.Symlink(input, link) != nil {
+		t.Fatal("symlink")
+	}
+	if _, e := readPinned(link, sha(b), len(b)); e == nil {
+		t.Fatal("link accepted")
+	}
+	if _, e := save(filepath.Join(dir, "large"), report{Scope: strings.Repeat("x", outputCap)}); e == nil {
+		t.Fatal("large output accepted")
+	}
+}

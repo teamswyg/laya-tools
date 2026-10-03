@@ -1,0 +1,184 @@
+// Owned next-five worker value schemas copied from the frozen preparation.
+// Only the package declaration/comment changes here. No native adapters or
+// observer functions are imported. The outside protocol validates saved data.
+package protocol
+
+import "encoding/json"
+
+const (
+	FixtureSchema = "riido-next-five-fixtures-v1"
+	ResultSchema  = "riido-next-five-observations-v1"
+	Planned       = 69
+	CaseCount     = 23
+	MaxTracked    = 138
+	OutputCap     = (1 << 20) - 1
+)
+
+type Bool struct {
+	Known bool `json:"known"`
+	Value bool `json:"value"`
+}
+type Int struct {
+	Known bool `json:"known"`
+	Value int  `json:"value"`
+}
+type String struct {
+	Known bool   `json:"known"`
+	Value string `json:"value"`
+}
+
+func B(v bool) Bool     { return Bool{true, v} }
+func I(v int) Int       { return Int{true, v} }
+func S(v string) String { return String{true, v} }
+
+// Input is an owned finite fixture realization. Original input/want JSON stays
+// beside it and is never replaced by this realization.
+type Input struct {
+	ConfigMode      string    `json:"config_mode"`
+	MetadataEmpty   bool      `json:"metadata_empty"`
+	WriterMode      string    `json:"writer_mode"`
+	Text            string    `json:"text"`
+	AnnotationCount int       `json:"annotation_count"`
+	Annotation      [2]string `json:"annotation"`
+	Help            bool      `json:"help"`
+	PreCanceled     bool      `json:"pre_canceled"`
+	OptIn           bool      `json:"opt_in"`
+	Integer         string    `json:"integer"`
+	Digits          int       `json:"digits"`
+}
+type Fixture struct {
+	Ordinal         int              `json:"ordinal"`
+	RequestIndex    int              `json:"request_index"`
+	OriginalOrdinal int              `json:"original_request_ordinal"`
+	CaseIndex       int              `json:"case_index"`
+	RequestID       string           `json:"request_id"`
+	CaseID          string           `json:"case_id"`
+	OriginalPointer string           `json:"original_pointer"`
+	OriginalInput   json.RawMessage  `json:"original_input"`
+	OriginalWant    json.RawMessage  `json:"original_want"`
+	Input           Input            `json:"realized_input"`
+	Got             *json.RawMessage `json:"Got"`
+	Truth           *string          `json:"truth"`
+	Role            *string          `json:"role"`
+	Weight          *float64         `json:"weight"`
+}
+type FixtureFile struct {
+	Schema         string    `json:"schema"`
+	OriginalSHA256 string    `json:"original_sha256"`
+	Records        []Fixture `json:"records"`
+}
+type ConfigState struct {
+	ConfigPresent   bool   `json:"config_present"`
+	MetadataPresent bool   `json:"metadata_present"`
+	KeysNil         bool   `json:"keys_nil"`
+	UnusedNil       bool   `json:"unused_nil"`
+	UnsetNil        bool   `json:"unset_nil"`
+	KeysLen         int    `json:"keys_len"`
+	UnusedLen       int    `json:"unused_len"`
+	UnsetLen        int    `json:"unset_len"`
+	TagName         string `json:"tag_name"`
+	SquashTagOption string `json:"squash_tag_option"`
+	MatchNameNil    bool   `json:"match_name_nil"`
+	MapFieldNameNil bool   `json:"map_field_name_nil"`
+	DecoderPresent  Bool   `json:"decoder_present"`
+}
+type WriterState struct {
+	Requested              string `json:"requested"`
+	Bytes                  string `json:"bytes"`
+	ParentBytes            string `json:"parent_bytes"`
+	ChildBytes             string `json:"child_bytes"`
+	Writes                 int    `json:"writes"`
+	UnderlyingN            Int    `json:"underlying_n"`
+	UnderlyingErrorPresent Bool   `json:"underlying_error_present"`
+}
+type FlagState struct {
+	Value             string    `json:"value"`
+	Changed           bool      `json:"changed"`
+	AnnotationPresent bool      `json:"annotation_present"`
+	AnnotationNil     bool      `json:"annotation_nil"`
+	AnnotationCount   int       `json:"annotation_count"`
+	Annotation        [2]string `json:"annotation"`
+}
+type Hooks struct {
+	Initializer int `json:"initializer_calls"`
+	PreRun      int `json:"pre_run_calls"`
+	Run         int `json:"run_calls"`
+	Help        int `json:"help_calls"`
+}
+
+// All fields are scalar, string or fixed-array values. Callback copies contain
+// no mutable map/slice/pointer or upstream error interface.
+type Channels struct {
+	ErrorChannelAvailable Bool        `json:"error_channel_available"`
+	ErrorPresent          Bool        `json:"error_present"`
+	ErrorType             String      `json:"error_type"`
+	ErrorKind             String      `json:"error_kind"`
+	ErrorText             String      `json:"error_text"`
+	ErrorMethodReturned   Bool        `json:"error_method_returned"`
+	ErrorMethodPanicType  String      `json:"error_method_panic_type"`
+	N                     Int         `json:"n"`
+	Text                  String      `json:"text"`
+	ConfigKnown           bool        `json:"config_known"`
+	ConfigBefore          ConfigState `json:"config_before"`
+	ConfigAfter           ConfigState `json:"config_after"`
+	WriterKnown           bool        `json:"writer_known"`
+	Writer                WriterState `json:"writer"`
+	FlagKnown             bool        `json:"flag_known"`
+	FlagBefore            FlagState   `json:"flag_before"`
+	FlagAfter             FlagState   `json:"flag_after"`
+	HooksKnown            bool        `json:"hooks_known"`
+	Hooks                 Hooks       `json:"hooks"`
+	IntegerBefore         String      `json:"integer_before"`
+	IntegerAfter          String      `json:"integer_after"`
+}
+type Record struct {
+	Ordinal        int      `json:"ordinal"`
+	FixtureOrdinal int      `json:"fixture_ordinal"`
+	RequestIndex   int      `json:"request_index"`
+	CaseID         string   `json:"case_id"`
+	CandidateIndex int      `json:"candidate_index"`
+	CandidateID    string   `json:"candidate_id"`
+	Dispatched     bool     `json:"dispatched"`
+	Returned       Bool     `json:"returned"`
+	PanicPresent   Bool     `json:"panic_present"`
+	PanicType      String   `json:"panic_type"`
+	Channels       Channels `json:"channels"`
+	Truth          *string  `json:"truth"`
+	Role           *string  `json:"role"`
+	Weight         *float64 `json:"weight"`
+}
+type Counters struct {
+	CandidateReserved     int  `json:"candidate_reserved"`
+	CandidateDispatched   int  `json:"candidate_dispatched"`
+	CandidateReturned     int  `json:"candidate_returned"`
+	CandidatePanicked     int  `json:"candidate_panicked"`
+	ErrorReserved         int  `json:"error_reserved"`
+	ErrorDispatched       int  `json:"error_dispatched"`
+	ErrorReturned         int  `json:"error_returned"`
+	ErrorPanicked         int  `json:"error_panicked"`
+	CompletedDispatches   int  `json:"completed_dispatches"`
+	CheckpointStopped     bool `json:"checkpoint_stopped"`
+	InnerOriginalAPICalls *int `json:"inner_original_api_calls"`
+	OriginalStartupCalls  *int `json:"original_startup_calls"`
+}
+type Event struct {
+	Sequence int      `json:"sequence"`
+	Stage    string   `json:"stage"`
+	Record   Record   `json:"record"`
+	Counters Counters `json:"counters"`
+}
+type Result struct {
+	Schema                  string          `json:"schema"`
+	State                   string          `json:"state"`
+	Failure                 string          `json:"failure"`
+	PlanSHA256              string          `json:"plan_sha256"`
+	FixtureSHA256           string          `json:"fixture_sha256"`
+	WantSHA256              string          `json:"want_sha256"`
+	Counters                Counters        `json:"counters"`
+	Records                 [Planned]Record `json:"records"`
+	LastSyncedSequence      int             `json:"last_synced_sequence"`
+	Qualified               int             `json:"qualified"`
+	ParentsCreated          int             `json:"parents_created"`
+	TrainingReady           bool            `json:"training_ready"`
+	SourceSelectionComplete bool            `json:"source_selection_complete"`
+}

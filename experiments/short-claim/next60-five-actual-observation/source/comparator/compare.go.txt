@@ -1,0 +1,642 @@
+// This tool reads frozen finite Wants and already-saved owned channels. It
+// imports no upstream package, oracle or model and grants no label authority.
+package main
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"strconv"
+)
+
+const fixtureSHA = "d0d5bc6c9248a600912eb9c769fff00abdb105fe310703a6cd57b785702106af"
+const fixtureBytes = 21636
+const wantsSHA = "16a30778db43583da06319430d7344ec1bf1160f2c483dd350d1add9df59ff7f"
+const wantsBytes = 28051
+const predicatesSHA = "4e9646a79afd1328adf73753010e5cfc161161b934cfa7ba88973762f07406a7"
+const outputCap = 128 << 10
+
+var ids = [5]string{"next60-mapstructure-nil-config", "next60-cobra-error-writer", "next60-cobra-required-annotation", "next60-cobra-context-preflight", "next60-humanize-bigbytes-precision"}
+var counts = [5]int{4, 4, 5, 4, 6}
+var starts = [5]int{0, 4, 8, 13, 17}
+var candidates = [3]string{"baseline-design", "reference-design", "wrong-seed-design"}
+
+// Predicate is fieldwise evidence. Unknown is never serialized as false.
+// Raw Want is retained even for explicit source-enum or compound mappings.
+type predicate struct {
+	Field   string          `json:"field"`
+	State   string          `json:"state_T_F_U"`
+	Want    json.RawMessage `json:"Want"`
+	Got     json.RawMessage `json:"Got"`
+	Present bool            `json:"field_present"`
+	Rule    string          `json:"rule"`
+}
+type rowResult struct {
+	Position    [4]int          `json:"position"`
+	RequestID   string          `json:"request_id"`
+	CaseID      string          `json:"case_id"`
+	State       string          `json:"state"`
+	Counts      [3]int          `json:"predicate_counts_T_F_U"`
+	Predicates  []predicate     `json:"predicates"`
+	ErrorType   json.RawMessage `json:"observed_error_type_KnownValue"`
+	ErrorKind   json.RawMessage `json:"observed_logical_error_kind_KnownValue"`
+	ErrorMethod json.RawMessage `json:"observed_error_method_returned_KnownValue"`
+	ErrorText   json.RawMessage `json:"observed_error_text_KnownValue"`
+	Returned    json.RawMessage `json:"observed_returned_KnownValue"`
+	Panic       json.RawMessage `json:"observed_candidate_panic_KnownValue"`
+}
+type candidateResult struct {
+	Position  [2]int   `json:"position"`
+	RequestID string   `json:"request_id"`
+	Candidate string   `json:"candidate_id"`
+	State     string   `json:"state"`
+	Vector    []string `json:"row_vector"`
+	Ordinals  []int    `json:"row_ordinals"`
+	Known     []int    `json:"known_counterexample_fixture_positions"`
+	Unknown   []int    `json:"unknown_fixture_positions"`
+}
+type report struct {
+	Schema              string            `json:"schema"`
+	FixtureSHA          string            `json:"fixture_sha256"`
+	WantsSHA            string            `json:"wants_sha256"`
+	SourcePredicatesSHA string            `json:"source_predicates_sha256"`
+	SavedSHA            string            `json:"saved_result_sha256"`
+	PlanSHA             string            `json:"declared_plan_sha256"`
+	Counts              [4]int            `json:"rows_total_satisfied_unsatisfied_unknown"`
+	Predicates          [3]int            `json:"predicate_counts_T_F_U"`
+	Rows                []rowResult       `json:"rows"`
+	Candidates          []candidateResult `json:"candidates"`
+	Nonblind            bool              `json:"nonblind"`
+	Labels              bool              `json:"labels_assigned"`
+	Qualified           bool              `json:"qualified"`
+	Scope               string            `json:"scope"`
+}
+type channel struct {
+	value   *node
+	present bool
+	known   bool
+	reason  string
+}
+
+func unknown(p bool, why string) channel { return channel{present: p, reason: why} }
+func known(v *node, p bool) channel      { return channel{value: v, present: p, known: true} }
+func kv(parent *node, key string) channel {
+	x, p := parent.get(key)
+	if !p {
+		return unknown(false, "KnownValue field missing")
+	}
+	if x.kind != 'o' {
+		return known(x, true)
+	}
+	k, kp := x.get("known")
+	if !kp || !isBool(k, true) {
+		return unknown(true, "KnownValue not known")
+	}
+	v, vp := x.get("value")
+	if !vp {
+		return unknown(false, "KnownValue value missing")
+	}
+	return known(v, true)
+}
+func direct(parent *node, key string) channel {
+	x, p := parent.get(key)
+	if !p {
+		return unknown(false, "field missing")
+	}
+	return known(x, true)
+}
+func gated(ch *node, gate, key string) channel {
+	g, p := ch.get(gate)
+	if !p || !isBool(g, true) {
+		return unknown(p, "owned state observation unavailable")
+	}
+	return direct(ch, key)
+}
+func errorAccess(ch *node) channel {
+	a := kv(ch, "error_channel_available")
+	if !a.known || !isBool(a.value, true) {
+		return unknown(a.present, "error return channel unavailable")
+	}
+	p := kv(ch, "error_present")
+	if !p.known {
+		return p
+	}
+	if p.value.kind != 'b' {
+		return p
+	}
+	return p
+}
+func errorKind(ch *node) channel {
+	p := errorAccess(ch)
+	if !p.known {
+		return p
+	}
+	if isBool(p.value, false) {
+		return known(nz(), true)
+	}
+	if !isBool(p.value, true) {
+		return p
+	}
+	return kv(ch, "error_kind")
+}
+func errorNil(ch *node) channel {
+	p := errorAccess(ch)
+	if !p.known {
+		return p
+	}
+	if isBool(p.value, false) {
+		return known(nz(), true)
+	}
+	if isBool(p.value, true) {
+		return known(nb(true), true)
+	}
+	return p
+}
+func add(rr *rowResult, path string, w *node, c channel, rule string) {
+	s := "U"
+	if c.known {
+		s = "F"
+		if equal(w, c.value) {
+			s = "T"
+		}
+	}
+	if !c.known && c.reason != "" {
+		rule += "; " + c.reason
+	}
+	rr.Predicates = append(rr.Predicates, predicate{path, s, raw(w), raw(c.value), c.present, rule})
+	switch s {
+	case "T":
+		rr.Counts[0]++
+	case "F":
+		rr.Counts[1]++
+	default:
+		rr.Counts[2]++
+	}
+}
+func addResolved(rr *rowResult, path string, literal, resolved *node, c channel, rule string) {
+	add(rr, path, resolved, c, rule)
+	rr.Predicates[len(rr.Predicates)-1].Want = raw(literal)
+}
+func state(c [3]int) string {
+	if c[1] > 0 {
+		return "unsatisfied"
+	}
+	if c[2] > 0 {
+		return "unknown"
+	}
+	return "satisfied"
+}
+func intValue(c channel) (int, bool) {
+	if !c.known || c.value == nil || c.value.kind != 'n' {
+		return 0, false
+	}
+	n, e := strconv.Atoi(c.value.scalar.(json.Number).String())
+	return n, e == nil
+}
+func nested(ch *node, gate, parent, key string) channel {
+	p := gated(ch, gate, parent)
+	if !p.known {
+		return p
+	}
+	return direct(p.value, key)
+}
+func integerSame(ch *node) channel {
+	b := kv(ch, "integer_before")
+	a := kv(ch, "integer_after")
+	if !b.known {
+		return b
+	}
+	if !a.known {
+		return a
+	}
+	if b.value.kind != 's' || a.value.kind != 's' {
+		return known(nb(false), true)
+	}
+	return known(nb(equal(a.value, b.value)), true)
+}
+func snapshotPredicates(rr *rowResult, path string, w, ch *node, gate, before, after string, keys []string) error {
+	if !isBool(w, true) {
+		return errInput
+	}
+	b := gated(ch, gate, before)
+	a := gated(ch, gate, after)
+	for _, key := range keys {
+		var c channel
+		switch {
+		case !b.known:
+			c = b
+		case !a.known:
+			c = a
+		case b.value.kind != 'o' || a.value.kind != 'o':
+			c = known(nb(false), true)
+		default:
+			bc := direct(b.value, key)
+			ac := direct(a.value, key)
+			if !bc.known {
+				c = bc
+			} else if !ac.known {
+				c = ac
+			} else {
+				c = known(nb(equal(bc.value, ac.value)), true)
+			}
+		}
+		add(rr, path+"/"+key, w, c, "unchanged predicate component; before/after member equality, unknown components retained")
+	}
+	return nil
+}
+
+func compareWant(rr *rowResult, w, record *node) error {
+	ch, _ := record.get("channels")
+	if ch == nil || ch.kind != 'o' {
+		return errInput
+	}
+	rr.ErrorType = raw(func() *node { x, _ := ch.get("error_type"); return x }())
+	rr.ErrorKind = raw(func() *node { x, _ := ch.get("error_kind"); return x }())
+	rr.ErrorMethod = raw(func() *node { x, _ := ch.get("error_method_returned"); return x }())
+	rr.ErrorText = raw(func() *node { x, _ := ch.get("error_text"); return x }())
+	rr.Returned = raw(func() *node { x, _ := record.get("returned"); return x }())
+	rr.Panic = raw(func() *node { x, _ := record.get("panic_present"); return x }())
+	for _, m := range w.fields {
+		path := "/" + m.key
+		switch m.key {
+		case "panic":
+			add(rr, path, m.value, kv(record, "panic_present"), "candidate panic observation, independent of return/error availability")
+		case "error":
+			if m.value.kind != 'z' {
+				return errInput
+			}
+			add(rr, path, m.value, errorNil(ch), "nil error requires an available known returned error channel")
+		case "error_kind":
+			if isString(m.value, "missing_required") {
+				gate := errorAccess(ch)
+				if !gate.known {
+					add(rr, path, m.value, gate, "source-text logical predicate, not a Go error identity")
+					break
+				}
+				if isBool(gate.value, false) {
+					add(rr, path, m.value, known(nz(), true), "known nil error cannot satisfy missing_required")
+					break
+				}
+				method := kv(ch, "error_method_returned")
+				text := kv(ch, "error_text")
+				if !method.known || !isBool(method.value, true) || !text.known {
+					add(rr, path, m.value, unknown(method.present && text.present, "source-text logical predicate unavailable: tracked Error did not return known text normally"), "initial unclassified kind is not a counterexample without source-text observation")
+					break
+				}
+				add(rr, path+"/logical_kind", m.value, kv(ch, "error_kind"), "observed KindAfter logical kind; actual Go type retained separately")
+				addResolved(rr, path+"/source_text", m.value, ns(`required flag(s) "item" not set`), kv(ch, "error_text"), "exact predeclared source text; no sentinel/type identity inferred")
+			} else {
+				add(rr, path, m.value, errorKind(ch), "observed source-defined logical enum, not error text")
+			}
+		case "error_is":
+			target := ""
+			if isString(m.value, "io.ErrShortWrite") {
+				target = "io_short_write"
+			}
+			if isString(m.value, "cause") {
+				target = "writer_cause"
+			}
+			if isString(m.value, "context.Canceled") {
+				target = "context_canceled"
+			}
+			if target == "" {
+				return errInput
+			}
+			addResolved(rr, path, m.value, ns(target), errorKind(ch), "Wanted error_is resolved to predeclared source identity enum "+target+"; no errors.Is replay")
+		case "n":
+			add(rr, path, m.value, kv(ch, "n"), "returned n only; underlying writer count never substituted")
+		case "text":
+			add(rr, path, m.value, kv(ch, "text"), "owned returned text KnownValue")
+		case "bytes", "parent_bytes", "child_bytes":
+			add(rr, path, m.value, nested(ch, "writer_known", "writer", m.key), "owned spy writer state")
+		case "metadata_unchanged":
+			if e := snapshotPredicates(rr, path, m.value, ch, "config_known", "config_before", "config_after", []string{"metadata_present", "keys_nil", "unused_nil", "unset_nil", "keys_len", "unused_len", "unset_len"}); e != nil {
+				return e
+			}
+		case "decoder_created":
+			a := gated(ch, "config_known", "config_after")
+			if a.known {
+				a = kv(a.value, "decoder_present")
+			}
+			add(rr, path, m.value, a, "observed decoder return presence")
+		case "default_tag":
+			add(rr, path, m.value, nested(ch, "config_known", "config_after", "tag_name"), "observed config default tag")
+		case "flag_unchanged":
+			if e := snapshotPredicates(rr, path, m.value, ch, "flag_known", "flag_before", "flag_after", []string{"value", "changed", "annotation_present", "annotation_nil", "annotation_count", "annotation"}); e != nil {
+				return e
+			}
+		case "initializer_calls", "pre_run_calls", "run_calls":
+			add(rr, path, m.value, nested(ch, "hooks_known", "hooks", m.key), "owned hook counter; original/global initializer contents not inferred")
+		case "help_displayed":
+			a := nested(ch, "hooks_known", "hooks", "help_calls")
+			n, ok := intValue(a)
+			if a.known {
+				if ok {
+					a = known(nb(n > 0), true)
+				} else {
+					a = known(nb(false), true)
+				}
+			}
+			add(rr, path, m.value, a, "help means the owned help callback was invoked, not rendered-output proof")
+		case "input_unchanged":
+			add(rr, path, m.value, integerSame(ch), "known big integer string before/after; no mutation or big.Int replay")
+		case "behavior":
+			if !isString(m.value, "legacy execution retained") {
+				return errInput
+			}
+			addResolved(rr, path+"/returned", m.value, nb(true), kv(record, "returned"), "predeclared opt-out literal returned")
+			addResolved(rr, path+"/panic", m.value, nb(false), kv(record, "panic_present"), "predeclared opt-out literal no candidate panic")
+			addResolved(rr, path+"/error", m.value, nz(), errorNil(ch), "predeclared opt-out literal available nil error; unavailable remains unknown")
+			for _, key := range []string{"initializer_calls", "pre_run_calls", "run_calls", "help_calls"} {
+				n := 1
+				if key == "help_calls" {
+					n = 0
+				}
+				addResolved(rr, path+"/"+key, m.value, ni(n), nested(ch, "hooks_known", "hooks", key), "predeclared opt-out hook counts 1/1/1/help0")
+			}
+		default:
+			return errInput
+		}
+	}
+	if len(rr.Predicates) < 1 {
+		return errInput
+	}
+	rr.State = state(rr.Counts)
+	return nil
+}
+
+func checkInputs(f, w, r *node, plan string) (*node, *node, *node, error) {
+	if !fieldString(f, "schema", "riido-next-five-fixtures-v1") || !fieldString(f, "original_sha256", "c7bbf7bcc7912300fabdd6e671b0922df295299f00e5e7201df1ab5e824a2a9b") || !fieldString(w, "schema", "riido-next-five-target-Wants-v1") || !fieldString(r, "schema", "riido-next-five-observations-v1") || !fieldString(r, "state", "completed_finite_observations") || !fieldString(r, "failure", "") || !fieldString(r, "plan_sha256", plan) || !fieldString(r, "fixture_sha256", fixtureSHA) || !fieldString(r, "want_sha256", wantsSHA) || !fieldInt(r, "qualified", 0) || !fieldInt(r, "parents_created", 0) || !fieldBool(r, "training_ready", false) || !fieldBool(r, "source_selection_complete", false) {
+		return nil, nil, nil, errInput
+	}
+	fs, fok := array(f, "records", 23)
+	ws, wok := array(w, "wants", 23)
+	rs, rok := array(r, "records", 69)
+	if !fok || !wok || !rok {
+		return nil, nil, nil, errInput
+	}
+	co, _ := r.get("counters")
+	if co == nil || !fieldInt(co, "candidate_reserved", 69) || !fieldInt(co, "candidate_dispatched", 69) || !fieldInt(co, "completed_dispatches", 69) || !fieldBool(co, "checkpoint_stopped", false) || !fieldNull(co, "inner_original_api_calls") || !fieldNull(co, "original_startup_calls") {
+		return nil, nil, nil, errInput
+	}
+	returned, panicked := 0, 0
+	errorReserved := 0
+	errorReturned, errorPanicked := 0, 0
+	for i, rec := range rs.items {
+		fidx := i / 3
+		g := 0
+		for g < 4 && fidx >= starts[g+1] {
+			g++
+		}
+		fi := fs.items[fidx]
+		wi := ws.items[fidx]
+		j := i % 3
+		if !fieldInt(fi, "ordinal", fidx) || !fieldInt(fi, "request_index", g) || !fieldInt(fi, "case_index", fidx-starts[g]) || !fieldString(fi, "request_id", ids[g]) || !fieldInt(wi, "ordinal", fidx) || !fieldString(wi, "request_id", ids[g]) || !fieldInt(rec, "ordinal", i) || !fieldInt(rec, "fixture_ordinal", fidx) || !fieldInt(rec, "request_index", g) || !fieldInt(rec, "candidate_index", j) || !fieldString(rec, "candidate_id", candidates[j]) || !fieldBool(rec, "dispatched", true) || !fieldNull(rec, "truth") || !fieldNull(rec, "role") || !fieldNull(rec, "weight") {
+			return nil, nil, nil, errInput
+		}
+		caseID, cp := fi.get("case_id")
+		wc, _ := wi.get("case_id")
+		rc, _ := rec.get("case_id")
+		fw, fp := fi.get("original_want")
+		ww, wp := wi.get("Want")
+		if !cp || caseID.kind != 's' || !equal(caseID, wc) || !equal(caseID, rc) || !fp || !wp || ww.kind != 'o' || !equal(fw, ww) {
+			return nil, nil, nil, errInput
+		}
+		order, ok := array(wi, "candidate_order", 3)
+		if !ok {
+			return nil, nil, nil, errInput
+		}
+		for k, n := range candidates {
+			if !isString(order.items[k], n) {
+				return nil, nil, nil, errInput
+			}
+		}
+		for _, obj := range []*node{fi, wi} {
+			for _, key := range []string{"Got", "truth", "role", "weight"} {
+				if !fieldNull(obj, key) {
+					return nil, nil, nil, errInput
+				}
+			}
+		}
+		ret := kv(rec, "returned")
+		panic := kv(rec, "panic_present")
+		if !ret.known || !panic.known || ret.value.kind != 'b' || panic.value.kind != 'b' || equal(ret.value, panic.value) {
+			return nil, nil, nil, errInput
+		}
+		if isBool(ret.value, true) {
+			returned++
+		} else {
+			panicked++
+		}
+		ch, _ := rec.get("channels")
+		if ch == nil || ch.kind != 'o' {
+			return nil, nil, nil, errInput
+		}
+		access := errorAccess(ch)
+		if access.known && isBool(access.value, true) {
+			errorReserved++
+			er := kv(ch, "error_method_returned")
+			if !er.known || er.value.kind != 'b' {
+				return nil, nil, nil, errInput
+			}
+			if isBool(er.value, true) {
+				errorReturned++
+			} else {
+				errorPanicked++
+			}
+		}
+	}
+	if !fieldInt(co, "candidate_returned", returned) || !fieldInt(co, "candidate_panicked", panicked) || !fieldInt(co, "error_reserved", errorReserved) || !fieldInt(co, "error_dispatched", errorReserved) || !fieldInt(co, "error_returned", errorReturned) || !fieldInt(co, "error_panicked", errorPanicked) || !fieldInt(r, "last_synced_sequence", 138+2*errorReserved) {
+		return nil, nil, nil, errInput
+	}
+	return fs, ws, rs, nil
+}
+func compareInputs(fr, wr, rr []byte, plan, saved string) (report, error) {
+	out := report{Schema: "riido-next-five-finite-saved-comparison-v1", FixtureSHA: fixtureSHA, WantsSHA: wantsSHA, SourcePredicatesSHA: predicatesSHA, SavedSHA: saved, PlanSHA: plan, Nonblind: true, Scope: "Finite frozen Wanted predicates on saved owned channels only. Unknown retained; source logical error kinds and Go types separate. No labels, roles, qualification, original replay, model inference, training, rights or external process proof."}
+	f, e := parse(fr)
+	if e != nil {
+		return out, e
+	}
+	w, e := parse(wr)
+	if e != nil {
+		return out, e
+	}
+	r, e := parse(rr)
+	if e != nil {
+		return out, e
+	}
+	_, ws, rs, e := checkInputs(f, w, r, plan)
+	if e != nil {
+		return out, e
+	}
+	for g := 0; g < 5; g++ {
+		for j := 0; j < 3; j++ {
+			out.Candidates = append(out.Candidates, candidateResult{Position: [2]int{g, j}, RequestID: ids[g], Candidate: candidates[j], Vector: []string{}, Ordinals: []int{}, Known: []int{}, Unknown: []int{}})
+		}
+	}
+	for i, rec := range rs.items {
+		fidx := i / 3
+		g := 0
+		for g < 4 && fidx >= starts[g+1] {
+			g++
+		}
+		j := i % 3
+		k := fidx - starts[g]
+		wi := ws.items[fidx]
+		want, _ := wi.get("Want")
+		ci, _ := wi.get("case_id")
+		row := rowResult{Position: [4]int{i, g, k, j}, RequestID: ids[g], CaseID: ci.scalar.(string), Predicates: []predicate{}}
+		if e = compareWant(&row, want, rec); e != nil {
+			return out, e
+		}
+		out.Rows = append(out.Rows, row)
+		out.Counts[0]++
+		switch row.State {
+		case "satisfied":
+			out.Counts[1]++
+		case "unsatisfied":
+			out.Counts[2]++
+		default:
+			out.Counts[3]++
+		}
+		for k, n := range row.Counts {
+			out.Predicates[k] += n
+		}
+		c := &out.Candidates[g*3+j]
+		c.Vector = append(c.Vector, row.State)
+		c.Ordinals = append(c.Ordinals, i)
+		if row.Counts[1] > 0 {
+			c.Known = append(c.Known, k)
+		}
+		if row.Counts[2] > 0 {
+			c.Unknown = append(c.Unknown, k)
+		}
+	}
+	for i := range out.Candidates {
+		c := &out.Candidates[i]
+		c.State = "satisfied"
+		if len(c.Known) > 0 {
+			c.State = "unsatisfied"
+		} else if len(c.Unknown) > 0 {
+			c.State = "unknown"
+		}
+	}
+	return out, nil
+}
+func sha(raw []byte) string { s := sha256.Sum256(raw); return hex.EncodeToString(s[:]) }
+func validSHA(s string) bool {
+	if len(s) != 64 {
+		return false
+	}
+	for _, c := range s {
+		if !(c >= '0' && c <= '9' || c >= 'a' && c <= 'f') {
+			return false
+		}
+	}
+	return true
+}
+func readPinned(path, digest string, exact int) ([]byte, error) {
+	if path == "" || !validSHA(digest) {
+		return nil, errInput
+	}
+	before, e := os.Lstat(path)
+	if e != nil || !before.Mode().IsRegular() || before.Size() < 1 || before.Size() > inputCap || exact > 0 && before.Size() != int64(exact) {
+		return nil, errInput
+	}
+	f, e := os.Open(path)
+	if e != nil {
+		return nil, errInput
+	}
+	defer f.Close()
+	st, e := f.Stat()
+	if e != nil || !st.Mode().IsRegular() || !os.SameFile(before, st) {
+		return nil, errInput
+	}
+	b, e := io.ReadAll(io.LimitReader(f, inputCap+1))
+	if e != nil || len(b) > inputCap || int64(len(b)) != st.Size() || sha(b) != digest {
+		return nil, errInput
+	}
+	return b, nil
+}
+func save(path string, out report) (int, error) {
+	if !filepath.IsAbs(path) || filepath.Clean(path) != path {
+		return 0, errInput
+	}
+	b, e := json.Marshal(out)
+	if e != nil {
+		return 0, errInput
+	}
+	b = append(b, '\n')
+	if len(b) > outputCap {
+		return 0, errBounds
+	}
+	f, e := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if e != nil {
+		return 0, errInput
+	}
+	n, e := f.Write(b)
+	if e == nil && n != len(b) {
+		e = errInput
+	}
+	if e == nil {
+		e = f.Sync()
+	}
+	ce := f.Close()
+	if e != nil || ce != nil {
+		return 0, errInput
+	}
+	return len(b), nil
+}
+func main() {
+	names := [6]string{"--fixtures", "--wants", "--results", "--results-sha256", "--plan-sha256", "--output"}
+	var values [6]string
+	if len(os.Args) != 13 {
+		die()
+	}
+	for i := 1; i < len(os.Args); i += 2 {
+		k := -1
+		for j, n := range names {
+			if os.Args[i] == n {
+				k = j
+				break
+			}
+		}
+		if k < 0 || values[k] != "" || os.Args[i+1] == "" {
+			die()
+		}
+		values[k] = os.Args[i+1]
+	}
+	if !validSHA(values[3]) || !validSHA(values[4]) {
+		die()
+	}
+	f, e := readPinned(values[0], fixtureSHA, fixtureBytes)
+	if e != nil {
+		die()
+	}
+	w, e := readPinned(values[1], wantsSHA, wantsBytes)
+	if e != nil {
+		die()
+	}
+	r, e := readPinned(values[2], values[3], 0)
+	if e != nil {
+		die()
+	}
+	out, e := compareInputs(f, w, r, values[4], values[3])
+	if e != nil {
+		die()
+	}
+	n, e := save(values[5], out)
+	if e != nil {
+		die()
+	}
+	fmt.Printf("comparison_saved rows=%d satisfied=%d unsatisfied=%d unknown=%d bytes=%d\n", out.Counts[0], out.Counts[1], out.Counts[2], out.Counts[3], n)
+}
+func die() { _, _ = io.WriteString(os.Stderr, "comparison_failed\n"); os.Exit(1) }
+
+// Keep byte encoding available for synthetic fixture controls without maps.
+func encodeNode(n *node) []byte { var b bytes.Buffer; n.write(&b); return b.Bytes() }

@@ -1,0 +1,183 @@
+package pure
+
+import (
+	"errors"
+	"reflect"
+	"unicode/utf8"
+)
+
+var ErrFixture = errors.New("fixture_invalid")
+var ErrCheckpoint = errors.New("checkpoint_failed")
+var ErrBudget = errors.New("callback_budget")
+
+type Invocation struct {
+	// Call updates out before returning, including state changed before panic.
+	// Reserve/observe error methods here only after a durable checkpoint.
+	Call func(out *Channels) error
+	// Kind examines identities/types only; it must never call Error/String.
+	Kind func(error) string
+	// KindAfter uses only owned type/text strings after the tracked Error call.
+	// It is a predeclared finite contract predicate, not a Go error identity.
+	KindAfter func(typeName, text string) string
+}
+type Factory func(Fixture, int) (Invocation, error)
+type Checkpoint func(Event) error
+
+func CheckFixtures(f FixtureFile) error {
+	if f.Schema != FixtureSchema || f.OriginalSHA256 != "c7bbf7bcc7912300fabdd6e671b0922df295299f00e5e7201df1ab5e824a2a9b" || len(f.Records) != CaseCount {
+		return ErrFixture
+	}
+	starts := [5]int{0, 4, 8, 13, 17}
+	counts := [5]int{4, 4, 5, 4, 6}
+	ordinals := [5]int{6, 14, 8, 16, 10}
+	ids := [5]string{"next60-mapstructure-nil-config", "next60-cobra-error-writer", "next60-cobra-required-annotation", "next60-cobra-context-preflight", "next60-humanize-bigbytes-precision"}
+	for g := 0; g < 5; g++ {
+		for i := 0; i < counts[g]; i++ {
+			v := f.Records[starts[g]+i]
+			if v.Ordinal != starts[g]+i || v.RequestIndex != g || v.OriginalOrdinal != ordinals[g] || v.CaseIndex != i || v.RequestID != ids[g] || v.CaseID == "" || len(v.CaseID) > 128 || !utf8.ValidString(v.CaseID) || v.Got != nil || v.Truth != nil || v.Role != nil || v.Weight != nil {
+				return ErrFixture
+			}
+			if len(v.Input.Integer) > 512 || len(v.Input.Text) > 512 || v.Input.AnnotationCount < 0 || v.Input.AnnotationCount > 2 {
+				return ErrFixture
+			}
+		}
+	}
+	return nil
+}
+
+// panicType never formats a panic value or invokes its Error/String method.
+// panic(nil) has a nonnil *runtime.PanicNilError value in the pinned Go runtime.
+func panicType(v any) String {
+	if v == nil {
+		return S("<nil>")
+	}
+	return S(reflect.TypeOf(v).String())
+}
+func invoke(call func(*Channels) error, out *Channels) (err error, panicked bool, typ String) {
+	done := false
+	defer func() {
+		if !done {
+			panicked = true
+			typ = panicType(recover())
+			err = nil
+		}
+	}()
+	err = call(out)
+	done = true
+	return
+}
+func errorText(err error) (s String, panicked bool, typ String) {
+	done := false
+	defer func() {
+		if !done {
+			panicked = true
+			typ = panicType(recover())
+		}
+	}()
+	text := err.Error()
+	if len(text) <= 512 && utf8.ValidString(text) {
+		s = S(text)
+	}
+	done = true
+	return
+}
+
+func Observe(f FixtureFile, factory Factory, checkpoint Checkpoint) Result {
+	r := Result{Schema: ResultSchema, State: "incomplete"}
+	if CheckFixtures(f) != nil || factory == nil || checkpoint == nil {
+		r.Failure = "fixture_invalid"
+		return r
+	}
+	seq := 0
+	emit := func(stage string, row Record) bool {
+		seq++
+		// Known counters are owned scalars. Null inner/startup channels remain null.
+		if checkpoint(Event{seq, stage, row, r.Counters}) != nil {
+			r.Counters.CheckpointStopped = true
+			r.Failure = "checkpoint_failed"
+			return false
+		}
+		r.LastSyncedSequence = seq
+		return true
+	}
+	dispatch := 0
+	for _, fixture := range f.Records {
+		for candidate := 0; candidate < 3; candidate++ {
+			row := Record{Ordinal: dispatch, FixtureOrdinal: fixture.Ordinal, RequestIndex: fixture.RequestIndex, CaseID: fixture.CaseID, CandidateIndex: candidate, CandidateID: [3]string{"baseline-design", "reference-design", "wrong-seed-design"}[candidate]}
+			inv, err := factory(fixture, candidate)
+			if err != nil || inv.Call == nil || inv.Kind == nil {
+				r.Failure = "adapter_invalid"
+				return r
+			}
+			r.Counters.CandidateReserved++
+			if r.Counters.CandidateReserved+r.Counters.ErrorReserved > MaxTracked {
+				r.Failure = "callback_budget"
+				return r
+			}
+			if !emit("before_candidate", row) {
+				return r
+			}
+			r.Counters.CandidateDispatched++
+			row.Dispatched = true
+			err, panicPresent, typ := invoke(inv.Call, &row.Channels)
+			row.PanicPresent = B(panicPresent)
+			row.Returned = B(!panicPresent)
+			if panicPresent {
+				row.PanicType = typ
+				r.Counters.CandidatePanicked++
+				// A panicking candidate returned no error/n/text result channels.
+				row.Channels.ErrorChannelAvailable = Bool{}
+				row.Channels.ErrorPresent = Bool{}
+				row.Channels.N = Int{}
+				row.Channels.Text = String{}
+			} else {
+				r.Counters.CandidateReturned++
+				if row.Channels.ErrorChannelAvailable.Known && row.Channels.ErrorChannelAvailable.Value {
+					row.Channels.ErrorPresent = B(err != nil)
+					if err != nil {
+						row.Channels.ErrorType = S(reflect.TypeOf(err).String())
+						row.Channels.ErrorKind = S(inv.Kind(err))
+						r.Counters.ErrorReserved++
+						if r.Counters.CandidateReserved+r.Counters.ErrorReserved > MaxTracked {
+							r.Failure = "callback_budget"
+							r.Records[dispatch] = row
+							return r
+						}
+						r.Records[dispatch] = row
+						// Candidate return and state are known; Error text is still unknown.
+						if !emit("before_error_method", row) {
+							return r
+						}
+						r.Counters.ErrorDispatched++
+						text, errorPanic, errorTyp := errorText(err)
+						row.Channels.ErrorMethodReturned = B(!errorPanic)
+						if errorPanic {
+							row.Channels.ErrorMethodPanicType = errorTyp
+							r.Counters.ErrorPanicked++
+						} else {
+							row.Channels.ErrorText = text
+							r.Counters.ErrorReturned++
+							if text.Known && inv.KindAfter != nil {
+								if mapped := inv.KindAfter(row.Channels.ErrorType.Value, text.Value); mapped != "" {
+									row.Channels.ErrorKind = S(mapped)
+								}
+							}
+						}
+						r.Records[dispatch] = row
+						if !emit("after_error_method", row) {
+							return r
+						}
+					}
+				}
+			}
+			r.Counters.CompletedDispatches++
+			r.Records[dispatch] = row
+			if !emit("after_candidate", row) {
+				return r
+			}
+			dispatch++
+		}
+	}
+	r.State = "completed_finite_observations"
+	return r
+}

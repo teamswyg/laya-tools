@@ -63,6 +63,31 @@ case "$mode" in
       > "$check_dir/validation-sixteen.json"
     cmp "$check_dir/validation-sixteen.json" "$sixteen/INPUT-VALIDATION.v1.json"
     echo 'PASS: sixteen finite rows/47 unit labels; exact seven-row prefix and evidence; no fit.'
+    twentyone="$repo_root/experiments/short-claim/next60-development-twentyone"
+    five="$repo_root/experiments/short-claim/next60-five-actual-observation"
+    cp "$twentyone/source/materializer/main.go.txt" "$check_dir/materialize-twentyone.go"
+    go run -p=1 "$check_dir/materialize-twentyone.go" \
+      --previous-data "$sixteen/data/train.jsonl" \
+      --fixtures "$five/FIXTURES.v1.json" \
+      --qualification "$twentyone/ROOT-QUALIFICATION.v2.json" \
+      --out "$check_dir/train-twentyone.jsonl" > "$check_dir/materialize-twentyone.json"
+    cmp "$check_dir/train-twentyone.jsonl" "$twentyone/data/train.jsonl"
+    cmp "$check_dir/materialize-twentyone.json" "$twentyone/MATERIALIZATION.v1.json"
+    cp "$twentyone/source/validator/validate.go.txt" "$check_dir/validate-twentyone.go"
+    cp "$twentyone/source/validator/reader-main.go.txt" "$check_dir/reader-twentyone.go"
+    go run -p=1 "$check_dir/validate-twentyone.go" "$check_dir/reader-twentyone.go" \
+      --data "$twentyone/data/train.jsonl" \
+      --data-sha256 f8d9beb88393d2c1d2d8f690e366342157fd13bee25abb79078287e62c94b828 \
+      --previous-data "$sixteen/data/train.jsonl" \
+      --fixtures "$five/FIXTURES.v1.json" \
+      --wants "$five/WANTS.v1.json" \
+      --adoption "$twentyone/ROOT-QUALIFICATION.v2.json" \
+      --adoption-sha256 3c1468970a99bc494f3674c6fcbaf476f485e3d491a850ab7aebb09abadd3bfd \
+      --finite-comparison "$five/semantic-review/FINITE-COMPARISON.v1.json" \
+      --saved-results "$five/OBSERVATIONS.v1.json" \
+      --output "$check_dir/validation-twentyone.json"
+    cmp "$check_dir/validation-twentyone.json" "$twentyone/INPUT-VALIDATION.v1.json"
+    echo 'PASS: twenty-one finite rows/61 unit labels; unknown baseline excluded; 301 selected versus 305 evidence observations; no fit.'
     ;;
   controller)
     # A separate Root command may select a real binary for static inspection.
@@ -144,8 +169,46 @@ case "$mode" in
     cmp "$check_dir/recomparison.json" "$archive/independent-semantic-review/FINITE-COMPARISON.v1.json"
     echo 'PASS: synthetic controls and exact saved-result comparison; no native worker or model.'
     ;;
-  sixteen)
-    archive="$repo_root/experiments/short-claim/next60-development-sixteen/source"
+  five)
+    archive="$repo_root/experiments/short-claim/next60-five-actual-observation"
+    export RIIDO_NEXTFIVE_TEST_FIXTURES="$archive/FIXTURES.v1.json"
+    export RIIDO_FIVE_TEST_FIXTURES="$archive/FIXTURES.v1.json"
+    export RIIDO_FIVE_TEST_WANTS="$archive/WANTS.v1.json"
+    mkdir -p "$check_dir/outside/internal/protocol" "$check_dir/comparator"
+    for name in main.go main_test.go go.mod; do
+      cp "$archive/source/outside/$name.txt" "$check_dir/outside/$name"
+    done
+    for name in protocol.go protocol_test.go literal_fixture_test.go types.go; do
+      cp "$archive/source/outside/internal/protocol/$name.txt" "$check_dir/outside/internal/protocol/$name"
+    done
+    for name in json.go compare.go compare_test.go go.mod; do
+      cp "$archive/source/comparator/$name.txt" "$check_dir/comparator/$name"
+    done
+    # Owned/std-library modules only: injected lifecycle callbacks never
+    # launch the original worker or a real child process.
+    for part in outside comparator; do
+      cd "$check_dir/$part"
+      CGO_ENABLED=1 go test -race -p=1 -timeout=5m ./...
+      CGO_ENABLED=1 go vet -p=1 ./...
+    done
+    cd "$check_dir/comparator"
+    go run -p=1 . \
+      --fixtures "$archive/FIXTURES.v1.json" \
+      --wants "$archive/WANTS.v1.json" \
+      --results "$archive/OBSERVATIONS.v1.json" \
+      --results-sha256 bfaa50f313a851348069e7d2fec4cd6680dd6dab963683285fe307f8b384af1e \
+      --plan-sha256 fa572467945c6c48bf5182b5e8d1e05595793e0d56ae3757bae33583005ab633 \
+      --output "$check_dir/recomparison-five.json"
+    cmp "$check_dir/recomparison-five.json" "$archive/semantic-review/FINITE-COMPARISON.v1.json"
+    echo 'PASS: five-task synthetic controls and saved comparison; unknown retained; no native worker or model.'
+    ;;
+  sixteen|twentyone)
+    if [[ "$mode" == sixteen ]]; then
+      archive="$repo_root/experiments/short-claim/next60-development-sixteen/source"
+    else
+      archive="$repo_root/experiments/short-claim/next60-development-twentyone/source"
+      cp "$repo_root/experiments/short-claim/next60-development-twentyone/independent-validator-preparation/EXPECTED-OUTPUT.v1.json" "$check_dir/EXPECTED-OUTPUT.v1.json"
+    fi
     for part in materializer validator; do
       mkdir -p "$check_dir/$part"
       for source_file in "$archive/$part/"*.go.txt "$archive/$part/go.mod.txt"; do
@@ -159,10 +222,10 @@ case "$mode" in
       CGO_ENABLED=1 go test -race -p=1 -timeout=5m ./...
       CGO_ENABLED=1 go vet -p=1 ./...
     done
-    echo 'PASS: synthetic sixteen-row generation and validation controls; no worker or model.'
+    echo "PASS: synthetic $mode generation and validation controls; no worker or model."
     ;;
   *)
-    echo 'Expected data, controller, checkpoint, outside, catalog9 or sixteen mode.' >&2
+    echo 'Expected data, controller, checkpoint, outside, catalog9, five, sixteen or twentyone mode.' >&2
     exit 2
     ;;
 esac

@@ -1,0 +1,462 @@
+// Package protocol interprets the next-five worker's saved structural frames.
+// It imports no native adapters, evaluates no Want and grants no supervision.
+// Event phases are adapted from the frozen owned writer source, not catalog9.
+package protocol
+
+import (
+	"bytes"
+	"encoding/json"
+	"errors"
+	"io"
+	"path/filepath"
+	"strings"
+	"unicode/utf8"
+)
+
+var Err = errors.New("nextfive_protocol_invalid")
+
+const JournalCap = 512 << 10
+const FinalCap = 256 << 10
+const ReservationCap = 8 << 10
+const EventCap = 8 << 10
+const CombinedCap = OutputCap
+const FixtureSHA = "d0d5bc6c9248a600912eb9c769fff00abdb105fe310703a6cd57b785702106af"
+const FixtureBytes = 21636
+const WantSHA = "16a30778db43583da06319430d7344ec1bf1160f2c483dd350d1add9df59ff7f"
+const WantBytes = 28051
+const OriginalSHA = "c7bbf7bcc7912300fabdd6e671b0922df295299f00e5e7201df1ab5e824a2a9b"
+const Reservation = "{\"schema\":\"riido-next-five-attempt-reservation-v1\",\"planned_dispatches\":69,\"candidate_dispatched\":0,\"inner_original_api_calls\":null,\"original_startup_calls\":null,\"qualified\":0}\n"
+
+// Exact case-sensitive, present, nonduplicate keys; bounded arrays, no maps.
+func Object(raw []byte, names []string) ([]json.RawMessage, error) {
+	if len(names) > 64 {
+		return nil, Err
+	}
+	d := json.NewDecoder(bytes.NewReader(raw))
+	t, e := d.Token()
+	if e != nil || t != json.Delim('{') {
+		return nil, Err
+	}
+	out := make([]json.RawMessage, len(names))
+	var seen [64]bool
+	for d.More() {
+		t, e = d.Token()
+		if e != nil {
+			return nil, Err
+		}
+		key, ok := t.(string)
+		if !ok {
+			return nil, Err
+		}
+		index := -1
+		for i, name := range names {
+			if key == name {
+				index = i
+				break
+			}
+		}
+		if index < 0 || seen[index] {
+			return nil, Err
+		}
+		seen[index] = true
+		if d.Decode(&out[index]) != nil {
+			return nil, Err
+		}
+	}
+	t, e = d.Token()
+	if e != nil || t != json.Delim('}') {
+		return nil, Err
+	}
+	if _, e = d.Token(); e != io.EOF {
+		return nil, Err
+	}
+	for i := range names {
+		if !seen[i] {
+			return nil, Err
+		}
+	}
+	return out, nil
+}
+func ReadInt(raw []byte) (int, error) {
+	var n int
+	if bytes.Equal(bytes.TrimSpace(raw), []byte("null")) || json.Unmarshal(raw, &n) != nil || n < 0 {
+		return 0, Err
+	}
+	return n, nil
+}
+func ReadString(raw []byte) (string, error) {
+	var s string
+	if bytes.Equal(bytes.TrimSpace(raw), []byte("null")) || json.Unmarshal(raw, &s) != nil {
+		return "", Err
+	}
+	return s, nil
+}
+func SHA(s string) bool {
+	if len(s) != 64 {
+		return false
+	}
+	for _, c := range s {
+		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')) {
+			return false
+		}
+	}
+	return true
+}
+func canonical(raw []byte, v any, pretty, newline bool) error {
+	if !utf8.Valid(raw) {
+		return Err
+	}
+	d := json.NewDecoder(bytes.NewReader(raw))
+	d.DisallowUnknownFields()
+	if d.Decode(v) != nil {
+		return Err
+	}
+	var tail any
+	if d.Decode(&tail) != io.EOF {
+		return Err
+	}
+	var c []byte
+	var e error
+	if pretty {
+		c, e = json.MarshalIndent(v, "", "  ")
+	} else {
+		c, e = json.Marshal(v)
+	}
+	if newline {
+		c = append(c, '\n')
+	}
+	if e != nil || !bytes.Equal(raw, c) {
+		return Err
+	}
+	return nil
+}
+
+type RelativePin struct {
+	ID     string `json:"id"`
+	Path   string `json:"path"`
+	Bytes  int64  `json:"bytes"`
+	SHA256 string `json:"sha256"`
+}
+type Plan struct {
+	Schema            string      `json:"schema"`
+	Frozen            bool        `json:"frozen"`
+	SourceRoot        string      `json:"source_root"`
+	Manifest          RelativePin `json:"manifest"`
+	Fixtures          RelativePin `json:"fixtures"`
+	Wants             RelativePin `json:"wants"`
+	Readiness         RelativePin `json:"readiness"`
+	BinarySHA256      string      `json:"binary_sha256"`
+	GoVersion         string      `json:"go_version"`
+	CGO               string      `json:"cgo_enabled"`
+	GOOS              string      `json:"goos"`
+	GOARCH            string      `json:"goarch"`
+	CPU               int         `json:"cpu"`
+	SoftHeapBytes     int64       `json:"soft_heap_bytes"`
+	WallSeconds       int         `json:"wall_seconds"`
+	OutputCapBytes    int         `json:"output_cap_bytes"`
+	PlannedDispatches int         `json:"planned_dispatches"`
+	Retries           int         `json:"retries"`
+}
+
+func safeRelative(s string) bool {
+	return s != "" && !filepath.IsAbs(s) && filepath.Clean(s) == s && s != "." && s != ".." && !strings.HasPrefix(s, "../") && !strings.ContainsAny(s, "\\:\x00")
+}
+func ReadPlan(raw []byte, workerSHA string) (p Plan, e error) {
+	if len(raw) > 128<<10 || canonical(raw, &p, true, true) != nil {
+		return p, Err
+	}
+	if p.Schema != "riido-next-five-execution-plan-v1" || !p.Frozen || !filepath.IsAbs(p.SourceRoot) || filepath.Clean(p.SourceRoot) != p.SourceRoot || p.BinarySHA256 != workerSHA || !SHA(workerSHA) || p.GoVersion != "go1.27.1" || p.CGO != "0" || p.GOOS != "darwin" || p.GOARCH != "arm64" || p.CPU != 1 || p.SoftHeapBytes != 256<<20 || p.WallSeconds != 60 || p.OutputCapBytes != CombinedCap || p.PlannedDispatches != Planned || p.Retries != 0 {
+		return p, Err
+	}
+	pins := [4]RelativePin{p.Manifest, p.Fixtures, p.Wants, p.Readiness}
+	for i, pin := range pins {
+		if pin.ID == "" || len(pin.ID) > 128 || !safeRelative(pin.Path) || pin.Bytes <= 0 || pin.Bytes > 1<<20 || !SHA(pin.SHA256) {
+			return p, Err
+		}
+		for j := 0; j < i; j++ {
+			if pin.ID == pins[j].ID || pin.Path == pins[j].Path {
+				return p, Err
+			}
+		}
+	}
+	if p.Fixtures.Bytes != FixtureBytes || p.Fixtures.SHA256 != FixtureSHA || p.Wants.Bytes != WantBytes || p.Wants.SHA256 != WantSHA {
+		return p, Err
+	}
+	return p, nil
+}
+
+var fixtureCounts = [5]int{4, 4, 5, 4, 6}
+
+func requestIndex(f int) int {
+	for i, n := range fixtureCounts {
+		if f < n {
+			return i
+		}
+		f -= n
+	}
+	return -1
+}
+func ReadFixtures(raw []byte) (cases [CaseCount]string, e error) {
+	var f FixtureFile
+	// The frozen, byte/SHA-bound fixture includes exactly one additional LF.
+	// Preserve the artifact and validate that explicit historical encoding.
+	if len(raw) != FixtureBytes || !bytes.HasSuffix(raw, []byte("\n\n")) || canonical(raw[:len(raw)-1], &f, true, true) != nil || f.Schema != FixtureSchema || f.OriginalSHA256 != OriginalSHA || len(f.Records) != CaseCount {
+		return cases, Err
+	}
+	ids := [5]string{"next60-mapstructure-nil-config", "next60-cobra-error-writer", "next60-cobra-required-annotation", "next60-cobra-context-preflight", "next60-humanize-bigbytes-precision"}
+	ordinals := [5]int{6, 14, 8, 16, 10}
+	starts := [5]int{0, 4, 8, 13, 17}
+	for i, r := range f.Records {
+		g := requestIndex(i)
+		if g < 0 || r.Ordinal != i || r.RequestIndex != g || r.OriginalOrdinal != ordinals[g] || r.CaseIndex != i-starts[g] || r.RequestID != ids[g] || r.CaseID == "" || len(r.CaseID) > 128 || !utf8.ValidString(r.CaseID) || r.Got != nil || r.Truth != nil || r.Role != nil || r.Weight != nil {
+			return cases, Err
+		}
+		cases[i] = r.CaseID
+	}
+	return cases, nil
+}
+func boolOK(b Bool) bool { return b.Known || !b.Value }
+func stringOK(s String) bool {
+	return (!s.Known && s.Value == "") || (s.Known && len(s.Value) <= 512 && utf8.ValidString(s.Value))
+}
+func intOK(n Int) bool { return n.Known || n.Value == 0 }
+func countersOK(c Counters) bool {
+	n := [9]int{c.CandidateReserved, c.CandidateDispatched, c.CandidateReturned, c.CandidatePanicked, c.ErrorReserved, c.ErrorDispatched, c.ErrorReturned, c.ErrorPanicked, c.CompletedDispatches}
+	for _, v := range n {
+		if v < 0 || v > Planned {
+			return false
+		}
+	}
+	return c.InnerOriginalAPICalls == nil && c.OriginalStartupCalls == nil && c.CandidateDispatched <= c.CandidateReserved && c.CandidateReturned+c.CandidatePanicked <= c.CandidateDispatched && c.CompletedDispatches <= c.CandidateReturned+c.CandidatePanicked && c.ErrorDispatched <= c.ErrorReserved && c.ErrorReturned+c.ErrorPanicked <= c.ErrorDispatched && c.CandidateReserved+c.ErrorReserved <= MaxTracked
+}
+func rowOK(r Record, cases [CaseCount]string) bool {
+	if r.Ordinal < 0 || r.Ordinal >= Planned {
+		return false
+	}
+	f := r.Ordinal / 3
+	if r.FixtureOrdinal != f || r.RequestIndex != requestIndex(f) || r.CaseID != cases[f] || r.CandidateIndex != r.Ordinal%3 || r.CandidateID != [3]string{"baseline-design", "reference-design", "wrong-seed-design"}[r.Ordinal%3] || r.Truth != nil || r.Role != nil || r.Weight != nil {
+		return false
+	}
+	c := r.Channels
+	bs := [8]Bool{r.Returned, r.PanicPresent, c.ErrorChannelAvailable, c.ErrorPresent, c.ErrorMethodReturned, c.ConfigBefore.DecoderPresent, c.ConfigAfter.DecoderPresent, c.Writer.UnderlyingErrorPresent}
+	for _, b := range bs {
+		if !boolOK(b) {
+			return false
+		}
+	}
+	ss := [8]String{r.PanicType, c.ErrorType, c.ErrorKind, c.ErrorText, c.ErrorMethodPanicType, c.Text, c.IntegerBefore, c.IntegerAfter}
+	for _, s := range ss {
+		if !stringOK(s) {
+			return false
+		}
+	}
+	if !intOK(c.N) || !intOK(c.Writer.UnderlyingN) {
+		return false
+	}
+	text := [10]string{c.ConfigBefore.TagName, c.ConfigBefore.SquashTagOption, c.ConfigAfter.TagName, c.ConfigAfter.SquashTagOption, c.Writer.Requested, c.Writer.Bytes, c.Writer.ParentBytes, c.Writer.ChildBytes, c.FlagBefore.Value, c.FlagAfter.Value}
+	for _, s := range text {
+		if len(s) > 512 || !utf8.ValidString(s) {
+			return false
+		}
+	}
+	for _, flag := range [2]FlagState{c.FlagBefore, c.FlagAfter} {
+		if flag.AnnotationCount < 0 || flag.AnnotationCount > 2 {
+			return false
+		}
+		for _, s := range flag.Annotation {
+			if len(s) > 512 || !utf8.ValidString(s) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+// Journal summarizes a physical valid prefix. It does not claim these frames'
+// Sync calls returned; that acknowledgement belongs to a valid final result.
+type Journal struct {
+	Frames           int      `json:"physical_valid_frames"`
+	Bytes            int      `json:"physical_bytes"`
+	LastSequence     int      `json:"physical_valid_last_sequence"`
+	Counters         Counters `json:"physical_valid_prefix_counters"`
+	CompletedPrefix  int      `json:"physical_after_candidate_prefix"`
+	Phase            int      `json:"in_progress_phase"`
+	IncompleteTail   bool     `json:"incomplete_tail"`
+	CompleteSequence bool     `json:"complete_sequence"`
+	rows             [Planned]Record
+	row              Record
+}
+
+func advance(j *Journal, e Event, cases [CaseCount]string) error {
+	r, c := e.Record, e.Counters
+	if e.Sequence != j.LastSequence+1 || r.Ordinal != j.CompletedPrefix || !rowOK(r, cases) || !countersOK(c) || c.CheckpointStopped {
+		return Err
+	}
+	expected := j.Counters
+	phase, completed := j.Phase, j.CompletedPrefix
+	returned := func() bool {
+		if !r.Dispatched || !r.Returned.Known || !r.PanicPresent.Known || r.Returned.Value == r.PanicPresent.Value {
+			return false
+		}
+		expected.CandidateDispatched++
+		if r.PanicPresent.Value {
+			expected.CandidatePanicked++
+		} else {
+			expected.CandidateReturned++
+		}
+		return true
+	}
+	// All frames within one dispatch retain exact frozen fixture metadata.
+	if phase != 0 && (r.Ordinal != j.row.Ordinal || r.FixtureOrdinal != j.row.FixtureOrdinal || r.RequestIndex != j.row.RequestIndex || r.CaseID != j.row.CaseID || r.CandidateIndex != j.row.CandidateIndex || r.CandidateID != j.row.CandidateID) {
+		return Err
+	}
+	switch e.Stage {
+	case "before_candidate":
+		empty := Record{Ordinal: r.Ordinal, FixtureOrdinal: r.FixtureOrdinal, RequestIndex: r.RequestIndex, CaseID: r.CaseID, CandidateIndex: r.CandidateIndex, CandidateID: r.CandidateID}
+		if phase != 0 || r != empty {
+			return Err
+		}
+		expected.CandidateReserved++
+		phase = 1
+	case "before_error_method":
+		if phase != 1 || !returned() || r.PanicPresent.Value || !r.Channels.ErrorChannelAvailable.Known || !r.Channels.ErrorChannelAvailable.Value || !r.Channels.ErrorPresent.Known || !r.Channels.ErrorPresent.Value || r.Channels.ErrorText.Known || r.Channels.ErrorMethodReturned.Known {
+			return Err
+		}
+		expected.ErrorReserved++
+		phase = 2
+	case "after_error_method":
+		if phase != 2 || !r.Channels.ErrorMethodReturned.Known {
+			return Err
+		}
+		before := j.row
+		before.Channels.ErrorText = r.Channels.ErrorText
+		before.Channels.ErrorKind = r.Channels.ErrorKind
+		before.Channels.ErrorMethodReturned = r.Channels.ErrorMethodReturned
+		before.Channels.ErrorMethodPanicType = r.Channels.ErrorMethodPanicType
+		if before != r {
+			return Err
+		}
+		expected.ErrorDispatched++
+		if r.Channels.ErrorMethodReturned.Value {
+			expected.ErrorReturned++
+		} else {
+			expected.ErrorPanicked++
+		}
+		phase = 3
+	case "after_candidate":
+		if phase == 1 {
+			if !returned() || (r.Channels.ErrorChannelAvailable.Known && r.Channels.ErrorChannelAvailable.Value && r.Channels.ErrorPresent.Known && r.Channels.ErrorPresent.Value) {
+				return Err
+			}
+		} else if phase != 3 || r != j.row {
+			return Err
+		}
+		if r.PanicPresent.Value && (r.Channels.ErrorChannelAvailable.Known || r.Channels.ErrorPresent.Known || r.Channels.N.Known || r.Channels.Text.Known) {
+			return Err
+		}
+		expected.CompletedDispatches++
+		completed++
+		phase = 0
+	default:
+		return Err
+	}
+	if c != expected {
+		return Err
+	}
+	j.Frames++
+	j.LastSequence = e.Sequence
+	j.Counters = c
+	j.CompletedPrefix = completed
+	j.Phase = phase
+	j.row = r
+	if e.Stage == "after_candidate" {
+		j.rows[r.Ordinal] = r
+	}
+	return nil
+}
+func ReadJournal(raw []byte, cases [CaseCount]string) (j Journal, err error) {
+	j.Bytes = len(raw)
+	if len(raw) > JournalCap {
+		return j, Err
+	}
+	start := 0
+	for start < len(raw) {
+		end := bytes.IndexByte(raw[start:], '\n')
+		if end < 0 {
+			j.IncompleteTail = true
+			return j, Err
+		}
+		end += start
+		line := raw[start:end]
+		if len(line) == 0 || len(line)+1 > EventCap || j.Frames >= Planned*4 {
+			return j, Err
+		}
+		var e Event
+		if canonical(line, &e, false, false) != nil {
+			return j, Err
+		}
+		if advance(&j, e, cases) != nil {
+			return j, Err
+		}
+		start = end + 1
+	}
+	j.CompleteSequence = j.CompletedPrefix == Planned && j.Phase == 0 && j.Counters.CompletedDispatches == Planned
+	return j, nil
+}
+
+type Summary struct {
+	Schema                  string   `json:"schema"`
+	State                   string   `json:"state"`
+	Failure                 string   `json:"failure"`
+	PlanSHA256              string   `json:"plan_sha256"`
+	FixtureSHA256           string   `json:"fixture_sha256"`
+	WantSHA256              string   `json:"want_sha256"`
+	Counters                Counters `json:"counters"`
+	LastSyncedSequence      int      `json:"last_synced_sequence"`
+	RecordSlots             int      `json:"record_slots"`
+	Qualified               int      `json:"qualified"`
+	ParentsCreated          int      `json:"parents_created"`
+	TrainingReady           bool     `json:"training_ready"`
+	SourceSelectionComplete bool     `json:"source_selection_complete"`
+}
+
+func Summarize(r Result) Summary {
+	return Summary{r.Schema, r.State, r.Failure, r.PlanSHA256, r.FixtureSHA256, r.WantSHA256, r.Counters, r.LastSyncedSequence, Planned, r.Qualified, r.ParentsCreated, r.TrainingReady, r.SourceSelectionComplete}
+}
+func ReadResult(raw []byte, cases [CaseCount]string, planSHA string) (r Result, e error) {
+	if len(raw) > FinalCap || canonical(raw, &r, false, true) != nil || r.Schema != ResultSchema || r.PlanSHA256 != planSHA || !SHA(planSHA) || r.FixtureSHA256 != FixtureSHA || r.WantSHA256 != WantSHA || r.Qualified != 0 || r.ParentsCreated != 0 || r.TrainingReady || r.SourceSelectionComplete || !countersOK(r.Counters) || r.LastSyncedSequence < 0 || r.LastSyncedSequence > Planned*4 {
+		return r, Err
+	}
+	if r.State == "completed_finite_observations" {
+		c := r.Counters
+		if r.Failure != "" || c.CheckpointStopped || c.CandidateReserved != Planned || c.CandidateDispatched != Planned || c.CandidateReturned+c.CandidatePanicked != Planned || c.CompletedDispatches != Planned || c.ErrorReserved != c.ErrorDispatched || c.ErrorReturned+c.ErrorPanicked != c.ErrorDispatched {
+			return r, Err
+		}
+		for i, row := range r.Records {
+			if row.Ordinal != i || !rowOK(row, cases) || !row.Dispatched || !row.Returned.Known || !row.PanicPresent.Known || row.Returned.Value == row.PanicPresent.Value {
+				return r, Err
+			}
+		}
+	} else {
+		if r.State != "incomplete" || (r.Failure != "fixture_invalid" && r.Failure != "adapter_invalid" && r.Failure != "callback_budget" && r.Failure != "checkpoint_failed") {
+			return r, Err
+		}
+		for _, row := range r.Records {
+			if row.Truth != nil || row.Role != nil || row.Weight != nil {
+				return r, Err
+			}
+		}
+	}
+	return r, nil
+}
+func Complete(r Result, j Journal) bool {
+	if r.State != "completed_finite_observations" || !j.CompleteSequence || j.IncompleteTail || j.LastSequence != r.LastSyncedSequence || j.Counters != r.Counters {
+		return false
+	}
+	for i, row := range r.Records {
+		if row != j.rows[i] {
+			return false
+		}
+	}
+	return true
+}

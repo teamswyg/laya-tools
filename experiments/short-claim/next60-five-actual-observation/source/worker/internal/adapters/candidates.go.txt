@@ -1,0 +1,471 @@
+// Package adapters imports original packages only in the later Root-owned native
+// selection. Authored negative branches are fixed before observation.
+package adapters
+
+import (
+	"bytes"
+	"context"
+	"errors"
+	"io"
+	"math/big"
+	"reflect"
+	"sort"
+	"strings"
+
+	mapstructure "github.com/go-viper/mapstructure/v2"
+	cobra "github.com/spf13/cobra"
+	pflag "github.com/spf13/pflag"
+	humanize "riido.local/humanizeslice"
+	"riido.local/nextfive/pure"
+	preflight "riido.local/preflightcobra"
+)
+
+var ErrInvalidConfig = errors.New("invalid config")
+var ErrInvalidResult = errors.New("invalid result")
+
+type AnnotationError struct{ Names []string }
+
+func (e *AnnotationError) Error() string {
+	return "invalid required annotation: " + strings.Join(e.Names, ", ")
+}
+
+var ErrWriterCause = errors.New("writer cause")
+var ErrNegativeSize = errors.New("negative size")
+var ErrPrecision = errors.New("precision")
+
+func kind(err error) string {
+	if _, ok := err.(*AnnotationError); ok {
+		return "annotation"
+	}
+	switch err {
+	case ErrInvalidConfig:
+		return "invalid_config"
+	case ErrInvalidResult:
+		return "invalid_result"
+	case ErrWriterCause:
+		return "writer_cause"
+	case io.ErrShortWrite:
+		return "io_short_write"
+	case context.Canceled:
+		return "context_canceled"
+	case ErrNegativeSize:
+		return "negative_size"
+	case ErrPrecision:
+		return "precision"
+	default:
+		return "unclassified_error"
+	}
+}
+
+func guardedDecoder(c *mapstructure.DecoderConfig) (*mapstructure.Decoder, error) {
+	if c == nil {
+		return nil, ErrInvalidConfig
+	}
+	if c.Result == nil {
+		return nil, ErrInvalidResult
+	}
+	v := reflect.ValueOf(c.Result)
+	if v.Kind() == reflect.Ptr && v.IsNil() {
+		return nil, ErrInvalidResult
+	}
+	return mapstructure.NewDecoder(c)
+}
+
+// This resolves the frozen "or" negative to premature Metadata initialization.
+// It does not falsely describe original typed-nil Result as panicking.
+func prematureMetadata(c *mapstructure.DecoderConfig) (*mapstructure.Decoder, error) {
+	if c == nil {
+		return nil, ErrInvalidConfig
+	}
+	if c.Metadata != nil {
+		if c.Metadata.Keys == nil {
+			c.Metadata.Keys = []string{}
+		}
+		if c.Metadata.Unused == nil {
+			c.Metadata.Unused = []string{}
+		}
+		if c.Metadata.Unset == nil {
+			c.Metadata.Unset = []string{}
+		}
+	}
+	return guardedDecoder(c)
+}
+func configState(c *mapstructure.DecoderConfig) pure.ConfigState {
+	s := pure.ConfigState{ConfigPresent: c != nil}
+	if c == nil {
+		return s
+	}
+	s.TagName, s.SquashTagOption = c.TagName, c.SquashTagOption
+	s.MatchNameNil, s.MapFieldNameNil = c.MatchName == nil, c.MapFieldName == nil
+	if m := c.Metadata; m != nil {
+		s.MetadataPresent = true
+		s.KeysNil, s.UnusedNil, s.UnsetNil = m.Keys == nil, m.Unused == nil, m.Unset == nil
+		s.KeysLen, s.UnusedLen, s.UnsetLen = len(m.Keys), len(m.Unused), len(m.Unset)
+	}
+	return s
+}
+func decoderCall(v pure.Fixture, candidate int) pure.Invocation {
+	var c *mapstructure.DecoderConfig
+	switch v.Input.ConfigMode {
+	case "nil_config":
+	case "nil_result":
+		c = &mapstructure.DecoderConfig{}
+	case "typed_nil":
+		var target *struct{ Value string }
+		c = &mapstructure.DecoderConfig{Result: target}
+	case "addressable":
+		target := &struct{ Value string }{}
+		c = &mapstructure.DecoderConfig{Result: target}
+	}
+	if c != nil && v.Input.MetadataEmpty {
+		c.Metadata = &mapstructure.Metadata{}
+	}
+	return pure.Invocation{Kind: kind, Call: func(out *pure.Channels) error {
+		out.ConfigKnown = true
+		out.ConfigBefore = configState(c)
+		decoderPresent := pure.Bool{}
+		// After state is available even if NewDecoder panics.
+		defer func() { out.ConfigAfter = configState(c); out.ConfigAfter.DecoderPresent = decoderPresent }()
+		out.ErrorChannelAvailable = pure.B(true)
+		var d *mapstructure.Decoder
+		var err error
+		switch candidate {
+		case 0:
+			d, err = mapstructure.NewDecoder(c)
+		case 1:
+			d, err = guardedDecoder(c)
+		case 2:
+			d, err = prematureMetadata(c)
+		}
+		decoderPresent = pure.B(d != nil)
+		return err
+	}}
+}
+
+type spyWriter struct {
+	bytes     bytes.Buffer
+	requested string
+	writes    int
+	n         int
+	err       error
+	fixed     bool
+}
+
+func (w *spyWriter) Write(p []byte) (int, error) {
+	w.writes++
+	w.requested += string(p)
+	n := len(p)
+	if w.fixed {
+		n = w.n
+	}
+	if n < 0 || n > len(p) {
+		panic("writer_fixture_invalid")
+	}
+	_, _ = w.bytes.Write(p[:n])
+	return n, w.err
+}
+func checkedWrite(c *cobra.Command, text string) (int, error) {
+	n, err := io.WriteString(c.ErrOrStderr(), text)
+	if err == nil && n < len(text) {
+		err = io.ErrShortWrite
+	}
+	return n, err
+}
+func writerCall(v pure.Fixture, candidate int) pure.Invocation {
+	child, parent := &spyWriter{}, &spyWriter{}
+	w := child
+	cmd := &cobra.Command{Use: "scope"}
+	if v.Input.WriterMode == "inherited" {
+		p := &cobra.Command{Use: "parent"}
+		p.SetErr(parent)
+		p.AddCommand(cmd)
+		w = parent
+	} else {
+		cmd.SetErr(child)
+		if v.Input.WriterMode == "short" {
+			child.fixed, child.n = true, 1
+		}
+		if v.Input.WriterMode == "cause" {
+			child.fixed, child.n, child.err = true, 1, ErrWriterCause
+		}
+	}
+	cmd.SetOut(io.Discard)
+	return pure.Invocation{Kind: kind, Call: func(out *pure.Channels) error {
+		out.WriterKnown = true
+		defer func() {
+			out.Writer = pure.WriterState{Requested: w.requested, Bytes: w.bytes.String(), ParentBytes: parent.bytes.String(), ChildBytes: child.bytes.String(), Writes: w.writes, UnderlyingN: pure.I(w.bytes.Len()), UnderlyingErrorPresent: pure.B(w.err != nil)}
+		}()
+		switch candidate {
+		case 0:
+			out.ErrorChannelAvailable = pure.B(false)
+			cmd.PrintErr(v.Input.Text) // no top-level n/error channel
+			return nil
+		case 1:
+			out.ErrorChannelAvailable = pure.B(true)
+			n, err := checkedWrite(cmd, v.Input.Text)
+			out.N = pure.I(n)
+			return err
+		default:
+			out.ErrorChannelAvailable = pure.B(true)
+			cmd.PrintErr(v.Input.Text)
+			out.N = pure.I(len(v.Input.Text)) // fixed fabricated-full-write negative
+			return nil
+		}
+	}}
+}
+func checkedRequired(c *cobra.Command) error {
+	if c.DisableFlagParsing {
+		return nil
+	}
+	bad := []string{}
+	c.Flags().VisitAll(func(f *pflag.Flag) {
+		a, present := f.Annotations[cobra.BashCompOneRequiredFlag]
+		if present && (len(a) != 1 || (a[0] != "true" && a[0] != "false")) {
+			bad = append(bad, f.Name)
+		}
+	})
+	sort.Strings(bad)
+	if len(bad) != 0 {
+		return &AnnotationError{Names: bad}
+	}
+	return c.ValidateRequiredFlags()
+}
+func optionalMalformed(c *cobra.Command) error {
+	bad := false
+	c.Flags().VisitAll(func(f *pflag.Flag) {
+		a, present := f.Annotations[cobra.BashCompOneRequiredFlag]
+		if present && (len(a) != 1 || (a[0] != "true" && a[0] != "false")) {
+			bad = true
+		}
+	})
+	if bad {
+		return nil
+	}
+	return c.ValidateRequiredFlags()
+}
+func flagState(f *pflag.Flag, value string) pure.FlagState {
+	s := pure.FlagState{Value: value, Changed: f.Changed}
+	a, present := f.Annotations[cobra.BashCompOneRequiredFlag]
+	s.AnnotationPresent, s.AnnotationNil = present, a == nil
+	s.AnnotationCount = len(a)
+	copy(s.Annotation[:], a)
+	return s
+}
+func annotationCall(v pure.Fixture, candidate int) pure.Invocation {
+	cmd := &cobra.Command{Use: "scope"}
+	cmd.SetOut(io.Discard)
+	cmd.SetErr(io.Discard)
+	value := "initial"
+	cmd.Flags().StringVar(&value, "item", "initial", "")
+	flag := cmd.Flags().Lookup("item")
+	a := make([]string, v.Input.AnnotationCount)
+	copy(a, v.Input.Annotation[:])
+	flag.Annotations = map[string][]string{cobra.BashCompOneRequiredFlag: a}
+	return pure.Invocation{Kind: kind, KindAfter: missingRequiredPredicate, Call: func(out *pure.Channels) error {
+		out.FlagKnown = true
+		out.FlagBefore = flagState(flag, value)
+		out.ErrorChannelAvailable = pure.B(true)
+		defer func() { out.FlagAfter = flagState(flag, value) }()
+		switch candidate {
+		case 0:
+			return cmd.ValidateRequiredFlags()
+		case 1:
+			return checkedRequired(cmd)
+		default:
+			return optionalMalformed(cmd)
+		}
+	}}
+}
+
+// This narrow logical predicate was authored from command.go:1199 before any
+// observation. It does not invent an upstream sentinel/typed AnnotationError.
+// Unexpected Error text remains unclassified. Go error type stays separate.
+func missingRequiredPredicate(_ string, text string) string {
+	if text == `required flag(s) "item" not set` {
+		return "missing_required"
+	}
+	return ""
+}
+
+// One observer callback is installed per package for the whole single-threaded
+// process, never once per vector. No original private slice is reset.
+var originalHooks *pure.Hooks
+var derivedHooks *pure.Hooks
+
+func InstallInitializers() {
+	cobra.OnInitialize(func() {
+		if originalHooks != nil {
+			originalHooks.Initializer++
+		}
+	})
+	preflight.OnInitialize(func() {
+		if derivedHooks != nil {
+			derivedHooks.Initializer++
+		}
+	})
+}
+func contextCall(v pure.Fixture, candidate int) pure.Invocation {
+	return pure.Invocation{Kind: kind, Call: func(out *pure.Channels) error {
+		out.HooksKnown = true
+		out.ErrorChannelAvailable = pure.B(true)
+		h := pure.Hooks{}
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		if v.Input.PreCanceled {
+			cancel()
+		}
+		args := []string{}
+		if v.Input.Help {
+			args = []string{"--help"}
+		}
+		if candidate == 1 {
+			cmd := &preflight.Command{Use: "scope", SilenceErrors: true, SilenceUsage: true, ContextPreflight: v.Input.OptIn}
+			cmd.SetArgs(args)
+			cmd.SetOut(io.Discard)
+			cmd.SetErr(io.Discard)
+			cmd.SetHelpFunc(func(*preflight.Command, []string) { h.Help++ })
+			cmd.PreRun = func(*preflight.Command, []string) { h.PreRun++ }
+			cmd.RunE = func(*preflight.Command, []string) error { h.Run++; return nil }
+			derivedHooks = &h
+			defer func() { derivedHooks = nil; out.Hooks = h }()
+			return cmd.ExecuteContext(ctx)
+		}
+		cmd := &cobra.Command{Use: "scope", SilenceErrors: true, SilenceUsage: true}
+		cmd.SetArgs(args)
+		cmd.SetOut(io.Discard)
+		cmd.SetErr(io.Discard)
+		cmd.SetHelpFunc(func(*cobra.Command, []string) { h.Help++ })
+		cmd.PreRun = func(*cobra.Command, []string) { h.PreRun++ }
+		cmd.RunE = func(*cobra.Command, []string) error {
+			h.Run++
+			if candidate == 2 && v.Input.OptIn {
+				return ctx.Err()
+			}
+			return nil
+		}
+		originalHooks = &h
+		defer func() { originalHooks = nil; out.Hooks = h }()
+		return cmd.ExecuteContext(ctx)
+	}}
+}
+
+var units = [11]string{"B", "kB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB", "RB", "QB"}
+
+func power10(n int) *big.Int { return new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(n)), nil) }
+
+// exactBigBytes uses integer quotient/remainder with nearest ties-to-even.
+// This is a candidate implementation, not an independently verified oracle.
+func exactBigBytes(n *big.Int, digits int) (string, error) {
+	if digits < 1 || digits > 18 {
+		return "", ErrPrecision
+	}
+	if n.Sign() < 0 {
+		return "", ErrNegativeSize
+	}
+	if n.Sign() == 0 {
+		return "0 B", nil
+	}
+	unit := 0
+	scale := big.NewInt(1)
+	for unit < 10 {
+		next := new(big.Int).Mul(scale, big.NewInt(1000))
+		if n.Cmp(next) < 0 {
+			break
+		}
+		scale = next
+		unit++
+	}
+	// Positive integer decimal length gives floor(log10(n)) exactly.
+	exponent := len(n.String()) - 1 - 3*unit
+	places := digits - 1 - exponent
+	num, den := new(big.Int).Set(n), new(big.Int).Set(scale)
+	if places >= 0 {
+		num.Mul(num, power10(places))
+	} else {
+		den.Mul(den, power10(-places))
+	}
+	q, rem := new(big.Int), new(big.Int)
+	q.QuoRem(num, den, rem)
+	twice := new(big.Int).Lsh(rem, 1)
+	if twice.Cmp(den) > 0 || (twice.Cmp(den) == 0 && q.Bit(0) == 1) {
+		q.Add(q, big.NewInt(1))
+	}
+	// A carry is an exact power of ten. Adjust display precision without a
+	// second rounding of the original number.
+	if len(q.String()) > digits {
+		q.Quo(q, big.NewInt(10))
+		places--
+	}
+	rounded, threshold := new(big.Int).Set(q), big.NewInt(1000)
+	if places >= 0 {
+		threshold.Mul(threshold, power10(places))
+	} else {
+		rounded.Mul(rounded, power10(-places))
+	}
+	if unit < 10 && rounded.Cmp(threshold) >= 0 {
+		unit++
+		places += 3
+	}
+	text := q.String()
+	if places > 0 {
+		if len(text) <= places {
+			text = strings.Repeat("0", places+1-len(text)) + text
+		}
+		text = text[:len(text)-places] + "." + text[len(text)-places:]
+	} else if places < 0 {
+		text += strings.Repeat("0", -places)
+	}
+	return text + " " + units[unit], nil
+}
+func bigCall(v pure.Fixture, candidate int) (pure.Invocation, error) {
+	n, ok := new(big.Int).SetString(v.Input.Integer, 10)
+	if !ok {
+		return pure.Invocation{}, pure.ErrFixture
+	}
+	return pure.Invocation{Kind: kind, Call: func(out *pure.Channels) error {
+		out.IntegerBefore = pure.S(n.String())
+		defer func() { out.IntegerAfter = pure.S(n.String()) }()
+		if candidate == 0 {
+			out.ErrorChannelAvailable = pure.B(false)
+			out.Text = pure.S(humanize.BigBytes(n))
+			return nil
+		}
+		out.ErrorChannelAvailable = pure.B(true)
+		var text string
+		var err error
+		if candidate == 1 {
+			text, err = exactBigBytes(n, v.Input.Digits)
+		} else {
+			// Fixed negative branch: mutate caller's integer while finding SI unit.
+			// Preserve requested formatting for the original value; mutation is
+			// a separately observed contract violation.
+			text, err = exactBigBytes(n, v.Input.Digits)
+			if err == nil {
+				for i := 0; i < 10 && n.Cmp(big.NewInt(1000)) >= 0; i++ {
+					n.DivMod(n, big.NewInt(1000), new(big.Int))
+				}
+			}
+		}
+		out.Text = pure.S(text)
+		return err
+	}}, nil
+}
+func Factory(v pure.Fixture, candidate int) (pure.Invocation, error) {
+	if candidate < 0 || candidate > 2 {
+		return pure.Invocation{}, pure.ErrFixture
+	}
+	switch v.RequestIndex {
+	case 0:
+		return decoderCall(v, candidate), nil
+	case 1:
+		return writerCall(v, candidate), nil
+	case 2:
+		return annotationCall(v, candidate), nil
+	case 3:
+		return contextCall(v, candidate), nil
+	case 4:
+		return bigCall(v, candidate)
+	default:
+		return pure.Invocation{}, pure.ErrFixture
+	}
+}
