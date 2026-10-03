@@ -1,0 +1,342 @@
+// Copyright 2026 teamswyg. Licensed under the Apache License, Version 2.0.
+// Inert owned synthetic controls; not executed in this author preparation.
+package main
+
+import (
+	"bytes"
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	core "riido.local/next60nativeoutside/threeliteral"
+)
+
+func TestStrictCanonicalRejectsAliasesAndDuplicates(t *testing.T) {
+	type fixture struct {
+		Sequence int `json:"sequence"`
+	}
+	for _, s := range []string{"{\"Sequence\":1}\n", "{\"sequence\":0,\"sequence\":1}\n", "{\"sequence\":1,\"extra\":0}\n", "{\"sequence\":1}\n{}\n"} {
+		var f fixture
+		if strictCanonical([]byte(s), &f) == nil {
+			t.Fatal("accepted alias/duplicate/extra/trailing")
+		}
+	}
+	var f fixture
+	if strictCanonical([]byte("{\"sequence\":1}\n"), &f) != nil || f.Sequence != 1 {
+		t.Fatal("canonical valid rejected")
+	}
+}
+func TestWireBoundsAndPartialEOF(t *testing.T) {
+	for _, s := range []string{"x", "", strings.Repeat("x", frameCap) + "\n"} {
+		_, e := readLine(strings.NewReader(s))
+		if e == nil {
+			t.Fatal("accepted incomplete/oversize")
+		}
+	}
+	b, e := readLine(strings.NewReader("{}\n"))
+	if e != nil || !bytes.Equal(b, []byte("{}\n")) {
+		t.Fatal("line identity")
+	}
+}
+func TestAcknowledgmentHashIncludesLF(t *testing.T) {
+	raw := []byte("{\"sequence\":1}\n")
+	if digest(raw) == digest(raw[:len(raw)-1]) {
+		t.Fatal("missing line boundary")
+	}
+}
+func TestDarwinRSSDoesNotGuessMissingOrDuplicate(t *testing.T) {
+	for _, s := range []string{"", "42 maximum resident set size\n42 maximum resident set size\n", "-1 maximum resident set size\n", "overflow maximum resident set size\n"} {
+		if _, ok := timeRSS([]byte(s)); ok {
+			t.Fatal("guessed RSS")
+		}
+	}
+	if n, ok := timeRSS([]byte("42 maximum resident set size\n")); !ok || n != 42 {
+		t.Fatal("RSS parse")
+	}
+}
+
+type fakeJournal struct {
+	Bytes      bytes.Buffer
+	ShortWrite bool
+	SyncFail   bool
+	Closed     bool
+}
+
+func (f *fakeJournal) Write(b []byte) (int, error) {
+	if f.ShortWrite {
+		f.Bytes.Write(b[:len(b)-1])
+		return len(b) - 1, nil
+	}
+	return f.Bytes.Write(b)
+}
+func (f *fakeJournal) Sync() error {
+	if f.SyncFail {
+		return errCode("owned_sync_fault")
+	}
+	return nil
+}
+func (f *fakeJournal) Close() error { f.Closed = true; return nil }
+func TestAcknowledgedPrefixDoesNotAdvanceAfterStorageFault(t *testing.T) {
+	for _, kind := range []string{"write", "file_sync", "dir_sync"} {
+		f := &fakeJournal{ShortWrite: kind == "write", SyncFail: kind == "file_sync"}
+		j := DurableJournal{file: f, dir: "owned_fixture", FrameBound: wireFrameBound, parentSync: func(string) error {
+			if kind == "dir_sync" {
+				return errCode("owned_dir_fault")
+			}
+			return nil
+		}}
+		r, e := j.Append([]byte("{}\n"))
+		if e == nil || r.FramesSynced != 0 || r.BytesSynced != 0 || r.LastSHA256 != "" {
+			t.Fatal("invented storage acknowledgment")
+		}
+		if _, e = j.Append([]byte("{}\n")); e == nil {
+			t.Fatal("ambiguous storage was retried")
+		}
+	}
+}
+func TestRawJournalOneCopyAndSyncedCursor(t *testing.T) {
+	f := &fakeJournal{}
+	j := DurableJournal{file: f, dir: "owned_fixture", FrameBound: wireFrameBound, parentSync: func(string) error { return nil }}
+	raw := []byte("{}\n")
+	r, e := j.Append(raw)
+	if e != nil || !bytes.Equal(raw, f.Bytes.Bytes()) || r.BytesSynced != int64(len(raw)) || r.LastSHA256 != digest(raw) {
+		t.Fatal("raw line identity or durable cursor")
+	}
+}
+
+type shortACK struct{}
+
+func (shortACK) Write(b []byte) (int, error) { return len(b) - 1, nil }
+func initialFrame(d uint8, c core.Counts) core.Frame {
+	q, f, v, i, e := schedule(d)
+	if e != nil {
+		panic("owned fixture schedule")
+	}
+	return core.Frame{Version: 1, Sequence: 1, Previous: strings.Repeat("0", 64), Dispatch: d, Counts: c, Row: core.Row{Dispatch: d, Request: q, Profile: f, Display: v, Internal: i, Panic: &core.PanicState{}, Error: &core.ErrorChannel{}}}
+}
+func TestDurableFrameDoesNotInventWorkerACK(t *testing.T) {
+	f := initialFrame(0, core.Counts{Candidate: [4]uint32{1, 0, 0, 0}})
+	raw, e := json.Marshal(f)
+	if e != nil {
+		t.Fatal(e)
+	}
+	raw = append(raw, '\n')
+	file := &fakeJournal{}
+	j := &DurableJournal{file: file, dir: "owned_fixture", FrameBound: wireFrameBound, parentSync: func(string) error { return nil }}
+	var state ProtocolState
+	e = consumeProtocol(bytes.NewReader(raw), shortACK{}, j, &state, strings.Repeat("a", 64), func() error { return nil })
+	if fixedFailure(e) != "ack_write_uncertain" || j.Receipt.FramesSynced != 1 || state.Sequence != 0 || state.FramesACKWritten != 0 || state.LastDurableCounts == nil || *state.LastDurableCounts != f.Counts || state.Final != nil {
+		t.Fatal("durable prefix was promoted to worker ACK")
+	}
+}
+func TestFirstACKNeedsReservationBinding(t *testing.T) {
+	f := initialFrame(0, core.Counts{Candidate: [4]uint32{1, 0, 0, 0}})
+	raw, _ := json.Marshal(f)
+	raw = append(raw, '\n')
+	file := &fakeJournal{}
+	j := &DurableJournal{file: file, dir: "owned_fixture", FrameBound: wireFrameBound, parentSync: func(string) error { return nil }}
+	var state ProtocolState
+	var ack bytes.Buffer
+	if e := consumeProtocol(bytes.NewReader(raw), &ack, j, &state, strings.Repeat("a", 64), func() error { return errCode("owned_reservation_fault") }); e == nil || file.Bytes.Len() != 0 || ack.Len() != 0 {
+		t.Fatal("work admitted before reservation binding")
+	}
+}
+func take(t *testing.T, s ProtocolState, f core.Frame) ProtocolState {
+	t.Helper()
+	f.Version = 1
+	f.Sequence = s.Sequence + 1
+	f.Previous = s.PreviousSHA256
+	if f.Previous == "" {
+		f.Previous = strings.Repeat("0", 64)
+	}
+	n, e := s.Next(f, strings.Repeat("a", 64))
+	if e != nil {
+		t.Fatalf("owned valid transition: %s", fixedFailure(e))
+	}
+	raw, _ := json.Marshal(f)
+	n.PreviousSHA256 = digest(append(raw, '\n'))
+	return n
+}
+func jsonInvocation(t *testing.T) (ProtocolState, core.Frame) {
+	t.Helper()
+	prior := core.Counts{Candidate: [4]uint32{12, 12, 12, 0}, Invocation: [4]uint32{12, 12, 12, 0}}
+	s := ProtocolState{NextDispatch: 12, Counts: prior}
+	f := initialFrame(12, beforeCandidate(prior))
+	s = take(t, s, f)
+	f.Stage = 5
+	f.Row.InputKnown = true
+	f.Row.InputValid = true
+	f.Row.InvocationKnown = true
+	f.Counts.Candidate[1]++
+	f.Counts.Invocation[0]++
+	s = take(t, s, f)
+	f.Stage = 1
+	f.Method = 7
+	f.Row.Called = true
+	f.Counts.Invocation[1]++
+	f.Counts = beforeMethod(f.Counts, 7)
+	s = take(t, s, f)
+	return s, f
+}
+func TestRowSetupAndActualInvocationHaveSeparateCounts(t *testing.T) {
+	s, f := jsonInvocation(t)
+	value := true
+	f.Stage = 2
+	f.Fact = &core.Fact{Returned: true, Panic: core.PanicState{Known: true}, Bool: &value}
+	f.Counts = afterMethod(f.Counts, 7, false)
+	s = take(t, s, f)
+	f.Stage = 6
+	f.Method = 0
+	f.Fact = nil
+	f.Row.CallReturned = true
+	f.Row.Error = &core.ErrorChannel{Available: true, Known: true, OwnIdentityKnown: true}
+	f.Counts.Invocation[2]++
+	s = take(t, s, f)
+	f.Stage = 3
+	f.Row.Panic = &core.PanicState{Known: true}
+	f.Row.Done = true
+	f.Row.Returned = true
+	f.Counts.Candidate[2]++
+	s = take(t, s, f)
+	if s.Counts.Candidate != ([4]uint32{13, 13, 13, 0}) || s.Counts.Invocation != ([4]uint32{13, 13, 13, 0}) || !s.RowKnown[12] || s.Stopped {
+		t.Fatal("actual invocation state")
+	}
+	forged := f
+	forged.Stage = 4
+	forged.Final = &core.Result{Schema: core.ResultSchema, State: "completed", Completed: 42}
+	forged.Sequence = s.Sequence + 1
+	forged.Previous = s.PreviousSHA256
+	if _, e := s.Next(forged, strings.Repeat("a", 64)); e == nil {
+		t.Fatal("partial prefix became full completion")
+	}
+}
+func TestRecoveredMethodPanicStopsLaterDispatch(t *testing.T) {
+	s, f := jsonInvocation(t)
+	p := core.PanicState{Known: true, Present: true}
+	f.Stage = 2
+	f.Fact = &core.Fact{Panic: p}
+	f.Counts = afterMethod(f.Counts, 7, true)
+	s = take(t, s, f)
+	f.Stage = 6
+	f.Method = 0
+	f.Fact = nil
+	f.Row.Panic = &p
+	f.Row.PanicScope = 2
+	f.Row.Done = true
+	f.Counts.Invocation[3]++
+	s = take(t, s, f)
+	f.Stage = 3
+	f.Counts.Candidate[3]++
+	s = take(t, s, f)
+	if !s.Stopped || s.Rows[12].Returned || s.Counts.Invocation[2] != 12 || s.Counts.Invocation[3] != 1 {
+		t.Fatal("panic promoted to normal return")
+	}
+	next := initialFrame(13, beforeCandidate(s.Counts))
+	next.Sequence = s.Sequence + 1
+	next.Previous = s.PreviousSHA256
+	if _, e := s.Next(next, strings.Repeat("a", 64)); e == nil {
+		t.Fatal("source panic retried following dispatch")
+	}
+}
+func TestUnavailablePrimitiveAndErrorIdentityStayUnknown(t *testing.T) {
+	for _, m := range []uint8{3, 4, 8} {
+		if !validFact(m, &core.Fact{Returned: true, Panic: core.PanicState{Known: true}}) {
+			t.Fatal("normal return absence treated as panic")
+		}
+	}
+	e := core.ErrorChannel{Available: true, Known: true, Present: true, TypeKnown: true, Type: "*errors.errorString"}
+	if !validError(&e) || e.OwnIdentityKnown {
+		t.Fatal("unknown source identity rejected/promoted")
+	}
+	e.OwnIdentity = 1
+	if validError(&e) {
+		t.Fatal("identity value without known evidence")
+	}
+	if tupleValid([4]uint32{1, 1, ^uint32(0), 2}, 1) {
+		t.Fatal("overflow concealed corrupt counters")
+	}
+}
+func TestReservationCannotClaimInitializationOrWrongPlan(t *testing.T) {
+	p := CountPlan{}
+	sha := strings.Repeat("a", 64)
+	r := childReservation{Schema: "riido-next60-three-method-reservation-v1", PlanSHA256: sha, DispatchMaximum: 42, MethodMaximum: 795, OutputReserve: 2070528}
+	if !reservationMatches(r, p, sha) {
+		t.Fatal("owned valid reservation")
+	}
+	zero := uint64(0)
+	r.OriginalInitialization = &zero
+	if reservationMatches(r, p, sha) {
+		t.Fatal("unknown initialization fabricated as zero")
+	}
+	r.OriginalInitialization = nil
+	r.PlanSHA256 = strings.Repeat("b", 64)
+	if reservationMatches(r, p, sha) {
+		t.Fatal("wrong trial reservation")
+	}
+}
+func TestOwnedOutputRejectsLinksModeAndOversize(t *testing.T) {
+	dir, e := filepath.EvalSymlinks(t.TempDir())
+	if e != nil {
+		t.Fatal(e)
+	}
+	path := filepath.Join(dir, "owned")
+	if e := os.WriteFile(path, []byte("abc"), 0o600); e != nil {
+		t.Fatal(e)
+	}
+	if b, e := readOwnedOutput(path, 3); e != nil || string(b) != "abc" {
+		t.Fatal("owned private regular")
+	}
+	if _, e := readOwnedOutput(path, 2); e == nil {
+		t.Fatal("oversize output")
+	}
+	link := filepath.Join(dir, "alias")
+	if e := os.Link(path, link); e != nil {
+		t.Fatal(e)
+	}
+	if _, e := readOwnedOutput(path, 3); e == nil {
+		t.Fatal("shared inode output")
+	}
+	if e := os.Remove(link); e != nil {
+		t.Fatal(e)
+	}
+	if e := os.Chmod(path, 0o644); e != nil {
+		t.Fatal(e)
+	}
+	if _, e := readOwnedOutput(path, 3); e == nil {
+		t.Fatal("public mode output")
+	}
+	if e := os.Chmod(path, 0o600); e != nil {
+		t.Fatal(e)
+	}
+	if e := os.Symlink(path, link); e != nil {
+		t.Fatal(e)
+	}
+	if _, e := readOwnedOutput(link, 3); e == nil {
+		t.Fatal("symlink output")
+	}
+}
+func TestInvocationAdmissionCannotTrustOnlyInputValidFlag(t *testing.T) {
+	s := ProtocolState{FrozenInitialKnown: true}
+	s.FrozenInitial[0] = core.BitState{Known: true, Length: 1, Count: 1, Words: [2]string{"0000000000000001", ""}}
+	f := initialFrame(0, core.Counts{Candidate: [4]uint32{1, 0, 0, 0}})
+	s = take(t, s, f)
+	f.Stage = 5
+	f.Sequence = s.Sequence + 1
+	f.Previous = s.PreviousSHA256
+	f.Counts.Candidate[1]++
+	f.Counts.Invocation[0]++
+	f.Row.InputKnown = true
+	f.Row.InputValid = true
+	f.Row.InvocationKnown = true
+	f.Row.Before = &core.BitState{Known: true, Length: 1, Count: 1, Words: [2]string{"0000000000000000", ""}}
+	if _, e := s.Next(f, strings.Repeat("a", 64)); e == nil {
+		t.Fatal("InputValid=true overrode the frozen receiver state")
+	}
+	correct := s.FrozenInitial[0]
+	f.Row.Before = &correct
+	if _, e := s.Next(f, strings.Repeat("a", 64)); e != nil {
+		t.Fatal("frozen receiver state rejected")
+	}
+}

@@ -1,0 +1,79 @@
+// Copyright 2026 teamswyg. SPDX-License-Identifier: Apache-2.0
+// Inert independent project-reader bridge; only data parsing and value getters.
+package main
+
+import (
+	"bytes"
+	"errors"
+	"github.com/teamswyg/laya-tools/pkg/shortclaim"
+	"github.com/teamswyg/laya-tools/pkg/shortclaimdata"
+	"io"
+	"os"
+	data33 "riido.local/development33prep"
+	"runtime"
+	"runtime/debug"
+	"strconv"
+)
+
+func load(raw []byte) (data33.Loaded, error) {
+	ex, e := shortclaimdata.LoadDevelopmentRow(bytes.NewReader(raw))
+	if e != nil || !ex.Valid() {
+		return data33.Loaded{}, errors.New("reader_failed")
+	}
+	m, p, s := ex.Metadata(), ex.Input().Prepared(), ex.Supervision()
+	v := data33.Loaded{Valid: true, Schema: p.Schema, Provenance: p.Provenance, ID: m.StableID, Request: p.Request, Role: m.Role, Family: m.SourceFamily, Revision: m.SourceRevision, TextRevision: m.TextRevision, Policy: m.FeaturePolicy, ScopeDescription: m.FiniteScope.Description, Group: m.WholeGroup, Inputs: m.FiniteScope.InputCount, Observations: m.FiniteScope.CandidateObservations, Count: p.Count, SupervisionCount: s.Count, All: m.FiniteScope.AllInputGuarantee, Unseen: m.FiniteScope.UnseenSourceGuarantee, UnusedZero: true}
+	if p.Count < 1 || p.Count > 8 || s.Count != p.Count {
+		return data33.Loaded{}, errors.New("reader_count")
+	}
+	for j, c := range p.Candidates {
+		if j < p.Count {
+			v.Candidates[j] = data33.LoadedCandidate{ID: c.ID, Text: c.Text, Label: s.Labels[j], Weight: s.Weights[j]}
+		} else if c.ID != "" || c.Text != "" || c.NormalizedText != "" || s.Labels[j] || s.Weights[j] != 0 {
+			v.UnusedZero = false
+		}
+	}
+	var inputCandidates [8]shortclaim.Candidate
+	for j := 0; j < p.Count; j++ {
+		inputCandidates[j] = shortclaim.Candidate{ID: p.Candidates[j].ID, Text: p.Candidates[j].Text}
+	}
+	validated, err := shortclaim.ValidateInput(shortclaim.Input{Schema: shortclaim.Schema, Request: p.Request, Candidates: inputCandidates[:p.Count], Provenance: shortclaimdata.InputProvenance})
+	if err != nil || p != validated.Prepared() {
+		return data33.Loaded{}, errors.New("reader_prepared_normalization_mismatch")
+	}
+	return v, nil
+}
+func main() {
+	runtime.GOMAXPROCS(1)
+	debug.SetMemoryLimit(256 << 20)
+	names := []string{"--previous-data", "--prior-summary", "--qualification", "--qualification-sha256", "--literal", "--captions", "--comparison", "--family-decision", "--data", "--data-sha256", "--data-bytes", "--out"}
+	v, e := data33.Arguments(os.Args[1:], names)
+	if e != nil {
+		io.WriteString(os.Stderr, "data33_reader_arguments\n")
+		os.Exit(2)
+	}
+	in, e := data33.Load(data33.Paths{Previous: v[0], PriorSummary: v[1], Qualification: v[2], ExpectedQualificationSHA: v[3], Literal: v[4], Captions: v[5], Comparison: v[6], Family: v[7]})
+	if e == nil {
+		_, expected, err := data33.Compose(in)
+		e = err
+		if e == nil {
+			if v[10] != strconv.Itoa(expected.DataBytes) {
+				e = errors.New("reader_bytes")
+			} else {
+				raw, err := data33.ReadPinned(v[8], expected.DataBytes, v[9])
+				e = err
+				if e == nil {
+					s, err := data33.VerifyReader(in, raw, v[9], load)
+					e = err
+					if e == nil {
+						e = data33.SaveReader(v[11], s)
+					}
+				}
+			}
+		}
+	}
+	if e != nil {
+		io.WriteString(os.Stderr, data33.FailureCode(e)+"\n")
+		os.Exit(1)
+	}
+	io.WriteString(os.Stdout, "data33_project_reader_correspondence_no_model\n")
+}

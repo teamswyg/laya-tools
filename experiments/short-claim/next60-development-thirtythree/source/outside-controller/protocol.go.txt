@@ -1,0 +1,551 @@
+// Copyright 2026 teamswyg. Licensed under the Apache License, Version 2.0.
+package main
+
+import (
+	"bufio"
+	"bytes"
+	"encoding/json"
+	"io"
+	"reflect"
+	"strconv"
+	"strings"
+
+	core "riido.local/next60nativeoutside/threeliteral"
+)
+
+type ProtocolState struct {
+	Sequence           uint32
+	PreviousSHA256     string
+	Counts             core.Counts
+	NextDispatch       uint8
+	CandidateActive    bool
+	MethodActive       bool
+	InvocationActive   bool
+	InvocationEnded    bool
+	PendingMethod      uint8
+	CurrentRow         core.Row
+	MethodPanic        bool
+	Stopped            bool
+	Rows               [plannedDispatches]core.Row
+	RowKnown           [plannedDispatches]bool
+	Final              *core.Result
+	FramesACKWritten   int
+	LastDurableCounts  *core.Counts
+	FrozenInitial      [plannedInputs]core.BitState
+	FrozenInitialKnown bool
+}
+
+func schedule(d uint8) (uint8, uint8, uint8, uint8, error) {
+	if d >= plannedDispatches {
+		return 0, 0, 0, 0, errCode("dispatch_range")
+	}
+	if d < 12 {
+		display, profile := d/4, d%4
+		return 0, profile, display, display, nil
+	}
+	if d < 27 {
+		k := d - 12
+		display, profile := k/5, k%5
+		mapping := [3]uint8{2, 1, 0}
+		return 1, profile, display, mapping[display], nil
+	}
+	k := d - 27
+	display, profile := k/5, k%5
+	return 2, profile, display, display, nil
+}
+func validRowPosition(r core.Row, d uint8) bool {
+	q, f, c, i, e := schedule(d)
+	return e == nil && r.Dispatch == d && r.Request == q && r.Profile == f && r.Display == c && r.Internal == i
+}
+func allowedMethod(q, m uint8) bool {
+	switch q {
+	case 0:
+		return m >= 1 && m <= 6
+	case 1:
+		return m >= 7 && m <= 9
+	case 2:
+		return m >= 1 && m <= 4 || m == 10 || m == 11
+	}
+	return false
+}
+func tupleValid(t [4]uint32, max uint32) bool {
+	return t[0] <= max && t[1] <= t[0] && t[2] <= t[1] && t[3] <= t[1] && uint64(t[2])+uint64(t[3]) <= uint64(t[1])
+}
+func boundedCounts(c core.Counts) bool {
+	return tupleValid(c.Candidate, plannedDispatches) && tupleValid(c.Invocation, plannedDispatches) && tupleValid(c.Original, 792) && tupleValid(c.Assignment, 3) && c.Original[0]+c.Assignment[0] <= trackedMethodBound
+}
+func increment(t [4]uint32, index int) [4]uint32 { t[index]++; return t }
+func sameCounts(a, b core.Counts) bool           { return a == b }
+func beforeCandidate(c core.Counts) core.Counts  { c.Candidate[0]++; return c }
+func afterCandidate(c core.Counts, panicked bool) core.Counts {
+	if panicked {
+		c.Candidate[3]++
+	} else {
+		c.Candidate[2]++
+	}
+	return c
+}
+func beforeMethod(c core.Counts, m uint8) core.Counts {
+	if m == 11 {
+		c.Assignment[0]++
+	} else {
+		c.Original[0]++
+	}
+	return c
+}
+func afterMethod(c core.Counts, m uint8, panicked bool) core.Counts {
+	if m == 11 {
+		c.Assignment[1]++
+		if panicked {
+			c.Assignment[3]++
+		} else {
+			c.Assignment[2]++
+		}
+	} else {
+		c.Original[1]++
+		if panicked {
+			c.Original[3]++
+		} else {
+			c.Original[2]++
+		}
+	}
+	return c
+}
+func wordHex(s string) bool {
+	if len(s) != 16 {
+		return false
+	}
+	for _, c := range s {
+		if !(c >= '0' && c <= '9' || c >= 'a' && c <= 'f') {
+			return false
+		}
+	}
+	return true
+}
+func boundedTypeName(s string) bool {
+	if len(s) == 0 || len(s) > 64 {
+		return false
+	}
+	for _, c := range []byte(s) {
+		if c < 32 || c > 126 {
+			return false
+		}
+	}
+	return true
+}
+func validBit(b *core.BitState) bool {
+	if b == nil {
+		return true
+	}
+	if !b.Known {
+		return *b == (core.BitState{})
+	}
+	if b.Length > 128 || b.Count > 2 || int(b.Count) != (int(b.Length)+63)/64 || b.Nil && b.Count != 0 {
+		return false
+	}
+	for i, w := range b.Words {
+		if i < int(b.Count) {
+			if !wordHex(w) {
+				return false
+			}
+		} else if w != "" {
+			return false
+		}
+	}
+	return true
+}
+func validPanic(p *core.PanicState) bool {
+	if p == nil {
+		return true
+	}
+	if !p.Known {
+		return *p == (core.PanicState{})
+	}
+	if !p.Present {
+		return !p.TypeKnown && p.Type == ""
+	}
+	return !p.TypeKnown && p.Type == "" || p.TypeKnown && boundedTypeName(p.Type)
+}
+func validError(e *core.ErrorChannel) bool {
+	if e == nil {
+		return true
+	}
+	if !e.Available {
+		return *e == (core.ErrorChannel{})
+	}
+	if !e.Known {
+		return !e.Present && !e.TypeKnown && e.Type == "" && !e.OwnIdentityKnown && e.OwnIdentity == 0
+	}
+	if !e.Present {
+		return !e.TypeKnown && e.Type == "" && e.OwnIdentityKnown && e.OwnIdentity == 0
+	}
+	if !e.TypeKnown && e.Type != "" || e.TypeKnown && !boundedTypeName(e.Type) || e.OwnIdentity > 7 || !e.OwnIdentityKnown && e.OwnIdentity != 0 {
+		return false
+	}
+	return true
+}
+func normalTerminalChannels(r core.Row) bool {
+	if r.Error == nil {
+		return false
+	}
+	if r.Request == 0 || r.Request == 1 && r.Display == 2 {
+		return *r.Error == (core.ErrorChannel{})
+	}
+	return r.Error.Available && r.Error.Known
+}
+func validRowChannels(r core.Row) bool {
+	if r.PanicScope > 2 || !r.InputKnown && r.InputValid || !r.InvocationKnown && (r.Called || r.CallReturned) || r.CallReturned && !r.Called {
+		return false
+	}
+	if !validPanic(r.Panic) || !validBit(r.Before) || !validBit(r.After) || !validBit(r.Result) || !validError(r.Error) {
+		return false
+	}
+	if r.Value != nil {
+		v := r.Value
+		if !v.Available {
+			if *v != (core.IntegerState{}) {
+				return false
+			}
+		} else if !v.Known {
+			if v.Decimal != "" {
+				return false
+			}
+		} else if _, e := strconv.ParseInt(v.Decimal, 10, 64); e != nil {
+			return false
+		}
+	}
+	if r.JSON != nil {
+		if !r.JSON.Known {
+			if *r.JSON != (core.JSONState{}) {
+				return false
+			}
+		} else if r.JSON.Type > 5 || len(r.JSON.Raw) > 32 || !wordHex(r.JSON.NumBits) {
+			return false
+		}
+	}
+	return true
+}
+func preservedKnownRow(old, now core.Row) bool {
+	if old.InputKnown && !now.InputKnown || old.InputValid && !now.InputValid || old.InvocationKnown && !now.InvocationKnown || old.Called && !now.Called || old.CallReturned && !now.CallReturned {
+		return false
+	}
+	// Immutable snapshots are accumulated, never rolled back or replaced once
+	// known. Error/Value start as unknown and are populated after invocation.
+	if old.Before != nil && old.Before.Known && !reflect.DeepEqual(old.Before, now.Before) {
+		return false
+	}
+	if old.After != nil && old.After.Known && !reflect.DeepEqual(old.After, now.After) {
+		return false
+	}
+	if old.Result != nil && old.Result.Known && !reflect.DeepEqual(old.Result, now.Result) {
+		return false
+	}
+	if old.JSON != nil && old.JSON.Known && !reflect.DeepEqual(old.JSON, now.JSON) {
+		return false
+	}
+	if old.Value != nil && old.Value.Known && !reflect.DeepEqual(old.Value, now.Value) {
+		return false
+	}
+	if old.Error != nil && old.Error.Known && !reflect.DeepEqual(old.Error, now.Error) {
+		return false
+	}
+	return true
+}
+func validFact(m uint8, f *core.Fact) bool {
+	if f == nil || !f.Panic.Known || !validPanic(&f.Panic) || f.Returned == f.Panic.Present {
+		return false
+	}
+	if !f.Returned {
+		return f.Pointer == nil && f.Uint == nil && f.Bool == nil && f.Words == nil && f.JSON == nil && f.Int == nil && f.Error == nil
+	}
+	count := 0
+	for _, v := range []bool{f.Pointer != nil, f.Uint != nil, f.Bool != nil, f.Words != nil, f.JSON != nil, f.Int != nil, f.Error != nil} {
+		if v {
+			count++
+		}
+	}
+	switch m {
+	case 1, 2, 6:
+		return count == 1 && f.Pointer != nil
+	// A normally returned but out-of-bound Len/Words/Parse has no primitive
+	// fact. The worker ACKs that absence before its own bounded failstop. It is
+	// unavailable return detail, not a recovered original panic or a success.
+	case 3:
+		return count == 0 || count == 1 && f.Uint != nil && *f.Uint <= 128
+	case 4:
+		if count == 0 {
+			return true
+		}
+		if count != 1 || f.Words == nil || f.Words.Count > 2 || f.Words.Nil && f.Words.Count != 0 {
+			return false
+		}
+		for i, w := range f.Words.Words {
+			if i < int(f.Words.Count) {
+				if !wordHex(w) {
+					return false
+				}
+			} else if w != "" {
+				return false
+			}
+		}
+		return true
+	case 5, 7:
+		return count == 1 && f.Bool != nil
+	case 8:
+		return count == 0 || count == 1 && f.JSON != nil && f.JSON.Known && f.JSON.Type <= 5 && len(f.JSON.Raw) <= 32 && wordHex(f.JSON.NumBits)
+	case 9:
+		if count != 1 || f.Int == nil {
+			return false
+		}
+		_, e := strconv.ParseInt(*f.Int, 10, 64)
+		return e == nil
+	case 10:
+		return count == 1 && f.Error != nil && f.Error.Available && f.Error.Known && validError(f.Error)
+	case 11:
+		return count == 0
+	}
+	return false
+}
+
+// Validate precedes durable Append and ACK. A copy is returned so a failed
+// write/ACK never commits a controller state that the worker may not have seen.
+// Counter transition details are coupled to the final worker source, not guessed
+// from 42 candidate boundaries or source-hidden implementation calls.
+func (s ProtocolState) Next(f core.Frame, planSHA string) (ProtocolState, error) {
+	if s.Final != nil || s.Stopped || f.Version != 1 || f.Sequence != s.Sequence+1 || f.Sequence > wireFrameBound || !boundedCounts(f.Counts) {
+		return s, errCode("frame_header_or_counts")
+	}
+	prev := s.PreviousSHA256
+	if prev == "" {
+		prev = strings.Repeat("0", 64)
+	}
+	if f.Previous != prev {
+		return s, errCode("previous_ack_hash")
+	}
+	if !validRowPosition(f.Row, f.Dispatch) || !validRowChannels(f.Row) {
+		return s, errCode("row_shape_or_position")
+	}
+	if f.Stage != 0 && s.CandidateActive && !preservedKnownRow(s.CurrentRow, f.Row) {
+		return s, errCode("row_known_fact_rollback")
+	}
+	switch f.Stage {
+	case 0:
+		if s.CandidateActive || s.MethodActive || s.InvocationActive || f.Dispatch != s.NextDispatch || f.Method != 0 || f.Fact != nil || f.Final != nil || f.Row.Done || f.Row.Returned || f.Row.InputKnown || f.Row.InputValid || f.Row.InvocationKnown || f.Row.Called || f.Row.CallReturned || f.Row.PanicScope != 0 || !sameCounts(f.Counts, beforeCandidate(s.Counts)) {
+			return s, errCode("before_candidate_contract")
+		}
+		s.CandidateActive = true
+		s.CurrentRow = f.Row
+		s.MethodPanic = false
+		s.InvocationEnded = false
+	case 1:
+		if !s.CandidateActive || s.MethodActive || f.Dispatch != s.NextDispatch || !allowedMethod(f.Row.Request, f.Method) || f.Fact != nil || f.Final != nil || f.Row.Done || s.MethodPanic {
+			return s, errCode("before_method_contract")
+		}
+		want := beforeMethod(s.Counts, f.Method)
+		// Observe advances candidate dispatch immediately after the before-candidate
+		// ACK. Its first later method frame is the first transport evidence of it.
+		if want.Candidate[1]+1 == want.Candidate[0] {
+			want.Candidate[1]++
+		}
+		if s.InvocationActive && want.Invocation[1] < want.Invocation[0] {
+			want.Invocation[1]++
+		}
+		if !sameCounts(f.Counts, want) {
+			return s, errCode("before_method_counter_contract")
+		}
+		s.MethodActive = true
+		s.PendingMethod = f.Method
+		s.CurrentRow = f.Row
+	case 2:
+		if !s.CandidateActive || !s.MethodActive || f.Dispatch != s.NextDispatch || f.Method != s.PendingMethod || f.Final != nil || !validFact(f.Method, f.Fact) || f.Row.Done {
+			return s, errCode("after_method_contract")
+		}
+		if !sameCounts(f.Counts, afterMethod(s.Counts, f.Method, f.Fact.Panic.Present)) {
+			return s, errCode("after_method_counter_contract")
+		}
+		s.MethodActive = false
+		s.PendingMethod = 0
+		s.MethodPanic = f.Fact.Panic.Present
+		s.CurrentRow = f.Row
+		if f.Fact.Returned && (f.Method == 3 && f.Fact.Uint == nil || f.Method == 4 && f.Fact.Words == nil || f.Method == 8 && f.Fact.JSON == nil) {
+			s.Stopped = true
+		}
+		if f.Fact.Returned && (f.Method == 1 || f.Method == 6) && f.Fact.Pointer != nil && !*f.Fact.Pointer {
+			s.Stopped = true
+		}
+	case 3:
+		if !s.CandidateActive || s.MethodActive || s.InvocationActive || f.Dispatch != s.NextDispatch || f.Method != 0 || f.Fact != nil || f.Final != nil || !f.Row.Done || f.Row.Panic == nil || !f.Row.Panic.Known || f.Row.Returned == f.Row.Panic.Present || !f.Row.Panic.Present && (!s.InvocationEnded || !f.Row.InputKnown || !f.Row.InputValid || !f.Row.InvocationKnown || !f.Row.Called || !f.Row.CallReturned) {
+			return s, errCode("after_candidate_contract")
+		}
+		want := s.Counts
+		if want.Candidate[1] < want.Candidate[0] {
+			want.Candidate[1]++
+		}
+		want = afterCandidate(want, f.Row.Panic.Present)
+		if !sameCounts(f.Counts, want) || s.MethodPanic != f.Row.Panic.Present || f.Row.Returned && !normalTerminalChannels(f.Row) {
+			return s, errCode("after_candidate_counts_or_panic")
+		}
+		s.Rows[f.Dispatch] = f.Row
+		s.RowKnown[f.Dispatch] = true
+		s.NextDispatch++
+		s.CandidateActive = false
+		s.CurrentRow = f.Row
+		s.Stopped = f.Row.Panic.Present
+	case 5:
+		if !s.CandidateActive || s.MethodActive || s.InvocationActive || s.InvocationEnded || s.MethodPanic || f.Dispatch != s.NextDispatch || f.Method != 0 || f.Fact != nil || f.Final != nil || f.Row.Done || !f.Row.InputKnown || !f.Row.InputValid || !f.Row.InvocationKnown || f.Row.Called || f.Row.CallReturned || f.Row.PanicScope != 0 {
+			return s, errCode("before_invocation_contract")
+		}
+		if f.Row.Request != 1 && (f.Row.Before == nil || !f.Row.Before.Known) {
+			return s, errCode("fixture_snapshot_not_admitted")
+		}
+		if f.Row.Request != 1 {
+			index := int(f.Row.Profile)
+			if f.Row.Request == 2 {
+				index += 9
+			}
+			if !s.FrozenInitialKnown || *f.Row.Before != s.FrozenInitial[index] {
+				return s, errCode("frozen_fixture_snapshot_mismatch")
+			}
+		}
+		want := s.Counts
+		if want.Candidate[1] < want.Candidate[0] {
+			want.Candidate[1]++
+		}
+		want.Invocation[0]++
+		if !sameCounts(f.Counts, want) {
+			return s, errCode("before_invocation_counts")
+		}
+		s.InvocationActive = true
+		s.CurrentRow = f.Row
+	case 6:
+		if !s.CandidateActive || s.MethodActive || !s.InvocationActive || f.Dispatch != s.NextDispatch || f.Method != 0 || f.Fact != nil || f.Final != nil || !f.Row.InputKnown || !f.Row.InputValid || !f.Row.InvocationKnown || !f.Row.Called {
+			return s, errCode("after_invocation_contract")
+		}
+		want := s.Counts
+		if want.Invocation[1] < want.Invocation[0] {
+			want.Invocation[1]++
+		}
+		if s.MethodPanic {
+			if f.Row.Panic == nil || !f.Row.Panic.Known || !f.Row.Panic.Present || f.Row.PanicScope != 2 || f.Row.CallReturned {
+				return s, errCode("invocation_panic_unknown")
+			}
+			want.Invocation[3]++
+		} else {
+			if !f.Row.CallReturned || f.Row.PanicScope != 0 || f.Row.Done {
+				return s, errCode("invocation_return_unknown")
+			}
+			want.Invocation[2]++
+		}
+		if !sameCounts(f.Counts, want) {
+			return s, errCode("after_invocation_counts")
+		}
+		s.InvocationActive = false
+		s.InvocationEnded = true
+		s.CurrentRow = f.Row
+	case 4:
+		if s.CandidateActive || s.MethodActive || s.InvocationActive || s.NextDispatch != plannedDispatches || f.Dispatch != 41 || f.Method != 0 || f.Fact != nil || f.Final == nil || !reflect.DeepEqual(f.Row, s.Rows[41]) || !sameCounts(f.Counts, s.Counts) {
+			return s, errCode("final_frame_contract")
+		}
+		z := f.Final
+		if z.Schema != core.ResultSchema || z.State != "completed" || z.PlanSHA256 != planSHA || z.Counts != f.Counts || z.Completed != plannedDispatches || z.LastAcknowledgedSequence != s.Sequence || z.OriginalInitialization != nil || z.OriginalNested != nil || z.Qualified != 0 || z.ParentsCreated != 0 || z.LabelsCreated != 0 || z.TrainingAllowed || z.Failure != "" {
+			return s, errCode("final_unknown_or_adoption_contract")
+		}
+		for i, r := range z.Records {
+			if !s.RowKnown[i] || !reflect.DeepEqual(r.Row, s.Rows[i]) || r.Truth != nil || r.Role != nil || r.Weight != nil || len(r.Input) == 0 || len(r.Want) == 0 {
+				return s, errCode("final_record_contract")
+			}
+		}
+		if z.Counts.Candidate != ([4]uint32{42, 42, 42, 0}) || z.Counts.Invocation != ([4]uint32{42, 42, 42, 0}) || z.Counts.Original[0] != z.Counts.Original[1] || z.Counts.Original[1] != z.Counts.Original[2] || z.Counts.Original[3] != 0 || z.Counts.Assignment[0] != z.Counts.Assignment[1] || z.Counts.Assignment[1] != z.Counts.Assignment[2] || z.Counts.Assignment[3] != 0 {
+			return s, errCode("final_complete_counters")
+		}
+		s.Final = z
+	default:
+		return s, errCode("unknown_frame_stage")
+	}
+	s.Sequence = f.Sequence
+	s.Counts = f.Counts
+	return s, nil
+}
+
+func consumeProtocol(reader io.Reader, writer io.Writer, j *DurableJournal, state *ProtocolState, planSHA string, beforeFirstACK func() error) error {
+	r := bufio.NewReaderSize(reader, frameCap+1)
+	for {
+		raw, e := readLine(r)
+		if e != nil {
+			if e == io.EOF && state.Final != nil {
+				return nil
+			}
+			return errCode("protocol_eof_or_partial")
+		}
+		var f core.Frame
+		if e = strictCanonical(raw, &f); e != nil {
+			return e
+		}
+		if f.Stage != 4 && len(raw) > ordinaryFrameCap {
+			return errCode("ordinary_frame_cap")
+		}
+		next, e := state.Next(f, planSHA)
+		if e != nil {
+			return e
+		}
+		if state.Sequence == 0 {
+			if beforeFirstACK == nil {
+				return errCode("first_ack_reservation_check_missing")
+			}
+			if e = beforeFirstACK(); e != nil {
+				return e
+			}
+		}
+		cursor, e := j.Append(raw)
+		if e != nil {
+			return e
+		}
+		// This cursor is independently durable, even if the subsequent pipe Write is
+		// ambiguous. No further method or retry is authorized on such a failure.
+		next.PreviousSHA256 = cursor.LastSHA256
+		// Independent of pipe ACK success, this frame is now durably observed.
+		// A failed ACK never upgrades it to a worker-acknowledged prefix.
+		counts := f.Counts
+		state.LastDurableCounts = &counts
+		next.LastDurableCounts = &counts
+		ack, e := json.Marshal(core.Ack{Version: 1, Sequence: f.Sequence, SHA256: cursor.LastSHA256})
+		if e != nil {
+			return errCode("ack_encode")
+		}
+		ack = append(ack, '\n')
+		if len(ack) > 256 {
+			return errCode("ack_cap")
+		}
+		n, e := writer.Write(ack)
+		if e != nil || n != len(ack) {
+			return errCode("ack_write_uncertain")
+		}
+		next.FramesACKWritten = state.FramesACKWritten + 1
+		*state = next
+	}
+}
+
+func finalBytes(state ProtocolState) ([]byte, error) {
+	if state.Final == nil {
+		return nil, errCode("no_final_ack")
+	}
+	b, e := json.Marshal(state.Final)
+	if e != nil || len(b) > 65536 {
+		return nil, errCode("final_result_cap")
+	}
+	return b, nil
+}
+func exactFinalResult(path string, state ProtocolState) error {
+	b, e := finalBytes(state)
+	if e != nil {
+		return e
+	}
+	got, e := readOwnedOutput(path, 65536)
+	if e != nil {
+		return e
+	}
+	if !bytes.Equal(b, got) {
+		return errCode("child_result_not_final_frame")
+	}
+	return nil
+}

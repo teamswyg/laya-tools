@@ -1,0 +1,73 @@
+// External durable-ACK transport. No subprocess or original import.
+package workerio
+
+import (
+	"bufio"
+	"bytes"
+	"encoding/json"
+	"io"
+	"riido.local/next60three-nativeprep/threeliteral"
+)
+
+type Transport struct {
+	in       *bufio.Reader
+	out      io.Writer
+	seq      uint32
+	previous string
+	bytes    int64
+	stopped  bool
+}
+
+func NewTransport(in io.Reader, out io.Writer) *Transport {
+	return &Transport{in: bufio.NewReaderSize(in, threeliteral.AckLineMax), out: out, previous: "0000000000000000000000000000000000000000000000000000000000000000"}
+}
+func (t *Transport) Exchange(f threeliteral.Frame) error {
+	if t.stopped || f.Version != 1 || f.Sequence != t.seq+1 || f.Previous != t.previous || f.Sequence > threeliteral.FrameMax {
+		t.stopped = true
+		return threeliteral.ErrStopped
+	}
+	b, e := json.Marshal(f)
+	limit := threeliteral.EventLineMax
+	if f.Stage == 4 {
+		limit = threeliteral.FinalLineMax
+	}
+	if e != nil || len(b)+1 > limit || t.bytes+int64(len(b)+1) > threeliteral.JournalMax {
+		t.stopped = true
+		return threeliteral.ErrStopped
+	}
+	b = append(b, '\n')
+	n, e := t.out.Write(b)
+	t.bytes += int64(n)
+	if e != nil || n != len(b) {
+		t.stopped = true
+		return threeliteral.ErrStopped
+	} // no partial-write retry.
+	line, e := t.in.ReadSlice('\n')
+	if e != nil || len(line) > threeliteral.AckLineMax {
+		t.stopped = true
+		return threeliteral.ErrStopped
+	}
+	var ack threeliteral.Ack
+	if DecodeCanonical(line, &ack) != nil || ack.Version != 1 || ack.Sequence != f.Sequence || ack.SHA256 != SHA(b) {
+		t.stopped = true
+		return threeliteral.ErrStopped
+	}
+	t.seq = f.Sequence
+	t.previous = ack.SHA256
+	return nil
+}
+
+// CanonicalResult excludes LF. A final frame z must marshal to these exact bytes.
+func CanonicalResult(r threeliteral.Result) ([]byte, error) {
+	b, e := json.Marshal(r)
+	if e != nil || len(b) > 60000 {
+		return nil, threeliteral.ErrBounds
+	}
+	var check threeliteral.Result
+	d := json.NewDecoder(bytes.NewReader(b))
+	d.DisallowUnknownFields()
+	if d.Decode(&check) != nil {
+		return nil, threeliteral.ErrBounds
+	}
+	return b, nil
+}

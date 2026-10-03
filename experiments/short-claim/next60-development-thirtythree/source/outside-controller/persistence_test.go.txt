@@ -1,0 +1,49 @@
+// Copyright 2026 teamswyg. Licensed under the Apache License, Version 2.0.
+// Inert source-only controls: injected storage callbacks, no child/native IO.
+package main
+
+import (
+	"reflect"
+	core "riido.local/next60nativeoutside/threeliteral"
+	"testing"
+)
+
+func TestFinalPersistenceFailureDowngradesOnlyCompletion(t *testing.T) {
+	yes := true
+	zero := 0
+	rows := 42
+	retained := int64(1234)
+	counts := core.Counts{Candidate: [4]uint32{42, 42, 42, 0}, Invocation: [4]uint32{42, 42, 42, 0}}
+	original := OutsideResult{Schema: "riido-three-native-outside-result-v1", State: "complete_observation_transport", ConfigSHA256: "owned_config", PlanSHA256: "owned_plan", WorkerSHA256: "owned_worker", ControllerSHA256: "owned_controller", Process: ProcessReceipt{StartAttempts: 1, Started: true, WaitAttempts: 1, Reaped: &yes, ExitCode: &zero}, DurablePrefix: DurableReceipt{FramesSynced: 7, BytesSynced: 321, LastSHA256: "owned_prefix"}, FramesACKWritten: 7, LastDurableFrameCounts: &counts, LastACKWrittenCounts: &counts, TerminalRowsACKWritten: 42, FinalACKWritten: true, FinalChildFileIdentity: true, CompleteCountersKnown: true, CompleteRows: &rows, OutputBytesRetained: &retained, AggregateCap: aggregateCap, NoAutomaticRetry: true}
+	for _, code := range []string{"output_write_uncertain", "output_sync_uncertain", "output_close_uncertain", "output_directory_sync_uncertain"} {
+		t.Run(code, func(t *testing.T) {
+			calls := 0
+			persist := func(dir, name string, b []byte, cap int) error {
+				calls++
+				if dir != "owned_fixture" || name != "outside.json" || cap != 16384 || string(b) != "owned_result" {
+					t.Fatal("wrong persistence boundary")
+				}
+				return errCode(code)
+			}
+			got, e := persistOutsideResult("owned_fixture", []byte("owned_result"), original, persist)
+			if calls != 1 || e == nil || fixedFailure(e) != code || got.State != "incomplete_observation_transport" || got.Failure != code || got.CompleteCountersKnown || got.CompleteRows != nil || !got.RemainingCallsUnknown || got.OutputBytesRetained != nil {
+				t.Fatal("final storage failure still claimed success or retried")
+			}
+			if got.FinalACKWritten != original.FinalACKWritten || got.FinalChildFileIdentity != original.FinalChildFileIdentity || got.FramesACKWritten != original.FramesACKWritten || got.TerminalRowsACKWritten != original.TerminalRowsACKWritten || !reflect.DeepEqual(got.Process, original.Process) || !reflect.DeepEqual(got.DurablePrefix, original.DurablePrefix) || !reflect.DeepEqual(got.LastDurableFrameCounts, original.LastDurableFrameCounts) || !reflect.DeepEqual(got.LastACKWrittenCounts, original.LastACKWrittenCounts) {
+				t.Fatal("actual saved-prefix/process evidence was erased")
+			}
+			if original.State != "complete_observation_transport" || !original.CompleteCountersKnown || original.CompleteRows == nil || original.OutputBytesRetained == nil {
+				t.Fatal("input summary was mutated")
+			}
+		})
+	}
+	got, e := persistOutsideResult("owned_fixture", nil, original, nil)
+	if e == nil || fixedFailure(e) != "outside_persistence_missing" || got.State != "incomplete_observation_transport" {
+		t.Fatal("missing persistence accepted")
+	}
+	calls := 0
+	got, e = persistOutsideResult("owned_fixture", []byte("owned_result"), original, func(string, string, []byte, int) error { calls++; return nil })
+	if e != nil || calls != 1 || !reflect.DeepEqual(got, original) {
+		t.Fatal("successful owned persistence was changed")
+	}
+}

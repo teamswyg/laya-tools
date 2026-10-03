@@ -1,0 +1,139 @@
+// Loader of exact pinned old literals; no fixture/Wanted synthesis or scoring.
+package threeliteral
+
+import (
+	"bytes"
+	"encoding/binary"
+	"encoding/hex"
+	"encoding/json"
+	"strconv"
+)
+
+func LoadLiteral(b []byte, base Result) ([14]Fixture, Result, error) {
+	var fs [14]Fixture
+	var doc struct {
+		Requests []struct {
+			Selector int    `json:"selector_ordinal"`
+			ID       string `json:"request_id"`
+			Fixtures []struct {
+				ID      string          `json:"id"`
+				Input   json.RawMessage `json:"input"`
+				Want    json.RawMessage `json:"Want_proposed"`
+				Initial struct {
+					Length uint16   `json:"length"`
+					Nil    bool     `json:"words_nil"`
+					Words  []string `json:"words_hex"`
+				} `json:"source_state_before_proposed"`
+			} `json:"fixtures"`
+		} `json:"requests"`
+	}
+	if json.Unmarshal(b, &doc) != nil || len(doc.Requests) != 3 {
+		return fs, base, ErrBounds
+	}
+	names := [3]string{"source-next60-fixed-width-complement", "source-next60-lossless-integer-channel", "source-next60-strict-binary-decode"}
+	at := 0
+	for q, request := range doc.Requests {
+		if request.Selector != [3]int{2, 7, 1}[q] || request.ID != names[q] || len(request.Fixtures) != [3]int{4, 5, 5}[q] {
+			return fs, base, ErrBounds
+		}
+		for f, item := range request.Fixtures {
+			v := Fixture{Request: uint8(q), Profile: uint8(f)}
+			switch q {
+			case 0:
+				var in struct {
+					Construct string `json:"construct"`
+					Width     uint   `json:"width"`
+					Sets      []uint `json:"set_indices"`
+				}
+				if json.Unmarshal(item.Input, &in) != nil || in.Construct != "New(0), then Set in listed order" || in.Width > MaxBits || len(in.Sets) > 3 || in.Sets == nil {
+					return fs, base, ErrBounds
+				}
+				v.Width = in.Width
+				v.SetN = uint8(len(in.Sets))
+				copy(v.Sets[:], in.Sets)
+				if item.Initial.Length > 128 || len(item.Initial.Words) > 2 || len(item.Initial.Words) != int((item.Initial.Length+63)/64) {
+					return fs, base, ErrBounds
+				}
+				v.Initial = BitState{Known: true, Length: item.Initial.Length, Count: uint8(len(item.Initial.Words)), Nil: item.Initial.Nil}
+				copy(v.Initial.Words[:], item.Initial.Words)
+				for _, i := range in.Sets {
+					if i >= MaxBits {
+						return fs, base, ErrBounds
+					}
+				}
+			case 1:
+				var in struct {
+					Text string `json:"json"`
+				}
+				if json.Unmarshal(item.Input, &in) != nil || len(in.Text) == 0 || len(in.Text) > 32 {
+					return fs, base, ErrBounds
+				}
+				v.Text = in.Text
+			case 2:
+				var in struct {
+					Hex     string `json:"big_endian_hex"`
+					Maximum uint   `json:"max_declared_bits"`
+				}
+				if json.Unmarshal(item.Input, &in) != nil || in.Maximum != MaxBits {
+					return fs, base, ErrBounds
+				}
+				data, e := hex.DecodeString(in.Hex)
+				if e != nil || len(data) < 8 || len(data) > MaxInputBytes || binary.BigEndian.Uint64(data[:8]) > uint64(MaxBits) {
+					return fs, base, ErrBounds
+				}
+				v.DataN = uint8(len(data))
+				copy(v.Data[:], data)
+				v.Initial = BitState{Known: true, Length: 4, Count: 1, Words: [2]string{"000000000000000a", ""}}
+			}
+			fs[at] = v
+			at++
+		}
+	}
+	for _, e := range Schedule() {
+		item := doc.Requests[e.Request].Fixtures[e.Profile]
+		base.Records[e.Dispatch] = Record{RequestID: doc.Requests[e.Request].ID, FixtureID: item.ID, InputPointer: "/requests/" + strconv.Itoa(int(e.Request)) + "/fixtures/" + strconv.Itoa(int(e.Profile)) + "/input", Row: Row{Dispatch: e.Dispatch, Request: e.Request, Profile: e.Profile, Display: e.Display, Internal: e.Internal},
+			Input: append(json.RawMessage(nil), item.Input...), Want: append(json.RawMessage(nil), item.Want...)}
+	}
+	return fs, base, nil
+}
+
+// Wants are joined to the unchanged literal document by exact object equality/order.
+// Pin checking precedes this metadata loader; object equivalence is not source/API validation.
+func CheckWants(literal, wanted []byte) error {
+	var a struct {
+		Requests []struct {
+			ID       string `json:"request_id"`
+			Fixtures []struct {
+				ID   string          `json:"id"`
+				Want json.RawMessage `json:"Want_proposed"`
+			} `json:"fixtures"`
+		} `json:"requests"`
+	}
+	var b struct {
+		Rows []struct {
+			Request string          `json:"request_id"`
+			Fixture string          `json:"fixture_id"`
+			Want    json.RawMessage `json:"Want"`
+		} `json:"rows"`
+	}
+	if json.Unmarshal(literal, &a) != nil || json.Unmarshal(wanted, &b) != nil || len(a.Requests) != 3 || len(b.Rows) != 14 {
+		return ErrBounds
+	}
+	at := 0
+	for _, q := range a.Requests {
+		for _, f := range q.Fixtures {
+			if at >= 14 || b.Rows[at].Request != q.ID || b.Rows[at].Fixture != f.ID {
+				return ErrBounds
+			}
+			var x, y bytes.Buffer
+			if json.Compact(&x, f.Want) != nil || json.Compact(&y, b.Rows[at].Want) != nil || !bytes.Equal(x.Bytes(), y.Bytes()) {
+				return ErrBounds
+			}
+			at++
+		}
+	}
+	if at != 14 {
+		return ErrBounds
+	}
+	return nil
+}

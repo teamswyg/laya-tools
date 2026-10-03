@@ -1,0 +1,252 @@
+// Copyright 2026 teamswyg. SPDX-License-Identifier: Apache-2.0
+// Package data33 copies externally pinned Root adoption. No truth allocator.
+package data33
+
+const PreviousBytes = 41428
+const PreviousSHA = "9cdfb758f03adc34a9fb5e00e3c1525921df26d0912f6b554e4ed4c890fd10a2"
+const QualificationBytes = 16210
+const QualificationSHA = "c1c4a531a7e9a6197bfc0f27f091b9ff54a1e58b77b9ad04e9f20bacae1d6cb4"
+const PriorSummaryBytes = 2458
+const PriorSummarySHA = "01fe3dc513830427cad4020714a1eab25f9c5a025b4f74d5beaabf2b2ee94593"
+const LiteralBytes = 27551
+const LiteralSHA = "a57fd4f3f37f73984df9522b5607d18143277dc4c527124bac6c56a067799c13"
+const CaptionsBytes = 4115
+const CaptionsSHA = "45a421ce909c63949c30935889fad883f7e7202e6c4cd4c85ee4da55386fbd71"
+const ComparisonBytes = 76004
+const ComparisonSHA = "1811bd54fb109eaf2e031fde787c6f772a652c8b4d5a09f963e646b9f4006458"
+const FamilyBytes = 3089
+const FamilySHA = "1677d33aeb32c18c809e9ea717f375d5086d5b371e68f09f48fd24ae2f254b7f"
+const MaxData = 128 << 10
+const MaxRow = 16 << 10
+const MaxReceipt = 32 << 10
+
+type Error string
+
+func (e Error) Error() string { return string(e) }
+func code(s string) error     { return Error(s) }
+func FailureCode(e error) string {
+	if e == nil {
+		return ""
+	}
+	if v, ok := e.(Error); ok {
+		return string(v)
+	}
+	return "data33_callback_failed"
+}
+
+type Pin struct {
+	Bytes int    `json:"bytes"`
+	SHA   string `json:"sha256"`
+}
+type Scope struct {
+	Inputs       int    `json:"input_count"`
+	Observations int    `json:"candidate_observations"`
+	Description  string `json:"description"`
+	All          *bool  `json:"all_input_guarantee"`
+	Unseen       *bool  `json:"unseen_source_guarantee"`
+}
+type Candidate struct {
+	ID     string `json:"metadata_id"`
+	Text   string `json:"text"`
+	Label  *bool  `json:"label"`
+	Weight *int   `json:"sample_weight"`
+}
+type Row struct {
+	Schema       string      `json:"schema"`
+	ID           string      `json:"stable_id"`
+	Request      string      `json:"request"`
+	Candidates   []Candidate `json:"candidates"`
+	Role         string      `json:"role"`
+	Group        int         `json:"whole_group"`
+	Family       string      `json:"source_family"`
+	Revision     string      `json:"source_revision"`
+	Scope        Scope       `json:"finite_scope"`
+	TextRevision string      `json:"text_revision"`
+	Policy       string      `json:"feature_policy"`
+}
+type Unknown struct {
+	Fixture int    `json:"fixture"`
+	Key     string `json:"key"`
+	Ordinal int    `json:"ordinal"`
+}
+type Slot struct {
+	Position *int      `json:"source_candidate_position"`
+	ID       string    `json:"metadata_id"`
+	Text     string    `json:"text"`
+	Label    *bool     `json:"label"`
+	Weight   *int      `json:"sample_weight"`
+	Selected *bool     `json:"selected"`
+	Ordinals []int     `json:"row_ordinals"`
+	Vector   []string  `json:"row_vector"`
+	Known    []int     `json:"known_counterexample_fixture_positions"`
+	Unknown  []int     `json:"aggregate_unknown_fixture_positions"`
+	Retained []Unknown `json:"unknown_predicates_retained"`
+}
+type Adoption struct {
+	ID           string `json:"stable_id"`
+	Request      string `json:"request"`
+	Family       string `json:"source_family"`
+	Repository   string `json:"upstream_repository"`
+	Revision     string `json:"source_revision"`
+	Group        int    `json:"whole_group"`
+	Role         string `json:"role"`
+	TextRevision string `json:"text_revision"`
+	Scope        Scope  `json:"finite_scope"`
+	Candidates   []Slot `json:"candidates"`
+	Selected     []int  `json:"selected_candidate_positions"`
+	Excluded     []int  `json:"excluded_candidate_positions"`
+}
+type Pool struct {
+	Requests    int `json:"requests"`
+	Labels      int `json:"known_labels"`
+	Positive    int `json:"positive"`
+	Negative    int `json:"negative"`
+	Inputs      int `json:"input_fixtures"`
+	Original    int `json:"original_evidence_observations"`
+	Selected    int `json:"selected_candidate_observations"`
+	Index1      int `json:"positive_selected_index1_requests"`
+	NewSlots    int `json:"new_catalog_slots"`
+	NewSelected int `json:"new_selected_candidates"`
+	NewExcluded int `json:"new_excluded_unknown_candidates"`
+}
+type Basis struct {
+	Previous   Pin `json:"previous_data"`
+	Comparison Pin `json:"comparison"`
+	Literal    Pin `json:"literal"`
+	Captions   Pin `json:"captions"`
+	Family     Pin `json:"prospective_family"`
+}
+type UnknownScope struct {
+	NewAll                 int   `json:"new_batch_all_predicates"`
+	NewSelected            int   `json:"new_batch_selected_candidates"`
+	Prior                  int   `json:"existing30_post23_materialization_predicates"`
+	Selected               int   `json:"post23_plus_new_selected"`
+	All                    int   `json:"post23_plus_new_all"`
+	OlderPreserved         *bool `json:"older_prefix_metadata_preserved_in_original_artifacts"`
+	WholeHistoryNotClaimed *bool `json:"whole_history_unknown_total_not_claimed"`
+}
+type Qualification struct {
+	Schema            string       `json:"schema"`
+	State             string       `json:"state"`
+	Authority         string       `json:"authority"`
+	Basis             Basis        `json:"basis"`
+	Before            Pool         `json:"pool_before"`
+	After             Pool         `json:"pool_after_if_materialized"`
+	Requests          []Adoption   `json:"requests"`
+	UnknownNeverFalse *bool        `json:"unknown_never_false"`
+	Coexist           *bool        `json:"known_F_and_U_coexist_preserved"`
+	Roles             *bool        `json:"whole_source_roles_preserved"`
+	Immutable         *bool        `json:"old30_data_immutable"`
+	NewRequests       int          `json:"new_qualified_requests"`
+	NewLabels         int          `json:"new_labels_adopted"`
+	Reexecution       int          `json:"new_original_reexecution"`
+	Materialized      int          `json:"new_materialized_data_rows"`
+	Model             int          `json:"new_Fit_or_model"`
+	Protected         int          `json:"protected_evaluation"`
+	PublicCurrent     int          `json:"public_current_requests"`
+	UnknownScope      UnknownScope `json:"retained_unknown_metadata_scope"`
+}
+type Inputs struct {
+	Previous, PriorSummary, Qualification, Literal, Captions, Comparison, Family []byte
+	ExpectedQualificationSHA                                                     string
+}
+type Predicate struct {
+	Key   string `json:"key"`
+	State string `json:"state"`
+}
+type TFU struct {
+	T int `json:"satisfied"`
+	F int `json:"unsatisfied"`
+	U int `json:"unknown"`
+}
+type SavedRow struct {
+	Ordinal    int         `json:"dispatch"`
+	Request    int         `json:"request"`
+	Fixture    int         `json:"fixture"`
+	Candidate  int         `json:"candidate"`
+	Internal   int         `json:"internal"`
+	RequestID  string      `json:"request_id"`
+	FixtureID  string      `json:"fixture_id"`
+	Count      int         `json:"predicate_count"`
+	Predicates []Predicate `json:"predicates"`
+	Counts     TFU         `json:"predicate_counts"`
+	State      string      `json:"state"`
+}
+type Comparison struct {
+	Schema    string     `json:"schema"`
+	Rows      []SavedRow `json:"rows"`
+	RowsTFU   TFU        `json:"row_counts"`
+	PredTFU   TFU        `json:"predicate_counts"`
+	Unknown   *bool      `json:"unknown_predicates_preserved"`
+	Privilege *bool      `json:"position_privilege"`
+	Qualified int        `json:"qualified_assigned"`
+	Assigned  int        `json:"labels_roles_weights_assigned"`
+	Calls     int        `json:"original_model_Fit_calls"`
+}
+type Retained struct {
+	Request        string `json:"request_id"`
+	SourcePosition int    `json:"source_candidate_position"`
+	Fixture        int    `json:"fixture"`
+	Key            string `json:"key"`
+	Ordinal        *int   `json:"ordinal"`
+	Reason         string `json:"reason,omitempty"`
+}
+type Excluded struct {
+	Request        string    `json:"request_id"`
+	SourcePosition int       `json:"source_candidate_position"`
+	ID             string    `json:"metadata_id"`
+	Label          *bool     `json:"label"`
+	Weight         *int      `json:"sample_weight"`
+	Vector         []string  `json:"row_vector"`
+	Retained       []Unknown `json:"unknown_predicates_retained"`
+}
+type Summary struct {
+	Schema            string       `json:"schema"`
+	State             string       `json:"state"`
+	Failure           string       `json:"failure_code"`
+	DataBytes         int          `json:"data_bytes"`
+	DataSHA           string       `json:"data_sha256"`
+	QualificationPin  Pin          `json:"Root_qualification_pin"`
+	PreviousPin       Pin          `json:"previous30_pin"`
+	PriorMetadataPin  Pin          `json:"prior30_metadata_pin"`
+	Pool              Pool         `json:"pool"`
+	PrefixExact       bool         `json:"previous30_prefix_byte_exact"`
+	SupervisionCopied bool         `json:"Root_adopted_supervision_copied"`
+	Retained          []Retained   `json:"post23_plus_new_selected_unknown_predicates"`
+	Excluded          []Excluded   `json:"new_excluded_unknown_candidates"`
+	UnknownScope      UnknownScope `json:"retained_unknown_metadata_scope"`
+	UnknownFalse      bool         `json:"unknown_converted_to_false"`
+	WholeHistoryClaim bool         `json:"whole_history_unknown_total_claimed"`
+	ReaderAttempts    int          `json:"LoadDevelopmentRow_attempts"`
+	ReaderReturned    int          `json:"LoadDevelopmentRow_returns"`
+	ReaderMatched     int          `json:"LoadDevelopmentRow_matches"`
+	Qualified         bool         `json:"qualified_by_preparer"`
+	Assigned          bool         `json:"labels_roles_weights_assigned_by_preparer"`
+	OriginalCalls     int          `json:"original_calls"`
+	FeatureCalls      int          `json:"Features_calls"`
+	ScoreCalls        int          `json:"Score_calls"`
+	ProjectCalls      int          `json:"Project_calls"`
+	FitCalls          int          `json:"Fit_calls"`
+	ModelCalls        int          `json:"model_calls"`
+	Scope             string       `json:"scope"`
+}
+type LoadedCandidate struct {
+	ID, Text string
+	Label    bool
+	Weight   int
+}
+type Loaded struct {
+	Valid                                                                                           bool
+	Schema, Provenance, ID, Request, Role, Family, Revision, TextRevision, Policy, ScopeDescription string
+	Group, Inputs, Observations, Count, SupervisionCount                                            int
+	All, Unseen, UnusedZero                                                                         bool
+	Candidates                                                                                      [8]LoadedCandidate
+}
+type Reader func([]byte) (Loaded, error)
+
+func Initial() Summary {
+	return Summary{Schema: "riido-native-three-development33-correspondence-v1", State: "not_completed", QualificationPin: Pin{QualificationBytes, QualificationSHA}, PreviousPin: Pin{PreviousBytes, PreviousSHA}, PriorMetadataPin: Pin{PriorSummaryBytes, PriorSummarySHA}, Retained: []Retained{}, Excluded: []Excluded{}, Scope: "Copy separately pinned Root finite adoption only. Preserve earlier source metadata; no unknown-to-negative, truth, roles, rights, training, model or execution approval."}
+}
+
+// Projections above are decoded only after the complete authority/source pin.
+// Uninterpreted Root fields remain in the original artifact, not encoder input.

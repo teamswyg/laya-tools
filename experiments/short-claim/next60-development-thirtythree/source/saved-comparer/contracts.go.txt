@@ -1,0 +1,299 @@
+// Copyright 2026 teamswyg. Licensed under the Apache License, Version 2.0.
+// Frozen Want schema only; no source/provider methods or oracle are invoked.
+package main
+
+import (
+	"bytes"
+	"encoding/json"
+	"io"
+	"strconv"
+)
+
+const literalSHA = "a57fd4f3f37f73984df9522b5607d18143277dc4c527124bac6c56a067799c13"
+const wantsSHA = "4bc7c8ee36e38ae57da29d385c2feadb90261f81744988870ad1fe7ff334df02"
+const captionsSHA = "45a421ce909c63949c30935889fad883f7e7202e6c4cd4c85ee4da55386fbd71"
+const wantFreezeSHA = "73c85851347a3039906604923387719877e7969c70a8ca0fd6a9969679cc48d3"
+
+var fixtureCounts = [3]int{4, 5, 5}
+var requestIDs = [3]string{"source-next60-fixed-width-complement", "source-next60-lossless-integer-channel", "source-next60-strict-binary-decode"}
+
+type BitWant struct {
+	Length *uint16  `json:"length"`
+	Nil    *bool    `json:"words_nil"`
+	Words  []string `json:"words_hex"`
+}
+type Want struct {
+	Returned      *bool    `json:"returned_normally"`
+	Panic         *bool    `json:"panic_present"`
+	Result        *BitWant `json:"result_state"`
+	SetIndices    []uint16 `json:"result_set_indices"`
+	After         *BitWant `json:"receiver_after"`
+	ErrorRequired *bool    `json:"error_channel_required"`
+	ValueDecimal  *string  `json:"value_decimal"`
+	ValueRequired *bool    `json:"value_required"`
+	ErrorNil      *bool    `json:"error_nil"`
+	OwnErrorKind  *string  `json:"own_error_kind"`
+	Preservation  *bool    `json:"receiver_preserved_on_rejection"`
+}
+type Contract struct {
+	RequestID, FixtureID string
+	Raw                  json.RawMessage
+	Want                 Want
+	Input                json.RawMessage
+}
+type Contracts [14]Contract
+
+func decode(raw []byte, out any) error {
+	d := json.NewDecoder(bytes.NewReader(raw))
+	d.DisallowUnknownFields()
+	if d.Decode(out) != nil {
+		return fail("invalid_json")
+	}
+	var extra any
+	if d.Decode(&extra) != io.EOF {
+		return fail("trailing_json")
+	}
+	return nil
+}
+
+// Exact key case, presence, decoded duplicates and extra keys are checked with
+// bounded slices. Null control values cannot masquerade as absent requirements.
+func exactKeys(raw []byte, names []string) error {
+	d := json.NewDecoder(bytes.NewReader(raw))
+	t, e := d.Token()
+	if e != nil || t != json.Delim('{') {
+		return fail("want_object")
+	}
+	seen := make([]bool, len(names))
+	for d.More() {
+		t, e = d.Token()
+		key, ok := t.(string)
+		if e != nil || !ok {
+			return fail("want_key")
+		}
+		at := -1
+		for i, n := range names {
+			if key == n {
+				at = i
+				break
+			}
+		}
+		if at < 0 || seen[at] {
+			return fail("want_key_case_duplicate_or_extra")
+		}
+		seen[at] = true
+		var value json.RawMessage
+		if d.Decode(&value) != nil {
+			return fail("want_value")
+		}
+	}
+	t, e = d.Token()
+	if e != nil || t != json.Delim('}') {
+		return fail("want_object_end")
+	}
+	for _, s := range seen {
+		if !s {
+			return fail("want_required_key_missing")
+		}
+	}
+	var extra any
+	if d.Decode(&extra) != io.EOF {
+		return fail("want_trailing")
+	}
+	return nil
+}
+func hexWord(s string) bool {
+	if len(s) != 16 {
+		return false
+	}
+	for _, c := range s {
+		if !(c >= '0' && c <= '9' || c >= 'a' && c <= 'f') {
+			return false
+		}
+	}
+	return true
+}
+func validBitWant(w *BitWant) bool {
+	if w == nil || w.Length == nil || w.Nil == nil || *w.Length > 128 || w.Words == nil || len(w.Words) != int((*w.Length+63)/64) || len(w.Words) > 2 || *w.Nil && len(w.Words) != 0 {
+		return false
+	}
+	for _, s := range w.Words {
+		if !hexWord(s) {
+			return false
+		}
+	}
+	return true
+}
+func parseWant(raw []byte, q int) (Want, error) {
+	var w Want
+	common := []string{"returned_normally", "panic_present"}
+	switch q {
+	case 0:
+		common = append(common, "result_state", "result_set_indices", "receiver_after", "error_channel_required")
+	case 1:
+		common = append(common, "value_decimal", "value_required", "error_channel_required", "error_nil", "own_error_kind")
+	case 2:
+		common = append(common, "error_channel_required", "error_nil", "own_error_kind", "receiver_after", "receiver_preserved_on_rejection")
+	default:
+		return w, fail("want_request_range")
+	}
+	if e := exactKeys(raw, common); e != nil {
+		return w, e
+	}
+	if e := decode(raw, &w); e != nil {
+		return w, e
+	}
+	if w.Returned == nil || w.Panic == nil || w.ErrorRequired == nil {
+		return w, fail("want_null_control")
+	}
+	// Check nested bit objects against their exact source keys, not Go aliases.
+	var bits struct {
+		Result json.RawMessage `json:"result_state"`
+		After  json.RawMessage `json:"receiver_after"`
+	}
+	if json.Unmarshal(raw, &bits) != nil {
+		return w, fail("want_bit_raw")
+	}
+	for _, b := range []json.RawMessage{bits.Result, bits.After} {
+		if len(b) > 0 {
+			if e := exactKeys(b, []string{"length", "words_nil", "words_hex"}); e != nil {
+				return w, e
+			}
+		}
+	}
+	if q == 0 {
+		if !validBitWant(w.Result) || !validBitWant(w.After) || w.SetIndices == nil {
+			return w, fail("want_bit_contract")
+		}
+		if len(w.SetIndices) > 128 {
+			return w, fail("want_set_count")
+		}
+		for i, n := range w.SetIndices {
+			if n >= *w.Result.Length || i > 0 && w.SetIndices[i-1] >= n {
+				return w, fail("want_set_order")
+			}
+		}
+	}
+	if q == 1 {
+		if w.ValueRequired == nil || w.ErrorNil == nil {
+			return w, fail("want_value_control")
+		}
+		if *w.ValueRequired {
+			if w.ValueDecimal == nil {
+				return w, fail("want_decimal_required")
+			}
+			n, e := strconv.ParseInt(*w.ValueDecimal, 10, 64)
+			if e != nil || strconv.FormatInt(n, 10) != *w.ValueDecimal {
+				return w, fail("want_decimal_not_int64_string")
+			}
+		} else if w.ValueDecimal != nil {
+			return w, fail("want_optional_value_not_null")
+		}
+	}
+	if q == 2 && (!validBitWant(w.After) || w.ErrorNil == nil || w.Preservation == nil) {
+		return w, fail("want_binary_contract")
+	}
+	if w.OwnErrorKind != nil {
+		if errorID(*w.OwnErrorKind) == 0 || w.ErrorNil == nil || *w.ErrorNil || !*w.ErrorRequired {
+			return w, fail("want_error_identity_contract")
+		}
+	}
+	return w, nil
+}
+func errorID(kind string) uint8 {
+	switch kind {
+	case "payload_length":
+		return 2
+	case "tail_padding":
+		return 3
+	case "non_number":
+		return 5
+	case "integer_syntax":
+		return 6
+	case "out_of_range":
+		return 7
+	}
+	return 0
+}
+func compact(raw []byte) []byte {
+	var b bytes.Buffer
+	if json.Compact(&b, raw) != nil {
+		return nil
+	}
+	return b.Bytes()
+}
+func loadContracts(literal, wanted []byte) (Contracts, error) {
+	var out Contracts
+	if len(literal) != 27551 || sha(literal) != literalSHA || len(wanted) != 10703 || sha(wanted) != wantsSHA {
+		return out, fail("frozen_contract_pin")
+	}
+	var l struct {
+		Requests []struct {
+			Selector int    `json:"selector_ordinal"`
+			ID       string `json:"request_id"`
+			Fixtures []struct {
+				ID    string          `json:"id"`
+				Input json.RawMessage `json:"input"`
+				Want  json.RawMessage `json:"Want_proposed"`
+			} `json:"fixtures"`
+		} `json:"requests"`
+	}
+	var w struct {
+		Schema string `json:"schema"`
+		Rows   []struct {
+			RequestID string          `json:"request_id"`
+			FixtureID string          `json:"fixture_id"`
+			Want      json.RawMessage `json:"Want"`
+		} `json:"rows"`
+	}
+	// These metadata projections follow exact full frozen-document pins. Fields
+	// outside this narrow projection do not become model inputs or labels.
+	if json.Unmarshal(literal, &l) != nil || json.Unmarshal(wanted, &w) != nil || w.Schema != "riido-bitset-gjson-three-Wants-proposed-v1" || len(l.Requests) != 3 || len(w.Rows) != 14 {
+		return out, fail("contract_document_shape")
+	}
+	at := 0
+	for q, r := range l.Requests {
+		if r.Selector != [3]int{2, 7, 1}[q] || r.ID != requestIDs[q] || len(r.Fixtures) != fixtureCounts[q] {
+			return out, fail("contract_request_binding")
+		}
+		for _, f := range r.Fixtures {
+			row := w.Rows[at]
+			if row.RequestID != r.ID || row.FixtureID != f.ID || len(f.Input) == 0 || !bytes.Equal(compact(f.Want), compact(row.Want)) {
+				return out, fail("contract_fixture_binding")
+			}
+			parsed, e := parseWant(row.Want, q)
+			if e != nil {
+				return out, e
+			}
+			out[at] = Contract{RequestID: r.ID, FixtureID: f.ID, Raw: append(json.RawMessage(nil), row.Want...), Want: parsed, Input: append(json.RawMessage(nil), f.Input...)}
+			at++
+		}
+	}
+	return out, nil
+}
+func schedule(d int) (q, profile, display, internal, index int) {
+	if d < 12 {
+		q = 0
+		display = d / 4
+		profile = d % 4
+		internal = display
+		index = profile
+		return
+	}
+	if d < 27 {
+		q = 1
+		k := d - 12
+		display = k / 5
+		profile = k % 5
+		internal = 2 - display
+		index = 4 + profile
+		return
+	}
+	q = 2
+	k := d - 27
+	display = k / 5
+	profile = k % 5
+	internal = display
+	index = 9 + profile
+	return
+}

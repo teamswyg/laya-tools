@@ -1,0 +1,210 @@
+// Acknowledged rows and candidate invocations are distinct; no Want evaluation or retry.
+package threeliteral
+
+import (
+	"reflect"
+	"strconv"
+)
+
+type Fixture struct {
+	Request uint8
+	Profile uint8
+	Width   uint
+	Sets    [3]uint
+	SetN    uint8
+	Text    string
+	Data    [25]byte
+	DataN   uint8
+	Initial BitState
+}
+type ScheduleEntry struct{ Dispatch, Request, Profile, Display, Internal uint8 }
+
+func Schedule() [Dispatches]ScheduleEntry {
+	var out [Dispatches]ScheduleEntry
+	at := 0
+	for q, n := range [3]int{4, 5, 5} {
+		for c := 0; c < 3; c++ {
+			for f := 0; f < n; f++ {
+				i := c
+				if q == 1 {
+					i = 2 - c
+				}
+				out[at] = ScheduleEntry{uint8(at), uint8(q), uint8(f), uint8(c), uint8(i)}
+				at++
+			}
+		}
+	}
+	return out
+}
+func (s *Session) admit(got, wanted BitState) {
+	s.Row.InputKnown = true
+	s.Row.InputValid = got == wanted
+	if !s.Row.InputValid {
+		s.stop("fixture_state_mismatch")
+	}
+}
+func (s *Session) beginInvocation() {
+	if !s.Row.InputKnown || !s.Row.InputValid {
+		s.stop("fixture_not_admitted")
+	}
+	s.Row.InvocationKnown = true
+	s.Counts.Invocation[0]++
+	s.emit(5, 0, nil, nil)
+	s.Counts.Invocation[1]++
+	s.Row.Called = true
+}
+func (s *Session) endInvocation() {
+	s.Counts.Invocation[2]++
+	s.Row.CallReturned = true
+	s.emit(6, 0, nil, nil)
+}
+func (s *Session) Observe(e ScheduleEntry, f Fixture) (row Row, err error) {
+	if s.Stopped || int(e.Dispatch) >= Dispatches || f.Request != e.Request || f.Profile != e.Profile {
+		return Row{}, ErrStopped
+	}
+	s.Row = Row{Dispatch: e.Dispatch, Request: e.Request, Profile: e.Profile, Display: e.Display, Internal: e.Internal,
+		Panic: &PanicState{}, Error: &ErrorChannel{}}
+	s.Counts.Candidate[0]++ // observed row, including fixture construction; NOT candidate invocation.
+	defer func() {
+		if v := recover(); v != nil {
+			switch p := v.(type) {
+			case stoppedSignal:
+				err = ErrStopped
+			case sourcePanicSignal:
+				s.Row.Panic = &p.State
+				s.Row.Done = true
+				s.Row.Returned = false
+				s.Counts.Candidate[3]++
+				active := s.Counts.Invocation[1] > s.Counts.Invocation[2]+s.Counts.Invocation[3]
+				s.Row.PanicScope = 1
+				if active {
+					s.Row.PanicScope = 2
+					s.Counts.Invocation[3]++
+				}
+				func() {
+					defer func() { _ = recover() }()
+					if active {
+						s.emit(6, 0, nil, nil)
+					}
+					s.emit(3, 0, nil, nil)
+				}()
+				s.Stopped = true
+				if s.Failure == "" {
+					s.Failure = "source_method_panic"
+				}
+				err = ErrStopped
+			default:
+				s.Stopped = true
+				s.Failure = "owned_observer_panic"
+				err = ErrStopped
+			}
+		}
+		row = copyRow(s.Row)
+	}()
+	s.emit(0, 0, nil, nil)
+	s.Counts.Candidate[1]++
+	switch e.Request {
+	case 0:
+		src := s.New(0)
+		for i := uint8(0); i < f.SetN; i++ {
+			src.Set(f.Sets[i])
+		}
+		before := snapshot(src)
+		s.Row.Before = &before
+		s.admit(before, f.Initial)
+		s.beginInvocation()
+		result := complement(s, int(e.Internal), src, f.Width)
+		s.endInvocation()
+		r := snapshot(result)
+		s.Row.Result = &r
+		after := snapshot(src)
+		s.Row.After = &after
+		s.Row.Error = ptrError(errorState(nil, false))
+	case 1:
+		// The exact pinned input bytes are copied unchanged; Valid is inside the candidate.
+		s.Row.InputKnown = true
+		s.Row.InputValid = true
+		s.beginInvocation()
+		n, available, cause, errorAvailable := jsonInteger(s, int(e.Internal), f.Text)
+		s.Row.Value = &IntegerState{Available: available, Known: available}
+		if available {
+			s.Row.Value.Decimal = strconv.FormatInt(n, 10)
+		}
+		s.Row.Error = ptrError(errorState(cause, errorAvailable))
+		s.endInvocation()
+	case 2:
+		dst := s.New(0)
+		dst.Set(1)
+		dst.Set(3)
+		b := snapshot(dst)
+		s.Row.Before = &b
+		s.admit(b, f.Initial)
+		s.beginInvocation()
+		cause := binaryCandidate(s, int(e.Internal), dst, f.Data[:f.DataN])
+		s.Row.Error = ptrError(errorState(cause, true))
+		s.endInvocation()
+		a := snapshot(dst)
+		s.Row.After = &a
+	default:
+		s.stop("schedule_domain")
+	}
+	s.Row.Panic = &PanicState{Known: true}
+	s.Row.Done = true
+	s.Row.Returned = true
+	s.Counts.Candidate[2]++
+	s.emit(3, 0, nil, nil)
+	return copyRow(s.Row), nil
+}
+func Execute(s *Session, fs [14]Fixture, base Result) Result {
+	if s == nil {
+		base.State = "stopped"
+		base.Failure = "binding"
+		return base
+	}
+	for _, e := range Schedule() {
+		index := int(e.Profile)
+		if e.Request == 1 {
+			index += 4
+		}
+		if e.Request == 2 {
+			index += 9
+		}
+		row, err := s.Observe(e, fs[index])
+		base.Records[e.Dispatch].Row = row
+		if row.Done {
+			base.Completed++
+		}
+		if err != nil {
+			break
+		}
+	}
+	base.Counts = s.Counts
+	base.LastAcknowledgedSequence = s.Sequence
+	base.State = "completed"
+	if s.Stopped || base.Completed != Dispatches {
+		base.State = "stopped"
+		base.Failure = s.Failure
+	}
+	return base
+}
+func (s *Session) Final(r Result) error {
+	complete := [4]uint32{42, 42, 42, 0}
+	if r.State != "completed" || r.Completed != Dispatches || s.Stopped || r.Counts != s.Counts || r.Counts.Candidate != complete || r.Counts.Invocation != complete || r.LastAcknowledgedSequence != s.Sequence || s.ackSequence != s.Sequence || s.ackCounts != r.Counts || s.ackRowN != 42 {
+		return ErrStopped
+	}
+	for i, record := range r.Records {
+		if !reflect.DeepEqual(record.Row, s.ackRows[i]) || !record.Row.Done || !record.Row.Returned || !record.Row.Called || !record.Row.CallReturned || !record.Row.InputKnown || !record.Row.InputValid {
+			return ErrStopped
+		}
+	}
+	var err error
+	func() {
+		defer func() {
+			if recover() != nil {
+				err = ErrStopped
+			}
+		}()
+		s.emit(4, 0, nil, &r)
+	}()
+	return err
+}

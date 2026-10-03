@@ -1,0 +1,119 @@
+// Copyright 2026 teamswyg. SPDX-License-Identifier: Apache-2.0
+// Inert, owned synthetic controls. No real carrier or project Reader is called.
+package data33
+
+import (
+	"encoding/json"
+	"strings"
+	"testing"
+)
+
+func ownedSlot(q, pos int, state string) (Slot, Comparison) {
+	n := fixtureN[q]
+	selected := state != "unknown"
+	label := state == "satisfied"
+	one := 1
+	at := pos
+	s := Slot{Position: &at, Selected: &selected, Label: &label, Weight: &one, Known: []int{}, Unknown: []int{}, Retained: []Unknown{}, Vector: make([]string, n), Ordinals: make([]int, n)}
+	if !selected {
+		s.Label = nil
+		s.Weight = nil
+	}
+	c := Comparison{Rows: make([]SavedRow, 42)}
+	for f := 0; f < n; f++ {
+		d := bases[q] + pos*n + f
+		s.Vector[f] = state
+		s.Ordinals[f] = d
+		c.Rows[d] = SavedRow{State: state, Count: 1, Predicates: []Predicate{{Key: "owned_value", State: state}}}
+		if state == "unsatisfied" {
+			s.Known = append(s.Known, f)
+		} else if state == "unknown" {
+			s.Unknown = append(s.Unknown, f)
+			s.Retained = append(s.Retained, Unknown{f, "owned_value", d})
+		}
+	}
+	return s, c
+}
+func TestKnownCounterexampleRetainsUnknown(t *testing.T) {
+	s, c := ownedSlot(0, 0, "unsatisfied")
+	c.Rows[0].Predicates = append(c.Rows[0].Predicates, Predicate{Key: "owned_missing_channel", State: "unknown"})
+	c.Rows[0].Count = 2
+	s.Retained = append(s.Retained, Unknown{0, "owned_missing_channel", 0})
+	if e := evidence(s, 0, c); e != nil {
+		t.Fatal(e)
+	}
+	s.Retained = []Unknown{}
+	if e := evidence(s, 0, c); e == nil {
+		t.Fatal("unknown evidence erased")
+	}
+}
+func TestUnknownOnlyHasNoLabelOrWeight(t *testing.T) {
+	s, c := ownedSlot(1, 2, "unknown")
+	if e := evidence(s, 1, c); e != nil {
+		t.Fatal(e)
+	}
+	b := false
+	one := 1
+	selected := true
+	s.Selected = &selected
+	s.Label = &b
+	s.Weight = &one
+	if e := evidence(s, 1, c); e == nil {
+		t.Fatal("unknown implicitly negative")
+	}
+	b = true
+	if e := evidence(s, 1, c); e == nil {
+		t.Fatal("unknown implicitly positive")
+	}
+}
+func TestPositiveRequiresEveryKnownCondition(t *testing.T) {
+	s, c := ownedSlot(0, 0, "satisfied")
+	if e := evidence(s, 0, c); e != nil {
+		t.Fatal(e)
+	}
+	d := s.Ordinals[0]
+	c.Rows[d].State = "unknown"
+	c.Rows[d].Predicates[0].State = "unknown"
+	s.Vector[0] = "unknown"
+	s.Unknown = []int{0}
+	s.Retained = []Unknown{{0, "owned_value", d}}
+	if e := evidence(s, 0, c); e == nil {
+		t.Fatal("position privilege or partial positive")
+	}
+}
+func ownedRow() Row {
+	b := true
+	one := 1
+	no := false
+	return Row{Schema: "riido-finite-development-request-row-v1", ID: "owned-request", Request: "Check a frozen bounded value.", Candidates: []Candidate{{ID: "owned-candidate", Text: "Returns the frozen value.", Label: &b, Weight: &one}}, Role: "development_train", Group: 82, Family: "owned-family", Revision: strings.Repeat("a", 40), Scope: Scope{Inputs: 1, Observations: 1, Description: "Owned fixture only.", All: &no, Unseen: &no}, TextRevision: "owned-v1", Policy: "request_and_candidates_text_only"}
+}
+func TestRowRequiredPresenceTypesAndMetadata(t *testing.T) {
+	b, e := json.Marshal(ownedRow())
+	if e != nil {
+		t.Fatal(e)
+	}
+	if _, e = readRow(b); e != nil {
+		t.Fatal(e)
+	}
+	for _, pair := range [][2]string{{`"label":true`, `"label":null`}, {`"sample_weight":1`, `"sample_weight":1.0`}, {`"whole_group":82`, `"whole_group":0`}, {`"source_family":"owned-family"`, `"source_family":"owned/family"`}, {`"role":"development_train"`, `"role":"development_validation"`}, {`"label":true`, `"label":true,"Label":false`}} {
+		bad := strings.Replace(string(b), pair[0], pair[1], 1)
+		if _, e = readRow([]byte(bad)); e == nil {
+			t.Fatal("invalid supervision or metadata accepted")
+		}
+	}
+}
+func TestReaderMustReturnExactOwnedProjection(t *testing.T) {
+	r := ownedRow()
+	v := Loaded{Valid: true, Schema: "riido-short-behavior-claim-v1", Provenance: "finite-development-v1", ID: r.ID, Request: r.Request, Role: r.Role, Family: r.Family, Revision: r.Revision, TextRevision: r.TextRevision, Policy: r.Policy, Group: r.Group, Inputs: 1, Observations: 1, ScopeDescription: r.Scope.Description, Count: 1, SupervisionCount: 1, UnusedZero: true}
+	v.Candidates[0] = LoadedCandidate{r.Candidates[0].ID, r.Candidates[0].Text, true, 1}
+	if e := matchLoaded(r, v); e != nil {
+		t.Fatal(e)
+	}
+	for _, change := range []func(*Loaded){func(v *Loaded) { v.Group = 83 }, func(v *Loaded) { v.Candidates[0].Label = false }, func(v *Loaded) { v.Candidates[0].Weight = 0 }, func(v *Loaded) { v.Candidates[1].Text = "leaked" }, func(v *Loaded) { v.Provenance = "source-identifying" }} {
+		x := v
+		change(&x)
+		if e := matchLoaded(r, x); e == nil {
+			t.Fatal("reader projected incorrect metadata or supervision")
+		}
+	}
+}

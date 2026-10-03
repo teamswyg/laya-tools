@@ -1,0 +1,213 @@
+// Copyright 2026 teamswyg. Licensed under the Apache License, Version 2.0.
+// INERT SOURCE PROPOSAL. No tests, fixtures, original methods or saved files run.
+package main
+
+import (
+	"encoding/json"
+	"strings"
+	"testing"
+
+	core "riido.local/next60threecompare/threeliteral"
+)
+
+const ownedInteger = `{"returned_normally":true,"panic_present":false,"value_decimal":"9007199254740993","value_required":true,"error_channel_required":true,"error_nil":true,"own_error_kind":null}`
+const ownedSyntax = `{"returned_normally":true,"panic_present":false,"value_decimal":null,"value_required":false,"error_channel_required":true,"error_nil":false,"own_error_kind":"integer_syntax"}`
+const ownedBinary = `{"returned_normally":true,"panic_present":false,"error_channel_required":true,"error_nil":false,"own_error_kind":"tail_padding","receiver_after":{"length":4,"words_nil":false,"words_hex":["000000000000000a"]},"receiver_preserved_on_rejection":true}`
+
+func ownedContract(t *testing.T, q int, raw string) Contract {
+	t.Helper()
+	w, e := parseWant([]byte(raw), q)
+	if e != nil {
+		t.Fatalf("owned contract: %v", e)
+	}
+	return Contract{RequestID: "owned-request", FixtureID: "owned-input", Raw: json.RawMessage(raw), Want: w}
+}
+func ownedTerminal() core.Row {
+	return core.Row{Done: true, Returned: true, Panic: &core.PanicState{Known: true}}
+}
+func ownedBit(length uint16, word string) *core.BitState {
+	b := &core.BitState{Known: true, Length: length, Count: uint8((length + 63) / 64)}
+	if b.Count > 0 {
+		b.Words[0] = word
+	}
+	if b.Count > 1 {
+		b.Words[1] = "0000000000000000"
+	}
+	return b
+}
+func ownedPredicate(t *testing.T, r RowComparison, key string) Predicate {
+	t.Helper()
+	for _, p := range r.Predicates[:r.PredicateCount] {
+		if p.Key == key {
+			return p
+		}
+	}
+	t.Fatalf("missing predicate %s", key)
+	return Predicate{}
+}
+
+func TestLargeIntegerMismatchRetainsUnavailableError(t *testing.T) {
+	c := ownedContract(t, 1, ownedInteger)
+	g := ownedTerminal()
+	g.Value = &core.IntegerState{Available: true, Known: true, Decimal: "9007199254740992"}
+	r := compareRow(c, g)
+	if r.State != F || r.Counts.Unknown != 2 || r.Counts.Unsatisfied != 1 {
+		t.Fatalf("wrong value plus unavailable error collapsed: %+v", r.Counts)
+	}
+	p := ownedPredicate(t, r, "value_decimal")
+	if string(p.Expected) != `"9007199254740993"` || string(p.Actual) != `"9007199254740992"` {
+		t.Fatal("integer precision lost")
+	}
+	if ownedPredicate(t, r, "error_nil").State != U || ownedPredicate(t, r, "error_nil").Actual != nil {
+		t.Fatal("unknown error invented")
+	}
+	g.Value = nil
+	r = compareRow(c, g)
+	if r.State != U || r.Counts.Unsatisfied != 0 {
+		t.Fatal("unavailable integer became negative")
+	}
+}
+
+func TestIdentityUnavailableDoesNotMeanWrongSentinel(t *testing.T) {
+	c := ownedContract(t, 1, ownedSyntax)
+	for _, tc := range []struct {
+		name  string
+		known bool
+		id    uint8
+		want  State
+	}{{"unavailable", false, 0, U}, {"different", true, 7, F}, {"matching", true, 6, T}} {
+		t.Run(tc.name, func(t *testing.T) {
+			g := ownedTerminal()
+			g.Error = &core.ErrorChannel{Available: true, Known: true, Present: true, TypeKnown: true, Type: "*errors.errorString", OwnIdentityKnown: tc.known, OwnIdentity: tc.id}
+			r := compareRow(c, g)
+			if r.State != tc.want || ownedPredicate(t, r, "own_error_kind").State != tc.want {
+				t.Fatalf("identity state %s", r.State)
+			}
+		})
+	}
+	g := ownedTerminal()
+	g.Error = &core.ErrorChannel{Available: true, Known: true, OwnIdentityKnown: true}
+	r := compareRow(c, g)
+	if r.State != F || ownedPredicate(t, r, "own_error_kind").State != F {
+		t.Fatal("known nil cannot satisfy sentinel")
+	}
+}
+
+func TestOptionalFalseControlsDoNotDemandAbsenceOrMutation(t *testing.T) {
+	c := ownedContract(t, 1, ownedSyntax)
+	g := ownedTerminal()
+	g.Value = &core.IntegerState{Available: true, Known: true, Decimal: "123"}
+	g.Error = &core.ErrorChannel{Available: true, Known: true, Present: true, OwnIdentityKnown: true, OwnIdentity: 6}
+	r := compareRow(c, g)
+	if r.State != T || r.SkippedControlCount != 1 || string(r.LiteralWant) != ownedSyntax {
+		t.Fatal("optional value or full controls changed")
+	}
+	raw := `{"returned_normally":true,"panic_present":false,"error_channel_required":true,"error_nil":true,"own_error_kind":null,"receiver_after":{"length":4,"words_nil":false,"words_hex":["000000000000000a"]},"receiver_preserved_on_rejection":false}`
+	c = ownedContract(t, 2, raw)
+	g = ownedTerminal()
+	g.Before = ownedBit(4, "000000000000000a")
+	g.After = ownedBit(4, "000000000000000a")
+	g.Error = &core.ErrorChannel{Available: true, Known: true, OwnIdentityKnown: true}
+	r = compareRow(c, g)
+	if r.State != T || r.SkippedControlCount != 1 {
+		t.Fatal("false preservation forced mutation")
+	}
+}
+
+func TestReceiverMismatchAndUnknownIdentityCoexist(t *testing.T) {
+	c := ownedContract(t, 2, ownedBinary)
+	g := ownedTerminal()
+	g.Before = ownedBit(4, "000000000000000a")
+	g.After = ownedBit(4, "000000000000000b")
+	g.Error = &core.ErrorChannel{Available: true, Known: true, Present: true}
+	r := compareRow(c, g)
+	if r.State != F || r.Counts.Unknown != 1 || ownedPredicate(t, r, "receiver_preserved_on_rejection").State != F || ownedPredicate(t, r, "own_error_kind").State != U {
+		t.Fatal("known counterexample erased or unknown became false")
+	}
+	g.After = ownedBit(4, "000000000000000a")
+	g.Error.OwnIdentityKnown = true
+	g.Error.OwnIdentity = 2
+	r = compareRow(c, g)
+	if r.State != F || r.Counts.Unknown != 0 {
+		t.Fatal("wrong known error ignored")
+	}
+}
+
+func TestWordPaddingAndNilAreIndependentFacts(t *testing.T) {
+	raw := `{"returned_normally":true,"panic_present":false,"result_state":{"length":65,"words_nil":false,"words_hex":["0000000000000000","0000000000000000"]},"result_set_indices":[],"receiver_after":{"length":65,"words_nil":false,"words_hex":["0000000000000000","0000000000000000"]},"error_channel_required":false}`
+	c := ownedContract(t, 0, raw)
+	g := ownedTerminal()
+	g.After = ownedBit(65, "0000000000000000")
+	g.Result = ownedBit(65, "0000000000000000")
+	g.Result.Words[1] = "8000000000000000"
+	r := compareRow(c, g)
+	if ownedPredicate(t, r, "result_state.words_hex").State != F || ownedPredicate(t, r, "result_set_indices").State != T || r.State != F {
+		t.Fatal("tail padding lost in logical indices")
+	}
+	raw = `{"returned_normally":true,"panic_present":false,"result_state":{"length":0,"words_nil":false,"words_hex":[]},"result_set_indices":[],"receiver_after":{"length":0,"words_nil":false,"words_hex":[]},"error_channel_required":false}`
+	c = ownedContract(t, 0, raw)
+	g.Result = ownedBit(0, "")
+	g.Result.Nil = true
+	g.After = ownedBit(0, "")
+	r = compareRow(c, g)
+	if ownedPredicate(t, r, "result_state.words_nil").State != F {
+		t.Fatal("nil and empty collapsed")
+	}
+}
+
+func TestWantSchemaRejectsMissingNullAliasDuplicateAndType(t *testing.T) {
+	for _, raw := range []string{
+		strings.Replace(ownedInteger, `"value_required":true,`, "", 1),
+		strings.Replace(ownedInteger, `"value_required":true`, `"value_required":null`, 1),
+		strings.Replace(ownedInteger, `"value_required"`, `"Value_required"`, 1),
+		strings.Replace(ownedInteger, `"value_required":true`, `"value_required":true,"value_\u0072equired":true`, 1),
+		strings.Replace(ownedInteger, `"9007199254740993"`, `9007199254740993`, 1),
+		strings.Replace(ownedInteger, `"panic_present":false`, `"panic_present":false,"extra":1`, 1),
+	} {
+		if _, e := parseWant([]byte(raw), 1); e == nil {
+			t.Fatal("malformed Want accepted")
+		}
+	}
+	malformed := strings.Replace(ownedBinary, `"length":4`, `"length":null`, 1)
+	if _, e := parseWant([]byte(malformed), 2); e == nil {
+		t.Fatal("null nested length accepted")
+	}
+}
+
+func TestCanonicalTupleDoesNotDiscardExtraValues(t *testing.T) {
+	var tuple struct {
+		C [4]uint32 `json:"c"`
+	}
+	if e := canonicalJSON([]byte(`{"c":[1,1,1,0]}`), &tuple, false); e != nil {
+		t.Fatal(e)
+	}
+	for _, raw := range []string{`{"c":[1,1,1,0,99]}`, `{"c":[1,1,1]}`, `{"C":[1,1,1,0]}`, `{"c":[1,1,1,0],"c":[1,1,1,0]}`, `{"c":[1,1,1,0]} {}`} {
+		if e := canonicalJSON([]byte(raw), &tuple, false); e == nil {
+			t.Fatal("noncanonical tuple accepted")
+		}
+	}
+}
+
+func TestIncompleteProcessOrACKCannotAdmitSemanticComparison(t *testing.T) {
+	hash := strings.Repeat("a", 64)
+	yes := true
+	zero := 0
+	rss := int64(1024)
+	n := 42
+	bytes := int64(512)
+	c := Config{PlanSHA256: hash, WorkerSHA256: hash, ControllerSHA256: hash, OutsideConfigSHA256: hash}
+	counts := core.Counts{Candidate: [4]uint32{42, 42, 42, 0}, Invocation: [4]uint32{42, 42, 42, 0}}
+	z := core.Result{Counts: counts, LastAcknowledgedSequence: 168}
+	o := Outside{Schema: "riido-three-native-outside-result-v1", State: "complete_observation_transport", ConfigSHA256: hash, PlanSHA256: hash, WorkerSHA256: hash, ControllerSHA256: hash, FinalACKWritten: true, FinalChildIdentity: true, CompleteCountersKnown: true, CompleteRows: &n, TerminalRows: 42, NoRetry: true, AggregateCap: 2 << 20, OutputBytes: &bytes, DurablePrefix: DurableReceipt{Frames: 169, Bytes: 512, LastSHA256: hash}, FramesACKWritten: 169, LastDurable: &counts, LastACKWritten: &counts, Initialization: json.RawMessage("null"), Nested: json.RawMessage("null"), Authority: json.RawMessage("null"), Process: ProcessReceipt{StartAttempts: 1, Started: true, WaitAttempts: 1, Reaped: &yes, ExitCode: &zero, RSS: &rss, RSSCapExceeded: new(bool), Init: json.RawMessage("null"), Nested: json.RawMessage("null")}}
+	if e := validateOutside(o, z, c); e != nil {
+		t.Fatal(e)
+	}
+	for _, mutate := range []func(*Outside){func(x *Outside) { x.Process.Reaped = nil }, func(x *Outside) { x.Process.ExitCode = nil }, func(x *Outside) { x.FinalACKWritten = false }, func(x *Outside) { x.FramesACKWritten-- }, func(x *Outside) { x.DurablePrefix.Frames++; x.FramesACKWritten++; z.LastAcknowledgedSequence++ }, func(x *Outside) { x.Authority = json.RawMessage("true") }} {
+		copy := o
+		mutate(&copy)
+		if e := validateOutside(copy, z, c); e == nil {
+			t.Fatal("incomplete or invented authority admitted")
+		}
+		z.LastAcknowledgedSequence = 168
+	}
+}

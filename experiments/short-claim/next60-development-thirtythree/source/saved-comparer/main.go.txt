@@ -1,0 +1,143 @@
+// Copyright 2026 teamswyg. Licensed under the Apache License, Version 2.0.
+// Root-only saved-file CLI. No worker process, original imports or model calls.
+package main
+
+import (
+	"encoding/json"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"runtime"
+	"runtime/debug"
+	"syscall"
+)
+
+func readConfig(path string) (Config, error) {
+	var c Config
+	if !canonicalPath(path) {
+		return c, fail("config_path")
+	}
+	st, e := os.Lstat(path)
+	if e != nil || !st.Mode().IsRegular() || st.Size() < 1 || st.Size() > 65536 {
+		return c, fail("config_stat_or_cap")
+	}
+	real, e := filepath.EvalSymlinks(path)
+	if e != nil || real != path {
+		return c, fail("config_symlink")
+	}
+	f, e := os.OpenFile(path, os.O_RDONLY|syscall.O_NOFOLLOW, 0)
+	if e != nil {
+		return c, fail("config_open")
+	}
+	defer f.Close()
+	opened, e := f.Stat()
+	if e != nil || !os.SameFile(st, opened) {
+		return c, fail("config_identity")
+	}
+	b, e := io.ReadAll(io.LimitReader(f, 65537))
+	if e != nil || len(b) != int(st.Size()) || len(b) > 65536 {
+		return c, fail("config_read_or_cap")
+	}
+	after, e := os.Lstat(path)
+	if e != nil || !os.SameFile(st, after) || after.Size() != st.Size() || !after.ModTime().Equal(st.ModTime()) {
+		return c, fail("config_changed")
+	}
+	if e = canonicalJSON(b, &c, true); e != nil {
+		return c, e
+	}
+	return c, nil
+}
+func syncDir(path string) error {
+	f, e := os.Open(path)
+	if e != nil {
+		return fail("directory_open")
+	}
+	e = f.Sync()
+	closeErr := f.Close()
+	if e != nil || closeErr != nil {
+		return fail("directory_sync")
+	}
+	return nil
+}
+func outputPreflight(path string) error {
+	if !canonicalPath(path) {
+		return fail("output_path_or_cap")
+	}
+	if _, e := os.Lstat(path); !os.IsNotExist(e) {
+		return fail("output_exists_or_stat")
+	}
+	parent := filepath.Dir(path)
+	real, e := filepath.EvalSymlinks(parent)
+	if e != nil || real != parent {
+		return fail("output_parent_symlink")
+	}
+	st, e := os.Lstat(parent)
+	if e != nil || !st.IsDir() {
+		return fail("output_parent_directory")
+	}
+	return nil
+}
+func save(path string, b []byte) error {
+	if len(b) > 128<<10 {
+		return fail("output_path_or_cap")
+	}
+	if e := outputPreflight(path); e != nil {
+		return e
+	}
+	parent := filepath.Dir(path)
+	f, e := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if e != nil {
+		return fail("output_exclusive")
+	}
+	n, e := f.Write(b)
+	if e != nil || n != len(b) {
+		f.Close()
+		return fail("output_partial_preserved")
+	}
+	if e = f.Sync(); e != nil {
+		f.Close()
+		return fail("output_sync_uncertain")
+	}
+	if e = f.Close(); e != nil {
+		return fail("output_close_uncertain")
+	}
+	return syncDir(parent)
+}
+func run(args []string) int {
+	runtime.GOMAXPROCS(1)
+	debug.SetMemoryLimit(256 << 20)
+	if len(args) != 2 || args[0] != "--config" {
+		fmt.Fprintln(os.Stderr, "usage_config_only")
+		return 2
+	}
+	c, e := readConfig(args[1])
+	if e == nil {
+		e = outputPreflight(c.Output)
+	}
+	if e == nil {
+		cs, z, loadErr := loadSaved(c)
+		e = loadErr
+		if e == nil {
+			out := compareAll(cs, z, c)
+			var b []byte
+			b, e = json.Marshal(out)
+			if e == nil {
+				b = append(b, '\n')
+				e = save(c.Output, b)
+			}
+		}
+	}
+	// Fixed codes only. Never format a source/provider error or expose a path.
+	if e != nil {
+		code := "saved_comparison_failed"
+		if own, ok := e.(failure); ok {
+			code = string(own)
+		}
+		fmt.Fprintln(os.Stderr, code)
+		return 1
+	}
+	fmt.Fprintln(os.Stdout, "saved_comparison_complete_no_original_calls")
+	return 0
+}
+func main() { os.Exit(run(os.Args[1:])) }

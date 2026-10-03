@@ -1,0 +1,140 @@
+// Fresh bounded child files; external journal is the authoritative method ACK ledger.
+package workerio
+
+import (
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"riido.local/next60three-nativeprep/threeliteral"
+)
+
+type Reservation struct {
+	Schema                 string              `json:"schema"`
+	PlanSHA256             string              `json:"plan_sha256"`
+	Literal                threeliteral.Pin    `json:"literal"`
+	Wants                  threeliteral.Pin    `json:"wants"`
+	Captions               threeliteral.Pin    `json:"captions"`
+	DispatchMaximum        uint32              `json:"dispatch_maximum"`
+	MethodMaximum          uint32              `json:"method_maximum"`
+	OutputReserve          uint32              `json:"output_reserve"`
+	InitialCounts          threeliteral.Counts `json:"initial_counts"`
+	OriginalInitialization *uint64             `json:"original_initialization_actual"`
+	OriginalNested         *uint64             `json:"original_nested_actual"`
+}
+type Files struct {
+	root     string
+	finished bool
+}
+
+func syncDir(path string) error {
+	f, e := os.Open(path)
+	if e != nil {
+		return threeliteral.ErrStopped
+	}
+	defer f.Close()
+	if f.Sync() != nil {
+		return threeliteral.ErrStopped
+	}
+	return nil
+}
+func writeExclusive(path string, b []byte, cap int) error {
+	if len(b) > cap {
+		return threeliteral.ErrBounds
+	}
+	f, e := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if e != nil {
+		return threeliteral.ErrStopped
+	}
+	n, e := f.Write(b)
+	if e == nil && n != len(b) {
+		e = threeliteral.ErrStopped
+	}
+	if e == nil {
+		e = f.Sync()
+	}
+	closeErr := f.Close()
+	if e != nil || closeErr != nil {
+		return threeliteral.ErrStopped
+	}
+	return nil
+}
+func freshAbsolute(path string) bool {
+	if !filepath.IsAbs(path) || filepath.Clean(path) != path || path == "/" {
+		return false
+	}
+	if _, e := os.Lstat(path); !os.IsNotExist(e) {
+		return false
+	}
+	for p := filepath.Dir(path); ; p = filepath.Dir(p) {
+		st, e := os.Lstat(p)
+		if e != nil || !st.IsDir() || st.Mode()&os.ModeSymlink != 0 {
+			return false
+		}
+		if p == "/" {
+			break
+		}
+	}
+	return true
+}
+func Open(path, sha string, p Plan) (*Files, error) {
+	if !freshAbsolute(path) {
+		return nil, threeliteral.ErrBounds
+	}
+	if os.Mkdir(path, 0700) != nil {
+		return nil, threeliteral.ErrStopped
+	}
+	r := Reservation{Schema: "riido-next60-three-method-reservation-v1", PlanSHA256: sha, Literal: p.Literal.Pin, Wants: p.Wants.Pin, Captions: p.Captions.Pin,
+		DispatchMaximum: 42, MethodMaximum: 795, OutputReserve: 2070528}
+	b, e := json.Marshal(r)
+	if e != nil {
+		return nil, threeliteral.ErrStopped
+	}
+	if writeExclusive(filepath.Join(path, "reservation.json"), b, 16384) != nil || syncDir(path) != nil || syncDir(filepath.Dir(path)) != nil {
+		return nil, threeliteral.ErrStopped
+	}
+	return &Files{root: path}, nil
+}
+func (f *Files) Final(r threeliteral.Result) error {
+	if f == nil || f.finished || r.State != "completed" || r.Completed != 42 || r.Failure != "" {
+		return threeliteral.ErrStopped
+	}
+	b, e := CanonicalResult(r)
+	if e != nil {
+		return e
+	}
+	if writeExclusive(filepath.Join(f.root, "results.json"), b, 65536) != nil || syncDir(f.root) != nil {
+		return threeliteral.ErrStopped
+	}
+	f.finished = true
+	return nil
+}
+
+type Failure struct {
+	Schema                      string              `json:"schema"`
+	Reason                      string              `json:"reason"`
+	LastAcknowledgedSequence    uint32              `json:"last_acknowledged_sequence"`
+	Counts                      threeliteral.Counts `json:"in_memory_counts"`
+	Current                     threeliteral.Row    `json:"in_memory_current_row"`
+	AcknowledgedPrefixAuthority bool                `json:"acknowledged_prefix_authority"`
+	RemainingCallsUnknown       bool                `json:"remaining_calls_unknown"`
+}
+
+func (f *Files) Failure(s *threeliteral.Session, reason string) error {
+	if f == nil {
+		return threeliteral.ErrStopped
+	}
+	v := Failure{Schema: "riido-next60-three-method-failure-v1", Reason: reason, RemainingCallsUnknown: true}
+	if s != nil {
+		v.LastAcknowledgedSequence = s.Sequence
+		v.Counts = s.Counts
+		v.Current = s.Row
+	}
+	b, e := json.Marshal(v)
+	if e != nil {
+		return threeliteral.ErrStopped
+	}
+	if writeExclusive(filepath.Join(f.root, "failure.json"), b, 16384) != nil {
+		return threeliteral.ErrStopped
+	}
+	return syncDir(f.root)
+}

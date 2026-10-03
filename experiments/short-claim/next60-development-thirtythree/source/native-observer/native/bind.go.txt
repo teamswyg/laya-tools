@@ -1,0 +1,29 @@
+// Inert native adapter. Imports exact original modules only in a later Root stage.
+package native
+
+import (
+	originalbitset "github.com/bits-and-blooms/bitset"
+	originaljson "github.com/tidwall/gjson"
+	"math"
+	"riido.local/next60three-nativeprep/threeliteral"
+)
+
+// Raw pointers are private Ops arguments, never returned as a getter interface.
+func Operations() threeliteral.Ops {
+	return threeliteral.Ops{
+		New:        func(n uint) any { return originalbitset.New(n) },
+		Set:        func(v any, i uint) any { return v.(*originalbitset.BitSet).Set(i) },
+		Len:        func(v any) uint { return v.(*originalbitset.BitSet).Len() },
+		Words:      func(v any) []uint64 { return v.(*originalbitset.BitSet).Words() },
+		Test:       func(v any, i uint) bool { return v.(*originalbitset.BitSet).Test(i) },
+		Complement: func(v any) any { return v.(*originalbitset.BitSet).Complement() },
+		Unmarshal:  func(v any, b []byte) error { return v.(*originalbitset.BitSet).UnmarshalBinary(b) },
+		Assign:     func(dst, src any) { *dst.(*originalbitset.BitSet) = *src.(*originalbitset.BitSet) },
+		Valid:      func(s string) bool { return originaljson.Valid(s) },
+		Parse: func(s string) threeliteral.ParseReturn {
+			p := originaljson.Parse(s)
+			return threeliteral.ParseReturn{Type: uint8(p.Type), Raw: p.Raw, NumBits: math.Float64bits(p.Num), Native: p}
+		},
+		Int: func(v any) int64 { return v.(originaljson.Result).Int() },
+	}
+}

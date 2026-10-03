@@ -1,0 +1,248 @@
+// Copyright 2026 teamswyg. Licensed under the Apache License, Version 2.0.
+// Mirrors the owned worker Plan20 DTO. No original import, CheckWants/oracle call,
+// source function execution, role assignment or external proof interpretation.
+package main
+
+import (
+	"bytes"
+	"encoding/json"
+	"path/filepath"
+	"strconv"
+
+	core "riido.local/next60nativeoutside/threeliteral"
+)
+
+type PlanRef struct {
+	Path string   `json:"path"`
+	Pin  core.Pin `json:"pin"`
+}
+type CountPlan struct {
+	Schema               string    `json:"schema"`
+	Frozen               bool      `json:"frozen"`
+	Literal              PlanRef   `json:"literal"`
+	Wants                PlanRef   `json:"wants"`
+	Captions             PlanRef   `json:"captions"`
+	RootWantFreeze       PlanRef   `json:"Root_want_freeze"`
+	RootFamilyDecision   PlanRef   `json:"Root_family_decision"`
+	SourceManifest       PlanRef   `json:"source_manifest"`
+	RootCompilerReview   PlanRef   `json:"Root_compiler_review"`
+	RootSourceReview     PlanRef   `json:"Root_source_review"`
+	RootResourceReview   PlanRef   `json:"Root_resource_review"`
+	RootExecutionBinding PlanRef   `json:"Root_execution_binding"`
+	Worker               core.Pin  `json:"worker"`
+	Controller           core.Pin  `json:"controller"`
+	RequestOrder         [3]int    `json:"request_order"`
+	Mapping              [3][3]int `json:"display_to_internal"`
+	Fixtures             [3]int    `json:"fixture_counts"`
+	MethodMaximum        int       `json:"method_maximum"`
+	FrameMaximum         int       `json:"frame_maximum"`
+	OutputReserve        int       `json:"output_reserve_bytes"`
+}
+
+func planRefs(p CountPlan) [10]PlanRef {
+	return [10]PlanRef{p.Literal, p.Wants, p.Captions, p.RootWantFreeze, p.RootFamilyDecision, p.SourceManifest, p.RootCompilerReview, p.RootSourceReview, p.RootResourceReview, p.RootExecutionBinding}
+}
+func refPin(r PlanRef) Pin {
+	return Pin{ID: r.Pin.ID, Path: r.Path, Bytes: r.Pin.Bytes, SHA256: r.Pin.SHA256}
+}
+func sameFilePin(a, b Pin) bool {
+	return a.Path == b.Path && a.Bytes == b.Bytes && a.SHA256 == b.SHA256
+}
+func sameCorePin(a core.Pin, b Pin) bool { return a.Bytes == b.Bytes && a.SHA256 == b.SHA256 }
+
+func loadCountPlan(c Config) (CountPlan, error) {
+	var p CountPlan
+	b, e := checkPin(c.Plan, metadataCap)
+	if e != nil {
+		return p, e
+	}
+	if e = strictCanonical(b, &p); e != nil {
+		return p, e
+	}
+	if p.Schema != "riido-next60-three-native-plan-v1" || !p.Frozen || p.RequestOrder != ([3]int{2, 7, 1}) || p.Mapping != ([3][3]int{{0, 1, 2}, {2, 1, 0}, {0, 1, 2}}) || p.Fixtures != ([3]int{4, 5, 5}) || p.MethodMaximum != 795 || p.FrameMaximum != 1759 || p.OutputReserve != 2070528 {
+		return p, errCode("count_plan_contract")
+	}
+	exact := [5]struct {
+		ref   PlanRef
+		bytes int64
+		sha   string
+	}{
+		{p.Literal, 27551, "a57fd4f3f37f73984df9522b5607d18143277dc4c527124bac6c56a067799c13"},
+		{p.Wants, 10703, "4bc7c8ee36e38ae57da29d385c2feadb90261f81744988870ad1fe7ff334df02"},
+		{p.Captions, 4115, "45a421ce909c63949c30935889fad883f7e7202e6c4cd4c85ee4da55386fbd71"},
+		{p.RootWantFreeze, 2130, "73c85851347a3039906604923387719877e7969c70a8ca0fd6a9969679cc48d3"},
+		{p.RootFamilyDecision, 3089, "1677d33aeb32c18c809e9ea717f375d5086d5b371e68f09f48fd24ae2f254b7f"},
+	}
+	for _, x := range exact {
+		if x.ref.Pin.Bytes != x.bytes || x.ref.Pin.SHA256 != x.sha {
+			return p, errCode("count_plan_frozen_input_pin")
+		}
+	}
+	if p.Worker.ID == "" || p.Controller.ID == "" || !sameFilePin(refPin(p.Captions), c.Captions) || !sameFilePin(refPin(p.Wants), c.Wants) || !sameCorePin(p.Worker, c.Worker.Pin) || !sameCorePin(p.Controller, c.Controller.Pin) {
+		return p, errCode("plan_config_pin_binding")
+	}
+	bound := [4]PlanRef{p.SourceManifest, p.RootCompilerReview, p.RootSourceReview, p.RootResourceReview}
+	for i, r := range bound {
+		if !sameFilePin(refPin(r), c.RootReceipts[i]) {
+			return p, errCode("root_receipt_plan_binding")
+		}
+	}
+	refs := planRefs(p)
+	for i, r := range refs {
+		pin := refPin(r)
+		for _, old := range refs[:i] {
+			if old.Path == r.Path {
+				return p, errCode("plan_ref_alias")
+			}
+		}
+		for _, other := range [4]Pin{c.Plan, c.Worker.Pin, c.Controller.Pin, c.Time} {
+			if pin.Path == other.Path {
+				return p, errCode("plan_control_alias")
+			}
+		}
+		if pin.Path == c.Output || inside(pin.Path, c.Output) || inside(c.Output, pin.Path) {
+			return p, errCode("plan_output_overlap")
+		}
+		if _, e = checkPin(pin, 128<<10); e != nil {
+			return p, e
+		}
+	}
+	return p, nil
+}
+
+// The child's durable reservation exists before its first observation frame.
+// This is byte/shape binding, not independent execution/rights authority.
+type childReservation struct {
+	Schema                 string      `json:"schema"`
+	PlanSHA256             string      `json:"plan_sha256"`
+	Literal                core.Pin    `json:"literal"`
+	Wants                  core.Pin    `json:"wants"`
+	Captions               core.Pin    `json:"captions"`
+	DispatchMaximum        uint32      `json:"dispatch_maximum"`
+	MethodMaximum          uint32      `json:"method_maximum"`
+	OutputReserve          uint32      `json:"output_reserve"`
+	InitialCounts          core.Counts `json:"initial_counts"`
+	OriginalInitialization *uint64     `json:"original_initialization_actual"`
+	OriginalNested         *uint64     `json:"original_nested_actual"`
+}
+
+func reservationMatches(r childReservation, p CountPlan, sha string) bool {
+	return r.Schema == "riido-next60-three-method-reservation-v1" && r.PlanSHA256 == sha && r.Literal == p.Literal.Pin && r.Wants == p.Wants.Pin && r.Captions == p.Captions.Pin && r.DispatchMaximum == 42 && r.MethodMaximum == 795 && r.OutputReserve == 2070528 && r.InitialCounts == (core.Counts{}) && r.OriginalInitialization == nil && r.OriginalNested == nil
+}
+func checkChildReservation(attempt string, p CountPlan, sha string) error {
+	raw, e := readOwnedOutput(filepath.Join(attempt, "reservation.json"), 16384)
+	if e != nil {
+		return e
+	}
+	var r childReservation
+	if e = strictCompact(raw, &r); e != nil {
+		return e
+	}
+	if !reservationMatches(r, p, sha) {
+		return errCode("child_reservation_binding")
+	}
+	return nil
+}
+func loadInitialSnapshots(p CountPlan) ([plannedInputs]core.BitState, error) {
+	var out [plannedInputs]core.BitState
+	raw, e := checkPin(refPin(p.Literal), evidenceCap)
+	if e != nil {
+		return out, e
+	}
+	var doc struct {
+		Requests []struct {
+			Fixtures []struct {
+				Input   json.RawMessage `json:"input"`
+				Initial struct {
+					Length uint16   `json:"length"`
+					Nil    bool     `json:"words_nil"`
+					Words  []string `json:"words_hex"`
+				} `json:"source_state_before_proposed"`
+			} `json:"fixtures"`
+		} `json:"requests"`
+	}
+	if json.Unmarshal(raw, &doc) != nil || len(doc.Requests) != 3 {
+		return out, errCode("literal_initial_metadata")
+	}
+	at := 0
+	for q, r := range doc.Requests {
+		if len(r.Fixtures) != [3]int{4, 5, 5}[q] {
+			return out, errCode("literal_initial_schedule")
+		}
+		for _, f := range r.Fixtures {
+			if q == 0 {
+				v := core.BitState{Known: true, Length: f.Initial.Length, Count: uint8(len(f.Initial.Words)), Nil: f.Initial.Nil}
+				if len(f.Initial.Words) > 2 {
+					return out, errCode("literal_initial_words")
+				}
+				copy(v.Words[:], f.Initial.Words)
+				if !validBit(&v) {
+					return out, errCode("literal_initial_bit_shape")
+				}
+				out[at] = v
+			}
+			if q == 2 {
+				var in struct {
+					Initial struct {
+						Construct string `json:"construct"`
+						Length    int    `json:"length"`
+						Sets      []int  `json:"set_indices"`
+					} `json:"receiver_initial"`
+				}
+				if json.Unmarshal(f.Input, &in) != nil || in.Initial.Construct != "New(0), Set(1), Set(3)" || in.Initial.Length != 4 || len(in.Initial.Sets) != 2 || in.Initial.Sets[0] != 1 || in.Initial.Sets[1] != 3 {
+					return out, errCode("literal_binary_initial")
+				}
+				out[at] = core.BitState{Known: true, Length: 4, Count: 1, Words: [2]string{"000000000000000a", ""}}
+			}
+			at++
+		}
+	}
+	return out, nil
+}
+func finalPlanBinding(z *core.Result, p CountPlan) error {
+	if z == nil || z.Literal != p.Literal.Pin || z.Wants != p.Wants.Pin || z.Captions != p.Captions.Pin {
+		return errCode("final_plan_input_pins")
+	}
+	b, e := checkPin(refPin(p.Literal), 128<<10)
+	if e != nil {
+		return e
+	}
+	var doc struct {
+		Requests []struct {
+			Selector int    `json:"selector_ordinal"`
+			ID       string `json:"request_id"`
+			Fixtures []struct {
+				ID    string          `json:"id"`
+				Input json.RawMessage `json:"input"`
+				Want  json.RawMessage `json:"Want_proposed"`
+			} `json:"fixtures"`
+		} `json:"requests"`
+	}
+	// This metadata projection follows an exact whole-document SHA check. Other
+	// pinned literal metadata is not silently accepted from an arbitrary caller.
+	if json.Unmarshal(b, &doc) != nil || len(doc.Requests) != 3 {
+		return errCode("final_literal_metadata")
+	}
+	ids := [3]string{"source-next60-fixed-width-complement", "source-next60-lossless-integer-channel", "source-next60-strict-binary-decode"}
+	for q, r := range doc.Requests {
+		if r.Selector != [3]int{2, 7, 1}[q] || r.ID != ids[q] || len(r.Fixtures) != [3]int{4, 5, 5}[q] {
+			return errCode("final_literal_schedule")
+		}
+	}
+	for d, r := range z.Records {
+		q, f, _, _, e := schedule(uint8(d))
+		if e != nil {
+			return e
+		}
+		item := doc.Requests[q].Fixtures[f]
+		pointer := "/requests/" + strconv.Itoa(int(q)) + "/fixtures/" + strconv.Itoa(int(f)) + "/input"
+		if r.RequestID != doc.Requests[q].ID || r.FixtureID != item.ID || r.InputPointer != pointer || !equalRawJSON(r.Input, item.Input) || !equalRawJSON(r.Want, item.Want) {
+			return errCode("final_literal_record_binding")
+		}
+	}
+	return nil
+}
+func equalRawJSON(a, b []byte) bool {
+	var x, y bytes.Buffer
+	return json.Compact(&x, a) == nil && json.Compact(&y, b) == nil && bytes.Equal(x.Bytes(), y.Bytes())
+}
