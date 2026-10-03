@@ -3,66 +3,697 @@ package audit
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
+	"fmt"
+	"io"
 	"math"
 	"os"
+	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 )
 
-// Reproduce frozen development evidence. Scores allow small architecture
-// roundoff; IDs, labels, orders, ties, counts, styles and all other values are exact.
+const portableArtifactCap = 1 << 20
+const portableDiffCap = 512 << 10
+const portableFrozenBytes = 242297
+const portableFrozenSHA = "9a7b15eec028f5014791bec9a9aed7de0f60f1bc6eee404073d53e2d5a47670e"
+
+// Comparison-only tolerance. Production score functions and exact stable ties
+// are unchanged. An overlapping frozen pair can differ across architectures;
+// every actual ranking and its derived evidence must still be correct exactly.
+func portableBound(want float64) float64 { return 1e-12 * math.Max(1, math.Abs(want)) }
+func portableKinds() [4]string {
+	return [4]string{"fixed_order", "bm25", "lexical_ordered", "narrow_rule"}
+}
+func portableDigest(raw []byte) string { h := sha256.Sum256(raw); return hex.EncodeToString(h[:]) }
+func portableProblem(code string, c, r int) error {
+	return fmt.Errorf("portable_%s case=%d rank=%d", code, c, r)
+}
+
+type portableRecalculation struct {
+	Counts            Counts `json:"counts"`
+	Primary, Permuted [4]Aggregate
+	PositivePositions [3]int `json:"primary_positive_positions"`
+	PositionOneHits   int    `json:"position_index_one_hits"`
+}
+type portableRankDelta struct {
+	CaseIndex                      int `json:"case"`
+	RankIndex                      int `json:"rank"`
+	FrozenScores, ActualScores     [3]float64
+	FrozenDisplay, ActualDisplay   [3]int
+	FrozenSelected, ActualSelected [3]int
+	FrozenTies, ActualTies         [3]bool
+	FrozenVisit, ActualVisit       int
+	OverlapPairs                   [3]bool `json:"overlap_pairs_01_02_12"`
+}
+type portableAggregateDelta struct{ Frozen, Actual, RecalculatedActual Aggregate }
+type portableDifference struct {
+	Schema                      string `json:"schema"`
+	State                       string `json:"state"`
+	ValidationError             string `json:"validation_error"`
+	ScoreRule                   string `json:"score_rule"`
+	FrozenReportSHA256          string `json:"frozen_report_sha256"`
+	ActualReportSHA256          string `json:"actual_report_sha256"`
+	FrozenCases, ActualCases    int
+	RankChanges                 []portableRankDelta `json:"rank_changes"`
+	Primary, Permuted           [4]portableAggregateDelta
+	ActualRecalculation         portableRecalculation `json:"actual_recalculation"`
+	ActualRecalculationComplete bool                  `json:"actual_recalculation_complete"`
+}
+
+func portablePairs(n int) [3][2]int { return [3][2]int{{0, 1}, {0, 2}, {1, 2}} }
+func portableOverlaps(rank Rank, n int) (v [3]bool) {
+	for k, p := range portablePairs(n) {
+		if p[1] < n {
+			v[k] = math.Abs(rank.Scores[p[0]]-rank.Scores[p[1]]) <= portableBound(rank.Scores[p[0]])+portableBound(rank.Scores[p[1]])
+		}
+	}
+	return
+}
+func portablePosition(order [3]int, n, index int) int {
+	for p := 0; p < n; p++ {
+		if order[p] == index {
+			return p
+		}
+	}
+	return -1
+}
+func portableRobustOrder(want, got Rank, n int) error {
+	for _, pair := range portablePairs(n) {
+		i, j := pair[0], pair[1]
+		if j >= n {
+			continue
+		}
+		gap := math.Abs(want.Scores[i] - want.Scores[j])
+		if gap > portableBound(want.Scores[i])+portableBound(want.Scores[j]) {
+			wi, wj := portablePosition(want.DisplayOrder, n, i), portablePosition(want.DisplayOrder, n, j)
+			gi, gj := portablePosition(got.DisplayOrder, n, i), portablePosition(got.DisplayOrder, n, j)
+			if wi < 0 || wj < 0 || gi < 0 || gj < 0 || (wi < wj) != (gi < gj) {
+				return portableProblem("robust_pair_order", -1, -1)
+			}
+		}
+	}
+	return nil
+}
+
+// Independent validation from the report's actual scores, actual display order
+// and frozen labels. Do not call production permutation/ranking/evaluate helpers.
+func portableRecompute(report Report) (v portableRecalculation, err error) {
+	if report.Schema != "riido-development33-nonlearned-bias-audit-v1" || report.State != "complete" || !report.SimulatedOnly || report.ActualVerificationWorkObserved || !report.ExcludedUnknownCandidatesNotRead || report.ModelInferenceCalls != 0 || report.FitCalls != 0 {
+		return v, portableProblem("report_scope", -1, -1)
+	}
+	if len(report.DataSHA256) != 64 {
+		return v, portableProblem("data_pin", -1, -1)
+	}
+	for _, ch := range report.DataSHA256 {
+		if !(ch >= 'a' && ch <= 'f' || ch >= '0' && ch <= '9') {
+			return v, portableProblem("data_pin", -1, -1)
+		}
+	}
+	ks := portableKinds()
+	for k := range ks {
+		v.Primary[k].Kind = ks[k]
+		v.Permuted[k].Kind = ks[k]
+	}
+	totalCandidates, totalPermutations := 0, 0
+	for i, p := range report.Parents {
+		if p.Count != 2 && p.Count != 3 || p.StableID == "" || p.Style.RequestBytes <= 0 || p.Style.RequestNormalizedWords <= 0 {
+			return v, portableProblem("parent", i, -1)
+		}
+		for j := 0; j < i; j++ {
+			if p.StableID == report.Parents[j].StableID {
+				return v, portableProblem("parent_id", i, -1)
+			}
+		}
+		positives := 0
+		for j := 0; j < 3; j++ {
+			if j >= p.Count {
+				if p.CandidateIDs[j] != "" || p.Labels[j] || p.Style.CandidateBytes[j] != 0 || p.Style.CandidateNormalizedWords[j] != 0 {
+					return v, portableProblem("parent_padding", i, -1)
+				}
+				continue
+			}
+			if p.CandidateIDs[j] == "" || p.Style.CandidateBytes[j] <= 0 || p.Style.CandidateNormalizedWords[j] <= 0 {
+				return v, portableProblem("candidate_metadata", i, -1)
+			}
+			for k := 0; k < j; k++ {
+				if p.CandidateIDs[j] == p.CandidateIDs[k] {
+					return v, portableProblem("candidate_id", i, -1)
+				}
+			}
+			if p.Labels[j] {
+				positives++
+				v.PositivePositions[j]++
+				if j == 1 {
+					v.PositionOneHits++
+				}
+			}
+		}
+		if positives != 1 {
+			return v, portableProblem("frozen_positive_count", i, -1)
+		}
+		totalCandidates += p.Count
+		if p.Count == 2 {
+			totalPermutations += 2
+		} else {
+			totalPermutations += 6
+		}
+	}
+	if totalCandidates != 96 || totalPermutations != 186 || len(report.Cases) != 219 {
+		return v, portableProblem("finite_shape", -1, -1)
+	}
+	at := 0
+	for pi, parent := range report.Parents {
+		n := parent.Count
+		mappings := [][3]int{{0, 1, 2}, {0, 2, 1}, {1, 0, 2}, {1, 2, 0}, {2, 0, 1}, {2, 1, 0}}
+		if n == 2 {
+			mappings = [][3]int{{0, 1, 0}, {1, 0, 0}}
+		}
+		for schedule := -1; schedule < len(mappings); schedule++ {
+			c := report.Cases[at]
+			primary := schedule == -1
+			mapping := mappings[0]
+			if !primary {
+				mapping = mappings[schedule]
+			}
+			if c.ParentIndex != pi || c.Primary != primary || c.Count != n || c.DisplayToSelected != mapping {
+				return v, portableProblem("case_schedule", at, -1)
+			}
+			if primary {
+				v.Counts.PrimaryCases++
+			} else {
+				v.Counts.PermutationCases++
+			}
+			for k, rank := range c.Ranks {
+				if rank.Kind != ks[k] || len(rank.FallbackReason) > 128 {
+					return v, portableProblem("rank_metadata", at, k)
+				}
+				if k != 3 && rank.FallbackReason != "" {
+					return v, portableProblem("fallback", at, k)
+				}
+				if k == 0 && rank.Scores != [3]float64{} {
+					return v, portableProblem("fixed_score", at, k)
+				}
+				var seen [3]bool
+				visit := 0
+				for pos := 0; pos < 3; pos++ {
+					if math.IsNaN(rank.Scores[pos]) || math.IsInf(rank.Scores[pos], 0) {
+						return v, portableProblem("nonfinite_score", at, k)
+					}
+					if pos >= n {
+						if rank.DisplayOrder[pos] != 0 || rank.SelectedOrder[pos] != 0 || rank.Scores[pos] != 0 {
+							return v, portableProblem("rank_padding", at, k)
+						}
+						continue
+					}
+					display := rank.DisplayOrder[pos]
+					if display < 0 || display >= n || seen[display] {
+						return v, portableProblem("display_permutation", at, k)
+					}
+					seen[display] = true
+					if pos > 0 {
+						prev := rank.DisplayOrder[pos-1]
+						if rank.Scores[prev] < rank.Scores[display] || rank.Scores[prev] == rank.Scores[display] && prev > display {
+							return v, portableProblem("strict_score_order_stable_exact_tie", at, k)
+						}
+					}
+					selected := mapping[display]
+					if rank.SelectedOrder[pos] != selected {
+						return v, portableProblem("selected_mapping", at, k)
+					}
+					if visit == 0 && parent.Labels[selected] {
+						visit = pos + 1
+					}
+				}
+				ties := [3]bool{rank.Scores[0] == rank.Scores[1], false, false}
+				if n == 3 {
+					ties[1] = rank.Scores[0] == rank.Scores[2]
+					ties[2] = rank.Scores[1] == rank.Scores[2]
+				}
+				if rank.TiedPairs != ties {
+					return v, portableProblem("exact_tied_pairs", at, k)
+				}
+				if visit < 1 || rank.FirstPositiveVisit != visit {
+					return v, portableProblem("first_positive_visit", at, k)
+				}
+				ag := &v.Permuted[k]
+				if primary {
+					ag = &v.Primary[k]
+				}
+				ag.Cases++
+				ag.CandidateVisitsWithoutOrdering += n
+				ag.SimulatedVisitsToFirstPositive += visit
+				if visit == 1 {
+					ag.Top1KnownPositive++
+				}
+				if visit <= 3 {
+					ag.Top3KnownPositive++
+				}
+				if rank.FallbackReason != "" {
+					ag.FallbackCases++
+				}
+				v.Counts.RankingRecords++
+			}
+			v.Counts.BaselinesAttempts++
+			v.Counts.BaselinesReturned++
+			at++
+		}
+	}
+	v.Counts.ReaderAttempts = 33
+	v.Counts.ReaderReturned = 33
+	v.Counts.ReaderSucceeded = 33
+	if at != 219 || v.Counts.RankingRecords != 876 || v.Counts.PrimaryCases != 33 || v.Counts.PermutationCases != 186 {
+		return v, portableProblem("recomputed_count", -1, -1)
+	}
+	for k := 0; k < 4; k++ {
+		for _, ag := range []*Aggregate{&v.Primary[k], &v.Permuted[k]} {
+			ag.SimulatedReduction = float64(ag.CandidateVisitsWithoutOrdering-ag.SimulatedVisitsToFirstPositive) / float64(ag.CandidateVisitsWithoutOrdering)
+		}
+	}
+	if report.Counts != v.Counts || report.PrimaryPositivePositions != v.PositivePositions || report.PositionIndexOneHits != v.PositionOneHits {
+		return v, portableProblem("reported_counts_or_positive_positions", -1, -1)
+	}
+	if !reflect.DeepEqual(report.Primary, v.Primary) || !reflect.DeepEqual(report.Permuted, v.Permuted) {
+		return v, portableProblem("reported_aggregate", -1, -1)
+	}
+	return v, nil
+}
+
+func portableFixedMetadata(r Report) Report {
+	r.Cases = nil
+	r.Primary = [4]Aggregate{}
+	r.Permuted = [4]Aggregate{}
+	return r
+}
+func portableStartDiff(frozen, actual Report) portableDifference {
+	d := portableDifference{Schema: "riido-bias-portable-frozen-difference-v1", State: "failed", ScoreRule: "abs(actual-frozen) <= 1e-12*max(1,abs(frozen)); robust pair gap > bound_i+bound_j; actual ties use ==", FrozenReportSHA256: portableFrozenSHA, FrozenCases: len(frozen.Cases), ActualCases: len(actual.Cases), RankChanges: make([]portableRankDelta, 0)}
+	for k := 0; k < 4; k++ {
+		d.Primary[k].Frozen = frozen.Primary[k]
+		d.Primary[k].Actual = actual.Primary[k]
+		d.Permuted[k].Frozen = frozen.Permuted[k]
+		d.Permuted[k].Actual = actual.Permuted[k]
+	}
+	limit := len(frozen.Cases)
+	if len(actual.Cases) < limit {
+		limit = len(actual.Cases)
+	}
+	if limit > 219 {
+		limit = 219
+	}
+	for c := 0; c < limit; c++ {
+		for k := 0; k < 4; k++ {
+			f, a := frozen.Cases[c].Ranks[k], actual.Cases[c].Ranks[k]
+			if reflect.DeepEqual(f, a) {
+				continue
+			}
+			d.RankChanges = append(d.RankChanges, portableRankDelta{c, k, f.Scores, a.Scores, f.DisplayOrder, a.DisplayOrder, f.SelectedOrder, a.SelectedOrder, f.TiedPairs, a.TiedPairs, f.FirstPositiveVisit, a.FirstPositiveVisit, portableOverlaps(f, frozen.Cases[c].Count)})
+		}
+	}
+	return d
+}
+func portableCompare(frozen, actual Report) (d portableDifference, err error) {
+	d = portableStartDiff(frozen, actual)
+	defer func() {
+		if err != nil {
+			d.State = "failed"
+			d.ValidationError = err.Error()
+		}
+	}()
+	if _, err = portableRecompute(frozen); err != nil {
+		return d, err
+	}
+	d.ActualRecalculation, err = portableRecompute(actual)
+	d.ActualRecalculationComplete = err == nil
+	for k := 0; k < 4; k++ {
+		d.Primary[k].RecalculatedActual = d.ActualRecalculation.Primary[k]
+		d.Permuted[k].RecalculatedActual = d.ActualRecalculation.Permuted[k]
+	}
+	if err != nil {
+		return d, err
+	}
+	if !reflect.DeepEqual(portableFixedMetadata(frozen), portableFixedMetadata(actual)) {
+		return d, portableProblem("frozen_metadata", -1, -1)
+	}
+	for c := range actual.Cases {
+		f, a := frozen.Cases[c], actual.Cases[c]
+		if f.ParentIndex != a.ParentIndex || f.Primary != a.Primary || f.Count != a.Count || f.DisplayToSelected != a.DisplayToSelected {
+			return d, portableProblem("frozen_case_metadata", c, -1)
+		}
+		for k := 0; k < 4; k++ {
+			want, got := f.Ranks[k], a.Ranks[k]
+			if want.Kind != got.Kind || want.FallbackReason != got.FallbackReason {
+				return d, portableProblem("frozen_rank_metadata", c, k)
+			}
+			for display := 0; display < 3; display++ {
+				if math.IsNaN(got.Scores[display]) || math.IsInf(got.Scores[display], 0) || math.Abs(got.Scores[display]-want.Scores[display]) > portableBound(want.Scores[display]) {
+					return d, portableProblem("score_bound", c, k)
+				}
+			}
+			if portableRobustOrder(want, got, a.Count) != nil {
+				return d, portableProblem("robust_pair_order", c, k)
+			}
+		}
+	}
+	d.State = "complete_portable_reproduction"
+	return d, nil
+}
+
+func portableRead(path string, cap int64) ([]byte, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	raw, err := io.ReadAll(io.LimitReader(f, cap+1))
+	if err != nil || int64(len(raw)) > cap {
+		return nil, fmt.Errorf("portable_read_cap_or_io")
+	}
+	return raw, nil
+}
+func portableJSON(v any, cap int) ([]byte, error) {
+	raw, err := json.Marshal(v)
+	if err != nil {
+		return nil, err
+	}
+	raw = append(raw, '\n')
+	if len(raw) > cap {
+		return nil, fmt.Errorf("portable_json_cap")
+	}
+	return raw, nil
+}
+
+// O_EXCL failures and partial writes are preserved. No removal, overwrite or retry.
+func portableExclusive(path string, raw []byte) error {
+	if path == "" || len(raw) > portableArtifactCap {
+		return fmt.Errorf("portable_artifact_cap_or_path")
+	}
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if err != nil {
+		return err
+	}
+	if err = f.Chmod(0600); err != nil {
+		f.Close()
+		return err
+	}
+	n, err := f.Write(raw)
+	if err == nil && n != len(raw) {
+		err = io.ErrShortWrite
+	}
+	if err == nil {
+		err = f.Sync()
+	}
+	closeErr := f.Close()
+	if err != nil {
+		return err
+	}
+	if closeErr != nil {
+		return closeErr
+	}
+	dir, err := os.Open(filepath.Dir(path))
+	if err != nil {
+		return err
+	}
+	err = dir.Sync()
+	closeErr = dir.Close()
+	if err != nil {
+		return err
+	}
+	return closeErr
+}
+
 func TestPublicDevelopment33FrozenReproduction(t *testing.T) {
 	expectedPath, dataPath := os.Getenv("RIIDOLAYA_BIAS_FROZEN"), os.Getenv("RIIDOLAYA_BIAS_DATA")
 	if expectedPath == "" || dataPath == "" {
 		t.Fatal("explicit frozen evidence and data required")
 	}
-	raw, err := os.ReadFile(expectedPath)
+	raw, err := portableRead(expectedPath, MaxReportBytes)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatal("frozen evidence read failed")
+	}
+	if len(raw) != portableFrozenBytes || portableDigest(raw) != portableFrozenSHA {
+		t.Fatal("frozen Mac report pin differs")
 	}
 	var expected Report
-	if err := json.Unmarshal(raw, &expected); err != nil {
-		t.Fatal(err)
+	if err = json.Unmarshal(raw, &expected); err != nil {
+		t.Fatal("frozen report decode failed")
 	}
-	data, err := os.ReadFile(dataPath)
+	data, err := portableRead(dataPath, MaxDataBytes)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatal("development data read failed")
 	}
 	actual, err := Run(bytes.NewReader(data), expected.DataSHA256)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(actual.Cases) != len(expected.Cases) {
-		t.Fatal("case count differs")
+	// Preserve the full unmodified Run result before any reproduction validation.
+	actualRaw, err := portableJSON(actual, MaxReportBytes)
+	if err != nil {
+		t.Fatal("actual report encoding failed")
 	}
-	for c := range actual.Cases {
-		rawRanks := actual.Cases[c].Ranks
-		for r := range actual.Cases[c].Ranks {
-			for s := range actual.Cases[c].Ranks[r].Scores {
-				got, want := actual.Cases[c].Ranks[r].Scores[s], expected.Cases[c].Ranks[r].Scores[s]
-				bound := 1e-12 * math.Max(1, math.Abs(want))
-				if math.IsNaN(got) || math.IsInf(got, 0) || math.Abs(got-want) > bound {
-					t.Fatal("score outside roundoff bound")
-				}
-				actual.Cases[c].Ranks[r].Scores[s] = want
-			}
-		}
-		if !reflect.DeepEqual(actual.Cases[c], expected.Cases[c]) {
-			for r := range actual.Cases[c].Ranks {
-				if !reflect.DeepEqual(actual.Cases[c].Ranks[r], expected.Cases[c].Ranks[r]) {
-					var gotBits, wantBits [3]uint64
-					for s := range gotBits {
-						gotBits[s] = math.Float64bits(rawRanks[r].Scores[s])
-						wantBits[s] = math.Float64bits(expected.Cases[c].Ranks[r].Scores[s])
-					}
-					t.Fatalf("case=%d parent=%d primary=%t mapping=%v kind=%s raw_actual=%+v expected=%+v actual_score_bits=%x expected_score_bits=%x", c, actual.Cases[c].ParentIndex, actual.Cases[c].Primary, actual.Cases[c].DisplayToSelected, rawRanks[r].Kind, rawRanks[r], expected.Cases[c].Ranks[r], gotBits, wantBits)
-				}
-			}
-			t.Fatalf("case=%d non-ranking metadata differs", c)
+	actualPath := os.Getenv("RIIDOLAYA_BIAS_ACTUAL")
+	if actualPath != "" {
+		if err = portableExclusive(actualPath, actualRaw); err != nil {
+			t.Fatal("exclusive actual report persistence failed")
 		}
 	}
-	if !reflect.DeepEqual(actual, expected) {
-		t.Fatalf("global non-score evidence differs; counts_actual=%+v counts_expected=%+v primary_actual=%+v primary_expected=%+v permuted_actual=%+v permuted_expected=%+v", actual.Counts, expected.Counts, actual.Primary, expected.Primary, actual.Permuted, expected.Permuted)
+	diff, checkErr := portableCompare(expected, actual)
+	diff.ActualReportSHA256 = portableDigest(actualRaw)
+	diffRaw, err := portableJSON(diff, portableDiffCap)
+	if err != nil || len(actualRaw)+len(diffRaw) > portableArtifactCap {
+		t.Fatal("bounded difference encoding failed; saved actual report is preserved")
+	}
+	if actualPath != "" {
+		if err = portableExclusive(actualPath+".diff.json", diffRaw); err != nil {
+			t.Fatal("exclusive difference persistence failed; saved actual report is preserved")
+		}
+	} else {
+		fmt.Printf("%s", diffRaw)
+	}
+	if checkErr != nil {
+		t.Fatal(checkErr)
+	}
+}
+
+// Entirely fabricated controls. No development data, frozen result, Reader,
+// score function, original API, model, Fit or production evaluate helper is used.
+func portableSynthetic() Report {
+	r := Report{Schema: "riido-development33-nonlearned-bias-audit-v1", State: "complete", DataSHA256: strings.Repeat("a", 64), SimulatedOnly: true, ExcludedUnknownCandidatesNotRead: true, Counts: Counts{33, 33, 33, 219, 219, 33, 186, 876}}
+	ks := portableKinds()
+	for pi := 0; pi < 33; pi++ {
+		n := 3
+		if pi >= 30 {
+			n = 2
+		}
+		p := Parent{StableID: fmt.Sprintf("synthetic-parent-%02d", pi), Count: n, Style: Style{RequestBytes: 20, RequestNormalizedWords: 3}}
+		p.Labels[1] = true
+		for j := 0; j < n; j++ {
+			p.CandidateIDs[j] = fmt.Sprintf("synthetic-candidate-%d", j)
+			p.Style.CandidateBytes[j] = 10
+			p.Style.CandidateNormalizedWords[j] = 2
+		}
+		r.Parents[pi] = p
+		maps := [][3]int{{0, 1, 2}, {0, 2, 1}, {1, 0, 2}, {1, 2, 0}, {2, 0, 1}, {2, 1, 0}}
+		if n == 2 {
+			maps = [][3]int{{0, 1, 0}, {1, 0, 0}}
+		}
+		for series := -1; series < len(maps); series++ {
+			m := maps[0]
+			if series >= 0 {
+				m = maps[series]
+			}
+			c := Case{ParentIndex: pi, Primary: series < 0, Count: n, DisplayToSelected: m}
+			for k := 0; k < 4; k++ {
+				rank := Rank{Kind: ks[k], DisplayOrder: [3]int{0, 1, 2}, Scores: [3]float64{3, 2, 1}}
+				if k == 0 {
+					rank.Scores = [3]float64{}
+				}
+				if n == 2 {
+					rank.DisplayOrder[2] = 0
+					rank.Scores[2] = 0
+				}
+				if k == 3 {
+					rank.FallbackReason = "unsupported_rule_request"
+				}
+				c.Ranks[k] = rank
+			}
+			r.Cases = append(r.Cases, c)
+		}
+	}
+	portableSyntheticRefresh(&r)
+	return r
+}
+
+// Fixture construction uses the declared orders, never the comparison helper.
+func portableSyntheticRefresh(r *Report) {
+	ks := portableKinds()
+	r.Primary = [4]Aggregate{}
+	r.Permuted = [4]Aggregate{}
+	r.PrimaryPositivePositions = [3]int{}
+	r.PositionIndexOneHits = 0
+	for _, p := range r.Parents {
+		for j := 0; j < p.Count; j++ {
+			if p.Labels[j] {
+				r.PrimaryPositivePositions[j]++
+				if j == 1 {
+					r.PositionIndexOneHits++
+				}
+			}
+		}
+	}
+	for k := 0; k < 4; k++ {
+		r.Primary[k].Kind = ks[k]
+		r.Permuted[k].Kind = ks[k]
+	}
+	for ci := range r.Cases {
+		c := &r.Cases[ci]
+		for k := 0; k < 4; k++ {
+			rank := &c.Ranks[k]
+			rank.FirstPositiveVisit = 0
+			rank.SelectedOrder = [3]int{}
+			for pos := 0; pos < c.Count; pos++ {
+				selected := c.DisplayToSelected[rank.DisplayOrder[pos]]
+				rank.SelectedOrder[pos] = selected
+				if rank.FirstPositiveVisit == 0 && r.Parents[c.ParentIndex].Labels[selected] {
+					rank.FirstPositiveVisit = pos + 1
+				}
+			}
+			rank.TiedPairs = [3]bool{rank.Scores[0] == rank.Scores[1], false, false}
+			if c.Count == 3 {
+				rank.TiedPairs[1] = rank.Scores[0] == rank.Scores[2]
+				rank.TiedPairs[2] = rank.Scores[1] == rank.Scores[2]
+			}
+			a := &r.Permuted[k]
+			if c.Primary {
+				a = &r.Primary[k]
+			}
+			a.Cases++
+			a.CandidateVisitsWithoutOrdering += c.Count
+			a.SimulatedVisitsToFirstPositive += rank.FirstPositiveVisit
+			if rank.FirstPositiveVisit == 1 {
+				a.Top1KnownPositive++
+			}
+			if rank.FirstPositiveVisit <= 3 {
+				a.Top3KnownPositive++
+			}
+			if rank.FallbackReason != "" {
+				a.FallbackCases++
+			}
+		}
+	}
+	for k := 0; k < 4; k++ {
+		for _, a := range []*Aggregate{&r.Primary[k], &r.Permuted[k]} {
+			a.SimulatedReduction = float64(a.CandidateVisitsWithoutOrdering-a.SimulatedVisitsToFirstPositive) / float64(a.CandidateVisitsWithoutOrdering)
+		}
+	}
+}
+func portableSyntheticClone(r Report) Report { r.Cases = append([]Case(nil), r.Cases...); return r }
+func TestPortableSyntheticNearTieChangeAccepted(t *testing.T) {
+	frozen := portableSynthetic()
+	frozen.Cases[0].Ranks[1].Scores = [3]float64{1, 1, 0}
+	portableSyntheticRefresh(&frozen)
+	untouched := portableSyntheticClone(frozen)
+	actual := portableSyntheticClone(frozen)
+	actual.Cases[0].Ranks[1].Scores = [3]float64{1, 1 + 5e-13, 0}
+	actual.Cases[0].Ranks[1].DisplayOrder = [3]int{1, 0, 2}
+	portableSyntheticRefresh(&actual)
+	diff, err := portableCompare(frozen, actual)
+	if err != nil || diff.State != "complete_portable_reproduction" || !diff.ActualRecalculationComplete || len(diff.RankChanges) != 1 {
+		t.Fatal("valid overlap-pair change rejected", err)
+	}
+	delta := diff.RankChanges[0]
+	if !delta.OverlapPairs[0] || delta.OverlapPairs[1] || delta.OverlapPairs[2] || !delta.FrozenTies[0] || delta.ActualTies[0] || delta.FrozenVisit != 2 || delta.ActualVisit != 1 {
+		t.Fatal("near-tie evidence not preserved")
+	}
+	if diff.Primary[1].Actual.SimulatedVisitsToFirstPositive != diff.Primary[1].Frozen.SimulatedVisitsToFirstPositive-1 || diff.Primary[1].Actual.Top1KnownPositive != diff.Primary[1].Frozen.Top1KnownPositive+1 || !reflect.DeepEqual(diff.Primary[1].Actual, diff.Primary[1].RecalculatedActual) {
+		t.Fatal("actual-order aggregates not independently retained")
+	}
+	if !reflect.DeepEqual(frozen, untouched) || actual.Cases[0].Ranks[1].Scores[1] == 1 {
+		t.Fatal("frozen or actual scores were rewritten")
+	}
+}
+func TestPortableSyntheticCorruptionsRejected(t *testing.T) {
+	base := portableSynthetic()
+	if _, err := portableCompare(base, base); err != nil {
+		t.Fatal("synthetic basis invalid", err)
+	}
+	controls := []struct {
+		name   string
+		change func(*Report)
+	}{
+		{"robust_inversion", func(r *Report) {
+			r.Cases[0].Ranks[1].Scores = [3]float64{2, 3, 1}
+			r.Cases[0].Ranks[1].DisplayOrder = [3]int{1, 0, 2}
+			portableSyntheticRefresh(r)
+		}},
+		{"tie_corruption", func(r *Report) { r.Cases[0].Ranks[0].TiedPairs[0] = false }},
+		{"stable_tie_corruption", func(r *Report) { r.Cases[0].Ranks[0].DisplayOrder = [3]int{1, 0, 2}; portableSyntheticRefresh(r) }},
+		{"selected_mapping", func(r *Report) { r.Cases[0].Ranks[1].SelectedOrder[0] = 1 }},
+		{"first_positive_visits", func(r *Report) { r.Cases[0].Ranks[1].FirstPositiveVisit++ }},
+		{"aggregate_visits", func(r *Report) { r.Primary[1].SimulatedVisitsToFirstPositive++ }},
+		{"aggregate_reduction", func(r *Report) { r.Permuted[2].SimulatedReduction += 1e-15 }},
+		{"parent_style", func(r *Report) { r.Parents[0].Style.RequestBytes++ }},
+		{"frozen_label", func(r *Report) { r.Parents[0].Labels = [3]bool{true, false, false}; portableSyntheticRefresh(r) }},
+		{"case_permutation", func(r *Report) { r.Cases[0].DisplayToSelected = [3]int{1, 0, 2} }},
+		{"fallback", func(r *Report) {
+			r.Cases[0].Ranks[3].FallbackReason = "unsupported_rule_candidate"
+			portableSyntheticRefresh(r)
+		}},
+		{"counts", func(r *Report) { r.Counts.RankingRecords-- }},
+		{"unused_score", func(r *Report) { r.Cases[210].Ranks[1].Scores[2] = 5e-13 }},
+		{"unused_order", func(r *Report) { r.Cases[210].Ranks[1].DisplayOrder[2] = 1 }},
+		{"unused_selected", func(r *Report) { r.Cases[210].Ranks[1].SelectedOrder[2] = 1 }},
+		{"unused_tie", func(r *Report) { r.Cases[210].Ranks[1].TiedPairs[1] = true }},
+		{"nonfinite", func(r *Report) { r.Cases[0].Ranks[1].Scores[0] = math.NaN() }},
+	}
+	for _, control := range controls {
+		t.Run(control.name, func(t *testing.T) {
+			actual := portableSyntheticClone(base)
+			control.change(&actual)
+			if _, err := portableCompare(base, actual); err == nil {
+				t.Fatal("corrupted report accepted")
+			}
+		})
+	}
+	inverted := base.Cases[0].Ranks[1]
+	inverted.DisplayOrder = [3]int{1, 0, 2}
+	if portableRobustOrder(base.Cases[0].Ranks[1], inverted, 3) == nil {
+		t.Fatal("robust pair gate accepted inversion")
+	}
+}
+func TestPortableSyntheticExclusiveArtifactsPreserveFailedActual(t *testing.T) {
+	actual := portableSynthetic()
+	actual.Primary[1].Top1KnownPositive++
+	raw, err := portableJSON(actual, MaxReportBytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(t.TempDir(), "synthetic-actual.json")
+	if err = portableExclusive(path, raw); err != nil {
+		t.Fatal(err)
+	}
+	diff, checkErr := portableCompare(portableSynthetic(), actual)
+	if checkErr == nil {
+		t.Fatal("corrupt aggregate accepted")
+	}
+	diffRaw, err := portableJSON(diff, portableDiffCap)
+	if err != nil || len(raw)+len(diffRaw) > portableArtifactCap {
+		t.Fatal("synthetic artifact cap failed")
+	}
+	if err = portableExclusive(path+".diff.json", diffRaw); err != nil {
+		t.Fatal(err)
+	}
+	if err = portableExclusive(path, []byte("replacement forbidden\n")); err == nil {
+		t.Fatal("existing actual overwritten")
+	}
+	saved, err := os.ReadFile(path)
+	if err != nil || !bytes.Equal(saved, raw) {
+		t.Fatal("failed actual report not preserved")
+	}
+	info, err := os.Stat(path)
+	if err != nil || info.Mode().Perm() != 0600 {
+		t.Fatal("actual report permissions")
 	}
 }
