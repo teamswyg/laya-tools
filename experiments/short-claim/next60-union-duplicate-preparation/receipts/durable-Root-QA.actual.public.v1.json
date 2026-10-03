@@ -1,0 +1,81 @@
+{
+  "schema": "riido-durable-frame-Root-QA-v1",
+  "state": "SIX_OWNED_FAKE_CONTROLLER_CONTROLS_PASS_WITH_NIL_PANIC_COMPATIBILITY",
+  "source": [
+    {
+      "path": "go.mod",
+      "bytes": 191,
+      "sha256": "2246057d9c7f47a7b5ec1a141b6841b7fb7023b5895e54cb8dfd042fdf7fc1dc"
+    },
+    {
+      "path": "protocol.go",
+      "bytes": 8504,
+      "sha256": "60e2ce08a54e6f644f27c42cc59aa7b83734f1dac93eebf2c54d5820a32384a8"
+    },
+    {
+      "path": "protocol_test.go",
+      "bytes": 7112,
+      "sha256": "6b9a9f9e2bcb38b53bf3f52cae32a2a4cb16fc5b6bf9f3c3c74b3293624e01fb"
+    }
+  ],
+  "frame_source": [
+    {
+      "path": "encoding_bound_test.go",
+      "bytes": 1828,
+      "sha256": "337048346df3c646019aeb49093fe9c92db416a4e14e69e6e2b6f9faee587908"
+    },
+    {
+      "path": "frame.go",
+      "bytes": 10923,
+      "sha256": "9f10ca862a9fdd2d4535f9f61880d2e9066d49b76afb91658d9d0c037ed51ad1"
+    },
+    {
+      "path": "go.mod",
+      "bytes": 50,
+      "sha256": "b1d957a005aa2a57061064534249b9abf5ba15792834ec95de9bd8228162f006"
+    },
+    {
+      "path": "required_corrections_test.go",
+      "bytes": 2120,
+      "sha256": "4ca3c083cbc28079b8e30c4ddbccbe440d3d7fde7a11e3fe7ec498b93eedc296"
+    },
+    {
+      "path": "writer.go",
+      "bytes": 7310,
+      "sha256": "0c93e735737cb4383d290aea06e66a446b3b9a229bc2ee432c8f270189c7e3e3"
+    },
+    {
+      "path": "writer_test.go",
+      "bytes": 8957,
+      "sha256": "39491584bfdca1aa9bda921f963366e172768a8381243332c18997bc5e672801"
+    }
+  ],
+  "Go": "1.27.1",
+  "race": {
+    "GODEBUG": "panicnil=1",
+    "exit": 0,
+    "tests": 6,
+    "seconds": 2.418
+  },
+  "vet_darwin_exit": 0,
+  "format_unformatted": 0,
+  "controls": [
+    "39-row nested synthetic stream independently recomputes counters and spans",
+    "Each ACK follows write + file Sync + parent Sync fake trace",
+    "Write/Sync/parent/ACK/panic/nil-panic failures are sticky; durable and acknowledged prefixes remain separate",
+    "Complete FINAL followed by real reader EOF required; partial or trailing streams fail",
+    "Forged counters/parent spans/non-exclusive/null outcome facts rejected before journaling",
+    "Malformed/oversized frames receive no ACK; no implicit resume on old journal"
+  ],
+  "fixed_journal_bound_bytes": 1310720,
+  "fake_sync_is_not_actual_OS_durability": true,
+  "original_native_model_Fit": 0,
+  "process_Start_Wait_kill_RSS_stderr_compiler": 0,
+  "pending": [
+    "Independent source review",
+    "Actual exclusive file reservation and file/parent Sync",
+    "Outside process Wait/exit/kill/reap and bounded stderr/RSS",
+    "Exact worker result-file correspondence",
+    "Compiler/source identity, rights, fresh retained resource admission"
+  ]
+}

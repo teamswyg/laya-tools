@@ -1,0 +1,122 @@
+// SPDX-License-Identifier: Apache-2.0
+package artifactseal
+
+import (
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
+
+func owned(t *testing.T) (string, string) {
+	t.Helper()
+	root, e := filepath.EvalSymlinks(t.TempDir())
+	if e != nil {
+		t.Fatal(e)
+	}
+	p := filepath.Join(root, "owned-file")
+	if e := os.WriteFile(p, []byte("Owned bytes only; never executable code."), 0700); e != nil {
+		t.Fatal(e)
+	}
+	return root, p
+}
+func TestObservedPinAndOrdinaryMutation(t *testing.T) {
+	r, p := owned(t)
+	s, e := Observe(r, p)
+	if e != nil || !s.Valid() {
+		t.Fatal(e)
+	}
+	if e := s.Check(s.Pin()); e != nil {
+		t.Fatal(e)
+	}
+	bad := s.Pin()
+	bad.SHA256 = strings.Repeat("f", 64)
+	if s.Check(bad) != ErrPin {
+		t.Fatal("expected pin bypass")
+	}
+	if e := os.WriteFile(p, []byte("Changed owned bytes only."), 0700); e != nil {
+		t.Fatal(e)
+	}
+	if s.Check(s.Pin()) == nil {
+		t.Fatal("mutated bytes accepted")
+	}
+}
+func TestSymlinkOutsideAndNonExecutableRejected(t *testing.T) {
+	r, p := owned(t)
+	l := filepath.Join(r, "link")
+	if e := os.Symlink(p, l); e != nil {
+		t.Fatal(e)
+	}
+	if _, e := Observe(r, l); e == nil {
+		t.Fatal("symlink")
+	}
+	other := t.TempDir()
+	if _, e := Observe(other, p); e == nil {
+		t.Fatal("outside root")
+	}
+	if e := os.Chmod(p, 0600); e != nil {
+		t.Fatal(e)
+	}
+	if _, e := Observe(r, p); e != ErrFile {
+		t.Fatal("executable flag")
+	}
+}
+func TestReplacedIdentityAndMissingFileRejected(t *testing.T) {
+	r, p := owned(t)
+	s, e := Observe(r, p)
+	if e != nil {
+		t.Fatal(e)
+	}
+	b, e := os.ReadFile(p)
+	if e != nil {
+		t.Fatal(e)
+	}
+	q := filepath.Join(r, "replacement")
+	if e := os.WriteFile(q, b, 0700); e != nil {
+		t.Fatal(e)
+	}
+	if e := os.Rename(q, p); e != nil {
+		t.Fatal(e)
+	}
+	if s.Check(s.Pin()) == nil {
+		t.Fatal("replaced inode")
+	}
+	if e := os.Remove(p); e != nil {
+		t.Fatal(e)
+	}
+	if _, e := Observe(r, p); e == nil {
+		t.Fatal("missing file")
+	}
+}
+func TestShapeAndReadBound(t *testing.T) {
+	r, p := owned(t)
+	if _, e := Observe(r, "owned-file"); e != ErrShape {
+		t.Fatal("relative path")
+	}
+	f, e := os.OpenFile(p, os.O_WRONLY, 0700)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if e := f.Truncate(MaxArtifactBytes + 1); e != nil {
+		t.Fatal(e)
+	}
+	if e := f.Close(); e != nil {
+		t.Fatal(e)
+	}
+	if _, e := Observe(r, p); e != ErrFile {
+		t.Fatal("size before read")
+	}
+	if (Seal{}).Check(Pin{}) != ErrShape {
+		t.Fatal("zero seal")
+	}
+}
+
+func TestHardlinkRejected(t *testing.T) {
+	r, p := owned(t)
+	if e := os.Link(p, filepath.Join(r, "owned-hardlink")); e != nil {
+		t.Fatal(e)
+	}
+	if _, e := Observe(r, p); e != ErrFile {
+		t.Fatal("multiple links")
+	}
+}

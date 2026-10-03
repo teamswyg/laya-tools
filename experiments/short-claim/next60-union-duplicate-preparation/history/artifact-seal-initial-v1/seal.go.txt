@@ -1,0 +1,127 @@
+// SPDX-License-Identifier: Apache-2.0
+// Package artifactseal supplies file identity controls only. A successful seal
+// authorizes no compiler/worker process and grants no transient-file exemption.
+package artifactseal
+
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"errors"
+	"io"
+	"os"
+	"path/filepath"
+)
+
+const MaxArtifactBytes = 32 << 20
+
+var ErrShape = errors.New("artifact_seal_shape")
+var ErrFile = errors.New("artifact_seal_file")
+var ErrPin = errors.New("artifact_seal_pin")
+
+type Pin struct {
+	Bytes  int64
+	SHA256 string
+	Mode   uint32
+}
+type Seal struct {
+	root, path string
+	info       os.FileInfo
+	pin        Pin
+	ready      bool
+}
+
+func (s Seal) Pin() Pin    { return s.pin }
+func (s Seal) Valid() bool { return s.ready }
+
+func canonical(p string) bool {
+	if !filepath.IsAbs(p) || filepath.Clean(p) != p {
+		return false
+	}
+	for _, c := range []byte(p) {
+		if c == 0 || c == '\n' || c == '\r' {
+			return false
+		}
+	}
+	x, e := filepath.EvalSymlinks(p)
+	return e == nil && x == p
+}
+func validHash(s string) bool {
+	if len(s) != 64 {
+		return false
+	}
+	for _, c := range []byte(s) {
+		if !(c >= '0' && c <= '9' || c >= 'a' && c <= 'f') {
+			return false
+		}
+	}
+	return true
+}
+func metadataEqual(a, b os.FileInfo) bool {
+	return os.SameFile(a, b) && a.Size() == b.Size() && a.Mode() == b.Mode() && a.ModTime().Equal(b.ModTime())
+}
+func inRoot(root, p string) bool {
+	if !canonical(root) || !canonical(p) || root == p {
+		return false
+	}
+	r, e := filepath.Rel(root, p)
+	return e == nil && r != ".." && !filepath.IsAbs(r) && len(r) > 0 && !(len(r) >= 3 && r[:3] == ".."+string(filepath.Separator))
+}
+
+// inspect streams bytes after canonical regular-file checks. It never reads
+// Go build metadata, executes a file, follows a symlink or interprets bytes as
+// a model. File identity and size/mode/mtime are checked before and after read.
+func inspect(root, p string) (Seal, error) {
+	if !inRoot(root, p) {
+		return Seal{}, ErrShape
+	}
+	r, e := os.Lstat(root)
+	if e != nil || !r.IsDir() || r.Mode()&os.ModeSymlink != 0 {
+		return Seal{}, ErrFile
+	}
+	before, e := os.Lstat(p)
+	if e != nil || !before.Mode().IsRegular() || !oneLink(before) || before.Size() < 1 || before.Size() > MaxArtifactBytes || before.Mode()&(os.ModeSetuid|os.ModeSetgid|os.ModeSticky) != 0 || before.Mode().Perm()&0111 == 0 {
+		return Seal{}, ErrFile
+	}
+	f, e := os.Open(p)
+	if e != nil {
+		return Seal{}, ErrFile
+	}
+	opened, e := f.Stat()
+	if e != nil || !oneLink(opened) || !metadataEqual(before, opened) {
+		f.Close()
+		return Seal{}, ErrFile
+	}
+	h := sha256.New()
+	n, e := io.Copy(h, io.LimitReader(f, before.Size()+1))
+	closeErr := f.Close()
+	after, statErr := os.Lstat(p)
+	if e != nil || closeErr != nil || statErr != nil || !oneLink(after) || n != before.Size() || !metadataEqual(before, after) || !inRoot(root, p) {
+		return Seal{}, ErrFile
+	}
+	return Seal{root: root, path: p, info: after, pin: Pin{n, hex.EncodeToString(h.Sum(nil)), uint32(after.Mode().Perm())}, ready: true}, nil
+}
+
+// Observe supplies the actual file digest; Root must separately pin source,
+// compiler/toolchain/build identity and admit the process lifecycle. These are
+// not inferred from an executable bit or a byte digest.
+func Observe(root, p string) (Seal, error) { return inspect(root, p) }
+
+// Check re-observes both content and metadata against an independently frozen
+// expected pin and the original live file identity. It detects ordinary drift,
+// not malicious races between this check and a later external exec.
+func (s Seal) Check(expected Pin) error {
+	if !s.ready || !validHash(expected.SHA256) || expected.Bytes < 1 || expected.Bytes > MaxArtifactBytes || expected.Mode > 0777 {
+		return ErrShape
+	}
+	if expected != s.pin {
+		return ErrPin
+	}
+	now, e := inspect(s.root, s.path)
+	if e != nil {
+		return e
+	}
+	if now.pin != expected || !metadataEqual(s.info, now.info) {
+		return ErrPin
+	}
+	return nil
+}

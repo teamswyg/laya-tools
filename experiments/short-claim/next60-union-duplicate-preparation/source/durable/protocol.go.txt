@@ -1,0 +1,326 @@
+// SPDX-License-Identifier: Apache-2.0
+// Package durable observes owned wire boundaries only. It launches no process
+// and qualifies no native evidence, labels, model, compiler or resource policy.
+package durable
+
+import (
+	"bufio"
+	"crypto/sha256"
+	"encoding/hex"
+	"errors"
+	"io"
+
+	f "riido.local/unionduplicateframe"
+)
+
+var ErrProtocol = errors.New("durable_protocol")
+var ErrJournal = errors.New("durable_journal")
+var ErrACK = errors.New("durable_ack")
+var ErrIncomplete = errors.New("durable_incomplete")
+
+type slot struct {
+	unit         f.Unit
+	d            uint8
+	m            f.MethodID
+	c            f.CallbackID
+	span, parent uint16
+	dispatched   bool
+}
+
+// State is owned by one receiver loop. A tentative copy is committed only
+// after journaling and ACK transmission; no shared map, lock or goroutine.
+type State struct {
+	seq                    uint16
+	counts                 f.Counts
+	stack                  [f.MaxDepth]slot
+	depth                  uint8
+	rows                   uint8
+	candidate              bool
+	ready, final, complete bool
+	pins                   f.Pins
+}
+
+func NewState(p f.Pins) (State, error) {
+	if !f.Hex64(p.Freeze) || !f.Hex64(p.Fixtures) || !f.Hex64(p.Captions) {
+		return State{}, ErrProtocol
+	}
+	return State{pins: p}, nil
+}
+func (s State) Sequence() uint16 { return s.seq }
+func (s State) Counts() f.Counts { return s.counts }
+func (s State) Complete() bool   { return s.final && s.complete }
+
+func stage(k f.Stage) (f.Unit, bool, error) {
+	switch k {
+	case f.BeforeRow:
+		return f.Row, true, nil
+	case f.AfterRow:
+		return f.Row, false, nil
+	case f.BeforeCandidate:
+		return f.Candidate, true, nil
+	case f.AfterCandidate:
+		return f.Candidate, false, nil
+	case f.BeforeMethod:
+		return f.Method, true, nil
+	case f.AfterMethod:
+		return f.Method, false, nil
+	case f.BeforeCallback:
+		return f.Callback, true, nil
+	case f.AfterCallback:
+		return f.Callback, false, nil
+	}
+	return 0, false, ErrProtocol
+}
+
+// Next validates order and recomputes delayed boundary counters independently
+// of the worker. Matching this protocol does not prove native thunk coverage.
+func (s State) Next(v f.Frame) (State, error) {
+	if _, e := f.CanonicalFrame(v); e != nil || s.final || v.Q != s.seq+1 {
+		return s, ErrProtocol
+	}
+	if v.K == f.Ready {
+		if s.ready || s.seq != 0 || v.B == nil || *v.B != s.pins {
+			return s, ErrProtocol
+		}
+		s.ready = true
+		s.seq = v.Q
+		return s, nil
+	}
+	if !s.ready {
+		return s, ErrProtocol
+	}
+	if v.K == f.Final {
+		if s.depth != 0 || v.B == nil || *v.B != s.pins || v.N != s.counts || v.Z == nil {
+			return s, ErrProtocol
+		}
+		if v.Z.Complete && (s.rows != f.MaxRows || s.counts[f.Candidate][1] != f.MaxRows) {
+			return s, ErrProtocol
+		}
+		s.final = true
+		s.complete = v.Z.Complete
+		s.seq = v.Q
+		return s, nil
+	}
+	unit, before, e := stage(v.K)
+	if e != nil {
+		return s, e
+	}
+	// A call becomes dispatched after its acknowledged BEFORE and before the
+	// next frame. Multiple nested methods have separate pending stack entries.
+	for i := uint8(0); i < s.depth; i++ {
+		if !s.stack[i].dispatched {
+			s.counts[s.stack[i].unit][1]++
+			s.stack[i].dispatched = true
+		}
+	}
+	if before {
+		if s.depth >= f.MaxDepth {
+			return s, ErrProtocol
+		}
+		parent := uint16(0)
+		if unit == f.Row {
+			if s.depth != 0 || v.D != s.rows {
+				return s, ErrProtocol
+			}
+			s.candidate = false
+		} else {
+			if s.depth == 0 {
+				return s, ErrProtocol
+			}
+			p := s.stack[s.depth-1]
+			parent = p.span
+			if p.d != v.D {
+				return s, ErrProtocol
+			}
+			switch unit {
+			case f.Candidate:
+				if p.unit != f.Row || s.candidate {
+					return s, ErrProtocol
+				}
+				s.candidate = true
+			case f.Method:
+				if p.unit != f.Row && p.unit != f.Candidate && p.unit != f.Callback {
+					return s, ErrProtocol
+				}
+			case f.Callback:
+				if p.unit != f.Method {
+					return s, ErrProtocol
+				}
+				if p.m == f.Readdir && (v.C < f.Layer || v.C > f.Merger) || p.m == f.ForEach && v.C != f.Each || p.m != f.Readdir && p.m != f.ForEach {
+					return s, ErrProtocol
+				}
+			}
+		}
+		if v.P != parent || v.S != v.Q {
+			return s, ErrProtocol
+		}
+		s.counts[unit][0]++
+		s.stack[s.depth] = slot{unit: unit, d: v.D, m: v.M, c: v.C, span: v.S, parent: parent}
+		s.depth++
+	} else {
+		if s.depth == 0 || v.F == nil {
+			return s, ErrProtocol
+		}
+		p := s.stack[s.depth-1]
+		if p.unit != unit || p.d != v.D || p.m != v.M || p.c != v.C || p.span != v.S || p.parent != v.P {
+			return s, ErrProtocol
+		}
+		n, panicFact := v.F.Normal, v.F.Panic
+		if n.N || panicFact.N || n.V == panicFact.V {
+			return s, ErrProtocol
+		}
+		if unit == f.Row && n.V && !s.candidate {
+			return s, ErrProtocol
+		}
+		if panicFact.V {
+			s.counts[unit][3]++
+		} else {
+			s.counts[unit][2]++
+		}
+		s.depth--
+		s.stack[s.depth] = slot{}
+		if unit == f.Row {
+			s.rows++
+		}
+	}
+	if v.N != s.counts {
+		return s, ErrProtocol
+	}
+	s.seq = v.Q
+	return s, nil
+}
+
+const JournalCapBytes = f.MaxFrames * f.MaxLineBytes
+
+type SyncWriter interface {
+	Write([]byte) (int, error)
+	Sync() error
+}
+type Cursor struct {
+	Sequence      uint16
+	Bytes         int64
+	PayloadSHA256 string
+}
+type Journal struct {
+	file       SyncWriter
+	parentSync func() error
+	cursor     Cursor
+	stopped    bool
+}
+
+// NewJournal requires a caller-owned exclusively reserved file and synced
+// parent. It neither creates nor authorizes an output directory.
+func NewJournal(file SyncWriter, parentSync func() error) (*Journal, error) {
+	if file == nil || parentSync == nil {
+		return nil, ErrJournal
+	}
+	return &Journal{file: file, parentSync: parentSync}, nil
+}
+func (j *Journal) Cursor() Cursor { return j.cursor }
+func (j *Journal) Append(raw []byte, q uint16) (Cursor, error) {
+	if j.stopped || q != j.cursor.Sequence+1 || q > f.MaxFrames || len(raw) < 2 || len(raw) > f.MaxLineBytes || raw[len(raw)-1] != '\n' || j.cursor.Bytes+int64(len(raw)) > JournalCapBytes {
+		return j.cursor, ErrJournal
+	}
+	j.stopped = true // every attempted write may be partial; no automatic reappend
+	n, e := j.file.Write(raw)
+	if e != nil || n != len(raw) || j.file.Sync() != nil || j.parentSync() != nil {
+		return j.cursor, ErrJournal
+	}
+	h := sha256.Sum256(raw[:len(raw)-1]) // Writer ACK hashes exclude terminal LF
+	j.cursor = Cursor{q, j.cursor.Bytes + int64(len(raw)), hex.EncodeToString(h[:])}
+	j.stopped = false
+	return j.cursor, nil
+}
+
+type Receipt struct {
+	Acknowledged State
+	Durable      Cursor
+	ACKs         uint16
+	GenuineEOF   bool
+	Stopped      bool
+}
+type Receiver struct {
+	state   State
+	journal *Journal
+	ack     io.Writer
+	receipt Receipt
+	stop    error
+}
+
+func NewReceiver(p f.Pins, j *Journal, ack io.Writer) (*Receiver, error) {
+	s, e := NewState(p)
+	if e != nil || j == nil || ack == nil || j.stopped || j.cursor != (Cursor{}) {
+		return nil, ErrProtocol
+	}
+	return &Receiver{state: s, journal: j, ack: ack, receipt: Receipt{Acknowledged: s}}, nil
+}
+func (r *Receiver) Receipt() Receipt { return r.receipt }
+func (r *Receiver) fail(e error) error {
+	if r.stop == nil {
+		r.stop = e
+	}
+	r.receipt.Stopped = true
+	return r.stop
+}
+
+// Consume requires FINAL followed by genuine stream EOF. Process Wait/exit,
+// kill/reap, stderr/RSS and result correspondence remain the outside caller's
+// separate obligations. ACKs happen strictly after file and parent Sync.
+func (r *Receiver) Consume(in io.Reader) (err error) {
+	if r.stop != nil {
+		return r.stop
+	}
+	completed := false
+	defer func() {
+		if !completed {
+			_ = recover()
+			err = r.fail(ErrProtocol)
+		}
+	}()
+	err = r.consumeOnce(in)
+	completed = true
+	return err
+}
+func (r *Receiver) consumeOnce(in io.Reader) error {
+	if in == nil || r.receipt.GenuineEOF {
+		return r.fail(ErrProtocol)
+	}
+	read := bufio.NewReaderSize(in, f.MaxLineBytes+1)
+	for {
+		raw, e := read.ReadSlice('\n')
+		if e != nil {
+			if e == io.EOF && len(raw) == 0 && r.state.Complete() {
+				r.receipt.GenuineEOF = true
+				return nil
+			}
+			return r.fail(ErrIncomplete)
+		}
+		if len(raw) > f.MaxLineBytes {
+			return r.fail(ErrProtocol)
+		}
+		v, e := f.DecodeFrame(raw)
+		if e != nil {
+			return r.fail(ErrProtocol)
+		}
+		next, e := r.state.Next(v)
+		if e != nil {
+			return r.fail(e)
+		}
+		cursor, e := r.journal.Append(raw, v.Q)
+		if e != nil {
+			return r.fail(e)
+		}
+		r.receipt.Durable = cursor
+		ack, e := f.EncodeAck(f.Ack{V: f.Version, Q: v.Q, H: cursor.PayloadSHA256})
+		if e != nil {
+			return r.fail(ErrACK)
+		}
+		n, e := r.ack.Write(ack)
+		if e != nil || n != len(ack) {
+			return r.fail(ErrACK)
+		}
+		r.state = next
+		r.receipt.Acknowledged = next
+		r.receipt.ACKs++
+	}
+}
