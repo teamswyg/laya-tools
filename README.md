@@ -1,8 +1,8 @@
 # laya-tools
 
-[작은 주장·힌트 모델의 개발 자료](docs/wiki/Next60-Development-KO.md)를 **30개 요청·88라벨**로 늘려 실제 Go reader의30호출·30반환·30일치를 확인했습니다. [30행 자료와 유한 검사 근거](experiments/short-claim/next60-development-thirty/README.ko.md)를 함께 제공합니다. 새 학습·모델 추론은0회이며, 30개는 자료 수집 checkpoint입니다. 다음 학습은 원천 중복과 후보 위치 편향을 검토한 뒤 판단합니다. Codex 절감 효과는 아직 검증하지 않았습니다.
+[작은 주장·힌트 모델의 개발 자료](docs/wiki/Next60-Development-KO.md)를 **30개 요청·88라벨**로 늘려 실제 Go reader의30호출·30반환·30일치를 확인했습니다. [30행 자료와 유한 검사 근거](experiments/short-claim/next60-development-thirty/README.ko.md)를 함께 제공합니다. 이번 자료 확장의 새 주장 모델/Fit은0회이며, 30개는 자료 수집 checkpoint입니다. 다음 학습은 원천 중복과 후보 위치 편향을 검토한 뒤 판단합니다. Codex 절감 효과는 아직 검증하지 않았습니다.
 
-[현재 확인된 HF23 고정 버전](https://huggingface.co/datasets/JooYoon/riidolaya-shortclaim-next60-development/tree/next60-23-finite-v1)의 소유401파일과 viewer23행을 확인했습니다. [게시·PR119 CI 근거](experiments/short-claim/publication-proof-120/README.md)를 보세요. 30행의 HF 게시와 원격 재검증은 별도 단계입니다. 단일 행씩 읽는 Go reader는 배열과 불변 값을 사용합니다.
+[HF30 고정 버전](https://huggingface.co/datasets/JooYoon/riidolaya-shortclaim-next60-development/tree/next60-30-finite-v1)을 게시해 소유558파일·표30행의 모든 값과 순서를 확인했습니다. [실제 게시·PR121 CI 근거](experiments/short-claim/publication-proof-122/README.ko.md)를 보세요. Linux·macOS의 새30행 재현 검사와 기존 Laya native 검사가 각각 통과했고 CI 봇이 병합했습니다. GPU 실행은 확인하지 않았습니다. [다음 원천22개 제안과 보류 이유](experiments/short-claim/next60-new-source-preview/README.ko.md)를 구분해 기록합니다.
 
 <details>
 <summary>이전 단계 기록 — 아래 수치와 “현재”는 각 단계 작성 당시 상태입니다</summary>

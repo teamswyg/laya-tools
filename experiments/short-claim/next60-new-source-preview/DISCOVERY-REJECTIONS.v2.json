@@ -1,0 +1,396 @@
+{
+  "schema": "riido-next60-unused-api-rejection-record-v2",
+  "prior_retired5": [
+    {
+      "selector_ordinal": 6,
+      "proposal_id": "source-next60-duplicate-key-occurrences",
+      "verdict": "retire_existing_behavior_or_convenience_duplicate",
+      "source_finding": "ForEach already walks raw object members sequentially, passes every key/value and source indices, and has no map deduplication. Filtering it by key implements the proposed duplicate occurrence behavior.",
+      "evidence": [
+        {
+          "repo": "tidwall/gjson",
+          "revision": "9378d3bb93e20854e1677e0e0248e1d71ae5712f",
+          "path": "gjson.go",
+          "line_start": 260,
+          "line_end": 340,
+          "bytes": 77773,
+          "sha256": "443d0db6fdb2cebf9c874b022e3d59f4904fab0aa03d99b072fdf39dce72697e",
+          "Git_blob": "8c6e61275ede3303624f7071a05ae0a489dcfe91",
+          "official_source_url": "https://github.com/tidwall/gjson/blob/9378d3bb93e20854e1677e0e0248e1d71ae5712f/gjson.go#L260-L340",
+          "scope": "static source reading; not actual behavior observation"
+        }
+      ]
+    },
+    {
+      "selector_ordinal": 8,
+      "proposal_id": "source-next60-literal-key-access",
+      "verdict": "retire_existing_behavior_or_convenience_duplicate",
+      "source_finding": "Get path escaping already supports literal dot/wildcard bytes; ForEach key.Str equality also provides top-level literal-key access without invoking path expressions.",
+      "evidence": [
+        {
+          "repo": "tidwall/gjson",
+          "revision": "9378d3bb93e20854e1677e0e0248e1d71ae5712f",
+          "path": "gjson.go",
+          "line_start": 1015,
+          "line_end": 1085,
+          "bytes": 77773,
+          "sha256": "443d0db6fdb2cebf9c874b022e3d59f4904fab0aa03d99b072fdf39dce72697e",
+          "Git_blob": "8c6e61275ede3303624f7071a05ae0a489dcfe91",
+          "official_source_url": "https://github.com/tidwall/gjson/blob/9378d3bb93e20854e1677e0e0248e1d71ae5712f/gjson.go#L1015-L1085",
+          "scope": "static source reading; not actual behavior observation"
+        },
+        {
+          "repo": "tidwall/gjson",
+          "revision": "9378d3bb93e20854e1677e0e0248e1d71ae5712f",
+          "path": "SYNTAX.md",
+          "line_start": 72,
+          "line_end": 85,
+          "bytes": 10772,
+          "sha256": "5229af2170f11ee28f382650f25d8e3cd483628f27768c78bd6e4683f242ecea",
+          "Git_blob": "a3f0fac238075d5ebde69315db9777a615796624",
+          "official_source_url": "https://github.com/tidwall/gjson/blob/9378d3bb93e20854e1677e0e0248e1d71ae5712f/SYNTAX.md#L72-L85",
+          "scope": "static source reading; not actual behavior observation"
+        },
+        {
+          "repo": "tidwall/gjson",
+          "revision": "9378d3bb93e20854e1677e0e0248e1d71ae5712f",
+          "path": "gjson.go",
+          "line_start": 267,
+          "line_end": 333,
+          "bytes": 77773,
+          "sha256": "443d0db6fdb2cebf9c874b022e3d59f4904fab0aa03d99b072fdf39dce72697e",
+          "Git_blob": "8c6e61275ede3303624f7071a05ae0a489dcfe91",
+          "official_source_url": "https://github.com/tidwall/gjson/blob/9378d3bb93e20854e1677e0e0248e1d71ae5712f/gjson.go#L267-L333",
+          "scope": "static source reading; not actual behavior observation"
+        }
+      ]
+    },
+    {
+      "selector_ordinal": 9,
+      "proposal_id": "source-next60-seed-reset-state",
+      "verdict": "retire_already_provided_unchanged",
+      "source_finding": "NewWithSeed and ResetWithSeed already initialize every digest lane, total and buffered length; Reset explicitly uses zero seed.",
+      "evidence": [
+        {
+          "repo": "cespare/xxhash",
+          "revision": "ab37246c889f9db16b606fda1c232d659df9271d",
+          "path": "xxhash.go",
+          "line_start": 40,
+          "line_end": 78,
+          "bytes": 5646,
+          "sha256": "ced3c8e453e927a399ed3bc9c310ff7a2e3f9c33999d33cc8983d6d4334e4cf7",
+          "Git_blob": "e29a8c334ceb4d675c9e18f3670b7f673d7ad44e",
+          "official_source_url": "https://github.com/cespare/xxhash/blob/ab37246c889f9db16b606fda1c232d659df9271d/xxhash.go#L40-L78",
+          "scope": "static source reading; not actual behavior observation"
+        }
+      ]
+    },
+    {
+      "selector_ordinal": 11,
+      "proposal_id": "source-next60-append-digest-order",
+      "verdict": "retire_already_provided_unchanged",
+      "source_finding": "Sum already appends eight big-endian digest bytes after the prefix; Sum64 computes using local variables without altering digest fields.",
+      "evidence": [
+        {
+          "repo": "cespare/xxhash",
+          "revision": "ab37246c889f9db16b606fda1c232d659df9271d",
+          "path": "xxhash.go",
+          "line_start": 130,
+          "line_end": 201,
+          "bytes": 5646,
+          "sha256": "ced3c8e453e927a399ed3bc9c310ff7a2e3f9c33999d33cc8983d6d4334e4cf7",
+          "Git_blob": "e29a8c334ceb4d675c9e18f3670b7f673d7ad44e",
+          "official_source_url": "https://github.com/cespare/xxhash/blob/ab37246c889f9db16b606fda1c232d659df9271d/xxhash.go#L130-L201",
+          "scope": "static source reading; not actual behavior observation"
+        }
+      ]
+    },
+    {
+      "selector_ordinal": 16,
+      "proposal_id": "source-next60-multiplication-overflow-channel",
+      "verdict": "retire_already_provided_unchanged",
+      "source_finding": "MulOverflow already returns the low256 product in z and a bool obtained from the discarded high limbs.",
+      "evidence": [
+        {
+          "repo": "holiman/uint256",
+          "revision": "3b6e9cdebb7a0462a2748bf24d7fac2b8a943666",
+          "path": "uint256.go",
+          "line_start": 471,
+          "line_end": 478,
+          "bytes": 42109,
+          "sha256": "6ee28995c22aab6c83155d34142cea9c0a979f95885bb84778dbd7b4dc5bb0e8",
+          "Git_blob": "a7555e04c0345075751a0f7ab64840cd41173811",
+          "official_source_url": "https://github.com/holiman/uint256/blob/3b6e9cdebb7a0462a2748bf24d7fac2b8a943666/uint256.go#L471-L478",
+          "scope": "static source reading; not actual behavior observation"
+        }
+      ]
+    }
+  ],
+  "additional_watch_or_rejections": [
+    {
+      "discovery": "GJSON literal key convenience",
+      "reason": "Escape and Get escaping already exist; strengthens prior retired selector8 without modifying its seal.",
+      "evidence": [
+        {
+          "repo": "tidwall/gjson",
+          "revision": "9378d3bb93e20854e1677e0e0248e1d71ae5712f",
+          "path": "gjson.go",
+          "line_start": 3616,
+          "line_end": 3632,
+          "bytes": 77773,
+          "sha256": "443d0db6fdb2cebf9c874b022e3d59f4904fab0aa03d99b072fdf39dce72697e",
+          "Git_blob": "8c6e61275ede3303624f7071a05ae0a489dcfe91",
+          "official_source_url": "https://github.com/tidwall/gjson/blob/9378d3bb93e20854e1677e0e0248e1d71ae5712f/gjson.go#L3616-L3632",
+          "scope": "source reading only; no API observation"
+        }
+      ],
+      "counted_as_new_intent": false,
+      "observed": false
+    },
+    {
+      "discovery": "Chi automatic HEAD fallback",
+      "reason": "README explicitly lists GetHead middleware; root-package-only absence is not an absence proof.",
+      "evidence": [
+        {
+          "repo": "go-chi/chi",
+          "revision": "167e1e3bd039d060696b99c8da4e876ae04f42c1",
+          "path": "README.md",
+          "line_start": 342,
+          "line_end": 351,
+          "bytes": 27122,
+          "sha256": "d31e2beee2752986a30b90d7a07b50a53c107a917a3a755c7e6e2b727b0658d8",
+          "Git_blob": "5f9f4435677654c16a2f147fd3178214231ca7ff",
+          "official_source_url": "https://github.com/go-chi/chi/blob/167e1e3bd039d060696b99c8da4e876ae04f42c1/README.md#L342-L351",
+          "scope": "source reading only; no API observation"
+        }
+      ],
+      "counted_as_new_intent": false,
+      "observed": false
+    },
+    {
+      "discovery": "GJSON replacing malformed UTF8",
+      "reason": "AppendJSONString already replaces invalid single-byte sequences with U+FFFD; only new reject policy proposed.",
+      "evidence": [
+        {
+          "repo": "tidwall/gjson",
+          "revision": "9378d3bb93e20854e1677e0e0248e1d71ae5712f",
+          "path": "gjson.go",
+          "line_start": 2104,
+          "line_end": 2124,
+          "bytes": 77773,
+          "sha256": "443d0db6fdb2cebf9c874b022e3d59f4904fab0aa03d99b072fdf39dce72697e",
+          "Git_blob": "8c6e61275ede3303624f7071a05ae0a489dcfe91",
+          "official_source_url": "https://github.com/tidwall/gjson/blob/9378d3bb93e20854e1677e0e0248e1d71ae5712f/gjson.go#L2104-L2124",
+          "scope": "source reading only; no API observation"
+        }
+      ],
+      "counted_as_new_intent": false,
+      "observed": false
+    },
+    {
+      "discovery": "Chi context snapshot",
+      "reason": "Context.Clone already copies parameter arrays, patterns and allowed methods; renamed cloning is not a new contract.",
+      "evidence": [
+        {
+          "repo": "go-chi/chi",
+          "revision": "167e1e3bd039d060696b99c8da4e876ae04f42c1",
+          "path": "context.go",
+          "line_start": 104,
+          "line_end": 119,
+          "bytes": 5788,
+          "sha256": "b19edcca252e2fe74e82802c4c7ce1a1c0855728f9ede1288f0224283dfc7e53",
+          "Git_blob": "c5c9a7432a3f599d8d32602523761f49052bc1c5",
+          "official_source_url": "https://github.com/go-chi/chi/blob/167e1e3bd039d060696b99c8da4e876ae04f42c1/context.go#L104-L119",
+          "scope": "source reading only; no API observation"
+        }
+      ],
+      "counted_as_new_intent": false,
+      "observed": false
+    },
+    {
+      "discovery": "GJSON byte result ownership",
+      "reason": "getBytes already returns uniquely allocated Raw/Str content; do not claim a borrowed buffer flaw.",
+      "evidence": [
+        {
+          "repo": "tidwall/gjson",
+          "revision": "9378d3bb93e20854e1677e0e0248e1d71ae5712f",
+          "path": "gjson.go",
+          "line_start": 3343,
+          "line_end": 3388,
+          "bytes": 77773,
+          "sha256": "443d0db6fdb2cebf9c874b022e3d59f4904fab0aa03d99b072fdf39dce72697e",
+          "Git_blob": "8c6e61275ede3303624f7071a05ae0a489dcfe91",
+          "official_source_url": "https://github.com/tidwall/gjson/blob/9378d3bb93e20854e1677e0e0248e1d71ae5712f/gjson.go#L3343-L3388",
+          "scope": "source reading only; no API observation"
+        }
+      ],
+      "counted_as_new_intent": false,
+      "observed": false
+    },
+    {
+      "discovery": "Uint256 SSZ append/into",
+      "reason": "Exact32-byte SSZ decode and append/into encoders are already provided; new naming is not a change.",
+      "evidence": [
+        {
+          "repo": "holiman/uint256",
+          "revision": "3b6e9cdebb7a0462a2748bf24d7fac2b8a943666",
+          "path": "conversion.go",
+          "line_start": 625,
+          "line_end": 674,
+          "bytes": 27732,
+          "sha256": "561263686ae4983957fdfcd808a19cde2749622f2a102ea45557490d9e77ac94",
+          "Git_blob": "49367f03d1c3875d6a4f543eeadacffdd33eabd1",
+          "official_source_url": "https://github.com/holiman/uint256/blob/3b6e9cdebb7a0462a2748bf24d7fac2b8a943666/conversion.go#L625-L674",
+          "scope": "source reading only; no API observation"
+        }
+      ],
+      "counted_as_new_intent": false,
+      "observed": false
+    },
+    {
+      "discovery": "Uint256 scientific scan overflow",
+      "reason": "Exponent and multiplication overflow checks already exist.",
+      "evidence": [
+        {
+          "repo": "holiman/uint256",
+          "revision": "3b6e9cdebb7a0462a2748bf24d7fac2b8a943666",
+          "path": "conversion.go",
+          "line_start": 824,
+          "line_end": 829,
+          "bytes": 27732,
+          "sha256": "561263686ae4983957fdfcd808a19cde2749622f2a102ea45557490d9e77ac94",
+          "Git_blob": "49367f03d1c3875d6a4f543eeadacffdd33eabd1",
+          "official_source_url": "https://github.com/holiman/uint256/blob/3b6e9cdebb7a0462a2748bf24d7fac2b8a943666/conversion.go#L824-L829",
+          "scope": "source reading only; no API observation"
+        }
+      ],
+      "counted_as_new_intent": false,
+      "observed": false
+    },
+    {
+      "discovery": "Bitset inserting/deleting checked index",
+      "reason": "Generic bounds wrapper resembles earlier INI delete; defer rather than count another size/index guard.",
+      "evidence": [
+        {
+          "repo": "bits-and-blooms/bitset",
+          "revision": "828abff685deae97e60d299b1cdfcefabfeb44dc",
+          "path": "bitset.go",
+          "line_start": 466,
+          "line_end": 503,
+          "bytes": 50128,
+          "sha256": "450502e4569e3a876b9f4ab2e43a8d5ef82a87055c7a7a1c29a3bb56fae696e6",
+          "Git_blob": "3eb602d29c404a677d49d8ef4e8576ea2ae44eb0",
+          "official_source_url": "https://github.com/bits-and-blooms/bitset/blob/828abff685deae97e60d299b1cdfcefabfeb44dc/bitset.go#L466-L503",
+          "scope": "source reading only; no API observation"
+        },
+        {
+          "repo": "bits-and-blooms/bitset",
+          "revision": "828abff685deae97e60d299b1cdfcefabfeb44dc",
+          "path": "bitset.go",
+          "line_start": 535,
+          "line_end": 582,
+          "bytes": 50128,
+          "sha256": "450502e4569e3a876b9f4ab2e43a8d5ef82a87055c7a7a1c29a3bb56fae696e6",
+          "Git_blob": "3eb602d29c404a677d49d8ef4e8576ea2ae44eb0",
+          "official_source_url": "https://github.com/bits-and-blooms/bitset/blob/828abff685deae97e60d299b1cdfcefabfeb44dc/bitset.go#L535-L582",
+          "scope": "source reading only; no API observation"
+        }
+      ],
+      "counted_as_new_intent": false,
+      "observed": false
+    },
+    {
+      "discovery": "Chi panic-safe context pool",
+      "reason": "Normal return has pool.Put; panic-safe release needs a trustworthy observable pool boundary, not nondeterministic allocation/RSS assertions.",
+      "evidence": [
+        {
+          "repo": "go-chi/chi",
+          "revision": "167e1e3bd039d060696b99c8da4e876ae04f42c1",
+          "path": "mux.go",
+          "line_start": 63,
+          "line_end": 92,
+          "bytes": 17308,
+          "sha256": "cc44c2d620e6306b16d6d80f5f6c70f02b5814b357a4f5823372818f355ae67d",
+          "Git_blob": "7cfc6143d64d1e3c4f14af2ba2069878cd231b3e",
+          "official_source_url": "https://github.com/go-chi/chi/blob/167e1e3bd039d060696b99c8da4e876ae04f42c1/mux.go#L63-L92",
+          "scope": "source reading only; no API observation"
+        }
+      ],
+      "counted_as_new_intent": false,
+      "observed": false
+    },
+    {
+      "discovery": "Uint256 RLP short-write",
+      "reason": "Write return count is discarded. This is a genuine source change but overlaps prior Cobra error-writer and SafeWrite writer-cause mechanism; held outside the22 count.",
+      "evidence": [
+        {
+          "repo": "holiman/uint256",
+          "revision": "3b6e9cdebb7a0462a2748bf24d7fac2b8a943666",
+          "path": "conversion.go",
+          "line_start": 687,
+          "line_end": 711,
+          "bytes": 27732,
+          "sha256": "561263686ae4983957fdfcd808a19cde2749622f2a102ea45557490d9e77ac94",
+          "Git_blob": "49367f03d1c3875d6a4f543eeadacffdd33eabd1",
+          "official_source_url": "https://github.com/holiman/uint256/blob/3b6e9cdebb7a0462a2748bf24d7fac2b8a943666/conversion.go#L687-L711",
+          "scope": "source reading only; no API observation"
+        }
+      ],
+      "counted_as_new_intent": false,
+      "observed": false
+    },
+    {
+      "discovery": "Decimal nullable decode transaction",
+      "reason": "Another transactional parse through a different receiver/type risks duplicating retained decimal/uint256 parsing contracts.",
+      "evidence": [
+        {
+          "repo": "shopspring/decimal",
+          "revision": "ca4740823783f3bc026235a5ed3515aca626da92",
+          "path": "decimal.go",
+          "line_start": 2106,
+          "line_end": 2157,
+          "bytes": 67565,
+          "sha256": "7b47645b284bcd9d85b8de8086c001c30cb9ab10773c0e9d9f9db40c1ba9d863",
+          "Git_blob": "ee554d4cabd10733aebcb78863ddff26a3f3e0bc",
+          "official_source_url": "https://github.com/shopspring/decimal/blob/ca4740823783f3bc026235a5ed3515aca626da92/decimal.go#L2106-L2157",
+          "scope": "source reading only; no API observation"
+        }
+      ],
+      "counted_as_new_intent": false,
+      "observed": false
+    },
+    {
+      "discovery": "XXhash clone/chunk/seed one-shot convenience",
+      "reason": "Existing value copy, NewWithSeed, Write and Sum64 already compose these behaviors.",
+      "evidence": [
+        {
+          "repo": "cespare/xxhash",
+          "revision": "ab37246c889f9db16b606fda1c232d659df9271d",
+          "path": "xxhash.go",
+          "line_start": 41,
+          "line_end": 65,
+          "bytes": 5646,
+          "sha256": "ced3c8e453e927a399ed3bc9c310ff7a2e3f9c33999d33cc8983d6d4334e4cf7",
+          "Git_blob": "e29a8c334ceb4d675c9e18f3670b7f673d7ad44e",
+          "official_source_url": "https://github.com/cespare/xxhash/blob/ab37246c889f9db16b606fda1c232d659df9271d/xxhash.go#L41-L65",
+          "scope": "source reading only; no API observation"
+        },
+        {
+          "repo": "cespare/xxhash",
+          "revision": "ab37246c889f9db16b606fda1c232d659df9271d",
+          "path": "xxhash.go",
+          "line_start": 77,
+          "line_end": 112,
+          "bytes": 5646,
+          "sha256": "ced3c8e453e927a399ed3bc9c310ff7a2e3f9c33999d33cc8983d6d4334e4cf7",
+          "Git_blob": "e29a8c334ceb4d675c9e18f3670b7f673d7ad44e",
+          "official_source_url": "https://github.com/cespare/xxhash/blob/ab37246c889f9db16b606fda1c232d659df9271d/xxhash.go#L77-L112",
+          "scope": "source reading only; no API observation"
+        }
+      ],
+      "counted_as_new_intent": false,
+      "observed": false
+    }
+  ],
+  "stop_rule": "Do not fill8 empty request slots with fixture repetition, renamed existing API, generic index/size checks or a codec/type substitution. New families or independently justified source changes require a separately bounded acquisition/read plan."
+}

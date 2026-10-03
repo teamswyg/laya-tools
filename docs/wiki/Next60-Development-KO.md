@@ -1,10 +1,10 @@
 # 작은 주장·힌트 모델의 개발 자료
 
-**30개 의미 요청·88개 후보 라벨을 로컬에서 검증했습니다.** [30행 자료와 설명](../../experiments/short-claim/next60-development-thirty/README.ko.md)을 함께 제공합니다. 현재 확인된 HF 공개 버전은 [23행 고정 버전](https://huggingface.co/datasets/JooYoon/riidolaya-shortclaim-next60-development/tree/next60-23-finite-v1)이며, 30행의 HF 게시·원격 재검증은 별도 단계입니다. 이번 자료 확장에서는 새 학습·모델 추론0회이며 Codex 절감 효과는 아직 입증하지 않았습니다.
+**30개 의미 요청·88개 후보 라벨을 실제 검증하고 HF에 공개했습니다.** [30행 자료와 설명](../../experiments/short-claim/next60-development-thirty/README.ko.md) 및 [HF30 고정 버전](https://huggingface.co/datasets/JooYoon/riidolaya-shortclaim-next60-development/tree/next60-30-finite-v1)을 제공합니다. 소유558파일과 표30행의 모든 필드·순서를 대조했고 이전 태그를 보존했습니다. [게시·실제 CI 근거](../../experiments/short-claim/publication-proof-122/README.ko.md)를 보세요. 이번 자료 확장의 새 주장 모델/Fit은0이며 Codex 절감 효과는 아직 입증하지 않았습니다.
 
 목표는 아주 작은 CPU·메모리 비용으로 자주 호출하는 **주장·힌트 모델**입니다. “이 요청에 도움이 될 후보는 이것 같다”는 힌트를 주고, 최종 선택은 실제 테스트·검색·검증으로 뒷받침합니다. 문장 생성 능력보다 후보를 좁혀 전체 작업량을 줄이는지가 중요합니다.
 
-| 단위 | 검증한30행 | 기존 HF23행 |
+| 단위 | 현재 검증·공개30행 | 이전 HF23행 |
 |---|---:|---:|
 | 서로 다른 의미 요청 | 30 | 23 |
 | 후보 라벨 | 88: 긍정30·부정58 | 67: 긍정23·부정44 |
@@ -19,6 +19,15 @@
 
 [사용 설명](../../experiments/short-claim/next60-development-thirty/README.ko.md)을 읽고 data/train.jsonl을 한 줄씩 사용하세요. 파일은 **41,428바이트**, SHA-256은 **9cdfb758f03adc34a9fb5e00e3c1525921df26d0912f6b554e4ed4c890fd10a2**입니다. 요청·후보 문장, 라벨·가중치, 출처 추적 정보가 있습니다.
 
+HF CLI가 있다면 아래처럼 **고정 commit의 데이터 한 파일만** 받을 수 있습니다. 학습이나 모델 다운로드 없이 읽기만 가능합니다. 전체 검증 명령은 이 저장소 checkout의 루트에서 실행하세요.
+
+```sh
+hf download JooYoon/riidolaya-shortclaim-next60-development \
+  releases/next60-30-finite-v1/next60-development-thirty/data/train.jsonl \
+  --type dataset --revision 89c0c7c9ddc3135e37e88e9da5d51ac55dff0e1d \
+  --local-dir ./riidolaya-next60-data
+```
+
 [Go reader](../../pkg/shortclaimdata)는 최대 행16KiB·후보8개의 고정 배열과 불변 값을 사용하며 lock을 쓰지 않습니다. 아래 코드에서 bytes와 github.com/teamswyg/laya-tools/pkg/shortclaimdata를 가져옵니다.
 
 ```go
@@ -32,7 +41,7 @@ supervision := example.Supervision()
 
 모델 특징에는 **요청과 후보 문장만** 사용합니다. ID·출처·그룹·리비전·검사 결과는 추적 또는 정답 정보입니다. Reader 호출은 점수·학습·모델 추론을 실행하지 않습니다. 배열 구조를 사용한다는 사실만으로 속도 향상을 주장하지 않습니다.
 
-다음 명령은 저장된 자료로 데이터 재생성·실제 프로젝트 Reader·판정 기록111개를 검사합니다. 로컬 검사는 통과했으며, GitHub CI 결과는 해당 PR과 실행 기록에서 별도로 확인합니다.
+다음 명령은 저장된 자료로 데이터 재생성·실제 프로젝트 Reader·판정 기록111개를 검사합니다. 로컬과 PR121의 Linux·macOS CI에서 실제 통과했습니다. 기존 Laya native 검사도 별도로 통과했으며 이 명령 자체는 모델이나 원본 함수를 실행하지 않습니다.
 
 ```sh
 bash scripts/verify-next60-thirty.sh
@@ -45,6 +54,8 @@ bash scripts/verify-next60-thirty.sh
 마지막 세 요청은 INI 전체 입력 바이트 예산, 제한된 파일 읽기, 배타적 파일 쓰기입니다. 실제 Go 원본에서 입력14개×후보3개의 **42관측**을 수집했습니다. 세부 조건111개는 참89·거짓20·판단 불가2였습니다. 참고 후보도 관측을 만족했기 때문에 채택했으며 그 이름 때문에 정답을 부여하지 않았습니다. 전체 parser 옵션·파일시스템 동시성·모든 입력을 보장하지 않습니다.
 
 관측 수집 프로세스의 OS 최대 RSS는 약 **17.4MiB**, 시작·소스 확인·저장을 포함한 시간은 약 **2.52초**였습니다. Laya 또는 주장 모델의 추론 메모리·GPU 실행·Codex 절감 수치가 아닙니다. 원본은 한 번 실행했고, 저장 비교기의 최초 설정 형식 오류를 보존한 뒤 저장 파일 읽기만 다시 수행했습니다.
+
+[다음 원천22개 제안](../../experiments/short-claim/next60-new-source-preview/README.ko.md)은 새 적격0개입니다. 기존 기능을 재포장하거나 현재 입력으로 차이를 구분 못하는 세 제안은 보류합니다. Go-list 의존성 목록 확인과 문구 중복0은 실행·의미 독립성·학습 자격을 보장하지 않습니다.
 
 ## 다음 학습의 판단 기준
 
