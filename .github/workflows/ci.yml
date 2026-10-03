@@ -70,6 +70,10 @@ jobs:
         run: bash scripts/verify-next60-compact-evidence.sh
       - name: Wire3 evidence files and durable verification pipeline (owned fakes only)
         run: bash scripts/verify-next60-durable-evidence.sh
+      - name: Cache reset, worker lifecycle and saved semantic controls (owned fakes only)
+        run: bash scripts/verify-next60-native-wire3.sh
+      - name: Qualified finite37 saved materialization and project Reader (no training)
+        run: bash scripts/verify-next60-thirtyseven.sh
       - name: Variable Go input controls and frozen nonlearned33 ranking reproduction (no training)
         env:
           RIIDOLAYA_BIAS_ACTUAL: ${{ runner.temp }}/riidolaya-bias-actual/actual.json

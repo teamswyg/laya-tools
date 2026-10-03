@@ -1,0 +1,314 @@
+package main
+
+import (
+	"bytes"
+	"compress/gzip"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"io"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
+
+func temp(t *testing.T) string {
+	t.Helper()
+	p, e := filepath.EvalSymlinks(t.TempDir())
+	if e != nil {
+		t.Fatal(e)
+	}
+	return p
+}
+func mustWrite(t *testing.T, p string, b []byte, mode os.FileMode) {
+	t.Helper()
+	if e := os.WriteFile(p, b, mode); e != nil {
+		t.Fatal(e)
+	}
+	if e := os.Chmod(p, mode); e != nil {
+		t.Fatal(e)
+	}
+}
+func sha(b []byte) string { h := sha256.Sum256(b); return hex.EncodeToString(h[:]) }
+func setup(t *testing.T) (Input, []byte) {
+	t.Helper()
+	d := temp(t)
+	b := bytes.Repeat([]byte("owned completed helper fixture\x00\x01\xfe\xff\n"), 67)
+	in := Input{Source: filepath.Join(d, "helper"), SourceSHA: sha(b), Archive: filepath.Join(d, "helper.gz"), Commit: filepath.Join(d, "COMMIT.json"), Ack: filepath.Join(d, "ACK.json")}
+	mustWrite(t, in.Source, b, 0755)
+	return in, b
+}
+func exists(t *testing.T, p string) bool {
+	t.Helper()
+	_, e := os.Lstat(p)
+	if e != nil && !os.IsNotExist(e) {
+		t.Fatal(e)
+	}
+	return e == nil
+}
+func gzipBytes(t *testing.T, b []byte) []byte {
+	t.Helper()
+	var out bytes.Buffer
+	z := gzip.NewWriter(&out)
+	if _, e := z.Write(b); e != nil {
+		t.Fatal(e)
+	}
+	if e := z.Close(); e != nil {
+		t.Fatal(e)
+	}
+	return out.Bytes()
+}
+
+func TestSuccessAndSeparatePhysicalRestoreControl(t *testing.T) {
+	in, original := setup(t)
+	r, e := Run(in)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if r.Status != "complete" || !r.CommitDurable || !r.SourceUnlinked || !r.SourceParentSynced || !r.AckDurable || r.PhysicalRestore || r.SourceBytes != int64(len(original)) || r.Verification != verification {
+		t.Fatalf("receipt: %+v", r)
+	}
+	if exists(t, in.Source) {
+		t.Fatal("source remains after committed unlink")
+	}
+	var commit commitRecord
+	b, e := os.ReadFile(in.Commit)
+	if e != nil || json.Unmarshal(b, &commit) != nil {
+		t.Fatal("commit readback")
+	}
+	if commit.PhysicalRestore || commit.RestoreMode != "0755" || commit.Verification != verification || commit.SourceSHA != sha(original) {
+		t.Fatalf("commit: %+v", commit)
+	}
+	var ack ackRecord
+	b, e = os.ReadFile(in.Ack)
+	if e != nil || json.Unmarshal(b, &ack) != nil || !ack.SourceUnlinked || !ack.SourceParentSynced || ack.PhysicalRestore {
+		t.Fatal("ack readback")
+	}
+	cb, e := os.ReadFile(in.Commit)
+	if e != nil || ack.CommitSHA != sha(cb) {
+		t.Fatal("ack commit pin")
+	}
+	// This physical restoration is a test control, not a helper execution claim.
+	f, e := os.Open(in.Archive)
+	if e != nil {
+		t.Fatal(e)
+	}
+	z, e := gzip.NewReader(f)
+	if e != nil {
+		t.Fatal(e)
+	}
+	restored, e := io.ReadAll(z)
+	if e != nil || !bytes.Equal(restored, original) {
+		t.Fatal("physical restore content")
+	}
+	if e = z.Close(); e != nil {
+		t.Fatal(e)
+	}
+	if e = f.Close(); e != nil {
+		t.Fatal(e)
+	}
+	p := filepath.Join(filepath.Dir(in.Source), "RESTORE-CONTROL")
+	mustWrite(t, p, restored, 0755)
+	fi, e := os.Lstat(p)
+	if e != nil || fi.Mode().Perm() != 0755 {
+		t.Fatal("restore mode")
+	}
+	public, e := encoded(r, receiptCap)
+	if e != nil || bytes.Contains(public, []byte(filepath.Dir(in.Source))) {
+		t.Fatal("receipt leaked host path")
+	}
+}
+
+func TestWrongSHAKeepsSourceAndCreatesNothing(t *testing.T) {
+	in, _ := setup(t)
+	in.SourceSHA = strings.Repeat("0", 64)
+	r, e := Run(in)
+	if !errors.Is(e, errSource) || r.SourceUnlinked || !exists(t, in.Source) {
+		t.Fatal("wrong SHA did not stop")
+	}
+	for _, p := range []string{in.Archive, in.Commit, in.Ack} {
+		if exists(t, p) {
+			t.Fatal("unexpected output")
+		}
+	}
+}
+
+func TestSourceSymlinkHardlinkAndParentSymlinkRejected(t *testing.T) {
+	t.Run("source-symlink", func(t *testing.T) {
+		in, _ := setup(t)
+		link := filepath.Join(filepath.Dir(in.Source), "source-link")
+		if e := os.Symlink(in.Source, link); e != nil {
+			t.Fatal(e)
+		}
+		in.Source = link
+		if _, e := Run(in); e == nil {
+			t.Fatal("symlink accepted")
+		}
+		if !exists(t, link) || exists(t, in.Archive) {
+			t.Fatal("unsafe path mutated")
+		}
+	})
+	t.Run("source-hardlink", func(t *testing.T) {
+		in, _ := setup(t)
+		if e := os.Link(in.Source, filepath.Join(filepath.Dir(in.Source), "hardlink")); e != nil {
+			t.Fatal(e)
+		}
+		if _, e := Run(in); !errors.Is(e, errSource) {
+			t.Fatal("multiple links accepted")
+		}
+		if !exists(t, in.Source) || exists(t, in.Archive) {
+			t.Fatal("hardlink source mutated")
+		}
+	})
+	t.Run("parent-symlink", func(t *testing.T) {
+		in, _ := setup(t)
+		parent := temp(t)
+		link := filepath.Join(parent, "linked-dir")
+		if e := os.Symlink(filepath.Dir(in.Source), link); e != nil {
+			t.Fatal(e)
+		}
+		in.Archive = filepath.Join(link, "helper.gz")
+		if _, e := Run(in); !errors.Is(e, errPath) {
+			t.Fatal("noncanonical parent accepted")
+		}
+		if !exists(t, in.Source) {
+			t.Fatal("source removed")
+		}
+	})
+}
+
+func TestNoOverwritePreflight(t *testing.T) {
+	for _, which := range []string{"archive", "commit", "ack"} {
+		t.Run(which, func(t *testing.T) {
+			in, _ := setup(t)
+			p := in.Archive
+			if which == "commit" {
+				p = in.Commit
+			}
+			if which == "ack" {
+				p = in.Ack
+			}
+			want := []byte("existing completed or failed attempt; preserve")
+			mustWrite(t, p, want, 0600)
+			if _, e := Run(in); !errors.Is(e, errExists) {
+				t.Fatal("existing output accepted")
+			}
+			got, e := os.ReadFile(p)
+			if e != nil || !bytes.Equal(got, want) || !exists(t, in.Source) {
+				t.Fatal("prior file or source modified")
+			}
+		})
+	}
+}
+
+func TestGzipIntegrityTruncationTailAndSecondMemberRejected(t *testing.T) {
+	for _, variant := range []string{"crc", "isize", "truncated", "tail", "second-member", "wrong-content"} {
+		t.Run(variant, func(t *testing.T) {
+			in, raw := setup(t)
+			original, e := sourceCheck(in.Source, in.SourceSHA, nil)
+			if e != nil {
+				t.Fatal(e)
+			}
+			b := append([]byte(nil), gzipBytes(t, raw)...)
+			switch variant {
+			case "crc":
+				b[len(b)-8] ^= 1
+			case "isize":
+				b[len(b)-4] ^= 1
+			case "truncated":
+				b = b[:len(b)-1]
+			case "tail":
+				b = append(b, 0x41)
+			case "second-member":
+				b = append(b, gzipBytes(t, []byte("tail member"))...)
+			case "wrong-content":
+				b = gzipBytes(t, bytes.Repeat([]byte("x"), len(raw)))
+			}
+			mustWrite(t, in.Archive, b, 0600)
+			i, e := pathID(in.Archive, 0600, compressedCap)
+			if e != nil {
+				t.Fatal(e)
+			}
+			if e = verifyArchive(in.Archive, i, sha(b), in.Source, original, in.SourceSHA); e == nil {
+				t.Fatal("invalid gzip accepted")
+			}
+			if !exists(t, in.Source) || !exists(t, in.Archive) || exists(t, in.Commit) {
+				t.Fatal("verification failure discarded evidence")
+			}
+		})
+	}
+}
+
+func TestCappedWriterPreservesAcceptedPartialAndNeverExceedsCap(t *testing.T) {
+	p := filepath.Join(temp(t), "partial")
+	f, e := os.OpenFile(p, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if e != nil {
+		t.Fatal(e)
+	}
+	w := &cappedWriter{f: f, h: sha256.New(), limit: 8}
+	if n, e := w.Write([]byte("123456")); e != nil || n != 6 {
+		t.Fatal("accepted prefix")
+	}
+	if n, e := w.Write([]byte("789")); n != 0 || !errors.Is(e, errCap) {
+		t.Fatal("overflow was physically written")
+	}
+	if n, e := w.Write([]byte("7")); n != 0 || e == nil {
+		t.Fatal("failed writer retried")
+	}
+	if e = f.Close(); e != nil {
+		t.Fatal(e)
+	}
+	b, e := os.ReadFile(p)
+	if e != nil || string(b) != "123456" || w.n != 6 || hex.EncodeToString(w.h.Sum(nil)) != sha(b) {
+		t.Fatal("partial not preserved")
+	}
+}
+
+func TestSourceReplacementAndModeMismatchRejected(t *testing.T) {
+	t.Run("replacement", func(t *testing.T) {
+		in, raw := setup(t)
+		i, e := sourceCheck(in.Source, in.SourceSHA, nil)
+		if e != nil {
+			t.Fatal(e)
+		}
+		old, e := os.Open(in.Source)
+		if e != nil {
+			t.Fatal(e)
+		}
+		defer old.Close() // Keep the original inode allocated during replacement.
+		if e = os.Remove(in.Source); e != nil {
+			t.Fatal(e)
+		}
+		mustWrite(t, in.Source, raw, 0755)
+		if _, e = sourceCheck(in.Source, in.SourceSHA, &i); !errors.Is(e, errSource) {
+			t.Fatal("replacement identity accepted")
+		}
+	})
+	t.Run("mode", func(t *testing.T) {
+		in, _ := setup(t)
+		if e := os.Chmod(in.Source, 0700); e != nil {
+			t.Fatal(e)
+		}
+		if _, e := Run(in); !errors.Is(e, errSource) || exists(t, in.Archive) {
+			t.Fatal("mode mismatch accepted")
+		}
+	})
+}
+
+func TestInputsAndControlCaps(t *testing.T) {
+	in, _ := setup(t)
+	in.Ack = in.Commit
+	if _, e := Run(in); !errors.Is(e, errInput) {
+		t.Fatal("aliased outputs accepted")
+	}
+	in, _ = setup(t)
+	in.SourceSHA = strings.ToUpper(in.SourceSHA)
+	if _, e := Run(in); !errors.Is(e, errInput) {
+		t.Fatal("noncanonical hash accepted")
+	}
+	if _, e := encoded(strings.Repeat("x", recordCap), recordCap); !errors.Is(e, errCap) {
+		t.Fatal("control bound ignored")
+	}
+}

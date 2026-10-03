@@ -1,0 +1,315 @@
+// SPDX-License-Identifier: Apache-2.0
+// Owned helpers only. These tests start no subprocess and invoke no originals.
+package main
+
+import (
+	"bytes"
+	"io"
+	"math"
+	"os"
+	"path/filepath"
+	"strings"
+	"syscall"
+	"testing"
+	"time"
+
+	f "riido.local/unionduplicateframe"
+	d "riido.local/uniondurable"
+)
+
+func privateDir(t *testing.T) string {
+	t.Helper()
+	p, e := filepath.EvalSymlinks(t.TempDir())
+	if e != nil {
+		t.Fatal(e)
+	}
+	return p
+}
+
+func put(t *testing.T, p string, b []byte, mode os.FileMode) {
+	t.Helper()
+	if e := os.WriteFile(p, b, mode); e != nil {
+		t.Fatal(e)
+	}
+	if e := os.Chmod(p, mode); e != nil {
+		t.Fatal(e)
+	}
+}
+
+func TestRuntimeConfigBound(t *testing.T) {
+	h := strings.Repeat("a", 64)
+	for _, duration := range []string{"0s", "-1s", "121s", "bogus"} {
+		if _, e := readConfig([]string{"--worker-sha", h, "--max-runtime", duration}); e == nil {
+			t.Fatal("runtime accepted", duration)
+		}
+	}
+	if c, e := readConfig([]string{"--worker-sha", h}); e != nil || c.Deadline != 120*time.Second {
+		t.Fatal(c, e)
+	}
+	if _, e := readConfig([]string{"--worker-sha", strings.Repeat("A", 64)}); e == nil {
+		t.Fatal("uppercase pin")
+	}
+	if _, e := readConfig([]string{"--worker-sha", h, "extra"}); e == nil {
+		t.Fatal("positional argument")
+	}
+}
+
+func TestOwnedFileExclusiveModeAndBound(t *testing.T) {
+	p := filepath.Join(privateDir(t), "stderr")
+	b := bytes.Repeat([]byte{'x'}, stderrCap)
+	if e := writeOwned(p, b); e != nil {
+		t.Fatal(e)
+	}
+	s, e := os.Stat(p)
+	if e != nil || s.Mode().Perm() != 0600 || s.Size() != stderrCap {
+		t.Fatal(s, e)
+	}
+	if e = writeOwned(p, []byte("replace")); e == nil {
+		t.Fatal("replaced existing file")
+	}
+	got, e := os.ReadFile(p)
+	if e != nil || !bytes.Equal(got, b) {
+		t.Fatal("existing file changed", e)
+	}
+	q := filepath.Join(filepath.Dir(p), "over")
+	if e = writeOwned(q, append(b, 'x')); e == nil {
+		t.Fatal("over cap accepted")
+	}
+	if _, e = os.Stat(q); !os.IsNotExist(e) {
+		t.Fatal("overcap file created", e)
+	}
+}
+
+func TestLazyEvidenceOpenFailureIsNotRetried(t *testing.T) {
+	p := filepath.Join(privateDir(t), "late")
+	r := lazyEvidence{path: p}
+	var one [1]byte
+	if _, e := r.ReadAt(one[:], 0); e == nil || r.attempts != 1 {
+		t.Fatal("missing file", e, r.attempts)
+	}
+	put(t, p, []byte("x"), 0600)
+	if _, e := r.ReadAt(one[:], 0); e == nil || r.attempts != 1 || r.file != nil {
+		t.Fatal("failed open retried", e, r.attempts)
+	}
+}
+
+func TestLazyEvidenceGrowthAndReplacement(t *testing.T) {
+	dir := privateDir(t)
+	p := filepath.Join(dir, "evidence")
+	put(t, p, []byte("abc"), 0600)
+	r := lazyEvidence{path: p}
+	var b [3]byte
+	if n, e := r.ReadAt(b[:], 0); e != nil || n != 3 || string(b[:]) != "abc" {
+		t.Fatal(n, e)
+	}
+	defer r.file.Close()
+	x, e := os.OpenFile(p, os.O_WRONLY|os.O_APPEND, 0)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if _, e = x.Write([]byte("def")); e != nil {
+		t.Fatal(e)
+	}
+	if e = x.Close(); e != nil {
+		t.Fatal(e)
+	}
+	if n, e := r.ReadAt(b[:], 3); e != nil || n != 3 || string(b[:]) != "def" || r.attempts != 1 {
+		t.Fatal(n, e, r.attempts)
+	}
+	if e = os.Rename(p, filepath.Join(dir, "old")); e != nil {
+		t.Fatal(e)
+	}
+	put(t, p, []byte("abcdef"), 0600)
+	if _, e = r.ReadAt(b[:], 0); e == nil {
+		t.Fatal("replacement inode accepted")
+	}
+}
+
+func TestLazyEvidenceShapeAndReadBounds(t *testing.T) {
+	for _, kind := range []string{"mode", "oversize", "symlink"} {
+		t.Run(kind, func(t *testing.T) {
+			dir := privateDir(t)
+			p := filepath.Join(dir, "evidence")
+			switch kind {
+			case "mode":
+				put(t, p, []byte("x"), 0644)
+			case "oversize":
+				put(t, p, bytes.Repeat([]byte{'x'}, 65537), 0600)
+			case "symlink":
+				target := filepath.Join(dir, "target")
+				put(t, target, []byte("x"), 0600)
+				if e := os.Symlink(target, p); e != nil {
+					t.Fatal(e)
+				}
+			}
+			r := lazyEvidence{path: p}
+			if _, e := r.ReadAt(make([]byte, 1), 0); e == nil || r.attempts != 1 || r.file != nil {
+				t.Fatal("shape accepted", e, r.attempts)
+			}
+		})
+	}
+	r := lazyEvidence{path: filepath.Join(privateDir(t), "absent")}
+	if _, e := r.ReadAt(make([]byte, 2), 65536); e == nil || r.attempts != 0 {
+		t.Fatal("end-over-bound open", e)
+	}
+	if _, e := r.ReadAt(make([]byte, 1), -1); e == nil || r.attempts != 0 {
+		t.Fatal("negative offset open", e)
+	}
+}
+
+func TestLazyEvidenceOneExtraEOFByte(t *testing.T) {
+	p := filepath.Join(privateDir(t), "max-evidence")
+	put(t, p, bytes.Repeat([]byte{'x'}, 65536), 0600)
+	r := lazyEvidence{path: p}
+	b := make([]byte, 65537)
+	n, e := r.ReadAt(b, 0)
+	if n != 65536 || e != io.EOF || r.attempts != 1 || r.lastSize != 65536 {
+		t.Fatal(n, e, r.attempts, r.lastSize)
+	}
+	defer r.file.Close()
+}
+
+func TestWorkerSealMutationAndHardlink(t *testing.T) {
+	dir := privateDir(t)
+	p := filepath.Join(dir, "owned-not-executed")
+	b := []byte("owned fake executable bytes")
+	put(t, p, b, 0700)
+	a, e := sealWorker(p, digest(b))
+	if e != nil || a.Size != int64(len(b)) {
+		t.Fatal(a, e)
+	}
+	z, e := sealWorker(p, digest(b))
+	if e != nil || !a.same(z) {
+		t.Fatal("stable identity", e)
+	}
+	changed := append([]byte(nil), b...)
+	changed[0] ^= 1
+	put(t, p, changed, 0700)
+	if _, e = sealWorker(p, digest(b)); e == nil {
+		t.Fatal("mutation accepted")
+	}
+	put(t, p, b, 0700)
+	if e = os.Link(p, filepath.Join(dir, "second")); e != nil {
+		t.Fatal(e)
+	}
+	if _, e = sealWorker(p, digest(b)); e == nil {
+		t.Fatal("hardlink accepted")
+	}
+}
+
+type readerFault uint8
+
+func (r readerFault) Read(p []byte) (int, error) {
+	switch r {
+	case 1:
+		return len(p) + 1, nil
+	case 2:
+		return 0, nil
+	case 3:
+		panic(nil)
+	}
+	return 0, io.ErrUnexpectedEOF
+}
+
+func TestStderrCaptureExactBoundAndFaults(t *testing.T) {
+	for _, n := range []int{0, stderrCap, stderrCap + 1} {
+		aborts := 0
+		s, e := drainStderr(bytes.NewReader(bytes.Repeat([]byte{'x'}, n)), func() { aborts++ })
+		if n <= stderrCap {
+			if e != nil || s.N != n || s.Overflow || aborts != 0 {
+				t.Fatal(n, e, s.N, s.Overflow, aborts)
+			}
+		} else if e == nil || s.N != stderrCap || !s.Overflow || aborts != 1 {
+			t.Fatal(n, e, s.N, s.Overflow, aborts)
+		}
+	}
+	for _, f := range []readerFault{0, 1, 2, 3} {
+		aborts := 0
+		_, e := drainStderr(f, func() { aborts++ })
+		if e == nil || aborts != 1 {
+			t.Fatal("reader fault", f, e, aborts)
+		}
+	}
+}
+
+func TestReceiverPanicIsOwnedFailure(t *testing.T) {
+	e := safeConsume(func(io.Reader, io.Writer) error { panic(nil) }, bytes.NewReader(nil), io.Discard)
+	if e != code("receiver_interrupted") {
+		t.Fatal(e)
+	}
+}
+
+func TestRusageTimeUnitsAndOverflow(t *testing.T) {
+	if n, ok := timevalNS(syscall.Timeval{Sec: 2, Usec: 345}); !ok || n != 2000345000 {
+		t.Fatal(n, ok)
+	}
+	for _, v := range []syscall.Timeval{{Sec: -1}, {Usec: -1}, {Usec: 1000000}, {Sec: math.MaxInt64}} {
+		if _, ok := timevalNS(v); ok {
+			t.Fatal("invalid CPU time", v)
+		}
+	}
+}
+
+func TestFrameTapChunkingAndDuplicateFinal(t *testing.T) {
+	p := f.Pins{Freeze: strings.Repeat("a", 64), Fixtures: strings.Repeat("b", 64), Captions: strings.Repeat("c", 64)}
+	ready := f.Frame{V: f.Version, Q: 1, K: f.Ready, D: 255, B: &p}
+	final := f.Frame{V: f.Version, Q: 2, K: f.Final, D: 255, B: &p, Z: &f.Terminal{Reason: f.ObserverStop}, E: &f.FileCommit{N: 250, H: p.Freeze}}
+	var tap frameTap
+	for _, v := range []f.Frame{ready, final} {
+		b, e := f.CanonicalFrame(v)
+		if e != nil {
+			t.Fatal(e)
+		}
+		for _, one := range append(b, '\n') {
+			if n, e := tap.Write([]byte{one}); e != nil || n != 1 {
+				t.Fatal(n, e)
+			}
+		}
+	}
+	if !tap.Final || tap.File != *final.E || tap.n != 0 {
+		t.Fatal(tap)
+	}
+	b, e := f.CanonicalFrame(final)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if _, e = tap.Write(append(b, '\n')); e == nil {
+		t.Fatal("duplicate FINAL")
+	}
+	var huge frameTap
+	if _, e = huge.Write(bytes.Repeat([]byte{'x'}, f.MaxLineBytes+1)); e == nil {
+		t.Fatal("line cap")
+	}
+}
+
+func TestSummaryRejectsUnprovenAndNoncanonicalInput(t *testing.T) {
+	if summaryMatches(workerSummary{}, f.Pins{}, d.Receipt{}, frameTap{}) {
+		t.Fatal("empty state accepted")
+	}
+	for _, raw := range []string{
+		"{}\n", "{}", "{}\n\n", "{\"schema\":\"a\",\"schema\":\"b\"}\n", "{\"schema\":null}\n", "{\"extra\":1}\n",
+	} {
+		p := filepath.Join(privateDir(t), "summary")
+		put(t, p, []byte(raw), 0600)
+		if _, _, e := verifySummary(p, f.Pins{}, d.Receipt{}, frameTap{}); e == nil {
+			t.Fatal("summary accepted", raw)
+		}
+	}
+}
+
+func TestReceiptBoundAndStaticFailure(t *testing.T) {
+	r := Receipt{Schema: "native-wire3-controller-actual-v1"}
+	firstFailure(&r, code("static_first"))
+	firstFailure(&r, code("static_second"))
+	if r.Failure != "static_first" {
+		t.Fatal(r.Failure)
+	}
+	b, e := encodeReceipt(r)
+	if e != nil || len(b) > receiptCap || b[len(b)-1] != '\n' {
+		t.Fatal(len(b), e)
+	}
+	r.Scope = strings.Repeat("x", receiptCap)
+	if _, e = encodeReceipt(r); e == nil {
+		t.Fatal("receipt cap accepted")
+	}
+}

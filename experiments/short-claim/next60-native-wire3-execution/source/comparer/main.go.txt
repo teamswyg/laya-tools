@@ -1,0 +1,419 @@
+// SPDX-License-Identifier: Apache-2.0
+// Saved evidence comparison only. No original/model imports or re-execution.
+package main
+
+import (
+	"bufio"
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"os"
+
+	ce "riido.local/compactevidenceprototype"
+	ef "riido.local/evidencefileprototype"
+	f "riido.local/unionduplicateframe"
+	core "riido.local/unionduplicatenativeprep/core"
+	d "riido.local/uniondurable"
+)
+
+type wantRead struct {
+	Call    uint8 `json:"call_index"`
+	Entries []struct {
+		Name   string
+		Marker uint8
+	} `json:"entries"`
+	Nil      bool    `json:"entries_nil"`
+	Present  bool    `json:"error_present"`
+	Identity *string `json:"error_identity"`
+	Normal   bool    `json:"returned_normally"`
+}
+type wantVisit struct {
+	Object *string `json:"object"`
+	Key    *string `json:"key"`
+	Array  *string `json:"array"`
+	Index  *uint8  `json:"index"`
+}
+type want struct {
+	Normal           bool        `json:"returned_normally"`
+	Panic            bool        `json:"panic_present"`
+	Reads            []wantRead  `json:"reads"`
+	Descriptors      bool        `json:"logical_entry_descriptors_unchanged"`
+	Complete         bool        `json:"complete_call_list"`
+	Stopped          bool        `json:"stopped_after_source_error"`
+	Suffix           []uint8     `json:"unexecuted_suffix"`
+	Valid            bool        `json:"syntax_valid"`
+	Published        bool        `json:"published_view"`
+	Channel          bool        `json:"duplicate_error_channel_available"`
+	Present          bool        `json:"error_present"`
+	Identity         *string     `json:"own_error_identity"`
+	Duplicate        bool        `json:"duplicate_present"`
+	Path             *string     `json:"duplicate_object_pointer"`
+	Key              *string     `json:"decoded_key"`
+	Occurrence       *uint8      `json:"key_occurrence"`
+	Prefix           []wantVisit `json:"ordered_visit_prefix"`
+	Walk             bool        `json:"walk_complete"`
+	Unchanged        bool        `json:"input_bytes_unchanged"`
+	SuffixNotVisited bool        `json:"suffix_after_rejection_not_visited"`
+}
+type carrier struct {
+	Records []struct {
+		Request uint8  `json:"request_ordinal"`
+		Fixture uint8  `json:"fixture_index"`
+		ID      string `json:"fixture_id"`
+		Want    want   `json:"Want"`
+	} `json:"records"`
+}
+type predicate struct {
+	Name    string `json:"name"`
+	Verdict string `json:"verdict"`
+}
+type rowResult struct {
+	D          uint8       `json:"d"`
+	X          [4]uint8    `json:"x"`
+	Verdict    string      `json:"verdict"`
+	Predicates []predicate `json:"predicates"`
+}
+type candidate struct {
+	Request, Display uint8
+	T, F, U          uint8
+	Verdict          string
+}
+
+func hash(b []byte) string { v := sha256.Sum256(b); return hex.EncodeToString(v[:]) }
+func bounded(path string, n int64) ([]byte, error) {
+	x, e := os.Open(path)
+	if e != nil {
+		return nil, e
+	}
+	defer x.Close()
+	b, e := io.ReadAll(io.LimitReader(x, n+1))
+	if e != nil || int64(len(b)) > n {
+		return nil, errors.New("read_bound")
+	}
+	return b, nil
+}
+func verdict(known, equal bool) string {
+	if !known {
+		return "U"
+	}
+	if equal {
+		return "T"
+	}
+	return "F"
+}
+func aggregate(p []predicate) string {
+	unknown := false
+	for _, v := range p {
+		if v.Verdict == "F" {
+			return "F"
+		}
+		unknown = unknown || v.Verdict == "U"
+	}
+	if unknown {
+		return "U"
+	}
+	return "T"
+}
+func (v *rowResult) add(name string, known, equal bool) {
+	v.Predicates = append(v.Predicates, predicate{name, verdict(known, equal)})
+}
+func (v *rowResult) boolean(name string, g f.Bool, w bool) { v.add(name, g.A && g.K, !g.N && g.V == w) }
+
+var paths = [5]string{"", "", "/outer", "/0", "/1"}
+var keys = [7]string{"", "", "a", "b", "k", "outer", "z"}
+var names = [4]string{"", "a", "b", "c"}
+
+func smallEqual(g f.Small, w *string, dict []string) (bool, bool) {
+	if !g.A || !g.K {
+		return false, false
+	}
+	if w == nil {
+		return true, g.N
+	}
+	if g.N || g.V == 0 || int(g.V) >= len(dict) {
+		return true, false
+	}
+	return true, dict[g.V] == *w
+}
+func errorIdentity(s *string) f.Identity {
+	if s == nil {
+		return f.NilIdentity
+	}
+	switch *s {
+	case "io_EOF":
+		return f.EOFIdentity
+	case "owned_layer_cause":
+		return f.LayerCauseIdentity
+	case "owned_duplicate_key":
+		return f.DuplicateIdentity
+	case "owned_invalid_JSON":
+		return f.InvalidJSONIdentity
+	}
+	return f.UnknownIdentity
+}
+func (v *rowResult) err(name string, g f.ErrorFact, present bool, id *string) {
+	v.add(name+".present", g.A && g.K, g.P == present)
+	v.add(name+".identity", g.A && g.K && g.I, g.V == errorIdentity(id))
+}
+
+func compare(row ce.Row, facts f.Facts, w want) (rowResult, error) {
+	x, e := ce.Expand(row)
+	if e != nil {
+		return rowResult{}, e
+	}
+	r := rowResult{D: row.D, X: row.X}
+	r.boolean("returned_normally", facts.Normal, w.Normal)
+	r.boolean("panic_present", facts.Panic, w.Panic)
+	// A recovered original panic is independent of normal candidate completion.
+	// Pre-AFTER absence remains unknown; only an observed positive is decisive.
+	if x.SourcePanic.A && x.SourcePanic.K && !x.SourcePanic.N && x.SourcePanic.V {
+		r.add("observed_source_panic", true, w.Panic)
+	}
+	if row.F {
+		return r, errors.New("observer_fault")
+	}
+	if row.X[0] == 0 {
+		u := x.Union
+		r.add("read_count", u.Complete.A && u.Complete.K || u.Stopped.A && u.Stopped.K, int(u.N) == len(w.Reads))
+		for i, q := range w.Reads {
+			prefix := fmt.Sprintf("reads.%d", i)
+			if i >= int(u.N) {
+				r.add(prefix, false, false)
+				continue
+			}
+			g := u.Reads[i]
+			r.add(prefix+".call", g.Known, g.Call == q.Call)
+			r.boolean(prefix+".normal", g.Normal, q.Normal)
+			r.boolean(prefix+".panic", g.Panic, false)
+			r.add(prefix+".nil", g.Entries.A && g.Entries.K, g.Entries.N == q.Nil)
+			entries := int(g.Entries.C) == len(q.Entries)
+			if entries {
+				for j, v := range q.Entries {
+					got := g.Entries.V[j]
+					if got.N == 0 || int(got.N) >= len(names) || names[got.N] != v.Name || got.M != v.Marker {
+						entries = false
+						break
+					}
+				}
+			}
+			r.add(prefix+".ordered_entries", g.Entries.A && g.Entries.K, entries)
+			r.err(prefix+".error", g.Error, q.Present, q.Identity)
+		}
+		r.boolean("logical_entry_descriptors_unchanged", u.DescriptorsUnchanged, w.Descriptors)
+		r.boolean("complete_call_list", u.Complete, w.Complete)
+		r.boolean("stopped_after_source_error", u.Stopped, w.Stopped)
+		suffix := int(u.SuffixN) == len(w.Suffix)
+		if suffix {
+			for i, n := range w.Suffix {
+				suffix = suffix && u.Suffix[i] == n
+			}
+		}
+		r.add("unexecuted_suffix", u.Complete.A && u.Complete.K || u.Stopped.A && u.Stopped.K, suffix)
+	} else {
+		j := x.JSON
+		r.boolean("syntax_valid", j.Valid, w.Valid)
+		r.boolean("published_view", j.Published, w.Published)
+		// An absent required channel remains U; unavailable is not semantic false.
+		r.add("duplicate_error_channel_available", j.Error.A && j.Error.K, w.Channel)
+		r.err("error", j.Error, w.Present, w.Identity)
+		r.boolean("duplicate_present", j.Duplicate, w.Duplicate)
+		k, v := smallEqual(j.Path, w.Path, paths[:])
+		r.add("duplicate_object_pointer", k, v)
+		k, v = smallEqual(j.Key, w.Key, keys[:])
+		r.add("decoded_key", k, v)
+		same := false
+		if w.Occurrence == nil {
+			same = j.Occurrence.N
+		} else {
+			same = !j.Occurrence.N && j.Occurrence.V == *w.Occurrence
+		}
+		r.add("key_occurrence", j.Occurrence.A && j.Occurrence.K, same)
+		prefix := int(j.N) == len(w.Prefix)
+		if prefix {
+			for i, v := range w.Prefix {
+				g := j.Prefix[i].Visit
+				if g.P == 0 || int(g.P) >= len(paths) {
+					prefix = false
+					break
+				}
+				if v.Array != nil {
+					prefix = prefix && g.T == 2 && paths[g.P] == *v.Array && v.Index != nil && g.I == *v.Index
+				} else {
+					prefix = prefix && v.Object != nil && v.Key != nil && g.T == 1 && paths[g.P] == *v.Object && g.K > 0 && int(g.K) < len(keys) && keys[g.K] == *v.Key
+				}
+				if !prefix {
+					break
+				}
+			}
+		}
+		r.add("ordered_visit_prefix", j.PrefixKnown, prefix)
+		r.boolean("walk_complete", j.WalkComplete, w.Walk)
+		r.boolean("input_bytes_unchanged", j.Unchanged, w.Unchanged)
+		// Frozen field is an implication: no visitation after rejection. A complete,
+		// error-free success satisfies it; SuffixStopped=false is then expected.
+		known := j.Error.A && j.Error.K && j.WalkComplete.A && j.WalkComplete.K && !j.WalkComplete.N && j.PrefixKnown
+		ok := false
+		if w.Present {
+			known = known && j.SuffixStopped.A && j.SuffixStopped.K && !j.SuffixStopped.N
+			ok = j.Error.P && !j.WalkComplete.V && j.SuffixStopped.V && prefix
+		} else {
+			ok = !j.Error.P && j.WalkComplete.V && prefix
+		}
+		r.add("suffix_after_rejection_not_visited", known, ok == w.SuffixNotVisited)
+	}
+	r.Verdict = aggregate(r.Predicates)
+	return r, nil
+}
+func run(args []string) error {
+	if len(args) != 5 {
+		return errors.New("args: evidence journal fixtures evidenceSHA journalSHA")
+	}
+	evidence, e := bounded(args[0], ef.MaxFile)
+	if e != nil || hash(evidence) != args[3] {
+		return errors.New("evidence_pin")
+	}
+	journal, e := bounded(args[1], d.JournalCapBytes)
+	if e != nil || hash(journal) != args[4] {
+		return errors.New("journal_pin")
+	}
+	fixtures, e := bounded(args[2], 11940)
+	if e != nil || len(fixtures) != 11940 || hash(fixtures) != core.FixtureSHA {
+		return errors.New("fixture_pin")
+	}
+	var wanted carrier
+	if json.Unmarshal(fixtures, &wanted) != nil || len(wanted.Records) != 13 {
+		return errors.New("wanted")
+	}
+	pins := f.Pins{Freeze: core.FreezeSHA, Fixtures: core.FixtureSHA, Captions: core.CaptionSHA}
+	state, e := d.NewState(pins)
+	if e != nil {
+		return e
+	}
+	er, e := d.NewEvidenceReader(bytes.NewReader(evidence), pins)
+	if e != nil {
+		return e
+	}
+	var refs [39]ef.RowRef
+	var facts [39]f.Facts
+	var seen [39]bool
+	var final *f.Frame
+	scan := bufio.NewReaderSize(bytes.NewReader(journal), f.MaxLineBytes+1)
+	for {
+		b, e := scan.ReadSlice('\n')
+		if e == io.EOF && len(b) == 0 {
+			break
+		}
+		if e != nil {
+			return errors.New("journal_LF")
+		}
+		v, e := f.DecodeFrame(b)
+		if e != nil {
+			return e
+		}
+		next, e := state.Next(v)
+		if e != nil {
+			return e
+		}
+		if v.K == f.AfterCandidate {
+			if v.R == nil || v.F == nil {
+				return errors.New("candidate_ref")
+			}
+			if e = er.CheckRow(v, state.RowEvidenceContext()); e != nil {
+				return errors.New("row_ancestry_or_evidence")
+			}
+			refs[v.D] = ef.RowRef{D: v.D, Offset: v.R.O, Length: v.R.N, SHA256: v.R.H}
+			facts[v.D] = *v.F
+			seen[v.D] = true
+		}
+		state = next
+		if v.K == f.Final {
+			copy := v
+			final = &copy
+		}
+	}
+	if !state.Complete() || state.EvidenceRows() != 39 || final == nil || final.E == nil {
+		return errors.New("not_complete")
+	}
+	if er.CheckFinal(*final, refs[:]) != nil {
+		return errors.New("whole_file")
+	}
+	rows := make([]rowResult, 0, 39)
+	var candidates [2][3]candidate
+	for i := uint8(0); i < 39; i++ {
+		if !seen[i] {
+			return errors.New("missing_row")
+		}
+		ref := refs[i]
+		payload := evidence[int(ref.Offset) : int(ref.Offset)+int(ref.Length)-1]
+		if hash(payload) != ref.SHA256 {
+			return errors.New("row_hash")
+		}
+		row, e := ce.DecodeRow(payload)
+		if e != nil {
+			return e
+		}
+		index := int(row.X[1])
+		if row.X[0] == 1 {
+			index += 6
+		}
+		w := wanted.Records[index]
+		if w.Request != row.X[0] || w.Fixture != row.X[1] {
+			return errors.New("wanted_schedule")
+		}
+		r, e := compare(row, facts[i], w.Want)
+		if e != nil {
+			return e
+		}
+		rows = append(rows, r)
+		c := &candidates[row.X[0]][row.X[2]]
+		c.Request, c.Display = row.X[0], row.X[2]
+		switch r.Verdict {
+		case "T":
+			c.T++
+		case "F":
+			c.F++
+		case "U":
+			c.U++
+		}
+	}
+	for i := range candidates {
+		for j := range candidates[i] {
+			c := &candidates[i][j]
+			c.Verdict = "T"
+			if c.F > 0 {
+				c.Verdict = "F"
+			} else if c.U > 0 {
+				c.Verdict = "U"
+			}
+		}
+	}
+	out := struct {
+		Schema                  string          `json:"schema"`
+		Rows                    []rowResult     `json:"rows"`
+		Candidates              [2][3]candidate `json:"candidates"`
+		ParentRequests          uint8           `json:"parent_requests"`
+		FixtureInputs           uint8           `json:"fixture_inputs"`
+		Protected               uint8           `json:"protected_rows"`
+		NewCohort               uint8           `json:"new20to60_rows"`
+		Fit                     uint8           `json:"Fit"`
+		OriginalReplay          uint8           `json:"original_replay"`
+		EvidenceSHA, JournalSHA string
+		Scope                   string
+	}{Schema: "native-frozen-want-saved-comparison-v1", Rows: rows, Candidates: candidates, ParentRequests: 2, FixtureInputs: 13, EvidenceSHA: args[3], JournalSHA: args[4], Scope: "Finite development comparison. Existing groups79/83 and roles remain fixed; union parent reuses catalog19. Labels require separate independent qualification; variants are not independent parents."}
+	b, e := json.Marshal(out)
+	if e != nil || len(b)+1 > 65536 {
+		return errors.New("output_bound")
+	}
+	_, e = os.Stdout.Write(append(b, '\n'))
+	return e
+}
+func main() {
+	if e := run(os.Args[1:]); e != nil {
+		fmt.Fprintln(os.Stderr, e.Error())
+		os.Exit(1)
+	}
+}

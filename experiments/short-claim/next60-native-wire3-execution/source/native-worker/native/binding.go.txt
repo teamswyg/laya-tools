@@ -1,0 +1,166 @@
+// Inert native binding proposal. This package imports original packages only
+// after Root independently materializes and reviews a future module closure.
+package native
+
+import (
+	"github.com/spf13/afero"
+	"github.com/tidwall/gjson"
+	"os"
+	frame "riido.local/unionduplicateframe"
+	core "riido.local/unionduplicatenativeprep/core"
+	"time"
+)
+
+type adapter struct {
+	fault  func()
+	values [16]gjson.Result
+	n      uint8
+}
+
+func New(fault func()) core.API { return &adapter{fault: fault} }
+func (a *adapter) guard()       { a.fault(); panic(core.ErrObserver) }
+func (a *adapter) put(v gjson.Result) core.Value {
+	if len(v.Raw) > 128 || len(v.Str) > 32 || v.Index < 0 || v.Index > 128 || v.Type < 0 || v.Type > 5 || v.Indexes != nil || a.n >= 16 {
+		a.guard()
+	}
+	a.values[a.n] = v
+	a.n++
+	out := core.Value{Handle: a.n, Type: uint8(v.Type), RawN: uint8(len(v.Raw)), StrN: uint8(len(v.Str)), Index: uint8(v.Index)}
+	copy(out.Raw[:], v.Raw)
+	copy(out.Str[:], v.Str)
+	return out
+}
+func (a *adapter) get(v core.Value) gjson.Result {
+	if v.Handle == 0 || v.Handle > a.n {
+		a.guard()
+	}
+	return a.values[v.Handle-1]
+}
+func (a *adapter) Valid(s string, returned func(bool)) bool {
+	returned(false)
+	v := gjson.Valid(s)
+	returned(true)
+	return v
+}
+func (a *adapter) Parse(s string, returned func(bool)) core.Value {
+	returned(false)
+	v := gjson.Parse(s)
+	returned(true)
+	return a.put(v)
+}
+func (a *adapter) Map(v core.Value, returned func(bool)) core.MapList {
+	r := a.get(v)
+	returned(false)
+	x := r.Map()
+	returned(true)
+	if len(x) > 8 {
+		a.guard()
+	}
+	out := core.MapList{Nil: x == nil, N: uint8(len(x))}
+	i := uint8(0)
+	for k, v := range x {
+		if len(k) > 32 {
+			a.guard()
+		}
+		out.V[i].KeyN = uint8(len(k))
+		copy(out.V[i].Key[:], k)
+		out.V[i].Value = a.put(v)
+		i++
+	}
+	return out
+}
+func (a *adapter) ForEach(v core.Value, callback func(func() (core.Value, core.Value)) bool, returned func(bool)) {
+	r := a.get(v)
+	returned(false)
+	r.ForEach(func(key, value gjson.Result) bool {
+		// Primitive copying is delayed until the owned callback BEFORE ACK.
+		// The synchronous decoder does not escape the callback or expose a
+		// native Result through frame/final DTOs.
+		return callback(func() (core.Value, core.Value) { return a.put(key), a.put(value) })
+	})
+	returned(true)
+}
+
+type descriptor struct {
+	entry frame.Entry
+	owner *adapter
+}
+
+func (v descriptor) Name() string       { v.owner.guard(); return "" }
+func (v descriptor) Size() int64        { v.owner.guard(); return 0 }
+func (v descriptor) Mode() os.FileMode  { v.owner.guard(); return 0 }
+func (v descriptor) ModTime() time.Time { v.owner.guard(); return time.Time{} }
+func (v descriptor) IsDir() bool        { v.owner.guard(); return false }
+func (v descriptor) Sys() any           { v.owner.guard(); return nil }
+func (a *adapter) box(v core.InfoList) []os.FileInfo {
+	if v.N > 3 || v.Nil && v.N != 0 {
+		a.guard()
+	}
+	if v.Nil {
+		return nil
+	}
+	out := make([]os.FileInfo, int(v.N))
+	for j := uint8(0); j < v.N; j++ {
+		out[j] = descriptor{v.V[j], a}
+	}
+	return out
+}
+func (a *adapter) unbox(v []os.FileInfo) core.InfoList {
+	if len(v) > 3 {
+		a.guard()
+	}
+	out := core.InfoList{Nil: v == nil, N: uint8(len(v))}
+	for j, x := range v {
+		d, ok := x.(descriptor)
+		if !ok || d.owner != a {
+			a.guard()
+		}
+		out.V[j] = d.entry
+	}
+	return out
+}
+
+type ownedFile struct {
+	a        *adapter
+	provider core.Provider
+}
+
+func (f *ownedFile) Readdir(count int) ([]os.FileInfo, error) {
+	v := f.provider(count)
+	return f.a.box(v.Entries), v.Error
+}
+
+// All other File methods are outside this frozen fixture. A guard records an
+// observer fault before panic; none is used for a diagnostic snapshot.
+func (f *ownedFile) Close() error                       { f.a.guard(); return core.ErrObserver }
+func (f *ownedFile) Read([]byte) (int, error)           { f.a.guard(); return 0, core.ErrObserver }
+func (f *ownedFile) ReadAt([]byte, int64) (int, error)  { f.a.guard(); return 0, core.ErrObserver }
+func (f *ownedFile) Seek(int64, int) (int64, error)     { f.a.guard(); return 0, core.ErrObserver }
+func (f *ownedFile) Write([]byte) (int, error)          { f.a.guard(); return 0, core.ErrObserver }
+func (f *ownedFile) WriteAt([]byte, int64) (int, error) { f.a.guard(); return 0, core.ErrObserver }
+func (f *ownedFile) Name() string                       { f.a.guard(); return "" }
+func (f *ownedFile) Readdirnames(int) ([]string, error) { f.a.guard(); return nil, core.ErrObserver }
+func (f *ownedFile) Stat() (os.FileInfo, error)         { f.a.guard(); return nil, core.ErrObserver }
+func (f *ownedFile) Sync() error                        { f.a.guard(); return core.ErrObserver }
+func (f *ownedFile) Truncate(int64) error               { f.a.guard(); return core.ErrObserver }
+func (f *ownedFile) WriteString(string) (int, error)    { f.a.guard(); return 0, core.ErrObserver }
+
+type directory struct {
+	a *adapter
+	u *afero.UnionFile
+}
+
+func (d *directory) Readdir(count int, returned func(bool)) core.InfoReturn {
+	returned(false)
+	v, e := d.u.Readdir(count)
+	returned(true)
+	return core.InfoReturn{Entries: d.a.unbox(v), Error: e}
+}
+func (a *adapter) NewUnion(layer, base core.Provider, merge core.Merge) core.Dir {
+	u := &afero.UnionFile{Layer: &ownedFile{a, layer}, Base: &ownedFile{a, base}}
+	u.Merger = func(l, b []os.FileInfo) ([]os.FileInfo, error) {
+		v := merge(func() (core.InfoList, core.InfoList) { return a.unbox(l), a.unbox(b) })
+		return a.box(v.Entries), v.Error
+	}
+	return &directory{a, u}
+}

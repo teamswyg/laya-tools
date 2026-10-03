@@ -1,0 +1,41 @@
+package main
+
+import (
+	"encoding/json"
+	"flag"
+	"io"
+	"os"
+)
+
+func main() {
+	f := flag.NewFlagSet("cold-artifact-stream", flag.ContinueOnError)
+	f.SetOutput(io.Discard)
+	var in Input
+	f.StringVar(&in.Source, "source", "", "")
+	f.StringVar(&in.SourceSHA, "source-sha", "", "")
+	f.StringVar(&in.Archive, "archive", "", "")
+	f.StringVar(&in.Commit, "commit", "", "")
+	f.StringVar(&in.Ack, "ack", "", "")
+	r := Receipt{Schema: "riido.cold-artifact-stream.receipt.v1", Status: "failed"}
+	err := f.Parse(os.Args[1:])
+	if err != nil || f.NArg() != 0 {
+		err = errInput
+	} else {
+		r, err = Run(in)
+	}
+	if err != nil {
+		r.Error = err.Error()
+	}
+	b, e := json.Marshal(r)
+	if e != nil || len(b)+1 > receiptCap {
+		os.Exit(2)
+	}
+	b = append(b, '\n')
+	n, e := os.Stdout.Write(b)
+	if e != nil || n != len(b) {
+		os.Exit(2)
+	}
+	if err != nil {
+		os.Exit(1)
+	}
+}

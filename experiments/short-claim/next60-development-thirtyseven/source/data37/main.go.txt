@@ -1,0 +1,249 @@
+// SPDX-License-Identifier: Apache-2.0
+// Maintainer-only saved supervision/Reader correspondence. No scoring or Fit.
+package main
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"fmt"
+	sc "github.com/teamswyg/laya-tools/pkg/shortclaim"
+	sd "github.com/teamswyg/laya-tools/pkg/shortclaimdata"
+	"io"
+	"os"
+	"path/filepath"
+)
+
+const oldSHA = "d6afaf0b6f5f3b5fd9a7c2df039552b64a40a1b0a78521694dfb188d62617d15"
+
+type candidate struct {
+	ID     string `json:"metadata_id"`
+	Text   string `json:"text"`
+	Label  bool   `json:"label"`
+	Weight int    `json:"sample_weight"`
+}
+type scope struct {
+	Inputs       int    `json:"input_count"`
+	Observations int    `json:"candidate_observations"`
+	Description  string `json:"description"`
+	All          bool   `json:"all_input_guarantee"`
+	Unseen       bool   `json:"unseen_source_guarantee"`
+}
+type row struct {
+	Schema       string      `json:"schema"`
+	ID           string      `json:"stable_id"`
+	Request      string      `json:"request"`
+	Candidates   []candidate `json:"candidates"`
+	Role         string      `json:"role"`
+	Group        int         `json:"whole_group"`
+	Family       string      `json:"source_family"`
+	Revision     string      `json:"source_revision"`
+	Scope        scope       `json:"finite_scope"`
+	TextRevision string      `json:"text_revision"`
+	Policy       string      `json:"feature_policy"`
+}
+type qualification struct {
+	Schema string `json:"schema"`
+	Rows   []row  `json:"rows"`
+}
+
+func hash(b []byte) string { h := sha256.Sum256(b); return hex.EncodeToString(h[:]) }
+func read(p string, max int64) ([]byte, error) {
+	f, e := os.Open(p)
+	if e != nil {
+		return nil, errors.New("read")
+	}
+	defer f.Close()
+	s, e := f.Stat()
+	if e != nil || !s.Mode().IsRegular() || s.Size() > max {
+		return nil, errors.New("shape")
+	}
+	b, e := io.ReadAll(io.LimitReader(f, max+1))
+	if e != nil || int64(len(b)) > max {
+		return nil, errors.New("bound")
+	}
+	return b, nil
+}
+func store(p string, b []byte) error {
+	if !filepath.IsAbs(p) || filepath.Clean(p) != p {
+		return errors.New("path")
+	}
+	real, e := filepath.EvalSymlinks(filepath.Dir(p))
+	if e != nil || real != filepath.Dir(p) {
+		return errors.New("parent")
+	}
+	f, e := os.OpenFile(p, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if e != nil {
+		return errors.New("exists")
+	}
+	if e = f.Chmod(0600); e != nil {
+		f.Close()
+		return errors.New("mode")
+	}
+	n, e := f.Write(b)
+	if e == nil && n != len(b) {
+		e = io.ErrShortWrite
+	}
+	if e == nil {
+		e = f.Sync()
+	}
+	c := f.Close()
+	if e != nil || c != nil {
+		return errors.New("write_sync_close")
+	}
+	d, e := os.Open(filepath.Dir(p))
+	if e != nil {
+		return errors.New("parent")
+	}
+	e = d.Sync()
+	c = d.Close()
+	if e != nil || c != nil {
+		return errors.New("parent_sync_close")
+	}
+	got, e := read(p, int64(len(b)))
+	if e != nil || !bytes.Equal(got, b) {
+		return errors.New("readback")
+	}
+	return nil
+}
+func check(b []byte) (string, int, int, error) {
+	var r row
+	d := json.NewDecoder(bytes.NewReader(b))
+	d.DisallowUnknownFields()
+	if d.Decode(&r) != nil {
+		return "", 0, 0, errors.New("row")
+	}
+	ex, e := sd.LoadDevelopmentRow(bytes.NewReader(b))
+	if e != nil || !ex.Valid() {
+		return "", 0, 0, errors.New("Reader")
+	}
+	m := ex.Metadata()
+	want := sd.Metadata{StableID: r.ID, SourceFamily: r.Family, SourceRevision: r.Revision, TextRevision: r.TextRevision, Role: r.Role, FeaturePolicy: r.Policy, WholeGroup: r.Group, FiniteScope: sd.FiniteScope{InputCount: r.Scope.Inputs, CandidateObservations: r.Scope.Observations, Description: r.Scope.Description, AllInputGuarantee: r.Scope.All, UnseenSourceGuarantee: r.Scope.Unseen}}
+	if m != want {
+		return "", 0, 0, errors.New("metadata")
+	}
+	in := sc.Input{Schema: sc.Schema, Request: r.Request, Provenance: sd.InputProvenance}
+	for _, c := range r.Candidates {
+		in.Candidates = append(in.Candidates, sc.Candidate{ID: c.ID, Text: c.Text})
+	}
+	v, e := sc.ValidateInput(in)
+	if e != nil || ex.Input().Prepared() != v.Prepared() {
+		return "", 0, 0, errors.New("normalized_input")
+	}
+	s := ex.Supervision()
+	if s.Count != len(r.Candidates) {
+		return "", 0, 0, errors.New("count")
+	}
+	p := 0
+	for i, c := range r.Candidates {
+		if s.Labels[i] != c.Label || s.Weights[i] != c.Weight || c.Weight != 1 {
+			return "", 0, 0, errors.New("supervision")
+		}
+		if c.Label {
+			p++
+		}
+	}
+	for i := s.Count; i < sc.MaxCandidates; i++ {
+		if s.Labels[i] || s.Weights[i] != 0 || ex.Input().Prepared().Candidates[i] != (sc.PreparedCandidate{}) {
+			return "", 0, 0, errors.New("inactive_slot")
+		}
+	}
+	return r.ID, len(r.Candidates), p, nil
+}
+func run(args []string) error {
+	if len(args) != 5 {
+		return errors.New("args: previous qualification qualificationSHA data receipt")
+	}
+	old, e := read(args[0], 48618)
+	if e != nil || len(old) != 48618 || hash(old) != oldSHA || old[len(old)-1] != '\n' {
+		return errors.New("previous_pin")
+	}
+	qb, e := read(args[1], 32768)
+	if e != nil || hash(qb) != args[2] {
+		return errors.New("qualification_pin")
+	}
+	var q qualification
+	qd := json.NewDecoder(bytes.NewReader(qb))
+	qd.DisallowUnknownFields()
+	if qd.Decode(&q) != nil || qd.Decode(new(any)) != io.EOF || q.Schema != "riido-development37-Root-qualified-rows-v1" || len(q.Rows) != 2 || q.Rows[0].ID != "go53-afero-union-pagination" || q.Rows[1].ID != "hyp52-gjson-duplicate-object-keys" {
+		return errors.New("qualification")
+	}
+	for i, r := range q.Rows {
+		groups := [2]int{79, 83}
+		inputs := [2]int{6, 7}
+		families := [2]string{"upstream53-afero", "tidwall-gjson"}
+		if r.Schema != sd.Schema || r.Role != sd.Role || r.Policy != sd.FeaturePolicy || r.Group != groups[i] || r.Family != families[i] || r.Scope.Inputs != inputs[i] || r.Scope.Observations != 3*inputs[i] || r.Scope.All || r.Scope.Unseen || len(r.Candidates) != 3 {
+			return errors.New("qualified_scope")
+		}
+		positive := 0
+		for _, c := range r.Candidates {
+			if c.Label {
+				positive++
+			}
+		}
+		if positive != 1 {
+			return errors.New("qualified_positive")
+		}
+	}
+	out := append([]byte(nil), old...)
+	for _, r := range q.Rows {
+		b, e := json.Marshal(r)
+		if e != nil || len(b) > sd.MaxRowBytes {
+			return errors.New("new_row")
+		}
+		out = append(out, b...)
+		out = append(out, '\n')
+	}
+	if len(out) > 65536 || !bytes.Equal(out[:48618], old) {
+		return errors.New("data_bound")
+	}
+	parts := bytes.Split(out, []byte{'\n'})
+	if len(parts) != 38 || len(parts[37]) != 0 {
+		return errors.New("rows")
+	}
+	var ids [37]string
+	labels, pos := 0, 0
+	for i, b := range parts[:37] {
+		id, n, p, e := check(b)
+		if e != nil {
+			return e
+		}
+		for j := 0; j < i; j++ {
+			if ids[j] == id {
+				return errors.New("duplicate_parent")
+			}
+		}
+		ids[i] = id
+		labels += n
+		pos += p
+	}
+	if labels != 108 || pos != 37 {
+		return errors.New("pool")
+	}
+	if e = store(args[3], out); e != nil {
+		return e
+	}
+	rec := struct {
+		Schema                                                                                                 string `json:"schema"`
+		Requests, KnownLabels, Positive, Negative                                                              int
+		DataBytes                                                                                              int
+		DataSHA, QualificationSHA, Previous35SHA                                                               string
+		PrefixByteExact                                                                                        bool
+		ReaderAttempts, ReaderReturns, ReaderMatches, AdditionalValidateInput                                  int
+		OriginalReplay, ModelCalls, Features, Score, Fit, NewIndependentFamilies, New20to60Rows, ProtectedRows int
+		Scope                                                                                                  string
+	}{Schema: "development37-materialization-reader-v1", Requests: 37, KnownLabels: 108, Positive: 37, Negative: 71, DataBytes: len(out), DataSHA: hash(out), QualificationSHA: args[2], Previous35SHA: oldSHA, PrefixByteExact: true, ReaderAttempts: 37, ReaderReturns: 37, ReaderMatches: 37, AdditionalValidateInput: 37, Scope: "Root-qualified unit supervision and full project Reader correspondence only; no whole-history unknown or model efficacy claim."}
+	b, e := json.Marshal(rec)
+	if e != nil {
+		return errors.New("receipt")
+	}
+	return store(args[4], append(b, '\n'))
+}
+func main() {
+	if e := run(os.Args[1:]); e != nil {
+		fmt.Fprintln(os.Stderr, e.Error())
+		os.Exit(1)
+	}
+}
