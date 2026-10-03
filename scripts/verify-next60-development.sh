@@ -14,6 +14,7 @@ export GOMAXPROCS=1 GOMEMLIMIT=256MiB
 
 case "$mode" in
   data)
+    cd "$repo_root"
     dataset="$repo_root/experiments/short-claim/next60-development-dataset"
     cp "$dataset/source/convert.go.txt" "$check_dir/convert.go"
     go run -p=1 "$check_dir/convert.go" \
@@ -30,6 +31,16 @@ case "$mode" in
       > "$check_dir/validation.json"
     cmp "$check_dir/validation.json" "$three/INPUT-VALIDATION.v1.json"
     echo 'PASS: three finite rows/eight unit labels validated; no projection, score or fit.'
+    seven="$repo_root/experiments/short-claim/next60-development-seven"
+    cp "$seven/source/validate.go.txt" "$check_dir/validate-seven.go"
+    go run -p=1 "$check_dir/validate-seven.go" \
+      --data "$seven/data/train.jsonl" \
+      --data-sha256 1ee18e02958953452bf4f4c0e072652aede266c095f1866a6e71209058b1c5bc \
+      --fixtures "$repo_root/experiments/short-claim/next60-four-selector-checkpoints/preparation-v2/FIXTURES.v1.json" \
+      --previous-data "$three/data/train.jsonl" \
+      > "$check_dir/validation-seven.json"
+    cmp "$check_dir/validation-seven.json" "$seven/INPUT-VALIDATION.v1.json"
+    echo 'PASS: seven finite rows/twenty unit labels; preserved three-row prefix; no fit.'
     ;;
   controller)
     # A separate Root command may select a real binary for static inspection.

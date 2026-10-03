@@ -1,0 +1,308 @@
+{
+  "schema": "riido-next60-catalog10-independent-literal-review-v1",
+  "state": "source_only_nonblind_independent_review_complete",
+  "input_pins": [
+    {
+      "path": "CATALOG10.v2.json",
+      "bytes": 106576,
+      "sha256": "c7b0446710a6d629a584aac16f3723d439330a9684ac299491aa430edf33f80c"
+    },
+    {
+      "path": "TRANSITION.ko.md",
+      "bytes": 8778,
+      "sha256": "c35a989fed56f04d13b45a0347a51f1cdca3e26f9a78b1bfe21fca522cd53886"
+    },
+    {
+      "path": "TRANSITION.en.md",
+      "bytes": 7794,
+      "sha256": "9bdfd81bab9b7889f069ca7409699830a572570c5c0ccebe5ae545652a3a39a8"
+    }
+  ],
+  "reviewer": {
+    "author_of_catalog_v1": false,
+    "author_of_catalog_v2_literals_captions": false,
+    "author_of_target_original_libraries": false,
+    "previous_exposure": "Public earlier native2/Ftoa/source-family and catalog metadata exposure; not blind. Reviewer has authored separate metadata helpers and a source-only seven-row validator, not these ten literals.",
+    "kind": "Independent source-read review of the v2 author's proposal, not runtime observation or independent legal approval."
+  },
+  "conclusion": {
+    "hard_literal_blockers": 0,
+    "literal_Want_corrections_required": 0,
+    "structured_nonheld_literal_proposals": 46,
+    "parser_instrumentation_held_cases": 6,
+    "execution_readiness_approved": false,
+    "qualification_approved": false,
+    "labels_or_roles_assigned": 0
+  },
+  "mechanical": {
+    "request_IDs_and_order_match_v1": true,
+    "request_count": 10,
+    "finite_case_count": 52,
+    "case_counts": [
+      5,
+      6,
+      5,
+      5,
+      5,
+      5,
+      5,
+      5,
+      5,
+      6
+    ],
+    "all_fixture_and_candidate_indices_in_order": true,
+    "prior_input_and_Want_descriptions_exact": true,
+    "old_v1_4file_SHA_exact": true,
+    "original_reference_policy": "Retains v1 /ten/i and /ten/i/fixtures/j lineage; the literal objects are newly authored concretizations, not historical executable Wants.",
+    "candidate_order": [
+      "original",
+      "authored_reference",
+      "authored_negative"
+    ],
+    "candidate_positions": 30,
+    "request_truth_role_weight_qualified_all_explicit_null": true,
+    "candidate_label_weight_pair_eligible_all_explicit_null": true,
+    "Got_all52_explicit_null": true,
+    "execution_plan_frozen": false,
+    "unit_weight_scope": "No unit weights have been assigned. If subsequently admitted, repeated finite fixtures must not multiply request/candidate training weight; unit1 remains the prior development policy, not a new v2 assignment."
+  },
+  "source_binding": {
+    "retained_original_source_hashes_exact": 7,
+    "source_locations_resolved_before_use": true,
+    "source_files": [
+      "pflag/flag.go",
+      "pflag/count.go",
+      "pflag/text.go",
+      "pflag/func.go",
+      "pflag/errors.go",
+      "mapstructure/mapstructure.go",
+      "mapstructure/decode_hooks.go"
+    ],
+    "pflag_revision": "c966cfef47379dcb01e7929504d66d94b540945b",
+    "mapstructure_revision": "52aa5c6dc1d27226460807054ca2107b2d54fb2d",
+    "closure_limit": "Seven anchored body hashes and selected source lines are not a complete selected compiler/module/system closure. No raw body was copied into this report."
+  },
+  "requests": [
+    {
+      "index": 0,
+      "id": "go53-pflag-annotation-ownership",
+      "cases": 5,
+      "status": "literal_contract_consistent_pending_closed_adapter",
+      "evidence": "pflag/flag.go:578-588 stores values directly in Annotations[key] and returns NotExistError for unknown flags. Copy-at-set/get, missing-key versus missing-flag and nil/[] policy are explicit authored ABI targets, not nonexistent exported upstream getter behavior.",
+      "guard": "Keep the baseline unknown-flag getter channel unavailable; do not fabricate ErrAnnotationFlagUnknown for the original. Missing-key getter ABI is proposed even though the listed5 cases do not independently cover every getter branch."
+    },
+    {
+      "index": 1,
+      "id": "go53-pflag-bounded-count",
+      "cases": 6,
+      "status": "literal_contract_consistent",
+      "evidence": "pflag/count.go:9-11 initializes target at0; :13-22 handles +1 specially and writes ParseInt result even when err is nonnil; :55-57 registers NoOptDefVal=+1. Go1.27.1 strconv/number.go:123-141 maps bitSize0 to int, returns *NumError and maximum signed magnitude on ErrRange; :252-277 preserves Func/Num/Err and Unwrap.",
+      "guard": "Start must be assigned after CountVarP. First5 call Value.Set directly to preserve NumError instead of wrapping it in pflag InvalidValueError. Freeze64-bit platform; the9223372036854775808 target is not portable to32-bit semantics. Reference left1 on error is an authored before-commit policy."
+    },
+    {
+      "index": 2,
+      "id": "go53-pflag-single-assignment",
+      "cases": 5,
+      "status": "literal_contract_consistent",
+      "evidence": "pflag/flag.go:543-568 invokes setter before Changed bookkeeping and does not reject repeats. parseLongArg/parseSingleShortArg use registered Flag objects; Parse at1292-1310 calls Set(flag.Name,value). Long/shorthand identity, ordinary last-value replacement and one-fresh-Parse scope match the listed vectors.",
+      "guard": "The authored reference must check duplicate identity before the second setter; direct Set and repeated Parse calls remain excluded. No observed duplicate error or label exists."
+    },
+    {
+      "index": 3,
+      "id": "go53-pflag-sensitive-default",
+      "cases": 5,
+      "status": "literal_contract_consistent_source_derived_help_not_observed",
+      "evidence": "pflag/flag.go:775-846 omits Hidden, emits6-space long prefix, string type, quoted NoOptDefVal and %q default; single visible flag plus fmt.Fprintln yields3 spaces before usage. wrap(.,0,.) at727-730 leaves the one-line usage intact. The proposed help strings preserve those delimiters and replace only designated display values.",
+      "guard": "Rendering calls0. Freeze the authored redaction insertion sites without mutating stored DefValue, NoOptDefVal or parsed values. No broad guarantee for sensitive zero defaults or arbitrary help formats is established."
+    },
+    {
+      "index": 4,
+      "id": "go53-pflag-deferred-function",
+      "cases": 5,
+      "status": "literal_contract_consistent",
+      "evidence": "pflag/func.go:6 invokes callback immediately; flag.go:1080-1098 strict unknown long flag returns NotExistError, :1114-1122 missing value returns ValueRequiredError, and Parse ContinueOnError returns failure. Thus old immediate a effect can precede later error. New queue/flush-on-success and direct ErrCallback return are explicit authored policies.",
+      "guard": "The five vectors omit an actual help case; undefined-help no-flush is an implementation condition, not an extra observed vector. Candidate code and callback/parser call counts must be frozen before runtime."
+    },
+    {
+      "index": 5,
+      "id": "go53-pflag-text-error-value",
+      "cases": 5,
+      "status": "literal_contract_consistent_with_narrow_authored_fixture",
+      "evidence": "pflag/text.go:12-25 copies typed default into receiver via reflection; :28-30 invokes UnmarshalText directly. pflag/errors.go:104-117 renders supplied value with quoted flag spelling and wraps its cause. The ordinary SYNTHETIC_BAD literal error format and known-flag identity are consistent with the specified no-shorthand fixture.",
+      "guard": "Failure nonmutation is only the proposed fixture's behavior. Reference supplied-value redaction does not sanitize arbitrary secrets in cause messages or perform rollback for arbitrary TextUnmarshaler. Preserve unknown NotExist channel and Is/As object identity, not matching error strings."
+    },
+    {
+      "index": 6,
+      "id": "go53-mapstructure-hooks-errors-is",
+      "cases": 5,
+      "status": "literal_contract_consistent_distinct_from_old_LF_request",
+      "evidence": "mapstructure/decode_hooks.go:140-160 passes unchanged reflect input to each hook, returns on nil error even with nil output, and creates a new string error after all failures or no hooks. Go1.27.1 errors/join.go:11-18 describes wrapped causes and Is/As; :20-34 returns nil for no nonnil errors, so an explicit ErrNoHooks check is needed for the new target.",
+      "guard": "Use owned E1/E2/typed cause objects and explicit valid reflect int inputs. LF-concatenation native2 labels are not reused to approve Join/Is/As. Empty-hooks sentinel is authored, not an upstream exported symbol."
+    },
+    {
+      "index": 7,
+      "id": "go53-mapstructure-remain-conflict",
+      "cases": 5,
+      "status": "literal_contract_consistent_with_effective_field_scope",
+      "evidence": "mapstructure/mapstructure.go:1582-1654 traverses direct/squashed fields and overwrites remainField with the last effective remain. :1726-1743 writes unused keys only to that field. New conflict before unmatched writes, value-struct squash and ordinary map/single-remain targets are well delimited.",
+      "guard": "Matched normal field rollback and nil-pointer allocation remain excluded. Effective-field traversal order A,B must be frozen in the future named fixture types; source anchors alone do not constitute authored adapter code."
+    },
+    {
+      "index": 8,
+      "id": "go53-mapstructure-tag-precedence",
+      "cases": 5,
+      "status": "literal_contract_consistent_raw_tags_verified",
+      "evidence": "mapstructure/mapstructure.go:1887-1912 selects first nonempty Tag.Get result. The five tag strings contain literal quote bytes34 and no extra92 backslashes after JSON decoding; first-present versus empty/absent, skip target and legacy fallback are distinct policy cases.",
+      "guard": "Use actual StructTag strings, not JSON escape spellings as data. IgnoreUntaggedFields=false avoids conflating lookup presence with untagged skipping. No arbitrary invalid-tag or absent-field policy is added."
+    },
+    {
+      "index": 9,
+      "id": "go53-pflag-unknown-token-report",
+      "cases": 6,
+      "status": "hold_instrumentation_pending",
+      "evidence": "pflag/flag.go:1066-1128 consumes known required dash-valued strings and applies ignore/pass handling only on unknown branches; :1129-1216 processes shorthand fragments; :1251-1288 handles delimiter and residual arguments. Listed coordinates are source-consistent proposals, but exact branch instrumentation and report ABI are not authored.",
+      "guard": "Keep all6 on hold. Report availability is unavailable for baseline, distinct from available[]. A separate dash-token scanner cannot establish original parser coordinates. Do not include these6 in actual executable dispatches until source instrumentation is closed and independently reviewed."
+    }
+  ],
+  "family_and_lineage": {
+    "pflag_requests": 7,
+    "mapstructure_requests": 3,
+    "connected_existing_groups": [
+      77,
+      78
+    ],
+    "new_unseen_families": 0,
+    "new_parent_count_from_cases_or_captions": 0,
+    "new_global_uniqueness_claim": false,
+    "hook_related_pointer": "next60-acquisition-drafts/DRAFT-CONTRACTS.v1.json#/drafts/19/related_catalog_contracts/0",
+    "hook_actual_old_id": "next60-mapstructure-native-or",
+    "hook_related_catalog_id": "go53-mapstructure-hooks-errors-is",
+    "old_draft_body_SHA_exact": "c7bbf7bcc7912300fabdd6e671b0922df295299f00e5e7201df1ab5e824a2a9b",
+    "primary_old_catalog_match_count": 0,
+    "relationship": "18 primary catalog IDs among20 old drafts do not match these ten. One related hook link shares source/helpers but differs in LF versus Join identity policy. This does not create an independent family, permit label reuse or assign a heldout role."
+  },
+  "ASCII_word_metadata": {
+    "request_max": 24,
+    "caption_max": 22,
+    "counts": [
+      {
+        "id": "go53-pflag-annotation-ownership",
+        "request_ascii_words": 20,
+        "caption_ascii_words": [
+          14,
+          17,
+          17
+        ]
+      },
+      {
+        "id": "go53-pflag-bounded-count",
+        "request_ascii_words": 21,
+        "caption_ascii_words": [
+          19,
+          20,
+          14
+        ]
+      },
+      {
+        "id": "go53-pflag-single-assignment",
+        "request_ascii_words": 21,
+        "caption_ascii_words": [
+          19,
+          17,
+          14
+        ]
+      },
+      {
+        "id": "go53-pflag-sensitive-default",
+        "request_ascii_words": 22,
+        "caption_ascii_words": [
+          16,
+          17,
+          16
+        ]
+      },
+      {
+        "id": "go53-pflag-deferred-function",
+        "request_ascii_words": 21,
+        "caption_ascii_words": [
+          16,
+          22,
+          14
+        ]
+      },
+      {
+        "id": "go53-pflag-text-error-value",
+        "request_ascii_words": 24,
+        "caption_ascii_words": [
+          16,
+          22,
+          16
+        ]
+      },
+      {
+        "id": "go53-mapstructure-hooks-errors-is",
+        "request_ascii_words": 24,
+        "caption_ascii_words": [
+          20,
+          20,
+          12
+        ]
+      },
+      {
+        "id": "go53-mapstructure-remain-conflict",
+        "request_ascii_words": 22,
+        "caption_ascii_words": [
+          18,
+          17,
+          12
+        ]
+      },
+      {
+        "id": "go53-mapstructure-tag-precedence",
+        "request_ascii_words": 23,
+        "caption_ascii_words": [
+          18,
+          19,
+          16
+        ]
+      },
+      {
+        "id": "go53-pflag-unknown-token-report",
+        "request_ascii_words": 24,
+        "caption_ascii_words": [
+          20,
+          19,
+          16
+        ]
+      }
+    ],
+    "normalization_executed": false,
+    "note": "Independent simple ASCII alphanumeric metadata check only; not lexical Normalize/Validate or feature extraction."
+  },
+  "notices": "pflag BSD3, mapstructure MIT and copied Go1.23.4 text.go/flag.go BSD notice remain separate stated scopes. This review makes no legal blanket clearance and no new full dependency/compiler or OS closure claim; previously unresolved excluded ancestors are not cleared.",
+  "primary_extra_source_read": {
+    "asset": "Go1.27.1/src/errors/join.go",
+    "bytes": 1397,
+    "sha256": "87da7c120f71d17e37f110ae1dc6af6493ec841a22ee825e13a6a8024a014dba",
+    "scope": "Join shape/comments to support the new identity target, no Join/Is/As execution."
+  },
+  "next_minimal_steps": [
+    "Author closed30 candidate positions/adapters and explicit setter/getter/factory/hook/Error/Is/As schedules for the nonheld nine requests.",
+    "Freeze exact literal/reference code and source-supported captions before observations; retain all6 coordinate proposals on hold.",
+    "Complete Root's separate selected-source/notices/compiler/controller/resource/CI and runtime512B/32word/8candidate checks. Neither46 structured proposals nor source review is execution approval.",
+    "After saved finite observations and separate adoption, preserve panic/unknown/mismatch distinctly; do not repair Want after outcomes or multiply sample weights by fixture count."
+  ],
+  "actions": {
+    "original_candidate_oracle_renderer_calls": 0,
+    "Go_formatter_build_test_helper_model_calls": 0,
+    "Normalize_Validate_Features_Score_Project_Fit": 0,
+    "protected_reads_network_HF_Git_shared_repository_changes": 0,
+    "new_label_role_weight_assignments": 0,
+    "raw_implementation_body_copies": 0
+  },
+  "review_preparation_notes": [
+    "An initial metadata summary used nonexistent .stable_id fields on v2 request objects; shape inspection showed actual .id. No conclusions relied on those null summaries.",
+    "One old draft metadata query used nonexistent .request_id; corrected exact .id confirms next60-mapstructure-native-or. Artifact was not changed.",
+    "A combined read output was truncated; relevant source literals were reread in bounded specific selections. No API was executed."
+  ]
+}

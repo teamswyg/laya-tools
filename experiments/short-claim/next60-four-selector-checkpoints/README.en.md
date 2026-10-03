@@ -10,6 +10,6 @@ CI uses `scripts/verify-next60-development.sh checkpoint` to copy the [two owned
 
 [Outside-controller preparation](../next60-four-selector-outside-preparation/README.en.md) adds eight separate fake lifecycle and result-metadata tests. These tests are separate from the planned 57 real candidate dispatches.
 
-[Before/after preparation](preparation-v2/README.en.md) and [original selection review](../next60-four-selector-selection/README.en.md) remain available. The new round still has three qualified requests. Training follows the checkpoints of 30 and 60.
+[Before/after preparation](preparation-v2/README.en.md) and [original selection review](../next60-four-selector-selection/README.en.md) remain available. Later [57 actual observations and independent review](../next60-four-selector-actual-observation/README.en.md) brought the new round to seven qualified requests. This page's synthetic tests are separate from those actual observations. Training follows the checkpoints of 30 and 60.
 
 [한국어](README.ko.md)

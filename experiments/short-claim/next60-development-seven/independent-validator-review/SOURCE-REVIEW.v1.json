@@ -1,0 +1,54 @@
+{
+  "schema": "riido-seven-row-validator-independent-source-review-v1",
+  "state": "source_review_complete_no_concrete_blocker",
+  "reviewer": "checkpoint_native_peer_114",
+  "author_of_validator": false,
+  "nonblind": true,
+  "scope": "Source inspection and generic public metadata correspondence only. This is not execution, CI, label requalification, heldout evaluation, license clearance or training authority.",
+  "concrete_blockers": [],
+  "source_pins": [
+    {"name":"source/validate.go.txt","bytes":10860,"sha256":"4acccc8b8846f3251d559eefad48e81b6ef32eb10a59c1d42aaf8f195c60f5bd"},
+    {"name":"INPUT-VALIDATION.v1.json","bytes":868,"sha256":"0b31d6f6f3b5d4f3546ed6b4542802d273a1abb6d4bae9ba6bba45bec9d94be9"},
+    {"name":"data/train.jsonl","bytes":9619,"sha256":"1ee18e02958953452bf4f4c0e072652aede266c095f1866a6e71209058b1c5bc"},
+    {"name":"ROOT-QUALIFICATION.v1.json","bytes":2869,"sha256":"e24ab886bbb6d26095d306d4ea702ecdb20012f3051bd215bb79764f65de0828"},
+    {"name":"scripts/verify-next60-development.sh","bytes":5058,"sha256":"558c33565e1efa236433c90f9e853898b0416bc1e5d77dd2cd9437055d6f6142"},
+    {"name":"pkg/shortclaim/input.go","bytes":10755,"sha256":"834d66e6a0c63095d25b02659a1ddd5c5b8a9eef185b7a2bab5e938974370a80"},
+    {"name":"pkg/shortclaimdata/reader.go","bytes":11642,"sha256":"08fc06419acaf22a07249c736f5dfb0b3aa8c8468a9735936048ca5bbcb89bae"},
+    {"name":"prior-three/data/train.jsonl","bytes":4229,"sha256":"e2d4162b93e9f77b40de68731499b49d7d86ac401d3d28e8f3abbc4db7b7571b"},
+    {"name":"preparation-v2/FIXTURES.v1.json","bytes":47256,"sha256":"1ee48c079f85f9e4c3051b53c7f51a3e2d9c0eadc8dd7599f34afbcf46ef42ba"}
+  ],
+  "findings": {
+    "input_bounds": "Regular leaf file, same open inode, nonzero size, cap+1 read, exact observed size and SHA checks. Data cap 128 KiB; prior cap 16 KiB/exact 4229 B; fixture cap 64 KiB/exact 47256 B. Leaf symlinks rejected. The exact pinned fixture may intentionally ignore non-caption JSON fields.",
+    "row_bounds": "Scanner rejects blank, eighth and over-16-KiB rows. LoadDevelopmentRow rejects malformed Unicode/JSON, duplicate decoded keys, unknown or missing mandatory fields, invalid roles/revisions/scopes, non-unit weights, and candidate shape errors. Zero failed Example cannot be admitted.",
+    "historical_prefix": "First 4229 B independently hash to the exact prior-three digest. Source additionally requires a longer data file and a newline-terminated prior file before bytes.HasPrefix.",
+    "new_four_correspondence": "All four raw requests and all twelve candidate IDs/raw captions match the frozen fixture. Prepared comparison also checks deterministic normalized request and normalized candidate text. Provenance intentionally differs across the generic reader and fixture input and is not compared.",
+    "groups_roles_families": "All seven have development_train role, request_and_candidates_text_only policy, exact revisions and connected groups 77,78,76,76,78,77,76. Humanize raw fixture family is explicitly canonicalized to the connected family; no unseen group or evaluation role is created.",
+    "counts": "Seven requests, twenty labels, seven positive/thirteen negative, 34 finite inputs and 98 candidate observations. Labels are fixed index checks from Root admission, not independently inferred by the validator.",
+    "deterministic_output": "Fixed Summary field order, fixed enum diagnostics, no time/path/map output; successful receipt is seven reader calls, four fixture ValidateInput calls, fixed counts and true correspondence flags. The source-derived expected receipt agrees with the stored receipt.",
+    "no_model_execution": "The reachable validation path reads, parses, normalizes and compares text only. ValidateInput calls lexical NormalizeText, not Features. No Features, Score, Project, Fit, model, original candidate or oracle call is present on this path. Imported package declarations inspected do not introduce model startup.",
+    "qualification_bookkeeping": "ROOT-QUALIFICATION combined counts and train digest match the seven-row data. This review does not reassign, requalify or semantically approve labels. The saved first native observation and independent semantic comparison remain separate evidence."
+  },
+  "optional_portability_observation": {
+    "blocking": false,
+    "location": "scripts/verify-next60-development.sh data branch",
+    "finding": "repo_root is resolved, but data-mode go run uses the caller working directory for module resolution. CI launched from repository root is consistent with this script. An outside-directory invocation may fail module discovery.",
+    "literal_optional_fix": "Add cd \"$repo_root\" immediately after data). This does not change the validator or data bindings.",
+    "execution_tested": false
+  },
+  "metadata_review_attempts": {
+    "bounded_cmp_attempt_exit": 1,
+    "bounded_cmp_observation": "The local cmp -n attempt reported EOF on the shorter prior file; no content mismatch was reported. It was not treated as a failed input gate.",
+    "corrected_prefix_method": "Bounded head -c 4229 output SHA matched the pinned prior-three digest.",
+    "native_or_model_retries": 0
+  },
+  "execution": {
+    "Go_runs": 0,
+    "Go_tests": 0,
+    "original_API_or_init_runs": 0,
+    "model_runs": 0,
+    "label_requalification": 0,
+    "protected_reads": 0,
+    "shared_repository_writes": 0,
+    "network_calls": 0
+  }
+}

@@ -1,0 +1,299 @@
+// Validates seven public finite development rows. No feature, score, projection,
+// fit, original candidate or oracle call is present. This tool assigns no truth.
+package main
+
+import (
+	"bufio"
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"flag"
+	"io"
+	"os"
+
+	"github.com/teamswyg/laya-tools/pkg/shortclaim"
+	"github.com/teamswyg/laya-tools/pkg/shortclaimdata"
+)
+
+const (
+	previousSHA   = "e2d4162b93e9f77b40de68731499b49d7d86ac401d3d28e8f3abbc4db7b7571b"
+	previousBytes = 4229
+	fixtureSHA    = "1ee48c079f85f9e4c3051b53c7f51a3e2d9c0eadc8dd7599f34afbcf46ef42ba"
+	fixtureBytes  = 47256
+	fixtureSchema = "riido-next60-four-selector-literal-fixture-preparation-v1"
+	maxDataBytes  = 128 << 10
+)
+
+type fixtureCandidate struct {
+	Index   int    `json:"candidate_index"`
+	ID      string `json:"candidate_id"`
+	Caption string `json:"caption_proposal"`
+}
+
+type fixtureRequest struct {
+	Index        int                `json:"request_index"`
+	ParentID     string             `json:"parent_id"`
+	SourceFamily string             `json:"source_family"`
+	Count        int                `json:"fixture_count"`
+	Request      string             `json:"model_visible_request_proposal"`
+	StaticWords  int                `json:"model_visible_request_static_alphanumeric_words"`
+	Candidates   []fixtureCandidate `json:"candidates"`
+}
+
+type frozenFixture struct {
+	Schema   string           `json:"schema"`
+	Requests []fixtureRequest `json:"requests"`
+}
+
+type Summary struct {
+	Schema                string `json:"schema"`
+	State                 string `json:"state"`
+	FailureCode           string `json:"failure_code"`
+	Requests              int    `json:"requests"`
+	Labels                int    `json:"candidate_labels"`
+	Positive              int    `json:"positive_labels"`
+	Negative              int    `json:"negative_labels"`
+	ReaderAttempts        int    `json:"LoadDevelopmentRow_attempts"`
+	ReaderLoads           int    `json:"LoadDevelopmentRow_calls_completed"`
+	LegacyAttempts        int    `json:"legacy_ValidateInput_attempts"`
+	LegacyValidate        int    `json:"legacy_ValidateInput_calls_completed"`
+	FiniteFixtures        int    `json:"frozen_input_fixtures"`
+	Observations          int    `json:"candidate_observations"`
+	FirstThreePrefixExact bool   `json:"first_three_prefix_byte_exact"`
+	NewFourTextAgreement  bool   `json:"four_rows_match_frozen_requests_candidates_and_IDs"`
+	GroupAgreement        bool   `json:"connected_groups_train_only_match"`
+	UnitWeights           bool   `json:"unit_weights"`
+	Scope                 string `json:"scope"`
+	FeatureCalls          int    `json:"Features_calls"`
+	ScoreCalls            int    `json:"Score_calls"`
+	ProjectCalls          int    `json:"Project_calls"`
+	FitCalls              int    `json:"Fit_calls"`
+	ModelCalls            int    `json:"model_calls"`
+	OriginalCalls         int    `json:"original_candidate_calls"`
+	OracleCalls           int    `json:"oracle_calls"`
+}
+
+func digestOK(s string) bool {
+	if len(s) != 64 {
+		return false
+	}
+	for _, c := range s {
+		if !(c >= '0' && c <= '9' || c >= 'a' && c <= 'f') {
+			return false
+		}
+	}
+	return true
+}
+
+// Bounded regular-file read, exact digest and read size, no private path in errors.
+func pinned(path, digest string, maxBytes, exactBytes int) ([]byte, error) {
+	if path == "" || !digestOK(digest) {
+		return nil, errors.New("validation_arguments")
+	}
+	before, err := os.Lstat(path)
+	if err != nil || !before.Mode().IsRegular() {
+		return nil, errors.New("public_input_regular")
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, errors.New("public_input_open")
+	}
+	defer f.Close()
+	st, err := f.Stat()
+	if err != nil || !st.Mode().IsRegular() || !os.SameFile(before, st) {
+		return nil, errors.New("public_input_regular")
+	}
+	if st.Size() < 1 || st.Size() > int64(maxBytes) || exactBytes > 0 && st.Size() != int64(exactBytes) {
+		return nil, errors.New("public_input_bounds")
+	}
+	raw, err := io.ReadAll(io.LimitReader(f, int64(maxBytes)+1))
+	if err != nil || len(raw) != int(st.Size()) || len(raw) > maxBytes {
+		return nil, errors.New("public_input_read")
+	}
+	h := sha256.Sum256(raw)
+	if hex.EncodeToString(h[:]) != digest {
+		return nil, errors.New("public_input_pin")
+	}
+	return raw, nil
+}
+
+func run(data, dataSHA, fixture, previous string, out *Summary) error {
+	raw, err := pinned(data, dataSHA, maxDataBytes, 0)
+	if err != nil {
+		return err
+	}
+	old, err := pinned(previous, previousSHA, 16<<10, previousBytes)
+	if err != nil {
+		return err
+	}
+	fixtureRaw, err := pinned(fixture, fixtureSHA, 64<<10, fixtureBytes)
+	if err != nil {
+		return err
+	}
+	if len(old) == 0 || old[len(old)-1] != '\n' || len(raw) <= len(old) || !bytes.HasPrefix(raw, old) {
+		return errors.New("previous_prefix_correspondence")
+	}
+	out.FirstThreePrefixExact = true
+
+	// The entire fixture is pinned. Only this exact preparation schema and its
+	// request/caption fields are decoded; no Want/Got/oracle field is imported.
+	var fixed frozenFixture
+	if json.Unmarshal(fixtureRaw, &fixed) != nil || fixed.Schema != fixtureSchema || len(fixed.Requests) != 4 {
+		return errors.New("fixture_shape")
+	}
+	ids := [7]string{
+		"next60-pflag-native-ipnet", "next60-mapstructure-native-or",
+		"next60-humanize-precise-ftoa", "next60-humanize-strict-comma",
+		"next60-mapstructure-key-collision", "next60-pflag-map-snapshot",
+		"next60-humanize-fractional-bytes",
+	}
+	groups := [7]int{77, 78, 76, 76, 78, 77, 76}
+	counts := [7]int{3, 2, 3, 3, 3, 3, 3}
+	positive := [7]int{0, 0, 1, 1, 1, 1, 1}
+	inputCounts := [7]int{5, 4, 6, 6, 4, 4, 5}
+	families := [7]string{
+		"upstream53-cobra-pflag-connected", "upstream53-mapstructure",
+		"upstream53-humanize-connected", "upstream53-humanize-connected",
+		"upstream53-mapstructure", "upstream53-cobra-pflag-connected",
+		"upstream53-humanize-connected",
+	}
+	revisions := [7]string{
+		"c966cfef47379dcb01e7929504d66d94b540945b",
+		"52aa5c6dc1d27226460807054ca2107b2d54fb2d",
+		"a1b4e66b9a6d890e9e15e7091cf16c8032367d6e",
+		"a1b4e66b9a6d890e9e15e7091cf16c8032367d6e",
+		"52aa5c6dc1d27226460807054ca2107b2d54fb2d",
+		"c966cfef47379dcb01e7929504d66d94b540945b",
+		"a1b4e66b9a6d890e9e15e7091cf16c8032367d6e",
+	}
+	fixtureFamilies := [4]string{
+		"upstream53-humanize", "upstream53-mapstructure",
+		"upstream53-cobra-pflag-connected", "upstream53-humanize",
+	}
+	var wants [4]shortclaim.Prepared
+	for k := range fixed.Requests {
+		r := fixed.Requests[k]
+		if r.Index != k || r.ParentID != ids[k+3] ||
+			r.SourceFamily != fixtureFamilies[k] || r.Count != inputCounts[k+3] ||
+			len(r.Candidates) != counts[k+3] || k == 0 && r.StaticWords != 31 {
+			return errors.New("fixture_request_correspondence")
+		}
+		var candidates [shortclaim.MaxCandidates]shortclaim.Candidate
+		for j := range r.Candidates {
+			c := r.Candidates[j]
+			if c.Index != j {
+				return errors.New("fixture_candidate_order")
+			}
+			candidates[j] = shortclaim.Candidate{ID: c.ID, Text: c.Caption}
+		}
+		out.LegacyAttempts++
+		v, err := shortclaim.ValidateInput(shortclaim.Input{
+			Schema: shortclaim.Schema, Request: r.Request,
+			Candidates: candidates[:len(r.Candidates)],
+			Provenance: "four-selector-frozen-caption-v1",
+		})
+		if err != nil {
+			return errors.New("fixture_legacy_validation")
+		}
+		out.LegacyValidate++
+		wants[k] = v.Prepared()
+	}
+
+	newAgreements := 0
+	scan := bufio.NewScanner(bytes.NewReader(raw))
+	scan.Buffer(make([]byte, 4096), shortclaimdata.MaxRowBytes+1)
+	for scan.Scan() {
+		if out.Requests >= len(ids) || len(scan.Bytes()) == 0 || len(scan.Bytes()) > shortclaimdata.MaxRowBytes {
+			return errors.New("request_count_or_row_bounds")
+		}
+		out.ReaderAttempts++
+		ex, err := shortclaimdata.LoadDevelopmentRow(bytes.NewReader(scan.Bytes()))
+		if err != nil {
+			return errors.New("development_row_validation")
+		}
+		out.ReaderLoads++
+		i := out.Requests
+		meta := ex.Metadata()
+		sup := ex.Supervision()
+		p := ex.Input().Prepared()
+		if !ex.Valid() || meta.StableID != ids[i] || meta.WholeGroup != groups[i] ||
+			meta.Role != shortclaimdata.Role || meta.FeaturePolicy != shortclaimdata.FeaturePolicy ||
+			meta.SourceFamily != families[i] || meta.SourceRevision != revisions[i] ||
+			sup.Count != counts[i] || p.Count != counts[i] ||
+			meta.FiniteScope.InputCount != inputCounts[i] ||
+			meta.FiniteScope.CandidateObservations != inputCounts[i]*counts[i] ||
+			meta.FiniteScope.AllInputGuarantee || meta.FiniteScope.UnseenSourceGuarantee {
+			return errors.New("request_metadata_correspondence")
+		}
+		for j := range sup.Count {
+			if sup.Weights[j] != 1 || sup.Labels[j] != (j == positive[i]) {
+				return errors.New("supervision_correspondence")
+			}
+		}
+		if i >= 3 {
+			want := wants[i-3]
+			if p.Request != want.Request || p.NormalizedRequest != want.NormalizedRequest ||
+				p.Count != want.Count {
+				return errors.New("frozen_request_text_correspondence")
+			}
+			for j := range p.Count {
+				if p.Candidates[j] != want.Candidates[j] {
+					return errors.New("frozen_candidate_text_or_ID_correspondence")
+				}
+			}
+			newAgreements++
+		}
+		for j := range sup.Count {
+			out.Labels++
+			if sup.Labels[j] {
+				out.Positive++
+			} else {
+				out.Negative++
+			}
+		}
+		out.FiniteFixtures += meta.FiniteScope.InputCount
+		out.Observations += meta.FiniteScope.CandidateObservations
+		out.Requests++
+	}
+	if scan.Err() != nil || out.Requests != 7 || out.ReaderLoads != 7 ||
+		out.LegacyValidate != 4 || out.Labels != 20 || out.Positive != 7 || out.Negative != 13 ||
+		out.FiniteFixtures != 34 || out.Observations != 98 || newAgreements != 4 {
+		return errors.New("final_counts")
+	}
+	out.NewFourTextAgreement = true
+	out.GroupAgreement = true
+	out.UnitWeights = true
+	out.State = "complete_validation_only"
+	return nil
+}
+
+func main() {
+	out := Summary{
+		Schema: "riido-seven-finite-development-row-validation-v1",
+		State:  "failed_validation_only",
+		Scope:  "Pinned public finite development shape, preserved prior bytes and frozen caption correspondence only. No semantic, license, qualification, heldout or training authority is granted.",
+	}
+	flags := flag.NewFlagSet("seven-row-validation", flag.ContinueOnError)
+	flags.SetOutput(io.Discard)
+	data := flags.String("data", "", "")
+	digest := flags.String("data-sha256", "", "")
+	fixture := flags.String("fixtures", "", "")
+	previous := flags.String("previous-data", "", "")
+	if flags.Parse(os.Args[1:]) != nil || flags.NArg() != 0 ||
+		*data == "" || !digestOK(*digest) || *fixture == "" || *previous == "" {
+		out.FailureCode = "validation_arguments"
+		_ = json.NewEncoder(os.Stdout).Encode(out)
+		os.Exit(2)
+	}
+	if err := run(*data, *digest, *fixture, *previous, &out); err != nil {
+		out.FailureCode = err.Error() // All failures above are fixed enum strings.
+		_ = json.NewEncoder(os.Stdout).Encode(out)
+		os.Exit(1)
+	}
+	if json.NewEncoder(os.Stdout).Encode(out) != nil {
+		_, _ = io.WriteString(os.Stderr, "validation_output\n")
+		os.Exit(1)
+	}
+}

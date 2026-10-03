@@ -1,0 +1,63 @@
+{
+  "schema": "riidolaya-four-selector-independent-saved-review-v1",
+  "state": "saved_finite_satisfaction_review_complete_not_Root_qualification",
+  "reviewer_role": "Independent of the Want, candidate, observer, native binding and outside-controller authors; authored only the saved-JSON comparison and this review. Earlier source review found the sticky-completion guard gap and reviewed frozen Wants before execution.",
+  "blind": false,
+  "nonblind_context": "The reviewer knew original/reference/wrong design names, read source and Wants before execution, and then saw Root's saved result. This is not a blinded independent held-out evaluation.",
+  "source_pins": {
+    "fixtures": {"bytes": 47256, "sha256": "1ee48c079f85f9e4c3051b53c7f51a3e2d9c0eadc8dd7599f34afbcf46ef42ba"},
+    "worker_result": {"bytes": 53036, "sha256": "fabad6186f4f0213ce8449a2c0cceee454267ef6951a94c9f7a61b6b642c89ed"},
+    "outside_result": {"bytes": 3179, "sha256": "fb7e59bc648406ec82e2bb5d84a3ca2fdfa16448562ef0696667ca73b50df046"}
+  },
+  "comparison": {
+    "path": "FINITE-COMPARISON.v2.json",
+    "bytes": 52063,
+    "sha256": "37d10e95b29b58c88e4a5782632368db1ee293f8f028c854d7f57d56abd66c56",
+    "requests": 4,
+    "finite_inputs": 19,
+    "candidate_positions": 12,
+    "observations": 57,
+    "satisfied_observations": 40,
+    "known_mismatches": 17,
+    "unknown_observations": 0,
+    "fully_satisfied_finite_candidates": 4,
+    "candidates_with_known_counterexamples": 8,
+    "positive_candidate_index_within_each_request": 1,
+    "labels_created": 0,
+    "roles_assigned": 0,
+    "weights_assigned": 0
+  },
+  "predicate_policy": {
+    "mandatory": "error_present is compared even when false",
+    "optional_null_Want": "No required predicate; do not invent equality with null",
+    "amounts": "Compare exact decimal strings; never convert uint64/int64 text through floating point",
+    "maps": "Compare complete MapImage including nil and entries:null versus entries:[]; sorted entries are exact observed values",
+    "conflicting_keys": "Exact ordered key list plus error/unchanged Name predicates; map fallback order is not an oracle",
+    "error_kind": "Only compare when required. Absence of a measured returned error is a known mismatch if an error is required. An unavailable or unclassified required channel remains unknown",
+    "error_text": "No frozen Want imposes error-text equality. Stored text is diagnostic, not a generated target or feature",
+    "unknown": "Candidate/error-method panic, unfinished return or a nonempty unknown_reason are conservatively unknown. After normal completion, a known counterexample remains known when another required predicate is unavailable. No unavailable channel creates a positive",
+    "unmeasured_native_internal_init": "Null and outside the required finite behavior predicates"
+  },
+  "domain_findings": [
+    {"ordinal": 1, "scope": "Six frozen ASCII signed-int64 comma inputs", "reference": "6/6 satisfied", "counterexamples": "Both original-backed designs accept 12,34 and 1,,234 without grouping error and return 9223372036854775807 rather than required zero on positive overflow", "independence_limit": "Candidate 0 and 2 deliberately use the same original ParseComma. Two captions do not create two independent implementations or parents"},
+    {"ordinal": 4, "scope": "Four frozen maps into one Name string field", "reference": "4/4 satisfied", "counterexamples": "Both original and sorted-first designs omit ambiguity error, alter old Name and provide no required sorted keys for NAME/name and NAME/Name collisions, including equal values/exact spelling", "independence_limit": "The saved original fallback selected b in one run. No stable map iteration order is claimed; known failure already follows from missing required ambiguity error"},
+    {"ordinal": 5, "scope": "Four fresh items-map cases with two mutation directions, nil and missing flag", "reference": "4/4 satisfied", "counterexamples": "Original and outer-struct-copy designs share map storage; snapshot mutation changes live/legacy maps and live mutation changes snapshot", "nil_boundary": "Nil initial map remains nil. Missing flag returns nonnil empty snapshot plus *pflag.NotExistError/missing_flag, while separate items live/legacy maps remain nil", "version_boundary": "Exact pflag c966 source uses a nil converter and raw map alias. Other revisions may behave differently"},
+    {"ordinal": 9, "scope": "Five nonnegative ASCII decimal byte inputs, units B and KiB", "reference": "5/5 satisfied", "counterexamples": "Original float path rejects valid MaxUint64.0 and MaxUint64-0.1 inputs. Truncate-first design accepts MaxUint64+0.9 instead of rejecting range before truncation", "manual_arithmetic": "0.9 B -> 0; 1.5 KiB -> 1536; MaxUint64.0 -> 18446744073709551615; MaxUint64+0.9 -> range error/0; MaxUint64-0.1 -> 18446744073709551614", "independence_limit": "Whole-number delegation was reviewed in source, not newly exercised by these five decimal cases. Unicode/all grammar/package-wide replacement equivalence is not established"}
+  ],
+  "Root_execution_recorded_not_replayed": {
+    "Start": 1, "Wait": 1, "joined": true, "exit_zero": true,
+    "candidate_dispatches_returned": 57, "direct_Error_methods_returned": 14,
+    "candidate_panics": 0, "Error_method_panics": 0,
+    "native_internal_API_calls": null, "startup_init_calls": null,
+    "Darwin_whole_worker_max_RSS_bytes": 8273920,
+    "outside_child_wall_seconds": 1.077920459,
+    "resource_scope": "Numeric/source observation worker including startup, pin checks and synchronous recording; not model inference, GPU performance or Codex savings"
+  },
+  "reviewer_execution": {"saved_JSON_comparison_attempts": 2, "failed_attempts": 1, "Go_gofmt_test_build_vet": 0, "native_original_init_replays": 0, "model_Features_Project_Score_Fit": 0, "protected_reads": 0, "network_Git_HF_writes": 0},
+  "metadata_attempt_history": {
+    "attempt1": "jq field-list binding precedence emitted strings into checks; exit5, empty FINITE-COMPARISON.v1.json, 66-byte stderr and original filter preserved",
+    "attempt2": "Fresh compare-saved.v2.jq parenthesizes field lists; exit0, 57 comparisons agree with manual review; no native replay",
+    "preseal_compaction": "Successful authored pretty JSON 92683 bytes/SHA15e1f9ae30776fb896700a397b5ecf02a7ae115888c9a7855bcb3bee6e8264ac was compacted before WRITE_STOP to fit the review cap; semantic values unchanged. No Root or author seal was modified"
+  },
+  "remaining_authority": "Root independently decides qualification/labels/groups/roles and publication. No model utility, new training, 30/60 checkpoint completion or protected 2400/domain collection is claimed here. Wants and first native attempt remain unchanged."
+}
