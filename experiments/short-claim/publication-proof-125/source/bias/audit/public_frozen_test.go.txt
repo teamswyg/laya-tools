@@ -37,6 +37,7 @@ func TestPublicDevelopment33FrozenReproduction(t *testing.T) {
 		t.Fatal("case count differs")
 	}
 	for c := range actual.Cases {
+		rawRanks := actual.Cases[c].Ranks
 		for r := range actual.Cases[c].Ranks {
 			for s := range actual.Cases[c].Ranks[r].Scores {
 				got, want := actual.Cases[c].Ranks[r].Scores[s], expected.Cases[c].Ranks[r].Scores[s]
@@ -47,8 +48,21 @@ func TestPublicDevelopment33FrozenReproduction(t *testing.T) {
 				actual.Cases[c].Ranks[r].Scores[s] = want
 			}
 		}
+		if !reflect.DeepEqual(actual.Cases[c], expected.Cases[c]) {
+			for r := range actual.Cases[c].Ranks {
+				if !reflect.DeepEqual(actual.Cases[c].Ranks[r], expected.Cases[c].Ranks[r]) {
+					var gotBits, wantBits [3]uint64
+					for s := range gotBits {
+						gotBits[s] = math.Float64bits(rawRanks[r].Scores[s])
+						wantBits[s] = math.Float64bits(expected.Cases[c].Ranks[r].Scores[s])
+					}
+					t.Fatalf("case=%d parent=%d primary=%t mapping=%v kind=%s raw_actual=%+v expected=%+v actual_score_bits=%x expected_score_bits=%x", c, actual.Cases[c].ParentIndex, actual.Cases[c].Primary, actual.Cases[c].DisplayToSelected, rawRanks[r].Kind, rawRanks[r], expected.Cases[c].Ranks[r], gotBits, wantBits)
+				}
+			}
+			t.Fatalf("case=%d non-ranking metadata differs", c)
+		}
 	}
 	if !reflect.DeepEqual(actual, expected) {
-		t.Fatal("frozen non-score evidence differs")
+		t.Fatalf("global non-score evidence differs; counts_actual=%+v counts_expected=%+v primary_actual=%+v primary_expected=%+v permuted_actual=%+v permuted_expected=%+v", actual.Counts, expected.Counts, actual.Primary, expected.Primary, actual.Permuted, expected.Permuted)
 	}
 }
