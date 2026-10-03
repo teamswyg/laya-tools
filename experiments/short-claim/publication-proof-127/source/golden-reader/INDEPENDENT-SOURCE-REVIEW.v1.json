@@ -1,0 +1,149 @@
+{
+  "schema": "riido-golden-reader-v2-independent-static-review-v1",
+  "state": "SOURCE_REVIEW_COMPLETE_COMPILE_CORRECTION_REQUIRED",
+  "review_scope": "Sealed new reader implementation and owned current v1 Reader, shortclaim input and legacy claimfit projection. No actual rows or truth interpreted.",
+  "relation": {
+    "reviewer": "agent114",
+    "reader_v2_author": false,
+    "nonblind": true,
+    "prior_relation": "Earlier reader/materializer/input-bridge/semantic-comparison author and source reviewer; exposed development context. This is independent new implementation review, not independent semantic truth or self-review of those earlier tools."
+  },
+  "source_seal": {
+    "files": 10,
+    "bytes": 32309,
+    "symlinks": 0,
+    "handoff": {
+      "path": "HANDOFF.v1.json",
+      "bytes": 1627,
+      "sha256": "9e061490f25d5c05b137830aa825e09e12527d0b2b0b92203a574d2f1a36bb5a"
+    },
+    "manifest": {
+      "path": "MANIFEST.v1.json",
+      "bytes": 1243,
+      "sha256": "ba11f17e3f842afb1698ba927f7e2ef9a5d5e6be10e17accdb1dd5d9c4ab2b51"
+    },
+    "manifest_and_handoff_pin_checks": 16,
+    "sums_checks": 8,
+    "mismatches": []
+  },
+  "blockers": [
+    {
+      "id": "compile-unused-import",
+      "severity": "required_before_compilation",
+      "path": "source/reader.go.txt",
+      "line": 6,
+      "finding": "The file imports bytes but has no bytes reference. strict.go.txt using bytes does not use another file's import.",
+      "literal_fix": "Remove only the unused import from a fresh prospective successor; preserve sealed v1.",
+      "observed_compile_failure": false
+    }
+  ],
+  "checked_contracts": [
+    {
+      "id": "external-binding-before-row",
+      "source": "source/reader.go.txt:134-146",
+      "result": "External hash syntax and authority hash, strict shape, schema/state, opaque qualification/roles/row refs and principal metadata are checked before row reading and supervision decoding. Row bytes are pinned before decoding. Hash/structure is not semantic or training authority."
+    },
+    {
+      "id": "T-F-U",
+      "source": "source/reader.go.txt:160-186",
+      "result": "T/F predicates require Available and Known. U requires at least one missing bit. Known F dominates U, preserving every predicate; all-T is T; otherwise U is retained."
+    },
+    {
+      "id": "null-mask",
+      "source": "source/reader.go.txt:176-185",
+      "result": "U candidates require null label/weight and false eligibility. Decided known candidates require explicit matching Boolean labels; unit weight only for eligible development_train. Ineligible known candidates have null weight."
+    },
+    {
+      "id": "whole-parent-ambiguity",
+      "source": "source/reader.go.txt:149-151,176-178,194",
+      "result": "An ambiguous parent withholds labels, weights and eligibility for every candidate. Conditional T/F/U predicates and candidate states remain inspectable; no false label is inferred from withheld values."
+    },
+    {
+      "id": "fixed-arrays-and-text-separation",
+      "source": "source/reader.go.txt:89-110,197-203",
+      "result": "Value-copy arrays preserve active count5/8 plus8 stored slots; no retained mutable maps/slices or locks. Input contains request/candidate raw and normalized text plus framing count; IDs/source/group/role/states/masks/labels/weights are not projected."
+    },
+    {
+      "id": "lexical-boundaries",
+      "source": "source/strict.go.txt:16-57,60-70",
+      "result": "Bounded row/authority bytes, exact mandatory decoded keys, duplicate/escaped-key/case aliases, pointer null distinction, integer spelling, UTF8 and unpaired surrogate rejection are visible in source. Candidate array exactly8, predicate cap64, active count5/8. No execution confirmation."
+    },
+    {
+      "id": "legacy-reader-cardinality",
+      "source": "pkg/shortclaimdata/reader.go:candidates",
+      "result": "v1 permits1..8 explicit Boolean candidates with weight1 and no positive-cardinality guard. Zero and multiple positives are already representable; acquired corpus one-positive is not a Reader limit."
+    },
+    {
+      "id": "legacy-mixed-U-projection",
+      "source": "internal/claimfit/projection.go:347-352",
+      "result": "Every active candidate has Labels.Known=true whenever parent Truth!=Unknown; a mixed-known/U row cannot be directly represented without a revised projection/admission contract. The prototype supplies no Parent/Fit adapter."
+    }
+  ],
+  "limitations_and_controls": [
+    {
+      "id": "authority-enum-stage",
+      "source": "source/reader.go.txt:141-149,189-195",
+      "classification": "explicit_boundary_limitation",
+      "finding": "A hash-valid authority with invalid ParentState or Cohort passes the initial principal checks and causes row reading/decoding before rejection. The existing mismatch-hash control proves rowRead0 only for that mismatch.",
+      "prospective_action": "If full invalid-authority shape must stop before row access, validate both enums before line142 and add one hash-valid malformed-authority counting-reader control. This is not observed unknown-to-false conversion or delegated admission."
+    },
+    {
+      "id": "cohort-policy",
+      "source": "source/reader.go.txt:189-195",
+      "classification": "Root_freeze_pending",
+      "finding": "verified0 excludes candidate-U AND predicate-U conservatively; verified1/many permit a knownF+U negative. verified_many has at least2 T and at least1 F. unknown_containing requires aggregate candidate-U, not merely predicate-U. These distinctions match the pinned coverage proposal, whose any-U zero policy still needs explicit Root adoption."
+    },
+    {
+      "id": "availability-bit-invariant",
+      "source": "source/reader.go.txt:167",
+      "classification": "policy_clarification_only",
+      "finding": "U also permits Available=false with Known=true because only both true is forbidden. No label is assigned. If Known implies Available in the future binding policy, that invariant must be separately frozen and rejected; no such extra invariant was assumed here."
+    },
+    {
+      "id": "synthetic-scope",
+      "classification": "unexecuted_source_only",
+      "finding": "Seven top-level synthetic functions cover six shape subcases, F+U retention, ambiguity/U null withholding, padding/availability, copied accessors/text invariance, authority hash failure before row read, and lexical/7/9 arity faults. They are not run or claimed PASS by this review.",
+      "prospective_action": "Direct unresolved boundaries worth controls are hash-valid invalid-authority enum, verified0 F+U rejection, validation-role eligibility, pointer false/null, and64/65 predicate boundary. Do not add shallow implementation-mirror tests."
+    },
+    {
+      "id": "normalization-and-portability",
+      "classification": "future_compile_pending",
+      "finding": "Existing shortclaim.ValidateInput applies its unchanged512-byte/32-word text and identifier bounds. Proposed local module replace ../laya-tools requires Root staging. Dependency/compiler selection, runtime behavior, resource/RSS, source-family completeness, rights and Fit readiness are not established by this review."
+    }
+  ],
+  "review_history": [
+    {
+      "kind": "read_path_error_preserved",
+      "detail": "Initial search used nonexistent pkg/claimfit and pkg/shortclaim/types.go; then bounded rg located internal/claimfit/projection.go and correct input path. No execution or artifact mutation."
+    },
+    {
+      "kind": "read_path_error_preserved",
+      "detail": "go.mod read attempted from coverage-plan cwd where source/go.mod.proposed.txt was absent; corrected read from reader preparation. No source or test changes."
+    },
+    {
+      "kind": "review_metadata_prewrite_error_preserved",
+      "detail": "Source-only byte-size probe used unavailable TextEncoder after saving draft in memory; script failed before filesystem writing. Corrected sizing uses Node Buffer.byteLength. No scientific execution or source mutation."
+    }
+  ],
+  "execution": {
+    "Go_format_test_build": 0,
+    "actual_Reader": 0,
+    "actual_rows_labels_read": 0,
+    "original_API_native": 0,
+    "Features_Score_Project_Fit_model": 0,
+    "network": 0,
+    "protected_reads": 0,
+    "new_qualification_labels_roles_groups": 0
+  },
+  "resource": {
+    "cap_bytes": 536870912,
+    "census_current_bytes": 536011127,
+    "census_head_bytes": 859785,
+    "review_allowance_bytes": 16384,
+    "within_allowance_prewrite": true,
+    "non_atomic_snapshot": true,
+    "legacy_census_archive_records": 20,
+    "quota_reset": false
+  },
+  "seal_policy": "Original10 files remain unchanged. No future compilation, tests, authority, labels or Fit admission is claimed."
+}

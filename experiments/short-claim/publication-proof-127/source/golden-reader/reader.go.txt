@@ -1,0 +1,350 @@
+// SPDX-License-Identifier: Apache-2.0
+// Package goldenreader is an inert v2 proposal, not qualification or Fit authority.
+package goldenreader
+
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"io"
+
+	"github.com/teamswyg/laya-tools/pkg/shortclaim"
+)
+
+const (
+	Schema            = "riido-golden-coverage-request-row-v2-proposed"
+	AuthoritySchema   = "riido-golden-coverage-Root-binding-v2-proposed"
+	AuthorityState    = "Root_frozen_structure_only"
+	FeaturePolicy     = "request_and_candidates_text_only"
+	MaxCandidates     = 8
+	MaxPredicates     = 64
+	MaxRowBytes       = 32 << 10
+	MaxAuthorityBytes = 4 << 10
+)
+
+type Error string
+
+func (e Error) Error() string { return string(e) }
+
+const (
+	ErrRead     Error = "golden_reader_read"
+	ErrBounds   Error = "golden_reader_bounds"
+	ErrPin      Error = "golden_reader_pin"
+	ErrJSON     Error = "golden_reader_json"
+	ErrShape    Error = "golden_reader_shape"
+	ErrEvidence Error = "golden_reader_evidence"
+	ErrMask     Error = "golden_reader_mask"
+	ErrCohort   Error = "golden_reader_cohort"
+)
+
+// Expected hashes are supplied by Root's separate frozen invocation. Matching
+// opaque bytes proves neither provenance completeness nor permission to fit.
+type Pins struct{ AuthoritySHA256, QualificationSHA256, RolesGroupsSHA256, RowSHA256 string }
+
+type Predicate struct {
+	Key       string `json:"key"`
+	State     string `json:"state"`
+	Available bool   `json:"available"`
+	Known     bool   `json:"known"`
+}
+type wireCandidate struct {
+	MetadataID   string      `json:"metadata_id"`
+	Text         string      `json:"text"`
+	State        string      `json:"state"`
+	Eligible     bool        `json:"eligible"`
+	Label        *bool       `json:"label"`
+	SampleWeight *int        `json:"sample_weight"`
+	Predicates   []Predicate `json:"predicates"`
+}
+type wireRow struct {
+	Schema         string          `json:"schema"`
+	StableID       string          `json:"stable_id"`
+	Request        string          `json:"request"`
+	Candidates     []wireCandidate `json:"candidates"`
+	Count          int             `json:"count"`
+	Role           string          `json:"role"`
+	WholeGroup     int             `json:"whole_group"`
+	SourceFamily   string          `json:"source_family"`
+	SourceRevision string          `json:"source_revision"`
+	TextRevision   string          `json:"text_revision"`
+	FeaturePolicy  string          `json:"feature_policy"`
+	Cohort         string          `json:"cohort"`
+	ParentState    string          `json:"parent_state"`
+}
+type authority struct {
+	Schema              string `json:"schema"`
+	State               string `json:"state"`
+	QualificationSHA256 string `json:"qualification_sha256"`
+	RolesGroupsSHA256   string `json:"roles_groups_sha256"`
+	RowSHA256           string `json:"row_sha256"`
+	StableID            string `json:"stable_id"`
+	Role                string `json:"role"`
+	WholeGroup          int    `json:"whole_group"`
+	SourceFamily        string `json:"source_family"`
+	SourceRevision      string `json:"source_revision"`
+	TextRevision        string `json:"text_revision"`
+	Cohort              string `json:"cohort"`
+	ParentState         string `json:"parent_state"`
+	Count               int    `json:"count"`
+}
+
+// Accessors return value copies. There are no retained maps, mutable slices or
+// locks. Count is framing, never an extra feature; metadata/IDs are absent here.
+type Text struct{ Raw, Normalized string }
+type Input struct {
+	Request    Text
+	Candidates [8]Text
+	Count      int
+}
+type Supervision struct {
+	States                       [8]string
+	LabelKnown, Labels, Eligible [8]bool
+	Weights                      [8]int
+	PredicateCounts              [8]int
+	Predicates                   [8][MaxPredicates]Predicate
+	Count                        int
+	ParentAmbiguous              bool
+}
+type Metadata struct {
+	StableID, Role, SourceFamily, SourceRevision, TextRevision, Cohort string
+	WholeGroup                                                         int
+}
+type Example struct {
+	input       Input
+	supervision Supervision
+	metadata    Metadata
+	ready       bool
+}
+
+func (e Example) Valid() bool              { return e.ready }
+func (e Example) Input() Input             { return e.input }
+func (e Example) Supervision() Supervision { return e.supervision }
+func (e Example) Metadata() Metadata       { return e.metadata }
+
+func digest(b []byte) string { s := sha256.Sum256(b); return hex.EncodeToString(s[:]) }
+func bounded(r io.Reader, cap int) ([]byte, error) {
+	if r == nil {
+		return nil, ErrRead
+	}
+	b, e := io.ReadAll(io.LimitReader(r, int64(cap)+1))
+	if e != nil {
+		return nil, ErrRead
+	}
+	if len(b) > cap {
+		return nil, ErrBounds
+	}
+	return b, nil
+}
+func hash(s string) bool { return lowerHex(s, 64) }
+func lowerHex(s string, n int) bool {
+	if len(s) != n {
+		return false
+	}
+	for _, c := range s {
+		if !(c >= '0' && c <= '9' || c >= 'a' && c <= 'f') {
+			return false
+		}
+	}
+	return true
+}
+func identifier(s string, n int) bool {
+	if len(s) == 0 || len(s) > n {
+		return false
+	}
+	for i, c := range []byte(s) {
+		a := c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9'
+		if !a && (i == 0 || c != '.' && c != '_' && c != '-') {
+			return false
+		}
+	}
+	return true
+}
+func role(s string) bool {
+	return s == "development_train" || s == "development_validation" || s == "development_calibration"
+}
+
+// Load checks external pins before decoding supervision. Root must separately
+// review exact qualification and transitive role/group membership. This helper
+// reads no protected final data, opens no path and calls no feature or trainer.
+func Load(rowReader, authorityReader io.Reader, p Pins) (Example, error) {
+	if !hash(p.AuthoritySHA256) || !hash(p.QualificationSHA256) || !hash(p.RolesGroupsSHA256) || !hash(p.RowSHA256) {
+		return Example{}, ErrPin
+	}
+	ab, err := bounded(authorityReader, MaxAuthorityBytes)
+	if err != nil {
+		return Example{}, err
+	}
+	if digest(ab) != p.AuthoritySHA256 {
+		return Example{}, ErrPin
+	}
+	var a authority
+	if err = strict(ab, &a); err != nil {
+		return Example{}, err
+	}
+	if a.Schema != AuthoritySchema || a.State != AuthorityState || a.QualificationSHA256 != p.QualificationSHA256 || a.RolesGroupsSHA256 != p.RolesGroupsSHA256 || a.RowSHA256 != p.RowSHA256 {
+		return Example{}, ErrPin
+	}
+	if !role(a.Role) || a.WholeGroup < 1 || a.WholeGroup > 65535 || !identifier(a.StableID, 64) || !identifier(a.SourceFamily, 128) || !lowerHex(a.SourceRevision, 40) || !identifier(a.TextRevision, 128) || (a.Count != 5 && a.Count != 8) {
+		return Example{}, ErrShape
+	}
+	if (a.ParentState != "decided" && a.ParentState != "ambiguous") || !cohort(a.Cohort) || (a.ParentState == "ambiguous") != (a.Cohort == "ambiguous_policy") {
+		return Example{}, ErrShape
+	}
+	rb, err := bounded(rowReader, MaxRowBytes)
+	if err != nil {
+		return Example{}, err
+	}
+	if digest(rb) != p.RowSHA256 {
+		return Example{}, ErrPin
+	}
+	var w wireRow
+	if err = strict(rb, &w); err != nil {
+		return Example{}, err
+	}
+	if w.Schema != Schema || w.FeaturePolicy != FeaturePolicy || w.StableID != a.StableID || w.Role != a.Role || w.WholeGroup != a.WholeGroup || w.SourceFamily != a.SourceFamily || w.SourceRevision != a.SourceRevision || w.TextRevision != a.TextRevision || w.Cohort != a.Cohort || w.ParentState != a.ParentState || w.Count != a.Count || len(w.Candidates) != 8 {
+		return Example{}, ErrShape
+	}
+	return validate(w)
+}
+func validate(w wireRow) (Example, error) {
+	if w.ParentState != "decided" && w.ParentState != "ambiguous" {
+		return Example{}, ErrShape
+	}
+	e := Example{metadata: Metadata{w.StableID, w.Role, w.SourceFamily, w.SourceRevision, w.TextRevision, w.Cohort, w.WholeGroup}}
+	e.supervision.Count = w.Count
+	e.supervision.ParentAmbiguous = w.ParentState == "ambiguous"
+	var candidates [8]shortclaim.Candidate
+	positives, unknownCandidates, unknownPredicates := 0, 0, 0
+	for i, c := range w.Candidates {
+		if i >= w.Count {
+			if c.MetadataID != "" || c.Text != "" || c.State != "" || c.Eligible || c.Label != nil || c.SampleWeight != nil || len(c.Predicates) != 0 {
+				return Example{}, ErrShape
+			}
+			continue
+		}
+		if !identifier(c.MetadataID, 64) || len(c.Predicates) < 1 || len(c.Predicates) > MaxPredicates {
+			return Example{}, ErrShape
+		}
+		for j := 0; j < i; j++ {
+			if c.MetadataID == w.Candidates[j].MetadataID {
+				return Example{}, ErrShape
+			}
+		}
+		t, f, u := 0, 0, 0
+		for j, v := range c.Predicates {
+			if !identifier(v.Key, 128) {
+				return Example{}, ErrEvidence
+			}
+			for k := 0; k < j; k++ {
+				if v.Key == c.Predicates[k].Key {
+					return Example{}, ErrEvidence
+				}
+			}
+			switch v.State {
+			case "T":
+				if !v.Available || !v.Known {
+					return Example{}, ErrEvidence
+				}
+				t++
+			case "F":
+				if !v.Available || !v.Known {
+					return Example{}, ErrEvidence
+				}
+				f++
+			case "U":
+				if v.Available && v.Known {
+					return Example{}, ErrEvidence
+				}
+				u++
+			default:
+				return Example{}, ErrEvidence
+			}
+			e.supervision.Predicates[i][j] = v
+		}
+		want := "T"
+		if f > 0 {
+			want = "F"
+		} else if u > 0 {
+			want = "U"
+		}
+		if c.State != want {
+			return Example{}, ErrEvidence
+		}
+		unknownPredicates += u
+		if want == "T" {
+			positives++
+		}
+		if want == "U" {
+			unknownCandidates++
+		}
+		withheld := want == "U" || e.supervision.ParentAmbiguous
+		if withheld {
+			if c.Label != nil || c.SampleWeight != nil || c.Eligible {
+				return Example{}, ErrMask
+			}
+		} else {
+			if c.Label == nil || *c.Label != (want == "T") {
+				return Example{}, ErrMask
+			}
+			e.supervision.LabelKnown[i] = true
+			e.supervision.Labels[i] = *c.Label
+			if c.Eligible {
+				if w.Role != "development_train" || c.SampleWeight == nil || *c.SampleWeight != 1 {
+					return Example{}, ErrMask
+				}
+				e.supervision.Weights[i] = 1
+			} else if c.SampleWeight != nil {
+				return Example{}, ErrMask
+			}
+		}
+		e.supervision.States[i] = want
+		e.supervision.Eligible[i] = c.Eligible
+		e.supervision.PredicateCounts[i] = t + f + u
+		candidates[i] = shortclaim.Candidate{ID: c.MetadataID, Text: c.Text}
+	}
+	switch w.Cohort {
+	case "verified0":
+		if e.supervision.ParentAmbiguous || positives != 0 || unknownCandidates != 0 || unknownPredicates != 0 {
+			return Example{}, ErrCohort
+		}
+	case "verified1":
+		if e.supervision.ParentAmbiguous || positives != 1 || unknownCandidates != 0 {
+			return Example{}, ErrCohort
+		}
+	case "verified_many":
+		if e.supervision.ParentAmbiguous || positives < 2 || positives >= w.Count || unknownCandidates != 0 {
+			return Example{}, ErrCohort
+		}
+	case "unknown_containing":
+		if e.supervision.ParentAmbiguous || unknownCandidates == 0 {
+			return Example{}, ErrCohort
+		}
+	case "ambiguous_policy":
+		if !e.supervision.ParentAmbiguous {
+			return Example{}, ErrCohort
+		}
+	default:
+		return Example{}, ErrCohort
+	}
+	// Only raw request/candidate texts are normalized. IDs are validated metadata
+	// and then discarded from the Input projection. No feature extraction occurs.
+	in, err := shortclaim.ValidateInput(shortclaim.Input{Schema: shortclaim.Schema, Request: w.Request, Candidates: candidates[:w.Count], Provenance: "golden-development-v2"})
+	if err != nil {
+		return Example{}, ErrShape
+	}
+	prepared := in.Prepared()
+	e.input.Count = w.Count
+	e.input.Request = Text{prepared.Request, prepared.NormalizedRequest}
+	for i := 0; i < w.Count; i++ {
+		e.input.Candidates[i] = Text{prepared.Candidates[i].Text, prepared.Candidates[i].NormalizedText}
+	}
+	e.ready = true
+	return e, nil
+}
+
+// Deliberately no claimfit.Parent, feature, consumer or Fit adapter is supplied.
+// Legacy Project marks every non-Unknown parent candidate label Known; a mixed
+// known/U row cannot safely be represented by that parent DTO without revision.
+
+func cohort(s string) bool {
+	return s == "verified0" || s == "verified1" || s == "verified_many" || s == "unknown_containing" || s == "ambiguous_policy"
+}

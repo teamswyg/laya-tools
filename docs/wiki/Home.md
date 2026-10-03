@@ -2,7 +2,7 @@
 
 **필요한 기능부터 선택해 사용하세요. / Start with the feature you need.**
 
-[현재 개발 자료33개·실제 HF 게시](Next60-Development-KO) · [33 verified requests and actual HF publication](Next60-Development-EN): 33요청·96라벨, 변경82파일·표33행 전체 값 일치, 새 주장 모델/Fit0. / 33 requests,96 labels;82 changed files and all33 viewer rows matched;zero new claim-model/Fit calls.
+[현재 개발 자료 35개·실제 HF 게시](Next60-Development-KO) · [35 verified requests and actual HF publication](Next60-Development-EN): 요청 35·라벨 102, 새·변경 84파일과 표 35행 전체 값 일치, 새 학습 0회. / 35 requests, 102 labels; 84 new/changed files and all 35 viewer rows matched; zero new Fits.
 
 [개발용 학습 자료 2개 확정](Native2-Training-KO) · [Two qualified development-training requests](Native2-Training-EN): 후보 정답 5개·기존 입력 제한 통과, 새 학습 0회 / Five candidate labels, existing input limits passed, zero new fits.
 

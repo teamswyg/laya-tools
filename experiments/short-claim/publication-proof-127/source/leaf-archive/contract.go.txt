@@ -1,0 +1,178 @@
+//go:build darwin || linux
+
+package main
+
+import (
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
+)
+
+func validSelection(s selection, root string) error {
+	if s.Schema != "riido-completed-record-leaf-selection-v1" || len(s.Files) < 1 || len(s.Files) > 8 {
+		return errContract
+	}
+	ids, paths, inodes := map[string]bool{}, map[string]bool{}, map[string]bool{}
+	for _, x := range s.Files {
+		o := x.Original
+		if x.ID == "" || len(x.ID) > 96 || ids[x.ID] || x.Category != "completed_owned_record" || !abs(o.Path) || !within(root, o.Path) || o.Bytes < 0 || o.Bytes > rawCap || !validSHA(o.SHA256) || o.Nlink != 1 {
+			return errContract
+		}
+		ids[x.ID] = true
+		if _, e := permissions(o.Mode); e != nil {
+			return e
+		}
+		for _, v := range []string{o.Device, o.Inode} {
+			n, e := strconv.ParseUint(v, 10, 64)
+			if e != nil || strconv.FormatUint(n, 10) != v {
+				return errContract
+			}
+		}
+		n, e := strconv.ParseInt(o.MtimeNS, 10, 64)
+		if e != nil || strconv.FormatInt(n, 10) != o.MtimeNS {
+			return errContract
+		}
+		k := o.Device + ":" + o.Inode
+		if inodes[k] {
+			return errContract
+		}
+		inodes[k] = true
+		if !abs(x.RestorePath) || !within(root, x.RestorePath) || filepath.Dir(x.RestorePath) != filepath.Dir(o.Path) || x.GzipCap < 1 || x.GzipCap > gzipMax {
+			return errContract
+		}
+		for _, p := range []string{o.Path, x.RestorePath} {
+			k := strings.ToLower(p)
+			if paths[k] {
+				return errContract
+			}
+			paths[k] = true
+		}
+	}
+	return nil
+}
+func phasePeaks(current int64, files []leaf) ([]int64, error) {
+	if current <= 0 || current > globalCap || len(files) < 1 || len(files) > 8 {
+		return nil, errContract
+	}
+	total := int64(0)
+	for _, x := range files {
+		if x.Original.Bytes < 0 || x.Original.Bytes > rawCap || x.GzipCap < 1 || x.GzipCap > gzipMax {
+			return nil, errContract
+		}
+		total += x.Original.Bytes
+	}
+	if current < total {
+		return nil, errContract
+	}
+	delta := int64(0)
+	peaks := make([]int64, len(files))
+	for i, x := range files {
+		// Entire control allowance stays reserved across every completed phase.
+		// Retained previous archives use caps, never predicted compression.
+		p := current + delta + x.Original.Bytes + x.GzipCap + controlCap
+		if p > globalCap {
+			return nil, errCap
+		}
+		peaks[i] = p
+		delta += x.GzipCap - x.Original.Bytes
+	}
+	return peaks, nil
+}
+func checkAdmission(c config, a admission, s selection) error {
+	if a.Schema != "riido-completed-record-leaf-admission-v1" || a.Selection != c.Selection || a.PriorAccount != c.PriorAccount || a.CapBytes != globalCap || a.ControlsBytes != controlCap || !a.WritersQuiescent || !a.CompletedOwnedRecordsOnly || !a.ModelsCompilerUpstreamBodiesExcluded || len(a.HelperSources) != 6 {
+		return errContract
+	}
+	names := []string{"main.go", "types.go", "contract.go", "archive.go", "run.go", "go.mod"}
+	parent := filepath.Dir(a.HelperSources[0].Path)
+	for i, p := range a.HelperSources {
+		if filepath.Base(p.Path) != names[i] || filepath.Dir(p.Path) != parent {
+			return errContract
+		}
+	}
+	seen := map[string]bool{}
+	for _, p := range append([]pin{a.Census, a.PriorAccount}, a.HelperSources...) {
+		if seen[p.Path] {
+			return errContract
+		}
+		seen[p.Path] = true
+		if _, e := readPin(p); e != nil {
+			return e
+		}
+	}
+	_, e := phasePeaks(a.CurrentRetainedBytes, s.Files)
+	return e
+}
+func checkPaths(c config, a admission, s selection, configPath string) error {
+	if c.Schema != "riido-completed-record-leaf-config-v1" || !abs(c.Root) || !abs(c.OutputDir) || len(c.OutputDir) > 480 || !within(c.Root, c.OutputDir) {
+		return errContract
+	}
+	if e := noSymlink(c.Root); e != nil {
+		return e
+	}
+	ri, e := os.Lstat(c.Root)
+	if e != nil || !ri.IsDir() {
+		return errContract
+	}
+	if e := noSymlink(filepath.Dir(c.OutputDir)); e != nil {
+		return e
+	}
+	if _, e := os.Lstat(c.OutputDir); !os.IsNotExist(e) {
+		return errContract
+	}
+	protected := append([]pin{c.Selection, c.Admission, c.PriorAccount, a.Census, pin{Path: configPath}}, a.HelperSources...)
+	for _, p := range protected {
+		if !abs(p.Path) || !within(c.Root, p.Path) || overlap(c.OutputDir, p.Path) {
+			return errContract
+		}
+		if e := noSymlink(p.Path); e != nil {
+			return e
+		}
+	}
+	for _, x := range s.Files {
+		o := x.Original
+		if overlap(c.OutputDir, o.Path) || overlap(c.OutputDir, x.RestorePath) {
+			return errContract
+		}
+		if _, e := os.Lstat(x.RestorePath); !os.IsNotExist(e) {
+			return errContract
+		}
+		if e := noSymlink(filepath.Dir(o.Path)); e != nil {
+			return e
+		}
+		for _, p := range protected {
+			if overlap(p.Path, o.Path) || overlap(p.Path, x.RestorePath) {
+				return errContract
+			}
+		}
+		// Also reject physical pin/file aliases, not only casefolded paths.
+		oi, e := os.Lstat(o.Path)
+		if e != nil {
+			return e
+		}
+		for _, p := range protected {
+			fi, e := os.Lstat(p.Path)
+			if e != nil || os.SameFile(oi, fi) {
+				return errContract
+			}
+		}
+	}
+	// Fresh output leaf may not physically sit inside a selected source's
+	// parent through an ancestor alias that bypasses lexical containment.
+	for p := filepath.Dir(c.OutputDir); ; p = filepath.Dir(p) {
+		fi, e := os.Lstat(p)
+		if e != nil {
+			return e
+		}
+		for _, x := range s.Files {
+			oi, e := os.Lstat(x.Original.Path)
+			if e != nil || os.SameFile(fi, oi) {
+				return errContract
+			}
+		}
+		if filepath.Dir(p) == p {
+			break
+		}
+	}
+	return nil
+}

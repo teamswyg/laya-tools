@@ -1,0 +1,257 @@
+//go:build darwin || linux
+
+package main
+
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"io"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"syscall"
+)
+
+const globalCap int64 = 512 << 20
+const rawCap int64 = 1 << 20
+const gzipMax int64 = 512 << 10
+const controlCap int64 = 128 << 10
+const metaCap int64 = 32 << 10
+
+var errContract = errors.New("leaf_contract")
+var errChanged = errors.New("leaf_changed")
+var errCap = errors.New("leaf_cap")
+
+type pin struct {
+	Path   string `json:"path"`
+	Bytes  int64  `json:"bytes"`
+	SHA256 string `json:"sha256"`
+}
+type physical struct {
+	Mode    string `json:"mode_octal"`
+	Device  string `json:"device"`
+	Inode   string `json:"inode"`
+	MtimeNS string `json:"mtime_ns"`
+	Nlink   uint64 `json:"nlink"`
+}
+type filePin struct {
+	pin
+	physical
+}
+type leaf struct {
+	ID          string  `json:"id"`
+	Category    string  `json:"category"`
+	Original    filePin `json:"original"`
+	RestorePath string  `json:"restore_path"`
+	GzipCap     int64   `json:"gzip_cap_bytes"`
+}
+type selection struct {
+	Schema string `json:"schema"`
+	Files  []leaf `json:"files"`
+}
+type admission struct {
+	Schema                               string `json:"schema"`
+	Selection                            pin    `json:"selection"`
+	PriorAccount                         pin    `json:"prior_account"`
+	Census                               pin    `json:"census"`
+	HelperSources                        []pin  `json:"helper_sources"`
+	CapBytes                             int64  `json:"cap_bytes"`
+	CurrentRetainedBytes                 int64  `json:"current_retained_bytes"`
+	ControlsBytes                        int64  `json:"new_controls_bytes"`
+	WritersQuiescent                     bool   `json:"writers_quiescent"`
+	CompletedOwnedRecordsOnly            bool   `json:"completed_owned_records_only"`
+	ModelsCompilerUpstreamBodiesExcluded bool   `json:"models_compiler_upstream_bodies_excluded"`
+}
+type config struct {
+	Schema       string `json:"schema"`
+	Root         string `json:"root"`
+	OutputDir    string `json:"output_dir"`
+	Selection    pin    `json:"selection"`
+	Admission    pin    `json:"admission"`
+	PriorAccount pin    `json:"prior_account"`
+}
+type record struct {
+	ID                         string   `json:"id"`
+	State                      string   `json:"state"`
+	Archive                    *filePin `json:"archive"`
+	Restored                   *filePin `json:"restored"`
+	Commit                     *pin     `json:"commit"`
+	Cleanup                    *pin     `json:"cleanup_ack"`
+	OriginalUnlinkReturned     bool     `json:"original_unlink_returned"`
+	OriginalParentSyncReturned bool     `json:"original_parent_sync_returned"`
+	RestoreCleanupSyncReturned bool     `json:"restore_cleanup_sync_returned"`
+}
+type result struct {
+	Schema                          string   `json:"schema"`
+	Complete                        bool     `json:"complete"`
+	CompletedLeaves                 int      `json:"completed_leaves"`
+	Records                         []record `json:"records"`
+	ReclaimedLogicalBytesLowerBound *int64   `json:"reclaimed_logical_bytes_lower_bound"`
+	Failure                         string   `json:"failure"`
+	AutomaticRetries                int      `json:"automatic_retries"`
+	Final                           *pin     `json:"final"`
+}
+
+func sha(b []byte) string { x := sha256.Sum256(b); return hex.EncodeToString(x[:]) }
+func validSHA(s string) bool {
+	if len(s) != 64 || s != strings.ToLower(s) {
+		return false
+	}
+	_, e := hex.DecodeString(s)
+	return e == nil
+}
+func canonical(v any) ([]byte, error) {
+	b, e := json.MarshalIndent(v, "", "  ")
+	if e != nil {
+		return nil, e
+	}
+	return append(b, '\n'), nil
+}
+func decode(b []byte, v any) error {
+	d := json.NewDecoder(strings.NewReader(string(b)))
+	d.DisallowUnknownFields()
+	if d.Decode(v) != nil {
+		return errContract
+	}
+	var more any
+	if d.Decode(&more) != io.EOF {
+		return errContract
+	}
+	want, e := canonical(v)
+	if e != nil || string(want) != string(b) {
+		return errContract
+	}
+	return nil
+}
+func abs(p string) bool {
+	return len(p) <= 512 && filepath.IsAbs(p) && filepath.Clean(p) == p && !strings.ContainsAny(p, "\x00\r\n")
+}
+func within(root, p string) bool {
+	return p != root && strings.HasPrefix(p, root+string(filepath.Separator))
+}
+func overlap(a, b string) bool {
+	a, b = strings.ToLower(a), strings.ToLower(b)
+	return a == b || strings.HasPrefix(a, b+string(filepath.Separator)) || strings.HasPrefix(b, a+string(filepath.Separator))
+}
+func noSymlink(p string) error {
+	if !abs(p) {
+		return errContract
+	}
+	cur := string(filepath.Separator)
+	for _, part := range strings.Split(strings.TrimPrefix(p, cur), cur) {
+		if part == "" {
+			continue
+		}
+		cur = filepath.Join(cur, part)
+		fi, e := os.Lstat(cur)
+		if e != nil || fi.Mode()&os.ModeSymlink != 0 {
+			return errChanged
+		}
+		if cur != p && !fi.IsDir() {
+			return errChanged
+		}
+	}
+	return nil
+}
+func permissions(s string) (os.FileMode, error) {
+	n, e := strconv.ParseUint(s, 8, 12)
+	if e != nil || n > 0777 || "0"+strconv.FormatUint(n, 8) != s || n&0600 != 0600 {
+		return 0, errContract
+	}
+	return os.FileMode(n), nil
+}
+func metadata(fi os.FileInfo) (physical, error) {
+	x, ok := fi.Sys().(*syscall.Stat_t)
+	if !ok {
+		return physical{}, errContract
+	}
+	if !fi.Mode().IsRegular() || fi.Mode()&(os.ModeSetuid|os.ModeSetgid|os.ModeSticky) != 0 || uint64(x.Nlink) != 1 {
+		return physical{}, errContract
+	}
+	return physical{"0" + strconv.FormatUint(uint64(fi.Mode().Perm()), 8), strconv.FormatUint(uint64(x.Dev), 10), strconv.FormatUint(x.Ino, 10), strconv.FormatInt(fi.ModTime().UnixNano(), 10), uint64(x.Nlink)}, nil
+}
+func same(fi os.FileInfo, w physical) bool { m, e := metadata(fi); return e == nil && m == w }
+func openRead(p string) (*os.File, os.FileInfo, error) {
+	if e := noSymlink(p); e != nil {
+		return nil, nil, e
+	}
+	before, e := os.Lstat(p)
+	if e != nil {
+		return nil, nil, e
+	}
+	m, e := metadata(before)
+	if e != nil {
+		return nil, nil, e
+	}
+	fd, e := syscall.Open(p, syscall.O_RDONLY|syscall.O_NOFOLLOW, 0)
+	if e != nil {
+		return nil, nil, e
+	}
+	f := os.NewFile(uintptr(fd), p)
+	current, e := f.Stat()
+	if e != nil || !os.SameFile(before, current) || !same(current, m) {
+		f.Close()
+		return nil, nil, errChanged
+	}
+	return f, before, nil
+}
+func hashFile(p string, maximum int64) (filePin, error) {
+	f, before, e := openRead(p)
+	if e != nil {
+		return filePin{}, e
+	}
+	defer f.Close()
+	if before.Size() < 0 || before.Size() > maximum {
+		return filePin{}, errCap
+	}
+	h := sha256.New()
+	n, e := io.Copy(h, io.LimitReader(f, maximum+1))
+	after, ae := f.Stat()
+	last, le := os.Lstat(p)
+	m, me := metadata(before)
+	if e != nil || ae != nil || le != nil || me != nil || n != before.Size() || !same(after, m) || !same(last, m) {
+		return filePin{}, errChanged
+	}
+	return filePin{pin{p, n, hex.EncodeToString(h.Sum(nil))}, m}, nil
+}
+func checkFile(w filePin, maximum int64) (filePin, error) {
+	got, e := hashFile(w.Path, maximum)
+	if e != nil || got != w {
+		return filePin{}, errChanged
+	}
+	return got, nil
+}
+func readPin(w pin) ([]byte, error) {
+	if !abs(w.Path) || w.Bytes < 0 || w.Bytes > metaCap || !validSHA(w.SHA256) {
+		return nil, errContract
+	}
+	got, e := hashFile(w.Path, metaCap)
+	if e != nil || got.pin != w {
+		return nil, errChanged
+	}
+	f, _, e := openRead(w.Path)
+	if e != nil {
+		return nil, e
+	}
+	defer f.Close()
+	b, e := io.ReadAll(io.LimitReader(f, metaCap+1))
+	if e != nil || int64(len(b)) != w.Bytes || sha(b) != w.SHA256 {
+		return nil, errChanged
+	}
+	return b, nil
+}
+func syncDirectory(p string) error {
+	f, e := os.Open(p)
+	if e != nil {
+		return e
+	}
+	e = f.Sync()
+	ce := f.Close()
+	if e != nil {
+		return e
+	}
+	return ce
+}

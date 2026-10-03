@@ -1,0 +1,82 @@
+{
+  "schema": "riido-completed-leaf-archive-independent-source-review-v1",
+  "status": "source_review_patch_required_before_fake_QA",
+  "reviewer": "peer125",
+  "author_relation": "New leaf-helper nonauthor. Prior related directory-helper source reviewer and CI-script author; nonblind development source review, not protected/blind evaluation or recovery proof.",
+  "source": {
+    "id": "next60-leaf-archive-Go-preparation52-v1",
+    "handoff": {
+      "bytes": 1265,
+      "sha256": "99c60f63630fc8b3d043a581e9b5f872c903b6fa48e254b11b35e64a7d9feb4c"
+    },
+    "manifest": {
+      "bytes": 2468,
+      "sha256": "20e0589513d3ae31ec0b42bfe52384f3d2604f824d7bd5ed1b8aa4021b0a9ec2"
+    },
+    "files": 14,
+    "bytes": 48401,
+    "sealed_payload_pins_verified": 11
+  },
+  "findings": [
+    {
+      "id": "canonical_fake_temp_root",
+      "priority": "required_before_fake_QA",
+      "source": "module/archive_test.go.txt:19",
+      "problem": "tiny uses t.TempDir directly, while hashFile/openRead/noSymlink reject symlink ancestors. Common Darwin /var or /tmp aliases can reject fixtures before the intended controls.",
+      "minimum_patch": "Use filepath.EvalSymlinks(t.TempDir()), propagate its error, and construct all fake paths from that canonical root. Production no-symlink guard must remain unchanged.",
+      "science_effect": "owned fake path setup only; no source selection, safety, budget, labels, model or original API changes"
+    }
+  ],
+  "other_confirmed_source_blockers": 0,
+  "verified_by_source": [
+    "Build targets Darwin/Linux only. Exact Go1.27.1 module proposal; no compiler success is claimed.",
+    "Strict typed canonical JSON uses MarshalIndent plus LF and reencoding equality. Config external SHA is validated before output; unknown/duplicate/alias fields reject.",
+    "Selection is explicit,1..8 completed_owned_record leaves, no automatic names or discovery. Raw<=1MiB and configured gzip<=512KiB. Device/inode are canonical uint64 decimal strings, mtime_ns canonical int64 decimal, nlink exactly1, plain canonical owner-rw modes only.",
+    "Paths are clean absolute, bounded, without NUL/CR/LF or symlink ancestors. Restore is a fresh source sibling; output is fresh beneath Root. Protected pins cannot overlap source/restore/output; selected inode identities and casefolded source/restore paths are unique. Physical protected-pin aliases reject.",
+    "All source files are full byte/SHA/size/mode/device/inode/nlink/mtime checked before output. openRead uses O_NOFOLLOW and SameFile; hashFile verifies metadata after reading. Pack checks source before/during/after compression.",
+    "Gzip output is O_EXCL0600, sticky bounded writer, mandatory successful Close/file Sync/parent Sync. Failure preserves the partial archive and does not append a deferred gzip footer.",
+    "Restore is a real O_EXCL sibling file. Its exact raw limit probes through genuine gzip EOF, checking CRC and ISIZE. Multistream(false) with buffered ByteReader and a trailing-byte probe rejects extra bytes or members.",
+    "Restored bytes/SHA and plain mode are checked and successful file/parent Sync returns before COMMIT. Fresh restore physical metadata is pinned. Original mtime remains exact in COMMIT; it is not physically reapplied to the temporary restore, matching the documented bytes/SHA/mode equivalence claim.",
+    "Durable COMMIT file Sync plus parent Sync precede original unlink. Config/selection/admission/prior-account/COMMIT pins and exact archive/restore/original physical pins are rechecked, followed by final original stat and no-symlink guard.",
+    "Original unlink returns and parent Sync returns before restore cleanup. Restore cleanup requires its exact captured byte/physical pin; no RemoveAll. Both original and restore absence plus cleanup parent Sync precede durable CLEANUP-ACK. Only ACK completion increments completed leaves and starts the next leaf.",
+    "First failure stops later leaves; partial files, archives and COMMIT remain. No retry or automatic resume. Failure gives complete=false, reclaim=null and no FINAL authority. States distinguish original unlink returned from parent Sync returned; JSON row presence alone is not durability proof.",
+    "Controls charge their full encoded size before creation and enforce one128KiB budget across all leaves, reserving2KiB stdout. Even a failed partial write is conservatively charged.",
+    "Every prospective phase checks current + prior gzip caps - prior removed raw bytes + this actual selected raw restore size + this gzip cap + full128KiB controls <=512MiB. Prior subtraction is valid only after prior cleanup ACK; every phase is prechecked before output.",
+    "Final reclaim lower bound is sum(selected original bytes - actual retained archive bytes) - full128KiB controls. It is a logical-path byte bound, not filesystem-block or lifetime-write saving. Negative lower bounds remain possible and are not inflated.",
+    "Synthetic source has12 top-level tests and6 subtests. It includes re-pinned truncated/CRC/trailing/second-member cases, empty restore, source/binding/mtime drift, COMMIT Sync failure, postunlink Sync failure, stop-next-leaf, hard/symlink and exact-cap rejection. They have not been run by reviewers."
+  ],
+  "limits_and_Root_requirements": [
+    "Root classification, rights, exact selected current membership and quiescent writers remain prerequisites; no hostile concurrent replacement guarantee is claimed.",
+    "Census/prior-account/helper source pins are checked at admission. Their meaning and actual executing source/tool/compiler mapping are external Root responsibilities. All metadata reads share32KiB cap; eventual census/account/config/selection/admission/helper files must fit.",
+    "Full1MiB raw +512KiB gzip +128KiB controls adds1703936 B and exceeds the latest roughly1.4MB reported head. Smaller concrete raw/caps and all prep/review/materialization/tool/log costs require refreshed Root census and explicit admission. No encoded-fit estimate or approval was created.",
+    "Null archive/result fields on failure do not exempt retained partial bytes from the successor census. Existing archives/accounts and the enclosing retained Root scope remain unchanged.",
+    "No selected payloads or previous archives were read/hashed; no full compiler/source closure or actual restore/unlink was exercised."
+  ],
+  "stream_peer": {
+    "agent": "archive_stream_peer",
+    "nonauthor": true,
+    "confirmed_additional_pack_restore_blockers": 0,
+    "same_required_fake_temp_patch": true,
+    "execution_or_writes": 0
+  },
+  "reviewer_execution_counts": {
+    "Go": 0,
+    "gofmt": 0,
+    "tests": 0,
+    "archive": 0,
+    "restore": 0,
+    "unlink": 0,
+    "actual_payload_hash": 0,
+    "network": 0,
+    "original_API": 0,
+    "Reader": 0,
+    "model": 0,
+    "Fit": 0,
+    "shared_repo_writes": 0
+  },
+  "private_exclusions": [
+    "PINNING.private.v1.json"
+  ],
+  "review_cap_bytes": 16384,
+  "Root_account_scope": "v4.8 charge required"
+}

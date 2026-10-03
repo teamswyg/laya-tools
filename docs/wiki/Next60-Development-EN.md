@@ -1,3 +1,47 @@
+# Development data for a tiny claim and hint model: 35 verified requests
+
+The target is a tiny model that frequently proposes code-behavior hints at low cost. For example, it might suggest that a candidate can continue to a later line after an error; an actual check then verifies that claim. A hint alone grants neither execution approval nor correctness.
+
+The public pool contains **35 requests and 102 labels: 35 positive, 67 negative**, with 171 inputs, 509 all-candidate observations and 500 selected-candidate observations. The previous 33 rows remain byte-exact. See the [Go materialization and Reader receipt](https://github.com/teamswyg/laya-tools/blob/310bdeef76014204841076c01cf9ee60cdfe7375/experiments/short-claim/next60-development-thirtyfive/MATERIALIZATION.v1.json) and [usage/evidence](https://github.com/teamswyg/laya-tools/blob/310bdeef76014204841076c01cf9ee60cdfe7375/experiments/short-claim/next60-development-thirtyfive/README.en.md).
+
+The two additions check complete JSON values per line and invalid UTF-8 rejection before append. Satisfaction, counterexample and unknown remain distinct. An unavailable error channel stays unknown. A known counterexample accompanying unknown conditions supports a negative label only through that counterexample. Existing API contracts and new requested contracts differ; a mismatch alone is not an upstream defect.
+
+## Usage for people and agents
+
+This command downloads **one data file**. No model download, inference or training is needed; Codex integration is optional. One line is one request, candidates contain code descriptions, and labels express finite observed support or contradiction. Unknown conditions and excluded candidates remain in separate qualification/evidence files.
+
+```sh
+hf download JooYoon/riidolaya-shortclaim-next60-development \
+  releases/next60-35-finite-v1/next60-development-thirtyfive/data/train.jsonl \
+  --type dataset --revision 7621cd34d298b4e2dfb59def7a9adaf6e45fef52 \
+  --local-dir ./riidolaya-next60-data
+```
+
+From a repository checkout, the following reproduces all saved comparisons, data bytes and actual project Reader values for 35 requests. It launches no original observer, model or new Fit.
+
+```sh
+bash scripts/verify-next60-thirtyfive.sh
+```
+
+## Actual publication and checks
+
+[PR126](https://github.com/teamswyg/laya-tools/pull/126) passed all four required [CI jobs](https://github.com/teamswyg/laya-tools/actions/runs/37123177961), and the bot merged the identical source tree. Linux/macOS compare 33 saved rows/309 predicates and all 35 data rows. Existing native Laya inference passed separately. **GPU execution is unverified.**
+
+The [fixed Hugging Face release](https://huggingface.co/datasets/JooYoon/riidolaya-shortclaim-next60-development/tree/7621cd34d298b4e2dfb59def7a9adaf6e45fef52) and next60-35-finite-v1 tag are published. Inventory is 720 owned files/721 including attributes. Every **84 new/changed files plus managed attributes**, 888,897 bytes, was directly read at the fixed commit and matched. All old 639 paths and eight tag refs remain. This does not claim another download of all old files at the new commit.
+
+The viewer matched **every field and order for 35 rows, partial=false, zero truncated cells**. Response revision and top-level truncation fields are unavailable and remain unknown. The viewer follows current main, separate from immutable file proof.
+
+## Criteria for the next training round
+
+35 is a development collection checkpoint. Always choosing position 2 already succeeds on 28/35; a model must first demonstrate meaningful utility beyond simple controls. The new Golden 20-to-60 coverage plan is a separate cohort, covering five/eight candidates and zero/one/many positives, unknowns and ambiguous policies. Whole source families, shared helpers, translations and variants must stay within one evaluation role.
+
+A proposed Reader preserves unknown-only labels/weights as null and withholds ambiguous parents from training. Connecting it directly to the current training projection could turn unknowns into negatives; masks must survive transformation, loss and evaluation first. New Fits and model calls are zero. Protected evaluation of 2,400 requests per domain and a 5% actual total verification-work reduction remain unfulfilled. Ternary storage size and useful CPU inference must be proven separately.
+
+Owned source, text and fixtures use Apache-2.0; existing complete upstream notices remain. No upstream source bodies, weights, binaries, private inputs, credentials or raw journals are published. Model publication rights require separate review. [Issue19](https://github.com/teamswyg/laya-tools/issues/19) · [한국어](Next60-Development-KO).
+
+<details>
+<summary>이전 33개 시점 안내 원문 / Previous 33-request guide, verbatim</summary>
+
 # Finite development data for a small claim and hint model: verified 33 requests
 
 The target is a tiny **claim and hint model** that frequently suggests useful code candidates at low cost. Tests and counterexamples support the hint. This package builds development supervision; it does not report a new model's accuracy or Codex savings.
@@ -160,5 +204,7 @@ A later model must reduce total verification work by at least **5%** against fix
 [Issue19](https://github.com/teamswyg/laya-tools/issues/19) records progress and actual publication/CI results. Owned documentation/source use Apache-2.0; full upstream notices retain their licenses. Original runtime bodies, model weights, private inputs, credentials and raw journals are excluded. Source-license checks do not provide blanket clearance for the complete model lineage.
 
 [First two training requests](Native2-Training-EN) · [First original observations](Native2-Observation-EN) · [한국어](Next60-Development-KO)
+
+</details>
 
 </details>

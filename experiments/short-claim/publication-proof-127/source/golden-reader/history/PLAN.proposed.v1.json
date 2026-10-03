@@ -1,0 +1,86 @@
+{
+  "schema": "riido-golden-reader-v2-source-preparation-v1",
+  "state": "SOURCE_ONLY_ROOT_AND_NONAUTHOR_REVIEW_PENDING",
+  "actual_new_rows_labels_roles_groups": 0,
+  "basis_pins": {
+    "v1_reader": {
+      "bytes": 11642,
+      "sha256": "08fc06419acaf22a07249c736f5dfb0b3aa8c8468a9735936048ca5bbcb89bae"
+    },
+    "shortclaim_input": {
+      "bytes": 10755,
+      "sha256": "834d66e6a0c63095d25b02659a1ddd5c5b8a9eef185b7a2bab5e938974370a80"
+    },
+    "legacy_projection": {
+      "bytes": 13216,
+      "sha256": "2e6dcc5e53d50ca315a59113c3493c8e08a2492979c5817b82563dd7e354e316"
+    },
+    "binary_loss": {
+      "bytes": 8115,
+      "sha256": "e25ca8e75b55b7dc1b91c3b29222835ca38e5399e7ba78a38be9207c671a8768"
+    },
+    "coverage_plan": {
+      "bytes": 10198,
+      "sha256": "6df784813ee1a3d08a7346b688b677ab735f751f2555b754d96514a1c3e9d215"
+    },
+    "variable_fit_plan": {
+      "bytes": 6916,
+      "sha256": "b589ecb14d5533b91391b617ae1753fb55ad63a548eb66d79e42d9d24ef96500"
+    },
+    "bridge_plan": {
+      "bytes": 7215,
+      "sha256": "e74c37dab1bc684fd39bdb72dc8026be85b94008d042f846369b3e58e074615c"
+    },
+    "bridge_DTO": {
+      "bytes": 5958,
+      "sha256": "f48e1fff60817787d6adc4512cc30fc437c14f649b022bc359d8aa5e95132278"
+    }
+  },
+  "v1_fact": "Existing v1 Reader accepts1..8 Boolean candidates with weight1, including zero or multiple positives. It has no positive-cardinality guard; current acquired35 rows happen to be2/3 candidates with one positive.",
+  "new_schema_need": "Full8 slots with active count5/8, explicit predicate/candidate T/F/U, null/known labels, gradient eligibility, ambiguity and separate Root authority pins; never silently modify v1.",
+  "coverage": "New20 then planned60 coverage cohort with10 cells; neither new samples nor35+20 independence arithmetic. Old35/v1 remain immutable. No protected2400 read or qualification.",
+  "authority": "Load(rowReader,authorityReader,externallyPinnedHashes). The separate Root binding is mandatory before row decoding; qualification/roles-group SHA refs remain opaque and require Root review outside this helper. No self readiness boolean.",
+  "caps": {
+    "row_bytes": 32768,
+    "authority_bytes": 4096,
+    "full_candidate_arity": 8,
+    "active_count": [
+      5,
+      8
+    ],
+    "predicates_per_candidate": 64,
+    "max_scope": "one row, no file or cohort allocation"
+  },
+  "supervision": "T requires all predicates T. KnownF dominates U while preserving every predicate; U-only label/weight null and eligiblefalse. Ambiguous parent withholds ALL labels/weights, even conditional T/F facts. Decided known labels are explicit; gradient weight1 only for Root-eligible development_train. No evaluation-mask/NLL policy invented.",
+  "verified0_conservative_policy": "Matches PLAN any-U caution: candidate and predicate U must both be absent. F+U remains representable under verified1/many or an unknown-containing parent, not silently counted as verified0. Root should explicitly freeze whether its zero cell forbids predicate-U or only candidate-U.",
+  "feature_projection": "Input returns only raw/normalized request/candidate text plus framing count. No IDs/index/state/mask/weight/group/role/evidence. Uses existing shortclaim.ValidateInput normalization; no feature extraction.",
+  "compatibility_blockers": [
+    "Legacy claimfit.Project marks every non-Unknown parent candidate Known, so mixed candidate-U becomes known-false in its audit DTO even when loss weight0; no direct Parent conversion supplied.",
+    "Legacy input bridge requires selected Boolean supervision and development_train; full-U/ambiguity and full candidate sets need a separate bridge/admission version.",
+    "Binary loss supports Boolean labels/weights; nullable candidate states and calibration/validation masks need explicit new projection/evaluation contracts before any fit.",
+    "Zero/multi cohorts require finite-set acceptance/abstention/multihit metrics; Top3 at2/3 candidates is structurally trivial."
+  ],
+  "test_source": [
+    "5/8 zero/one/multi/U/ambiguous",
+    "knownF+U preserved",
+    "unknown cannot become false/eligible",
+    "unused slots and availability",
+    "copied accessors and metadata/mask text invariance",
+    "authority hash failure stops before row read",
+    "duplicate/unknown case/number/surrogate/7-or9 arity"
+  ],
+  "author_relation": "Agent45 prior materializer/comparer/outside and variable-fit plan author, nonblind. New prototype author, not independent implementation reviewer or Root oracle.",
+  "execution": {
+    "Go_format_test_build": 0,
+    "Reader": 0,
+    "original_API": 0,
+    "features_score_Project_Fit_model": 0,
+    "network": 0,
+    "protected_reads": 0
+  },
+  "history": {
+    "narrow_source_read_missing_path": "internal/pairlearn/types.go absent; actual learn.go read instead",
+    "source_execution_retry": 0
+  },
+  "next": "Root/non-author source review; separate bounded offline compile and synthetic controls; Root creates exact new authority/roles/cohort plan before input handoff. No automatic Fit or protected execution."
+}

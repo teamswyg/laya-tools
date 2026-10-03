@@ -1,3 +1,47 @@
+# 주장·힌트 모델용 개발 자료: 검증한 35개
+
+목표는 아주 적은 자원으로 코드 후보에 대한 힌트를 자주 제안하는 작은 모델입니다. 예를 들어 “이 후보가 오류 뒤에도 다음 줄을 처리할 수 있다”는 주장을 먼저 제시하고, 실제 검사로 확인합니다. 힌트만으로 실행을 승인하거나 정답을 확정하지 않습니다.
+
+현재 공개 자료는 **요청 35개·라벨 102개(긍정 35·부정 67)**입니다. 입력 171개, 전체 후보 관측 509개, 선택 후보 관측 500개를 포함합니다. 이전 33행은 바이트 그대로 유지했습니다. [Go 생성·Reader 기록](https://github.com/teamswyg/laya-tools/blob/310bdeef76014204841076c01cf9ee60cdfe7375/experiments/short-claim/next60-development-thirtyfive/MATERIALIZATION.v1.json)과 [사용법·근거](https://github.com/teamswyg/laya-tools/blob/310bdeef76014204841076c01cf9ee60cdfe7375/experiments/short-claim/next60-development-thirtyfive/README.ko.md)를 볼 수 있습니다.
+
+새로 추가한 두 요청에서는 JSON 한 줄의 완전한 값 처리와 잘못된 UTF-8의 append 전 거부를 검사했습니다. 충족·반례·미상을 구분하며, 확인할 수 없는 오류 통로는 미상으로 남깁니다. 알려진 반례와 미상 조건이 함께 있으면 반례의 근거로만 부정 라벨을 붙입니다. 기존 API의 원래 계약과 새 요구의 차이를 비교하므로 불일치 자체를 원본 버그로 단정하지 않습니다.
+
+## 사람과 에이전트가 읽는 방법
+
+아래 명령은 데이터 **한 파일**만 받습니다. 모델 다운로드·추론·학습 없이 읽을 수 있고 Codex 연동도 선택 사항입니다. 한 줄은 요청 하나, candidates는 비교할 코드 설명, label은 유한 관측에 근거한 긍정·부정입니다. 생성 근거의 미상 값과 제외 후보는 별도 qualification/evidence에 남아 있습니다.
+
+```sh
+hf download JooYoon/riidolaya-shortclaim-next60-development \
+  releases/next60-35-finite-v1/next60-development-thirtyfive/data/train.jsonl \
+  --type dataset --revision 7621cd34d298b4e2dfb59def7a9adaf6e45fef52 \
+  --local-dir ./riidolaya-next60-data
+```
+
+저장소를 받은 뒤 아래 검사를 실행하면 저장 관측 전체, 데이터 바이트, 실제 프로젝트 Reader의 35개 값이 재현됩니다. 원본 관찰기·모델·새 학습은 실행하지 않습니다.
+
+```sh
+bash scripts/verify-next60-thirtyfive.sh
+```
+
+## 실제 게시와 검사 결과
+
+[PR126](https://github.com/teamswyg/laya-tools/pull/126)의 [필수 CI 네 작업](https://github.com/teamswyg/laya-tools/actions/runs/37123177961)이 통과했고 봇이 동일 소스 트리를 병합했습니다. 새 저장 비교 33행·309조건과 전체 데이터 35행을 Linux·macOS에서 대조했습니다. 기존 Laya native 추론 검사도 별도로 통과했습니다. **GPU 실행은 미확인**입니다.
+
+[Hugging Face 고정 버전](https://huggingface.co/datasets/JooYoon/riidolaya-shortclaim-next60-development/tree/7621cd34d298b4e2dfb59def7a9adaf6e45fef52)과 next60-35-finite-v1 태그를 게시했습니다. 목록은 자체 파일 720개·관리 속성 포함 721개입니다. 새 파일·변경 파일 **84개와 관리 속성 파일 1개**, 총 888,897바이트를 고정 커밋에서 직접 대조했고 모두 일치했습니다. 옛 639개 경로와 태그 8개를 유지했습니다. 옛 파일 전체를 이번 커밋에서 다시 다운로드했다는 뜻은 아닙니다.
+
+Viewer도 **35행의 모든 필드·순서 일치, partial=false, 잘린 셀 0**을 확인했습니다. 응답 커밋과 최상위 잘림 표시는 제공되지 않아 미확인으로 남깁니다. Viewer는 현재 main을 따르므로 고정 커밋 파일 증명과 구분합니다.
+
+## 다음 학습을 판단하는 기준
+
+35개는 개발 수집 단계입니다. 둘째 후보만 골라도 28/35가 맞으므로 모델이 이보다 의미 있는 도움을 주는지부터 확인해야 합니다. 새 Golden 20→60 계획은 기존 35행과 별도의 집단이며, 5·8후보와 정답 0·1·여러 개·미상·정책 모호 사례를 고르게 수집합니다. 같은 원본 가족·공유 함수·번역·변형은 다른 평가 역할로 나누지 않습니다.
+
+미상 전용 후보의 정답·가중치는 null로 보존하고 모호한 부모 요청은 학습에서 제외하는 Reader 초안을 검토 중입니다. 현재 학습 변환에 그대로 연결하면 미상을 음성으로 오해할 수 있어, 변환·손실·평가까지 마스크를 확인한 뒤 연결합니다. 새 학습·모델 추론은 0회입니다. 도메인별 보호 평가 2,400개와 실제 전체 검증 작업량 5% 감소는 아직 달성하지 않았습니다. 3진 저장 크기와 CPU 추론 효용도 별도로 증명해야 합니다.
+
+자체 코드·설명·입력은 Apache-2.0이고 기존 upstream 전문 고지를 보존합니다. 원본 코드 본문·모델 본체·바이너리·사적 입력·인증정보·원시 journal은 공개하지 않습니다. 모델 게시 권리는 별도 검토입니다. [이슈19](https://github.com/teamswyg/laya-tools/issues/19) · [English](Next60-Development-EN).
+
+<details>
+<summary>이전 33개 시점 안내 원문 / Previous 33-request guide, verbatim</summary>
+
 # 주장·힌트 모델용 유한 개발 자료: 검증한 33개
 
 목표는 요청에 도움이 될 코드 후보를 아주 적은 비용으로 자주 제안하는 작은 **주장·힌트 모델**입니다. 힌트 뒤에는 실제 검사와 반례가 필요합니다. 이 자료는 그 학습 근거를 쌓는 개발 자료입니다. 새 모델의 성능이나 Codex 비용 절감 결과를 담은 자료가 아닙니다.
@@ -160,5 +204,7 @@ bash scripts/verify-next60-thirty.sh
 [이슈19](https://github.com/teamswyg/laya-tools/issues/19)에서 실제 게시·CI 결과와 진행을 볼 수 있습니다. 자체 문서·소유 소스는 Apache-2.0, 원천 전문 고지는 해당 라이선스를 유지합니다. 원본 본문·모델 본체·사적 입력·인증정보·원시 journal은 공개 자료에 없습니다. 코드 라이선스 확인이 모델 계보 전체의 포괄적 권리 승인을 뜻하지 않습니다.
 
 [첫 두 요청의 학습 자료](Native2-Training-KO) · [첫 원본 관측](Native2-Observation-KO) · [English](Next60-Development-EN)
+
+</details>
 
 </details>

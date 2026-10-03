@@ -1,0 +1,211 @@
+// SPDX-License-Identifier: Apache-2.0
+package goldenreader
+
+import (
+	"bytes"
+	"encoding/json"
+	"io"
+	"strings"
+	"testing"
+)
+
+// Every fixture is newly owned synthetic structure. No data35/Root truth or
+// original function is read, replayed or used to construct these controls.
+func synthetic(cohort string, count, positive, unknown int, ambiguous bool) wireRow {
+	w := wireRow{Schema: Schema, StableID: "synthetic-parent", Request: "Check these finite candidate claims.", Count: count, Role: "development_train", WholeGroup: 65535, SourceFamily: "synthetic-family", SourceRevision: strings.Repeat("a", 40), TextRevision: "synthetic-v2", FeaturePolicy: FeaturePolicy, Cohort: cohort, ParentState: "decided", Candidates: make([]wireCandidate, 8)}
+	if ambiguous {
+		w.ParentState = "ambiguous"
+	}
+	for i := range w.Candidates {
+		w.Candidates[i].Predicates = []Predicate{}
+	}
+	for i := 0; i < count; i++ {
+		state := "F"
+		label := false
+		if i < positive {
+			state = "T"
+			label = true
+		}
+		if i >= count-unknown {
+			state = "U"
+		}
+		c := wireCandidate{MetadataID: string(rune('a' + i)), Text: "A bounded candidate description.", State: state, Predicates: []Predicate{{Key: "finite_requirement", State: state, Available: state != "U", Known: state != "U"}}}
+		if state != "U" && !ambiguous {
+			weight := 1
+			c.Label = &label
+			c.SampleWeight = &weight
+			c.Eligible = true
+		}
+		w.Candidates[i] = c
+	}
+	return w
+}
+func freeze(w wireRow) ([]byte, []byte, Pins) {
+	row, _ := json.Marshal(w)
+	p := Pins{QualificationSHA256: strings.Repeat("b", 64), RolesGroupsSHA256: strings.Repeat("c", 64), RowSHA256: digest(row)}
+	a := authority{AuthoritySchema, AuthorityState, p.QualificationSHA256, p.RolesGroupsSHA256, p.RowSHA256, w.StableID, w.Role, w.WholeGroup, w.SourceFamily, w.SourceRevision, w.TextRevision, w.Cohort, w.ParentState, w.Count}
+	auth, _ := json.Marshal(a)
+	p.AuthoritySHA256 = digest(auth)
+	return row, auth, p
+}
+func load(w wireRow) (Example, error) {
+	r, a, p := freeze(w)
+	return Load(bytes.NewReader(r), bytes.NewReader(a), p)
+}
+func TestCoverageShapes(t *testing.T) {
+	for _, x := range []struct {
+		cohort  string
+		n, p, u int
+		amb     bool
+	}{
+		{"verified0", 5, 0, 0, false}, {"verified1", 8, 1, 0, false}, {"verified_many", 5, 2, 0, false},
+		{"unknown_containing", 8, 0, 8, false}, {"unknown_containing", 5, 1, 1, false}, {"ambiguous_policy", 8, 2, 0, true},
+	} {
+		t.Run(x.cohort+string(rune('0'+x.n)), func(t *testing.T) {
+			e, err := load(synthetic(x.cohort, x.n, x.p, x.u, x.amb))
+			if err != nil || !e.Valid() {
+				t.Fatal("valid structural cohort rejected")
+			}
+			s := e.Supervision()
+			in := e.Input()
+			if s.Count != x.n || in.Count != x.n {
+				t.Fatal("count")
+			}
+			for i := 0; i < x.n; i++ {
+				if (s.States[i] == "U" || x.amb) && (s.LabelKnown[i] || s.Labels[i] || s.Eligible[i] || s.Weights[i] != 0) {
+					t.Fatal("withheld supervision became label")
+				}
+			}
+			for i := x.n; i < 8; i++ {
+				if in.Candidates[i] != (Text{}) || s.States[i] != "" || s.LabelKnown[i] || s.Labels[i] || s.Eligible[i] || s.Weights[i] != 0 || s.PredicateCounts[i] != 0 || s.Predicates[i] != ([MaxPredicates]Predicate{}) {
+					t.Fatal("unused slot")
+				}
+			}
+		})
+	}
+}
+func TestKnownFalseWithUnknownPreserved(t *testing.T) {
+	w := synthetic("verified1", 5, 1, 0, false)
+	w.Candidates[1].Predicates = append(w.Candidates[1].Predicates, Predicate{Key: "missing_error_channel", State: "U"})
+	e, err := load(w)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := e.Supervision()
+	if s.States[1] != "F" || !s.LabelKnown[1] || s.Labels[1] || s.Weights[1] != 1 || s.PredicateCounts[1] != 2 || s.Predicates[1][1].State != "U" {
+		t.Fatal("F+U loss")
+	}
+	w.Candidates[1].State = "U"
+	if _, err := load(w); err == nil {
+		t.Fatal("known F changed to U aggregate")
+	}
+}
+func TestUnknownAndAmbiguityCannotBeFalse(t *testing.T) {
+	for _, w := range []wireRow{synthetic("unknown_containing", 5, 1, 1, false), synthetic("ambiguous_policy", 5, 2, 0, true)} {
+		at := 4
+		if w.ParentState == "ambiguous" {
+			at = 0
+		}
+		no := false
+		one := 1
+		w.Candidates[at].Label = &no
+		w.Candidates[at].SampleWeight = &one
+		w.Candidates[at].Eligible = true
+		if _, err := load(w); err != ErrMask {
+			t.Fatal("unknown/ambiguity was trainable")
+		}
+	}
+}
+func TestPaddingAndAvailability(t *testing.T) {
+	w := synthetic("verified1", 5, 1, 0, false)
+	w.Candidates[7].State = "F"
+	if _, err := load(w); err != ErrShape {
+		t.Fatal("padding accepted")
+	}
+	w = synthetic("verified1", 5, 1, 0, false)
+	w.Candidates[0].Predicates[0].Available = false
+	if _, err := load(w); err != ErrEvidence {
+		t.Fatal("unavailable T")
+	}
+	w = synthetic("verified1", 5, 1, 0, false)
+	w.Candidates[0].Predicates[0].Known = false
+	if _, err := load(w); err != ErrEvidence {
+		t.Fatal("unknown T")
+	}
+}
+func TestTextProjectionInvarianceAndCopies(t *testing.T) {
+	w := synthetic("verified1", 5, 1, 0, false)
+	a, err := load(w)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w.StableID = "changed-parent"
+	w.WholeGroup = 82
+	w.SourceFamily = "other-family"
+	w.SourceRevision = strings.Repeat("d", 40)
+	for i := 0; i < w.Count; i++ {
+		w.Candidates[i].MetadataID = "renamed-" + string(rune('a'+i))
+		w.Candidates[i].Eligible = false
+		w.Candidates[i].SampleWeight = nil
+	}
+	b, err := load(w)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a.Input() != b.Input() {
+		t.Fatal("metadata/mask leaked to text projection")
+	}
+	in := a.Input()
+	in.Candidates[0].Raw = "mutated"
+	s := a.Supervision()
+	s.Predicates[0][0].Key = "changed"
+	s.Labels[0] = false
+	if a.Input().Candidates[0].Raw == "mutated" || a.Supervision().Predicates[0][0].Key == "changed" || !a.Supervision().Labels[0] {
+		t.Fatal("accessor alias")
+	}
+}
+
+type observedReader struct{ reads int }
+
+func (r *observedReader) Read(b []byte) (int, error) { r.reads++; return 0, io.EOF }
+func TestAuthorityStopsBeforeRowRead(t *testing.T) {
+	row, auth, p := freeze(synthetic("verified1", 5, 1, 0, false))
+	_ = row
+	p.AuthoritySHA256 = strings.Repeat("0", 64)
+	r := &observedReader{}
+	e, err := Load(r, bytes.NewReader(auth), p)
+	if err != ErrPin || r.reads != 0 || e != (Example{}) {
+		t.Fatal("authority mismatch read supervision")
+	}
+}
+func TestStrictLexicalControls(t *testing.T) {
+	w := synthetic("verified1", 5, 1, 0, false)
+	r, a, p := freeze(w)
+	for _, bad := range [][]byte{
+		bytes.Replace(r, []byte(`"schema":`), []byte(`"Schema":`), 1),
+		append([]byte(`{"schema":"duplicate",`), r[1:]...),
+		bytes.Replace(r, []byte(`"count":5`), []byte(`"count":5.0`), 1),
+		bytes.Replace(r, []byte(`"request":"Check these finite candidate claims."`), []byte(`"request":"\ud800"`), 1),
+	} {
+		pp := p
+		pp.RowSHA256 = digest(bad)
+		var aa authority
+		_ = json.Unmarshal(a, &aa)
+		aa.RowSHA256 = pp.RowSHA256
+		ab, _ := json.Marshal(aa)
+		pp.AuthoritySHA256 = digest(ab)
+		e, err := Load(bytes.NewReader(bad), bytes.NewReader(ab), pp)
+		if err == nil || e != (Example{}) {
+			t.Fatal("bad lexical input accepted")
+		}
+	}
+	w.Candidates = w.Candidates[:7]
+	if _, err := load(w); err == nil {
+		t.Fatal("candidate array7 accepted")
+	}
+	w = synthetic("verified1", 8, 1, 0, false)
+	w.Candidates = append(w.Candidates, w.Candidates[0])
+	if _, err := load(w); err == nil {
+		t.Fatal("candidate array9 accepted")
+	}
+}

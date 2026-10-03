@@ -60,6 +60,8 @@ jobs:
         run: bash scripts/verify-next60-thirtyfive.sh
       - name: Recoverable archive helper controls (owned temporary fixtures only)
         run: bash experiments/short-claim/publication-proof-126/archive-source/verify.sh
+      - name: Generic leaf archive and unknown-aware Golden Reader controls (owned synthetic inputs; no training)
+        run: bash scripts/verify-next60-source-controls.sh
       - name: Variable Go input controls and frozen nonlearned33 ranking reproduction (no training)
         env:
           RIIDOLAYA_BIAS_ACTUAL: ${{ runner.temp }}/riidolaya-bias-actual/actual.json

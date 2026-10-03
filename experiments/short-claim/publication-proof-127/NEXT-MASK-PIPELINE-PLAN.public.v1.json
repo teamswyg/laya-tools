@@ -1,0 +1,40 @@
+{
+  "schema": "riido-next-golden-mask-pipeline-plan-v1",
+  "state": "source_design_only_no_adapter_or_Fit_admission",
+  "observed_source": {
+    "Reader_v1": "Already accepts1..8 Boolean candidates with zero/multiple positives",
+    "legacy_Project": "Parent.Truth!=Unknown marks every candidate Labels.Known=true; mixed U cannot pass directly",
+    "pairlearn_AUC": "Marks every dataset row Eligible=true; unknown must not enter that dataset",
+    "pairlearn_NLL": "SampleWeights affect NLL; all-zero validation has no valid selection denominator"
+  },
+  "next_minimum_Go_contract": [
+    "Separate fixed[8] candidate truth, labelKnown, positive, trainEligible and evaluationEligible; never derive child knownness from parent truth",
+    "Unknown-only candidate omitted before feature extraction from supervised train/validation/AUC arrays; kept as U/null in audit/fallback counts, never y=0 merely because weight=0",
+    "Known F+U preserves F label and U predicate provenance; ambiguous parent withholds all labels and gradient/evaluation masks",
+    "Known validation candidates get an explicit evaluation weight even though gradient eligibility is false; calibration remains outside trainer/epoch selection",
+    "Retain complete5/8 candidates for verification/fallback; acceptable-set membership and unknown masks accompany ordering; unknown is not counted as a negative success",
+    "Keep parent/group association arrays compact and whole-family role binding external; no test-only metadata enters request/candidate features",
+    "Preserve current35/v1 data and Fitrecipe immutable; isolated V2 transform, bounded sparse SoA, exact counters and copied-array accessors"
+  ],
+  "unresolved_adoption_policies": [
+    "verified0 currently rejects any U predicate, including knownF+U. Freeze candidate-U versus predicate-U interpretation before adoption",
+    "verified_many prototype rejects all-positive count==activecount. All-positive valid-contract cases need explicit treatment or documented hold; never manufacture a negative to fit the schema",
+    "Ranking, abstain and total-work evaluation for zero/unknown/ambiguous parents must be frozen before Fit",
+    "Current35 acquisition and newGolden20to60 are distinct cohorts; protected2400/domain not yet collected"
+  ],
+  "minimum_direct_synthetic_controls": [
+    "Mixed oneknownT/knownF+U/U-only: training/eval datasets include only known rows; raw masks and denominators exact",
+    "Ambiguous parent: every supervised row absent, all raw conditions preserved",
+    "Validation known labels affect selection loss without train gradient; calibration excluded from trainer",
+    "Zero and multiple/allpositive acceptable sets: explicit fallback and utility denominator; no fabricated labels",
+    "Metadata/group/role/mask changes leave text-only feature projection unchanged; copied arrays cannot mutate source"
+  ],
+  "resource_scope": "Reader is an offline bounded supervision proposal, not the runtime model head; no inference memory/speed claim from these synthetic passes",
+  "coordinating_review_unavailable": {
+    "reason": "Agent thread limit rejected later chat-only mask-review followup",
+    "effects": 0,
+    "Root_source_inspection_only": true
+  },
+  "new_labels_roles_groups": 0,
+  "new_corpus_Fit": 0
+}
