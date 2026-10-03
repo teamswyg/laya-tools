@@ -4,6 +4,8 @@
 
 The [immutable HF30 release](https://huggingface.co/datasets/JooYoon/riidolaya-shortclaim-next60-development/tree/next60-30-finite-v1) passed558-owned-file and30-viewer-row verification of every value/order. See [actual publication and PR121 CI evidence](experiments/short-claim/publication-proof-122/README.en.md). Linux/macOS passed the new30-row reproduction and existing native Laya steps separately; the CI bot merged the PR. GPU execution was not verified. [22 proposed new-source contracts and specific holds](experiments/short-claim/next60-new-source-preview/README.en.md) remain distinct from qualified data.
 
+[Expectations and captions for three next tasks](experiments/short-claim/next60-native-three-preparation/README.en.md) are prospectively frozen:14 inputs,9 candidates and42 proposed dispatches, with zero new observations/labels/Fits. Original JSON Int's missing error return remains unavailable. [Actual PR122 CI, Wiki delivery and storage verification](experiments/short-claim/publication-proof-123/README.en.md) are documented in both languages.
+
 <details>
 <summary>Earlier stage history — counts and “current” below refer to their recorded stages</summary>
 

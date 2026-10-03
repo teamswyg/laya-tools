@@ -1,0 +1,31 @@
+// DRAFT: position 0 retains the unavailable original error channel.
+package threeliteral
+
+import "strconv"
+
+func integerLexeme(s string) bool {
+    if len(s)==0 { return false }
+    i:=0
+    if s[0]=='-' { i++; if i==len(s) { return false } }
+    if s[i]=='0' { return i+1==len(s) }
+    if s[i]<'1' || s[i]>'9' { return false }
+    for i++; i<len(s); i++ { if s[i]<'0' || s[i]>'9' { return false } }
+    return true
+}
+func JSONCandidate(api JSONAPI, position int, text string) IntegerReturn {
+    if !api.Valid(text) {
+        // Whole-JSON admission error is an observer gate, not an invented original Int return.
+        return IntegerReturn{ErrorAvailable:position!=0, Err:ErrJSON}
+    }
+    p:=api.Parse(text)
+    if position==0 { return IntegerReturn{Value:api.Int(p), ValueAvailable:true, ErrorAvailable:false} }
+    if !p.Number { return IntegerReturn{ErrorAvailable:true, Err:ErrType} }
+    if position==2 {
+        n,_:=strconv.ParseInt(p.Raw,10,64)
+        return IntegerReturn{Value:n, ValueAvailable:true, ErrorAvailable:true}
+    }
+    if !integerLexeme(p.Raw) { return IntegerReturn{ErrorAvailable:true, Err:ErrInteger} }
+    n,err:=strconv.ParseInt(p.Raw,10,64)
+    if err!=nil { return IntegerReturn{ErrorAvailable:true, Err:ErrRange} }
+    return IntegerReturn{Value:n, ValueAvailable:true, ErrorAvailable:true}
+}

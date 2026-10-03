@@ -1,0 +1,900 @@
+{
+  "schema": "riido-bitset-gjson-three-literal-plan-proposed-v1",
+  "state": "DRAFT",
+  "frozen": false,
+  "Root_adopted": false,
+  "prior_proposals_pin": {
+    "artifact_id": "next60-source-contracts-expansion-52-v2/TASKS.proposed.v2.json",
+    "bytes": 98829,
+    "sha256": "1abd2a8c0bf89b19795e576810bd4282d52e63ddb11a58e0cac0f4ed4a9b9409"
+  },
+  "prior_selectors_pin": {
+    "artifact_id": "next60-acquisition-proposal-52-v1/CONTRACT-SELECTORS.proposed.v1.json",
+    "bytes": 35914,
+    "sha256": "0b6fe56739c78666604992d725ceac9c7c939681cfd1861a60b6e813c59c24cf"
+  },
+  "request_order_original_selector_ordinals": [
+    2,
+    7,
+    1
+  ],
+  "request_count_proposed": 3,
+  "whole_source_families_proposed": 2,
+  "candidate_count_proposed": 9,
+  "original_profile_count": 13,
+  "additional_profile_count": 1,
+  "finite_input_count_proposed": 14,
+  "candidate_dispatch_count_proposed": 42,
+  "schedule_order": "request-major, then candidate-index-major, then fixture order; ordinal=sum prior request dispatches+candidate_index*fixture_count+fixture_index",
+  "requests": [
+    {
+      "selector_ordinal": 2,
+      "request_id": "source-next60-fixed-width-complement",
+      "family": "bits-and-blooms/bitset",
+      "request_text": "Add ComplementWithin with explicit width independent of stored length: complement only that domain, clear unused tail bits, preserve the input, and return exactly the requested length.",
+      "prior_request": "Add ComplementWithin with an explicit width independent of the stored length; complement only that domain, mask its tail, and preserve the input bitset.",
+      "intended_contract_candidate_index": 0,
+      "fixtures": [
+        {
+          "id": "complement-00",
+          "prior_profile": {
+            "width": 0,
+            "set": []
+          },
+          "origin": {
+            "artifact_id": "next60-source-contracts-expansion-52-v2/TASKS.proposed.v2.json",
+            "json_pointer": "/retained13_proposals/2/prior_proposed_input_profiles_unchanged/0"
+          },
+          "input": {
+            "construct": "New(0), then Set in listed order",
+            "width": 0,
+            "set_indices": []
+          },
+          "source_state_before_proposed": {
+            "length": 0,
+            "words_nil": false,
+            "words_hex": []
+          },
+          "Want_proposed": {
+            "returned_normally": true,
+            "panic_present": false,
+            "result_state": {
+              "length": 0,
+              "words_nil": false,
+              "words_hex": []
+            },
+            "result_set_indices": [],
+            "receiver_after": {
+              "length": 0,
+              "words_nil": false,
+              "words_hex": []
+            },
+            "error_channel_required": false
+          },
+          "width_differs_from_receiver_length": false,
+          "truth": null,
+          "role": null,
+          "weight": null,
+          "numeric_group": null,
+          "label": null,
+          "mask": null,
+          "qualified": false,
+          "execution_ready": false
+        },
+        {
+          "id": "complement-01",
+          "prior_profile": {
+            "width": 1,
+            "set": [
+              0
+            ]
+          },
+          "origin": {
+            "artifact_id": "next60-source-contracts-expansion-52-v2/TASKS.proposed.v2.json",
+            "json_pointer": "/retained13_proposals/2/prior_proposed_input_profiles_unchanged/1"
+          },
+          "input": {
+            "construct": "New(0), then Set in listed order",
+            "width": 1,
+            "set_indices": [
+              0
+            ]
+          },
+          "source_state_before_proposed": {
+            "length": 1,
+            "words_nil": false,
+            "words_hex": [
+              "0000000000000001"
+            ]
+          },
+          "Want_proposed": {
+            "returned_normally": true,
+            "panic_present": false,
+            "result_state": {
+              "length": 1,
+              "words_nil": false,
+              "words_hex": [
+                "0000000000000000"
+              ]
+            },
+            "result_set_indices": [],
+            "receiver_after": {
+              "length": 1,
+              "words_nil": false,
+              "words_hex": [
+                "0000000000000001"
+              ]
+            },
+            "error_channel_required": false
+          },
+          "width_differs_from_receiver_length": false,
+          "truth": null,
+          "role": null,
+          "weight": null,
+          "numeric_group": null,
+          "label": null,
+          "mask": null,
+          "qualified": false,
+          "execution_ready": false
+        },
+        {
+          "id": "complement-02",
+          "prior_profile": {
+            "width": 64,
+            "set": [
+              0,
+              63,
+              64
+            ]
+          },
+          "origin": {
+            "artifact_id": "next60-source-contracts-expansion-52-v2/TASKS.proposed.v2.json",
+            "json_pointer": "/retained13_proposals/2/prior_proposed_input_profiles_unchanged/2"
+          },
+          "input": {
+            "construct": "New(0), then Set in listed order",
+            "width": 64,
+            "set_indices": [
+              0,
+              63,
+              64
+            ]
+          },
+          "source_state_before_proposed": {
+            "length": 65,
+            "words_nil": false,
+            "words_hex": [
+              "8000000000000001",
+              "0000000000000001"
+            ]
+          },
+          "Want_proposed": {
+            "returned_normally": true,
+            "panic_present": false,
+            "result_state": {
+              "length": 64,
+              "words_nil": false,
+              "words_hex": [
+                "7ffffffffffffffe"
+              ]
+            },
+            "result_set_indices": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10,
+              11,
+              12,
+              13,
+              14,
+              15,
+              16,
+              17,
+              18,
+              19,
+              20,
+              21,
+              22,
+              23,
+              24,
+              25,
+              26,
+              27,
+              28,
+              29,
+              30,
+              31,
+              32,
+              33,
+              34,
+              35,
+              36,
+              37,
+              38,
+              39,
+              40,
+              41,
+              42,
+              43,
+              44,
+              45,
+              46,
+              47,
+              48,
+              49,
+              50,
+              51,
+              52,
+              53,
+              54,
+              55,
+              56,
+              57,
+              58,
+              59,
+              60,
+              61,
+              62
+            ],
+            "receiver_after": {
+              "length": 65,
+              "words_nil": false,
+              "words_hex": [
+                "8000000000000001",
+                "0000000000000001"
+              ]
+            },
+            "error_channel_required": false
+          },
+          "width_differs_from_receiver_length": true,
+          "truth": null,
+          "role": null,
+          "weight": null,
+          "numeric_group": null,
+          "label": null,
+          "mask": null,
+          "qualified": false,
+          "execution_ready": false
+        },
+        {
+          "id": "complement-03",
+          "prior_profile": {
+            "width": 65,
+            "set": [
+              63,
+              64,
+              65
+            ]
+          },
+          "origin": {
+            "artifact_id": "next60-source-contracts-expansion-52-v2/TASKS.proposed.v2.json",
+            "json_pointer": "/retained13_proposals/2/prior_proposed_input_profiles_unchanged/3"
+          },
+          "input": {
+            "construct": "New(0), then Set in listed order",
+            "width": 65,
+            "set_indices": [
+              63,
+              64,
+              65
+            ]
+          },
+          "source_state_before_proposed": {
+            "length": 66,
+            "words_nil": false,
+            "words_hex": [
+              "8000000000000000",
+              "0000000000000003"
+            ]
+          },
+          "Want_proposed": {
+            "returned_normally": true,
+            "panic_present": false,
+            "result_state": {
+              "length": 65,
+              "words_nil": false,
+              "words_hex": [
+                "7fffffffffffffff",
+                "0000000000000000"
+              ]
+            },
+            "result_set_indices": [
+              0,
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10,
+              11,
+              12,
+              13,
+              14,
+              15,
+              16,
+              17,
+              18,
+              19,
+              20,
+              21,
+              22,
+              23,
+              24,
+              25,
+              26,
+              27,
+              28,
+              29,
+              30,
+              31,
+              32,
+              33,
+              34,
+              35,
+              36,
+              37,
+              38,
+              39,
+              40,
+              41,
+              42,
+              43,
+              44,
+              45,
+              46,
+              47,
+              48,
+              49,
+              50,
+              51,
+              52,
+              53,
+              54,
+              55,
+              56,
+              57,
+              58,
+              59,
+              60,
+              61,
+              62
+            ],
+            "receiver_after": {
+              "length": 66,
+              "words_nil": false,
+              "words_hex": [
+                "8000000000000000",
+                "0000000000000003"
+              ]
+            },
+            "error_channel_required": false
+          },
+          "width_differs_from_receiver_length": true,
+          "truth": null,
+          "role": null,
+          "weight": null,
+          "numeric_group": null,
+          "label": null,
+          "mask": null,
+          "qualified": false,
+          "execution_ready": false
+        }
+      ],
+      "truth": null,
+      "role": null,
+      "weight": null,
+      "numeric_group": null,
+      "label": null,
+      "mask": null,
+      "qualified": false,
+      "execution_ready": false,
+      "request_text_bytes": 184,
+      "ascii_whitespace_words": 26,
+      "standalone_alphanumeric_words": 26,
+      "candidate_count": 3,
+      "captions": [
+        {
+          "candidate_index": 0,
+          "text": "Complement a bitset within an explicit width; return that exact length and preserve the input.",
+          "bytes": 94,
+          "standalone_alphanumeric_words": 15,
+          "sha256": "fa70fb72cd653c43cba602a8a6d2358dbeab5723c456ec216052ec58bcb7ca70"
+        },
+        {
+          "candidate_index": 1,
+          "text": "Return the bitset's existing local complement using its stored length.",
+          "bytes": 70,
+          "standalone_alphanumeric_words": 11,
+          "sha256": "8af2c9bdd9eaa54b7c1e6915f88b5a4f96f8166cd1d699c7ac6657359a8efd8a"
+        },
+        {
+          "candidate_index": 2,
+          "text": "Complement only the requested domain while retaining the stored result length.",
+          "bytes": 78,
+          "standalone_alphanumeric_words": 11,
+          "sha256": "34f4171bdbca156f600f2e7b2b2dff2c7c5e33fcba01d11689555879ab43767a"
+        }
+      ],
+      "prior_original_request_sha256": "a43c2b5d7e74335378ab8a6429bee98dcb8b333c81864da1ddf0f5016579efac",
+      "request_revision": "three-literal-draft-v1"
+    },
+    {
+      "selector_ordinal": 7,
+      "request_id": "source-next60-lossless-integer-channel",
+      "family": "tidwall/gjson",
+      "request_text": "Add checked int64 extraction from a complete JSON root integer lexeme; reject fractions, exponent syntax, strings, and overflow, retaining existing Int unchanged.",
+      "prior_request": "Add checked extraction of int64 from JSON integer lexemes, rejecting fractional syntax, nonnumeric types, and overflow instead of coercing or saturating.",
+      "intended_contract_candidate_index": 1,
+      "fixtures": [
+        {
+          "id": "json-int64-00",
+          "prior_profile": {
+            "json": "9007199254740993"
+          },
+          "input": {
+            "json": "9007199254740993"
+          },
+          "Want_proposed": {
+            "returned_normally": true,
+            "panic_present": false,
+            "value_decimal": "9007199254740993",
+            "value_required": true,
+            "error_channel_required": true,
+            "error_nil": true,
+            "own_error_kind": null
+          },
+          "root_type_proposed": "Number",
+          "raw_lexeme_proposed": "9007199254740993",
+          "original_Int_error_channel_available": false,
+          "original_Int_value_expected_from_source": "9007199254740993",
+          "truth": null,
+          "role": null,
+          "weight": null,
+          "numeric_group": null,
+          "label": null,
+          "mask": null,
+          "qualified": false,
+          "execution_ready": false
+        },
+        {
+          "id": "json-int64-01",
+          "prior_profile": {
+            "json": "1.5"
+          },
+          "input": {
+            "json": "1.5"
+          },
+          "Want_proposed": {
+            "returned_normally": true,
+            "panic_present": false,
+            "value_decimal": null,
+            "value_required": false,
+            "error_channel_required": true,
+            "error_nil": false,
+            "own_error_kind": "integer_syntax"
+          },
+          "root_type_proposed": "Number",
+          "raw_lexeme_proposed": "1.5",
+          "original_Int_error_channel_available": false,
+          "original_Int_value_expected_from_source": null,
+          "truth": null,
+          "role": null,
+          "weight": null,
+          "numeric_group": null,
+          "label": null,
+          "mask": null,
+          "qualified": false,
+          "execution_ready": false
+        },
+        {
+          "id": "json-int64-02",
+          "prior_profile": {
+            "json": "9223372036854775807"
+          },
+          "input": {
+            "json": "9223372036854775807"
+          },
+          "Want_proposed": {
+            "returned_normally": true,
+            "panic_present": false,
+            "value_decimal": "9223372036854775807",
+            "value_required": true,
+            "error_channel_required": true,
+            "error_nil": true,
+            "own_error_kind": null
+          },
+          "root_type_proposed": "Number",
+          "raw_lexeme_proposed": "9223372036854775807",
+          "original_Int_error_channel_available": false,
+          "original_Int_value_expected_from_source": null,
+          "truth": null,
+          "role": null,
+          "weight": null,
+          "numeric_group": null,
+          "label": null,
+          "mask": null,
+          "qualified": false,
+          "execution_ready": false
+        },
+        {
+          "id": "json-int64-03",
+          "prior_profile": {
+            "json": "9223372036854775808"
+          },
+          "input": {
+            "json": "9223372036854775808"
+          },
+          "Want_proposed": {
+            "returned_normally": true,
+            "panic_present": false,
+            "value_decimal": null,
+            "value_required": false,
+            "error_channel_required": true,
+            "error_nil": false,
+            "own_error_kind": "out_of_range"
+          },
+          "root_type_proposed": "Number",
+          "raw_lexeme_proposed": "9223372036854775808",
+          "original_Int_error_channel_available": false,
+          "original_Int_value_expected_from_source": null,
+          "truth": null,
+          "role": null,
+          "weight": null,
+          "numeric_group": null,
+          "label": null,
+          "mask": null,
+          "qualified": false,
+          "execution_ready": false
+        },
+        {
+          "id": "json-int64-04",
+          "prior_profile": {
+            "json": "\"1\""
+          },
+          "input": {
+            "json": "\"1\""
+          },
+          "Want_proposed": {
+            "returned_normally": true,
+            "panic_present": false,
+            "value_decimal": null,
+            "value_required": false,
+            "error_channel_required": true,
+            "error_nil": false,
+            "own_error_kind": "non_number"
+          },
+          "root_type_proposed": "String",
+          "raw_lexeme_proposed": "\"1\"",
+          "original_Int_error_channel_available": false,
+          "original_Int_value_expected_from_source": null,
+          "truth": null,
+          "role": null,
+          "weight": null,
+          "numeric_group": null,
+          "label": null,
+          "mask": null,
+          "qualified": false,
+          "execution_ready": false
+        }
+      ],
+      "truth": null,
+      "role": null,
+      "weight": null,
+      "numeric_group": null,
+      "label": null,
+      "mask": null,
+      "qualified": false,
+      "execution_ready": false,
+      "request_text_bytes": 162,
+      "ascii_whitespace_words": 22,
+      "standalone_alphanumeric_words": 22,
+      "candidate_count": 3,
+      "captions": [
+        {
+          "candidate_index": 0,
+          "text": "Parse the JSON root and return its existing integer representation.",
+          "bytes": 67,
+          "standalone_alphanumeric_words": 10,
+          "sha256": "828f75876c7296a46bfec222eb53d7278abed25f0af387a40265bb385afbc5a6"
+        },
+        {
+          "candidate_index": 1,
+          "text": "Check the complete JSON root integer lexeme and return int64 or a typed rejection.",
+          "bytes": 82,
+          "standalone_alphanumeric_words": 14,
+          "sha256": "69915758334248deab7ef6a98a4cef618dc1ab4a47d80b2345fd3a547500ca6f"
+        },
+        {
+          "candidate_index": 2,
+          "text": "Parse a complete numeric JSON root as int64 and discard conversion errors.",
+          "bytes": 74,
+          "standalone_alphanumeric_words": 12,
+          "sha256": "c60c3552b354639c10a437e48039c68cdedf60f6dd242ced84e11ad21b860314"
+        }
+      ],
+      "prior_original_request_sha256": "46a37e7d03fda8c3ca03252b186d8e166bae7518ebd3d61adab883d4aabf8914",
+      "request_revision": "three-literal-draft-v1"
+    },
+    {
+      "selector_ordinal": 1,
+      "request_id": "source-next60-strict-binary-decode",
+      "family": "bits-and-blooms/bitset",
+      "request_text": "Add strict BigEndian bitset decoding up to 128 bits: require exact payload and zero tail padding; reject trailing bytes and preserve the receiver on rejection.",
+      "prior_request": "Add bounded strict bitset decoding that checks exact payload length and padding, rejects trailing bytes, and preserves the prior receiver on every rejected input.",
+      "intended_contract_candidate_index": 2,
+      "fixtures": [
+        {
+          "id": "binary-00",
+          "origin": "literal translation of preserved textual profile",
+          "prior_profile": {
+            "case": "valid minimal word stream"
+          },
+          "input": {
+            "big_endian_hex": "00000000000000010000000000000001",
+            "receiver_initial": {
+              "construct": "New(0), Set(1), Set(3)",
+              "length": 4,
+              "set_indices": [
+                1,
+                3
+              ]
+            },
+            "max_declared_bits": 128
+          },
+          "input_bytes": 16,
+          "declared_bits": 1,
+          "Want_proposed": {
+            "returned_normally": true,
+            "panic_present": false,
+            "error_channel_required": true,
+            "error_nil": true,
+            "own_error_kind": null,
+            "receiver_after": {
+              "length": 1,
+              "words_nil": false,
+              "words_hex": [
+                "0000000000000001"
+              ]
+            },
+            "receiver_preserved_on_rejection": false
+          },
+          "truth": null,
+          "role": null,
+          "weight": null,
+          "numeric_group": null,
+          "label": null,
+          "mask": null,
+          "qualified": false,
+          "execution_ready": false
+        },
+        {
+          "id": "binary-01",
+          "origin": "literal translation of preserved textual profile",
+          "prior_profile": {
+            "case": "one trailing byte"
+          },
+          "input": {
+            "big_endian_hex": "00000000000000010000000000000001ff",
+            "receiver_initial": {
+              "construct": "New(0), Set(1), Set(3)",
+              "length": 4,
+              "set_indices": [
+                1,
+                3
+              ]
+            },
+            "max_declared_bits": 128
+          },
+          "input_bytes": 17,
+          "declared_bits": 1,
+          "Want_proposed": {
+            "returned_normally": true,
+            "panic_present": false,
+            "error_channel_required": true,
+            "error_nil": false,
+            "own_error_kind": "payload_length",
+            "receiver_after": {
+              "length": 4,
+              "words_nil": false,
+              "words_hex": [
+                "000000000000000a"
+              ]
+            },
+            "receiver_preserved_on_rejection": true
+          },
+          "truth": null,
+          "role": null,
+          "weight": null,
+          "numeric_group": null,
+          "label": null,
+          "mask": null,
+          "qualified": false,
+          "execution_ready": false
+        },
+        {
+          "id": "binary-02",
+          "origin": "literal translation of preserved textual profile",
+          "prior_profile": {
+            "case": "declared count exceeds payload"
+          },
+          "input": {
+            "big_endian_hex": "00000000000000410000000000000000",
+            "receiver_initial": {
+              "construct": "New(0), Set(1), Set(3)",
+              "length": 4,
+              "set_indices": [
+                1,
+                3
+              ]
+            },
+            "max_declared_bits": 128
+          },
+          "input_bytes": 16,
+          "declared_bits": 65,
+          "Want_proposed": {
+            "returned_normally": true,
+            "panic_present": false,
+            "error_channel_required": true,
+            "error_nil": false,
+            "own_error_kind": "payload_length",
+            "receiver_after": {
+              "length": 4,
+              "words_nil": false,
+              "words_hex": [
+                "000000000000000a"
+              ]
+            },
+            "receiver_preserved_on_rejection": true
+          },
+          "truth": null,
+          "role": null,
+          "weight": null,
+          "numeric_group": null,
+          "label": null,
+          "mask": null,
+          "qualified": false,
+          "execution_ready": false
+        },
+        {
+          "id": "binary-03",
+          "origin": "literal translation of preserved textual profile",
+          "prior_profile": {
+            "case": "malformed into nonempty receiver"
+          },
+          "input": {
+            "big_endian_hex": "000000000000000100000000000000",
+            "receiver_initial": {
+              "construct": "New(0), Set(1), Set(3)",
+              "length": 4,
+              "set_indices": [
+                1,
+                3
+              ]
+            },
+            "max_declared_bits": 128
+          },
+          "input_bytes": 15,
+          "declared_bits": 1,
+          "Want_proposed": {
+            "returned_normally": true,
+            "panic_present": false,
+            "error_channel_required": true,
+            "error_nil": false,
+            "own_error_kind": "payload_length",
+            "receiver_after": {
+              "length": 4,
+              "words_nil": false,
+              "words_hex": [
+                "000000000000000a"
+              ]
+            },
+            "receiver_preserved_on_rejection": true
+          },
+          "truth": null,
+          "role": null,
+          "weight": null,
+          "numeric_group": null,
+          "label": null,
+          "mask": null,
+          "qualified": false,
+          "execution_ready": false
+        },
+        {
+          "id": "binary-04",
+          "origin": "new explicitly declared padding profile, not a replacement",
+          "prior_profile": null,
+          "input": {
+            "big_endian_hex": "00000000000000010000000000000003",
+            "receiver_initial": {
+              "construct": "New(0), Set(1), Set(3)",
+              "length": 4,
+              "set_indices": [
+                1,
+                3
+              ]
+            },
+            "max_declared_bits": 128
+          },
+          "input_bytes": 16,
+          "declared_bits": 1,
+          "Want_proposed": {
+            "returned_normally": true,
+            "panic_present": false,
+            "error_channel_required": true,
+            "error_nil": false,
+            "own_error_kind": "tail_padding",
+            "receiver_after": {
+              "length": 4,
+              "words_nil": false,
+              "words_hex": [
+                "000000000000000a"
+              ]
+            },
+            "receiver_preserved_on_rejection": true
+          },
+          "truth": null,
+          "role": null,
+          "weight": null,
+          "numeric_group": null,
+          "label": null,
+          "mask": null,
+          "qualified": false,
+          "execution_ready": false
+        }
+      ],
+      "truth": null,
+      "role": null,
+      "weight": null,
+      "numeric_group": null,
+      "label": null,
+      "mask": null,
+      "qualified": false,
+      "execution_ready": false,
+      "request_text_bytes": 159,
+      "ascii_whitespace_words": 25,
+      "standalone_alphanumeric_words": 25,
+      "candidate_count": 3,
+      "captions": [
+        {
+          "candidate_index": 0,
+          "text": "Decode bounded BigEndian bitsets transactionally after checking exact payload length.",
+          "bytes": 85,
+          "standalone_alphanumeric_words": 10,
+          "sha256": "95fbc5de8357fdda314e6bb2b284aa32bc61ba5ba76dfb5c9765924ec9d66fff"
+        },
+        {
+          "candidate_index": 1,
+          "text": "Decode the binary bytes into the existing bitset receiver.",
+          "bytes": 58,
+          "standalone_alphanumeric_words": 9,
+          "sha256": "a8aa8d76dd019c76c59f25b74361ad91319b18b031a212cf8b7866031a7d927d"
+        },
+        {
+          "candidate_index": 2,
+          "text": "Decode bounded BigEndian bitsets transactionally with exact payload and zero tail padding.",
+          "bytes": 90,
+          "standalone_alphanumeric_words": 12,
+          "sha256": "7791a0487e1f7a431fa6e9121de2968ff6daf9807d83495aff4db6d7198fc14c"
+        }
+      ],
+      "prior_original_request_sha256": "c2f399757b8a9e67cb98dc2c300da7cac5c0304b6af8fa57b3827119666da2b6",
+      "request_revision": "three-literal-draft-v1"
+    }
+  ],
+  "expected_observations": 0,
+  "execution_ready": false,
+  "source_author_nonblind": true,
+  "source_author_own_oracle_not_independent_review": true,
+  "future_root_Want_freeze_required": true,
+  "truth_role_weight_numeric_groups_assigned": 0
+}

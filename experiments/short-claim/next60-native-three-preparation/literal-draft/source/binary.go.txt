@@ -1,0 +1,25 @@
+// DRAFT: position 2 checks padding; position 0 checks length only; position 1 is original.
+package threeliteral
+
+import "encoding/binary"
+
+func AdmitBinary(data []byte) error {
+    if len(data)<8 || len(data)>MaxBinaryInputBytes { return ErrBounds }
+    if binary.BigEndian.Uint64(data[:8])>uint64(MaxBits) { return ErrBounds }
+    return nil
+}
+func BinaryCandidate(api BitsetAPI, position int, dst Bitset, data []byte) error {
+    // AdmitBinary is required outside dispatch for all three candidates, including original.
+    if position==1 { return api.UnmarshalBinary(dst,data) }
+    n:=binary.BigEndian.Uint64(data[:8])
+    words:=(n+63)/64
+    if len(data)!=8+int(words)*8 { return ErrPayloadLength }
+    if position==2 && n%64!=0 {
+        last:=binary.BigEndian.Uint64(data[len(data)-8:])
+        if last>>(n%64)!=0 { return ErrPadding }
+    }
+    temporary:=api.New(0)
+    if err:=api.UnmarshalBinary(temporary,data); err!=nil { return err }
+    api.Assign(dst,temporary)
+    return nil
+}
