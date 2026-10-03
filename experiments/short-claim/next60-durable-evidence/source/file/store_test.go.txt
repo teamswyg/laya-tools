@@ -1,0 +1,312 @@
+package evidencefile
+
+import (
+	"bytes"
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
+
+type sink struct {
+	b                              bytes.Buffer
+	writes, syncs, closes          int
+	short                          int
+	writeErrAt, syncErrAt, panicAt int
+	badCount                       bool
+	closeErr                       bool
+}
+
+func (s *sink) Write(b []byte) (int, error) {
+	s.writes++
+	if s.writes == s.panicAt {
+		panic(nil)
+	}
+	if s.badCount {
+		return len(b) + 1, nil
+	}
+	n := len(b)
+	if s.short > 0 && n > s.short {
+		n = s.short
+	}
+	_, _ = s.b.Write(b[:n])
+	if s.writes == s.writeErrAt {
+		return n, errors.New("owned")
+	}
+	return n, nil
+}
+func (s *sink) Sync() error {
+	s.syncs++
+	if s.syncs == s.syncErrAt {
+		return errors.New("owned")
+	}
+	return nil
+}
+func (s *sink) Close() error {
+	s.closes++
+	if s.closeErr {
+		return errors.New("owned")
+	}
+	return nil
+}
+func pins() Pins {
+	return Pins{strings.Repeat("a", 64), strings.Repeat("b", 64), strings.Repeat("c", 64)}
+}
+func newSink(t *testing.T, s *sink) *Writer {
+	t.Helper()
+	w, e := New(s, func() error { return nil }, pins())
+	if e != nil {
+		t.Fatal(e)
+	}
+	return w
+}
+func payload(d uint8) []byte {
+	return []byte(fmt.Sprintf("{\"d\":%d,\"unknown\":null,\"false\":false}", d))
+}
+
+func TestFullFileReadbackAndTamper(t *testing.T) {
+	s := &sink{short: 7}
+	w := newSink(t, s)
+	var refs [MaxRows]RowRef
+	for d := uint8(0); d < MaxRows; d++ {
+		b := payload(d)
+		ref, e := w.Append(d, b)
+		if e != nil {
+			t.Fatal(e)
+		}
+		refs[d] = ref
+		b[0] = 'X'
+	}
+	f, e := w.Finish(true)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if e = w.Close(); e != nil {
+		t.Fatal(e)
+	}
+	checked, e := Check(bytes.NewReader(s.b.Bytes()), pins(), refs[:], f)
+	if e != nil || !checked.Complete || checked.Count != 39 || checked.Rows != refs {
+		t.Fatalf("readback %v", e)
+	}
+	if w.Status().Durable != f.Bytes || !w.Status().PhysicalKnown || !w.Status().ParentSynced || s.closes != 1 {
+		t.Fatal("prefix")
+	}
+	tests := []struct {
+		name  string
+		bytes []byte
+		refs  []RowRef
+		final FileRef
+	}{
+		{"extra", append(bytes.Clone(s.b.Bytes()), 'x'), refs[:], f},
+		{"truncated", s.b.Bytes()[:s.b.Len()-1], refs[:], f},
+	}
+	bad := bytes.Clone(s.b.Bytes())
+	bad[refs[0].Offset+1] = 'X'
+	tests = append(tests, struct {
+		name  string
+		bytes []byte
+		refs  []RowRef
+		final FileRef
+	}{"tamper", bad, refs[:], f})
+	wrong := refs
+	wrong[0].Offset++
+	tests = append(tests, struct {
+		name  string
+		bytes []byte
+		refs  []RowRef
+		final FileRef
+	}{"offset", s.b.Bytes(), wrong[:], f})
+	for _, x := range tests {
+		t.Run(x.name, func(t *testing.T) {
+			if _, e := Check(bytes.NewReader(x.bytes), pins(), x.refs, x.final); e == nil {
+				t.Fatal("accepted")
+			}
+		})
+	}
+}
+func TestPartialWriteAndSyncHaveSeparatePrefixes(t *testing.T) {
+	for _, which := range []string{"write", "sync"} {
+		t.Run(which, func(t *testing.T) {
+			s := &sink{}
+			w := newSink(t, s)
+			before := w.Status()
+			if which == "write" {
+				s.short = 5
+				s.writeErrAt = s.writes + 1
+			} else {
+				s.syncErrAt = s.syncs + 1
+			}
+			if ref, e := w.Append(0, payload(0)); e == nil || ref != (RowRef{}) {
+				t.Fatal("issued ref")
+			}
+			after := w.Status()
+			if !after.Stopped || !after.PhysicalKnown || after.Physical <= before.Physical || after.Durable != before.Durable || after.Rows != 0 {
+				t.Fatal("prefix conflation")
+			}
+			writes := s.writes
+			if _, e := w.Append(0, payload(0)); e == nil || s.writes != writes {
+				t.Fatal("retry")
+			}
+			if _, e := w.Finish(false); e == nil || s.writes != writes {
+				t.Fatal("finalized failure")
+			}
+		})
+	}
+}
+func TestPanicNilAndImpossibleCountStayUnknown(t *testing.T) {
+	for _, which := range []string{"panic", "count"} {
+		t.Run(which, func(t *testing.T) {
+			s := &sink{}
+			w := newSink(t, s)
+			before := w.Status()
+			if which == "panic" {
+				s.panicAt = s.writes + 1
+			} else {
+				s.badCount = true
+			}
+			if _, e := w.Append(0, payload(0)); e == nil {
+				t.Fatal("accepted")
+			}
+			if w.Status().PhysicalKnown || w.Status().Durable != before.Durable || w.Status().Rows != 0 || !w.Status().Stopped {
+				t.Fatal("unknown lost")
+			}
+		})
+	}
+}
+func TestHeaderParentSyncAndCloseFailures(t *testing.T) {
+	s := &sink{}
+	w, e := New(s, func() error { return errors.New("owned") }, pins())
+	if e == nil || w == nil || w.Status().ParentSynced || !w.Status().Stopped || w.Status().Durable == 0 {
+		t.Fatal("parent failure")
+	}
+	writes := s.writes
+	if _, e = w.Append(0, payload(0)); e == nil || s.writes != writes {
+		t.Fatal("continued")
+	}
+	s.closeErr = true
+	if e = w.Close(); e == nil || !w.Status().CloseAttempted || w.Status().CloseSucceeded {
+		t.Fatal("close failure")
+	}
+	if e = w.Close(); e == nil || s.closes != 1 {
+		t.Fatal("second close")
+	}
+	s = &sink{syncErrAt: 1}
+	w, e = New(s, func() error { return nil }, pins())
+	if e == nil || w == nil || w.Status().Durable != 0 || w.Status().Physical == 0 {
+		t.Fatal("header Sync")
+	}
+}
+func TestPrefixFooterIsNotComplete(t *testing.T) {
+	s := &sink{}
+	w := newSink(t, s)
+	ref, e := w.Append(0, payload(0))
+	if e != nil {
+		t.Fatal(e)
+	}
+	f, e := w.Finish(false)
+	if e != nil {
+		t.Fatal(e)
+	}
+	c, e := Check(bytes.NewReader(s.b.Bytes()), pins(), []RowRef{ref}, f)
+	if e != nil || c.Complete || c.Count != 1 {
+		t.Fatal("prefix")
+	}
+	n := s.writes
+	if _, e = w.Append(1, payload(1)); e == nil || s.writes != n {
+		t.Fatal("append after Finish")
+	}
+	s = &sink{}
+	w = newSink(t, s)
+	if _, e = w.Finish(true); e == nil || !w.Status().Stopped {
+		t.Fatal("incomplete accepted")
+	}
+}
+func TestBoundsBeforeWriteAndCanonicalEnvelopes(t *testing.T) {
+	for _, b := range [][]byte{[]byte("[]"), []byte("{}\n"), bytes.Repeat([]byte("x"), MaxRowLine), []byte("{broken}")} {
+		s := &sink{}
+		w := newSink(t, s)
+		n := s.writes
+		if _, e := w.Append(0, b); e == nil || s.writes != n {
+			t.Fatal("prewrite bound")
+		}
+	}
+	s := &sink{}
+	w := newSink(t, s)
+	n := s.writes
+	if _, e := w.Append(1, payload(1)); e == nil || s.writes != n {
+		t.Fatal("ordinal")
+	}
+	s = &sink{}
+	w = newSink(t, s)
+	var refs [MaxRows]RowRef
+	for d := uint8(0); d < MaxRows; d++ {
+		b := []byte("{\"x\":\"" + strings.Repeat("a", MaxRowLine-10) + "\"}")
+		var e error
+		refs[d], e = w.Append(d, b)
+		if e != nil {
+			t.Fatal(e)
+		}
+	}
+	f, e := w.Finish(true)
+	if e != nil || f.Bytes > MaxFile {
+		t.Fatal("max")
+	}
+	if _, e = Check(bytes.NewReader(s.b.Bytes()), pins(), refs[:], f); e != nil {
+		t.Fatal(e)
+	}
+	// Even a matching whole-file hash cannot admit a noncanonical envelope.
+	b := bytes.Replace(s.b.Bytes(), []byte("{\"v\":1"), []byte("{\"v\":1,\"v\":1"), 1)
+	f = FileRef{uint32(len(b)), digest(b)}
+	if _, e = Check(bytes.NewReader(b), pins(), refs[:], f); e == nil {
+		t.Fatal("duplicate envelope field")
+	}
+}
+func TestFreshActualFileAndExistingPathPreserved(t *testing.T) {
+	parent, e := filepath.EvalSymlinks(t.TempDir())
+	if e != nil {
+		t.Fatal(e)
+	}
+	p := filepath.Join(parent, "evidence.jsonl")
+	w, e := Create(p, pins())
+	if e != nil {
+		t.Fatal(e)
+	}
+	ref, e := w.Append(0, payload(0))
+	if e != nil {
+		t.Fatal(e)
+	}
+	f, e := w.Finish(false)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if e = w.Close(); e != nil {
+		t.Fatal(e)
+	}
+	b, e := os.ReadFile(p)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if _, e = Check(bytes.NewReader(b), pins(), []RowRef{ref}, f); e != nil {
+		t.Fatal(e)
+	}
+	fi, e := os.Stat(p)
+	if e != nil || fi.Mode().Perm() != 0600 {
+		t.Fatal("mode")
+	}
+	if _, e = Create(p, pins()); e == nil {
+		t.Fatal("reused")
+	}
+	again, e := os.ReadFile(p)
+	if e != nil || !bytes.Equal(again, b) {
+		t.Fatal("overwrote")
+	}
+	alias := filepath.Join(parent, "alias")
+	if e = os.Symlink(parent, alias); e != nil {
+		t.Fatal(e)
+	}
+	if _, e = Create(filepath.Join(alias, "other"), pins()); e == nil {
+		t.Fatal("ancestor alias")
+	}
+}

@@ -1,0 +1,356 @@
+package compactevidence
+
+import (
+	"bytes"
+	"encoding/json"
+	"reflect"
+	frame "riido.local/unionduplicateframe"
+	"strings"
+	"testing"
+)
+
+func strictFixture(d uint8) Row {
+	x, _ := frame.Schedule(d)
+	r := Row{D: d, X: x, A: []API{}, P: 1}
+	if d < 18 {
+		r.U = &Union{R: []Read{}, U: []uint8{}, C: 1, S: 1, D: 1}
+	} else {
+		r.J = &JSON{P: []Visit{}, V: []View{}, B: [6]uint8{1, 1, 1, 1, 1, 1}, E: Error{M: 1}}
+	}
+	return r
+}
+
+func strictPayload(t *testing.T, r Row) []byte {
+	t.Helper()
+	b, err := json.Marshal(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return b
+}
+
+func acceptStrict(t *testing.T, r Row) Row {
+	t.Helper()
+	b := strictPayload(t, r)
+	got, err := DecodeRow(b)
+	if err != nil || !reflect.DeepEqual(got, r) {
+		t.Fatalf("canonical owned shape failed: %v; got %#v", err, got)
+	}
+	again := strictPayload(t, got)
+	if !bytes.Equal(b, again) {
+		t.Fatal("decoder altered accepted representation")
+	}
+	return got
+}
+
+func rejectStrict(t *testing.T, r Row) {
+	t.Helper()
+	if _, err := DecodeRow(strictPayload(t, r)); err == nil {
+		t.Fatal("accepted malformed owned shape")
+	}
+}
+
+func objectVisit(path, key, raw uint8) Visit {
+	return Visit{V: [5]uint8{path, key, raw, 1, 0}, K: [4]uint8{3, 128, raw, key}, X: [4]uint8{2, 128, 14, 0}}
+}
+
+func TestStrictDecodePreservesUnknownFalseAndNilEmpty(t *testing.T) {
+	u := strictFixture(0)
+	u.U.R = []Read{
+		{C: 0, N: 1, K: true, O: [2]uint8{11, 3}, D: Entries{M: 3, V: [][3]uint8{}}, E: Error{M: 11, V: frame.NilIdentity}},
+		{C: 1, N: -1, K: false, O: [2]uint8{1, 0}, D: Entries{M: 7, V: [][3]uint8{}}, E: Error{M: 7}},
+	}
+	u.U.U = []uint8{2, 4}
+	u.A = []API{{M: frame.Readdir, B: 31, P: 3, Q: 0}, {M: frame.Readdir, B: 7, P: 1, Q: 0}}
+	got := acceptStrict(t, u)
+	if got.U.R[0].D.M == got.U.R[1].D.M || got.U.R[1].K || got.U.R[1].O != [2]uint8{1, 0} {
+		t.Fatal("nil/non-nil empty or unknown active read was collapsed")
+	}
+	unknown, falseFact := strictFixture(0), strictFixture(0)
+	unknown.P, falseFact.P = 1, 3
+	if bytes.Equal(strictPayload(t, acceptStrict(t, unknown)), strictPayload(t, acceptStrict(t, falseFact))) {
+		t.Fatal("unknown became false")
+	}
+	if !bytes.Contains(strictPayload(t, strictFixture(0)), []byte(`"u":""`)) {
+		t.Fatal("existing byte suffix convention changed")
+	}
+	for d := uint8(0); d < frame.MaxRows; d++ {
+		acceptStrict(t, strictFixture(d))
+	}
+}
+
+func TestStrictDecodeMasksAndDistinctErrorIdentity(t *testing.T) {
+	for _, m := range []uint8{0, 1, 3, 7, 11} {
+		r := strictFixture(18)
+		r.J.B = [6]uint8{m, m, m, m, m, m}
+		acceptStrict(t, r)
+	}
+	for _, e := range []Error{{M: 0}, {M: 1}, {M: 3}, {M: 7}, {M: 11, V: frame.NilIdentity}, {M: 15, V: frame.EOFIdentity}, {M: 15, V: frame.LayerCauseIdentity}, {M: 15, V: frame.DuplicateIdentity}, {M: 15, V: frame.InvalidJSONIdentity}, {M: 15, V: frame.OtherIdentity}} {
+		r := strictFixture(18)
+		r.J.E = e
+		if acceptStrict(t, r).J.E != e {
+			t.Fatal("error identity/presence loss")
+		}
+	}
+	for _, e := range []Error{{M: 2}, {M: 4}, {M: 8}, {M: 11, V: frame.EOFIdentity}, {M: 15, V: frame.NilIdentity}, {M: 15, V: 7}, {M: 7, V: frame.OtherIdentity}, {M: 3, V: frame.NilIdentity}, {M: 1, V: frame.EOFIdentity}} {
+		r := strictFixture(18)
+		r.J.E = e
+		rejectStrict(t, r)
+	}
+	for _, s := range []Small{{M: 0}, {M: 1}, {M: 3, V: 4}, {M: 7}} {
+		r := strictFixture(18)
+		r.J.O[0] = s
+		acceptStrict(t, r)
+	}
+	for _, s := range []Small{{M: 0, V: 1}, {M: 1, V: 1}, {M: 7, V: 1}, {M: 3, V: 5}, {M: 2}, {M: 11}} {
+		r := strictFixture(18)
+		r.J.O[0] = s
+		rejectStrict(t, r)
+	}
+	for _, m := range []uint8{2, 4, 5, 6, 8, 9, 10, 12, 13, 14, 15, 16} {
+		r := strictFixture(18)
+		r.J.B[0] = m
+		rejectStrict(t, r)
+	}
+	for _, m := range []uint8{0, 1, 3, 11} {
+		r := strictFixture(0)
+		r.P = m
+		acceptStrict(t, r)
+	}
+	r := strictFixture(0)
+	r.P = 7
+	rejectStrict(t, r)
+}
+
+func TestStrictDecodeRejectsNoncanonicalJSON(t *testing.T) {
+	b := string(strictPayload(t, strictFixture(0)))
+	cases := map[string]string{
+		"duplicate field":              strings.Replace(b, `"d":0`, `"d":0,"d":0`, 1),
+		"unknown field":                strings.Replace(b, `"d":0`, `"extra":0,"d":0`, 1),
+		"reordered fields":             strings.Replace(b, `"d":0,"x":[0,0,0,0]`, `"x":[0,0,0,0],"d":0`, 1),
+		"space":                        " " + b,
+		"framing LF":                   b + "\n",
+		"second object":                b + "{}",
+		"tail junk":                    b + "x",
+		"null field":                   strings.Replace(b, `"c":0`, `"c":null`, 1),
+		"missing field":                strings.Replace(b, `"c":0,`, "", 1),
+		"extra fixed array value":      strings.Replace(b, `[0,0,0,0]`, `[0,0,0,0,0]`, 1),
+		"short fixed array":            strings.Replace(b, `[0,0,0,0]`, `[0,0,0]`, 1),
+		"number spelling":              strings.Replace(b, `"d":0`, `"d":-0`, 1),
+		"case-insensitive field alias": strings.Replace(b, `"d":0`, `"D":0`, 1),
+		"explicit inactive domain":     strings.TrimSuffix(b, "}") + `,"j":null}`,
+		"nested duplicate field":       strings.Replace(b, `"r":[]`, `"r":[],"r":[]`, 1),
+		"nested unknown field":         strings.Replace(b, `"r":[]`, `"r":[],"extra":0`, 1),
+	}
+	for name, payload := range cases {
+		t.Run(name, func(t *testing.T) {
+			if _, err := DecodeRow([]byte(payload)); err == nil {
+				t.Fatal("accepted noncanonical JSON")
+			}
+		})
+	}
+	if _, err := DecodeRow(nil); err == nil {
+		t.Fatal("accepted no payload")
+	}
+	if _, err := DecodeRow(bytes.Repeat([]byte{' '}, RowLineMax)); err == nil {
+		t.Fatal("accepted oversized payload")
+	}
+}
+
+func TestStrictDecodeRejectsNullSlicesAndDomainPadding(t *testing.T) {
+	for _, change := range []func(*Row){
+		func(r *Row) { r.A = nil },
+		func(r *Row) { r.U.R = nil },
+		func(r *Row) { r.U.U = nil },
+		func(r *Row) { r.U.R = []Read{{D: Entries{V: nil}}} },
+		func(r *Row) { r.J = &JSON{P: []Visit{}, V: []View{}} },
+		func(r *Row) { r.U = nil },
+		func(r *Row) { r.X[2] = 1 },
+		func(r *Row) { r.D = 39 },
+		func(r *Row) { r.C = 10 },
+	} {
+		r := strictFixture(0)
+		change(&r)
+		rejectStrict(t, r)
+	}
+	for _, change := range []func(*Row){
+		func(r *Row) { r.J.P = nil },
+		func(r *Row) { r.J.V = nil },
+		func(r *Row) { r.U = &Union{R: []Read{}, U: []uint8{}} },
+		func(r *Row) { r.J.O[1] = Small{M: 3, V: 7} },
+		func(r *Row) { r.J.O[2] = Small{M: 3, V: 9} },
+	} {
+		r := strictFixture(18)
+		change(&r)
+		rejectStrict(t, r)
+	}
+}
+
+func TestStrictDecodeAPIKnownnessAndReservationOrder(t *testing.T) {
+	r := strictFixture(18)
+	r.A = []API{
+		{M: frame.Valid, B: 63, P: 3, Q: 20},
+		{M: frame.ForEach, B: 55, P: 11, Q: 11},
+		{M: frame.Parse, B: 7, P: 1, Q: 0},
+		{M: frame.Map, B: 0, P: 0, Q: 0},
+	}
+	got := acceptStrict(t, r)
+	if !reflect.DeepEqual(got.A, r.A) || got.A[0].Q < got.A[1].Q {
+		t.Fatal("reservation order or nested AFTER reference was sorted")
+	}
+	for _, a := range []API{
+		{M: frame.Valid, B: 2},
+		{M: frame.Valid, B: 6},
+		{M: frame.Valid, B: 8},
+		{M: frame.Valid, B: 28},
+		{M: frame.Valid, B: 25},
+		{M: frame.Valid, B: 7, P: 11},
+		{M: frame.Valid, B: 23, P: 3},
+		{M: frame.Valid, B: 31, P: 11},
+		{M: frame.Valid, B: 33, Q: 0},
+		{M: frame.Valid, B: 32, Q: 1},
+		{M: frame.Valid, B: 1, P: 7},
+		{M: frame.Readdir},
+		{M: 6},
+		{M: frame.Valid, Q: 641},
+		{M: frame.Valid, B: 64},
+	} {
+		bad := strictFixture(18)
+		bad.A = []API{a}
+		rejectStrict(t, bad)
+	}
+	r = strictFixture(18)
+	r.A = []API{{M: frame.Valid, Q: 1}, {M: frame.Parse, Q: 1}}
+	rejectStrict(t, r)
+	u := strictFixture(0)
+	u.A = []API{{M: frame.Valid}}
+	rejectStrict(t, u)
+	u.A = []API{{M: frame.Readdir, B: 33, Q: 640}}
+	acceptStrict(t, u) // This proves shape, not actual ACK or a native outcome.
+	u.A = make([]API, 6)
+	rejectStrict(t, u)
+}
+
+func TestStrictDecodeUnionReadAndSuffixBounds(t *testing.T) {
+	base := func() Row {
+		r := strictFixture(0)
+		r.U.R = []Read{{C: 0, N: 2, K: true, O: [2]uint8{11, 3}, D: Entries{M: 3, V: [][3]uint8{{1, 1, 1}, {2, 20, 2}, {3, 3, 1}}}, E: Error{M: 11, V: frame.NilIdentity}}}
+		r.U.U = []uint8{1, 3, 4}
+		return r
+	}
+	acceptStrict(t, base())
+	for _, change := range []func(*Row){
+		func(r *Row) { r.U.R[0].C = 1 },
+		func(r *Row) { r.U.R[0].N = -2 },
+		func(r *Row) { r.U.R[0].N = 3 },
+		func(r *Row) { r.U.R[0].O = [2]uint8{3, 3} },
+		func(r *Row) { r.U.R[0].O = [2]uint8{11, 11} },
+		func(r *Row) { r.U.R[0].O[0] = 7 },
+		func(r *Row) { r.U.R[0].D.M = 1 },
+		func(r *Row) { r.U.R[0].D.M = 7 },
+		func(r *Row) { r.U.R[0].D.M = 2 },
+		func(r *Row) { r.U.R[0].D.V[0][0] = 0 },
+		func(r *Row) { r.U.R[0].D.V[0][1] = 4 },
+		func(r *Row) { r.U.R[0].D.V[0][2] = 3 },
+		func(r *Row) { r.U.R[0].D.V = append(r.U.R[0].D.V, [3]uint8{1, 2, 1}) },
+		func(r *Row) { r.U.U = []uint8{0} },
+		func(r *Row) { r.U.U = []uint8{1, 1} },
+		func(r *Row) { r.U.U = []uint8{3, 2} },
+		func(r *Row) { r.U.U = []uint8{5} },
+	} {
+		r := base()
+		change(&r)
+		rejectStrict(t, r)
+	}
+	for _, m := range []uint8{0, 1, 3, 7} {
+		r := base()
+		r.U.R[0].D = Entries{M: m, V: [][3]uint8{}}
+		acceptStrict(t, r)
+	}
+	r := base()
+	r.U.R[0].K = false
+	r.U.R[0].O = [2]uint8{1, 0}
+	acceptStrict(t, r)
+}
+
+func TestStrictDecodeKeepsUnknownDiagnosticsAndRawAliasKeys(t *testing.T) {
+	r := strictFixture(18)
+	r.J.K, r.J.H = false, false
+	r.J.P = []Visit{objectVisit(1, 2, 2), objectVisit(1, 2, 3), {V: [5]uint8{1, 0, 0, 2, 1}, K: [4]uint8{2, 128, 1, 0}, X: [4]uint8{5, 128, 1, 0}}}
+	r.J.V = []View{{P: 1, K: 6, V: [4]uint8{0, 128, 14, 0}}, {P: 1, K: 2, V: [4]uint8{5, 0, 1, 0}}}
+	got := acceptStrict(t, r)
+	if got.J.K || got.J.H || got.J.P[0].K[3] != got.J.P[1].K[3] || got.J.P[0].K[2] == got.J.P[1].K[2] || !reflect.DeepEqual(got.J.V, r.J.V) {
+		t.Fatal("unknown, raw/decoded alias or unsorted view altered")
+	}
+	// Primitive types are supplied observations; raw IDs must not imply types.
+	for typ := uint8(0); typ <= 5; typ++ {
+		for raw := uint8(1); raw <= 14; raw++ {
+			r.J.P[0].X = [4]uint8{typ, 128, raw, 0}
+			acceptStrict(t, r)
+		}
+	}
+}
+
+func TestStrictDecodeRejectsPrimitiveAndVisitBounds(t *testing.T) {
+	base := func() Row {
+		r := strictFixture(18)
+		r.J.P = []Visit{objectVisit(1, 2, 3)}
+		r.J.V = []View{{P: 1, K: 2, V: [4]uint8{2, 128, 14, 0}}}
+		return r
+	}
+	for _, change := range []func(*Row){
+		func(r *Row) { r.J.P[0].V[0] = 0 },
+		func(r *Row) { r.J.P[0].V[0] = 5 },
+		func(r *Row) { r.J.P[0].V[1] = 0 },
+		func(r *Row) { r.J.P[0].V[1] = 7 },
+		func(r *Row) { r.J.P[0].V[2] = 0 },
+		func(r *Row) { r.J.P[0].V[2] = 8 },
+		func(r *Row) { r.J.P[0].V[3] = 0 },
+		func(r *Row) { r.J.P[0].V[4] = 1 },
+		func(r *Row) { r.J.P[0].K[0] = 2 },
+		func(r *Row) { r.J.P[0].K[1] = 129 },
+		func(r *Row) { r.J.P[0].K[2] = 2 },
+		func(r *Row) { r.J.P[0].K[3] = 3 },
+		func(r *Row) { r.J.P[0].X[0] = 6 },
+		func(r *Row) { r.J.P[0].X[1] = 129 },
+		func(r *Row) { r.J.P[0].X[2] = 0 },
+		func(r *Row) { r.J.P[0].X[2] = 15 },
+		func(r *Row) { r.J.P[0].X[3] = 1 },
+		func(r *Row) { r.J.V[0].P = 0 },
+		func(r *Row) { r.J.V[0].P = 5 },
+		func(r *Row) { r.J.V[0].K = 0 },
+		func(r *Row) { r.J.V[0].K = 7 },
+		func(r *Row) { r.J.V[0].V[0] = 6 },
+		func(r *Row) { r.J.V[0].V[1] = 129 },
+		func(r *Row) { r.J.V[0].V[2] = 0 },
+		func(r *Row) { r.J.V[0].V[2] = 15 },
+		func(r *Row) { r.J.V[0].V[3] = 1 },
+	} {
+		r := base()
+		change(&r)
+		rejectStrict(t, r)
+	}
+	array := Visit{V: [5]uint8{4, 0, 0, 2, 1}, K: [4]uint8{2, 128, 1, 0}, X: [4]uint8{0, 0, 1, 0}}
+	for _, change := range []func(*Visit){
+		func(v *Visit) { v.V[1] = 1 },
+		func(v *Visit) { v.V[2] = 1 },
+		func(v *Visit) { v.V[4] = 2 },
+		func(v *Visit) { v.K[0] = 3 },
+		func(v *Visit) { v.K[2] = 2 },
+		func(v *Visit) { v.K[3] = 1 },
+	} {
+		r := base()
+		v := array
+		change(&v)
+		r.J.P[0] = v
+		rejectStrict(t, r)
+	}
+	r := base()
+	r.J.P = []Visit{array}
+	acceptStrict(t, r)
+	r.J.P = []Visit{array, array, array, array, array}
+	rejectStrict(t, r)
+	r = base()
+	r.J.V = append(r.J.V, r.J.V[0], r.J.V[0], r.J.V[0], r.J.V[0], r.J.V[0], r.J.V[0])
+	rejectStrict(t, r)
+}

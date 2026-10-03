@@ -1,0 +1,174 @@
+package evidenceadapter
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"errors"
+	"os"
+	"path/filepath"
+	"testing"
+
+	compact "riido.local/compactevidenceprototype"
+	file "riido.local/evidencefileprototype"
+	frame "riido.local/unionduplicateframe"
+	core "riido.local/unionduplicatenativeprep/core"
+)
+
+// All methods below are owned fakes. In particular they never call supplied
+// providers or any imported original. No fixture Want is being asserted.
+type fakeAPI struct{}
+type fakeDir struct{}
+
+func (fakeAPI) NewUnion(core.Provider, core.Provider, core.Merge) core.Dir { return fakeDir{} }
+func (fakeDir) Readdir(_ int, mark func(bool)) core.InfoReturn {
+	mark(false)
+	mark(true)
+	return core.InfoReturn{}
+}
+func (fakeAPI) Valid(_ string, mark func(bool)) bool {
+	mark(false)
+	mark(true)
+	return false
+}
+func (fakeAPI) Parse(_ string, mark func(bool)) core.Value {
+	mark(false)
+	mark(true)
+	return core.Value{}
+}
+func (fakeAPI) Map(_ core.Value, mark func(bool)) core.MapList {
+	mark(false)
+	mark(true)
+	return core.MapList{}
+}
+func (fakeAPI) ForEach(_ core.Value, _ func(func() (core.Value, core.Value)) bool, mark func(bool)) {
+	mark(false)
+	mark(true)
+}
+
+type transport struct {
+	last             []byte
+	rows             [39]file.RowRef
+	count            uint8
+	final            *frame.FileCommit
+	failCandidateACK bool
+}
+
+func (o *transport) Write(b []byte) (int, error) {
+	o.last = bytes.Clone(b)
+	return len(b), nil
+}
+func (o *transport) ack() (frame.Ack, error) {
+	f, err := frame.DecodeFrame(o.last)
+	if err != nil {
+		return frame.Ack{}, err
+	}
+	if f.K == frame.AfterCandidate && o.failCandidateACK {
+		return frame.Ack{}, errors.New("owned ACK loss")
+	}
+	if f.R != nil {
+		o.rows[f.D] = file.RowRef{D: f.D, Offset: f.R.O, Length: f.R.N, SHA256: f.R.H}
+		o.count++
+	}
+	if f.E != nil {
+		v := *f.E
+		o.final = &v
+	}
+	h := sha256.Sum256(o.last[:len(o.last)-1])
+	return frame.Ack{V: frame.Version, Q: f.Q, H: hex.EncodeToString(h[:])}, nil
+}
+func carriers(t *testing.T) [3][]byte {
+	t.Helper()
+	var out [3][]byte
+	for i, n := range []string{"freeze.json", "fixtures.json", "captions.json"} {
+		b, err := os.ReadFile("testdata/" + n)
+		if err != nil {
+			t.Fatal(err)
+		}
+		out[i] = b
+	}
+	return out
+}
+func canonicalTemp(t *testing.T) string {
+	t.Helper()
+	p, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	return p
+}
+
+func evidencePins() file.Pins {
+	return file.Pins{Freeze: core.FreezeSHA, Fixtures: core.FixtureSHA, Captions: core.CaptionSHA}
+}
+
+func TestActualOwnedFileAdapterRoundtrip(t *testing.T) {
+	frozen := carriers(t)
+	p := filepath.Join(canonicalTemp(t), "evidence.jsonl")
+	w, err := file.Create(p, evidencePins())
+	if err != nil {
+		t.Fatal(err)
+	}
+	o := new(transport)
+	r, err := core.RunEvidence(o, o.ack, func(func()) core.API { return fakeAPI{} }, Sink{w}, frozen[0], frozen[1], frozen[2])
+	if err != nil || !r.Complete || r.Completed != 39 || r.CommittedRows != 39 || r.Prefix.Rows != 39 || !r.FileReferenceAvailable || o.count != 39 || o.final == nil {
+		t.Fatalf("owned roundtrip: %+v %v", r, err)
+	}
+	if err = w.Close(); err != nil || !w.Status().CloseSucceeded {
+		t.Fatal("close", err)
+	}
+	b, err := os.ReadFile(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, err := file.Check(bytes.NewReader(b), evidencePins(), o.rows[:], file.FileRef{Bytes: o.final.N, SHA256: o.final.H})
+	if err != nil || !c.Complete || c.Count != 39 {
+		t.Fatal("file check", err)
+	}
+	for d, ref := range o.rows {
+		row, err := compact.DecodeRow(b[ref.Offset : ref.Offset+uint32(ref.Length)-1])
+		if err != nil || row.D != uint8(d) || row.P != 0 || row.F {
+			t.Fatalf("pre-AFTER row %d: %+v %v", d, row, err)
+		}
+	}
+	// This fake schedule uses 51 owned method calls and zero callbacks.
+	if r.Prefix.Counts[frame.Method][1] != 51 || r.Prefix.Counts[frame.Callback][1] != 0 {
+		t.Fatal("fake scope", r.Prefix)
+	}
+}
+
+func TestLostCandidateACKKeepsOrphanWithoutFooter(t *testing.T) {
+	frozen := carriers(t)
+	p := filepath.Join(canonicalTemp(t), "orphan.jsonl")
+	w, err := file.Create(p, evidencePins())
+	if err != nil {
+		t.Fatal(err)
+	}
+	o := &transport{failCandidateACK: true}
+	r, err := core.RunEvidence(o, o.ack, func(func()) core.API { return fakeAPI{} }, Sink{w}, frozen[0], frozen[1], frozen[2])
+	if err == nil || r.Complete || r.CommittedRows != 1 || r.Prefix.Rows != 0 || r.FileAttempted || o.count != 0 || o.final != nil || w.Status().Rows != 1 || w.Status().Finished {
+		t.Fatalf("orphan: %+v %+v %v", r, w.Status(), err)
+	}
+	if err = w.Close(); err != nil {
+		t.Fatal(err)
+	}
+	st, err := os.Stat(p)
+	if err != nil || st.Size() <= 0 {
+		t.Fatal("partial not retained", err)
+	}
+}
+
+func TestAdapterRejectsLateCaptureWithoutWrite(t *testing.T) {
+	p := filepath.Join(canonicalTemp(t), "evidence.jsonl")
+	w, err := file.Create(p, evidencePins())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer w.Close()
+	before := w.Status()
+	x, _ := frame.Schedule(0)
+	_, err = (Sink{w}).CommitRow(core.RowResult{Ordinal: 0, IDs: x, AckKnown: true}, [5]uint16{})
+	if err == nil || w.Status() != before {
+		t.Fatal("late capture written", err)
+	}
+}

@@ -1,0 +1,100 @@
+package evidencefile
+
+import (
+	"bytes"
+	"fmt"
+	"testing"
+
+	baseline "riido.local/evidencefilebaseline"
+)
+
+func TestMaximumLFFileRejectedWithExactWholeFileHash(t *testing.T) {
+	for _, rows := range []int{0, MaxRows} {
+		t.Run(fmt.Sprint(rows), func(t *testing.T) {
+			body := bytes.Repeat([]byte{'\n'}, MaxFile)
+			ref := FileRef{Bytes: uint32(len(body)), SHA256: digest(body)}
+			if _, err := Check(bytes.NewReader(body), pins(), make([]RowRef, rows), ref); err != ErrShape {
+				t.Fatalf("hash-matching malformed framing accepted: %v", err)
+			}
+		})
+	}
+}
+
+// Both versions read exactly the same bytes with the same supplied hash.
+// Inputs and refs are prepared outside timing. The baseline body is an exact
+// copy of the sealed v1 source; only its test module name differs.
+func BenchmarkMalformedReadback(b *testing.B) {
+	body := bytes.Repeat([]byte{'\n'}, MaxFile)
+	p := pins()
+	final := FileRef{Bytes: uint32(len(body)), SHA256: digest(body)}
+	for _, count := range []int{0, MaxRows} {
+		b.Run(fmt.Sprintf("rows%d", count), func(b *testing.B) {
+			refs := make([]RowRef, count)
+			oldRefs := make([]baseline.RowRef, count)
+			oldPins := baseline.Pins{Freeze: p.Freeze, Fixtures: p.Fixtures, Captions: p.Captions}
+			oldFinal := baseline.FileRef{Bytes: final.Bytes, SHA256: final.SHA256}
+			b.Run("baseline", func(b *testing.B) {
+				b.ReportAllocs()
+				for b.Loop() {
+					if _, err := baseline.Check(bytes.NewReader(body), oldPins, oldRefs, oldFinal); err == nil {
+						b.Fatal("baseline unexpectedly accepted malformed input")
+					}
+				}
+			})
+			b.Run("bounded", func(b *testing.B) {
+				b.ReportAllocs()
+				for b.Loop() {
+					if _, err := Check(bytes.NewReader(body), p, refs, final); err == nil {
+						b.Fatal("bounded reader unexpectedly accepted malformed input")
+					}
+				}
+			})
+		})
+	}
+}
+
+func BenchmarkValidReadback(b *testing.B) {
+	for _, count := range []int{0, MaxRows} {
+		b.Run(fmt.Sprintf("rows%d", count), func(b *testing.B) {
+			s := new(sink)
+			p := pins()
+			w, err := New(s, func() error { return nil }, p)
+			if err != nil {
+				b.Fatal(err)
+			}
+			refs := make([]RowRef, count)
+			oldRefs := make([]baseline.RowRef, count)
+			for i := range refs {
+				refs[i], err = w.Append(uint8(i), payload(uint8(i)))
+				if err != nil {
+					b.Fatal(err)
+				}
+				r := refs[i]
+				oldRefs[i] = baseline.RowRef{D: r.D, Offset: r.Offset, Length: r.Length, SHA256: r.SHA256}
+			}
+			final, err := w.Finish(count == MaxRows)
+			if err != nil {
+				b.Fatal(err)
+			}
+			body := bytes.Clone(s.b.Bytes())
+			oldPins := baseline.Pins{Freeze: p.Freeze, Fixtures: p.Fixtures, Captions: p.Captions}
+			oldFinal := baseline.FileRef{Bytes: final.Bytes, SHA256: final.SHA256}
+			b.Run("baseline", func(b *testing.B) {
+				b.ReportAllocs()
+				for b.Loop() {
+					if c, err := baseline.Check(bytes.NewReader(body), oldPins, oldRefs, oldFinal); err != nil || int(c.Count) != count {
+						b.Fatalf("baseline readback: %v", err)
+					}
+				}
+			})
+			b.Run("bounded", func(b *testing.B) {
+				b.ReportAllocs()
+				for b.Loop() {
+					if c, err := Check(bytes.NewReader(body), p, refs, final); err != nil || int(c.Count) != count {
+						b.Fatalf("bounded readback: %v", err)
+					}
+				}
+			})
+		})
+	}
+}

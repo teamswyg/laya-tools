@@ -1,0 +1,482 @@
+// SPDX-License-Identifier: Apache-2.0
+// Package durable verifies owned byte/protocol correspondence only. No process,
+// original getter, native provenance, rights, Wants, label or model authority.
+package durable
+
+import (
+	"bufio"
+	"crypto/sha256"
+	"encoding/hex"
+	"errors"
+	"io"
+	ef "riido.local/evidencefileprototype"
+	f "riido.local/unionduplicateframe"
+)
+
+var ErrProtocol = errors.New("durable_protocol")
+var ErrJournal = errors.New("durable_journal")
+var ErrACK = errors.New("durable_ack")
+var ErrIncomplete = errors.New("durable_incomplete")
+var ErrEvidence = errors.New("durable_evidence")
+var ErrPending = errors.New("durable_native_pending")
+
+func ExecutionGate() error { return ErrPending }
+
+type slot struct {
+	unit                    f.Unit
+	d                       uint8
+	m                       f.MethodID
+	c                       f.CallbackID
+	span, parent, candidate uint16
+	methodSlot              uint8
+	dispatched              bool
+}
+
+// MethodRecord retains reservation order and matching AFTER sequence separately.
+// AFTER references can decrease when an outer method encloses an inner method.
+type MethodRecord struct {
+	Before, After, Parent, Candidate uint16
+	D                                uint8
+	X                                [4]uint8
+	Method                           f.MethodID
+	Source                           f.OriginalCall
+}
+type RowContext struct {
+	D                  uint8
+	X                  [4]uint8
+	Candidate          uint16
+	Methods            [5]MethodRecord
+	MethodN, CallbackN uint8
+	AfterSlots         [f.MaxFrames + 1]uint8 // AFTER-Q -> reservation index + 1
+	ExpectedOffset     uint32                 // zero for first row; canonical header checked separately
+}
+
+// State is owned by one receiver loop. Receiver validates a tentative copy,
+// physically journals it, Syncs and then ACKs before advancing Acknowledged.
+type State struct {
+	seq                    uint16
+	counts                 f.Counts
+	stack                  [f.MaxDepth]slot
+	depth, rows            uint8
+	candidate              bool
+	candidateSpan          uint16
+	current                RowContext
+	refs                   [f.MaxRows]ef.RowRef
+	evidenceRows           uint8
+	evidenceEnd            uint32
+	ready, final, complete bool
+	pins                   f.Pins
+}
+
+func NewState(p f.Pins) (State, error) {
+	if !f.Hex64(p.Freeze) || !f.Hex64(p.Fixtures) || !f.Hex64(p.Captions) {
+		return State{}, ErrProtocol
+	}
+	return State{pins: p}, nil
+}
+func (s State) Sequence() uint16               { return s.seq }
+func (s State) Counts() f.Counts               { return s.counts }
+func (s State) Complete() bool                 { return s.final && s.complete }
+func (s State) EvidenceRows() uint8            { return s.evidenceRows }
+func (s State) EvidenceEnd() uint32            { return s.evidenceEnd }
+func (s State) RowEvidenceContext() RowContext { return s.current }
+func stage(k f.Stage) (f.Unit, bool, error) {
+	switch k {
+	case f.BeforeRow:
+		return f.Row, true, nil
+	case f.AfterRow:
+		return f.Row, false, nil
+	case f.BeforeCandidate:
+		return f.Candidate, true, nil
+	case f.AfterCandidate:
+		return f.Candidate, false, nil
+	case f.BeforeMethod:
+		return f.Method, true, nil
+	case f.AfterMethod:
+		return f.Method, false, nil
+	case f.BeforeCallback:
+		return f.Callback, true, nil
+	case f.AfterCallback:
+		return f.Callback, false, nil
+	}
+	return 0, false, ErrProtocol
+}
+
+// Next checks protocol shape and method/callback reservation coverage. File
+// bytes are checked by Receiver BEFORE Next is journaled or acknowledged.
+func (s State) Next(v f.Frame) (State, error) {
+	if _, e := f.CanonicalFrame(v); e != nil || s.final || v.Q != s.seq+1 {
+		return s, ErrProtocol
+	}
+	if v.K == f.Ready {
+		if s.ready || s.seq != 0 || v.B == nil || *v.B != s.pins {
+			return s, ErrProtocol
+		}
+		s.ready = true
+		s.seq = v.Q
+		return s, nil
+	}
+	if !s.ready {
+		return s, ErrProtocol
+	}
+	if v.K == f.Final {
+		if s.depth != 0 || v.B == nil || *v.B != s.pins || v.N != s.counts || v.Z == nil || v.E == nil || v.E.C != s.evidenceRows {
+			return s, ErrProtocol
+		}
+		if v.E.N <= s.evidenceEnd {
+			return s, ErrProtocol
+		}
+		if v.Z.Complete && (s.rows != f.MaxRows || s.counts[f.Candidate][1] != f.MaxRows || s.evidenceRows != f.MaxRows) {
+			return s, ErrProtocol
+		}
+		s.final = true
+		s.complete = v.Z.Complete
+		s.seq = v.Q
+		return s, nil
+	}
+	unit, before, e := stage(v.K)
+	if e != nil {
+		return s, e
+	}
+	for i := uint8(0); i < s.depth; i++ {
+		if !s.stack[i].dispatched {
+			s.counts[s.stack[i].unit][1]++
+			s.stack[i].dispatched = true
+		}
+	}
+	if before {
+		if s.depth >= f.MaxDepth {
+			return s, ErrProtocol
+		}
+		parent := uint16(0)
+		candidate := s.candidateSpan
+		idx := uint8(0)
+		if unit == f.Row {
+			if s.depth != 0 || v.D != s.rows {
+				return s, ErrProtocol
+			}
+			s.candidate = false
+			s.candidateSpan = 0
+			s.current = RowContext{D: v.D, X: v.X, ExpectedOffset: s.evidenceEnd}
+			candidate = 0
+		} else {
+			if s.depth == 0 {
+				return s, ErrProtocol
+			}
+			p := s.stack[s.depth-1]
+			parent = p.span
+			if p.d != v.D {
+				return s, ErrProtocol
+			}
+			switch unit {
+			case f.Candidate:
+				if p.unit != f.Row || s.candidate {
+					return s, ErrProtocol
+				}
+				s.candidate = true
+				s.candidateSpan = v.S
+				s.current.Candidate = v.S
+				candidate = v.S
+			case f.Method:
+				// Each method must belong to this row's active candidate, including
+				// methods nested inside an owned callback. A row-only method is rejected.
+				if s.candidateSpan == 0 || (p.unit != f.Candidate && p.unit != f.Callback) {
+					return s, ErrProtocol
+				}
+				mm, _, ok := FixtureCaps(v.D)
+				if !ok || s.current.MethodN >= mm || s.current.MethodN >= 5 {
+					return s, ErrProtocol
+				}
+				idx = s.current.MethodN
+				s.current.MethodN++
+				s.current.Methods[idx] = MethodRecord{Before: v.S, Parent: parent, Candidate: s.candidateSpan, D: v.D, X: v.X, Method: v.M}
+			case f.Callback:
+				if p.unit != f.Method || s.candidateSpan == 0 {
+					return s, ErrProtocol
+				}
+				if p.m == f.Readdir && (v.C < f.Layer || v.C > f.Merger) || p.m == f.ForEach && v.C != f.Each || p.m != f.Readdir && p.m != f.ForEach {
+					return s, ErrProtocol
+				}
+				_, cm, ok := FixtureCaps(v.D)
+				if !ok || s.current.CallbackN >= cm {
+					return s, ErrProtocol
+				}
+				s.current.CallbackN++
+			}
+		}
+		if v.P != parent || v.S != v.Q {
+			return s, ErrProtocol
+		}
+		s.counts[unit][0]++
+		s.stack[s.depth] = slot{unit: unit, d: v.D, m: v.M, c: v.C, span: v.S, parent: parent, candidate: candidate, methodSlot: idx}
+		s.depth++
+	} else {
+		if s.depth == 0 || v.F == nil {
+			return s, ErrProtocol
+		}
+		p := s.stack[s.depth-1]
+		if p.unit != unit || p.d != v.D || p.m != v.M || p.c != v.C || p.span != v.S || p.parent != v.P {
+			return s, ErrProtocol
+		}
+		n, panicFact := v.F.Normal, v.F.Panic
+		if n.N || panicFact.N || n.V == panicFact.V {
+			return s, ErrProtocol
+		}
+		if unit == f.Row && n.V && !s.candidate {
+			return s, ErrProtocol
+		}
+		if unit == f.Method {
+			if p.candidate != s.current.Candidate || p.methodSlot >= s.current.MethodN || v.Q > f.MaxFrames || s.current.AfterSlots[v.Q] != 0 {
+				return s, ErrProtocol
+			}
+			m := s.current.Methods[p.methodSlot]
+			if m.Before != v.S || m.Parent != v.P || m.After != 0 {
+				return s, ErrProtocol
+			}
+			m.After = v.Q
+			m.Source = v.F.Source
+			s.current.Methods[p.methodSlot] = m
+			s.current.AfterSlots[v.Q] = p.methodSlot + 1
+		}
+		if unit == f.Candidate {
+			if p.span != s.current.Candidate {
+				return s, ErrProtocol
+			}
+			if n.V {
+				if v.R == nil || v.D != s.evidenceRows || s.evidenceRows > 0 && v.R.O != s.evidenceEnd {
+					return s, ErrProtocol
+				}
+				s.refs[s.evidenceRows] = ef.RowRef{D: v.D, Offset: v.R.O, Length: v.R.N, SHA256: v.R.H}
+				s.evidenceRows++
+				s.evidenceEnd = v.R.O + uint32(v.R.N)
+			}
+			s.candidateSpan = 0
+		}
+		if panicFact.V {
+			s.counts[unit][3]++
+		} else {
+			s.counts[unit][2]++
+		}
+		s.depth--
+		s.stack[s.depth] = slot{}
+		if unit == f.Row {
+			s.rows++
+		}
+	}
+	if v.N != s.counts {
+		return s, ErrProtocol
+	}
+	s.seq = v.Q
+	return s, nil
+}
+
+const JournalCapBytes = f.MaxFrames * f.MaxLineBytes
+
+type SyncWriter interface {
+	Write([]byte) (int, error)
+	Sync() error
+}
+type Cursor struct {
+	Sequence      uint16
+	Bytes         int64
+	PayloadSHA256 string
+}
+type JournalPhysical struct {
+	Bytes            int64
+	CompleteSequence uint16
+	Known            bool
+}
+type JournalStatus struct {
+	Physical              JournalPhysical
+	FileSynced, Durable   Cursor
+	ParentSynced, Stopped bool
+}
+type Journal struct {
+	file                  SyncWriter
+	parentSync            func() error
+	cursor, fileSynced    Cursor
+	physical              JournalPhysical
+	parentSynced, stopped bool
+}
+
+func NewJournal(file SyncWriter, parentSync func() error) (*Journal, error) {
+	if file == nil || parentSync == nil {
+		return nil, ErrJournal
+	}
+	return &Journal{file: file, parentSync: parentSync, physical: JournalPhysical{Known: true}}, nil
+}
+func (j *Journal) Cursor() Cursor { return j.cursor }
+func (j *Journal) Status() JournalStatus {
+	return JournalStatus{j.physical, j.fileSynced, j.cursor, j.parentSynced, j.stopped}
+}
+func (j *Journal) Append(raw []byte, q uint16) (cursor Cursor, err error) {
+	if j.stopped || q != j.cursor.Sequence+1 || q > f.MaxFrames || len(raw) < 2 || len(raw) > f.MaxLineBytes || raw[len(raw)-1] != '\n' || j.physical.Bytes+int64(len(raw)) > JournalCapBytes {
+		return j.cursor, ErrJournal
+	}
+	j.stopped = true
+	j.parentSynced = false
+	completed := false
+	writeReturned := false
+	defer func() {
+		if !completed {
+			_ = recover()
+			if !writeReturned {
+				j.physical.Known = false
+			}
+			cursor = j.cursor
+			err = ErrJournal
+		}
+	}()
+	n, e := j.file.Write(raw)
+	writeReturned = true
+	if n < 0 || n > len(raw) {
+		j.physical.Known = false
+		completed = true
+		return j.cursor, ErrJournal
+	}
+	j.physical.Bytes += int64(n)
+	if n == len(raw) {
+		j.physical.CompleteSequence = q
+	}
+	if e != nil || n != len(raw) {
+		completed = true
+		return j.cursor, ErrJournal
+	}
+	h := sha256.Sum256(raw[:len(raw)-1])
+	next := Cursor{q, j.physical.Bytes, hex.EncodeToString(h[:])}
+	if j.file.Sync() != nil {
+		completed = true
+		return j.cursor, ErrJournal
+	}
+	j.fileSynced = next
+	if j.parentSync() != nil {
+		completed = true
+		return j.cursor, ErrJournal
+	}
+	j.parentSynced = true
+	j.cursor = next
+	j.stopped = false
+	completed = true
+	return j.cursor, nil
+}
+
+type Receipt struct {
+	Acknowledged, Validated State
+	Physical                JournalPhysical
+	FileSynced, Durable     Cursor
+	ACKs                    uint16
+	GenuineEOF, Stopped     bool
+	VerifiedRows            uint8
+	VerifiedEnd             uint32
+	VerifiedFinal           bool
+}
+type Receiver struct {
+	state    State
+	journal  *Journal
+	ack      io.Writer
+	evidence *EvidenceReader
+	receipt  Receipt
+	stop     error
+}
+
+func NewReceiver(p f.Pins, j *Journal, ack io.Writer, evidence io.ReaderAt) (*Receiver, error) {
+	s, e := NewState(p)
+	if e != nil || j == nil || ack == nil || j.stopped || j.cursor != (Cursor{}) || j.physical.Bytes != 0 {
+		return nil, ErrProtocol
+	}
+	er, e := NewEvidenceReader(evidence, p)
+	if e != nil {
+		return nil, e
+	}
+	return &Receiver{state: s, journal: j, ack: ack, evidence: er, receipt: Receipt{Acknowledged: s, Validated: s, Physical: j.physical}}, nil
+}
+func (r *Receiver) Receipt() Receipt { return r.receipt }
+func (r *Receiver) refreshJournal() {
+	s := r.journal.Status()
+	r.receipt.Physical = s.Physical
+	r.receipt.FileSynced = s.FileSynced
+	r.receipt.Durable = s.Durable
+}
+func (r *Receiver) fail(e error) error {
+	if r.stop == nil {
+		r.stop = e
+	}
+	r.refreshJournal()
+	r.receipt.Stopped = true
+	return r.stop
+}
+
+// Consume validates row/file evidence before any corresponding journal write,
+// Sync or ACK. FINAL plus actual EOF still does not prove child Wait/exit/reap.
+func (r *Receiver) Consume(in io.Reader) (err error) {
+	if r.stop != nil {
+		return r.stop
+	}
+	completed := false
+	defer func() {
+		if !completed {
+			_ = recover()
+			err = r.fail(ErrProtocol)
+		}
+	}()
+	err = r.consumeOnce(in)
+	completed = true
+	return err
+}
+func (r *Receiver) consumeOnce(in io.Reader) error {
+	if in == nil || r.receipt.GenuineEOF {
+		return r.fail(ErrProtocol)
+	}
+	read := bufio.NewReaderSize(in, f.MaxLineBytes+1)
+	for {
+		raw, e := read.ReadSlice('\n')
+		if e != nil {
+			if e == io.EOF && len(raw) == 0 && r.state.Complete() {
+				r.receipt.GenuineEOF = true
+				return nil
+			}
+			return r.fail(ErrIncomplete)
+		}
+		if len(raw) > f.MaxLineBytes {
+			return r.fail(ErrProtocol)
+		}
+		v, e := f.DecodeFrame(raw)
+		if e != nil {
+			return r.fail(ErrProtocol)
+		}
+		next, e := r.state.Next(v)
+		if e != nil {
+			return r.fail(e)
+		}
+		if v.K == f.AfterCandidate && v.R != nil {
+			if e = r.evidence.CheckRow(v, r.state.current); e != nil {
+				return r.fail(e)
+			}
+			r.receipt.VerifiedRows = next.evidenceRows
+			r.receipt.VerifiedEnd = next.evidenceEnd
+		}
+		if v.K == f.Final {
+			if e = r.evidence.CheckFinal(v, r.state.refs[:r.state.evidenceRows]); e != nil {
+				return r.fail(e)
+			}
+			r.receipt.VerifiedFinal = true
+		}
+		r.receipt.Validated = next
+		cursor, e := r.journal.Append(raw, v.Q)
+		r.refreshJournal()
+		if e != nil {
+			return r.fail(e)
+		}
+		ack, e := f.EncodeAck(f.Ack{V: f.Version, Q: v.Q, H: cursor.PayloadSHA256})
+		if e != nil {
+			return r.fail(ErrACK)
+		}
+		n, e := r.ack.Write(ack)
+		if e != nil || n != len(ack) {
+			return r.fail(ErrACK)
+		}
+		r.state = next
+		r.receipt.Acknowledged = next
+		r.receipt.ACKs++
+	}
+}

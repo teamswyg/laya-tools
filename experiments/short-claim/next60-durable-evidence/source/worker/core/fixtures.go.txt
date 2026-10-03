@@ -1,0 +1,133 @@
+package core
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	frame "riido.local/unionduplicateframe"
+)
+
+type UnionInput struct {
+	Base, Overlay InfoList
+	Calls         [5]int8
+	N             uint8
+	LayerError    bool
+}
+
+var unionCalls = [6][5]int8{{1, 0, 1}, {0, 1, 0}, {1, 1, 1, 1, 1}, {0, 1, 0}, {2, -1, 2}, {1, 0, 1}}
+var unionN = [6]uint8{3, 3, 5, 3, 3, 3}
+var jsonInputs = [7]string{
+	"{\"a\":1,\"\\u0061\":2}", "{\"a\":1,\"b\":2}",
+	"{\"outer\":{\"k\":1,\"k\":2}}", "[{\"a\":1},{\"a\":2}]",
+	"{\"\":0,\"\":1}", "{\"a\":1,\"a\":2,\"z\":3}", "{\"a\":}",
+}
+
+func unionInput(i uint8) UnionInput {
+	u := UnionInput{Calls: unionCalls[i], N: unionN[i], LayerError: i == 5}
+	if i != 3 {
+		u.Base = InfoList{N: 2, V: [3]frame.Entry{{N: 1, M: 1, L: 1}, {N: 2, M: 2, L: 1}}}
+		u.Overlay = InfoList{N: 2, V: [3]frame.Entry{{N: 2, M: 20, L: 2}, {N: 3, M: 3, L: 2}}}
+	}
+	return u
+}
+
+var methodUpper = [13][3]uint8{
+	{1, 3, 1}, {1, 3, 1}, {1, 5, 1}, {1, 3, 1}, {1, 3, 1}, {1, 1, 1},
+	{3, 3, 3}, {3, 3, 3}, {4, 4, 4}, {5, 5, 5}, {3, 3, 3}, {3, 3, 3}, {1, 1, 1},
+}
+var callbackUpper = [13][3]uint8{
+	{3, 3, 3}, {3, 6, 3}, {3, 3, 3}, {3, 9, 3}, {3, 3, 3}, {1, 1, 1},
+	{0, 2, 2}, {0, 2, 2}, {0, 3, 3}, {2, 4, 4}, {0, 2, 2}, {0, 3, 3}, {0, 0, 0},
+}
+
+func caps(d uint8) (uint8, uint8, error) {
+	x, e := frame.Schedule(d)
+	if e != nil {
+		return 0, 0, e
+	}
+	i := x[1]
+	if x[0] == 1 {
+		i += 6
+	}
+	return methodUpper[i][x[2]], callbackUpper[i][x[2]], nil
+}
+
+// VerifyFrozen is pure owned parsing of the entire exact carrier. The untouched
+// full Want/input/caption files stay external: byte pins, not reconstruction,
+// are authoritative. This function assigns no truth/role/weight.
+func VerifyFrozen(freeze, fixtures, captions []byte) error {
+	check := func(b []byte, n int, h string) bool {
+		s := sha256.Sum256(b)
+		return len(b) == n && hex.EncodeToString(s[:]) == h
+	}
+	if !check(freeze, 16071, FreezeSHA) || !check(fixtures, 11940, FixtureSHA) || !check(captions, 3155, CaptionSHA) {
+		return ErrObserver
+	}
+	var carrier struct {
+		Records []struct {
+			RequestOrdinal uint8           `json:"request_ordinal"`
+			FixtureIndex   uint8           `json:"fixture_index"`
+			FixtureID      string          `json:"fixture_id"`
+			Input          json.RawMessage `json:"input"`
+		}
+	}
+	if json.Unmarshal(fixtures, &carrier) != nil || len(carrier.Records) != 13 {
+		return ErrObserver
+	}
+	for i, r := range carrier.Records {
+		if i < 6 {
+			if r.RequestOrdinal != 0 || int(r.FixtureIndex) != i {
+				return ErrObserver
+			}
+			var input struct {
+				Base, Overlay []struct {
+					Name   string
+					Marker uint8
+				}
+				Calls     []int8
+				Merger    string
+				Layer     bool   `json:"layer_error_before_entries"`
+				BaseError bool   `json:"base_error"`
+				Provider  string `json:"provider_read_all"`
+			}
+			if json.Unmarshal(r.Input, &input) != nil {
+				return ErrObserver
+			}
+			u := unionInput(uint8(i))
+			if len(input.Base) != int(u.Base.N) || len(input.Overlay) != int(u.Overlay.N) || len(input.Calls) != int(u.N) || input.Layer != u.LayerError || input.BaseError {
+				return ErrObserver
+			}
+			for j, n := range input.Calls {
+				if n != u.Calls[j] {
+					return ErrObserver
+				}
+			}
+			for side, items := range [][]struct {
+				Name   string
+				Marker uint8
+			}{input.Base, input.Overlay} {
+				v := u.Base
+				if side == 1 {
+					v = u.Overlay
+				}
+				for j, item := range items {
+					if entryNameID(item.Name) != v.V[j].N || item.Marker != v.V[j].M {
+						return ErrObserver
+					}
+				}
+			}
+		} else {
+			if r.RequestOrdinal != 1 || int(r.FixtureIndex) != i-6 {
+				return ErrObserver
+			}
+			var input struct {
+				JSON string `json:"json"`
+			}
+			if json.Unmarshal(r.Input, &input) != nil || !bytes.Equal([]byte(input.JSON), []byte(jsonInputs[i-6])) {
+				return ErrObserver
+			}
+		}
+	}
+	return nil
+}

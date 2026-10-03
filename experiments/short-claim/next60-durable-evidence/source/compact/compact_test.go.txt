@@ -1,0 +1,194 @@
+package compactevidence
+
+import (
+	"encoding/json"
+	frame "riido.local/unionduplicateframe"
+	core "riido.local/unionduplicatenativeprep/core"
+	"testing"
+)
+
+func TestIndependentStateBitsRoundTrip(t *testing.T) {
+	for m := uint8(0); m < 16; m++ {
+		if boolMask(fromMask(m)) != m {
+			t.Fatal(m)
+		}
+	}
+	if boolMask(frame.Bool{A: true}) == boolMask(frame.Bool{A: true, K: true}) {
+		t.Fatal("unknown became false")
+	}
+	if ExecutionGate() != ErrPending {
+		t.Fatal("adoption gate")
+	}
+}
+func TestOwnedSnapshotRoundTripAndIsolation(t *testing.T) {
+	for _, d := range []uint8{0, 18} {
+		x, _ := frame.Schedule(d)
+		r := core.RowResult{Ordinal: d, IDs: x, APIN: 1, CallbackN: 1, SourcePanic: frame.Bool{A: true}}
+		r.API[0] = core.APIOutcome{Entered: true, NativeDispatchKnown: true, NativeDispatched: true, ReturnKnown: true, Returned: true, Panic: frame.Bool{A: true, K: true}, Method: frame.Readdir, DurableOriginalOutcomeAvailable: true}
+		if d == 0 {
+			r.Union.N = 2
+			r.Union.SuffixN = 1
+			r.Union.Suffix[0] = 2
+			r.Union.Reads[0] = core.Read{Call: 0, Count: 1, Known: true, Normal: frame.Bool{A: true, K: true, V: true}, Entries: frame.Entries{A: true, K: true, C: 1, V: [3]frame.Entry{{N: 1, M: 1, L: 1}}}, Error: frame.ErrorFact{A: true, K: true, I: true, V: frame.NilIdentity}}
+			r.Union.Reads[1] = core.Read{Call: 1, Count: -1, Known: true, Entries: frame.Entries{A: true, K: true, N: true}, Error: frame.ErrorFact{A: true, K: true, P: true, I: true, V: frame.EOFIdentity}}
+		} else {
+			r.JSON.Valid = frame.Bool{A: true, K: true, V: true}
+			r.JSON.Published = frame.Bool{A: true, K: true}
+			r.JSON.Error = frame.ErrorFact{A: true, K: true, P: true}
+			r.JSON.N = 1
+			r.JSON.PrefixKnown = false // observed primitive prefix retained even while availability is U
+			r.JSON.Prefix[0] = core.VisitRecord{Visit: frame.Visit{P: 1, K: 2, R: 3, T: 1}, Key: core.Primitive{Type: 3, RawID: 3, DecodedID: 2}, Value: core.Primitive{Type: 2, RawID: 4}}
+			r.JSON.ViewN = 1
+			r.JSON.View[0] = core.ViewEntry{Path: 1, Key: 2, Value: core.Primitive{Type: 2, RawID: 4}}
+			r.JSON.ViewKnown = false
+			r.JSON.Path = frame.Small{A: true, K: true, N: true}
+		}
+		refs := []uint16{7}
+		p, e := Snapshot(r, refs)
+		if e != nil {
+			t.Fatal(e)
+		}
+		refs[0] = 8
+		got, e := Expand(p)
+		if e != nil || got != r || p.A[0].Q != 7 {
+			t.Fatal("state/order/nil/unknown/reference loss")
+		}
+		if p.U != nil {
+			p.U.R[0].D.V[0][0] = 3
+			if r.Union.Reads[0].Entries.V[0].N != 1 {
+				t.Fatal("alias")
+			}
+		}
+		if p.J != nil {
+			p.J.P[0].K[2] = 6
+			if r.JSON.Prefix[0].Key.RawID != 3 {
+				t.Fatal("alias")
+			}
+		}
+	}
+}
+func TestNonneutralPaddingAndLateLifecycleAreRejected(t *testing.T) {
+	x, _ := frame.Schedule(0)
+	base := core.RowResult{IDs: x}
+	for _, change := range []func(*core.RowResult){
+		func(r *core.RowResult) { r.AckKnown = true },
+		func(r *core.RowResult) { r.Invocation.Normal = frame.Bool{A: true} },
+		func(r *core.RowResult) { r.Union.Reads[4].Known = true },
+		func(r *core.RowResult) { r.Union.Reads[0].Entries.C = 4; r.Union.N = 1 },
+		func(r *core.RowResult) { r.API[4].Entered = true },
+		func(r *core.RowResult) { r.JSON.Valid = frame.Bool{A: true} },
+	} {
+		r := base
+		change(&r)
+		if _, e := Snapshot(r, nil); e == nil {
+			t.Fatal("discarded nonneutral field")
+		}
+	}
+}
+func maximumClosedRow(d uint8) Row {
+	x, _ := frame.Schedule(d)
+	r := Row{D: d, X: x, A: make([]API, 5), C: 255, P: 15}
+	for i := range r.A {
+		r.A[i] = API{M: 255, B: 63, P: 15, Q: 65535}
+	}
+	if d < 18 {
+		u := &Union{R: make([]Read, 5), C: 15, S: 15, D: 15, U: []uint8{255, 255, 255, 255, 255}}
+		for i := range u.R {
+			u.R[i] = Read{C: 255, N: -128, O: [2]uint8{15, 15}, D: Entries{M: 7, V: [][3]uint8{{255, 255, 255}, {255, 255, 255}, {255, 255, 255}}}, E: Error{15, 255}}
+		}
+		r.U = u
+	} else {
+		j := &JSON{B: [6]uint8{15, 15, 15, 15, 15, 15}, E: Error{15, 255}, O: [3]Small{{7, 255}, {7, 255}, {7, 255}}, P: make([]Visit, 4), V: make([]View, 6)}
+		for i := range j.P {
+			j.P[i] = Visit{[5]uint8{255, 255, 255, 255, 255}, [4]uint8{255, 255, 255, 255}, [4]uint8{255, 255, 255, 255}}
+		}
+		for i := range j.V {
+			j.V[i] = View{255, 255, [4]uint8{255, 255, 255, 255}}
+		}
+		r.J = j
+	}
+	return r
+}
+func TestClosedMaximumBytesAndRowLimits(t *testing.T) {
+	// Invalid numeric/semantic supersets dominate every possible valid closed
+	// row representation. This is byte evidence, not corpus or native evidence.
+	maxUnion, maxJSON, total := 0, 0, HeaderFooterReserve
+	for d := uint8(0); d < 39; d++ {
+		r := maximumClosedRow(d)
+		b, e := json.Marshal(r)
+		if e != nil {
+			t.Fatal(e)
+		}
+		line := len(b) + 1
+		total += line
+		if line > RowLineMax {
+			t.Fatalf("row line %d >%d", line, RowLineMax)
+		}
+		if d < 18 && line > maxUnion {
+			maxUnion = line
+		}
+		if d >= 18 && line > maxJSON {
+			maxJSON = line
+		}
+	}
+	if total > WholeEvidenceMax {
+		t.Fatal("whole evidence bound", total)
+	}
+	t.Logf("closed superset LF-inclusive maxima: union=%d JSON=%d, 39 rows+4096 header/footer=%d <=65536", maxUnion, maxJSON, total)
+	r := maximumClosedRow(0)
+	r.U.R = append(r.U.R, Read{})
+	if _, e := EncodeRow(r); e == nil {
+		t.Fatal("read count overflow")
+	}
+	r = maximumClosedRow(18)
+	r.J.V = append(r.J.V, View{})
+	if _, e := EncodeRow(r); e == nil {
+		t.Fatal("view count overflow")
+	}
+}
+func benchmarkInput() core.RowResult {
+	x, _ := frame.Schedule(0)
+	r := core.RowResult{IDs: x, APIN: 1, SourcePanic: frame.Bool{A: true}}
+	r.API[0] = core.APIOutcome{Entered: true, NativeDispatched: true, NativeDispatchKnown: true, Returned: true, ReturnKnown: true, Method: frame.Readdir}
+	r.Union.N = 2
+	r.Union.Reads[0] = core.Read{Count: 1, Known: true, Normal: frame.Bool{A: true, K: true, V: true}, Entries: frame.Entries{A: true, K: true, C: 1, V: [3]frame.Entry{{N: 1, M: 1, L: 1}}}, Error: frame.ErrorFact{A: true, K: true, I: true, V: frame.NilIdentity}}
+	r.Union.Reads[1] = core.Read{Call: 1, Count: -1, Known: true, Entries: frame.Entries{A: true, K: true, N: true}, Error: frame.ErrorFact{A: true, K: true, P: true, I: true, V: frame.EOFIdentity}}
+	return r
+}
+func BenchmarkOwnedPaddedRow(b *testing.B) {
+	r := benchmarkInput()
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if _, e := json.Marshal(r); e != nil {
+			b.Fatal(e)
+		}
+	}
+}
+func BenchmarkOwnedCompactRow(b *testing.B) {
+	r, e := Snapshot(benchmarkInput(), []uint16{7})
+	if e != nil {
+		b.Fatal(e)
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if _, e := EncodeRow(r); e != nil {
+			b.Fatal(e)
+		}
+	}
+}
+func BenchmarkOwnedCompactSnapshotAndEncode(b *testing.B) {
+	r := benchmarkInput()
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		v, e := Snapshot(r, []uint16{7})
+		if e != nil {
+			b.Fatal(e)
+		}
+		if _, e = EncodeRow(v); e != nil {
+			b.Fatal(e)
+		}
+	}
+}

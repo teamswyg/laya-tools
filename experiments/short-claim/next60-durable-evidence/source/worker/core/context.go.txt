@@ -1,0 +1,278 @@
+package core
+
+import (
+	"io"
+	frame "riido.local/unionduplicateframe"
+)
+
+type context struct {
+	w                      *frame.Writer
+	d                      uint8
+	api                    API
+	row                    RowResult
+	methodAfter            [5]uint16 // reservation order, not AFTER sequence order
+	methodMax, callbackMax uint8
+	fail                   error
+	ownFault               bool
+}
+
+func (c *context) fault() {
+	c.ownFault = true
+	if c.fail == nil {
+		c.fail = ErrObserver
+	}
+}
+func (c *context) direct(m frame.MethodID, fn func(mark func(bool)) frame.Facts) (frame.Facts, bool) {
+	if c.fail != nil || c.row.APIN >= c.methodMax || c.row.APIN >= 5 {
+		c.fault()
+		return frame.Facts{}, false
+	}
+	i := c.row.APIN
+	c.row.APIN++
+	c.row.API[i].Method = m
+	f, e := c.w.Call(frame.Method, c.d, m, 0, func() frame.Facts {
+		c.row.API[i].Entered = true
+		c.row.API[i].NativeDispatchKnown = true
+		return c.invoke(&c.row.API[i], fn)
+	})
+	if e != nil {
+		c.fail = e
+		return frame.Facts{}, false
+	}
+	// The enclosing method's AFTER can follow an inner method's AFTER. Save
+	// this matching ACK immediately at the slot reserved before either call.
+	q, e := c.w.MethodAfterReference()
+	if e != nil {
+		c.fault()
+		return frame.Facts{}, false
+	}
+	c.methodAfter[i] = q
+	// Only a matching AFTER ACK makes this worker's original-outcome marker
+	// acknowledged. A controller may separately retain a durable-only frame.
+	c.row.API[i].DurableOriginalOutcomeAvailable = f.Source.A
+	// The wire retained Source before this copy. Domain facts can be reused by
+	// a caller's candidate/row boundary, where method-only Source is invalid.
+	f.Source = frame.OriginalCall{}
+	if c.fail != nil {
+		return f, false
+	}
+	if !c.row.API[i].NativeDispatched || !c.row.API[i].ReturnKnown || !c.row.API[i].Returned {
+		c.fault()
+		return f, false
+	}
+	if c.ownFault {
+		return f, false
+	}
+	return f, true
+}
+
+// invoke finishes marker classification before Writer emits AFTERMethod.
+// The binding must place mark(false) immediately before the original call and
+// mark(true) immediately after it, with no intervening owned operation. This
+// is an instrumentation contract, not proof of native provenance or coverage.
+// A completion sentinel also handles panic(nil) with GODEBUG=panicnil=1.
+func (c *context) invoke(a *APIOutcome, fn func(mark func(bool)) frame.Facts) (out frame.Facts) {
+	completed := false
+	defer func() {
+		interrupted := !completed
+		if interrupted {
+			_ = recover() // Never inspect or format an original panic value.
+			out = frame.Facts{}
+		}
+		s := frame.OriginalCall{A: true, Entered: known(true), Dispatched: known(a.NativeDispatched)}
+		sourcePanic := false
+		switch {
+		case a.ReturnKnown && a.Returned:
+			s.Returned, s.Panicked = known(true), known(false)
+		case !a.NativeDispatched:
+			s.Returned, s.Panicked = known(false), known(false)
+		case interrupted && !c.ownFault:
+			// Valid only under the reviewed immediate-marker binding above.
+			s.Returned, s.Panicked = known(false), known(true)
+			sourcePanic = true
+			c.row.SourcePanic = known(true)
+			if c.fail == nil {
+				c.fail = ErrSourcePanic
+			}
+		default:
+			// A missing return marker or owned callback interruption does not
+			// establish an original return/panic. Keep both values unknown.
+			s.Returned, s.Panicked = frame.Bool{A: true}, frame.Bool{A: true}
+		}
+		s.Copied = known(completed && a.ReturnKnown && a.Returned && !c.ownFault)
+		out.Source = s
+		a.Panic, a.ReturnKnown, a.Returned = s.Panicked, s.Returned.K, s.Returned.V
+		if interrupted && !sourcePanic {
+			c.fault()
+		}
+	}()
+	out = fn(func(returned bool) {
+		if returned {
+			if !a.NativeDispatched || a.ReturnKnown {
+				c.fault()
+				panic(ErrObserver)
+			}
+			a.Returned, a.ReturnKnown = true, true
+			return
+		}
+		if a.NativeDispatched || a.ReturnKnown {
+			c.fault()
+			panic(ErrObserver)
+		}
+		a.NativeDispatched = true
+	})
+	completed = true
+	return out
+}
+func (c *context) callback(k frame.CallbackID, fn func() frame.Facts) (frame.Facts, bool) {
+	if c.fail != nil || c.row.CallbackN >= c.callbackMax {
+		c.fault()
+		return frame.Facts{}, false
+	}
+	f, e := c.w.Call(frame.Callback, c.d, 0, k, func() frame.Facts { c.row.CallbackN++; return fn() })
+	if e != nil {
+		c.fail = e
+		return frame.Facts{}, false
+	}
+	if f.Panic.K && f.Panic.V {
+		c.fault()
+		return f, false
+	}
+	return f, c.fail == nil
+}
+func errorFact(e error) frame.ErrorFact {
+	if e == nil {
+		return frame.ErrorFact{A: true, K: true, I: true, V: frame.NilIdentity}
+	}
+	v := frame.ErrorFact{A: true, K: true, P: true}
+	switch e {
+	case io.EOF:
+		v.I = true
+		v.V = frame.EOFIdentity
+	case ErrLayer:
+		v.I = true
+		v.V = frame.LayerCauseIdentity
+	case ErrDuplicate:
+		v.I = true
+		v.V = frame.DuplicateIdentity
+	case ErrInvalidJSON:
+		v.I = true
+		v.V = frame.InvalidJSONIdentity
+	}
+	// Other original identity stays unknown; no inference from error text/type.
+	return v
+}
+func entriesFact(v InfoList) frame.Entries {
+	return frame.Entries{A: true, K: true, N: v.Nil, C: v.N, V: v.V}
+}
+func rawString(v Value) string { return string(v.Raw[:v.RawN]) }
+func strString(v Value) string { return string(v.Str[:v.StrN]) }
+func keyID(s string) uint8 {
+	switch s {
+	case "":
+		return 1
+	case "a":
+		return 2
+	case "b":
+		return 3
+	case "k":
+		return 4
+	case "outer":
+		return 5
+	case "z":
+		return 6
+	}
+	return 0
+}
+func rawKeyID(s string) uint8 {
+	switch s {
+	case "\"\"":
+		return 1
+	case "\"a\"":
+		return 2
+	case "\"\\u0061\"":
+		return 3
+	case "\"b\"":
+		return 4
+	case "\"k\"":
+		return 5
+	case "\"outer\"":
+		return 6
+	case "\"z\"":
+		return 7
+	}
+	return 0
+}
+func rawValueID(s string) uint8 {
+	switch s {
+	case "":
+		return 1
+	case "0":
+		return 2
+	case "1":
+		return 3
+	case "2":
+		return 4
+	case "3":
+		return 5
+	case "{\"k\":1,\"k\":2}":
+		return 6
+	case "{\"a\":1}":
+		return 7
+	case "{\"a\":2}":
+		return 8
+	case "{\"a\":1,\"\\u0061\":2}":
+		return 9
+	case "{\"a\":1,\"b\":2}":
+		return 10
+	case "{\"outer\":{\"k\":1,\"k\":2}}":
+		return 11
+	case "[{\"a\":1},{\"a\":2}]":
+		return 12
+	case "{\"\":0,\"\":1}":
+		return 13
+	case "{\"a\":1,\"a\":2,\"z\":3}":
+		return 14
+	}
+	return 0
+}
+func primitive(v Value, key bool) (Primitive, bool) {
+	if v.RawN > 128 || v.StrN > 32 || v.Type > 5 || v.Index > 128 {
+		return Primitive{}, false
+	}
+	p := Primitive{Type: v.Type, Index: v.Index}
+	if key {
+		p.RawID = rawKeyID(rawString(v))
+		p.DecodedID = keyID(strString(v))
+		if v.Type == 2 && v.RawN == 0 {
+			p.RawID = 1
+			p.DecodedID = 0
+			return p, true
+		}
+		return p, p.RawID != 0 && p.DecodedID != 0
+	}
+	p.RawID = rawValueID(rawString(v))
+	return p, p.RawID != 0
+}
+func prefixFacts(s JSONState) frame.Visits {
+	v := frame.Visits{A: s.PrefixKnown, K: s.PrefixKnown, C: s.N}
+	if !s.PrefixKnown {
+		return frame.Visits{}
+	}
+	for i := uint8(0); i < s.N; i++ {
+		v.V[i] = s.Prefix[i].Visit
+	}
+	return v
+}
+
+func entryNameID(s string) uint8 {
+	switch s {
+	case "a":
+		return 1
+	case "b":
+		return 2
+	case "c":
+		return 3
+	}
+	return 0
+}

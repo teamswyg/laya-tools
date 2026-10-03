@@ -1,0 +1,162 @@
+package core
+
+import (
+	"encoding/json"
+	"io"
+	frame "riido.local/unionduplicateframe"
+)
+
+// The legacy padded shape is retained for diagnostics and rejected if it exceeds
+// the fixed retained result reserve. Actual adoption needs a compact controller
+// result derived from observable journal facts; no larger budget is implied.
+const ResultMaxBytes = 65536
+
+// Run rejects the legacy padded execution entry point under evidence wire3.
+// Its diagnostic DTO and CanonicalResult remain available; no legacy invocation
+// may silently omit candidate row/file binding or execute the supplied factory.
+func Run(_ io.Writer, _ frame.ReadAck, _ Factory, _, _, _ []byte) (Result, error) {
+	r := Result{Schema: "riido-union-duplicate-observer-proposed-v1", Pins: frame.Pins{Freeze: FreezeSHA, Fixtures: FixtureSHA, Captions: CaptionSHA}}
+	return r, ErrLegacyRun
+}
+
+// RunEvidence is an injected owned observer, not a native execution gate, CLI,
+// subprocess or filesystem writer. The caller must supply the admitted sink,
+// externally durable ACKs and separately reviewed original-marker binding.
+// Factory construction is owned fixture setup; imported package init is unknown.
+func RunEvidence(out io.Writer, ack frame.ReadAck, factory Factory, sink EvidenceSink, freeze, fixtures, captions []byte) (EvidenceSummary, error) {
+	r := EvidenceSummary{Schema: "riido-union-duplicate-evidence-proposed-v1", Pins: frame.Pins{Freeze: FreezeSHA, Fixtures: FixtureSHA, Captions: CaptionSHA}}
+	if VerifyFrozen(freeze, fixtures, captions) != nil || factory == nil || sink == nil {
+		return r, ErrObserver
+	}
+	w, e := frame.New(out, ack, r.Pins)
+	if e != nil {
+		return r, e
+	}
+	update := func() {
+		s := w.Status()
+		r.Prefix, r.EffectMayHaveOccurred = s.Acknowledged, s.EffectMayHaveOccurred
+		r.EvidenceAttempted, r.CommittedRows, r.CommittedEnd = s.EvidenceAttempted, s.CommittedRows, s.CommittedEnd
+	}
+	finish := func(complete bool, reason frame.Stop) error {
+		r.FileAttempted = true
+		ref, e := finishEvidence(sink, complete)
+		if e != nil {
+			update()
+			return e
+		}
+		// Keep the summary bounded even when an injected sink is incorrect.
+		if ref.N == 0 || ref.N > frame.MaxFileBytes || ref.C > frame.MaxRows || !frame.Hex64(ref.H) {
+			update()
+			return frame.ErrEvidence
+		}
+		r.File, r.FileReferenceAvailable = ref, true
+		e = w.FinishWithEvidence(complete, reason, ref)
+		update()
+		if e == nil && complete {
+			r.Complete = true
+		}
+		return e
+	}
+	if e = w.Ready(); e != nil {
+		update()
+		return r, e
+	}
+	for d := uint8(0); d < 39; d++ {
+		x, _ := frame.Schedule(d)
+		m, k, _ := caps(d)
+		c := context{w: w, d: d, methodMax: m, callbackMax: k, row: RowResult{Ordinal: d, IDs: x}}
+		f, e := w.Call(frame.Row, d, 0, 0, func() frame.Facts {
+			c.api = factory(c.fault)
+			if c.api == nil {
+				c.fault()
+				return frame.Facts{}
+			}
+			cf, ce := w.CallCandidate(d, func() frame.Facts {
+				if x[0] == 0 {
+					return c.union(x[1], x[2])
+				}
+				return c.duplicate(x[1], x[2])
+			}, func() (frame.RowCommit, error) {
+				// Capture exactly here, after normal candidate body return and
+				// before AFTER. Later Invocation/AckKnown must still be zero.
+				c.row.ObserverFault = c.ownFault
+				// A normal body does not establish a known-false original panic.
+				// Keep SourcePanic U unless invoke observed a bound source panic.
+				return sink.CommitRow(c.row, c.methodAfter)
+			})
+			if ce != nil {
+				c.fail = ce
+				return frame.Facts{}
+			}
+			c.row.Invocation = cf
+			if cf.Panic.K && cf.Panic.V && c.fail == nil {
+				c.fault()
+			}
+			return cf
+		})
+		c.row.ObserverFault = c.ownFault
+		if e == nil {
+			c.row.AckKnown = true
+			r.Completed++
+			if f.Panic.K && f.Panic.V && c.fail == nil {
+				c.fault()
+				c.row.ObserverFault = true
+			}
+		}
+		update()
+		if e != nil {
+			return r, e
+		}
+		if c.fail != nil {
+			reason := frame.ObserverStop
+			if c.fail == ErrSourcePanic {
+				reason = frame.SourceStop
+			}
+			// A clean acknowledged source panic can finalize an incomplete run.
+			// A sticky transport failure cannot be reset or retried here.
+			fe := finish(false, reason)
+			if fe != nil {
+				return r, fe
+			}
+			return r, c.fail
+		}
+	}
+	if e = finish(true, frame.NoStop); e != nil {
+		return r, e
+	}
+	return r, nil
+}
+
+// Finish runs outside CallCandidate's hook guard. Preserve panic(nil) as an owned
+// evidence interruption, without emitting FINAL, retrying or formatting values.
+func finishEvidence(sink EvidenceSink, complete bool) (ref frame.FileCommit, err error) {
+	returned := false
+	defer func() {
+		if !returned {
+			_ = recover()
+			ref, err = frame.FileCommit{}, frame.ErrEvidence
+		}
+	}()
+	ref, err = sink.FinishEvidence(complete)
+	returned = true
+	if err != nil {
+		return frame.FileCommit{}, frame.ErrEvidence
+	}
+	return ref, nil
+}
+
+// Result encoding is separate from frame writing and has its own prospective
+// bound. No file creation, Sync, stdout identity or external final ACK is implied.
+func CanonicalResult(r Result) ([]byte, error) {
+	if r.Schema != "riido-union-duplicate-observer-proposed-v1" || r.Startup != nil || r.Nested != nil || r.OriginalOutcomeTransportAvailable || r.Completed > 39 {
+		return nil, ErrObserver
+	}
+	if r.Complete && (r.Completed != 39 || r.Prefix.Counts[frame.Row][1] != 39 || r.Prefix.Counts[frame.Candidate][1] != 39) {
+		return nil, ErrObserver
+	}
+	b, e := json.Marshal(r)
+	if e != nil || len(b) > ResultMaxBytes {
+		return nil, ErrObserver
+	}
+	return b, nil
+}

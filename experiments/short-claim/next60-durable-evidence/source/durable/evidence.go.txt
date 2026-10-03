@@ -1,0 +1,227 @@
+// SPDX-License-Identifier: Apache-2.0
+package durable
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"io"
+	ce "riido.local/compactevidenceprototype"
+	ef "riido.local/evidencefileprototype"
+	f "riido.local/unionduplicateframe"
+)
+
+// These upper bounds are copied from the independently frozen 13 fixture/3
+// display schedule. They constrain observation volume, not semantic Wants.
+var methodUpper = [13][3]uint8{
+	{1, 3, 1}, {1, 3, 1}, {1, 5, 1}, {1, 3, 1}, {1, 3, 1}, {1, 1, 1},
+	{3, 3, 3}, {3, 3, 3}, {4, 4, 4}, {5, 5, 5}, {3, 3, 3}, {3, 3, 3}, {1, 1, 1},
+}
+var callbackUpper = [13][3]uint8{
+	{3, 3, 3}, {3, 6, 3}, {3, 3, 3}, {3, 9, 3}, {3, 3, 3}, {1, 1, 1},
+	{0, 2, 2}, {0, 2, 2}, {0, 3, 3}, {2, 4, 4}, {0, 2, 2}, {0, 3, 3}, {0, 0, 0},
+}
+var unionCalls = [6][5]int8{{1, 0, 1}, {0, 1, 0}, {1, 1, 1, 1, 1}, {0, 1, 0}, {2, -1, 2}, {1, 0, 1}}
+var unionN = [6]uint8{3, 3, 5, 3, 3, 3}
+
+func FixtureCaps(d uint8) (methods, callbacks uint8, ok bool) {
+	x, e := f.Schedule(d)
+	if e != nil {
+		return 0, 0, false
+	}
+	i := x[1]
+	if x[0] == 1 {
+		i += 6
+	}
+	return methodUpper[i][x[2]], callbackUpper[i][x[2]], true
+}
+
+// EvidenceReader is a read-only capability supplied by the outside caller.
+// It never opens, writes, deletes, reconstructs, retries or invokes a getter.
+// A byte match attests to transport correspondence, never native provenance.
+type EvidenceReader struct {
+	r      io.ReaderAt
+	pins   f.Pins
+	header []byte
+}
+
+func NewEvidenceReader(r io.ReaderAt, p f.Pins) (*EvidenceReader, error) {
+	if r == nil || !f.Hex64(p.Freeze) || !f.Hex64(p.Fixtures) || !f.Hex64(p.Captions) {
+		return nil, ErrEvidence
+	}
+	h := struct {
+		V uint8   `json:"v"`
+		P ef.Pins `json:"p"`
+	}{ef.Version, ef.Pins{Freeze: p.Freeze, Fixtures: p.Fixtures, Captions: p.Captions}}
+	b, e := json.Marshal(h)
+	if e != nil || len(b)+1 > ef.MaxEnvelope {
+		return nil, ErrEvidence
+	}
+	b = append(b, '\n')
+	return &EvidenceReader{r: r, pins: p, header: b}, nil
+}
+func digest(b []byte) string { h := sha256.Sum256(b); return hex.EncodeToString(h[:]) }
+func mask(b f.Bool) uint8 {
+	var m uint8
+	for i, v := range [4]bool{b.A, b.K, b.N, b.V} {
+		if v {
+			m |= 1 << i
+		}
+	}
+	return m
+}
+
+// exactAt rejects impossible counts and a short successful read. A ReaderAt
+// contract violation must not turn a zero-progress read into an unbounded loop.
+func exactAt(r io.ReaderAt, p []byte, offset int64) error {
+	n, e := r.ReadAt(p, offset)
+	if e != nil || n != len(p) {
+		return ErrEvidence
+	}
+	return nil
+}
+
+type checkedAt struct{ r io.ReaderAt }
+
+func (c checkedAt) ReadAt(p []byte, o int64) (int, error) {
+	n, e := c.r.ReadAt(p, o)
+	if n < 0 || n > len(p) || n < len(p) && e == nil {
+		return 0, ErrEvidence
+	}
+	return n, e
+}
+func (e *EvidenceReader) CheckRow(v f.Frame, c RowContext) (err error) {
+	completed := false
+	defer func() {
+		if !completed {
+			_ = recover()
+			err = ErrEvidence
+		}
+	}()
+	err = e.checkRow(v, c)
+	completed = true
+	return err
+}
+func (e *EvidenceReader) checkRow(v f.Frame, c RowContext) error {
+	if e == nil || e.r == nil || v.K != f.AfterCandidate || v.R == nil || v.F == nil || !v.F.Normal.A || !v.F.Normal.K || !v.F.Normal.V || v.F.Normal.N || v.F.Panic.V {
+		return ErrEvidence
+	}
+	ref := *v.R
+	if ref.N < 2 || ref.N > f.MaxRowBytes || ref.O == 0 || ref.O > f.MaxFileBytes || uint32(ref.N) > uint32(f.MaxFileBytes)-ref.O || !f.Hex64(ref.H) {
+		return ErrEvidence
+	}
+	if c.D != v.D || c.X != v.X || c.Candidate == 0 || v.S != c.Candidate {
+		return ErrEvidence
+	}
+	if c.ExpectedOffset == 0 {
+		if ref.O != uint32(len(e.header)) {
+			return ErrEvidence
+		}
+		var h [ef.MaxEnvelope]byte
+		if exactAt(e.r, h[:len(e.header)], 0) != nil || !bytes.Equal(h[:len(e.header)], e.header) {
+			return ErrEvidence
+		}
+	} else if ref.O != c.ExpectedOffset {
+		return ErrEvidence
+	}
+	var buf [f.MaxRowBytes]byte
+	line := buf[:ref.N]
+	if exactAt(e.r, line, int64(ref.O)) != nil || line[len(line)-1] != '\n' || digest(line[:len(line)-1]) != ref.H {
+		return ErrEvidence
+	}
+	row, x := ce.DecodeRow(line[:len(line)-1])
+	if x != nil {
+		return ErrEvidence
+	}
+	if row.D != v.D || row.X != v.X || len(row.A) != int(c.MethodN) || row.C != c.CallbackN {
+		return ErrEvidence
+	}
+	mm, cm, ok := FixtureCaps(v.D)
+	if !ok || c.MethodN > mm || c.CallbackN > cm {
+		return ErrEvidence
+	}
+	sourcePanic := false
+	for i, a := range row.A {
+		if a.Q == 0 || a.Q > f.MaxFrames || c.AfterSlots[a.Q] != uint8(i+1) {
+			return ErrEvidence
+		}
+		m := c.Methods[i]
+		if m.Before == 0 || m.After != a.Q || m.Before >= m.After || m.After >= v.Q || m.D != v.D || m.X != v.X || m.Method != a.M || m.Candidate != v.S {
+			return ErrEvidence
+		}
+		// The row covers every reservation exactly once; no sorted-Q assumption.
+		for j := 0; j < i; j++ {
+			if row.A[j].Q == a.Q {
+				return ErrEvidence
+			}
+		}
+		if m.Source.A {
+			var expected uint8
+			for bit, value := range [6]bool{m.Source.Entered.K && m.Source.Entered.V, m.Source.Dispatched.K && m.Source.Dispatched.V, m.Source.Dispatched.K, m.Source.Returned.K && m.Source.Returned.V, m.Source.Returned.K, true} {
+				if value {
+					expected |= 1 << bit
+				}
+			}
+			if a.B != expected || a.P != mask(m.Source.Panicked) {
+				return ErrEvidence
+			}
+			if m.Source.Panicked.A && m.Source.Panicked.K && m.Source.Panicked.V {
+				sourcePanic = true
+			}
+		} else if a.B&32 != 0 {
+			return ErrEvidence
+		}
+	}
+	// A normal row's false SourcePanic is created only after later ROW ACK in
+	// the legacy observer. This pre-AFTERcandidate payload must retain U.
+	if row.P == 3 || sourcePanic && row.P != 11 || !sourcePanic && row.P == 11 {
+		return ErrEvidence
+	}
+	if row.U != nil {
+		total := unionN[v.X[1]]
+		if len(row.U.R) > int(total) {
+			return ErrEvidence
+		}
+		for i, q := range row.U.R {
+			if q.C != uint8(i) || q.N != unionCalls[v.X[1]][i] {
+				return ErrEvidence
+			}
+		}
+		for _, q := range row.U.U {
+			if q >= total {
+				return ErrEvidence
+			}
+		}
+		if row.U.C == 11 && len(row.U.R) != int(total) {
+			return ErrEvidence
+		}
+	}
+	return nil
+}
+func (e *EvidenceReader) CheckFinal(v f.Frame, refs []ef.RowRef) (err error) {
+	completed := false
+	defer func() {
+		if !completed {
+			_ = recover()
+			err = ErrEvidence
+		}
+	}()
+	err = e.checkFinal(v, refs)
+	completed = true
+	return err
+}
+func (e *EvidenceReader) checkFinal(v f.Frame, refs []ef.RowRef) error {
+	if e == nil || e.r == nil || v.K != f.Final || v.E == nil || v.Z == nil || v.B == nil || *v.B != e.pins || int(v.E.C) != len(refs) {
+		return ErrEvidence
+	}
+	p := ef.Pins{Freeze: e.pins.Freeze, Fixtures: e.pins.Fixtures, Captions: e.pins.Captions}
+	// SectionReader exposes up to MaxFile+1, not just the declared FINAL length:
+	// extra/truncated bytes and a mismatching footer cannot be concealed by a cap.
+	reader := io.NewSectionReader(checkedAt{e.r}, 0, ef.MaxFile+1)
+	out, x := ef.Check(reader, p, refs, ef.FileRef{Bytes: v.E.N, SHA256: v.E.H})
+	if x != nil || out.Count != v.E.C || out.Complete != v.Z.Complete {
+		return ErrEvidence
+	}
+	return nil
+}
