@@ -1,0 +1,276 @@
+// SPDX-License-Identifier: Apache-2.0
+// Owned outside controller. Original calls occur only inside a separately pinned
+// worker. A successful receipt is transport/lifecycle evidence, not Wants, model
+// quality, independent-family qualification, or training/publication authority.
+package main
+
+import (
+	"encoding/json"
+	"errors"
+	"flag"
+	"io"
+	"os"
+	"time"
+
+	f "riido.local/unionduplicateframe"
+	core "riido.local/unionduplicatenativeprep/core"
+	d "riido.local/uniondurable"
+)
+
+const workerCap = 6 << 20
+const stderrCap = 32768
+const summaryCap = 4096
+const receiptCap = 4096
+
+type code string
+
+func (c code) Error() string { return string(c) }
+
+type Config struct {
+	Worker, WorkerSHA, Evidence, Journal, Summary string
+	Freeze, Fixtures, Captions, Stderr            string
+	Deadline                                      time.Duration
+}
+
+func readConfig(args []string) (Config, error) {
+	var c Config
+	s := flag.NewFlagSet("owned-controller", flag.ContinueOnError)
+	s.SetOutput(io.Discard)
+	s.StringVar(&c.Worker, "worker", "", "canonical retained executable")
+	s.StringVar(&c.WorkerSHA, "worker-sha", "", "exact lowercase SHA-256")
+	s.StringVar(&c.Evidence, "evidence", "", "fresh private evidence file")
+	s.StringVar(&c.Journal, "journal", "", "fresh private journal")
+	s.StringVar(&c.Summary, "summary", "", "fresh child summary")
+	s.StringVar(&c.Freeze, "freeze", "", "pinned literal freeze")
+	s.StringVar(&c.Fixtures, "fixtures", "", "pinned fixtures")
+	s.StringVar(&c.Captions, "captions", "", "pinned captions")
+	s.StringVar(&c.Stderr, "stderr", "", "optional fresh private bounded stderr file")
+	s.DurationVar(&c.Deadline, "max-runtime", 120*time.Second, "positive duration no more than 120s")
+	if s.Parse(args) != nil || s.NArg() != 0 || c.Deadline <= 0 || c.Deadline > 120*time.Second || !f.Hex64(c.WorkerSHA) {
+		return c, code("config_rejected")
+	}
+	return c, nil
+}
+
+type ReceiverReceipt struct {
+	Sequence      uint16   `json:"sequence"`
+	Counts        f.Counts `json:"counts"`
+	ACKs          uint16   `json:"acks"`
+	Rows          uint8    `json:"rows"`
+	End           uint32   `json:"end"`
+	Complete      bool     `json:"complete"`
+	GenuineEOF    bool     `json:"genuine_eof"`
+	Stopped       bool     `json:"stopped"`
+	VerifiedRows  uint8    `json:"verified_rows"`
+	VerifiedEnd   uint32   `json:"verified_end"`
+	VerifiedFinal bool     `json:"verified_final"`
+}
+
+type Receipt struct {
+	Schema                 string          `json:"schema"`
+	Complete               bool            `json:"complete"`
+	Failure                string          `json:"failure"`
+	Pins                   f.Pins          `json:"pins"`
+	WorkerSHA              string          `json:"worker_sha256"`
+	WorkerBytes            int64           `json:"worker_bytes"`
+	WorkerAfterMatches     bool            `json:"worker_after_matches"`
+	SelfSHA                string          `json:"self_sha256"`
+	SelfBytes              int64           `json:"self_bytes"`
+	SelfGoVersion          string          `json:"self_go_version"`
+	SelfBuildInfoSHA       string          `json:"self_build_info_sha256"`
+	SelfAfterMatches       bool            `json:"self_after_matches"`
+	Process                ProcessReceipt  `json:"process"`
+	Receiver               ReceiverReceipt `json:"receiver"`
+	Journal                d.JournalStatus `json:"journal"`
+	JournalCloseAttempted  bool            `json:"journal_close_attempted"`
+	JournalCloseSucceeded  bool            `json:"journal_close_succeeded"`
+	EvidenceOpenAttempts   uint8           `json:"evidence_open_attempts"`
+	EvidenceCloseAttempted bool            `json:"evidence_close_attempted"`
+	EvidenceCloseSucceeded bool            `json:"evidence_close_succeeded"`
+	SummaryVerified        bool            `json:"summary_verified"`
+	SummaryBytes           int             `json:"summary_bytes"`
+	SummarySHA             string          `json:"summary_sha256"`
+	FinalFile              f.FileCommit    `json:"final_file"`
+	StderrBytes            int             `json:"stderr_bytes"`
+	StderrSHA              string          `json:"stderr_sha256"`
+	StderrSaved            bool            `json:"stderr_saved"`
+	Startup                *uint64         `json:"startup_original_calls"`
+	Nested                 *uint64         `json:"nested_original_calls"`
+	Scope                  string          `json:"scope"`
+}
+
+func firstFailure(r *Receipt, e error) {
+	if e == nil || r.Failure != "" {
+		return
+	}
+	var v code
+	if errors.As(e, &v) {
+		r.Failure = string(v)
+	} else {
+		r.Failure = "owned_operation_failed"
+	}
+}
+
+func fromReceiver(v d.Receipt) ReceiverReceipt {
+	return ReceiverReceipt{
+		Sequence: v.Acknowledged.Sequence(), Counts: v.Acknowledged.Counts(), ACKs: v.ACKs,
+		Rows: v.Acknowledged.EvidenceRows(), End: v.Acknowledged.EvidenceEnd(), Complete: v.Acknowledged.Complete(),
+		GenuineEOF: v.GenuineEOF, Stopped: v.Stopped, VerifiedRows: v.VerifiedRows,
+		VerifiedEnd: v.VerifiedEnd, VerifiedFinal: v.VerifiedFinal,
+	}
+}
+
+func collect(c Config) (r Receipt) {
+	r = Receipt{
+		Schema: "native-wire3-controller-actual-v1",
+		Pins:   f.Pins{Freeze: core.FreezeSHA, Fixtures: core.FixtureSHA, Captions: core.CaptionSHA},
+		Scope:  "Owned transport and one pinned child. GOMEMLIMIT=64MiB is advisory. Darwin Rusage Maxrss is bytes after Wait. No GPU, model quality, Wants, startup/nested count, or independent-family claim.",
+	}
+	if e := validateConfigPaths(c); e != nil {
+		firstFailure(&r, e)
+		return
+	}
+	freeze, e := readPinned(c.Freeze, 16071, core.FreezeSHA)
+	if e != nil {
+		firstFailure(&r, e)
+		return
+	}
+	fixtures, e := readPinned(c.Fixtures, 11940, core.FixtureSHA)
+	if e != nil {
+		firstFailure(&r, e)
+		return
+	}
+	captions, e := readPinned(c.Captions, 3155, core.CaptionSHA)
+	if e != nil {
+		firstFailure(&r, e)
+		return
+	}
+	if core.VerifyFrozen(freeze, fixtures, captions) != nil {
+		firstFailure(&r, code("frozen_bytes_rejected"))
+		return
+	}
+	before, e := sealWorker(c.Worker, c.WorkerSHA)
+	if e != nil {
+		firstFailure(&r, e)
+		return
+	}
+	r.WorkerSHA, r.WorkerBytes = before.Hash, before.Size
+	selfPath, selfBefore, version, buildHash, e := observeSelf()
+	if e != nil {
+		firstFailure(&r, e)
+		return
+	}
+	r.SelfSHA, r.SelfBytes, r.SelfGoVersion, r.SelfBuildInfoSHA = selfBefore.Hash, selfBefore.Size, version, buildHash
+	jf, parent, e := createOwned(c.Journal)
+	if e != nil {
+		firstFailure(&r, e)
+		return
+	}
+	journal, e := d.NewJournal(jf, parent.Sync)
+	if e != nil {
+		firstFailure(&r, code("journal_setup_failed"))
+	}
+	var lazy lazyEvidence
+	lazy.path = c.Evidence
+	var recv *d.Receiver
+	var tap frameTap
+	if r.Failure == "" {
+		var pr ProcessReceipt
+		var stderr stderrCapture
+		pr, stderr, e = runChild(c, func(stdout io.Reader, stdin io.Writer) error {
+			var re error
+			recv, re = d.NewReceiver(r.Pins, journal, stdin, &lazy)
+			if re != nil {
+				return code("receiver_setup_failed")
+			}
+			if re = recv.Consume(io.TeeReader(stdout, &tap)); re != nil {
+				return code("receiver_rejected")
+			}
+			return nil
+		})
+		r.Process = pr
+		firstFailure(&r, e)
+		r.StderrBytes, r.StderrSHA = stderr.N, digest(stderr.Data[:stderr.N])
+		if c.Stderr != "" {
+			if e = writeOwned(c.Stderr, stderr.Data[:stderr.N]); e != nil {
+				firstFailure(&r, code("stderr_save_failed"))
+			} else {
+				r.StderrSaved = true
+			}
+		}
+		if recv != nil {
+			r.Receiver = fromReceiver(recv.Receipt())
+		}
+		r.Journal = journal.Status()
+		// Rehash after Wait and both joins, including inode/mode/mtime/size identity.
+		after, ae := sealWorker(c.Worker, c.WorkerSHA)
+		r.WorkerAfterMatches = ae == nil && before.same(after)
+		if !r.WorkerAfterMatches {
+			firstFailure(&r, code("worker_identity_changed"))
+		}
+		selfAfter, se := sealExecutable(selfPath, selfReadCap, selfBefore.Hash)
+		r.SelfAfterMatches = se == nil && selfBefore.same(selfAfter)
+		if !r.SelfAfterMatches {
+			firstFailure(&r, code("self_identity_changed"))
+		}
+		if tap.Final {
+			r.FinalFile = tap.File
+		}
+		if recv != nil && r.Process.Reaped != nil && *r.Process.Reaped {
+			r.SummaryBytes, r.SummarySHA, e = verifySummary(c.Summary, r.Pins, recv.Receipt(), tap)
+			r.SummaryVerified = e == nil
+			firstFailure(&r, e)
+		}
+	}
+	r.EvidenceOpenAttempts = lazy.attempts
+	if lazy.file != nil {
+		if e = lazy.checkCurrent(); e != nil {
+			firstFailure(&r, code("evidence_identity_changed"))
+		}
+		r.EvidenceCloseAttempted = true
+		r.EvidenceCloseSucceeded = lazy.file.Close() == nil
+		if !r.EvidenceCloseSucceeded {
+			firstFailure(&r, code("evidence_close_failed"))
+		}
+	}
+	r.JournalCloseAttempted = true
+	r.JournalCloseSucceeded = jf.Close() == nil
+	if !r.JournalCloseSucceeded {
+		firstFailure(&r, code("journal_close_failed"))
+	}
+	if e = parent.Close(); e != nil {
+		firstFailure(&r, code("journal_parent_close_failed"))
+	}
+	if r.Failure == "" && (!r.Receiver.Complete || !r.Receiver.GenuineEOF || r.Receiver.Rows != f.MaxRows || !r.Receiver.VerifiedFinal || !r.SummaryVerified || !r.Process.StdoutJoined || !r.Process.StderrJoined || !r.WorkerAfterMatches || !r.SelfAfterMatches || !r.EvidenceCloseSucceeded) {
+		firstFailure(&r, code("completion_conditions_not_met"))
+	}
+	r.Complete = r.Failure == ""
+	return
+}
+
+func encodeReceipt(r Receipt) ([]byte, error) {
+	b, e := json.Marshal(r)
+	if e != nil || len(b)+1 > receiptCap {
+		return nil, code("receipt_bound")
+	}
+	return append(b, '\n'), nil
+}
+
+func main() {
+	c, e := readConfig(os.Args[1:])
+	var r Receipt
+	if e != nil {
+		r = Receipt{Schema: "native-wire3-controller-actual-v1", Failure: "config_rejected"}
+	} else {
+		r = collect(c)
+	}
+	b, e := encodeReceipt(r)
+	if e != nil {
+		_, _ = os.Stdout.Write([]byte("{\"schema\":\"native-wire3-controller-actual-v1\",\"complete\":false,\"failure\":\"receipt_bound\"}\n"))
+		os.Exit(1)
+	}
+	n, e := os.Stdout.Write(b)
+	if e != nil || n != len(b) || !r.Complete {
+		os.Exit(1)
+	}
+}

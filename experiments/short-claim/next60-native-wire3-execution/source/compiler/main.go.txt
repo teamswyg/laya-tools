@@ -1,0 +1,556 @@
+// SPDX-License-Identifier: Apache-2.0
+// Maintainer control. Metadata/build only: this executable never runs originals.
+package main
+
+import (
+	"bytes"
+	"compress/gzip"
+	"context"
+	"crypto/sha256"
+	"debug/buildinfo"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime/debug"
+	"sort"
+	"strings"
+	"sync/atomic"
+	"syscall"
+	"time"
+)
+
+const artifactCap = 4718592
+const closureCap = 196608
+
+type pin struct {
+	Path   string `json:"path"`
+	Bytes  int64  `json:"bytes"`
+	SHA256 string `json:"sha256"`
+}
+type mod struct {
+	Path, Version, Dir, GoMod string
+	Replace                   *mod
+}
+type pkg struct {
+	ImportPath, Name, Dir, DefaultGODEBUG                                                                                                                           string
+	Standard                                                                                                                                                        bool
+	GoFiles, CgoFiles, CFiles, CXXFiles, MFiles, HFiles, FFiles, SFiles, SwigFiles, SwigCXXFiles, SysoFiles, EmbedFiles, IgnoredGoFiles, IgnoredOtherFiles, Imports []string
+	Module                                                                                                                                                          *mod
+	Error                                                                                                                                                           *struct{ Err string }
+}
+type pack struct {
+	ImportPath string   `json:"import"`
+	Dir        string   `json:"dir"`
+	Standard   bool     `json:"standard"`
+	Module     *mod     `json:"module,omitempty"`
+	Imports    []string `json:"imports"`
+	Files      []pin    `json:"files"`
+	Ignored    []string `json:"ignored"`
+}
+type closure struct {
+	Schema   string               `json:"schema"`
+	Root     string               `json:"root"`
+	Go       string               `json:"go"`
+	Tools    []pin                `json:"tools"`
+	Packages []pack               `json:"packages"`
+	Modules  []pin                `json:"modules"`
+	Settings []debug.BuildSetting `json:"settings"`
+}
+
+func fail(s string)        { fmt.Fprintln(os.Stderr, s); os.Exit(1) }
+func hash(b []byte) string { h := sha256.Sum256(b); return hex.EncodeToString(h[:]) }
+func pinFile(p string) (pin, error) {
+	var z pin
+	if !filepath.IsAbs(p) || filepath.Clean(p) != p {
+		return z, errors.New("path")
+	}
+	c, e := filepath.EvalSymlinks(p)
+	if e != nil || c != p {
+		return z, errors.New("canonical")
+	}
+	st, e := os.Lstat(p)
+	if e != nil || !st.Mode().IsRegular() {
+		return z, errors.New("regular")
+	}
+	f, e := os.Open(p)
+	if e != nil {
+		return z, e
+	}
+	defer f.Close()
+	h := sha256.New()
+	n, e := io.Copy(h, io.LimitReader(f, st.Size()+1))
+	a, se := f.Stat()
+	if e != nil || se != nil || n != st.Size() || !os.SameFile(st, a) || st.Size() != a.Size() || st.Mode() != a.Mode() || !st.ModTime().Equal(a.ModTime()) {
+		return z, errors.New("changed")
+	}
+	return pin{p, n, hex.EncodeToString(h.Sum(nil))}, nil
+}
+func save(p string, v any, bound int) error {
+	b, e := json.Marshal(v)
+	if e != nil || len(b)+1 > bound {
+		return errors.New("control_bound")
+	}
+	b = append(b, '\n')
+	return saveBytes(p, b, bound)
+}
+func saveBytes(p string, b []byte, bound int) error {
+	if len(b) > bound {
+		return errors.New("control_bound")
+	}
+	f, e := os.OpenFile(p, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if e != nil {
+		return e
+	}
+	defer f.Close()
+	n, e := f.Write(b)
+	if e != nil || n != len(b) {
+		return errors.New("write")
+	}
+	if e = f.Sync(); e != nil {
+		return e
+	}
+	d, e := os.Open(filepath.Dir(p))
+	if e != nil {
+		return e
+	}
+	defer d.Close()
+	return d.Sync()
+}
+func saveClosure(p string, c closure) error {
+	b, e := json.Marshal(c)
+	if e != nil || len(b)+1 > 1<<20 {
+		return errors.New("decoded_closure_bound")
+	}
+	b = append(b, '\n')
+	var out bytes.Buffer
+	z := gzip.NewWriter(&out)
+	if _, e = z.Write(b); e != nil {
+		return e
+	}
+	if e = z.Close(); e != nil {
+		return e
+	}
+	return saveBytes(p, out.Bytes(), closureCap)
+}
+
+// Each stdout/stderr writer has one io.Copy owner. Overflow discards only the
+// excess, requests process-group kill, and still returns full len(p) for drain.
+type capture struct {
+	B               []byte
+	Total           int64
+	Limit           int
+	Overflow        bool
+	Kill            func()
+	Started, Waited bool
+}
+
+func (c *capture) Write(p []byte) (int, error) {
+	c.Total += int64(len(p))
+	room := c.Limit - len(c.B)
+	if room > len(p) {
+		room = len(p)
+	}
+	if room > 0 {
+		c.B = append(c.B, p[:room]...)
+	}
+	if c.Total > int64(c.Limit) && !c.Overflow {
+		c.Overflow = true
+		c.Kill()
+	}
+	return len(p), nil
+}
+func env() []string {
+	keys := []string{"GOTOOLCHAIN", "GOWORK", "GOENV", "GOPROXY", "GOSUMDB", "GOFLAGS", "CGO_ENABLED", "GOOS", "GOARCH", "GOARM64", "GOEXPERIMENT", "GOMAXPROCS", "GOMEMLIMIT", "GODEBUG", "GOFIPS140"}
+	out := []string{}
+	for _, s := range os.Environ() {
+		skip := false
+		for _, k := range keys {
+			if strings.HasPrefix(s, k+"=") {
+				skip = true
+				break
+			}
+		}
+		if !skip {
+			out = append(out, s)
+		}
+	}
+	return append(out, "GOTOOLCHAIN=local", "GOWORK=off", "GOENV=off", "GOPROXY=off", "GOSUMDB=off", "GOFLAGS=", "CGO_ENABLED=0", "GOOS=darwin", "GOARCH=arm64", "GOARM64=v8.0", "GOEXPERIMENT=", "GOMAXPROCS=2", "GOMEMLIMIT=128MiB", "GODEBUG=", "GOFIPS140=off")
+}
+func runChild(dir, exe string, args []string, limit int) (*capture, *capture, int, error) {
+	c := exec.Command(exe, args...)
+	c.Dir = dir
+	c.Env = env()
+	c.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	c.WaitDelay = 2 * time.Second
+	var killState atomic.Int32
+	killed := func() {
+		if c.Process != nil && killState.CompareAndSwap(0, 1) {
+			ke := syscall.Kill(-c.Process.Pid, syscall.SIGKILL)
+			if ke == nil || ke == syscall.ESRCH {
+				killState.Store(2)
+			} else {
+				killState.Store(3)
+			}
+		}
+	}
+	out := &capture{Limit: limit, Kill: killed}
+	errorLimit := 32768
+	if limit < errorLimit {
+		errorLimit = limit
+	}
+	errout := &capture{Limit: errorLimit, Kill: killed}
+	c.Stdout = out
+	c.Stderr = errout
+	if e := c.Start(); e != nil {
+		return out, errout, -1, e
+	}
+	out.Started = true
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	defer cancel()
+	done := make(chan error, 1)
+	go func() { done <- c.Wait() }()
+	var e error
+	select {
+	case e = <-done:
+	case <-ctx.Done():
+		killed()
+		e = <-done
+		if e == nil {
+			e = ctx.Err()
+		}
+	}
+	code := -1
+	out.Waited = true
+	if c.ProcessState != nil {
+		code = c.ProcessState.ExitCode()
+	}
+	if out.Overflow || errout.Overflow {
+		return out, errout, code, errors.New("capture_overflow")
+	}
+	if killState.Load() == 3 {
+		return out, errout, code, errors.New("group_kill_failed")
+	}
+	return out, errout, code, e
+}
+func load(p string) (closure, error) {
+	var c closure
+	f, e := os.Open(p)
+	if e != nil {
+		return c, errors.New("closure_open")
+	}
+	defer f.Close()
+	st, e := f.Stat()
+	if e != nil || !st.Mode().IsRegular() || st.Size() > closureCap {
+		return c, errors.New("closure_shape")
+	}
+	b, e := io.ReadAll(io.LimitReader(f, closureCap+1))
+	if e != nil || len(b) > closureCap {
+		return c, errors.New("closure_read")
+	}
+	br := bytes.NewReader(b)
+	z, e := gzip.NewReader(br)
+	if e != nil {
+		return c, e
+	}
+	z.Multistream(false)
+	raw, e := io.ReadAll(io.LimitReader(z, (1<<20)+1))
+	ce := z.Close()
+	if e != nil || ce != nil || len(raw) > 1<<20 || br.Len() != 0 {
+		return c, errors.New("compressed_closure_shape")
+	}
+	e = json.Unmarshal(raw, &c)
+	if e != nil || c.Schema != "native-worker-only-closure-v1" {
+		return c, errors.New("closure_shape")
+	}
+	return c, nil
+}
+func check(c closure) error {
+	for _, t := range c.Tools {
+		v, e := pinFile(t.Path)
+		if e != nil || v != t {
+			return errors.New("tool_drift")
+		}
+	}
+	for _, t := range c.Modules {
+		v, e := pinFile(t.Path)
+		if e != nil || v != t {
+			return errors.New("module_drift")
+		}
+	}
+	for _, p := range c.Packages {
+		for _, t := range p.Files {
+			v, e := pinFile(filepath.Join(p.Dir, t.Path))
+			v.Path = t.Path
+			if e != nil || v != t {
+				return errors.New("source_drift")
+			}
+		}
+	}
+	return nil
+}
+func selected(goPath, root, target string) error {
+	out, er, code, e := runChild(root, goPath, []string{"list", "-mod=readonly", "-deps", "-json", "."}, 4<<20)
+	if e != nil || code != 0 {
+		b := out.B
+		if len(b) > 4096 {
+			b = b[:4096]
+		}
+		eb := er.B
+		if len(eb) > 4096 {
+			eb = eb[:4096]
+		}
+		se := save(target+".failure.json", struct {
+			Code          int
+			Output, Error string
+		}{code, string(b), string(eb)}, 57344)
+		if se != nil {
+			return se
+		}
+		return errors.New("list_failed")
+	}
+	c := closure{Schema: "native-worker-only-closure-v1", Root: root, Go: goPath}
+	tc := filepath.Dir(filepath.Dir(goPath))
+	for _, p := range []string{"bin/go", "pkg/tool/darwin_arm64/compile", "pkg/tool/darwin_arm64/asm", "pkg/tool/darwin_arm64/link", "pkg/tool/darwin_arm64/preprofile", "LICENSE"} {
+		v, e := pinFile(filepath.Join(tc, p))
+		if e != nil {
+			return e
+		}
+		c.Tools = append(c.Tools, v)
+	}
+	d := json.NewDecoder(bytes.NewReader(out.B))
+	mods := []string{}
+	addMod := func(p string) error {
+		for _, x := range mods {
+			if x == p {
+				return nil
+			}
+		}
+		v, e := pinFile(p)
+		if e != nil {
+			return e
+		}
+		mods = append(mods, p)
+		c.Modules = append(c.Modules, v)
+		return nil
+	}
+	var defaultDebug string
+	for {
+		var x pkg
+		e := d.Decode(&x)
+		if e == io.EOF {
+			break
+		}
+		if e != nil {
+			return e
+		}
+		if x.Error != nil {
+			return errors.New("list_package_error")
+		}
+		p := pack{ImportPath: x.ImportPath, Dir: x.Dir, Standard: x.Standard, Module: x.Module, Imports: x.Imports, Ignored: append(x.IgnoredGoFiles, x.IgnoredOtherFiles...)}
+		if x.Name == "main" {
+			defaultDebug = x.DefaultGODEBUG
+		}
+		lists := [][]string{x.GoFiles, x.CgoFiles, x.CFiles, x.CXXFiles, x.MFiles, x.HFiles, x.FFiles, x.SFiles, x.SwigFiles, x.SwigCXXFiles, x.SysoFiles, x.EmbedFiles}
+		for _, ls := range lists {
+			for _, n := range ls {
+				v, e := pinFile(filepath.Join(x.Dir, n))
+				if e != nil {
+					return e
+				}
+				v.Path = n
+				found := false
+				for _, f := range p.Files {
+					if f.Path == v.Path {
+						found = true
+						break
+					}
+				}
+				if !found {
+					p.Files = append(p.Files, v)
+				}
+			}
+		}
+		sort.Slice(p.Files, func(i, j int) bool { return p.Files[i].Path < p.Files[j].Path })
+		sort.Strings(p.Ignored)
+		sort.Strings(p.Imports)
+		if x.Module != nil {
+			m := x.Module
+			if m.Replace != nil {
+				m = m.Replace
+			}
+			if e = addMod(m.GoMod); e != nil {
+				return e
+			}
+			for _, n := range []string{"go.sum", "LICENSE", "LICENSE.txt", "PATENTS"} {
+				p := filepath.Join(m.Dir, n)
+				if _, e = os.Stat(p); e == nil {
+					if e = addMod(p); e != nil {
+						return e
+					}
+				}
+			}
+		}
+		c.Packages = append(c.Packages, p)
+	}
+	sort.Slice(c.Packages, func(i, j int) bool { return c.Packages[i].ImportPath < c.Packages[j].ImportPath })
+	sort.Slice(c.Modules, func(i, j int) bool { return c.Modules[i].Path < c.Modules[j].Path })
+	c.Settings = []debug.BuildSetting{{Key: "-buildmode", Value: "exe"}, {Key: "-compiler", Value: "gc"}, {Key: "-trimpath", Value: "true"}, {Key: "CGO_ENABLED", Value: "0"}, {Key: "GOARCH", Value: "arm64"}, {Key: "GOARM64", Value: "v8.0"}, {Key: "GOOS", Value: "darwin"}}
+	if defaultDebug != "" {
+		c.Settings = append(c.Settings, debug.BuildSetting{Key: "DefaultGODEBUG", Value: defaultDebug})
+	}
+	sort.Slice(c.Settings, func(i, j int) bool { return c.Settings[i].Key < c.Settings[j].Key })
+	if e = check(c); e != nil {
+		return e
+	}
+	return saveClosure(target, c)
+}
+func sameBuild(c closure, b *debug.BuildInfo) bool {
+	if b == nil || b.GoVersion != "go1.27.1" || b.Path != "riido.local/unionduplicatenativeworker" || b.Main.Path != b.Path || b.Main.Version != "(devel)" || b.Main.Replace != nil || b.Main.Sum != "" {
+		return false
+	}
+	settings := append([]debug.BuildSetting(nil), b.Settings...)
+	sort.Slice(settings, func(i, j int) bool { return settings[i].Key < settings[j].Key })
+	a, _ := json.Marshal(settings)
+	z, _ := json.Marshal(c.Settings)
+	if !bytes.Equal(a, z) {
+		return false
+	}
+	deps := []*mod{}
+	for _, p := range c.Packages {
+		if p.Standard || p.Module == nil || p.Module.Path == b.Path {
+			continue
+		}
+		exists := false
+		for _, m := range deps {
+			if m.Path == p.Module.Path {
+				exists = true
+				break
+			}
+		}
+		if !exists {
+			deps = append(deps, p.Module)
+		}
+	}
+	if len(deps) != len(b.Deps) {
+		return false
+	}
+	for _, got := range b.Deps {
+		ok := false
+		for _, want := range deps {
+			if got.Path == want.Path && got.Version == want.Version && got.Sum == "" && got.Replace != nil && want.Replace != nil && got.Replace.Path == want.Replace.Dir && got.Replace.Version == "(devel)" && got.Replace.Sum == "" && got.Replace.Replace == nil {
+				ok = true
+				break
+			}
+		}
+		if !ok {
+			return false
+		}
+	}
+	return true
+}
+func build(cp, artifact, report string) error {
+	c, e := load(cp)
+	if e != nil {
+		return e
+	}
+	if e = check(c); e != nil {
+		return e
+	}
+	if _, e = os.Lstat(artifact); !os.IsNotExist(e) {
+		return errors.New("artifact_not_fresh")
+	}
+	self, e := os.Executable()
+	if e != nil {
+		return e
+	}
+	args := []string{"limit-exec", c.Go, "build", "-mod=readonly", "-trimpath", "-buildvcs=false", "-ldflags=-s -w", "-o", artifact, "."}
+	out, er, code, runerr := runChild(c.Root, self, args, 4096)
+	result := struct {
+		Schema                  string `json:"schema"`
+		Code                    int    `json:"exit_code"`
+		Error                   string `json:"error"`
+		Out, Err                string
+		OutputBytes, ErrorBytes int64
+		Overflow                bool
+		Started, Waited         bool
+		Artifact                *pin             `json:"artifact"`
+		BuildInfo               *debug.BuildInfo `json:"build_info"`
+		Identity                bool             `json:"identity_ok"`
+		ClosureUnchanged        bool             `json:"closure_unchanged"`
+		Args                    []string         `json:"args"`
+	}{Schema: "native-worker-only-build-v1", Code: code, Out: string(out.B), Err: string(er.B), OutputBytes: out.Total, ErrorBytes: er.Total, Overflow: out.Overflow || er.Overflow, Started: out.Started, Waited: out.Waited, Args: args}
+	if runerr != nil {
+		result.Error = "compile_failed"
+	}
+	v, pe := pinFile(artifact)
+	if pe == nil {
+		result.Artifact = &v
+		if v.Bytes > artifactCap {
+			result.Error = "artifact_bound"
+		}
+		bi, be := buildinfo.ReadFile(artifact)
+		if be == nil {
+			result.BuildInfo = bi
+			result.Identity = sameBuild(c, bi)
+		} else {
+			result.Error = "build_info"
+		}
+	}
+	result.ClosureUnchanged = check(c) == nil
+	if result.Error == "" && (runerr != nil || code != 0 || !result.Identity || !result.ClosureUnchanged || pe != nil) {
+		result.Error = "compile_identity_or_closure"
+	}
+	if e = save(report, result, 73728); e != nil {
+		return e
+	}
+	if result.Error != "" {
+		return errors.New(result.Error)
+	}
+	return nil
+}
+func main() {
+	if len(os.Args) >= 3 && os.Args[1] == "limit-exec" {
+		if e := syscall.Setrlimit(syscall.RLIMIT_FSIZE, &syscall.Rlimit{Cur: artifactCap, Max: artifactCap}); e != nil {
+			fail("rlimit_failed")
+		}
+		if e := syscall.Exec(os.Args[2], os.Args[2:], env()); e != nil {
+			fail("exec_failed")
+		}
+		return
+	}
+	if len(os.Args) < 2 {
+		fail("mode")
+	}
+	var e error
+	switch os.Args[1] {
+	case "list":
+		if len(os.Args) != 5 {
+			fail("args")
+		}
+		e = selected(os.Args[2], os.Args[3], os.Args[4])
+	case "build":
+		if len(os.Args) != 5 {
+			fail("args")
+		}
+		e = build(os.Args[2], os.Args[3], os.Args[4])
+	case "recheck":
+		if len(os.Args) != 3 {
+			fail("args")
+		}
+		var c closure
+		c, e = load(os.Args[2])
+		if e == nil {
+			e = check(c)
+		}
+	default:
+		fail("mode")
+	}
+	if e != nil {
+		fail(e.Error())
+	}
+}

@@ -1,0 +1,103 @@
+// SPDX-License-Identifier: Apache-2.0
+// These source-only authored tests use tiny owned shell fakes when Root runs QA.
+// They never start the retained native worker or call original/model packages.
+package main
+
+import (
+	"bytes"
+	"io"
+	"path/filepath"
+	"runtime"
+	"testing"
+	"time"
+)
+
+func ownedProcessConfig(t *testing.T, script string, deadline time.Duration) Config {
+	t.Helper()
+	dir := privateDir(t)
+	p := filepath.Join(dir, "owned-shell-fake")
+	put(t, p, []byte("#!/bin/sh\n"+script+"\n"), 0700)
+	return Config{Worker: p, Evidence: filepath.Join(dir, "unused-evidence"), Summary: filepath.Join(dir, "unused-summary"), Freeze: filepath.Join(dir, "unused-freeze"), Fixtures: filepath.Join(dir, "unused-fixtures"), Captions: filepath.Join(dir, "unused-captions"), Deadline: deadline}
+}
+
+func fullyJoined(t *testing.T, r ProcessReceipt) {
+	t.Helper()
+	if r.StartAttempts != 1 || !r.Started || r.WaitAttempts != 1 || r.Reaped == nil || !*r.Reaped || !r.StdoutJoined || !r.StderrJoined || !r.WatcherJoined {
+		t.Fatal("not one joined/reaped child", r)
+	}
+}
+
+func TestOwnedProcessCleanEOFExitAndRusage(t *testing.T) {
+	c := ownedProcessConfig(t, "printf 'owned\\n'\nprintf 'bounded\\n' >&2\nexit 0", 5*time.Second)
+	r, s, e := runChild(c, func(out io.Reader, _ io.Writer) error {
+		b, e := io.ReadAll(io.LimitReader(out, 64))
+		if e != nil || string(b) != "owned\n" {
+			return code("owned_fake_stdout")
+		}
+		return nil
+	})
+	fullyJoined(t, r)
+	if e != nil || r.ExitCode == nil || *r.ExitCode != 0 || r.GroupKillAttempted || r.DeadlineExceeded || s.Overflow || string(s.Data[:s.N]) != "bounded\n" {
+		t.Fatal(r, e, s.N)
+	}
+	if r.RusageMaxRSSRaw == nil || r.UserCPUNanoseconds == nil || r.SystemCPUNanoseconds == nil {
+		t.Fatal("rusage unavailable", r)
+	}
+	if runtime.GOOS == "darwin" && (r.DarwinMaxRSSBytes == nil || r.RusageMaxRSSUnits != "bytes") {
+		t.Fatal("Darwin raw RSS units", r)
+	}
+}
+
+func TestOwnedProcessProtocolFaultKillsAndReaps(t *testing.T) {
+	c := ownedProcessConfig(t, "exec /bin/sleep 10", 5*time.Second)
+	r, _, e := runChild(c, func(io.Reader, io.Writer) error { return code("owned_protocol_fault") })
+	fullyJoined(t, r)
+	if e != code("owned_protocol_fault") || !r.GroupKillAttempted || r.GroupKillFailed || r.DeadlineExceeded {
+		t.Fatal(r, e)
+	}
+}
+
+func TestOwnedProcessStderrOverflowKillsAndPreservesPrefix(t *testing.T) {
+	c := ownedProcessConfig(t, "/bin/dd if=/dev/zero bs=32769 count=1 1>&2 2>/dev/null\nexit 0", 5*time.Second)
+	r, s, e := runChild(c, func(out io.Reader, _ io.Writer) error { _, e := io.Copy(io.Discard, out); return e })
+	fullyJoined(t, r)
+	if e != code("stderr_cap_exceeded") || !r.StderrOverflow || !r.GroupKillAttempted || s.N != stderrCap || !bytes.Equal(s.Data[:s.N], make([]byte, stderrCap)) {
+		t.Fatal(r, e, s.N)
+	}
+}
+
+func TestOwnedProcessDeadlineClosesInheritedDescriptorsAndReaps(t *testing.T) {
+	c := ownedProcessConfig(t, "/bin/sleep 10 &\nwait", 200*time.Millisecond)
+	r, _, e := runChild(c, func(out io.Reader, _ io.Writer) error { _, e := io.Copy(io.Discard, out); return e })
+	fullyJoined(t, r)
+	if e != code("child_deadline_no_retry") || !r.DeadlineExceeded || !r.GroupKillAttempted || r.GroupKillFailed {
+		t.Fatal(r, e)
+	}
+	if r.WallNanoseconds > int64(5*time.Second) {
+		t.Fatal("deadline did not unblock owned drains", r)
+	}
+}
+
+func TestOwnedProcessDeadlineUnblocksACKWrite(t *testing.T) {
+	c := ownedProcessConfig(t, "exec /bin/sleep 10", 200*time.Millisecond)
+	r, _, e := runChild(c, func(_ io.Reader, ack io.Writer) error {
+		_, e := ack.Write(make([]byte, 2<<20))
+		if e == nil {
+			return code("unexpected_fake_ack_success")
+		}
+		return code("owned_fake_ack_closed")
+	})
+	fullyJoined(t, r)
+	if e != code("child_deadline_no_retry") || !r.DeadlineExceeded || !r.GroupKillAttempted {
+		t.Fatal(r, e)
+	}
+}
+
+func TestOwnedProcessStartFailureDoesNotRetry(t *testing.T) {
+	c := Config{Worker: filepath.Join(privateDir(t), "absent"), Evidence: filepath.Join(privateDir(t), "unused"), Deadline: time.Second}
+	calls := 0
+	r, _, e := runChild(c, func(io.Reader, io.Writer) error { calls++; return nil })
+	if e != code("child_start_failed_no_retry") || r.StartAttempts != 1 || r.WaitAttempts != 1 || r.Started || r.Reaped != nil || calls != 0 {
+		t.Fatal(r, e, calls)
+	}
+}

@@ -1,0 +1,120 @@
+package core
+
+import (
+	"encoding/json"
+	frame "riido.local/unionduplicateframe"
+	"testing"
+)
+
+// Owned nonempty source stub exercises the real observer without originals.
+// Earlier empty stubs could not expose stale entry padding or append overflow.
+type cacheRegressionAPI struct{ evidenceFakeAPI }
+type cacheRegressionDir struct {
+	layer, base Provider
+	merge       Merge
+}
+
+func (a cacheRegressionAPI) NewUnion(l, b Provider, m Merge) Dir { return cacheRegressionDir{l, b, m} }
+func (d cacheRegressionDir) Readdir(_ int, mark func(bool)) InfoReturn {
+	mark(false)
+	l := d.layer(-1)
+	if l.Error != nil {
+		mark(true)
+		return l
+	}
+	b := d.base(-1)
+	if b.Error != nil {
+		mark(true)
+		return b
+	}
+	out := d.merge(func() (InfoList, InfoList) { return l.Entries, b.Entries })
+	mark(true)
+	return out
+}
+func TestCachedLogicalReadsUseFreshDestinationAgainstFrozenWants(t *testing.T) {
+	_, fixtures, _ := frozenControl(t)
+	var carrier struct {
+		Records []struct {
+			Want struct {
+				Reads []struct {
+					Call    uint8 `json:"call_index"`
+					Entries []struct {
+						Name   string
+						Marker uint8
+					}
+					Nil      bool    `json:"entries_nil"`
+					Present  bool    `json:"error_present"`
+					Identity *string `json:"error_identity"`
+				}
+			}
+		}
+	}
+	if json.Unmarshal(fixtures, &carrier) != nil || len(carrier.Records) != 13 {
+		t.Fatal("frozen carrier")
+	}
+	for i := uint8(0); i < 6; i++ {
+		t.Run(string(rune('0'+i)), func(t *testing.T) {
+			tr := newEvidenceTransport()
+			w, e := frame.New(tr, tr.ack, frame.Pins{Freeze: FreezeSHA, Fixtures: FixtureSHA, Captions: CaptionSHA})
+			if e != nil {
+				t.Fatal(e)
+			}
+			if e = w.Ready(); e != nil {
+				t.Fatal(e)
+			}
+			// This isolated function test begins at a synthetic row0 boundary;
+			// union(i,0) selects the desired input, not a full corpus schedule.
+			d := uint8(0)
+			m, k, _ := caps(d)
+			c := context{w: w, d: d, methodMax: m, callbackMax: k, row: RowResult{Ordinal: d, IDs: [4]uint8{0, i, 0, d}}}
+			x, _ := frame.Schedule(d)
+			c.row.IDs = x
+			c.api = &cacheRegressionAPI{}
+			_, e = w.Call(frame.Row, d, 0, 0, func() frame.Facts {
+				f, err := w.CallCandidate(d, func() frame.Facts { return c.union(i, 0) }, func() (frame.RowCommit, error) { return frame.RowCommit{O: 200, N: 100, H: FreezeSHA}, nil })
+				if err != nil {
+					t.Fatal(err)
+				}
+				return f
+			})
+			if e != nil || c.fail != nil || c.ownFault {
+				t.Fatalf("observer: %v %v", e, c.fail)
+			}
+			want := carrier.Records[i].Want.Reads
+			got := c.row.Union
+			if int(got.N) != len(want) {
+				t.Fatalf("reads %d != %d", got.N, len(want))
+			}
+			for j, v := range want {
+				q := got.Reads[j]
+				if !q.Known || q.Call != v.Call || !q.Normal.K || !q.Normal.V || q.Panic.V || !q.Entries.K || q.Entries.N != v.Nil || int(q.Entries.C) != len(v.Entries) || !q.Error.K || q.Error.P != v.Present {
+					t.Fatalf("read %d shape", j)
+				}
+				expected := frame.NilIdentity
+				if v.Identity != nil {
+					switch *v.Identity {
+					case "io_EOF":
+						expected = frame.EOFIdentity
+					case "owned_layer_cause":
+						expected = frame.LayerCauseIdentity
+					default:
+						t.Fatal("identity")
+					}
+				}
+				if !q.Error.I || q.Error.V != expected {
+					t.Fatalf("read %d identity", j)
+				}
+				for a, v := range v.Entries {
+					if q.Entries.V[a].N != entryNameID(v.Name) || q.Entries.V[a].M != v.Marker {
+						t.Fatalf("read %d entry %d", j, a)
+					}
+				}
+				for a := int(q.Entries.C); a < len(q.Entries.V); a++ {
+					if q.Entries.V[a] != (frame.Entry{}) {
+						t.Fatalf("read %d inactive padding %d", j, a)
+					}
+				}
+			}
+		})
+	}
+}

@@ -1,0 +1,280 @@
+// SPDX-License-Identifier: Apache-2.0
+package main
+
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"io"
+	"os"
+	"path/filepath"
+	"syscall"
+)
+
+func digest(b []byte) string { h := sha256.Sum256(b); return hex.EncodeToString(h[:]) }
+
+func canonicalPath(p string, exists bool) error {
+	if p == "" || len(p) > 512 || !filepath.IsAbs(p) || filepath.Clean(p) != p {
+		return code("path_rejected")
+	}
+	parent := filepath.Dir(p)
+	c, e := filepath.EvalSymlinks(parent)
+	if e != nil || c != parent {
+		return code("parent_not_canonical")
+	}
+	if exists {
+		c, e = filepath.EvalSymlinks(p)
+		if e != nil || c != p {
+			return code("file_not_canonical")
+		}
+	} else {
+		if _, e = os.Lstat(p); !os.IsNotExist(e) {
+			return code("output_not_fresh")
+		}
+	}
+	return nil
+}
+
+func validateConfigPaths(c Config) error {
+	paths := [8]string{c.Worker, c.Freeze, c.Fixtures, c.Captions, c.Evidence, c.Journal, c.Summary, c.Stderr}
+	for i, p := range paths {
+		if i == 7 && p == "" {
+			continue
+		}
+		if e := canonicalPath(p, i < 4); e != nil {
+			return e
+		}
+		for j := 0; j < i; j++ {
+			if p == paths[j] {
+				return code("paths_overlap")
+			}
+		}
+	}
+	return nil
+}
+
+func regular(i os.FileInfo, mode os.FileMode, cap int64) bool {
+	if i == nil || !i.Mode().IsRegular() || i.Size() < 0 || i.Size() > cap {
+		return false
+	}
+	if mode != 0 && i.Mode().Perm() != mode {
+		return false
+	}
+	s, ok := i.Sys().(*syscall.Stat_t)
+	return ok && s.Nlink == 1
+}
+
+func sameStable(a, b os.FileInfo) bool {
+	return a != nil && b != nil && os.SameFile(a, b) && a.Size() == b.Size() && a.Mode() == b.Mode() && a.ModTime().Equal(b.ModTime())
+}
+
+func openChecked(p string, mode os.FileMode, cap int64) (*os.File, os.FileInfo, error) {
+	if e := canonicalPath(p, true); e != nil {
+		return nil, nil, e
+	}
+	l, e := os.Lstat(p)
+	if e != nil || !regular(l, mode, cap) {
+		return nil, nil, code("file_shape_rejected")
+	}
+	f, e := os.OpenFile(p, os.O_RDONLY|syscall.O_NOFOLLOW, 0)
+	if e != nil {
+		return nil, nil, code("file_open_failed")
+	}
+	s, e := f.Stat()
+	if e != nil || !regular(s, mode, cap) || !sameStable(l, s) {
+		_ = f.Close()
+		return nil, nil, code("file_identity_rejected")
+	}
+	return f, s, nil
+}
+
+func readBounded(p string, mode os.FileMode, cap int64) (b []byte, err error) {
+	f, before, e := openChecked(p, mode, cap)
+	if e != nil {
+		return nil, e
+	}
+	defer func() {
+		if f.Close() != nil && err == nil {
+			b, err = nil, code("file_close_failed")
+		}
+	}()
+	b, e = io.ReadAll(io.LimitReader(f, cap+1))
+	if e != nil || int64(len(b)) > cap {
+		return nil, code("file_read_bound")
+	}
+	after, e := f.Stat()
+	last, le := os.Lstat(p)
+	if e != nil || le != nil || !sameStable(before, after) || !sameStable(after, last) || int64(len(b)) != after.Size() {
+		return nil, code("file_changed_during_read")
+	}
+	return b, nil
+}
+
+func readPinned(p string, n int64, h string) ([]byte, error) {
+	b, e := readBounded(p, 0, n)
+	if e != nil || int64(len(b)) != n || digest(b) != h {
+		return nil, code("input_pin_mismatch")
+	}
+	return b, nil
+}
+
+type workerSeal struct {
+	Hash string
+	Size int64
+	Info os.FileInfo
+}
+
+func (a workerSeal) same(b workerSeal) bool {
+	return a.Hash == b.Hash && a.Size == b.Size && sameStable(a.Info, b.Info)
+}
+
+func sealWorker(p, expected string) (r workerSeal, err error) {
+	return sealExecutable(p, workerCap, expected)
+}
+
+func sealExecutable(p string, cap int64, expected string) (r workerSeal, err error) {
+	f, before, e := openChecked(p, 0, cap)
+	if e != nil {
+		return r, e
+	}
+	defer func() {
+		if f.Close() != nil && err == nil {
+			r, err = workerSeal{}, code("worker_close_failed")
+		}
+	}()
+	if before.Size() == 0 || before.Mode().Perm()&0111 == 0 {
+		return r, code("worker_not_executable")
+	}
+	h := sha256.New()
+	n, e := io.Copy(h, io.LimitReader(f, cap+1))
+	after, se := f.Stat()
+	last, le := os.Lstat(p)
+	if e != nil || se != nil || le != nil || n > cap || n != before.Size() || !sameStable(before, after) || !sameStable(after, last) {
+		return r, code("worker_changed_during_hash")
+	}
+	r = workerSeal{Hash: hex.EncodeToString(h.Sum(nil)), Size: n, Info: after}
+	if expected != "" && r.Hash != expected {
+		return workerSeal{}, code("worker_sha_mismatch")
+	}
+	return r, nil
+}
+
+// The failed fresh file is retained. There is never a truncate/reopen/retry.
+func createOwned(p string) (f, parent *os.File, err error) {
+	if e := canonicalPath(p, false); e != nil {
+		return nil, nil, e
+	}
+	parent, err = os.Open(filepath.Dir(p))
+	if err != nil {
+		return nil, nil, code("parent_open_failed")
+	}
+	success := false
+	defer func() {
+		if !success {
+			if f != nil {
+				_ = f.Close()
+			}
+			_ = parent.Close()
+			f, parent = nil, nil
+		}
+	}()
+	pi, e := parent.Stat()
+	if e != nil || !pi.IsDir() {
+		return nil, parent, code("parent_shape_rejected")
+	}
+	f, err = os.OpenFile(p, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if err != nil {
+		return nil, parent, code("fresh_create_failed")
+	}
+	if f.Chmod(0600) != nil {
+		return f, parent, code("fresh_mode_failed")
+	}
+	fi, e := f.Stat()
+	li, le := os.Lstat(p)
+	if e != nil || le != nil || !regular(fi, 0600, 0) || !sameStable(fi, li) {
+		return f, parent, code("fresh_identity_failed")
+	}
+	if f.Sync() != nil || parent.Sync() != nil {
+		return f, parent, code("fresh_sync_failed")
+	}
+	success = true
+	return f, parent, nil
+}
+
+func writeOwned(p string, b []byte) (err error) {
+	if len(b) > stderrCap {
+		return code("owned_write_bound")
+	}
+	f, parent, e := createOwned(p)
+	if e != nil {
+		return e
+	}
+	defer func() {
+		if f.Close() != nil && err == nil {
+			err = code("owned_close_failed")
+		}
+		if parent.Close() != nil && err == nil {
+			err = code("owned_parent_close_failed")
+		}
+	}()
+	n, e := f.Write(b)
+	if e != nil || n != len(b) {
+		return code("owned_write_failed")
+	}
+	if f.Sync() != nil || parent.Sync() != nil {
+		return code("owned_sync_failed")
+	}
+	return nil
+}
+
+// Exactly one open attempt occurs in the receiver goroutine at its first read.
+// The worker must have created and synced its header before sending READY.
+// Identity checks assume ordinary concurrency, not a hostile local filesystem.
+type lazyEvidence struct {
+	path     string
+	file     *os.File
+	identity os.FileInfo
+	attempts uint8
+	lastSize int64
+}
+
+func (r *lazyEvidence) checkCurrent() error {
+	if r.file == nil {
+		return code("evidence_not_open")
+	}
+	if e := canonicalPath(r.path, true); e != nil {
+		return e
+	}
+	s, e := r.file.Stat()
+	l, le := os.Lstat(r.path)
+	if e != nil || le != nil || !regular(s, 0600, 65536) || !regular(l, 0600, 65536) || !os.SameFile(r.identity, s) || !os.SameFile(s, l) || s.Size() < r.lastSize {
+		return code("evidence_identity_or_bound")
+	}
+	r.lastSize = s.Size()
+	return nil
+}
+
+func (r *lazyEvidence) ReadAt(p []byte, o int64) (int, error) {
+	// The final bounded reader probes one extra EOF byte; actual file stays <=65536.
+	if o < 0 || o > 65536 || int64(len(p)) > 65537-o {
+		return 0, code("evidence_read_bound")
+	}
+	if r.file == nil {
+		if r.attempts != 0 {
+			return 0, code("evidence_open_already_failed")
+		}
+		r.attempts = 1
+		var e error
+		r.file, r.identity, e = openChecked(r.path, 0600, 65536)
+		if e != nil {
+			return 0, e
+		}
+	}
+	if e := r.checkCurrent(); e != nil {
+		return 0, e
+	}
+	n, e := r.file.ReadAt(p, o)
+	if n < 0 || n > len(p) || n < len(p) && e == nil {
+		return 0, code("evidence_reader_contract")
+	}
+	return n, e
+}

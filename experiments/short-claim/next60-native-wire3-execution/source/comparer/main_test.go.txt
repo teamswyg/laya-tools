@@ -1,0 +1,117 @@
+package main
+
+import (
+	ce "riido.local/compactevidenceprototype"
+	f "riido.local/unionduplicateframe"
+	core "riido.local/unionduplicatenativeprep/core"
+	"testing"
+)
+
+func kb(v bool) f.Bool      { return f.Bool{A: true, K: true, V: v} }
+func text(s string) *string { return &s }
+func facts() f.Facts        { return f.Facts{Normal: kb(true), Panic: kb(false)} }
+func TestAggregatePreservesKnownFailureAndUnknown(t *testing.T) {
+	p := []predicate{{"known_counterexample", "F"}, {"missing_channel", "U"}}
+	if aggregate(p) != "F" || p[1].Verdict != "U" {
+		t.Fatal(p)
+	}
+	if verdict(false, false) != "U" || verdict(true, false) != "F" || aggregate([]predicate{{"a", "T"}, {"b", "U"}}) != "U" {
+		t.Fatal("knownness")
+	}
+}
+func TestSuccessSuffixImplicationDoesNotRequireStopped(t *testing.T) {
+	x, _ := f.Schedule(23)
+	r := core.RowResult{Ordinal: 23, IDs: x}
+	j := &r.JSON
+	j.Valid, j.Published, j.WalkComplete, j.Unchanged = kb(true), kb(true), kb(true), kb(true)
+	j.Duplicate, j.SuffixStopped = kb(false), kb(false)
+	j.Error = f.ErrorFact{A: true, K: true, I: true, V: f.NilIdentity}
+	j.Path, j.Key, j.Occurrence = f.Small{A: true, K: true, N: true}, f.Small{A: true, K: true, N: true}, f.Small{A: true, K: true, N: true}
+	j.PrefixKnown = true
+	j.N = 2
+	j.Prefix[0].Visit = f.Visit{P: 1, K: 2, R: 2, T: 1}
+	j.Prefix[1].Visit = f.Visit{P: 1, K: 3, R: 4, T: 1}
+	c, e := ce.Snapshot(r, nil)
+	if e != nil {
+		t.Fatal(e)
+	}
+	w := want{Normal: true, Valid: true, Published: true, Channel: true, Walk: true, Unchanged: true, SuffixNotVisited: true, Prefix: []wantVisit{{Object: text(""), Key: text("a")}, {Object: text(""), Key: text("b")}}}
+	got, e := compare(c, facts(), w)
+	if e != nil || got.Verdict != "T" {
+		t.Fatalf("%v %+v", e, got)
+	}
+	if c.P != 0 {
+		t.Fatal("pre-AFTER source panic U changed")
+	}
+}
+func TestMissingMapChannelRemainsUnknownBesidePublishedFailure(t *testing.T) {
+	x, _ := f.Schedule(18)
+	r := core.RowResult{Ordinal: 18, IDs: x}
+	r.JSON.Valid, r.JSON.Published, r.JSON.Unchanged = kb(true), kb(true), kb(true)
+	c, e := ce.Snapshot(r, nil)
+	if e != nil {
+		t.Fatal(e)
+	}
+	n := uint8(2)
+	w := want{Normal: true, Valid: true, Channel: true, Present: true, Identity: text("owned_duplicate_key"), Duplicate: true, Path: text(""), Key: text("a"), Occurrence: &n, SuffixNotVisited: true, Unchanged: true}
+	got, e := compare(c, facts(), w)
+	if e != nil || got.Verdict != "F" {
+		t.Fatalf("%v %+v", e, got)
+	}
+	var u int
+	for _, p := range got.Predicates {
+		if p.Name == "duplicate_error_channel_available" && p.Verdict != "U" {
+			t.Fatal(p)
+		}
+		if p.Verdict == "U" {
+			u++
+		}
+	}
+	if u < 4 {
+		t.Fatal("lost missing-channel diagnostics")
+	}
+}
+func TestEmptyRootAndEmptyKeyAreDistinctFromNull(t *testing.T) {
+	for _, dict := range [][]string{paths[:], keys[:]} {
+		k, v := smallEqual(f.Small{A: true, K: true, V: 1}, text(""), dict)
+		if !k || !v {
+			t.Fatal("empty")
+		}
+		k, v = smallEqual(f.Small{A: true, K: true, N: true}, text(""), dict)
+		if !k || v {
+			t.Fatal("null versus empty")
+		}
+	}
+	if errorIdentity(text("owned_invalid_JSON")) != f.InvalidJSONIdentity {
+		t.Fatal("frozen identity mapping")
+	}
+}
+
+func TestKnownNullBooleanIsMismatch(t *testing.T) {
+	r := rowResult{}
+	r.boolean("null", f.Bool{A: true, K: true, N: true}, false)
+	if r.Predicates[0].Verdict != "F" {
+		t.Fatal(r.Predicates)
+	}
+}
+func TestRecoveredSourcePanicIsRetained(t *testing.T) {
+	x, _ := f.Schedule(23)
+	r := core.RowResult{Ordinal: 23, IDs: x, SourcePanic: kb(true)}
+	c, e := ce.Snapshot(r, nil)
+	if e != nil {
+		t.Fatal(e)
+	}
+	got, e := compare(c, facts(), want{Normal: true, Panic: false})
+	if e != nil || got.Verdict != "F" {
+		t.Fatalf("%v %+v", e, got)
+	}
+	found := false
+	for _, p := range got.Predicates {
+		if p.Name == "observed_source_panic" {
+			found = p.Verdict == "F"
+		}
+	}
+	if !found {
+		t.Fatal("lost recovered original panic")
+	}
+}

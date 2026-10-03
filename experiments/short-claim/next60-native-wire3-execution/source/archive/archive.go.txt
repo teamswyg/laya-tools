@@ -1,0 +1,565 @@
+package main
+
+import (
+	"bufio"
+	"bytes"
+	"compress/gzip"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"hash"
+	"io"
+	"os"
+	"path/filepath"
+	"syscall"
+	"time"
+)
+
+const (
+	rawCap        = int64(8 << 20)
+	compressedCap = int64(2621440)
+	controlCap    = 65536
+	recordCap     = 32768
+	receiptCap    = 4096
+	verification  = "single-member-gzip-stream-crc-isize-sha256-length"
+)
+
+var (
+	errInput   = errors.New("invalid-input")
+	errPath    = errors.New("noncanonical-or-unsafe-path")
+	errExists  = errors.New("output-already-exists")
+	errSource  = errors.New("source-identity-size-mode-or-sha-mismatch")
+	errArchive = errors.New("archive-identity-size-mode-or-integrity-mismatch")
+	errCap     = errors.New("physical-byte-cap-exceeded")
+	errIO      = errors.New("file-operation-failed")
+	errSync    = errors.New("file-or-parent-sync-failed")
+	errRecord  = errors.New("record-readback-failed")
+	errUnlink  = errors.New("source-unlink-failed")
+)
+
+type Input struct{ Source, SourceSHA, Archive, Commit, Ack string }
+
+// Receipt contains owned metadata only: no private absolute paths or source body.
+type Receipt struct {
+	Schema             string `json:"schema"`
+	Status             string `json:"status"`
+	Error              string `json:"error,omitempty"`
+	SourceSHA          string `json:"source_sha256,omitempty"`
+	SourceBytes        int64  `json:"source_bytes"`
+	ArchiveSHA         string `json:"archive_sha256,omitempty"`
+	ArchiveBytes       int64  `json:"archive_bytes"`
+	Verification       string `json:"verification_type,omitempty"`
+	PhysicalRestore    bool   `json:"physical_restore_performed"`
+	CommitDurable      bool   `json:"commit_durable"`
+	SourceUnlinked     bool   `json:"source_unlinked"`
+	SourceParentSynced bool   `json:"source_parent_synced"`
+	AckDurable         bool   `json:"ack_durable"`
+}
+
+type identity struct {
+	Dev      uint64    `json:"device"`
+	Ino      uint64    `json:"inode"`
+	Size     int64     `json:"bytes"`
+	Mode     uint32    `json:"mode"`
+	Modified time.Time `json:"modified"`
+}
+
+func id(fi os.FileInfo) (identity, bool) {
+	if fi == nil {
+		return identity{}, false
+	}
+	s, ok := fi.Sys().(*syscall.Stat_t)
+	if !ok || !fi.Mode().IsRegular() || uint64(s.Nlink) != 1 {
+		return identity{}, false
+	}
+	return identity{uint64(s.Dev), uint64(s.Ino), fi.Size(), uint32(fi.Mode()), fi.ModTime()}, true
+}
+
+func equal(a, b identity) bool {
+	return a.Dev == b.Dev && a.Ino == b.Ino && a.Size == b.Size && a.Mode == b.Mode && a.Modified.Equal(b.Modified)
+}
+
+func canonical(p string) error {
+	if len(p) == 0 || len(p) > 4096 || !filepath.IsAbs(p) || filepath.Clean(p) != p {
+		return errPath
+	}
+	parent := filepath.Dir(p)
+	real, e := filepath.EvalSymlinks(parent)
+	if e != nil || real != parent {
+		return errPath
+	}
+	fi, e := os.Lstat(parent)
+	if e != nil || !fi.IsDir() || fi.Mode()&os.ModeSymlink != 0 {
+		return errPath
+	}
+	return nil
+}
+
+func fresh(p string) error {
+	if e := canonical(p); e != nil {
+		return e
+	}
+	_, e := os.Lstat(p)
+	if e == nil {
+		return errExists
+	}
+	if !os.IsNotExist(e) {
+		return errPath
+	}
+	return nil
+}
+
+func pathID(p string, mode os.FileMode, maximum int64) (identity, error) {
+	fi, e := os.Lstat(p)
+	if e != nil {
+		return identity{}, errIO
+	}
+	i, ok := id(fi)
+	if !ok || fi.Mode().Perm() != mode || i.Size <= 0 || i.Size > maximum {
+		return identity{}, errSource
+	}
+	return i, nil
+}
+
+func opened(p string, want identity, mode os.FileMode, maximum int64) (*os.File, error) {
+	f, e := os.Open(p)
+	if e != nil {
+		return nil, errIO
+	}
+	fi, e := f.Stat()
+	i, ok := id(fi)
+	if e != nil || !ok || fi.Mode().Perm() != mode || i.Size <= 0 || i.Size > maximum || !equal(i, want) {
+		f.Close()
+		return nil, errSource
+	}
+	return f, nil
+}
+
+func unchanged(p string, f *os.File, want identity, mode os.FileMode, maximum int64) error {
+	fi, e := f.Stat()
+	i, ok := id(fi)
+	if e != nil || !ok || !equal(i, want) {
+		return errSource
+	}
+	pi, e := pathID(p, mode, maximum)
+	if e != nil || !equal(pi, want) {
+		return errSource
+	}
+	return nil
+}
+
+func sourceCheck(p, sha string, prior *identity) (identity, error) {
+	if e := canonical(p); e != nil {
+		return identity{}, e
+	}
+	i, e := pathID(p, 0755, rawCap)
+	if e != nil || (prior != nil && !equal(i, *prior)) {
+		return identity{}, errSource
+	}
+	f, e := opened(p, i, 0755, rawCap)
+	if e != nil {
+		return identity{}, errSource
+	}
+	h := sha256.New()
+	n, copyErr := io.Copy(h, io.LimitReader(f, rawCap+1))
+	e = unchanged(p, f, i, 0755, rawCap)
+	closeErr := f.Close()
+	if copyErr != nil || e != nil || closeErr != nil || n != i.Size || n > rawCap || hex.EncodeToString(h.Sum(nil)) != sha {
+		return identity{}, errSource
+	}
+	return i, nil
+}
+
+type cappedWriter struct {
+	f        *os.File
+	h        hash.Hash
+	n, limit int64
+	failed   bool
+}
+
+func (w *cappedWriter) Write(p []byte) (int, error) {
+	if w.failed {
+		return 0, errIO
+	}
+	if int64(len(p)) > w.limit-w.n {
+		w.failed = true
+		return 0, errCap
+	}
+	n, e := w.f.Write(p)
+	if n < 0 || n > len(p) {
+		w.failed = true
+		return 0, errIO
+	}
+	w.n += int64(n)
+	if n > 0 {
+		w.h.Write(p[:n])
+	}
+	if e != nil || n != len(p) {
+		w.failed = true
+		return n, errIO
+	}
+	return n, nil
+}
+
+func syncParent(p string) error {
+	if e := canonical(p); e != nil {
+		return e
+	}
+	f, e := os.Open(filepath.Dir(p))
+	if e != nil {
+		return errSync
+	}
+	fi, statErr := f.Stat()
+	if statErr != nil || !fi.IsDir() {
+		f.Close()
+		return errSync
+	}
+	syncErr := f.Sync()
+	closeErr := f.Close()
+	if syncErr != nil || closeErr != nil {
+		return errSync
+	}
+	return nil
+}
+
+// compress creates at most compressedCap physical bytes. Failed partial files stay.
+func compress(in Input, original identity) (identity, string, int64, error) {
+	s, e := opened(in.Source, original, 0755, rawCap)
+	if e != nil {
+		return identity{}, "", 0, errSource
+	}
+	sourceClosed := false
+	defer func() {
+		if !sourceClosed {
+			s.Close()
+		}
+	}()
+	a, e := os.OpenFile(in.Archive, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if e != nil {
+		return identity{}, "", 0, errIO
+	}
+	closed := false
+	defer func() {
+		if !closed {
+			a.Close()
+		}
+	}()
+	if e = a.Chmod(0600); e != nil {
+		return identity{}, "", 0, errIO
+	}
+	w := &cappedWriter{f: a, h: sha256.New(), limit: compressedCap}
+	z := gzip.NewWriter(w)
+	h := sha256.New()
+	n, copyErr := io.Copy(z, io.TeeReader(io.LimitReader(s, rawCap+1), h))
+	zipErr := z.Close()
+	if copyErr != nil || zipErr != nil || w.failed {
+		if errors.Is(copyErr, errCap) || errors.Is(zipErr, errCap) {
+			return identity{}, "", w.n, errCap
+		}
+		return identity{}, "", w.n, errIO
+	}
+	if n != original.Size || n > rawCap || hex.EncodeToString(h.Sum(nil)) != in.SourceSHA || unchanged(in.Source, s, original, 0755, rawCap) != nil {
+		return identity{}, "", w.n, errSource
+	}
+	e = s.Close()
+	sourceClosed = true
+	if e != nil {
+		return identity{}, "", w.n, errIO
+	}
+	if e = a.Sync(); e != nil {
+		return identity{}, "", w.n, errSync
+	}
+	fi, e := a.Stat()
+	ai, ok := id(fi)
+	if e != nil || !ok || fi.Mode().Perm() != 0600 || ai.Size != w.n || ai.Size <= 0 || ai.Size > compressedCap {
+		return identity{}, "", w.n, errArchive
+	}
+	e = a.Close()
+	closed = true
+	if e != nil {
+		return identity{}, "", w.n, errIO
+	}
+	if e = syncParent(in.Archive); e != nil {
+		return identity{}, "", w.n, e
+	}
+	pi, e := pathID(in.Archive, 0600, compressedCap)
+	if e != nil || !equal(pi, ai) {
+		return identity{}, "", w.n, errArchive
+	}
+	return ai, hex.EncodeToString(w.h.Sum(nil)), w.n, nil
+}
+
+type matchingHashWriter struct {
+	source  *os.File
+	h       hash.Hash
+	scratch [32768]byte
+}
+
+func (w *matchingHashWriter) Write(p []byte) (int, error) {
+	if len(p) > len(w.scratch) {
+		return 0, errArchive
+	}
+	n, e := io.ReadFull(w.source, w.scratch[:len(p)])
+	if e != nil || n != len(p) || !bytes.Equal(p, w.scratch[:n]) {
+		return 0, errArchive
+	}
+	w.h.Write(p)
+	return len(p), nil
+}
+
+// verifyArchive fully decompresses to a hash sink and compares each block with
+// the still-present raw source; it does not restore any disk file.
+// The ByteReader and Multistream(false) make concatenated members and tails errors.
+func verifyArchive(p string, want identity, compressedSHA, source string, original identity, rawSHA string) error {
+	if e := canonical(p); e != nil {
+		return errArchive
+	}
+	if e := canonical(source); e != nil {
+		return errSource
+	}
+	f, e := opened(p, want, 0600, compressedCap)
+	if e != nil {
+		return errArchive
+	}
+	archiveClosed := false
+	defer func() {
+		if !archiveClosed {
+			f.Close()
+		}
+	}()
+	s, e := opened(source, original, 0755, rawCap)
+	if e != nil {
+		return errSource
+	}
+	sourceClosed := false
+	defer func() {
+		if !sourceClosed {
+			s.Close()
+		}
+	}()
+	ch := sha256.New()
+	b := bufio.NewReaderSize(io.TeeReader(f, ch), 32768)
+	z, e := gzip.NewReader(b)
+	if e != nil {
+		return errArchive
+	}
+	z.Multistream(false)
+	rh := sha256.New()
+	match := &matchingHashWriter{source: s, h: rh}
+	n, readErr := io.CopyBuffer(match, io.LimitReader(z, rawCap+1), make([]byte, 32768))
+	closeErr := z.Close()
+	if readErr != nil || closeErr != nil || n > rawCap || n != original.Size || hex.EncodeToString(rh.Sum(nil)) != rawSHA {
+		return errArchive
+	}
+	var extra [1]byte
+	extraN, extraErr := s.Read(extra[:])
+	if extraN != 0 || extraErr != io.EOF {
+		return errSource
+	}
+	_, e = b.ReadByte()
+	if e != io.EOF || hex.EncodeToString(ch.Sum(nil)) != compressedSHA {
+		return errArchive
+	}
+	if unchanged(p, f, want, 0600, compressedCap) != nil {
+		return errArchive
+	}
+	if unchanged(source, s, original, 0755, rawCap) != nil {
+		return errSource
+	}
+	e = s.Close()
+	sourceClosed = true
+	if e != nil {
+		return errSource
+	}
+	e = f.Close()
+	archiveClosed = true
+	if e != nil {
+		return errArchive
+	}
+	return nil
+}
+
+func encoded(v any, maximum int) ([]byte, error) {
+	b, e := json.Marshal(v)
+	if e != nil || len(b)+1 > maximum {
+		return nil, errCap
+	}
+	return append(b, '\n'), nil
+}
+
+func writeRecord(p string, b []byte) (string, error) {
+	if len(b) == 0 || len(b) > recordCap {
+		return "", errCap
+	}
+	if e := canonical(p); e != nil {
+		return "", e
+	}
+	f, e := os.OpenFile(p, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if e != nil {
+		return "", errIO
+	}
+	closed := false
+	defer func() {
+		if !closed {
+			f.Close()
+		}
+	}()
+	if e = f.Chmod(0600); e != nil {
+		return "", errIO
+	}
+	n, e := f.Write(b)
+	if e != nil || n != len(b) {
+		return "", errIO
+	}
+	if e = f.Sync(); e != nil {
+		return "", errSync
+	}
+	fi, e := f.Stat()
+	i, ok := id(fi)
+	if e != nil || !ok || fi.Mode().Perm() != 0600 || i.Size != int64(len(b)) {
+		return "", errRecord
+	}
+	e = f.Close()
+	closed = true
+	if e != nil {
+		return "", errIO
+	}
+	if e = syncParent(p); e != nil {
+		return "", e
+	}
+	r, e := opened(p, i, 0600, recordCap)
+	if e != nil {
+		return "", errRecord
+	}
+	h := sha256.New()
+	read, readErr := io.Copy(h, io.LimitReader(r, recordCap+1))
+	stableErr := unchanged(p, r, i, 0600, recordCap)
+	closeErr := r.Close()
+	sha := sha256.Sum256(b)
+	actual := hex.EncodeToString(h.Sum(nil))
+	if readErr != nil || stableErr != nil || closeErr != nil || read != int64(len(b)) || actual != hex.EncodeToString(sha[:]) {
+		return "", errRecord
+	}
+	return actual, nil
+}
+
+type commitRecord struct {
+	Schema          string   `json:"schema"`
+	Source          string   `json:"source"`
+	SourceSHA       string   `json:"source_sha256"`
+	SourceIdentity  identity `json:"source_identity"`
+	Archive         string   `json:"archive"`
+	ArchiveSHA      string   `json:"archive_sha256"`
+	ArchiveIdentity identity `json:"archive_identity"`
+	Verification    string   `json:"verification_type"`
+	PhysicalRestore bool     `json:"physical_restore_performed"`
+	RestoreMode     string   `json:"restore_mode"`
+	Scope           string   `json:"scope"`
+}
+type ackRecord struct {
+	Schema             string `json:"schema"`
+	SourceSHA          string `json:"source_sha256"`
+	ArchiveSHA         string `json:"archive_sha256"`
+	CommitSHA          string `json:"commit_sha256"`
+	Verification       string `json:"verification_type"`
+	PhysicalRestore    bool   `json:"physical_restore_performed"`
+	SourceUnlinked     bool   `json:"source_unlinked"`
+	SourceParentSynced bool   `json:"source_parent_synced"`
+}
+
+// Run is only a codec/unlink transaction for an externally admitted, quiescent,
+// completed owned helper executable. It cannot admit native execution or training.
+// Files produced before any error are preserved, and this function never retries.
+func Run(in Input) (Receipt, error) {
+	r := Receipt{Schema: "riido.cold-artifact-stream.receipt.v1", Status: "failed"}
+	decoded, e := hex.DecodeString(in.SourceSHA)
+	if e != nil || len(decoded) != sha256.Size || hex.EncodeToString(decoded) != in.SourceSHA {
+		return r, errInput
+	}
+	paths := [4]string{in.Source, in.Archive, in.Commit, in.Ack}
+	for i, p := range paths {
+		if e = canonical(p); e != nil {
+			return r, e
+		}
+		for j := 0; j < i; j++ {
+			if paths[j] == p {
+				return r, errInput
+			}
+		}
+	}
+	for _, p := range paths[1:] {
+		if e = fresh(p); e != nil {
+			return r, e
+		}
+	}
+	original, e := sourceCheck(in.Source, in.SourceSHA, nil)
+	if e != nil {
+		return r, e
+	}
+	r.SourceSHA, r.SourceBytes = in.SourceSHA, original.Size
+	ai, archiveSHA, archiveBytes, e := compress(in, original)
+	r.ArchiveBytes = archiveBytes
+	if e != nil {
+		return r, e
+	}
+	r.ArchiveSHA = archiveSHA
+	if e = verifyArchive(in.Archive, ai, archiveSHA, in.Source, original, in.SourceSHA); e != nil {
+		return r, e
+	}
+	r.Verification = verification
+	if _, e = sourceCheck(in.Source, in.SourceSHA, &original); e != nil {
+		return r, e
+	}
+	commit, e := encoded(commitRecord{
+		Schema: "riido.cold-artifact-stream.commit.v1", Source: in.Source,
+		SourceSHA: in.SourceSHA, SourceIdentity: original, Archive: in.Archive,
+		ArchiveSHA: archiveSHA, ArchiveIdentity: ai, Verification: verification,
+		PhysicalRestore: false, RestoreMode: "0755",
+		Scope: "externally-admitted-quiescent-completed-owned-helper; no-native-model-fit-authority",
+	}, recordCap)
+	if e != nil {
+		return r, e
+	}
+	// The ACK has bounded fixed fields. Its final hash value has the same width.
+	ack, e := encoded(ackRecord{
+		Schema: "riido.cold-artifact-stream.ack.v1", SourceSHA: in.SourceSHA,
+		ArchiveSHA: archiveSHA, CommitSHA: in.SourceSHA, Verification: verification,
+		PhysicalRestore: false, SourceUnlinked: true, SourceParentSynced: true,
+	}, receiptCap)
+	if e != nil || len(commit)+len(ack)+receiptCap > controlCap {
+		return r, errCap
+	}
+	commitSHA, e := writeRecord(in.Commit, commit)
+	if e != nil {
+		return r, e
+	}
+	r.CommitDurable = true
+	if _, e = sourceCheck(in.Source, in.SourceSHA, &original); e != nil {
+		return r, e
+	}
+	// No source access occurs after this sole unlink. The source was fully checked
+	// again after durable COMMIT; ordinary concurrent/adversarial replacement is
+	// outside the externally required quiescent-consumer assumption.
+	if e = os.Remove(in.Source); e != nil {
+		return r, errUnlink
+	}
+	r.SourceUnlinked = true
+	if e = syncParent(in.Source); e != nil {
+		return r, e
+	}
+	r.SourceParentSynced = true
+	ack, e = encoded(ackRecord{
+		Schema: "riido.cold-artifact-stream.ack.v1", SourceSHA: in.SourceSHA,
+		ArchiveSHA: archiveSHA, CommitSHA: commitSHA, Verification: verification,
+		PhysicalRestore: false, SourceUnlinked: true, SourceParentSynced: true,
+	}, receiptCap)
+	if e != nil {
+		return r, e
+	}
+	if _, e = writeRecord(in.Ack, ack); e != nil {
+		return r, e
+	}
+	r.AckDurable, r.Status = true, "complete"
+	return r, nil
+}

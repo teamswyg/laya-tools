@@ -1,0 +1,91 @@
+// SPDX-License-Identifier: Apache-2.0
+package main
+
+import (
+	"bytes"
+	"encoding/json"
+
+	ef "riido.local/evidencefileprototype"
+	f "riido.local/unionduplicateframe"
+	core "riido.local/unionduplicatenativeprep/core"
+	d "riido.local/uniondurable"
+)
+
+// Tap retains only the canonical FINAL primitive. No raw journal/result copy.
+// Successful classification additionally requires Receiver to have ACKed this
+// FINAL and reached genuine EOF; merely observing it in a read is insufficient.
+type frameTap struct {
+	line  [f.MaxLineBytes]byte
+	n     int
+	Final bool
+	File  f.FileCommit
+}
+
+func (t *frameTap) Write(p []byte) (int, error) {
+	for _, b := range p {
+		if t.n >= len(t.line) {
+			return 0, code("tap_line_bound")
+		}
+		t.line[t.n] = b
+		t.n++
+		if b == '\n' {
+			v, e := f.DecodeFrame(t.line[:t.n])
+			if e != nil {
+				return 0, code("tap_frame_shape")
+			}
+			if v.K == f.Final {
+				if t.Final || v.E == nil {
+					return 0, code("tap_final_shape")
+				}
+				t.Final, t.File = true, *v.E
+			}
+			t.n = 0
+		}
+	}
+	return len(p), nil
+}
+
+// Exact canonical owned envelope. Canonical re-encoding rejects duplicate,
+// unknown, reordered, null-for-zero fields and noncanonical JSON spellings.
+type workerSummary struct {
+	Schema     string               `json:"schema"`
+	Core       core.EvidenceSummary `json:"core"`
+	Store      ef.Status            `json:"store"`
+	RunError   string               `json:"run_error"`
+	CloseError string               `json:"close_error"`
+}
+
+func summaryMatches(s workerSummary, pins f.Pins, r d.Receipt, t frameTap) bool {
+	c := s.Core
+	return s.Schema == "native-worker-evidence-v1" && s.RunError == "" && s.CloseError == "" &&
+		c.Schema == "riido-union-duplicate-evidence-proposed-v1" && c.Pins == pins && c.Complete && c.Completed == f.MaxRows &&
+		c.EvidenceAttempted && c.CommittedRows == f.MaxRows && c.CommittedEnd == r.VerifiedEnd &&
+		c.FileAttempted && c.FileReferenceAvailable && c.File == t.File && c.File.C == f.MaxRows &&
+		c.Prefix.Seq == r.Acknowledged.Sequence() && c.Prefix.Hash == r.Durable.PayloadSHA256 &&
+		c.Prefix.Counts == r.Acknowledged.Counts() && c.Prefix.Rows == f.MaxRows && c.Prefix.End == r.VerifiedEnd &&
+		r.Acknowledged.Complete() && r.GenuineEOF && !r.Stopped && r.VerifiedFinal && r.VerifiedRows == f.MaxRows &&
+		r.ACKs == r.Acknowledged.Sequence() && r.Durable.Sequence == r.Acknowledged.Sequence() &&
+		t.Final && t.n == 0 &&
+		s.Store.PhysicalKnown && s.Store.Physical == c.File.N && s.Store.Durable == c.File.N && s.Store.Rows == f.MaxRows &&
+		s.Store.ParentSynced && s.Store.Finished && !s.Store.Stopped && s.Store.CloseAttempted && s.Store.CloseSucceeded
+}
+
+func verifySummary(p string, pins f.Pins, r d.Receipt, t frameTap) (n int, h string, err error) {
+	b, e := readBounded(p, 0600, summaryCap)
+	if e != nil {
+		return 0, "", code("summary_read_failed")
+	}
+	n, h = len(b), digest(b)
+	if n < 3 || b[n-1] != '\n' || bytes.Count(b, []byte{'\n'}) != 1 {
+		return n, h, code("summary_shape_rejected")
+	}
+	var s workerSummary
+	if json.Unmarshal(b[:n-1], &s) != nil {
+		return n, h, code("summary_json_rejected")
+	}
+	canonical, e := json.Marshal(s)
+	if e != nil || !bytes.Equal(canonical, b[:n-1]) || !summaryMatches(s, pins, r, t) {
+		return n, h, code("summary_correspondence_rejected")
+	}
+	return n, h, nil
+}

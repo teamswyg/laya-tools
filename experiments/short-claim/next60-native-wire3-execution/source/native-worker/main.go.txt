@@ -1,0 +1,142 @@
+// SPDX-License-Identifier: Apache-2.0
+// Private original-library worker. Its stdout is only the bounded wire protocol.
+package main
+
+import (
+	"bufio"
+	"encoding/json"
+	"errors"
+	"flag"
+	"io"
+	"os"
+	"path/filepath"
+
+	sink "riido.local/evidenceadapter"
+	file "riido.local/evidencefileprototype"
+	frame "riido.local/unionduplicateframe"
+	core "riido.local/unionduplicatenativeprep/core"
+	"riido.local/unionduplicatenativeworker/native"
+)
+
+type result struct {
+	Schema     string               `json:"schema"`
+	Core       core.EvidenceSummary `json:"core"`
+	Store      file.Status          `json:"store"`
+	RunError   string               `json:"run_error"`
+	CloseError string               `json:"close_error"`
+}
+
+func boundedRead(path string, n int64) ([]byte, error) {
+	f, e := os.Open(path)
+	if e != nil {
+		return nil, e
+	}
+	defer f.Close()
+	b, e := io.ReadAll(io.LimitReader(f, n+1))
+	if e != nil || int64(len(b)) > n {
+		return nil, errors.New("input_limit")
+	}
+	return b, nil
+}
+
+func writeSummary(path string, r result) error {
+	parent := filepath.Dir(path)
+	p, e := filepath.EvalSymlinks(parent)
+	if e != nil || p != parent || !filepath.IsAbs(path) || filepath.Clean(path) != path {
+		return errors.New("summary_path")
+	}
+	b, e := json.Marshal(r)
+	if e != nil || len(b)+1 > 4096 {
+		return errors.New("summary_limit")
+	}
+	b = append(b, '\n')
+	f, e := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if e != nil {
+		return e
+	}
+	closed := false
+	defer func() {
+		if !closed {
+			_ = f.Close()
+		}
+	}()
+	if e = f.Chmod(0600); e != nil {
+		return e
+	}
+	n, e := f.Write(b)
+	if e != nil || n != len(b) {
+		return errors.New("summary_write")
+	}
+	if e = f.Sync(); e != nil {
+		return e
+	}
+	e = f.Close()
+	closed = true
+	if e != nil {
+		return e
+	}
+	d, e := os.Open(parent)
+	if e != nil {
+		return e
+	}
+	defer d.Close()
+	return d.Sync()
+}
+
+func run() int {
+	ep := flag.String("evidence", "", "canonical fresh private evidence file")
+	sp := flag.String("summary", "", "canonical fresh private worker summary")
+	fp := flag.String("freeze", "", "unchanged frozen carrier")
+	ip := flag.String("fixtures", "", "unchanged inputs and Wants")
+	cp := flag.String("captions", "", "unchanged captions")
+	flag.Parse()
+	if flag.NArg() != 0 {
+		return 2
+	}
+	freeze, e := boundedRead(*fp, 16071)
+	if e != nil {
+		return 2
+	}
+	fixtures, e := boundedRead(*ip, 11940)
+	if e != nil {
+		return 2
+	}
+	captions, e := boundedRead(*cp, 3155)
+	if e != nil || core.VerifyFrozen(freeze, fixtures, captions) != nil {
+		return 2
+	}
+	pins := file.Pins{Freeze: core.FreezeSHA, Fixtures: core.FixtureSHA, Captions: core.CaptionSHA}
+	w, e := file.Create(*ep, pins)
+	if e != nil {
+		if w != nil {
+			_ = w.Close()
+		}
+		return 2
+	}
+	reader := bufio.NewReaderSize(os.Stdin, frame.MaxAckBytes)
+	ack := func() (frame.Ack, error) {
+		b, e := reader.ReadSlice('\n')
+		if e != nil || len(b) > frame.MaxAckBytes {
+			return frame.Ack{}, frame.ErrAck
+		}
+		return frame.DecodeAck(b)
+	}
+	s, re := core.RunEvidence(os.Stdout, ack, native.New, sink.Sink{Writer: w}, freeze, fixtures, captions)
+	ce := w.Close()
+	r := result{Schema: "native-worker-evidence-v1", Core: s, Store: w.Status()}
+	if re != nil {
+		r.RunError = "run_failed"
+	}
+	if ce != nil {
+		r.CloseError = "close_failed"
+	}
+	if writeSummary(*sp, r) != nil {
+		return 3
+	}
+	if re != nil || ce != nil || !s.Complete || s.Completed != 39 {
+		return 1
+	}
+	return 0
+}
+
+func main() { os.Exit(run()) }
