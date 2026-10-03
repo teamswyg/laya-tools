@@ -1,0 +1,317 @@
+package main
+
+import (
+	"bytes"
+	"encoding/json"
+	"errors"
+	"os"
+	"path/filepath"
+	"runtime/debug"
+	"testing"
+	"time"
+)
+
+func TestLifecycleOwnedCallbacksOnly(t *testing.T) {
+	for _, tc := range []struct {
+		name                                     string
+		startFailure, waitFailure, deadline, cap bool
+	}{{"success", false, false, false, false}, {"start_failure", true, false, false, false}, {"wait_failure", false, true, false, false}, {"deadline", false, true, true, false}, {"capture_cap", false, true, false, true}} {
+		t.Run(tc.name, func(t *testing.T) {
+			starts, waits, kills := 0, 0, 0
+			killed := make(chan struct{})
+			deadline := make(chan time.Time, 1)
+			capSignal := make(chan struct{}, 1)
+			if tc.deadline {
+				deadline <- time.Time{}
+			}
+			if tc.cap {
+				capSignal <- struct{}{}
+			}
+			h := processHooks{Start: func() error {
+				starts++
+				if tc.startFailure {
+					return errors.New("owned fake start")
+				}
+				return nil
+			}, Wait: func() error {
+				waits++
+				if tc.deadline || tc.cap {
+					<-killed
+				}
+				if tc.waitFailure {
+					return errors.New("owned fake wait")
+				}
+				return nil
+			}, Kill: func() bool { kills++; close(killed); return true }, Exit: func() *int {
+				n := 0
+				if tc.waitFailure {
+					n = 1
+				}
+				return &n
+			}}
+			p, e := startWait(h, deadline, capSignal)
+			if starts != 1 || waits != 1 || p.StartAttempts != 1 || p.WaitAttempts != 1 || !p.WaitReturned {
+				t.Fatal("Start/Wait arity changed")
+			}
+			if tc.startFailure {
+				if e == nil || p.StartSucceeded || p.Reaped || p.ExitCode != nil || kills != 0 {
+					t.Fatal("failed Start claimed reap")
+				}
+				return
+			}
+			if !p.StartSucceeded || !p.Reaped || p.ExitCode == nil {
+				t.Fatal("Wait state lost")
+			}
+			if p.DeadlineExceeded != tc.deadline || p.CaptureCapExceeded != tc.cap || p.GroupKillAttempted != (tc.deadline || tc.cap) {
+				t.Fatal("cause lost")
+			}
+			if (tc.deadline || tc.cap) && kills != 1 {
+				t.Fatal("group termination count")
+			}
+			if (e != nil) != tc.waitFailure {
+				t.Fatal("Wait failure lost")
+			}
+		})
+	}
+}
+func TestFailedTerminationStillWaitsOnce(t *testing.T) {
+	deadline := make(chan time.Time, 1)
+	deadline <- time.Time{}
+	released := make(chan struct{})
+	waits := 0
+	p, e := startWait(processHooks{Start: func() error { return nil }, Wait: func() error { waits++; <-released; return errors.New("owned fake exit") }, Kill: func() bool { close(released); return false }, Exit: func() *int { n := 9; return &n }}, deadline, nil)
+	if e == nil || waits != 1 || !p.Reaped || !p.DeadlineExceeded || p.GroupKillSucceeded == nil || *p.GroupKillSucceeded {
+		t.Fatal("failed termination hid Wait/cause")
+	}
+}
+func TestWaitWithoutProcessStateDoesNotClaimReaped(t *testing.T) {
+	p, e := startWait(processHooks{Start: func() error { return nil }, Wait: func() error { return errors.New("owned no process state") }, Kill: func() bool { return true }, Exit: func() *int { return nil }}, nil, nil)
+	if e == nil || !p.WaitReturned || p.Reaped || p.ExitCode != nil {
+		t.Fatal("missing process state became reap proof")
+	}
+}
+
+func TestConfigPresenceArityAndFrozenBudgets(t *testing.T) {
+	type wirePin struct {
+		ID    string `json:"id"`
+		Path  string `json:"path"`
+		Bytes int    `json:"bytes"`
+		SHA   string `json:"sha256"`
+	}
+	type wireConfig struct {
+		Schema    string    `json:"schema"`
+		Directory string    `json:"controller_directory"`
+		Attempt   string    `json:"worker_attempt_directory"`
+		Family    int       `json:"family"`
+		Module    string    `json:"worker_module"`
+		Package   string    `json:"worker_package"`
+		Worker    wirePin   `json:"worker_binary"`
+		Self      wirePin   `json:"controller_binary"`
+		Plan      wirePin   `json:"execution_plan"`
+		Time      wirePin   `json:"time_binary"`
+		Evidence  []wirePin `json:"root_receipts"`
+		Fixtures  wirePin   `json:"fixtures"`
+		Wants     wirePin   `json:"wants"`
+		Wall      int       `json:"max_wall_seconds"`
+		RSS       int       `json:"max_rss_bytes"`
+		Heap      int       `json:"heap_limit_bytes"`
+		Stdout    int       `json:"max_stdout_bytes"`
+		Stderr    int       `json:"max_stderr_bytes"`
+	}
+	dir, e := filepath.EvalSymlinks(t.TempDir())
+	if e != nil {
+		t.Fatal(e)
+	}
+	exe, e := os.Executable()
+	if e != nil {
+		t.Fatal(e)
+	}
+	sha := "1111111111111111111111111111111111111111111111111111111111111111"
+	owned := func(id, name string) wirePin { return wirePin{id, filepath.Join(dir, name), 1, sha} }
+	good := wireConfig{Schema: schema, Directory: filepath.Join(dir, "controller"), Attempt: filepath.Join(dir, "worker-attempt"), Family: 0, Module: "riido.local/remainderextra-slice", Package: "riido.local/remainderextra-slice/cmd/observe", Worker: owned("extratwo/worker", "worker"), Self: wirePin{"extratwo/controller", exe, 1, sha}, Plan: owned("extratwo/execution-plan", "plan"), Time: wirePin{"extratwo/system-time", "/usr/bin/time", 1, sha}, Evidence: []wirePin{owned("extratwo/root-source", "source"), owned("extratwo/root-compiler", "compiler"), owned("extratwo/root-rights", "rights"), owned("extratwo/root-resource", "resource")}, Fixtures: wirePin{"extratwo/fixtures", filepath.Join(dir, "fixtures"), 15282, "b3875c93e6bb59291ddf39e4c66d250284a4132af090a12f4eb1824ab8126b51"}, Wants: wirePin{"extratwo/wants", filepath.Join(dir, "wants"), 5949, "73f2c789fba33904a37826cebbde87b1acfd659862274444d768912658dd76a1"}, Wall: 60, RSS: heapLimit, Heap: heapLimit, Stdout: stdoutCap, Stderr: stderrCap}
+	configFile := filepath.Join(dir, "config.json")
+	decodeOwned := func(w wireConfig, edit func([]byte) []byte) error {
+		raw, e := json.Marshal(w)
+		if e != nil {
+			t.Fatal(e)
+		}
+		if edit != nil {
+			raw = edit(raw)
+		}
+		if os.WriteFile(configFile, raw, 0600) != nil {
+			t.Fatal("write")
+		}
+		_, e = readConfig(configFile, sum(raw), good.Directory)
+		return e
+	}
+	if decodeOwned(good, nil) != nil {
+		t.Fatal("owned config shape rejected")
+	}
+	cases := []struct {
+		name   string
+		change func(*wireConfig)
+		edit   func([]byte) []byte
+	}{
+		{name: "fifth_receipt", change: func(w *wireConfig) {
+			w.Evidence = append(append([]wirePin(nil), w.Evidence...), owned("extratwo/unlisted", "fifth"))
+		}},
+		{name: "missing_receipt", change: func(w *wireConfig) { w.Evidence = w.Evidence[:3] }},
+		{name: "wrong_family_module", change: func(w *wireConfig) { w.Family = 1 }},
+		{name: "wrong_entrypoint", change: func(w *wireConfig) { w.Package = w.Module + "/other" }},
+		{name: "wall_budget", change: func(w *wireConfig) { w.Wall = 61 }},
+		{name: "heap_budget", change: func(w *wireConfig) { w.Heap++ }},
+		{name: "output_alias", change: func(w *wireConfig) { w.Attempt = w.Directory }},
+		{name: "pin_path_alias", change: func(w *wireConfig) { w.Plan.Path = w.Worker.Path }},
+		{name: "fixture_pin", change: func(w *wireConfig) { w.Fixtures.Bytes++ }},
+		{name: "missing_key", edit: func(raw []byte) []byte { return bytes.Replace(raw, []byte(`"family":0,`), nil, 1) }},
+		{name: "duplicate_key", edit: func(raw []byte) []byte {
+			return bytes.Replace(raw, []byte(`"family":0,`), []byte(`"family":0,"family":0,`), 1)
+		}},
+		{name: "null_integer", edit: func(raw []byte) []byte { return bytes.Replace(raw, []byte(`"family":0,`), []byte(`"family":null,`), 1) }},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			w := good
+			if tc.change != nil {
+				tc.change(&w)
+			}
+			if decodeOwned(w, tc.edit) == nil {
+				t.Fatal("invalid config accepted")
+			}
+		})
+	}
+}
+func TestCaptureBoundSignalsAndPreservesPrefix(t *testing.T) {
+	f, e := os.CreateTemp(t.TempDir(), "owned-capture-")
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer f.Close()
+	signal := make(chan struct{}, 1)
+	w := capture{file: f, cap: 5, signal: signal}
+	if n, e := w.Write([]byte("abc")); n != 3 || e != nil {
+		t.Fatal("initial capture")
+	}
+	if n, e := w.Write([]byte("def")); n != 2 || e == nil || !w.exceeded || w.n != 5 {
+		t.Fatal("bound not preserved")
+	}
+	select {
+	case <-signal:
+	default:
+		t.Fatal("termination signal absent")
+	}
+	if f.Sync() != nil {
+		t.Fatal("Sync")
+	}
+	got, e := os.ReadFile(f.Name())
+	if e != nil || !bytes.Equal(got, []byte("abcde")) {
+		t.Fatal("saved prefix lost")
+	}
+}
+func TestMetricsStrictAndScope(t *testing.T) {
+	good := []byte(" 0.25 real 0.10 user 0.05 sys\n8388608 maximum resident set size\n")
+	m := parseMetrics(good)
+	if !m.Valid || m.MaximumRSSBytes == nil || *m.MaximumRSSBytes != 8388608 || m.RealSeconds == nil || *m.RealSeconds != 0.25 {
+		t.Fatal("metrics")
+	}
+	for _, raw := range [][]byte{append(append([]byte(nil), good...), good...), []byte("NaN real 0 user 0 sys\n1 maximum resident set size\n"), []byte("1 real 0 user 0 sys\n0 maximum resident set size\n"), []byte("1 maximum resident set size\n")} {
+		if parseMetrics(raw).Valid {
+			t.Fatal("invalid metrics accepted")
+		}
+	}
+}
+func TestMetadataPinRegularBoundsAndMutation(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "owned-control.json")
+	raw := []byte("owned-control\n")
+	if os.WriteFile(p, raw, 0600) != nil {
+		t.Fatal("write")
+	}
+	pin := Pin{"owned/control", p, len(raw), sum(raw)}
+	fact, _, e := verify(pin, 64)
+	if e != nil || !fact.Verified {
+		t.Fatal("owned pin")
+	}
+	if _, _, e = verify(pin, 4); e == nil {
+		t.Fatal("oversize accepted")
+	}
+	if os.WriteFile(p, []byte("other-control\n"), 0600) != nil {
+		t.Fatal("mutation")
+	}
+	if _, _, e = verify(pin, 64); e == nil {
+		t.Fatal("changed bytes accepted")
+	}
+	link := filepath.Join(dir, "link")
+	if os.Symlink(p, link) != nil {
+		t.Fatal("symlink")
+	}
+	if _, _, e = regularRead(link, 64); e == nil {
+		t.Fatal("symlink accepted")
+	}
+	if _, _, e = regularRead(dir, 64); e == nil {
+		t.Fatal("nonregular accepted")
+	}
+}
+func TestBuildInfoExactSettings(t *testing.T) {
+	module, pkg := "riido.local/remainderextra-slice", "riido.local/remainderextra-slice/cmd/observe"
+	good := debug.BuildInfo{GoVersion: "go1.27.1", Path: pkg, Main: debug.Module{Path: module}, Settings: []debug.BuildSetting{{Key: "GOOS", Value: "darwin"}, {Key: "GOARCH", Value: "arm64"}, {Key: "CGO_ENABLED", Value: "0"}, {Key: "-trimpath", Value: "true"}, {Key: "-buildmode", Value: "exe"}}}
+	if !validBuildInfo(&good, module, pkg) {
+		t.Fatal("valid settings")
+	}
+	bad := good
+	bad.GoVersion = "go1.27.0"
+	if validBuildInfo(&bad, module, pkg) {
+		t.Fatal("old Go accepted")
+	}
+	bad = good
+	bad.Settings = append(append([]debug.BuildSetting(nil), good.Settings...), good.Settings[0])
+	if validBuildInfo(&bad, module, pkg) {
+		t.Fatal("duplicate setting accepted")
+	}
+	bad = good
+	bad.Settings = good.Settings[:4]
+	if validBuildInfo(&bad, module, pkg) {
+		t.Fatal("missing setting accepted")
+	}
+	bad = good
+	bad.Main.Path = "different"
+	if validBuildInfo(&bad, module, pkg) {
+		t.Fatal("module mismatch accepted")
+	}
+}
+func TestArgumentsAndExclusiveFailedReservation(t *testing.T) {
+	sha := "1111111111111111111111111111111111111111111111111111111111111111"
+	if _, _, _, ok := cliArguments([]string{"--config", "/owned/config", "--config-sha256", sha, "--out", "/owned/out"}); !ok {
+		t.Fatal("args")
+	}
+	for _, args := range [][]string{{"--config", "/x", "--config", sha, "--out", "/y"}, {"--config=/x", "/x", "--config-sha256", sha, "--out", "/y"}, {"--config", "relative", "--config-sha256", sha, "--out", "/y"}} {
+		if _, _, _, ok := cliArguments(args); ok {
+			t.Fatal("bad args")
+		}
+	}
+	dir, e := filepath.EvalSymlinks(t.TempDir())
+	if e != nil {
+		t.Fatal(e)
+	}
+	config := filepath.Join(dir, "owned-invalid-config.json")
+	if os.WriteFile(config, []byte("{}\n"), 0600) != nil {
+		t.Fatal("config")
+	}
+	out := filepath.Join(dir, "outside")
+	r, e := run(config, sum([]byte("{}\n")), out)
+	if e == nil || r.Process.StartAttempts != 0 || r.Process.WaitAttempts != 0 || r.ActualObservationCount != nil || r.StructuralCompletion {
+		t.Fatal("invalid config reached process")
+	}
+	raw, e := os.ReadFile(filepath.Join(out, "result.json"))
+	if e != nil || !bytes.Contains(raw, []byte(`"incomplete_actual_counts_unknown":true`)) {
+		t.Fatal("failure receipt absent")
+	}
+	before := append([]byte(nil), raw...)
+	if _, e = run(config, sum([]byte("{}\n")), out); e == nil {
+		t.Fatal("output reused")
+	}
+	after, e := os.ReadFile(filepath.Join(out, "result.json"))
+	if e != nil || !bytes.Equal(before, after) {
+		t.Fatal("old output overwritten")
+	}
+}

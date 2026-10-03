@@ -1,0 +1,306 @@
+package protocol
+
+import (
+	"bytes"
+	"encoding/json"
+	"strings"
+	"testing"
+)
+
+const toyPlan = "1111111111111111111111111111111111111111111111111111111111111111"
+
+// All observations are owned fabricated transport values. No frozen input,
+// Want, native callback or actual candidate is evaluated by these tests.
+func toyStream(family, panicOrdinal int) ([]byte, Result) {
+	var raw []byte
+	seq := 0
+	previous := zeros
+	prior := Counters{}
+	report := WorkerReport{Schema: "riido-remainder-extra-two-result-proposal-v1", Family: family}
+	add := func(e BatchEvent) {
+		seq++
+		line := Marshal(Frame{"riido-extra-two-worker-journal-frame-v1", seq, previous, e})
+		raw = append(raw, line...)
+		previous = digest(line)
+	}
+	for ordinal := 0; ordinal < 15; ordinal++ {
+		fixture, candidate := ordinal/3, ordinal%3
+		base := BatchEvent{Family: family, Ordinal: ordinal, Fixture: fixture, Candidate: candidate}
+		base.Local = Event{Stage: "before_candidate", Step: -1, Counters: Counters{Reserved: 1}}
+		base.Cumulative = prior
+		base.Cumulative.Reserved++
+		add(base)
+		o := Observation{Candidate: candidate}
+		if family == 0 && ordinal != panicOrdinal {
+			for step := 0; step < sliceSteps[fixture]; step++ {
+				o.StepsN = step + 1
+				o.Steps[step] = Step{Returned: true, Error: ErrorView{Available: true, Known: true, Nil: true}, Values: Values{Known: true, N: 1, Items: [8]string{"owned-toy"}}}
+				base.Local = Event{Stage: "after_step", Step: step, Known: true, Observation: o, Counters: Counters{Reserved: 1, Dispatched: 1}}
+				base.Cumulative = prior
+				base.Cumulative.Reserved++
+				base.Cumulative.Dispatched++
+				add(base)
+			}
+		}
+		o.ReturnedNormallyKnown = true
+		o.PanicKnown = true
+		o.Panic = ordinal == panicOrdinal
+		o.ReturnedNormally = !o.Panic
+		if o.Panic {
+			o.PanicTypeKnown = true
+			o.PanicType = "owned-toy-panic"
+		} else if family == 1 {
+			o.ValidatorResultKnown = true
+			o.ValidatorError = ErrorView{Available: true, Known: true, Nil: true}
+		}
+		local := Counters{Reserved: 1, Dispatched: 1, Completed: 1}
+		prior.Reserved++
+		prior.Dispatched++
+		prior.Completed++
+		if o.Panic {
+			local.Panicked = 1
+			prior.Panicked++
+		} else {
+			local.Returned = 1
+			prior.Returned++
+		}
+		base.Local = Event{Stage: "after_candidate", Step: -1, Known: true, Observation: o, Counters: local}
+		base.Cumulative = prior
+		add(base)
+		report.Records[ordinal] = Record{Ordinal: ordinal, Fixture: fixture, Candidate: candidate, Completed: true, Observation: o}
+	}
+	report.Counters = prior
+	transport := Transport{Schema: "riido-extra-two-worker-transport-receipt-v1", Family: family, RequestID: IDs[family], FixtureSHA: FixtureSHA, WantsSHA: WantsSHA, PlanSHA: toyPlan, Initialized: true, Frames: seq, Bytes: len(raw), LastSequence: seq, LastSHA: previous, Counters: prior, Completed: 15, JournalClosed: true, FinalAck: FinalAck}
+	return raw, Result{Schema: "riido-extra-two-worker-saved-result-v1", State: "complete", WorkerKnown: true, Worker: &report, Transport: transport}
+}
+
+func TestOwnedNormalAndRecoveredPanicComplete(t *testing.T) {
+	for _, tc := range []struct {
+		name                         string
+		family, panicOrdinal, frames int
+	}{{"slice", 0, -1, 63}, {"validators", 1, -1, 30}, {"recovered_candidate_panic", 1, 2, 30}, {"slice_panic_before_step", 0, 0, 62}} {
+		t.Run(tc.name, func(t *testing.T) {
+			raw, r := toyStream(tc.family, tc.panicOrdinal)
+			j, e := ReadJournal(raw, tc.family)
+			if e != nil || j.ValidFrames != tc.frames || j.Terminal != 15 {
+				t.Fatalf("journal counts %d/%d, err %v", j.ValidFrames, j.Terminal, e)
+			}
+			v, e := ReadResult(Marshal(r), tc.family, toyPlan)
+			if e != nil || !Complete(v, j) {
+				t.Fatalf("complete transport rejected: %v", e)
+			}
+			if tc.panicOrdinal >= 0 {
+				rec := v.Worker.Records[tc.panicOrdinal]
+				if !rec.Completed || rec.Observation.ReturnedNormally || !rec.Observation.Panic || v.Worker.Counters.Panicked != 1 {
+					t.Fatal("candidate API panic lost")
+				}
+			}
+			if v.InnerCalls != nil || v.StartupCalls != nil || v.Qualified || v.Labels {
+				t.Fatal("transport acquired authority")
+			}
+		})
+	}
+}
+
+func TestPrefixIsNotCompleteOrSyncedProof(t *testing.T) {
+	raw, r := toyStream(1, -1)
+	firstEnd := bytes.IndexByte(raw, '\n') + 1
+	prefix := raw[:firstEnd]
+	j, e := ReadJournal(prefix, 1)
+	if e != nil || j.ValidFrames != 1 || j.Phase != 1 || j.Counters.Reserved != 1 || j.Terminal != 0 || Complete(r, j) {
+		t.Fatal("reserved prefix became completion")
+	}
+	j, e = ReadJournal(append(append([]byte(nil), prefix...), []byte("{\"partial\"")...), 1)
+	if e == nil || !j.IncompleteTail || j.ValidFrames != 1 || j.Terminal != 0 {
+		t.Fatal("partial tail discarded prefix")
+	}
+	r.State = "failed"
+	r.Failure = "checkpoint_Sync"
+	r.Worker = nil
+	r.WorkerKnown = true
+	r.Transport.Stopped = true
+	r.Transport.Failure = "checkpoint_Sync"
+	r.Transport.JournalClosed = false
+	r.Transport.Frames = 1
+	r.Transport.LastSequence = 1
+	r.Transport.Bytes = len(prefix)
+	r.Transport.LastSHA = digest(prefix)
+	r.Transport.Counters = j.Counters
+	r.Transport.Completed = 0
+	v, e := ReadResult(Marshal(r), 1, toyPlan)
+	if e != nil || !v.WorkerKnown || v.Worker != nil || Complete(v, j) {
+		t.Fatal("failed returned runner became complete")
+	}
+}
+
+func rewriteFrames(raw []byte, change func(int, *Frame)) []byte {
+	var out []byte
+	previous := zeros
+	for i, line := range bytes.Split(bytes.TrimSuffix(raw, []byte{'\n'}), []byte{'\n'}) {
+		var f Frame
+		_ = json.Unmarshal(line, &f)
+		change(i, &f)
+		f.Previous = previous
+		encoded := Marshal(f)
+		previous = digest(encoded)
+		out = append(out, encoded...)
+	}
+	return out
+}
+func TestJournalPhaseChainAndCounters(t *testing.T) {
+	raw, _ := toyStream(1, -1)
+	tests := []struct {
+		name   string
+		change func(int, *Frame)
+	}{
+		{"sequence", func(i int, f *Frame) {
+			if i == 1 {
+				f.Sequence++
+			}
+		}},
+		{"wrong_family", func(i int, f *Frame) {
+			if i == 0 {
+				f.Event.Family = 0
+			}
+		}},
+		{"skipped_ordinal", func(i int, f *Frame) {
+			if i == 0 {
+				f.Event.Ordinal = 1
+			}
+		}},
+		{"missing_before", func(i int, f *Frame) {
+			if i == 0 {
+				f.Event.Local.Stage = "after_candidate"
+			}
+		}},
+		{"before_observation", func(i int, f *Frame) {
+			if i == 0 {
+				f.Event.Local.Known = true
+			}
+		}},
+		{"validator_step", func(i int, f *Frame) {
+			if i == 1 {
+				f.Event.Local.Stage = "after_step"
+				f.Event.Local.Step = 0
+			}
+		}},
+		{"counter_overstated", func(i int, f *Frame) {
+			if i == 1 {
+				f.Event.Cumulative.Completed++
+			}
+		}},
+		{"returned_and_panicked", func(i int, f *Frame) {
+			if i == 1 {
+				f.Event.Local.Observation.Panic = true
+			}
+		}},
+		{"supervision", func(i int, f *Frame) {
+			if i == 1 {
+				s := "forbidden"
+				f.Event.Local.Observation.Truth = &s
+			}
+		}},
+		{"error_text", func(i int, f *Frame) {
+			if i == 1 {
+				f.Event.Local.Observation.ValidatorError.TextKnown = true
+			}
+		}},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			_, e := ReadJournal(rewriteFrames(raw, tc.change), 1)
+			if e == nil {
+				t.Fatal("invalid stream accepted")
+			}
+		})
+	}
+	tampered := bytes.Replace(raw, []byte(`"previous_sha256":"`+zeros), []byte(`"previous_sha256":"`+toyPlan), 1)
+	if _, e := ReadJournal(tampered, 1); e == nil {
+		t.Fatal("bad chain accepted")
+	}
+	if _, e := ReadJournal(bytes.Repeat([]byte{' '}, JournalCap+1), 1); e == nil {
+		t.Fatal("oversize stream accepted")
+	}
+}
+
+func TestResultCannotAddFieldsLabelsOrArrayElements(t *testing.T) {
+	_, r := toyStream(1, -1)
+	raw := Marshal(r)
+	cases := []struct {
+		name string
+		raw  []byte
+	}{
+		{"missing", bytes.Replace(raw, []byte(`"qualified":false,`), nil, 1)},
+		{"duplicate", bytes.Replace(raw, []byte(`"qualified":false`), []byte(`"qualified":false,"qualified":false`), 1)},
+		{"case_alias", bytes.Replace(raw, []byte(`"qualified":false`), []byte(`"Qualified":false`), 1)},
+		{"unknown_key", bytes.Replace(raw, []byte(`"qualified":false`), []byte(`"qualified":false,"unexpected":false`), 1)},
+		{"null_bool", bytes.Replace(raw, []byte(`"qualified":false`), []byte(`"qualified":null`), 1)},
+		{"null_string", bytes.Replace(raw, []byte(`"failure_code":""`), []byte(`"failure_code":null`), 1)},
+		{"labels", bytes.Replace(raw, []byte(`"labels_assigned":false`), []byte(`"labels_assigned":true`), 1)},
+		{"records_16", bytes.Replace(raw, []byte(`"records":[`), []byte(`"records":[{},`), 1)},
+		{"steps_5", bytes.Replace(raw, []byte(`"steps":[`), []byte(`"steps":[{},`), 1)},
+		{"items_9", bytes.Replace(raw, []byte(`"items":[`), []byte(`"items":["extra",`), 1)},
+		{"callbacks_9", bytes.Replace(raw, []byte(`"callback_order":[`), []byte(`"callback_order":[0,`), 1)},
+		{"null_records", bytes.Replace(raw, []byte(`"records":[`), []byte(`"records":null,"discarded":[`), 1)},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if _, e := ReadResult(tc.raw, 1, toyPlan); e == nil {
+				t.Fatal("bad DTO accepted")
+			}
+		})
+	}
+}
+
+func TestTerminalResultMustMatchSavedJournal(t *testing.T) {
+	raw, r := toyStream(1, -1)
+	j, e := ReadJournal(raw, 1)
+	if e != nil {
+		t.Fatal(e)
+	}
+	r.Worker.Records[0].Observation.CallbackCount = 1
+	v, e := ReadResult(Marshal(r), 1, toyPlan)
+	if e != nil {
+		t.Fatal("structurally admissible toy mismatch rejected early")
+	}
+	if Complete(v, j) {
+		t.Fatal("changed terminal snapshot accepted")
+	}
+	r.Transport.Completed = -1
+	if _, e := ReadResult(Marshal(r), 1, toyPlan); e == nil {
+		t.Fatal("negative count accepted")
+	}
+	r.Transport.Completed = 15
+	r.Transport.Counters.Returned = 16
+	if _, e := ReadResult(Marshal(r), 1, toyPlan); e == nil {
+		t.Fatal("impossible counters accepted")
+	}
+}
+
+func TestReservationBindingsAndStrictPrimitives(t *testing.T) {
+	r := Reservation{Schema: "riido-extra-two-worker-reservation-v1", Family: 0, RequestID: IDs[0], FixtureSHA: FixtureSHA, WantsSHA: WantsSHA, PlanSHA: toyPlan, Journal: "journal.jsonl", Result: "results.json", MaxFrames: MaxFrames, MaxJournal: JournalCap, MaxFrame: MaxFrame, MaxResult: FinalCap}
+	if ReadReservation(Marshal(r), 0, toyPlan) != nil {
+		t.Fatal("owned reservation rejected")
+	}
+	if ReadReservation(Marshal(r), 1, toyPlan) == nil {
+		t.Fatal("wrong family accepted")
+	}
+	r.MaxFrames++
+	if ReadReservation(Marshal(r), 0, toyPlan) == nil {
+		t.Fatal("changed bounds accepted")
+	}
+	for _, s := range []string{"", " ", "null", "1.0", "1e0", "-0", `"1"`} {
+		if _, e := ReadInt([]byte(s)); e == nil {
+			t.Fatalf("bad integer %q", s)
+		}
+	}
+	if _, e := ReadInt([]byte(" 1 ")); e != nil {
+		t.Fatal(e)
+	}
+	if SHA(strings.ToUpper(toyPlan)) != true {
+		t.Fatal("digit-only SHA unexpectedly changed")
+	}
+	if SHA(strings.Repeat("A", 64)) {
+		t.Fatal("uppercase SHA accepted")
+	}
+}

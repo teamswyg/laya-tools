@@ -1,0 +1,49 @@
+// Future native binding only. Use exact Cobra-adbc and its original pflag1.0.9.
+// This inert source has not been compiled/imported/executed.
+package validatorsnative
+
+import (
+	"errors"
+	original "github.com/spf13/cobra"
+)
+
+// These are separately named owned additions with the exact public ABI.
+// The original Cobra package and MatchAll implementation are not changed.
+func MatchAllErrors(pargs ...original.PositionalArgs) original.PositionalArgs {
+	return func(cmd *original.Command, args []string) error {
+		causes := make([]error, 0, len(pargs))
+		for _, fn := range pargs {
+			if e := fn(cmd, args); e != nil {
+				causes = append(causes, e)
+			}
+		}
+		return errors.Join(causes...)
+	}
+}
+func MatchLast(pargs ...original.PositionalArgs) original.PositionalArgs {
+	return func(cmd *original.Command, args []string) error {
+		var last error
+		for _, fn := range pargs {
+			if e := fn(cmd, args); e != nil {
+				last = e
+			}
+		}
+		return last
+	}
+}
+func Fanout(candidate int, callbacks []func() error, args []string) error {
+	pargs := make([]original.PositionalArgs, len(callbacks))
+	for i, callback := range callbacks {
+		fn := callback
+		pargs[i] = func(*original.Command, []string) error { return fn() }
+	}
+	switch candidate {
+	case 0:
+		return original.MatchAll(pargs...)(nil, args)
+	case 1:
+		return MatchAllErrors(pargs...)(nil, args)
+	case 2:
+		return MatchLast(pargs...)(nil, args)
+	}
+	return errors.New("extra_input")
+}

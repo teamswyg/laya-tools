@@ -1,0 +1,393 @@
+// Package protocol binds only the owned extra-two worker transport.
+// It imports no upstream package and performs no Want or model comparison.
+package protocol
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"unicode/utf8"
+)
+
+const FixtureSHA = "b3875c93e6bb59291ddf39e4c66d250284a4132af090a12f4eb1824ab8126b51"
+const WantsSHA = "73f2c789fba33904a37826cebbde87b1acfd659862274444d768912658dd76a1"
+const FixtureBytes = 15282
+const WantsBytes = 5949
+const Planned = 15
+const JournalCap = 1 << 20
+const FinalCap = 128 << 10
+const ReservationCap = 4096
+const MaxFrame = 32 << 10
+const MaxFrames = 1024
+const CombinedCap = JournalCap + FinalCap + ReservationCap
+const zeros = "0000000000000000000000000000000000000000000000000000000000000000"
+const FinalAck = "Only matching stdout after result File.Sync/Close and output-directory Sync acknowledges final persistence; a surviving result row alone leaves acknowledgment unknown."
+
+var IDs = [2]string{"go53-pflag-bounded-string-slice", "go53-cobra-validator-all-errors"}
+var Modules = [2]string{"riido.local/remainderextra-slice", "riido.local/remainderextra-validators"}
+var sliceSteps = [5]int{1, 2, 2, 2, 4}
+
+type ErrorView struct {
+	Available   bool   `json:"available"`
+	Known       bool   `json:"known"`
+	Nil         bool   `json:"nil"`
+	TypeKnown   bool   `json:"type_known"`
+	Type        string `json:"type"`
+	DerivedKind string `json:"derived_kind"`
+	TextKnown   bool   `json:"text_known"`
+	Text        string `json:"text"`
+}
+type Values struct {
+	Known bool      `json:"known"`
+	Nil   bool      `json:"nil"`
+	N     int       `json:"n"`
+	Items [8]string `json:"items"`
+}
+type Step struct {
+	Returned bool      `json:"returned"`
+	Error    ErrorView `json:"error"`
+	Values   Values    `json:"values"`
+}
+type Observation struct {
+	Candidate             int       `json:"candidate"`
+	ReturnedNormallyKnown bool      `json:"returned_normally_known"`
+	ReturnedNormally      bool      `json:"returned_normally"`
+	PanicKnown            bool      `json:"panic_known"`
+	Panic                 bool      `json:"panic"`
+	PanicTypeKnown        bool      `json:"panic_type_known"`
+	PanicType             string    `json:"panic_type"`
+	PanicTextKnown        bool      `json:"panic_text_known"`
+	PanicText             string    `json:"panic_text"`
+	StepsN                int       `json:"steps_n"`
+	Steps                 [4]Step   `json:"steps"`
+	ValidatorResultKnown  bool      `json:"validator_result_known"`
+	ValidatorError        ErrorView `json:"validator_error"`
+	CallbackCount         int       `json:"callback_count"`
+	CallbackOrder         [8]int    `json:"callback_order"`
+	IsA                   bool      `json:"errors_is_A"`
+	AsB                   bool      `json:"errors_as_B"`
+	BCodeKnown            bool      `json:"B_code_known"`
+	BCode                 int       `json:"B_code"`
+	InnerCalls            *int      `json:"inner_original_calls"`
+	StartupCalls          *int      `json:"startup_calls"`
+	Truth                 *string   `json:"truth"`
+	Role                  *string   `json:"role"`
+	Weight                *float64  `json:"weight"`
+}
+type Counters struct {
+	Reserved   int  `json:"candidate_reserved"`
+	Dispatched int  `json:"candidate_dispatched"`
+	Returned   int  `json:"candidate_returned"`
+	Panicked   int  `json:"candidate_panicked"`
+	Completed  int  `json:"completed_dispatches"`
+	Stopped    bool `json:"checkpoint_stopped"`
+}
+type Event struct {
+	Stage       string      `json:"stage"`
+	Step        int         `json:"step"`
+	Known       bool        `json:"observation_known"`
+	Observation Observation `json:"observation"`
+	Counters    Counters    `json:"counters"`
+}
+type BatchEvent struct {
+	Family     int      `json:"family"`
+	Ordinal    int      `json:"ordinal"`
+	Fixture    int      `json:"fixture"`
+	Candidate  int      `json:"candidate"`
+	Local      Event    `json:"local"`
+	Cumulative Counters `json:"cumulative"`
+}
+type Frame struct {
+	Schema   string     `json:"schema"`
+	Sequence int        `json:"sequence"`
+	Previous string     `json:"previous_sha256"`
+	Event    BatchEvent `json:"event"`
+}
+type Record struct {
+	Ordinal     int         `json:"ordinal"`
+	Fixture     int         `json:"fixture"`
+	Candidate   int         `json:"candidate"`
+	Completed   bool        `json:"completed"`
+	Observation Observation `json:"observation"`
+}
+type WorkerReport struct {
+	Schema   string     `json:"schema"`
+	Family   int        `json:"family"`
+	Stopped  bool       `json:"stopped"`
+	Counters Counters   `json:"counters"`
+	Records  [15]Record `json:"records"`
+}
+type Transport struct {
+	Schema         string   `json:"schema"`
+	Family         int      `json:"family"`
+	RequestID      string   `json:"request_id"`
+	FixtureSHA     string   `json:"fixture_sha256"`
+	WantsSHA       string   `json:"wants_sha256"`
+	PlanSHA        string   `json:"plan_sha256"`
+	Initialized    bool     `json:"empty_files_and_directories_Sync_acknowledged"`
+	Frames         int      `json:"synced_frames"`
+	Bytes          int      `json:"synced_journal_bytes"`
+	LastSequence   int      `json:"last_synced_sequence"`
+	LastSHA        string   `json:"last_synced_frame_sha256"`
+	Counters       Counters `json:"last_synced_cumulative_counters"`
+	Completed      int      `json:"synced_terminal_records"`
+	Failure        string   `json:"failure_code"`
+	Stopped        bool     `json:"transport_stopped"`
+	JournalClosed  bool     `json:"journal_Close_acknowledged"`
+	InnerCalls     *int     `json:"inner_original_calls"`
+	StartupCalls   *int     `json:"original_startup_calls"`
+	ErrorTextCalls int      `json:"transport_Error_method_calls"`
+	Labels         bool     `json:"labels_assigned"`
+	Qualified      bool     `json:"qualified"`
+	Truth          *string  `json:"truth"`
+	Role           *string  `json:"role"`
+	Weight         *float64 `json:"weight"`
+	FinalAck       string   `json:"final_output_acknowledgment"`
+}
+type Result struct {
+	Schema       string        `json:"schema"`
+	State        string        `json:"state"`
+	Failure      string        `json:"failure_code"`
+	WorkerKnown  bool          `json:"worker_return_known"`
+	Worker       *WorkerReport `json:"worker"`
+	Transport    Transport     `json:"transport"`
+	Labels       bool          `json:"labels_assigned"`
+	Qualified    bool          `json:"qualified"`
+	InnerCalls   *int          `json:"inner_original_calls"`
+	StartupCalls *int          `json:"original_startup_calls"`
+}
+type Reservation struct {
+	Schema       string `json:"schema"`
+	Family       int    `json:"family"`
+	RequestID    string `json:"request_id"`
+	FixtureSHA   string `json:"fixture_sha256"`
+	WantsSHA     string `json:"wants_sha256"`
+	PlanSHA      string `json:"plan_sha256"`
+	Journal      string `json:"journal_file"`
+	Result       string `json:"result_file"`
+	MaxFrames    int    `json:"max_frames"`
+	MaxJournal   int    `json:"max_journal_bytes"`
+	MaxFrame     int    `json:"max_frame_bytes"`
+	MaxResult    int    `json:"max_result_bytes"`
+	Labels       bool   `json:"labels_assigned"`
+	Qualified    bool   `json:"qualified"`
+	InnerCalls   *int   `json:"inner_original_calls"`
+	StartupCalls *int   `json:"original_startup_calls"`
+}
+type Journal struct {
+	ValidFrames    int        `json:"physical_valid_frames"`
+	ValidBytes     int        `json:"physical_valid_bytes"`
+	LastSequence   int        `json:"physical_valid_last_sequence"`
+	LastSHA        string     `json:"physical_valid_last_frame_sha256"`
+	Counters       Counters   `json:"physical_valid_prefix_counters"`
+	Terminal       int        `json:"physical_terminal_records"`
+	Phase          int        `json:"in_progress_phase"`
+	Next           int        `json:"next_ordinal"`
+	Step           int        `json:"next_step"`
+	IncompleteTail bool       `json:"incomplete_tail"`
+	Records        [15]Record `json:"-"`
+	prior          Counters
+}
+type Summary struct {
+	Schema         string    `json:"schema"`
+	State          string    `json:"state"`
+	Failure        string    `json:"failure_code"`
+	Family         int       `json:"family"`
+	WorkerKnown    bool      `json:"worker_return_known"`
+	WorkerCounters *Counters `json:"worker_counters"`
+	Transport      Transport `json:"transport"`
+	RecordSlots    int       `json:"record_slots"`
+	Labels         bool      `json:"labels_assigned"`
+	Qualified      bool      `json:"qualified"`
+	InnerCalls     *int      `json:"inner_original_calls"`
+	StartupCalls   *int      `json:"original_startup_calls"`
+}
+
+func digest(raw []byte) string { h := sha256.Sum256(raw); return hex.EncodeToString(h[:]) }
+func bounded(s string) bool    { return len(s) <= 512 && utf8.ValidString(s) }
+func plus(a, b Counters) Counters {
+	return Counters{Reserved: a.Reserved + b.Reserved, Dispatched: a.Dispatched + b.Dispatched, Returned: a.Returned + b.Returned, Panicked: a.Panicked + b.Panicked, Completed: a.Completed + b.Completed, Stopped: a.Stopped || b.Stopped}
+}
+func validObservation(o Observation) bool {
+	if o.Candidate < 0 || o.Candidate > 2 || o.Truth != nil || o.Role != nil || o.Weight != nil || o.InnerCalls != nil || o.StartupCalls != nil || o.PanicTextKnown || o.PanicText != "" || o.StepsN < 0 || o.StepsN > 4 || o.CallbackCount < 0 || o.CallbackCount > 8 || !bounded(o.PanicType) {
+		return false
+	}
+	views := [5]ErrorView{o.Steps[0].Error, o.Steps[1].Error, o.Steps[2].Error, o.Steps[3].Error, o.ValidatorError}
+	for _, e := range views {
+		if e.TextKnown || e.Text != "" || !bounded(e.Type) || !bounded(e.DerivedKind) {
+			return false
+		}
+	}
+	for _, s := range o.Steps {
+		if s.Values.N < 0 || s.Values.N > 8 {
+			return false
+		}
+		for _, v := range s.Values.Items {
+			if !bounded(v) {
+				return false
+			}
+		}
+	}
+	for i := 0; i < o.CallbackCount; i++ {
+		if o.CallbackOrder[i] < 0 || o.CallbackOrder[i] >= 8 {
+			return false
+		}
+	}
+	return true
+}
+
+// Advance mirrors the writer's transport guards only, not the Wants. A
+// physically present valid frame is not evidence that File.Sync returned.
+func (j *Journal) advance(e BatchEvent, family int) error {
+	if family < 0 || family > 1 || j.Next >= 15 || e.Family != family || e.Ordinal != j.Next || e.Fixture != j.Next/3 || e.Candidate != j.Next%3 {
+		return bad()
+	}
+	phase, next, step := j.Phase, j.Next, j.Step
+	prior := j.prior
+	local := e.Local
+	var expected Counters
+	var terminal Record
+	switch local.Stage {
+	case "before_candidate":
+		expected = Counters{Reserved: 1}
+		if phase != 0 || local.Step != -1 || local.Known || local.Observation != (Observation{}) {
+			return bad()
+		}
+		phase = 1
+		step = 0
+	case "after_step":
+		expected = Counters{Reserved: 1, Dispatched: 1}
+		o := local.Observation
+		if family != 0 || phase != 1 || local.Step != step || step >= sliceSteps[e.Fixture] || !local.Known || o.Candidate != e.Candidate || o.StepsN != step+1 || o.ReturnedNormallyKnown || o.PanicKnown || !o.Steps[step].Returned || !validObservation(o) {
+			return bad()
+		}
+		step++
+	case "after_candidate":
+		o := local.Observation
+		expected = Counters{Reserved: 1, Dispatched: 1, Completed: 1}
+		if o.Panic {
+			expected.Panicked = 1
+		} else {
+			expected.Returned = 1
+		}
+		if phase != 1 || local.Step != -1 || !local.Known || o.Candidate != e.Candidate || !o.ReturnedNormallyKnown || !o.PanicKnown || o.ReturnedNormally == o.Panic || !validObservation(o) || family == 0 && !o.Panic && o.StepsN != sliceSteps[e.Fixture] {
+			return bad()
+		}
+		if family == 0 && o.StepsN != step || family == 1 && step != 0 {
+			return bad()
+		}
+		terminal = Record{Ordinal: e.Ordinal, Fixture: e.Fixture, Candidate: e.Candidate, Completed: true, Observation: o}
+		next++
+		phase = 0
+		step = 0
+	default:
+		return bad()
+	}
+	if local.Counters != expected || e.Cumulative != plus(prior, expected) {
+		return bad()
+	}
+	j.Phase, j.Next, j.Step = phase, next, step
+	j.Counters = e.Cumulative
+	if local.Stage == "after_candidate" {
+		j.Terminal++
+		j.Records[e.Ordinal] = terminal
+		j.prior = e.Cumulative
+	}
+	return nil
+}
+func ReadJournal(raw []byte, family int) (Journal, error) {
+	j := Journal{LastSHA: zeros}
+	if len(raw) > JournalCap || family < 0 || family > 1 {
+		return j, bad()
+	}
+	rest := raw
+	for len(rest) > 0 {
+		at := bytes.IndexByte(rest, '\n')
+		if at < 0 {
+			j.IncompleteTail = true
+			return j, bad()
+		}
+		line := rest[:at+1]
+		if len(line) > MaxFrame || j.ValidFrames >= MaxFrames {
+			return j, bad()
+		}
+		var f Frame
+		if decode(line, &f, MaxFrame) != nil || f.Schema != "riido-extra-two-worker-journal-frame-v1" || f.Sequence != j.ValidFrames+1 || f.Previous != j.LastSHA {
+			return j, bad()
+		}
+		// advance commits only after counter checks succeed.
+		if j.advance(f.Event, family) != nil {
+			return j, bad()
+		}
+		j.ValidFrames++
+		j.ValidBytes += len(line)
+		j.LastSequence = f.Sequence
+		j.LastSHA = digest(line)
+		rest = rest[len(line):]
+	}
+	return j, nil
+}
+func ReadResult(raw []byte, family int, plan string) (Result, error) {
+	var r Result
+	if family < 0 || family > 1 || !SHA(plan) || decode(raw, &r, FinalCap) != nil || r.Schema != "riido-extra-two-worker-saved-result-v1" || (r.State != "complete" && r.State != "failed") || r.Labels || r.Qualified || r.InnerCalls != nil || r.StartupCalls != nil {
+		return r, bad()
+	}
+	t := r.Transport
+	if t.Schema != "riido-extra-two-worker-transport-receipt-v1" || t.Family != family || t.RequestID != IDs[family] || t.FixtureSHA != FixtureSHA || t.WantsSHA != WantsSHA || t.PlanSHA != plan || !SHA(t.LastSHA) || t.Frames < 0 || t.Frames > MaxFrames || t.Bytes < 0 || t.Bytes > JournalCap || t.LastSequence != t.Frames || t.Completed < 0 || t.Completed > 15 || t.InnerCalls != nil || t.StartupCalls != nil || t.ErrorTextCalls != 0 || t.Labels || t.Qualified || t.Truth != nil || t.Role != nil || t.Weight != nil || t.FinalAck != FinalAck {
+		return r, bad()
+	}
+	if !counterBounds(t.Counters) {
+		return r, bad()
+	}
+	if r.State == "failed" {
+		if r.Failure == "" || r.Worker != nil {
+			return r, bad()
+		}
+		return r, nil
+	}
+	if r.Failure != "" || !r.WorkerKnown || r.Worker == nil || !t.Initialized || !t.JournalClosed || t.Stopped || t.Failure != "" || t.Completed != 15 || t.Frames < 30 {
+		return r, bad()
+	}
+	w := r.Worker
+	if w.Schema != "riido-remainder-extra-two-result-proposal-v1" || w.Family != family || w.Stopped || w.Counters != t.Counters || w.Counters.Reserved != 15 || w.Counters.Dispatched != 15 || w.Counters.Completed != 15 || w.Counters.Returned+w.Counters.Panicked != 15 || w.Counters.Stopped {
+		return r, bad()
+	}
+	for i, rec := range w.Records {
+		if rec.Ordinal != i || rec.Fixture != i/3 || rec.Candidate != i%3 || !rec.Completed || !validObservation(rec.Observation) || rec.Observation.Candidate != i%3 || !rec.Observation.ReturnedNormallyKnown || !rec.Observation.PanicKnown || rec.Observation.ReturnedNormally == rec.Observation.Panic {
+			return r, bad()
+		}
+	}
+	return r, nil
+}
+func counterBounds(c Counters) bool {
+	return c.Reserved >= 0 && c.Reserved <= 15 && c.Dispatched >= 0 && c.Dispatched <= c.Reserved && c.Returned >= 0 && c.Panicked >= 0 && c.Completed >= 0 && c.Completed <= c.Dispatched && c.Returned+c.Panicked == c.Completed && c.Reserved-c.Dispatched <= 1 && c.Dispatched-c.Completed <= 1 && !c.Stopped
+}
+func ReadReservation(raw []byte, family int, plan string) error {
+	var r Reservation
+	if family < 0 || family > 1 || decode(raw, &r, ReservationCap) != nil {
+		return bad()
+	}
+	expected := Reservation{Schema: "riido-extra-two-worker-reservation-v1", Family: family, RequestID: IDs[family], FixtureSHA: FixtureSHA, WantsSHA: WantsSHA, PlanSHA: plan, Journal: "journal.jsonl", Result: "results.json", MaxFrames: MaxFrames, MaxJournal: JournalCap, MaxFrame: MaxFrame, MaxResult: FinalCap}
+	if r != expected {
+		return bad()
+	}
+	return nil
+}
+func Complete(r Result, j Journal) bool {
+	if r.State != "complete" || r.Worker == nil || j.Phase != 0 || j.Next != 15 || j.Terminal != 15 || j.IncompleteTail {
+		return false
+	}
+	t := r.Transport
+	return t.Frames == j.ValidFrames && t.Bytes == j.ValidBytes && t.LastSequence == j.LastSequence && t.LastSHA == j.LastSHA && t.Counters == j.Counters && r.Worker.Records == j.Records
+}
+func Summarize(r Result) Summary {
+	s := Summary{Schema: r.Schema, State: r.State, Failure: r.Failure, Family: r.Transport.Family, WorkerKnown: r.WorkerKnown, Transport: r.Transport}
+	if r.Worker != nil {
+		c := r.Worker.Counters
+		s.WorkerCounters = &c
+		s.RecordSlots = len(r.Worker.Records)
+	}
+	return s
+}
+func Marshal(v any) []byte { raw, _ := json.Marshal(v); return append(raw, '\n') }

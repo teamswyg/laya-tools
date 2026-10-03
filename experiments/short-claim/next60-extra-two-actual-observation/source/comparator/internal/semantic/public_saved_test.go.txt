@@ -1,0 +1,78 @@
+package semantic
+
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"example.com/riido-extra-two-semantic/internal/protocol"
+	"io"
+	"os"
+	"path/filepath"
+	"reflect"
+	"testing"
+)
+
+// This checks the published typed snapshots and reproduces their semantic
+// report. The private journals, child process and persistence acknowledgment
+// were verified in Root's first collection; this test does not replay them.
+func publicPinned(t *testing.T, name string, size int, wantSHA string) []byte {
+	t.Helper()
+	root := os.Getenv("RIIDO_EXTRA2_PUBLIC_ARCHIVE")
+	if root == "" {
+		t.Fatal("RIIDO_EXTRA2_PUBLIC_ARCHIVE is required; no silent fixture skip")
+	}
+	p := filepath.Join(root, name)
+	info, err := os.Lstat(p)
+	if err != nil || !info.Mode().IsRegular() || info.Size() != int64(size) {
+		t.Fatalf("regular pinned fixture required: %s", name)
+	}
+	f, err := os.Open(p)
+	if err != nil {
+		t.Fatal("open public fixture")
+	}
+	b, readErr := io.ReadAll(io.LimitReader(f, int64(size)+1))
+	closeErr := f.Close()
+	h := sha256.Sum256(b)
+	if readErr != nil || closeErr != nil || len(b) != size || hex.EncodeToString(h[:]) != wantSHA {
+		t.Fatalf("fixture byte/SHA pin mismatch: %s", name)
+	}
+	return b
+}
+
+func TestPublishedSavedComparisonPreservesUnknown(t *testing.T) {
+	wantRaw := publicPinned(t, "WANTS.v1.json", 5949, "73f2c789fba33904a37826cebbde87b1acfd659862274444d768912658dd76a1")
+	wants, err := ParseWants(wantRaw)
+	if err != nil {
+		t.Fatal("frozen Want parse")
+	}
+	names := [2]string{"SLICE-OBSERVATIONS.v1.json", "VALIDATORS-OBSERVATIONS.v1.json"}
+	sizes := [2]int{25451, 25519}
+	hashes := [2]string{"39de1dfe976919438f18131803e5699b5b96b565572dfbf4f6d69d3ed5225e25", "bcec15c834c6f5a5a8230b8eb09ecc5f2c7f9c11d7dda139457201222b97b8e8"}
+	plans := [2]string{"22da13af0997ddd00c5f8670ce70ebac551ef71f4bc77a3db56a531d065b7c90", "27b90c425fb01bebbbffe4a587931f842bb874fc6ca60333e0f7203d3928a43a"}
+	var workers [2]protocol.WorkerReport
+	for family := range workers {
+		raw := publicPinned(t, names[family], sizes[family], hashes[family])
+		result, err := protocol.ReadResult(raw, family, plans[family])
+		if err != nil || result.State != "complete" || result.Worker == nil || !result.WorkerKnown {
+			t.Fatal("pinned typed result must be complete")
+		}
+		workers[family] = *result.Worker
+	}
+	got, err := Compare(wants, workers)
+	if err != nil {
+		t.Fatal("saved comparison")
+	}
+	expectedRaw := publicPinned(t, "COMPARISON.v1.json", 28678, "5252b87a6badaa8b04c2dc7ddd2049e22795583dd7678625ccb6d1cd904700d5")
+	var expected struct {
+		Report Report `json:"report"`
+	}
+	if json.Unmarshal(expectedRaw, &expected) != nil || !reflect.DeepEqual(got, expected.Report) {
+		t.Fatal("all thirty finite observation and predicate fields must reproduce exactly")
+	}
+	if got.Counts != (Counts{True: 23, False: 7}) || got.PredicateCounts != (Counts{True: 125, False: 15, Unknown: 1}) {
+		t.Fatal("known contradictions must retain the separate unavailable predicate")
+	}
+	if got.Labels || got.Roles || got.Weights || got.Qualified || got.ModelCalls != 0 || got.FitCalls != 0 {
+		t.Fatal("comparison cannot assign authority or run a model")
+	}
+}

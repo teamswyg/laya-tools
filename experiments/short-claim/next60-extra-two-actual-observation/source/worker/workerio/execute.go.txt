@@ -1,0 +1,186 @@
+package workerio
+
+import (
+	"encoding/json"
+	"io"
+	"riido.local/remainderextra/extra"
+)
+
+type Runner func(extra.BatchCheckpoint) (extra.WorkerReport, error)
+type Result struct {
+	Schema         string              `json:"schema"`
+	State          string              `json:"state"`
+	Failure        string              `json:"failure_code"`
+	WorkerKnown    bool                `json:"worker_return_known"`
+	Worker         *extra.WorkerReport `json:"worker"`
+	Transport      Receipt             `json:"transport"`
+	LabelsAssigned bool                `json:"labels_assigned"`
+	Qualified      bool                `json:"qualified"`
+	InnerCalls     *int                `json:"inner_original_calls"`
+	StartupCalls   *int                `json:"original_startup_calls"`
+}
+
+func result(c Config) Result {
+	return Result{Schema: "riido-extra-two-worker-saved-result-v1", State: "failed", Transport: baseReceipt(c)}
+}
+func encode(r Result) []byte {
+	raw, e := json.Marshal(r)
+	if e != nil || len(raw)+1 > MaxResult {
+		r.State = "failed"
+		r.Failure = "result_bound"
+		r.Worker = nil
+		raw, _ = json.Marshal(r)
+	}
+	return append(raw, '\n')
+}
+func errorCode(e error) string {
+	switch e {
+	case nil:
+		return ""
+	case extra.ErrCheckpoint:
+		return "adapter_checkpoint_stopped"
+	case extra.ErrInput:
+		return "adapter_input"
+	case extra.ErrAdapter:
+		return "adapter_boundary"
+	default:
+		return "adapter_error_unclassified"
+	}
+}
+func call(run Runner, k extra.BatchCheckpoint) (r extra.WorkerReport, e error, returned bool) {
+	defer func() {
+		if !returned {
+			_ = recover()
+		}
+	}()
+	r, e = run(k)
+	returned = true
+	return
+}
+func (w *Writer) finish(r Result) (raw []byte, code string) {
+	defer func() {
+		if recover() != nil {
+			_ = w.stop("result_panic")
+			raw = nil
+			code = "result_panic"
+		}
+	}()
+	if w.finished {
+		return nil, "result_already_finished"
+	}
+	if r.State == "complete" && (r.Failure != "" || !r.WorkerKnown || r.Worker == nil || r.LabelsAssigned || r.Qualified || r.InnerCalls != nil || r.StartupCalls != nil || w.guard(*r.Worker) != "") {
+		r.State = "failed"
+		r.Failure = "incomplete_or_changed_report"
+		_ = w.stop(r.Failure)
+	}
+	w.finished = true
+	if w.journal != nil {
+		e := safeClose(w.journal)
+		w.journal = nil
+		if e != nil {
+			_ = w.stop("journal_Close")
+		} else {
+			w.receipt.JournalClosed = true
+		}
+	}
+	if w.receipt.Failure != "" {
+		r.State = "failed"
+		r.Failure = w.receipt.Failure
+	}
+	if r.State != "complete" {
+		r.Worker = nil
+	}
+	r.LabelsAssigned = false
+	r.Qualified = false
+	r.InnerCalls = nil
+	r.StartupCalls = nil
+	r.Transport = w.Receipt()
+	encoded, e := json.Marshal(r)
+	if e != nil || len(encoded)+1 > MaxResult {
+		_ = w.stop("result_bound")
+		return nil, "result_bound"
+	}
+	raw = append(encoded, '\n')
+	if w.result == nil {
+		return nil, "result_not_reserved"
+	}
+	n, e := w.result.Write(raw)
+	if e != nil || n != len(raw) {
+		return nil, "result_write"
+	}
+	if w.result.Sync() != nil {
+		return nil, "result_Sync"
+	}
+	if w.result.Close() != nil {
+		w.result = nil
+		return nil, "result_Close"
+	}
+	w.result = nil
+	if w.syncDirectory() == nil {
+		return raw, ""
+	}
+	return nil, "result_directory_Sync"
+}
+
+// The caller supplies a fixed compiled Runner, never a JSON callback. Native
+// package initialization precedes main and remains unknown in this receipt.
+func RunCLI(family int, args []string, stdout io.Writer, run Runner) int {
+	c, code := parse(family, args)
+	out := result(c)
+	if code != "" {
+		out.Failure = code
+		_, _ = stdout.Write(encode(out))
+		return 2
+	}
+	if run == nil {
+		out.Failure = "runner_missing"
+		_, _ = stdout.Write(encode(out))
+		return 2
+	}
+	if code = preflight(c); code != "" {
+		out.Failure = code
+		_, _ = stdout.Write(encode(out))
+		return 1
+	}
+	w, code := newWriter(c)
+	defer w.close()
+	if code != "" {
+		_ = w.stop(code)
+		out.Failure = code
+		out.Transport = w.Receipt()
+		_, _ = stdout.Write(encode(out))
+		return 1
+	}
+	report, e, returned := call(run, w.Checkpoint)
+	out.WorkerKnown = returned
+	if returned {
+		out.Failure = errorCode(e)
+		if out.Failure == "" {
+			out.Failure = w.guard(report)
+		}
+	} else {
+		out.Failure = "worker_unexpected_panic"
+		_ = w.stop(out.Failure)
+	}
+	if out.Failure == "" {
+		out.Worker = &report
+		out.State = "complete"
+	}
+	raw, code := w.finish(out)
+	if code != "" {
+		out.State = "failed"
+		out.Failure = code
+		out.Worker = nil
+		out.Transport = w.Receipt()
+		_, _ = stdout.Write(encode(out))
+		return 1
+	}
+	n, we := stdout.Write(raw)
+	if we != nil || n != len(raw) {
+		return 1
+	}
+	if out.State != "complete" || w.receipt.Stopped {
+		return 1
+	}
+	return 0
+}

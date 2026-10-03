@@ -1,0 +1,174 @@
+package data23
+
+import (
+	"bufio"
+	"bytes"
+	"encoding/json"
+	"reflect"
+)
+
+func loadedMatches(v LoadedView, r Row) bool {
+	if !v.Valid || !v.UnusedZero || v.ID != r.ID || v.Request != r.Request || v.Schema != "riido-short-behavior-claim-v1" || v.Provenance != "finite-development-v1" || v.Role != r.Role || v.Policy != r.Policy || v.Family != r.Family || v.Revision != r.Revision || v.TextRevision != r.TextRevision || v.ScopeDescription != r.Scope.Description || v.Group != r.Group || v.Inputs != r.Scope.Inputs || v.Observations != r.Scope.Observations || v.Count != len(r.Candidates) || v.SupervisionCount != len(r.Candidates) || v.All || v.Unseen {
+		return false
+	}
+	for i, c := range v.Candidates {
+		if i >= len(r.Candidates) {
+			if c != (LoadedCandidate{}) {
+				return false
+			}
+			continue
+		}
+		want := r.Candidates[i]
+		if c.ID != want.ID || c.Text != want.Text || c.Label != *want.Label || c.Weight != want.Weight {
+			return false
+		}
+	}
+	return true
+}
+func checkpoint(p Progress, s Summary) error {
+	// A callback receives an owned metadata snapshot, never the live backing slice.
+	s.Unknowns = append([]unknownPredicate(nil), s.Unknowns...)
+	if e := p(s); e != nil {
+		return failure("reader_checkpoint_failed")
+	}
+	return nil
+}
+func readOne(reader Reader, raw []byte) (v LoadedView, e error, returned bool) {
+	defer func() {
+		if recover() != nil {
+			e = failure("reader_panic")
+			returned = false
+		}
+	}()
+	v, e = reader(bytes.Clone(raw))
+	returned = true
+	return
+}
+
+// ValidateReader checks fixed inputs, complete data and rows before dispatching
+// any reader. Progress must durably record before/after dispatch if kill evidence
+// is needed; this function does not infer in-flight returns after interruption.
+func ValidateReader(b Bundle, data []byte, dataSHA string, reader Reader, progress Progress, out *Summary) error {
+	if out == nil {
+		return failure("validation_arguments")
+	}
+	*out = InitialSummary()
+	if e := bind(b); e != nil {
+		return e
+	}
+	if !digestOK(dataSHA) || len(data) < 1 || len(data) > maxDataBytes || Digest(data) != dataSHA {
+		return failure("data_pin_bounds")
+	}
+	return validateBound(b, data, reader, progress, out)
+}
+
+// Private only: pure controls may supply owned synthetic pinned-input DTOs.
+func validateBound(b Bundle, data []byte, reader Reader, progress Progress, out *Summary) error {
+	if reader == nil || progress == nil || out == nil {
+		return failure("validation_arguments")
+	}
+	_, q, s, e := inspectInputs(b)
+	if e != nil {
+		return e
+	}
+	*out = s
+	if len(data) <= len(b.Previous) || len(data) > maxDataBytes || !bytes.HasPrefix(data, b.Previous) || data[len(data)-1] != '\n' {
+		return failure("data_prefix_newline")
+	}
+	var rows [23]Row
+	var rawRows [23][]byte
+	line := 0
+	scan := bufio.NewScanner(bytes.NewReader(data))
+	scan.Buffer(make([]byte, 4096), maxRowBytes+1)
+	for scan.Scan() {
+		if line >= 23 || len(scan.Bytes()) == 0 {
+			return failure("data_row_count")
+		}
+		r, e := rowDecode(scan.Bytes())
+		if e != nil {
+			return e
+		}
+		if line < 21 {
+			if r.ID != priorIDs[line] {
+				return failure("data_row_order")
+			}
+		} else {
+			want := newRow(q.Requests[line-21])
+			if !reflect.DeepEqual(r, want) {
+				return failure("appended_row_correspondence")
+			}
+		}
+		for j := 0; j < line; j++ {
+			if rows[j].ID == r.ID {
+				return failure("data_duplicate_id")
+			}
+		}
+		rows[line] = r
+		rawRows[line] = bytes.Clone(scan.Bytes())
+		line++
+	}
+	if scan.Err() != nil || line != 23 {
+		return failure("data_row_count")
+	}
+	// Every row has already passed structural/adoption checks before the first load.
+	out.Requests = 0
+	out.Labels = 0
+	out.Positive = 0
+	out.Negative = 0
+	out.Inputs = 0
+	out.Selected = 0
+	out.PositiveIndex1 = 0
+	out.DataBytes = len(data)
+	out.DataSHA = Digest(data)
+	out.Original = 335
+	out.CopiedRootSupervision = true
+	for i, r := range rows {
+		out.ReaderAttempts++
+		if e = checkpoint(progress, *out); e != nil {
+			return e
+		}
+		v, re, returned := readOne(reader, rawRows[i])
+		if returned {
+			out.ReaderReturns++
+		}
+		if re != nil {
+			out.Failure = FailureCode(re)
+			if e = checkpoint(progress, *out); e != nil {
+				return e
+			}
+			return failure("project_reader_validation")
+		}
+		if !loadedMatches(v, r) {
+			out.Failure = "project_reader_value_correspondence"
+			if e = checkpoint(progress, *out); e != nil {
+				return e
+			}
+			return failure("project_reader_value_correspondence")
+		}
+		out.ReaderMatches++
+		if e = countRow(r, out); e != nil {
+			return e
+		}
+		if e = checkpoint(progress, *out); e != nil {
+			return e
+		}
+	}
+	if out.Requests != 23 || out.Labels != 67 || out.Positive != 23 || out.Negative != 44 || out.Inputs != 113 || out.Selected != 331 || out.PositiveIndex1 != 20 || out.ReaderAttempts != 23 || out.ReaderReturns != 23 || out.ReaderMatches != 23 || out.UnknownPredicateCount != 1 {
+		return failure("validation_final_counts")
+	}
+	out.State = "complete_reader_value_correspondence_only"
+	return nil
+}
+
+// Output manifests contain only metadata; candidate text/labels are in the data
+// file, not repeated here. This serializer cannot serialize model coefficients.
+func EncodeSummary(out Summary) ([]byte, error) {
+	if out.LabelsAssigned || out.Qualified || out.UnknownFalse || out.Features != 0 || out.Score != 0 || out.Project != 0 || out.Fit != 0 || out.OriginalCalls != 0 || out.Model != 0 {
+		return nil, failure("summary_authority")
+	}
+	b, e := json.Marshal(out)
+	if e != nil || len(b)+1 > maxSummaryBytes {
+		return nil, failure("summary_bounds")
+	}
+	return append(b, '\n'), nil
+}

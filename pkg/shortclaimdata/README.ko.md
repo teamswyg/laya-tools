@@ -32,4 +32,4 @@ Go 1.27.1 로컬 race 검사에서 테스트·하위테스트 합계 46건과 ve
 
 출처와 라벨을 바꿔도 정규화 문장이 같다는 테스트는 입력 분리를 확인합니다. 모델 품질·속도·메모리·GPU 개선은 측정하지 않았습니다.
 
-현재 [HF 개발 자료](https://huggingface.co/datasets/JooYoon/riidolaya-shortclaim-next60-development/tree/next60-7-finite-v1)는 요청 7개·라벨 20개(+7/−13)입니다. [7행 대응 검사](../../experiments/short-claim/next60-development-seven/INPUT-VALIDATION.v1.json)를 통과했고, 이전 2행·3행 자료를 보존합니다. 유한 입력 34개와 근거 관측 98건을 새 요청이나 가중치로 늘려 세지 않습니다. 2,400개 검증 자료가 아니며, reader의 구조 검사가 권리·역할·정답 의미나 학습 실행 권한을 부여하지 않습니다.
+현재 로컬 [개발 자료](../../experiments/short-claim/next60-development-twentythree/README.ko.md)는 요청 23개·라벨 67개(+23/−44)입니다. 실제 reader 호출·반환·값 일치가 각각 23회인 [대응 검사](../../experiments/short-claim/next60-development-twentythree/INPUT-VALIDATION.v1.json)를 통과했습니다. 마지막 확인된 [HF 게시 버전은 21개 요청](https://huggingface.co/datasets/JooYoon/riidolaya-shortclaim-next60-development/tree/next60-21-finite-v1)이며, 23개 게시 완료 여부는 별도 게시 증거로 확인합니다. 이전 자료를 보존하고, 113개 유한 입력과 335개 원 관측을 요청 수나 가중치로 늘려 세지 않습니다. 라벨에 선택한 관측은 331개이며 미상을 거짓으로 바꾸지 않습니다. 2,400개 보호 평가 자료가 아니며, reader의 구조 검사가 권리·역할·정답 의미나 학습 실행 권한을 부여하지 않습니다.

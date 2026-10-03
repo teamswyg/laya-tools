@@ -1,0 +1,71 @@
+package extra
+
+import "errors"
+
+type ValidatorInput struct {
+	Args  [MaxValues]string
+	ArgsN int
+	Kinds [MaxValidators]int //0=success,1=owned sentinelA,2=owned TypedB{7}
+	N     int
+}
+type NativeFanout func(int, []func() error, []string) error
+
+func ObserveValidators(candidate int, in ValidatorInput, native NativeFanout, checkpoint Checkpoint) (Observation, Counters, error) {
+	o := Observation{Candidate: candidate}
+	c := Counters{}
+	if candidate < 0 || candidate > 2 || in.N < 0 || in.N > MaxValidators || in.ArgsN < 0 || in.ArgsN > MaxValues || native == nil {
+		return o, c, ErrInput
+	}
+	for i := 0; i < in.N; i++ {
+		if in.Kinds[i] < 0 || in.Kinds[i] > 2 {
+			return o, c, ErrInput
+		}
+	}
+	for i := 0; i < in.ArgsN; i++ {
+		if !stringOK(in.Args[i]) {
+			return o, c, ErrInput
+		}
+	}
+	c.Reserved = 1
+	if emit(checkpoint, Event{Stage: "before_candidate", Step: -1, Counters: c}) != nil {
+		c.CheckpointStopped = true
+		return o, c, ErrCheckpoint
+	}
+	c.Dispatched = 1
+	panicked, p := capture(func() {
+		validators := make([]func() error, in.N)
+		for i := 0; i < in.N; i++ {
+			index, kind := i, in.Kinds[i]
+			validators[i] = func() error {
+				o.CallbackOrder[o.CallbackCount] = index
+				o.CallbackCount++
+				switch kind {
+				case 1:
+					return SentinelA
+				case 2:
+					return &TypedB{Code: 7}
+				default:
+					return nil
+				}
+			}
+		}
+		args := make([]string, in.ArgsN)
+		copy(args, in.Args[:in.ArgsN])
+		err := native(candidate, validators, args)
+		o.ValidatorResultKnown = true
+		o.ValidatorError = errorView(err)
+		o.IsA = errors.Is(err, SentinelA)
+		var b *TypedB
+		o.AsB = errors.As(err, &b)
+		if o.AsB {
+			o.BCodeKnown = true
+			o.BCode = b.Code
+		}
+	})
+	finish(&o, &c, panicked, p)
+	if emit(checkpoint, Event{Stage: "after_candidate", Step: -1, ObservationKnown: true, Observation: o, Counters: c}) != nil {
+		c.CheckpointStopped = true
+		return o, c, ErrCheckpoint
+	}
+	return o, c, nil
+}

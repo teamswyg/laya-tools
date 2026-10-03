@@ -1,0 +1,18 @@
+package extra
+
+// Literal values below derive only from EXTRA-TWO-FIXTURES.v1.json. No model,
+// oracle, source function or fixture execution was used to derive them.
+var SliceFixtures = [5]SliceInput{
+	{Limit: 2, N: 1, Operations: [MaxSteps]Operation{{Method: "Set", Text: "\"a,b\",c"}}},
+	{Limit: 2, N: 2, Operations: [MaxSteps]Operation{{Method: "Set", Text: "a,b"}, {Method: "Set", Text: "c"}}},
+	{Limit: 2, N: 2, Operations: [MaxSteps]Operation{{Method: "Set", Text: "a,b"}, {Method: "Append", Text: "c"}}},
+	{Limit: 2, N: 2, Operations: [MaxSteps]Operation{{Method: "Set", Text: "a"}, {Method: "Replace", N: 3, Values: [MaxValues]string{"b", "c", "d"}}}},
+	{Limit: 0, N: 4, Operations: [MaxSteps]Operation{{Method: "Set", Text: "a,b"}, {Method: "Set", Text: "c"}, {Method: "Append", Text: "d"}, {Method: "Replace", N: 3, Values: [MaxValues]string{"e", "f", "g"}}}},
+}
+var ValidatorFixtures = [5]ValidatorInput{
+	{Args: [MaxValues]string{"x"}, ArgsN: 1, Kinds: [MaxValidators]int{1, 2, 0}, N: 3},
+	{Args: [MaxValues]string{"x"}, ArgsN: 1, Kinds: [MaxValidators]int{0, 0}, N: 2},
+	{N: 0, ArgsN: 0},
+	{Args: [MaxValues]string{"x"}, ArgsN: 1, Kinds: [MaxValidators]int{1, 0}, N: 2},
+	{Args: [MaxValues]string{"x"}, ArgsN: 1, Kinds: [MaxValidators]int{0, 2}, N: 2},
+}

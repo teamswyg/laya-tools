@@ -1,0 +1,173 @@
+package extra
+
+import (
+	"encoding/csv"
+	"errors"
+	"strings"
+	"testing"
+)
+
+// Pure future synthetic tests only. No original package or native factory.
+type fakeSlice struct {
+	items      []string
+	changed    bool
+	mutations  int
+	panicValue any
+}
+
+func (s *fakeSlice) Set(raw string) error {
+	if s.panicValue != nil {
+		panic(s.panicValue)
+	}
+	v, e := csv.NewReader(strings.NewReader(raw)).Read()
+	if e != nil {
+		return e
+	}
+	if !s.changed {
+		s.items = v
+	} else {
+		s.items = append(s.items, v...)
+	}
+	s.changed = true
+	s.mutations++
+	return nil
+}
+func (s *fakeSlice) Append(v string) error    { s.items = append(s.items, v); s.mutations++; return nil }
+func (s *fakeSlice) Replace(v []string) error { s.items = v; s.mutations++; return nil }
+func (s *fakeSlice) GetSlice() []string       { return s.items }
+func fakeFactory() (SliceFactory, *fakeSlice) {
+	s := &fakeSlice{}
+	return func(candidate, limit int, in []string) (SliceValue, error) {
+		s.items = in
+		s.changed = false
+		if candidate != 0 {
+			return &BoundedSlice{Inner: s, Limit: limit, Candidate: candidate}, nil
+		}
+		return s, nil
+	}, s
+}
+func TestCheckpointFailureReservesButNeverCallsFactory(t *testing.T) {
+	called := 0
+	factory := func(int, int, []string) (SliceValue, error) { called++; return &fakeSlice{}, nil }
+	_, c, e := ObserveSlice(1, SliceFixtures[0], factory, func(Event) error { return errors.New("injected_checkpoint") })
+	if e != ErrCheckpoint || called != 0 || c.Reserved != 1 || c.Dispatched != 0 || !c.CheckpointStopped {
+		t.Fatal("pre-dispatch refusal")
+	}
+}
+func TestOverflowRefusalRetainsSnapshotAndStopsLaterOnWriterFailure(t *testing.T) {
+	factory, s := fakeFactory()
+	var events [6]Event
+	n := 0
+	o, c, e := ObserveSlice(1, SliceFixtures[2], factory, func(ev Event) error { events[n] = ev; n++; return nil })
+	if e != nil || s.mutations != 1 || c.Completed != 1 || !o.Steps[1].Error.Known || o.Steps[1].Error.Nil || o.Steps[1].Values.N != 2 {
+		t.Fatal("atomic overflow result")
+	}
+	s.items[0] = "mutated_later"
+	if events[1].Observation.Steps[0].Values.Items[0] != "a" || o.Steps[0].Values.Items[0] != "a" {
+		t.Fatal("borrowed snapshot escaped")
+	}
+	factory, s = fakeFactory()
+	_, c, e = ObserveSlice(0, SliceFixtures[4], factory, func(ev Event) error {
+		if ev.Stage == "after_step" {
+			return ErrCheckpoint
+		}
+		return nil
+	})
+	if e != ErrCheckpoint || s.mutations != 1 || c.Completed != 0 || !c.CheckpointStopped {
+		t.Fatal("dispatch continued after sticky failure")
+	}
+}
+
+type panicTrap struct{ calls *int }
+
+func (p panicTrap) Error() string { (*p.calls)++; return "must_not_observe" }
+func TestPanicTypeOnlyAndUnknownInnerCounters(t *testing.T) {
+	calls := 0
+	factory, s := fakeFactory()
+	s.panicValue = panicTrap{calls: &calls}
+	o, c, e := ObserveSlice(0, SliceFixtures[0], factory, func(Event) error { return nil })
+	if e != nil || calls != 0 || c.Panicked != 1 || c.Returned != 0 || c.Completed != 1 || !o.Panic || !o.PanicTypeKnown || o.PanicTextKnown || o.InnerOriginalCalls != nil || o.Truth != nil {
+		t.Fatal("panic channel or authority fabricated")
+	}
+}
+func TestValidatorFanoutOrderAndTypedCauses(t *testing.T) {
+	original := func(candidate int, fs []func() error, _ []string) error {
+		var last error
+		all := []error{}
+		for _, fn := range fs {
+			if e := fn(); e != nil {
+				if candidate == 0 {
+					return e
+				}
+				last = e
+				all = append(all, e)
+			}
+		}
+		if candidate == 1 {
+			return errors.Join(all...)
+		}
+		return last
+	}
+	var got [3]Observation
+	for candidate := 0; candidate < 3; candidate++ {
+		o, c, e := ObserveValidators(candidate, ValidatorFixtures[0], original, func(Event) error { return nil })
+		if e != nil || c.Completed != 1 || o.ValidatorError.TextKnown {
+			t.Fatal("observation failed")
+		}
+		got[candidate] = o
+	}
+	if got[0].CallbackCount != 1 || !got[0].IsA || got[0].AsB {
+		t.Fatal("baseline short circuit")
+	}
+	if got[1].CallbackCount != 3 || !got[1].IsA || !got[1].AsB || got[1].BCode != 7 || got[1].CallbackOrder[2] != 2 {
+		t.Fatal("joined causes/order")
+	}
+	if got[2].CallbackCount != 3 || got[2].IsA || !got[2].AsB {
+		t.Fatal("last-error negative")
+	}
+}
+
+func TestFixedWorkerOrderAndStickyStop(t *testing.T) {
+	factory, _ := fakeFactory()
+	before := 0
+	r, e := RunSlice(factory, func(ev BatchEvent) error {
+		if ev.Local.Stage == "before_candidate" {
+			if ev.Ordinal != before || ev.Fixture != before/3 || ev.Candidate != before%3 {
+				t.Fatal("schedule changed")
+			}
+			before++
+		}
+		return nil
+	})
+	if e != nil || r.Stopped || before != 15 || r.Counters.Completed != 15 || r.Counters.Dispatched != 15 {
+		t.Fatal("bounded schedule")
+	}
+	called := 0
+	factory = func(int, int, []string) (SliceValue, error) { called++; return &fakeSlice{}, nil }
+	r, e = RunSlice(factory, func(ev BatchEvent) error {
+		if ev.Local.Stage == "after_candidate" {
+			return ErrCheckpoint
+		}
+		return nil
+	})
+	if e != ErrCheckpoint || called != 1 || !r.Stopped || !r.Counters.CheckpointStopped || r.Counters.Dispatched != 1 {
+		t.Fatal("later dispatch after failure")
+	}
+}
+
+func TestUnlimitedReplaceDoesNotInheritObserverArrayCap(t *testing.T) {
+	s := &fakeSlice{}
+	v := &BoundedSlice{Inner: s, Limit: 0, Candidate: 1}
+	items := make([]string, MaxValues+1)
+	for i := range items {
+		items[i] = "x"
+	}
+	if e := v.Replace(items); e != nil || len(s.items) != MaxValues+1 {
+		t.Fatal("zero limit narrowed by snapshot cap")
+	}
+	v.Limit = 2
+	before := s.items
+	if e := v.Replace([]string{"a", "b", "c"}); e != ErrEntryLimit || len(s.items) != len(before) || s.items[0] != "x" {
+		t.Fatal("overflow mutates original")
+	}
+}

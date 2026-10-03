@@ -1,0 +1,91 @@
+{
+  "schema": "riido-twentythree-source-preparation-handoff-v1",
+  "state": "WRITE_STOP_source_only",
+  "author": "task52",
+  "role_disclosure": "Extra2 adapter author and new data23 materializer/validator/bridge author; nonblind; Root owns qualification and actual execution",
+  "payload_count": 37,
+  "payload_bytes": 235828,
+  "total_count_including_handoff": 38,
+  "cap_bytes": 1048576,
+  "pins": [
+    {
+      "path": "ATTEMPT-LEDGER.v1.json",
+      "bytes": 2119,
+      "sha256": "49ba939e171a2ab070bb8c1b66e1a195dbcb7f462c1abcb7347ccc7a23c3c5d0",
+      "publication": "safe_metadata_or_document"
+    },
+    {
+      "path": "BASIS-PINS.v1.json",
+      "bytes": 2724,
+      "sha256": "b933bd627b95d09929c14c381ce8d39723f8709de506fb11c363f5a380780c59",
+      "publication": "safe_metadata_or_document"
+    },
+    {
+      "path": "EXPECTED-METADATA.v1.json",
+      "bytes": 1370,
+      "sha256": "d9fd7932ba0b0ba42cedb632cf69359d9d886891238378a2b9a9a65f7253d3b5",
+      "publication": "safe_metadata_or_document"
+    },
+    {
+      "path": "INPUT-PINS.v1.json",
+      "bytes": 937,
+      "sha256": "b51305e9050d716e5a23ab2206d4d5ae0ab9553028614e753ecbd87466108820",
+      "publication": "safe_metadata_or_document"
+    },
+    {
+      "path": "SOURCE-PINS.v1.json",
+      "bytes": 1838,
+      "sha256": "d9668101a9dddaca35e00795bf2f38083790df68355639122989cbf2515bcfae",
+      "publication": "safe_metadata_or_document"
+    },
+    {
+      "path": "MANIFEST.v1.json",
+      "bytes": 7775,
+      "sha256": "73aa49ea0126b4d204a281a30e2df212285798de3a99de3a2705fc65db7e51e0"
+    },
+    {
+      "path": "SHA256SUMS",
+      "bytes": 3449,
+      "sha256": "470161458084e54e0412332d3f20f93d773c2e3abfd3ffbe3f23e3622d7be4b6"
+    }
+  ],
+  "expected": {
+    "requests": 23,
+    "candidate_labels": 67,
+    "positive": 23,
+    "negative": 44,
+    "inputs": 113,
+    "original_evidence_observations": 335,
+    "selected_candidate_observations": 331,
+    "old21_prefix_bytes": 28800,
+    "unknown_predicates_retained": 1,
+    "group77_reused": true,
+    "text_revision": "extra-two-finite-v1"
+  },
+  "actual": {
+    "data23_materialization": 0,
+    "LoadDevelopmentRow": 0,
+    "original_candidates": 0,
+    "Features_Score_Project_Fit_model": 0,
+    "owned_synthetic_race_invocations": 2,
+    "owned_vet_invocations": 2,
+    "race_failed": 0,
+    "vet_failed": 0,
+    "gofmt_invocations": 2,
+    "reader_bridge_compiled": 0
+  },
+  "future_API": {
+    "materialize": "module.Materialize(Paths, freshOutput, *Summary)",
+    "validate": "module.ValidateReader(Bundle, actualData, RootDataSHA, Reader, durable Progress, *Summary)",
+    "materializer_entry_inert": "bridge/materializer-main.go.txt",
+    "reader_entry_inert": "bridge/reader-main.go.txt"
+  },
+  "pending": [
+    "Root nonauthor source review",
+    "future actual data output/source/binary/reader source closure pins",
+    "Root actual materialization",
+    "Root actual reader correspondence",
+    "Fit remains prohibited before30"
+  ],
+  "limits": "Finite Root-adopted data correspondence only; no new qualification, unseen-source guarantees, model-quality claim, protected evaluation, or independent semantic truth."
+}

@@ -1,0 +1,330 @@
+package workerio
+
+import (
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"riido.local/remainderextra/extra"
+	"strings"
+)
+
+type sink interface {
+	Write([]byte) (int, error)
+	Sync() error
+	Close() error
+}
+type Frame struct {
+	Schema   string           `json:"schema"`
+	Sequence int              `json:"sequence"`
+	Previous string           `json:"previous_sha256"`
+	Event    extra.BatchEvent `json:"event"`
+}
+type Reservation struct {
+	Schema         string `json:"schema"`
+	Family         int    `json:"family"`
+	RequestID      string `json:"request_id"`
+	FixtureSHA     string `json:"fixture_sha256"`
+	WantsSHA       string `json:"wants_sha256"`
+	PlanSHA        string `json:"plan_sha256"`
+	Journal        string `json:"journal_file"`
+	Result         string `json:"result_file"`
+	MaxFrames      int    `json:"max_frames"`
+	MaxJournal     int    `json:"max_journal_bytes"`
+	MaxFrame       int    `json:"max_frame_bytes"`
+	MaxResult      int    `json:"max_result_bytes"`
+	LabelsAssigned bool   `json:"labels_assigned"`
+	Qualified      bool   `json:"qualified"`
+	InnerCalls     *int   `json:"inner_original_calls"`
+	StartupCalls   *int   `json:"original_startup_calls"`
+}
+type Receipt struct {
+	Schema         string         `json:"schema"`
+	Family         int            `json:"family"`
+	RequestID      string         `json:"request_id"`
+	FixtureSHA     string         `json:"fixture_sha256"`
+	WantsSHA       string         `json:"wants_sha256"`
+	PlanSHA        string         `json:"plan_sha256"`
+	Initialized    bool           `json:"empty_files_and_directories_Sync_acknowledged"`
+	Frames         int            `json:"synced_frames"`
+	Bytes          int            `json:"synced_journal_bytes"`
+	LastSequence   int            `json:"last_synced_sequence"`
+	LastSHA        string         `json:"last_synced_frame_sha256"`
+	Counters       extra.Counters `json:"last_synced_cumulative_counters"`
+	Completed      int            `json:"synced_terminal_records"`
+	Failure        string         `json:"failure_code"`
+	Stopped        bool           `json:"transport_stopped"`
+	JournalClosed  bool           `json:"journal_Close_acknowledged"`
+	InnerCalls     *int           `json:"inner_original_calls"`
+	StartupCalls   *int           `json:"original_startup_calls"`
+	ErrorTextCalls int            `json:"transport_Error_method_calls"`
+	LabelsAssigned bool           `json:"labels_assigned"`
+	Qualified      bool           `json:"qualified"`
+	Truth          *string        `json:"truth"`
+	Role           *string        `json:"role"`
+	Weight         *float64       `json:"weight"`
+	FinalAck       string         `json:"final_output_acknowledgment"`
+}
+type Writer struct {
+	config            Config
+	root              *os.Root
+	journal           sink
+	result            *os.File
+	receipt           Receipt
+	phase, next, step int
+	prior             extra.Counters
+	records           [15]extra.Record
+	finished          bool
+	syncDirectory     func() error
+}
+
+func baseReceipt(c Config) Receipt {
+	r := Receipt{Schema: "riido-extra-two-worker-transport-receipt-v1", Family: c.Family, FixtureSHA: FixtureSHA, WantsSHA: WantsSHA, PlanSHA: c.PlanSHA, LastSHA: strings.Repeat("0", 64), FinalAck: "Only matching stdout after result File.Sync/Close and output-directory Sync acknowledges final persistence; a surviving result row alone leaves acknowledgment unknown."}
+	if c.Family >= 0 && c.Family < 2 {
+		r.RequestID = requestIDs[c.Family]
+	}
+	return r
+}
+func syncDir(path string) error {
+	f, e := os.Open(path)
+	if e != nil {
+		return ErrTransport
+	}
+	se := f.Sync()
+	ce := f.Close()
+	if se != nil || ce != nil {
+		return ErrTransport
+	}
+	return nil
+}
+func newWriter(c Config) (*Writer, string) {
+	w := &Writer{config: c, receipt: baseReceipt(c)}
+	if c.Family < 0 || c.Family > 1 || !validSHA(c.PlanSHA) || !filepath.IsAbs(c.Out) || filepath.Clean(c.Out) != c.Out {
+		return w, "output_arguments"
+	}
+	parent := filepath.Dir(c.Out)
+	st, e := os.Lstat(parent)
+	if e != nil || !st.IsDir() || st.Mode()&os.ModeSymlink != 0 {
+		return w, "output_parent"
+	}
+	if os.Mkdir(c.Out, 0700) != nil {
+		return w, "output_reserve"
+	}
+	w.root, e = os.OpenRoot(c.Out)
+	if e != nil {
+		return w, "output_open"
+	}
+	jf, e := w.root.OpenFile("journal.jsonl", os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if e != nil {
+		return w, "journal_reserve"
+	}
+	w.journal = jf
+	w.result, e = w.root.OpenFile("results.json", os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if e != nil {
+		return w, "result_reserve"
+	}
+	reservation := Reservation{Schema: "riido-extra-two-worker-reservation-v1", Family: c.Family, RequestID: requestIDs[c.Family], FixtureSHA: FixtureSHA, WantsSHA: WantsSHA, PlanSHA: c.PlanSHA, Journal: "journal.jsonl", Result: "results.json", MaxFrames: MaxFrames, MaxJournal: MaxJournal, MaxFrame: MaxFrame, MaxResult: MaxResult}
+	raw, je := json.Marshal(reservation)
+	if je != nil || len(raw)+1 > 4096 {
+		return w, "reservation_bound"
+	}
+	raw = append(raw, '\n')
+	rf, e := w.root.OpenFile("reservation.json", os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if e != nil {
+		return w, "reservation_reserve"
+	}
+	n, we := rf.Write(raw)
+	se := rf.Sync()
+	ce := rf.Close()
+	if we != nil || n != len(raw) || se != nil || ce != nil {
+		return w, "reservation_write_Sync_Close"
+	}
+	w.syncDirectory = func() error {
+		f, e := w.root.Open(".")
+		if e != nil {
+			return ErrTransport
+		}
+		se := f.Sync()
+		ce := f.Close()
+		if se != nil || ce != nil {
+			return ErrTransport
+		}
+		return nil
+	}
+	if w.journal.Sync() != nil || w.result.Sync() != nil || w.syncDirectory() != nil || syncDir(parent) != nil {
+		return w, "initial_Sync"
+	}
+	w.receipt.Initialized = true
+	return w, ""
+}
+func (w *Writer) stop(code string) error {
+	if w.receipt.Failure == "" {
+		w.receipt.Failure = code
+	}
+	w.receipt.Stopped = true
+	return ErrTransport
+}
+func plus(a, b extra.Counters) extra.Counters {
+	return extra.Counters{Reserved: a.Reserved + b.Reserved, Dispatched: a.Dispatched + b.Dispatched, Returned: a.Returned + b.Returned, Panicked: a.Panicked + b.Panicked, Completed: a.Completed + b.Completed, CheckpointStopped: a.CheckpointStopped || b.CheckpointStopped}
+}
+func validObservation(o extra.Observation) bool {
+	if o.Truth != nil || o.Role != nil || o.Weight != nil || o.InnerOriginalCalls != nil || o.StartupCalls != nil || o.PanicTextKnown || o.PanicText != "" || o.StepsN < 0 || o.StepsN > extra.MaxSteps || o.CallbackCount < 0 || o.CallbackCount > extra.MaxValidators || !bounded(o.PanicType) {
+		return false
+	}
+	errors := [5]extra.ErrorView{o.Steps[0].Error, o.Steps[1].Error, o.Steps[2].Error, o.Steps[3].Error, o.ValidatorError}
+	for _, e := range errors {
+		if e.TextKnown || e.Text != "" || !bounded(e.Type) || !bounded(e.DerivedKind) {
+			return false
+		}
+	}
+	for _, s := range o.Steps {
+		if s.Values.N < 0 || s.Values.N > extra.MaxValues {
+			return false
+		}
+		for _, v := range s.Values.Items {
+			if !bounded(v) {
+				return false
+			}
+		}
+	}
+	for i := 0; i < o.CallbackCount; i++ {
+		if o.CallbackOrder[i] < 0 || o.CallbackOrder[i] >= extra.MaxValidators {
+			return false
+		}
+	}
+	return true
+}
+func (w *Writer) validate(e extra.BatchEvent) (int, int, int, extra.Counters, extra.Record, string) {
+	phase, next, step, prior := w.phase, w.next, w.step, w.prior
+	var terminal extra.Record
+	if w.finished || !w.receipt.Initialized || w.receipt.Stopped || next >= 15 || e.Family != w.config.Family || e.Ordinal != next || e.Fixture != next/3 || e.Candidate != next%3 {
+		return 0, 0, 0, prior, terminal, "checkpoint_order"
+	}
+	local := e.Local
+	var expected extra.Counters
+	switch local.Stage {
+	case "before_candidate":
+		expected = extra.Counters{Reserved: 1}
+		if phase != 0 || local.Step != -1 || local.ObservationKnown || local.Observation != (extra.Observation{}) {
+			return 0, 0, 0, prior, terminal, "checkpoint_before"
+		}
+		phase = 1
+		step = 0
+	case "after_step":
+		expected = extra.Counters{Reserved: 1, Dispatched: 1}
+		o := local.Observation
+		if w.config.Family != 0 || phase != 1 || local.Step != step || step >= extra.SliceFixtures[e.Fixture].N || !local.ObservationKnown || o.Candidate != e.Candidate || o.StepsN != step+1 || o.ReturnedNormallyKnown || o.PanicKnown || !o.Steps[step].Returned || !validObservation(o) {
+			return 0, 0, 0, prior, terminal, "checkpoint_step"
+		}
+		step++
+	case "after_candidate":
+		o := local.Observation
+		expected = extra.Counters{Reserved: 1, Dispatched: 1, Completed: 1}
+		if o.Panic {
+			expected.Panicked = 1
+		} else {
+			expected.Returned = 1
+		}
+		if phase != 1 || local.Step != -1 || !local.ObservationKnown || o.Candidate != e.Candidate || !o.ReturnedNormallyKnown || !o.PanicKnown || o.ReturnedNormally == o.Panic || !validObservation(o) {
+			return 0, 0, 0, prior, terminal, "checkpoint_terminal"
+		}
+		if w.config.Family == 0 && (o.StepsN != step || !o.Panic && step != extra.SliceFixtures[e.Fixture].N) {
+			return 0, 0, 0, prior, terminal, "checkpoint_terminal_steps"
+		}
+		if w.config.Family == 1 && step != 0 {
+			return 0, 0, 0, prior, terminal, "checkpoint_terminal_steps"
+		}
+		terminal = extra.Record{Ordinal: next, Fixture: e.Fixture, Candidate: e.Candidate, Completed: true, Observation: o}
+		phase = 0
+		next++
+		step = 0
+	default:
+		return 0, 0, 0, prior, terminal, "checkpoint_stage"
+	}
+	cumulative := plus(prior, expected)
+	if local.Counters != expected || e.Cumulative != cumulative {
+		return 0, 0, 0, prior, terminal, "checkpoint_counters"
+	}
+	if local.Stage == "after_candidate" {
+		prior = cumulative
+	}
+	return phase, next, step, prior, terminal, ""
+}
+
+// Phase, counters and terminal snapshots advance only after successful Sync.
+// A callback error/panic is sticky, so the fixed adapter stops before next work.
+func (w *Writer) Checkpoint(e extra.BatchEvent) (err error) {
+	defer func() {
+		if recover() != nil {
+			err = w.stop("checkpoint_panic")
+		}
+	}()
+	if w.receipt.Stopped {
+		return ErrTransport
+	}
+	phase, next, step, prior, terminal, code := w.validate(e)
+	if code != "" {
+		return w.stop(code)
+	}
+	if w.receipt.Frames >= MaxFrames {
+		return w.stop("checkpoint_frame_bound")
+	}
+	raw, je := json.Marshal(Frame{Schema: "riido-extra-two-worker-journal-frame-v1", Sequence: w.receipt.LastSequence + 1, Previous: w.receipt.LastSHA, Event: e})
+	if je != nil || len(raw)+1 > MaxFrame || w.receipt.Bytes+len(raw)+1 > MaxJournal {
+		return w.stop("checkpoint_byte_bound")
+	}
+	raw = append(raw, '\n')
+	n, we := w.journal.Write(raw)
+	if we != nil || n != len(raw) {
+		return w.stop("checkpoint_write")
+	}
+	if w.journal.Sync() != nil {
+		return w.stop("checkpoint_Sync")
+	}
+	w.phase = phase
+	w.next = next
+	w.step = step
+	w.prior = prior
+	w.receipt.Frames++
+	w.receipt.LastSequence++
+	w.receipt.Bytes += len(raw)
+	w.receipt.LastSHA = sha(raw)
+	w.receipt.Counters = e.Cumulative
+	if terminal.Completed {
+		w.records[e.Ordinal] = terminal
+		w.receipt.Completed++
+	}
+	return nil
+}
+func (w *Writer) Receipt() Receipt { return w.receipt }
+func (w *Writer) guard(r extra.WorkerReport) string {
+	if w.receipt.Stopped || w.receipt.Failure != "" {
+		return "transport_stopped"
+	}
+	expected := extra.WorkerReport{Schema: extra.ExtraResultSchema, Family: w.config.Family, Counters: w.prior, Records: w.records}
+	if w.phase != 0 || w.next != 15 || w.receipt.Completed != 15 || w.receipt.Frames < 30 || w.prior.Reserved != 15 || w.prior.Dispatched != 15 || w.prior.Completed != 15 || w.prior.Returned+w.prior.Panicked != 15 || r != expected {
+		return "incomplete_or_changed_report"
+	}
+	return ""
+}
+func safeClose(s interface{ Close() error }) (err error) {
+	defer func() {
+		if recover() != nil {
+			err = ErrTransport
+		}
+	}()
+	return s.Close()
+}
+func (w *Writer) close() {
+	if w.journal != nil {
+		_ = safeClose(w.journal)
+		w.journal = nil
+	}
+	if w.result != nil {
+		_ = safeClose(w.result)
+		w.result = nil
+	}
+	if w.root != nil {
+		_ = safeClose(w.root)
+		w.root = nil
+	}
+}

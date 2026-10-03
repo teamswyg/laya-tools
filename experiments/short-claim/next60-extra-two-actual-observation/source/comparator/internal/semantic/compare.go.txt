@@ -1,0 +1,379 @@
+// Package semantic compares frozen project literal Wants with saved typed
+// observations only. It executes neither an original function nor an oracle.
+package semantic
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"example.com/riido-extra-two-semantic/internal/protocol"
+	"fmt"
+	"unicode/utf8"
+)
+
+type State string
+
+const True State = "true"
+const False State = "false"
+const Unknown State = "unknown"
+
+type StepWant struct {
+	ErrorNil   bool
+	Values     [8]string
+	N          int
+	EntryLimit bool
+}
+type Want struct {
+	Family, Fixture int
+	CaseID          string
+	Steps           [4]StepWant
+	StepsN          int
+	ErrorNil        bool
+	Calls           [8]int
+	CallsN          int
+	IsA, AsB        bool
+	BCode           *int
+}
+type Wants [10]Want
+type Predicate struct {
+	Field  string `json:"field"`
+	State  State  `json:"state"`
+	Reason string `json:"reason"`
+}
+type Counts struct {
+	True    int `json:"true"`
+	False   int `json:"false"`
+	Unknown int `json:"unknown"`
+}
+type ObservationResult struct {
+	Family             int           `json:"family"`
+	Fixture            int           `json:"fixture"`
+	Candidate          int           `json:"candidate"`
+	CaseID             string        `json:"case_id"`
+	State              State         `json:"state"`
+	Counts             Counts        `json:"predicate_counts"`
+	PredicateCount     int           `json:"predicate_count"`
+	Predicates         [12]Predicate `json:"predicates"`
+	ReturnedKnown      bool          `json:"returned_normally_known"`
+	Returned           bool          `json:"returned_normally"`
+	PanicKnown         bool          `json:"panic_known"`
+	Panic              bool          `json:"panic"`
+	ErrorTextEvaluated bool          `json:"error_text_evaluated"`
+}
+type CandidateSummary struct {
+	Family    int    `json:"family"`
+	Candidate int    `json:"candidate"`
+	Counts    Counts `json:"fixture_counts"`
+	State     State  `json:"state"`
+}
+type Report struct {
+	Schema             string                `json:"schema"`
+	State              string                `json:"state"`
+	Observations       [30]ObservationResult `json:"observations"`
+	Counts             Counts                `json:"observation_counts"`
+	PredicateCounts    Counts                `json:"predicate_counts"`
+	Candidates         [6]CandidateSummary   `json:"candidates"`
+	ReferenceAllFive   [2]bool               `json:"reference_all_five_known_match"`
+	InnerOriginalCalls *int                  `json:"inner_original_calls"`
+	StartupCalls       *int                  `json:"original_startup_calls"`
+	Labels             bool                  `json:"labels_assigned"`
+	Roles              bool                  `json:"roles_assigned"`
+	Weights            bool                  `json:"weights_assigned"`
+	Qualified          bool                  `json:"qualified"`
+	ModelCalls         int                   `json:"model_calls"`
+	FitCalls           int                   `json:"fit_calls"`
+}
+
+func invalid() error         { return errors.New("extra_two_semantic_input_invalid") }
+func digest(b []byte) string { h := sha256.Sum256(b); return hex.EncodeToString(h[:]) }
+func ParseWants(raw []byte) (Wants, error) {
+	if len(raw) != protocol.WantsBytes || digest(raw) != protocol.WantsSHA {
+		return Wants{}, invalid()
+	}
+	return parseWants(raw)
+}
+
+// Internal unpinned parsing is exercised only with owned synthetic data.
+// Production ParseWants first binds the exact previously frozen artifact.
+func parseWants(raw []byte) (out Wants, err error) {
+	v, e := protocol.Object(raw, []string{"actual_observations", "error_text_observation_calls", "input_count", "qualification", "records", "schema", "scope"})
+	if e != nil {
+		return out, invalid()
+	}
+	for _, i := range []int{0, 1} {
+		n, e := protocol.ReadInt(v[i])
+		if e != nil || n != 0 {
+			return out, invalid()
+		}
+	}
+	n, e := protocol.ReadInt(v[2])
+	if e != nil || n != 10 || !bytes.Equal(bytes.TrimSpace(v[3]), []byte("false")) {
+		return out, invalid()
+	}
+	schema, e := protocol.ReadString(v[5])
+	if e != nil || schema != "riido-remainder-extra-two-literal-Wants-v1" {
+		return out, invalid()
+	}
+	var records []json.RawMessage
+	if json.Unmarshal(v[4], &records) != nil || len(records) != 10 {
+		return out, invalid()
+	}
+	for i, r := range records {
+		fields, e := protocol.Object(r, []string{"Got", "Want", "Want_state", "case_id", "ordinal", "request_id", "role", "truth", "weight"})
+		if e != nil {
+			return out, invalid()
+		}
+		for _, k := range []int{0, 6, 7, 8} {
+			if !bytes.Equal(bytes.TrimSpace(fields[k]), []byte("null")) {
+				return out, invalid()
+			}
+		}
+		state, e := protocol.ReadString(fields[2])
+		if e != nil || state != "non_null_project_literal_pre_execution_unobserved" {
+			return out, invalid()
+		}
+		ordinal, e := protocol.ReadInt(fields[4])
+		if e != nil || ordinal != i {
+			return out, invalid()
+		}
+		family, fixture := i/5, i%5
+		request, e := protocol.ReadString(fields[5])
+		if e != nil || request != protocol.IDs[family] {
+			return out, invalid()
+		}
+		caseID, e := protocol.ReadString(fields[3])
+		prefix := "bounded-slice"
+		if family == 1 {
+			prefix = "all-errors"
+		}
+		if e != nil || caseID != fmt.Sprintf("%s-%02d", prefix, fixture+1) {
+			return out, invalid()
+		}
+		w := Want{Family: family, Fixture: fixture, CaseID: caseID}
+		if family == 0 {
+			object, e := protocol.Object(fields[1], []string{"steps"})
+			if e != nil {
+				return out, invalid()
+			}
+			var steps []json.RawMessage
+			if json.Unmarshal(object[0], &steps) != nil || len(steps) < 1 || len(steps) > 4 {
+				return out, invalid()
+			}
+			w.StepsN = len(steps)
+			fixedN := [5]int{1, 2, 2, 2, 4}
+			if w.StepsN != fixedN[fixture] {
+				return out, invalid()
+			}
+			for j, r := range steps {
+				needEntry := fixture >= 1 && fixture <= 3 && j == 1
+				keys := []string{"error_nil", "values"}
+				if needEntry {
+					keys = []string{"derived_error_kind", "error_nil", "values"}
+				}
+				s, e := protocol.Object(r, keys)
+				if e != nil {
+					return out, invalid()
+				}
+				offset := 0
+				if needEntry {
+					kind, e := protocol.ReadString(s[0])
+					if e != nil || kind != "entry_limit" {
+						return out, invalid()
+					}
+					offset = 1
+				}
+				var errorNil bool
+				if json.Unmarshal(s[offset], &errorNil) != nil || !boolean(s[offset]) {
+					return out, invalid()
+				}
+				var values []string
+				if json.Unmarshal(s[offset+1], &values) != nil || len(values) > 8 || bytes.Equal(bytes.TrimSpace(s[offset+1]), []byte("null")) {
+					return out, invalid()
+				}
+				for _, x := range values {
+					if len(x) > 512 {
+						return out, invalid()
+					}
+				}
+				sw := StepWant{ErrorNil: errorNil, N: len(values), EntryLimit: needEntry}
+				copy(sw.Values[:], values)
+				w.Steps[j] = sw
+			}
+		} else {
+			s, e := protocol.Object(fields[1], []string{"B_code", "calls", "error_nil", "errors_as_B", "errors_is_A"})
+			if e != nil {
+				return out, invalid()
+			}
+			if !bytes.Equal(bytes.TrimSpace(s[0]), []byte("null")) {
+				n, e := protocol.ReadInt(s[0])
+				if e != nil || n != 7 {
+					return out, invalid()
+				}
+				w.BCode = &n
+			}
+			var calls []json.RawMessage
+			if json.Unmarshal(s[1], &calls) != nil || len(calls) > 8 || bytes.Equal(bytes.TrimSpace(s[1]), []byte("null")) {
+				return out, invalid()
+			}
+			w.CallsN = len(calls)
+			for j, r := range calls {
+				n, e := protocol.ReadInt(r)
+				if e != nil || n != j {
+					return out, invalid()
+				}
+				w.Calls[j] = n
+			}
+			vals := [3]*bool{&w.ErrorNil, &w.AsB, &w.IsA}
+			for j, p := range vals {
+				if !boolean(s[j+2]) || json.Unmarshal(s[j+2], p) != nil {
+					return out, invalid()
+				}
+			}
+			if w.BCode != nil && !w.AsB {
+				return out, invalid()
+			}
+		}
+		out[i] = w
+	}
+	return out, nil
+}
+func boolean(raw []byte) bool { s := string(bytes.TrimSpace(raw)); return s == "true" || s == "false" }
+func add(c *Counts, s State) {
+	switch s {
+	case True:
+		c.True++
+	case False:
+		c.False++
+	default:
+		c.Unknown++
+	}
+}
+func merge(c *Counts, x Counts) { c.True += x.True; c.False += x.False; c.Unknown += x.Unknown }
+func aggregate(c Counts) State {
+	if c.False > 0 {
+		return False
+	}
+	if c.Unknown > 0 {
+		return Unknown
+	}
+	return True
+}
+func verdict(known, match bool) (State, string) {
+	if !known {
+		return Unknown, "observable_unavailable"
+	}
+	if match {
+		return True, "known_match"
+	}
+	return False, "known_mismatch"
+}
+func compare(w Want, o protocol.Observation, candidate int) ObservationResult {
+	r := ObservationResult{Family: w.Family, Fixture: w.Fixture, Candidate: candidate, CaseID: w.CaseID, ReturnedKnown: o.ReturnedNormallyKnown, Returned: o.ReturnedNormally, PanicKnown: o.PanicKnown, Panic: o.Panic}
+	put := func(name string, known, match bool) {
+		s, reason := verdict(known, match)
+		r.Predicates[r.PredicateCount] = Predicate{name, s, reason}
+		r.PredicateCount++
+		add(&r.Counts, s)
+	}
+	if w.Family == 0 {
+		for i := 0; i < w.StepsN; i++ {
+			wanted := w.Steps[i]
+			step := o.Steps[i]
+			atomic := i < o.StepsN && step.Returned
+			knownError := atomic && step.Error.Available && step.Error.Known
+			put(fmt.Sprintf("steps.%d.error_nil", i), knownError, step.Error.Nil == wanted.ErrorNil)
+			match := step.Values.N == wanted.N
+			if match {
+				for j := 0; j < wanted.N; j++ {
+					if step.Values.Items[j] != wanted.Values[j] {
+						match = false
+						break
+					}
+				}
+			}
+			put(fmt.Sprintf("steps.%d.values", i), atomic && step.Values.Known, match)
+			// Only the exact identity classified by the frozen producer maps this
+			// historical literal. Error text/type similarity is never evidence.
+			if wanted.EntryLimit {
+				identityKnown := knownError && (step.Error.Nil || step.Error.DerivedKind == "owned_entry_limit" || step.Error.DerivedKind == "unclassified_error")
+				put(fmt.Sprintf("steps.%d.derived_error_kind", i), identityKnown, step.Error.DerivedKind == "owned_entry_limit")
+			}
+		}
+	} else {
+		normal := o.ReturnedNormallyKnown && o.ReturnedNormally && o.PanicKnown && !o.Panic
+		boundary := normal && o.ValidatorResultKnown
+		put("error_nil", boundary && o.ValidatorError.Available && o.ValidatorError.Known, o.ValidatorError.Nil == w.ErrorNil)
+		callsMatch := o.CallbackCount == w.CallsN
+		if callsMatch {
+			for i := 0; i < w.CallsN; i++ {
+				if o.CallbackOrder[i] != w.Calls[i] {
+					callsMatch = false
+					break
+				}
+			}
+		}
+		put("calls", boundary, callsMatch)
+		put("errors_is_A", boundary, o.IsA == w.IsA)
+		put("errors_as_B", boundary, o.AsB == w.AsB)
+		// A null historical B_code requests no value assertion. It does not
+		// convert unavailable BCode into zero; errors_as_B is still checked.
+		if w.BCode != nil {
+			put("B_code", boundary && o.BCodeKnown, o.BCode == *w.BCode)
+		}
+	}
+	r.State = aggregate(r.Counts)
+	return r
+}
+func Compare(w Wants, reports [2]protocol.WorkerReport) (Report, error) {
+	r := Report{Schema: "riido-extra-two-saved-semantic-comparison-v1", State: "failed"}
+	for family, wkr := range reports {
+		if wkr.Family != family || wkr.Schema != "riido-remainder-extra-two-result-proposal-v1" || wkr.Stopped || wkr.Counters.Completed != 15 {
+			return r, invalid()
+		}
+		for fixture := 0; fixture < 5; fixture++ {
+			wanted := w[family*5+fixture]
+			if wanted.Family != family || wanted.Fixture != fixture || wanted.StepsN < 0 || wanted.StepsN > 4 || wanted.CallsN < 0 || wanted.CallsN > 8 {
+				return r, invalid()
+			}
+			if family == 0 && wanted.StepsN == 0 {
+				return r, invalid()
+			}
+			for i := 0; i < wanted.StepsN; i++ {
+				if wanted.Steps[i].N < 0 || wanted.Steps[i].N > 8 {
+					return r, invalid()
+				}
+				for j := 0; j < wanted.Steps[i].N; j++ {
+					s := wanted.Steps[i].Values[j]
+					if len(s) > 512 || !utf8.ValidString(s) {
+						return r, invalid()
+					}
+				}
+			}
+			for candidate := 0; candidate < 3; candidate++ {
+				rec := wkr.Records[fixture*3+candidate]
+				if !rec.Completed || rec.Ordinal != fixture*3+candidate || rec.Fixture != fixture || rec.Candidate != candidate || rec.Observation.Candidate != candidate || !protocol.ObservationValid(rec.Observation) {
+					return r, invalid()
+				}
+				observed := compare(wanted, rec.Observation, candidate)
+				index := family*15 + fixture*3 + candidate
+				r.Observations[index] = observed
+				add(&r.Counts, observed.State)
+				merge(&r.PredicateCounts, observed.Counts)
+				summary := &r.Candidates[family*3+candidate]
+				summary.Family = family
+				summary.Candidate = candidate
+				add(&summary.Counts, observed.State)
+			}
+		}
+	}
+	for i := range r.Candidates {
+		r.Candidates[i].State = aggregate(r.Candidates[i].Counts)
+	}
+	for f := 0; f < 2; f++ {
+		r.ReferenceAllFive[f] = r.Candidates[f*3+1].Counts.True == 5
+	}
+	r.State = "complete"
+	return r, nil
+}

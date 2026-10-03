@@ -1,0 +1,43 @@
+// Future native binding only. Keep in a separate pflag-c966 worker module.
+// This inert source has not been compiled/imported/executed.
+package slicenative
+
+import (
+	original "github.com/spf13/pflag"
+	"riido.local/remainderextra/extra"
+)
+
+type registeredBound struct {
+	*extra.BoundedSlice
+	originalValue original.Value
+}
+
+func (b *registeredBound) Type() string   { return b.originalValue.Type() }
+func (b *registeredBound) String() string { return b.originalValue.String() }
+func Factory(candidate, limit int, initial []string) (extra.SliceValue, error) {
+	if candidate < 0 || candidate > 2 || limit < 0 || limit > extra.MaxValues {
+		return nil, extra.ErrInput
+	}
+	var values []string
+	f := original.NewFlagSet("bounded-extra", original.ContinueOnError)
+	f.StringSliceVar(&values, "items", initial, "")
+	flag := f.Lookup("items")
+	if flag == nil {
+		return nil, extra.ErrAdapter
+	}
+	v, ok := flag.Value.(interface {
+		Set(string) error
+		Append(string) error
+		Replace([]string) error
+		GetSlice() []string
+	})
+	if !ok {
+		return nil, extra.ErrAdapter
+	}
+	if candidate == 0 {
+		return v, nil
+	}
+	b := &registeredBound{BoundedSlice: &extra.BoundedSlice{Inner: v, Limit: limit, Candidate: candidate}, originalValue: flag.Value}
+	flag.Value = b // Opt-in methods now also apply to subsequent FlagSet.Set.
+	return b, nil
+}

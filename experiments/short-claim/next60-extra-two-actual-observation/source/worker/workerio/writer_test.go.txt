@@ -1,0 +1,531 @@
+package workerio
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/csv"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"os"
+	"path/filepath"
+	"riido.local/remainderextra/extra"
+	"strings"
+	"testing"
+)
+
+func ownConfig(t *testing.T, family int) Config {
+	t.Helper()
+	return Config{Family: family, Out: filepath.Join(t.TempDir(), "attempt"), PlanSHA: strings.Repeat("a", 64)}
+}
+func ownedWriter(t *testing.T, family int) *Writer {
+	t.Helper()
+	w, code := newWriter(ownConfig(t, family))
+	if code != "" {
+		t.Fatal(code)
+	}
+	t.Cleanup(w.close)
+	return w
+}
+
+type fakeSlice struct {
+	items      []string
+	changed    bool
+	operations *int
+	huge       bool
+}
+
+func (s *fakeSlice) Set(text string) error {
+	if s.operations != nil {
+		*s.operations++
+	}
+	v, e := csv.NewReader(strings.NewReader(text)).Read()
+	if e != nil {
+		return e
+	}
+	if !s.changed {
+		s.items = v
+	} else {
+		s.items = append(s.items, v...)
+	}
+	s.changed = true
+	return nil
+}
+func (s *fakeSlice) Append(text string) error {
+	if s.operations != nil {
+		*s.operations++
+	}
+	s.items = append(s.items, text)
+	return nil
+}
+func (s *fakeSlice) Replace(v []string) error {
+	if s.operations != nil {
+		*s.operations++
+	}
+	s.items = append([]string(nil), v...)
+	return nil
+}
+func (s *fakeSlice) GetSlice() []string {
+	if s.huge {
+		v := make([]string, 8)
+		for i := range v {
+			v[i] = strings.Repeat("x", 512)
+		}
+		return v
+	}
+	return s.items
+}
+func fakeFactory(calls, operations *int, huge bool) extra.SliceFactory {
+	return func(candidate, limit int, initial []string) (extra.SliceValue, error) {
+		if calls != nil {
+			*calls++
+		}
+		s := &fakeSlice{items: append([]string{}, initial...), operations: operations, huge: huge}
+		if candidate != 0 {
+			return &extra.BoundedSlice{Inner: s, Limit: limit, Candidate: candidate}, nil
+		}
+		return s, nil
+	}
+}
+func fakeFanout(candidate int, fs []func() error, _ []string) error {
+	var all []error
+	var last error
+	for _, f := range fs {
+		e := f()
+		if e != nil {
+			if candidate == 0 {
+				return e
+			}
+			all = append(all, e)
+			last = e
+		}
+	}
+	if candidate == 1 {
+		return errors.Join(all...)
+	}
+	return last
+}
+func completeResult(w *Writer, r extra.WorkerReport) Result {
+	out := result(w.config)
+	out.State = "complete"
+	out.WorkerKnown = true
+	out.Worker = &r
+	return out
+}
+func before() extra.BatchEvent {
+	return extra.BatchEvent{Family: 0, Ordinal: 0, Fixture: 0, Candidate: 0, Local: extra.Event{Stage: "before_candidate", Step: -1, Counters: extra.Counters{Reserved: 1}}, Cumulative: extra.Counters{Reserved: 1}}
+}
+
+type faultSink struct {
+	sink
+	mode              string
+	onSync, syncCalls int
+}
+
+func (f *faultSink) Write(b []byte) (int, error) {
+	switch f.mode {
+	case "short":
+		return 0, nil
+	case "write":
+		return 0, errors.New("unsafe private message")
+	case "writepanic":
+		panic("unsafe private message")
+	}
+	return f.sink.Write(b)
+}
+func (f *faultSink) Sync() error {
+	f.syncCalls++
+	if f.onSync == 0 || f.onSync == f.syncCalls {
+		switch f.mode {
+		case "sync":
+			return errors.New("unsafe private message")
+		case "syncpanic":
+			panic("unsafe private message")
+		}
+	}
+	return f.sink.Sync()
+}
+func (f *faultSink) Close() error {
+	if f.mode == "close" {
+		_ = f.sink.Close()
+		return errors.New("unsafe private message")
+	}
+	if f.mode == "closepanic" {
+		_ = f.sink.Close()
+		panic("unsafe private message")
+	}
+	return f.sink.Close()
+}
+
+func TestSyntheticWorkerJournalAndFinalIdentity(t *testing.T) {
+	for _, family := range []int{0, 1} {
+		t.Run([]string{"slice", "validators"}[family], func(t *testing.T) {
+			w := ownedWriter(t, family)
+			var r extra.WorkerReport
+			var e error
+			if family == 0 {
+				r, e = extra.RunSlice(fakeFactory(nil, nil, false), w.Checkpoint)
+			} else {
+				r, e = extra.RunValidators(fakeFanout, w.Checkpoint)
+			}
+			if e != nil || w.guard(r) != "" {
+				t.Fatal("fake run incomplete", e)
+			}
+			expectedFrames := 63
+			if family == 1 {
+				expectedFrames = 30
+			}
+			if w.receipt.Frames != expectedFrames || w.receipt.Completed != 15 || w.receipt.Counters.Completed != 15 {
+				t.Fatal("ack counts")
+			}
+			raw, code := w.finish(completeResult(w, r))
+			if code != "" {
+				t.Fatal(code)
+			}
+			saved, e := os.ReadFile(filepath.Join(w.config.Out, "results.json"))
+			if e != nil || !bytes.Equal(saved, raw) {
+				t.Fatal("stdout payload and file differ")
+			}
+			var got Result
+			if json.Unmarshal(raw, &got) != nil || got.State != "complete" || got.Worker == nil || got.Transport.InnerCalls != nil || got.Transport.StartupCalls != nil || got.LabelsAssigned || got.Qualified {
+				t.Fatal("authority or schema")
+			}
+			journal, e := os.ReadFile(filepath.Join(w.config.Out, "journal.jsonl"))
+			if e != nil {
+				t.Fatal(e)
+			}
+			lines := bytes.Split(bytes.TrimSuffix(journal, []byte{'\n'}), []byte{'\n'})
+			prev := strings.Repeat("0", 64)
+			for i, line := range lines {
+				var f Frame
+				if json.Unmarshal(line, &f) != nil || f.Sequence != i+1 || f.Previous != prev || f.Event.Ordinal != f.Event.Fixture*3+f.Event.Candidate {
+					t.Fatal("sequence/chain/schedule")
+				}
+				h := sha256.Sum256(append(append([]byte(nil), line...), '\n'))
+				prev = hex.EncodeToString(h[:])
+			}
+			if len(lines) != expectedFrames || len(journal) != got.Transport.Bytes || prev != got.Transport.LastSHA {
+				t.Fatal("ack raw byte binding")
+			}
+			reservation, e := os.ReadFile(filepath.Join(w.config.Out, "reservation.json"))
+			var rs Reservation
+			if e != nil || json.Unmarshal(reservation, &rs) != nil || rs.PlanSHA != w.config.PlanSHA || rs.Family != family || rs.LabelsAssigned || rs.InnerCalls != nil || rs.StartupCalls != nil {
+				t.Fatal("reservation")
+			}
+		})
+	}
+}
+func TestCheckpointFailureBeforeFakeNativeDispatch(t *testing.T) {
+	for _, mode := range []string{"short", "write", "writepanic", "sync", "syncpanic"} {
+		t.Run(mode, func(t *testing.T) {
+			w := ownedWriter(t, 0)
+			w.journal = &faultSink{sink: w.journal, mode: mode}
+			calls := 0
+			r, e := extra.RunSlice(fakeFactory(&calls, nil, false), w.Checkpoint)
+			if e != extra.ErrCheckpoint || calls != 0 || !r.Stopped || w.receipt.Frames != 0 || w.receipt.Counters != (extra.Counters{}) || !w.receipt.Stopped {
+				t.Fatal("continued after reserve failure")
+			}
+			if w.Checkpoint(before()) == nil || calls != 0 || w.receipt.Frames != 0 {
+				t.Fatal("nonsticky")
+			}
+			raw, code := w.finish(result(w.config))
+			if code != "" || bytes.Contains(raw, []byte("unsafe private")) {
+				t.Fatal("unsafe error serialized")
+			}
+		})
+	}
+}
+func TestFailedStepSyncStopsNextStepAndCandidate(t *testing.T) {
+	w := ownedWriter(t, 0)
+	w.journal = &faultSink{sink: w.journal, mode: "sync", onSync: 2}
+	calls, operations := 0, 0
+	r, e := extra.RunSlice(fakeFactory(&calls, &operations, false), w.Checkpoint)
+	if e != extra.ErrCheckpoint || calls != 1 || operations != 1 || w.receipt.Frames != 1 || w.receipt.Completed != 0 || w.receipt.Counters.Dispatched != 0 || r.Counters.Dispatched != 1 {
+		t.Fatal("ack prefix confused with returned counters")
+	}
+	st, e := os.Stat(filepath.Join(w.config.Out, "journal.jsonl"))
+	if e != nil || int(st.Size()) <= w.receipt.Bytes {
+		t.Fatal("unacknowledged written row not preserved")
+	}
+}
+func TestForgedCompletedChangedReportAndSecondFinish(t *testing.T) {
+	w := ownedWriter(t, 0)
+	fake := extra.WorkerReport{Schema: extra.ExtraResultSchema, Family: 0, Counters: extra.Counters{Reserved: 15, Dispatched: 15, Returned: 15, Completed: 15}}
+	raw, code := w.finish(completeResult(w, fake))
+	var got Result
+	if code != "" || json.Unmarshal(raw, &got) != nil || got.State != "failed" || got.Worker != nil || got.Transport.Completed != 0 {
+		t.Fatal("forged completion")
+	}
+	if _, code = w.finish(completeResult(w, fake)); code != "result_already_finished" {
+		t.Fatal("second finish")
+	}
+	for _, mode := range []string{"record", "counter", "authority"} {
+		t.Run(mode, func(t *testing.T) {
+			w := ownedWriter(t, 0)
+			r, e := extra.RunSlice(fakeFactory(nil, nil, false), w.Checkpoint)
+			if e != nil {
+				t.Fatal(e)
+			}
+			out := completeResult(w, r)
+			switch mode {
+			case "record":
+				out.Worker.Records[0].Observation.Steps[0].Values.Items[0] = "forged"
+			case "counter":
+				out.Worker.Counters.Completed = 14
+			case "authority":
+				out.Qualified = true
+			}
+			raw, code := w.finish(out)
+			var got Result
+			if code != "" || json.Unmarshal(raw, &got) != nil || got.State != "failed" || got.Worker != nil || got.Qualified || got.LabelsAssigned {
+				t.Fatal("changed report accepted")
+			}
+		})
+	}
+}
+func TestOutOfOrderUnknownStageAndAuthority(t *testing.T) {
+	for _, mode := range []string{"duplicate", "stage", "candidate", "authority"} {
+		t.Run(mode, func(t *testing.T) {
+			w := ownedWriter(t, 0)
+			e := before()
+			if mode == "duplicate" {
+				if w.Checkpoint(e) != nil {
+					t.Fatal("first")
+				}
+			}
+			switch mode {
+			case "stage":
+				e.Local.Stage = "after_error"
+			case "candidate":
+				e.Candidate = 1
+			case "authority":
+				text := "forbidden raw authority"
+				e.Local.Observation.Truth = &text
+			}
+			if w.Checkpoint(e) == nil || !w.receipt.Stopped {
+				t.Fatal("bad event accepted")
+			}
+			want := 0
+			if mode == "duplicate" {
+				want = 1
+			}
+			if w.receipt.Frames != want {
+				t.Fatal("ack advanced on invalid event")
+			}
+		})
+	}
+}
+func TestJournalAndResultBounds(t *testing.T) {
+	for _, mode := range []string{"frames", "bytes"} {
+		t.Run(mode, func(t *testing.T) {
+			w := ownedWriter(t, 0)
+			if mode == "frames" {
+				w.receipt.Frames = MaxFrames
+			} else {
+				w.receipt.Bytes = MaxJournal
+			}
+			if w.Checkpoint(before()) == nil {
+				t.Fatal("unbounded journal")
+			}
+			st, e := os.Stat(filepath.Join(w.config.Out, "journal.jsonl"))
+			if e != nil || st.Size() != 0 {
+				t.Fatal("bound rejected after writing")
+			}
+		})
+	}
+	w := ownedWriter(t, 0)
+	r, e := extra.RunSlice(fakeFactory(nil, nil, true), w.Checkpoint)
+	if e != nil || w.guard(r) != "" {
+		t.Fatal("bounded huge fake observation failed before result control", e, w.receipt.Failure)
+	}
+	if _, code := w.finish(completeResult(w, r)); code != "result_bound" {
+		t.Fatal("oversized result could complete", code)
+	}
+}
+func TestCloseAndDirectoryFailureAreFixedAndDoNotComplete(t *testing.T) {
+	for _, mode := range []string{"close", "closepanic", "directory", "directorypanic"} {
+		t.Run(mode, func(t *testing.T) {
+			w := ownedWriter(t, 1)
+			r, e := extra.RunValidators(fakeFanout, w.Checkpoint)
+			if e != nil {
+				t.Fatal(e)
+			}
+			if strings.HasPrefix(mode, "close") {
+				w.journal = &faultSink{sink: w.journal, mode: mode}
+			} else {
+				w.syncDirectory = func() error {
+					if mode == "directorypanic" {
+						panic("unsafe private")
+					}
+					return ErrTransport
+				}
+			}
+			raw, code := w.finish(completeResult(w, r))
+			if strings.HasPrefix(mode, "close") {
+				var got Result
+				if code != "" || json.Unmarshal(raw, &got) != nil || got.State != "failed" || got.Worker != nil || bytes.Contains(raw, []byte("unsafe private")) {
+					t.Fatal("close falsely completed")
+				}
+			} else if code == "" || raw != nil {
+				t.Fatal("directory ack fabricated")
+			}
+		})
+	}
+}
+func TestCLIRejectsBeforeRunner(t *testing.T) {
+	c := ownConfig(t, 0)
+	f := filepath.Join(t.TempDir(), "fake-fixtures.json")
+	if os.WriteFile(f, make([]byte, FixtureBytes), 0600) != nil {
+		t.Fatal("fixture")
+	}
+	args := []string{"--out", c.Out, "--fixtures", f, "--fixtures-sha256", FixtureSHA, "--wants", f, "--wants-sha256", WantsSHA, "--plan-sha256", c.PlanSHA}
+	cfg, code := parse(0, args)
+	if code != "" || cfg.PlanSHA != c.PlanSHA {
+		t.Fatal("valid options")
+	}
+	var stdout bytes.Buffer
+	calls := 0
+	if RunCLI(0, args, &stdout, func(extra.BatchCheckpoint) (extra.WorkerReport, error) { calls++; return extra.WorkerReport{}, nil }) != 1 || calls != 0 {
+		t.Fatal("fake production pin invoked runner")
+	}
+	if _, e := os.Stat(c.Out); !os.IsNotExist(e) {
+		t.Fatal("reserved before pin checks")
+	}
+	for _, mode := range []string{"duplicate", "equals", "wrongsha", "short"} {
+		bad := append([]string(nil), args...)
+		switch mode {
+		case "duplicate":
+			bad[2] = "--out"
+		case "equals":
+			bad[0] = "--out=value"
+		case "wrongsha":
+			bad[5] = strings.Repeat("b", 64)
+		case "short":
+			bad = bad[:len(bad)-1]
+		}
+		if _, code := parse(0, bad); code != "arguments" {
+			t.Fatal("bad args", mode)
+		}
+	}
+}
+func TestExclusiveDirectoryAndReadPins(t *testing.T) {
+	w := ownedWriter(t, 0)
+	if _, code := newWriter(w.config); code != "output_reserve" {
+		t.Fatal("directory reused")
+	}
+	dir := t.TempDir()
+	p := filepath.Join(dir, "input")
+	raw := []byte(`{"owned":true}`)
+	if os.WriteFile(p, raw, 0600) != nil {
+		t.Fatal("input")
+	}
+	if _, code := readPinned(p, sha(raw), len(raw)); code != "" {
+		t.Fatal(code)
+	}
+	if _, code := readPinned(p, strings.Repeat("b", 64), len(raw)); code != "input_sha256" {
+		t.Fatal("pin mismatch")
+	}
+	link := filepath.Join(dir, "link")
+	if os.Symlink(p, link) != nil {
+		t.Fatal("link")
+	}
+	if _, code := readPinned(link, sha(raw), len(raw)); code != "input_regular_bounds" {
+		t.Fatal("symlink")
+	}
+}
+func TestUnexpectedRunnerPanicIsNoErrorText(t *testing.T) {
+	calls := 0
+	r, e, returned := call(func(extra.BatchCheckpoint) (extra.WorkerReport, error) { calls++; panic(errors.New("unsafe private")) }, func(extra.BatchEvent) error { return nil })
+	if returned || calls != 1 || e != nil || r != (extra.WorkerReport{}) {
+		t.Fatal("panic falsely returned")
+	}
+}
+
+// Synthetic document fixtures are reconstructed only from typed owned tables.
+// No real input file or native function is read or executed by these controls.
+func syntheticDocuments(t *testing.T) ([]byte, []byte) {
+	t.Helper()
+	nilraw := json.RawMessage("null")
+	no := false
+	f := fixtureDoc{Schema: extra.ExtraFixtureSchema, RequestCount: 2, FixtureCount: 10, Candidates: 6, Planned: 30}
+	w := wantDoc{Schema: extra.ExtraWantSchema, Count: 10, Qualification: &no}
+	for family := 0; family < 2; family++ {
+		f.Requests = append(f.Requests, docRequest{ID: requestIDs[family], Order: append([]string(nil), candidateIDs[:]...), Qualified: &no, Truth: nilraw, Role: nilraw, Weight: nilraw})
+	}
+	for n := 0; n < 10; n++ {
+		family, k := n/5, n%5
+		var input []byte
+		caseID := "bounded-slice-0" + string(rune('1'+k))
+		if family == 0 {
+			v := extra.SliceFixtures[k]
+			in := struct {
+				Initial    []string `json:"initial"`
+				Limit      int      `json:"limit"`
+				Operations []struct {
+					Method string `json:"method"`
+					Value  any    `json:"value"`
+				} `json:"operations"`
+			}{Initial: []string{}, Limit: v.Limit}
+			for j := 0; j < v.N; j++ {
+				op := v.Operations[j]
+				var value any = op.Text
+				if op.Method == "Replace" {
+					value = append([]string{}, op.Values[:op.N]...)
+				}
+				in.Operations = append(in.Operations, struct {
+					Method string `json:"method"`
+					Value  any    `json:"value"`
+				}{op.Method, value})
+			}
+			input, _ = json.Marshal(in)
+		} else {
+			caseID = "all-errors-0" + string(rune('1'+k))
+			v := extra.ValidatorFixtures[k]
+			in := struct {
+				Args       []string `json:"args"`
+				Validators []string `json:"validators"`
+			}{Args: append([]string{}, v.Args[:v.ArgsN]...), Validators: []string{}}
+			for j := 0; j < v.N; j++ {
+				in.Validators = append(in.Validators, []string{"success", "sentinel_A", "typed_B_code7"}[v.Kinds[j]])
+			}
+			input, _ = json.Marshal(in)
+		}
+		want := json.RawMessage(`{"owned_synthetic_condition":true}`)
+		f.Records = append(f.Records, fixtureRecord{Ordinal: n, Family: family, Fixture: k, ID: requestIDs[family], Original: literalCase{ID: caseID, Input: input, Want: want, Got: nilraw, Truth: nilraw, Role: nilraw, Weight: nilraw, Label: nilraw}, Got: nilraw, Truth: nilraw, Role: nilraw, Weight: nilraw, Acceptable: nilraw})
+		w.Records = append(w.Records, wantRecord{Ordinal: n, ID: requestIDs[family], CaseID: caseID, Want: want, Got: nilraw, Truth: nilraw, Role: nilraw, Weight: nilraw})
+	}
+	fb, e := json.Marshal(f)
+	if e != nil {
+		t.Fatal(e)
+	}
+	wb, e := json.Marshal(w)
+	if e != nil {
+		t.Fatal(e)
+	}
+	return fb, wb
+}
+func TestTypedScheduleAndWantedBind(t *testing.T) {
+	f, w := syntheticDocuments(t)
+	if code := validateDocuments(f, w); code != "" {
+		t.Fatal(code)
+	}
+	var fd fixtureDoc
+	if json.Unmarshal(f, &fd) != nil {
+		t.Fatal("decode")
+	}
+	fd.Records[0].Original.Input = json.RawMessage(`{"initial":[],"limit":2,"operations":[{"method":"Set","value":"changed"}]}`)
+	changed, _ := json.Marshal(fd)
+	if code := validateDocuments(changed, w); code != "typed_slice_fixture" {
+		t.Fatal("typed mutation accepted", code)
+	}
+	f, w = syntheticDocuments(t)
+	var wd wantDoc
+	if json.Unmarshal(w, &wd) != nil {
+		t.Fatal("decode")
+	}
+	wd.Records[0].Want = json.RawMessage(`{"owned_synthetic_condition":false}`)
+	changed, _ = json.Marshal(wd)
+	if code := validateDocuments(f, changed); code != "fixture_Want_identity" {
+		t.Fatal("Want mutation accepted", code)
+	}
+}

@@ -1,0 +1,315 @@
+{
+  "schema": "riido-extra-two-root-finite-development-qualification-v1",
+  "state": "Root_adopted_two_finite_development_requests",
+  "authority": "Root non-author full owned source and tests read, frozen Wanted and saved first native results, then first saved-only comparison; nonblind finite evidence, not independent model evaluation",
+  "prior_data": {
+    "path": "next60-development-twentyone/data/train.jsonl",
+    "bytes": 28800,
+    "sha256": "f8d9beb88393d2c1d2d8f690e366342157fd13bee25abb79078287e62c94b828",
+    "rows": 21,
+    "labels": 61,
+    "positive": 21,
+    "negative": 40,
+    "inputs": 103,
+    "original_evidence_observations": 305,
+    "selected_candidate_observations": 301
+  },
+  "fixture_sha256": "b3875c93e6bb59291ddf39e4c66d250284a4132af090a12f4eb1824ab8126b51",
+  "wants_sha256": "73f2c789fba33904a37826cebbde87b1acfd659862274444d768912658dd76a1",
+  "saved_comparison": {
+    "bytes": 28678,
+    "sha256": "5252b87a6badaa8b04c2dc7ddd2049e22795583dd7678625ccb6d1cd904700d5"
+  },
+  "saved_workers": [
+    {
+      "family": 0,
+      "plan_sha256": "22da13af0997ddd00c5f8670ce70ebac551ef71f4bc77a3db56a531d065b7c90",
+      "result_bytes": 25451,
+      "result_sha256": "39de1dfe976919438f18131803e5699b5b96b565572dfbf4f6d69d3ed5225e25",
+      "outside_bytes": 6340,
+      "outside_sha256": "f391bf584856b61b8642a6a88045b3336107c491be33f8de04600eb8b13fa58a"
+    },
+    {
+      "family": 1,
+      "plan_sha256": "27b90c425fb01bebbbffe4a587931f842bb874fc6ca60333e0f7203d3928a43a",
+      "result_bytes": 25519,
+      "result_sha256": "bcec15c834c6f5a5a8230b8eb09ecc5f2c7f9c11d7dda139457201222b97b8e8",
+      "outside_bytes": 6334,
+      "outside_sha256": "cb0f450828a84bd66bd8d22c600bd5df14d35ee887b4bbc14a0d832432cca387"
+    }
+  ],
+  "role": "development_train",
+  "weight_per_candidate": 1,
+  "new_requests": 2,
+  "new_inputs": 10,
+  "new_observations": 30,
+  "new_selected_candidate_observations": 30,
+  "new_labels": 6,
+  "new_positive": 2,
+  "new_negative": 4,
+  "combined": {
+    "requests": 23,
+    "labels": 67,
+    "positive": 23,
+    "negative": 44,
+    "inputs": 113,
+    "original_evidence_observations": 335,
+    "selected_candidate_observations": 331
+  },
+  "comparison_counts": {
+    "observations": {
+      "true": 23,
+      "false": 7,
+      "unknown": 0
+    },
+    "predicates": {
+      "true": 125,
+      "false": 15,
+      "unknown": 1
+    }
+  },
+  "requests": [
+    {
+      "id": "go53-pflag-bounded-string-slice",
+      "request": "Add bounded string slice flags with cumulative CSV entry limits for Set Append and Replace and atomic overflow refusal while retaining unlimited behavior.",
+      "source_family": "upstream53-cobra-pflag-connected",
+      "source_reference": {
+        "artifact_id": "primary120/source-survey53",
+        "artifact_sha256": "e79cf90505fff4c636de99f322ab82001afd22516216cebcd8249b9b3d61cf67",
+        "json_pointer": "/tasks/8"
+      },
+      "source_spans": [
+        "string_slice.go:15-75"
+      ],
+      "source_revision": "c966cfef47379dcb01e7929504d66d94b540945b",
+      "scope": "Only frozen CSV and Set/Append/Replace inputs: cumulative entry-limit refusal is atomic; zero limit retains unlimited behavior. No all-input guarantee.",
+      "finite_inputs": 5,
+      "connected_group": 77,
+      "text_revision": "extra-two-finite-v1",
+      "selected_candidate_observations": 15,
+      "selected": [
+        {
+          "source_candidate_position": 0,
+          "metadata_id": "baseline_original",
+          "text": "Parse string slice CSV and accumulate entries through Set Append and Replace without an entry limit.",
+          "truth": false,
+          "role": "development_train",
+          "weight": 1,
+          "known_counterexample_fixture_positions": [
+            1,
+            2,
+            3
+          ],
+          "unknown_fixture_positions": [],
+          "unknown_predicates_retained": [],
+          "row_ordinals": [
+            0,
+            3,
+            6,
+            9,
+            12
+          ],
+          "row_vector": [
+            "satisfied",
+            "unsatisfied",
+            "unsatisfied",
+            "unsatisfied",
+            "satisfied"
+          ]
+        },
+        {
+          "source_candidate_position": 1,
+          "metadata_id": "reference_authored",
+          "text": "Enforce the cumulative entry limit atomically for Set Append and Replace with zero meaning unlimited.",
+          "truth": true,
+          "role": "development_train",
+          "weight": 1,
+          "known_counterexample_fixture_positions": [],
+          "unknown_fixture_positions": [],
+          "unknown_predicates_retained": [],
+          "row_ordinals": [
+            1,
+            4,
+            7,
+            10,
+            13
+          ],
+          "row_vector": [
+            "satisfied",
+            "satisfied",
+            "satisfied",
+            "satisfied",
+            "satisfied"
+          ]
+        },
+        {
+          "source_candidate_position": 2,
+          "metadata_id": "negative_authored",
+          "text": "Check limits by splitting each CSV string on commas before delegating to the original setter.",
+          "truth": false,
+          "role": "development_train",
+          "weight": 1,
+          "known_counterexample_fixture_positions": [
+            0
+          ],
+          "unknown_fixture_positions": [],
+          "unknown_predicates_retained": [],
+          "row_ordinals": [
+            2,
+            5,
+            8,
+            11,
+            14
+          ],
+          "row_vector": [
+            "unsatisfied",
+            "satisfied",
+            "satisfied",
+            "satisfied",
+            "satisfied"
+          ]
+        }
+      ],
+      "excluded": []
+    },
+    {
+      "id": "go53-cobra-validator-all-errors",
+      "request": "Add positional validator composition that calls every validator once in order and joins errors for Is and As checks while preserving the existing short circuit option.",
+      "source_family": "upstream53-cobra-pflag-connected",
+      "source_reference": {
+        "artifact_id": "primary120/source-survey53",
+        "artifact_sha256": "e79cf90505fff4c636de99f322ab82001afd22516216cebcd8249b9b3d61cf67",
+        "json_pointer": "/tasks/36"
+      },
+      "source_spans": [
+        "args.go:127-136"
+      ],
+      "source_revision": "adbc8813901bba65827259daa8e22ff94ec1f30e",
+      "scope": "Only frozen positional validator lists: ordered callbacks run once, nil success is preserved, errors.Is/errors.As expose combined causes and declared code 7. No all-input guarantee.",
+      "finite_inputs": 5,
+      "connected_group": 77,
+      "text_revision": "extra-two-finite-v1",
+      "selected_candidate_observations": 15,
+      "selected": [
+        {
+          "source_candidate_position": 0,
+          "metadata_id": "baseline_original",
+          "text": "Run positional validators in order and return the first error without invoking later validators.",
+          "truth": false,
+          "role": "development_train",
+          "weight": 1,
+          "known_counterexample_fixture_positions": [
+            0,
+            3
+          ],
+          "unknown_fixture_positions": [],
+          "unknown_predicates_retained": [
+            {
+              "fixture": 0,
+              "field": "B_code",
+              "reason": "observable_unavailable"
+            }
+          ],
+          "row_ordinals": [
+            15,
+            18,
+            21,
+            24,
+            27
+          ],
+          "row_vector": [
+            "unsatisfied",
+            "satisfied",
+            "satisfied",
+            "unsatisfied",
+            "satisfied"
+          ]
+        },
+        {
+          "source_candidate_position": 1,
+          "metadata_id": "reference_authored",
+          "text": "Run every positional validator once in order and join their errors while keeping nil success.",
+          "truth": true,
+          "role": "development_train",
+          "weight": 1,
+          "known_counterexample_fixture_positions": [],
+          "unknown_fixture_positions": [],
+          "unknown_predicates_retained": [],
+          "row_ordinals": [
+            16,
+            19,
+            22,
+            25,
+            28
+          ],
+          "row_vector": [
+            "satisfied",
+            "satisfied",
+            "satisfied",
+            "satisfied",
+            "satisfied"
+          ]
+        },
+        {
+          "source_candidate_position": 2,
+          "metadata_id": "negative_authored",
+          "text": "Run every positional validator once and retain only the last error.",
+          "truth": false,
+          "role": "development_train",
+          "weight": 1,
+          "known_counterexample_fixture_positions": [
+            0
+          ],
+          "unknown_fixture_positions": [],
+          "unknown_predicates_retained": [],
+          "row_ordinals": [
+            17,
+            20,
+            23,
+            26,
+            29
+          ],
+          "row_vector": [
+            "unsatisfied",
+            "satisfied",
+            "satisfied",
+            "satisfied",
+            "satisfied"
+          ]
+        }
+      ],
+      "excluded": []
+    }
+  ],
+  "unknown_never_false": true,
+  "known_negative_may_retain_other_unknown_predicates": true,
+  "source_and_selected_candidate_order_preserved": true,
+  "position_controls": {
+    "positive_index1_selected_requests": 20,
+    "total_requests": 23,
+    "always_negative_correct_labels": 44,
+    "total_labels": 67,
+    "different_units_not_model_accuracy": true
+  },
+  "new_source_families": 0,
+  "historical_79_unchanged": true,
+  "new_corpus_Fit": 0,
+  "new_model_inference": 0,
+  "fit_before_30_qualified": false,
+  "protected_2400_per_claimed_domain_pending": true,
+  "utility_improvement_unproved": true,
+  "execution_history": {
+    "native_Start": 2,
+    "native_Wait": 2,
+    "reaped_exit0": 2,
+    "native_replay": 0,
+    "saved_only_comparison": 1,
+    "candidate_returns": 30,
+    "candidate_panics": 0,
+    "original_error_text_calls": 0,
+    "inner_original_calls": null,
+    "original_startup_calls": null,
+    "fixture_and_Wanted_changed": false
+  },
+  "limits": "Finite frozen behavior only; source-connected group77 is reused. Known contradictions support candidate-level negatives without erasing an unavailable B_code predicate. Not general source correctness, protected evaluation, model quality, GPU inference, token savings, or training readiness."
+}
