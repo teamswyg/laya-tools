@@ -1,0 +1,9 @@
+{
+  "schema": "riidolaya-HF30-local-viewer-assumption-failure-v1",
+  "HTTP_attempt4": 200,
+  "local_validator_exit": 1,
+  "cause": "Local helper required a top-level truncated=false field, but the actual response uses partial and num_rows_total instead. No accepted receipt was written.",
+  "dependent_missing_helper_exit": 1,
+  "correction": "Use actual partial=false, total30, all30 ordered rows and each row truncated_cells=[]; absent top-level truncated remains null. Reuse the same saved response; no refetch.",
+  "new_original_or_model_calls": 0
+}

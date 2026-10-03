@@ -1,10 +1,10 @@
 # Development data for a small claim/hint model
 
-**30 semantic requests and88 candidate labels passed local verification.** See the [30-row data and guide](../../experiments/short-claim/next60-development-thirty/README.en.md). The currently verified HF publication remains the [immutable23-row release](https://huggingface.co/datasets/JooYoon/riidolaya-shortclaim-next60-development/tree/next60-23-finite-v1); publishing and remotely verifying30 rows is a separate step. New training/model inference in this expansion is zero; Codex savings are unproven.
+**30 semantic requests and88 candidate labels were verified and published on HF.** Read the [30-row data and guide](../../experiments/short-claim/next60-development-thirty/README.en.md) and [immutable HF30 release](https://huggingface.co/datasets/JooYoon/riidolaya-shortclaim-next60-development/tree/next60-30-finite-v1). All558 owned files and every field/order of30 viewer rows matched; older tags were preserved. See [publication and actual CI evidence](../../experiments/short-claim/publication-proof-122/README.en.md). New claim-model/Fit calls for this expansion are zero; Codex savings remain unproven.
 
 The goal is a **claim/hint model** cheap enough to call frequently with very little CPU and memory. It might suggest “this candidate seems useful for the request.” Tests, search and verification support the final choice. Reducing total work by narrowing candidates matters more than generating prose.
 
-| Unit | Verified30 rows | Existing HF23 rows |
+| Unit | Current verified/published30 | Previous HF23 |
 |---|---:|---:|
 | Distinct semantic requests | 30 | 23 |
 | Candidate labels | 88:30 positive,58 negative | 67:23 positive,44 negative |
@@ -19,6 +19,15 @@ Input variants and candidate executions do not increase independent request coun
 
 Read the [guide](../../experiments/short-claim/next60-development-thirty/README.en.md), then consume data/train.jsonl one line at a time. It is **41,428bytes**, SHA-256 **9cdfb758f03adc34a9fb5e00e3c1525921df26d0912f6b554e4ed4c890fd10a2**. Rows contain request/candidate text, labels, weights and provenance.
 
+With HF CLI installed, download **one data file at the fixed commit** as follows. Reading requires neither training nor model download. Run the full verification command from this repository checkout root.
+
+```sh
+hf download JooYoon/riidolaya-shortclaim-next60-development \
+  releases/next60-30-finite-v1/next60-development-thirty/data/train.jsonl \
+  --type dataset --revision 89c0c7c9ddc3135e37e88e9da5d51ac55dff0e1d \
+  --local-dir ./riidolaya-next60-data
+```
+
 The [Go reader](../../pkg/shortclaimdata) uses bounded arrays and immutable values:16KiB maximum row, at most8 candidates, no locks. Import bytes and github.com/teamswyg/laya-tools/pkg/shortclaimdata for this example.
 
 ```go
@@ -32,7 +41,7 @@ supervision := example.Supervision()
 
 Only **request and candidate text** enter model features. IDs, sources, groups, revisions and verification results are provenance or supervision. Reading runs no scoring, training or inference. Arrays alone are not evidence of a measured speedup.
 
-The following command reproduces saved data and checks the actual project Reader and111 saved predicates. Local checks passed; GitHub CI results must be checked separately in the corresponding PR and run.
+The following command reproduces saved data and checks the actual project Reader and111 saved predicates. It passed locally and on Linux/macOS in PR121 CI. Existing native Laya checks passed separately; this command itself executes no model or original functions.
 
 ```sh
 bash scripts/verify-next60-thirty.sh
@@ -45,6 +54,8 @@ Materialized30 rows passed **30 Reader calls,30 returns and30 matching values**,
 The last three requests cover an INI total input byte budget, bounded file reading and exclusive file writing. Original Go code produced **42 observations** from14 inputs×3 candidates. The111 fixed predicates were89 satisfied,20 known mismatches and2 unknown. Reference candidates were adopted because observations satisfied fixed inputs, not because of their names. These checks do not guarantee every parser option, filesystem concurrency or all possible inputs.
 
 The observation collector peaked at about **17.4MiB OS RSS**, taking about **2.52seconds** including startup, source verification and durable storage. These are not Laya/claim-model inference memory, GPU execution or Codex savings measurements. Original code ran once. The first saved-comparer configuration-format failure was preserved; only reading saved files was repeated.
+
+[22 proposed new-source contracts](../../experiments/short-claim/next60-new-source-preview/README.en.md) add zero qualified requests. Three proposals are held because existing behavior suffices or current inputs do not distinguish candidates. Go-list dependency selection and zero text duplicates do not establish execution, semantic independence or training readiness.
 
 ## Criteria for the next training round
 

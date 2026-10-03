@@ -1,0 +1,2268 @@
+{
+  "schema": "riido-next60-source-contracts-expansion-proposal-v2",
+  "state": "source_only_22_intent_hypotheses_not30_qualified_requests",
+  "immutable_prior_audit": {
+    "artifact_id": "source-contract-read52/SELECTOR-AUDIT.v1.json",
+    "bytes": 54056,
+    "sha256": "e34b70b97fc25e2ef9e73be62027f4edbad4acecc56afcc828e739a537c1252a"
+  },
+  "target_requested_new_intents": 30,
+  "retained_narrowed_hypotheses": 13,
+  "new_source_grounded_hypotheses": 9,
+  "total_intent_hypotheses": 22,
+  "unfilled_intents": 8,
+  "new_independently_ready_requests": 0,
+  "new_observed_requests": 0,
+  "new_qualified_requests": 0,
+  "prior_retired_ordinals_preserved": [
+    6,
+    8,
+    9,
+    11,
+    16
+  ],
+  "retained13_proposals": [
+    {
+      "selector_ordinal": 0,
+      "proposal_id": "source-next60-checked-rank-select",
+      "family_option": "candidate-family-1",
+      "prior_original_selector_json_pointer": "/selectors/0",
+      "prior_request_sha256": "6ebb9372288c38f1042a79b019151b7a0950df0bbab94bbfaad07287efd1e772",
+      "prior_proposed_input_profiles_unchanged": [
+        {
+          "set": [],
+          "rank": 0
+        },
+        {
+          "set": [
+            0,
+            2,
+            63,
+            64
+          ],
+          "rank": 0
+        },
+        {
+          "set": [
+            0,
+            2,
+            63,
+            64
+          ],
+          "rank": 3
+        },
+        {
+          "set": [
+            0,
+            2,
+            63,
+            64
+          ],
+          "rank": 4
+        }
+      ],
+      "prior_profile_count": 4,
+      "verdict": "narrow_changed_contract",
+      "source_finding": "Select already zero-based, returning Len on unavailable rank; Rank is inclusive count and index++ differs from a zero-based selection ordinal. Do not add a renamed copy of either operation.",
+      "evidence": [
+        {
+          "repo": "bits-and-blooms/bitset",
+          "revision": "828abff685deae97e60d299b1cdfcefabfeb44dc",
+          "path": "bitset.go",
+          "line_start": 1498,
+          "line_end": 1510,
+          "bytes": 50128,
+          "sha256": "450502e4569e3a876b9f4ab2e43a8d5ef82a87055c7a7a1c29a3bb56fae696e6",
+          "Git_blob": "3eb602d29c404a677d49d8ef4e8576ea2ae44eb0",
+          "official_source_url": "https://github.com/bits-and-blooms/bitset/blob/828abff685deae97e60d299b1cdfcefabfeb44dc/bitset.go#L1498-L1510",
+          "scope": "static source reading; not actual behavior observation"
+        },
+        {
+          "repo": "bits-and-blooms/bitset",
+          "revision": "828abff685deae97e60d299b1cdfcefabfeb44dc",
+          "path": "bitset.go",
+          "line_start": 1459,
+          "line_end": 1488,
+          "bytes": 50128,
+          "sha256": "450502e4569e3a876b9f4ab2e43a8d5ef82a87055c7a7a1c29a3bb56fae696e6",
+          "Git_blob": "3eb602d29c404a677d49d8ef4e8576ea2ae44eb0",
+          "official_source_url": "https://github.com/bits-and-blooms/bitset/blob/828abff685deae97e60d299b1cdfcefabfeb44dc/bitset.go#L1459-L1488",
+          "scope": "static source reading; not actual behavior observation"
+        }
+      ],
+      "changed_request_proposed": "Add SelectChecked returning a bit index and presence flag for valid zero-based selection ranks; report unavailable ranks explicitly and leave the bitset unchanged.",
+      "changed_request_bytes": 163,
+      "ascii_whitespace_words": 23,
+      "minimum_finite_observation_channels_proposed": [
+        "index uint; present bool",
+        "receiver Len/word bytes before and after"
+      ],
+      "realization_dedup_or_scope_hold": "Choose selection-only boundary; rank semantics are not silently changed. Empty/rank0, valid first/last and rank==Count are discriminator profiles. Maximum uint/rank arithmetic needs a separately frozen boundary if included.",
+      "Want": null,
+      "candidate_order_or_captions": null,
+      "truth": null,
+      "role": null,
+      "weight": null,
+      "numeric_group": null,
+      "qualified": false,
+      "execution_ready": false,
+      "own_source_reader_nonblind": true
+    },
+    {
+      "selector_ordinal": 1,
+      "proposal_id": "source-next60-strict-binary-decode",
+      "family_option": "candidate-family-1",
+      "prior_original_selector_json_pointer": "/selectors/1",
+      "prior_request_sha256": "c2f399757b8a9e67cb98dc2c300da7cac5c0304b6af8fa57b3827119666da2b6",
+      "prior_proposed_input_profiles_unchanged": [
+        {
+          "case": "valid minimal word stream"
+        },
+        {
+          "case": "one trailing byte"
+        },
+        {
+          "case": "declared count exceeds payload"
+        },
+        {
+          "case": "malformed into nonempty receiver"
+        }
+      ],
+      "prior_profile_count": 4,
+      "verdict": "changed_contract_supported",
+      "source_finding": "ReadFrom sets length/storage before reading all words and clears receiver after late read failure; UnmarshalBinary calls ReadFrom without checking trailing data.",
+      "evidence": [
+        {
+          "repo": "bits-and-blooms/bitset",
+          "revision": "828abff685deae97e60d299b1cdfcefabfeb44dc",
+          "path": "bitset.go",
+          "line_start": 1350,
+          "line_end": 1423,
+          "bytes": 50128,
+          "sha256": "450502e4569e3a876b9f4ab2e43a8d5ef82a87055c7a7a1c29a3bb56fae696e6",
+          "Git_blob": "3eb602d29c404a677d49d8ef4e8576ea2ae44eb0",
+          "official_source_url": "https://github.com/bits-and-blooms/bitset/blob/828abff685deae97e60d299b1cdfcefabfeb44dc/bitset.go#L1350-L1423",
+          "scope": "static source reading; not actual behavior observation"
+        }
+      ],
+      "changed_request_proposed": "Add bounded strict bitset decoding that checks exact payload length and padding, rejects trailing bytes, and preserves the prior receiver on every rejected input.",
+      "changed_request_bytes": 162,
+      "ascii_whitespace_words": 24,
+      "minimum_finite_observation_channels_proposed": [
+        "returned error presence/identity knownness",
+        "receiver words/Len before and after",
+        "input length and consumed count"
+      ],
+      "realization_dedup_or_scope_hold": "Freeze byte order and max bits before allocation; original global byte order must remain default/fixed. Define impossible count from exact uint64 length/ceil64 and bounded payload. Padding rejection is new explicit source-grounded proposal, not old observed truth.",
+      "Want": null,
+      "candidate_order_or_captions": null,
+      "truth": null,
+      "role": null,
+      "weight": null,
+      "numeric_group": null,
+      "qualified": false,
+      "execution_ready": false,
+      "own_source_reader_nonblind": true
+    },
+    {
+      "selector_ordinal": 2,
+      "proposal_id": "source-next60-fixed-width-complement",
+      "family_option": "candidate-family-1",
+      "prior_original_selector_json_pointer": "/selectors/2",
+      "prior_request_sha256": "a43c2b5d7e74335378ab8a6429bee98dcb8b333c81864da1ddf0f5016579efac",
+      "prior_proposed_input_profiles_unchanged": [
+        {
+          "width": 0,
+          "set": []
+        },
+        {
+          "width": 1,
+          "set": [
+            0
+          ]
+        },
+        {
+          "width": 64,
+          "set": [
+            0,
+            63,
+            64
+          ]
+        },
+        {
+          "width": 65,
+          "set": [
+            63,
+            64,
+            65
+          ]
+        }
+      ],
+      "prior_profile_count": 4,
+      "verdict": "narrow_changed_contract",
+      "source_finding": "Complement already computes an independent local complement up to the receiver length and masks unused tail bits. The requested external width must differ from Len to establish a changed behavior.",
+      "evidence": [
+        {
+          "repo": "bits-and-blooms/bitset",
+          "revision": "828abff685deae97e60d299b1cdfcefabfeb44dc",
+          "path": "bitset.go",
+          "line_start": 1181,
+          "line_end": 1203,
+          "bytes": 50128,
+          "sha256": "450502e4569e3a876b9f4ab2e43a8d5ef82a87055c7a7a1c29a3bb56fae696e6",
+          "Git_blob": "3eb602d29c404a677d49d8ef4e8576ea2ae44eb0",
+          "official_source_url": "https://github.com/bits-and-blooms/bitset/blob/828abff685deae97e60d299b1cdfcefabfeb44dc/bitset.go#L1181-L1203",
+          "scope": "static source reading; not actual behavior observation"
+        }
+      ],
+      "changed_request_proposed": "Add ComplementWithin with an explicit width independent of the stored length; complement only that domain, mask its tail, and preserve the input bitset.",
+      "changed_request_bytes": 152,
+      "ascii_whitespace_words": 23,
+      "minimum_finite_observation_channels_proposed": [
+        "result Len and selected bits",
+        "receiver unchanged",
+        "external width"
+      ],
+      "realization_dedup_or_scope_hold": "Profiles widths0/1/64/65 retain the old proposed objects. Use canonical New/Set source state; do not inject oversized aliased FromWithLength buffers. Equal-width-only cases cannot establish a new change.",
+      "Want": null,
+      "candidate_order_or_captions": null,
+      "truth": null,
+      "role": null,
+      "weight": null,
+      "numeric_group": null,
+      "qualified": false,
+      "execution_ready": false,
+      "own_source_reader_nonblind": true
+    },
+    {
+      "selector_ordinal": 3,
+      "proposal_id": "source-next60-exact-rescale",
+      "family_option": "candidate-family-2",
+      "prior_original_selector_json_pointer": "/selectors/3",
+      "prior_request_sha256": "d7cc3bbb800300c1907f4700c084a8181bc38332c1ac4f19febcc5ea2f519d30",
+      "prior_proposed_input_profiles_unchanged": [
+        {
+          "decimal": "1.2300",
+          "scale": 2
+        },
+        {
+          "decimal": "1.234",
+          "scale": 2
+        },
+        {
+          "decimal": "-0.001",
+          "scale": 3
+        },
+        {
+          "decimal": "0",
+          "scale": 0
+        }
+      ],
+      "prior_profile_count": 4,
+      "verdict": "changed_contract_supported",
+      "source_finding": "Private rescale divides coefficients with integer Quo and silently truncates; Exponent/Coefficient expose a copied coefficient for a checked wrapper.",
+      "evidence": [
+        {
+          "repo": "shopspring/decimal",
+          "revision": "ca4740823783f3bc026235a5ed3515aca626da92",
+          "path": "decimal.go",
+          "line_start": 494,
+          "line_end": 537,
+          "bytes": 67565,
+          "sha256": "7b47645b284bcd9d85b8de8086c001c30cb9ab10773c0e9d9f9db40c1ba9d863",
+          "Git_blob": "ee554d4cabd10733aebcb78863ddff26a3f3e0bc",
+          "official_source_url": "https://github.com/shopspring/decimal/blob/ca4740823783f3bc026235a5ed3515aca626da92/decimal.go#L494-L537",
+          "scope": "static source reading; not actual behavior observation"
+        },
+        {
+          "repo": "shopspring/decimal",
+          "revision": "ca4740823783f3bc026235a5ed3515aca626da92",
+          "path": "decimal.go",
+          "line_start": 1427,
+          "line_end": 1436,
+          "bytes": 67565,
+          "sha256": "7b47645b284bcd9d85b8de8086c001c30cb9ab10773c0e9d9f9db40c1ba9d863",
+          "Git_blob": "ee554d4cabd10733aebcb78863ddff26a3f3e0bc",
+          "official_source_url": "https://github.com/shopspring/decimal/blob/ca4740823783f3bc026235a5ed3515aca626da92/decimal.go#L1427-L1436",
+          "scope": "static source reading; not actual behavior observation"
+        }
+      ],
+      "changed_request_proposed": "Add exact decimal rescaling that rejects discarded nonzero coefficient digits, preserves the numeric value on success, and returns a distinct inexact error.",
+      "changed_request_bytes": 156,
+      "ascii_whitespace_words": 22,
+      "minimum_finite_observation_channels_proposed": [
+        "coefficient decimal text/exponent",
+        "inexact-error identity",
+        "source coefficient/exponent unchanged"
+      ],
+      "realization_dedup_or_scope_hold": "Interpret prior scale as fractional digits/target exponent minus scale explicitly. Bound exponent differences and input lengths before large power allocation. No floating-point oracle or hidden rounding policy.",
+      "Want": null,
+      "candidate_order_or_captions": null,
+      "truth": null,
+      "role": null,
+      "weight": null,
+      "numeric_group": null,
+      "qualified": false,
+      "execution_ready": false,
+      "own_source_reader_nonblind": true
+    },
+    {
+      "selector_ordinal": 4,
+      "proposal_id": "source-next60-euclidean-remainder",
+      "family_option": "candidate-family-2",
+      "prior_original_selector_json_pointer": "/selectors/4",
+      "prior_request_sha256": "4083fdf0f2b78f6d139b1db2d001b4bf5d5fac458163b1e92ca35c9b1af9787f",
+      "prior_proposed_input_profiles_unchanged": [
+        {
+          "dividend": "-7",
+          "divisor": "3"
+        },
+        {
+          "dividend": "7",
+          "divisor": "3"
+        },
+        {
+          "dividend": "-1.5",
+          "divisor": "0.5"
+        },
+        {
+          "dividend": "1",
+          "divisor": "0"
+        }
+      ],
+      "prior_profile_count": 4,
+      "verdict": "changed_contract_supported",
+      "source_finding": "Mod delegates QuoRem; remainder follows dividend sign. QuoRem zero divisor panics. Nonnegative Euclidean remainder is a change for negative dividends.",
+      "evidence": [
+        {
+          "repo": "shopspring/decimal",
+          "revision": "ca4740823783f3bc026235a5ed3515aca626da92",
+          "path": "decimal.go",
+          "line_start": 614,
+          "line_end": 658,
+          "bytes": 67565,
+          "sha256": "7b47645b284bcd9d85b8de8086c001c30cb9ab10773c0e9d9f9db40c1ba9d863",
+          "Git_blob": "ee554d4cabd10733aebcb78863ddff26a3f3e0bc",
+          "official_source_url": "https://github.com/shopspring/decimal/blob/ca4740823783f3bc026235a5ed3515aca626da92/decimal.go#L614-L658",
+          "scope": "static source reading; not actual behavior observation"
+        },
+        {
+          "repo": "shopspring/decimal",
+          "revision": "ca4740823783f3bc026235a5ed3515aca626da92",
+          "path": "decimal.go",
+          "line_start": 691,
+          "line_end": 694,
+          "bytes": 67565,
+          "sha256": "7b47645b284bcd9d85b8de8086c001c30cb9ab10773c0e9d9f9db40c1ba9d863",
+          "Git_blob": "ee554d4cabd10733aebcb78863ddff26a3f3e0bc",
+          "official_source_url": "https://github.com/shopspring/decimal/blob/ca4740823783f3bc026235a5ed3515aca626da92/decimal.go#L691-L694",
+          "scope": "static source reading; not actual behavior observation"
+        }
+      ],
+      "changed_request_proposed": "Add Euclidean decimal remainder for positive divisors, rejecting nonpositive divisors with an explicit error and preserving the existing Mod behavior.",
+      "changed_request_bytes": 150,
+      "ascii_whitespace_words": 20,
+      "minimum_finite_observation_channels_proposed": [
+        "exact decimal remainder",
+        "nonpositive divisor error",
+        "input preservation"
+      ],
+      "realization_dedup_or_scope_hold": "Prior divisor0 profile lacked rejection details; this is a new pre-execution contract proposal. For -7/3 the defining nonnegative remainder is2 mathematically, without source execution or a frozen Want assignment.",
+      "Want": null,
+      "candidate_order_or_captions": null,
+      "truth": null,
+      "role": null,
+      "weight": null,
+      "numeric_group": null,
+      "qualified": false,
+      "execution_ready": false,
+      "own_source_reader_nonblind": true
+    },
+    {
+      "selector_ordinal": 5,
+      "proposal_id": "source-next60-checked-integer-conversion",
+      "family_option": "candidate-family-2",
+      "prior_original_selector_json_pointer": "/selectors/5",
+      "prior_request_sha256": "ae4e0d077cf6672698bffc8d54d3cd51a89bb0fdd138febe59145c52daead83c",
+      "prior_proposed_input_profiles_unchanged": [
+        {
+          "decimal": "1"
+        },
+        {
+          "decimal": "1.1"
+        },
+        {
+          "decimal": "9223372036854775807"
+        },
+        {
+          "decimal": "9223372036854775808"
+        },
+        {
+          "decimal": "-9223372036854775809"
+        }
+      ],
+      "prior_profile_count": 5,
+      "verdict": "changed_contract_supported",
+      "source_finding": "IntPart rescales to zero then takes big.Int.Int64 without error; BigInt truncates the fractional part. Neither exposes fractional/range rejection.",
+      "evidence": [
+        {
+          "repo": "shopspring/decimal",
+          "revision": "ca4740823783f3bc026235a5ed3515aca626da92",
+          "path": "decimal.go",
+          "line_start": 1439,
+          "line_end": 1450,
+          "bytes": 67565,
+          "sha256": "7b47645b284bcd9d85b8de8086c001c30cb9ab10773c0e9d9f9db40c1ba9d863",
+          "Git_blob": "ee554d4cabd10733aebcb78863ddff26a3f3e0bc",
+          "official_source_url": "https://github.com/shopspring/decimal/blob/ca4740823783f3bc026235a5ed3515aca626da92/decimal.go#L1439-L1450",
+          "scope": "static source reading; not actual behavior observation"
+        },
+        {
+          "repo": "shopspring/decimal",
+          "revision": "ca4740823783f3bc026235a5ed3515aca626da92",
+          "path": "decimal.go",
+          "line_start": 1427,
+          "line_end": 1442,
+          "bytes": 67565,
+          "sha256": "7b47645b284bcd9d85b8de8086c001c30cb9ab10773c0e9d9f9db40c1ba9d863",
+          "Git_blob": "ee554d4cabd10733aebcb78863ddff26a3f3e0bc",
+          "official_source_url": "https://github.com/shopspring/decimal/blob/ca4740823783f3bc026235a5ed3515aca626da92/decimal.go#L1427-L1442",
+          "scope": "static source reading; not actual behavior observation"
+        }
+      ],
+      "changed_request_proposed": "Add checked decimal-to-int64 conversion with separate fractional and overflow errors; accept only integral representable values and preserve the decimal input.",
+      "changed_request_bytes": 159,
+      "ascii_whitespace_words": 20,
+      "minimum_finite_observation_channels_proposed": [
+        "int64 value available only on success",
+        "fractional and overflow identities",
+        "coefficient/exponent before and after"
+      ],
+      "realization_dedup_or_scope_hold": "Freeze ordering if both range/fraction conditions hold; prior1/1.1/int64 boundaries do not cover that conflict. This signed-decimal task is related to checked GJSON/uint256 parsing but not automatically a separate independent behavior/group.",
+      "Want": null,
+      "candidate_order_or_captions": null,
+      "truth": null,
+      "role": null,
+      "weight": null,
+      "numeric_group": null,
+      "qualified": false,
+      "execution_ready": false,
+      "own_source_reader_nonblind": true
+    },
+    {
+      "selector_ordinal": 7,
+      "proposal_id": "source-next60-lossless-integer-channel",
+      "family_option": "candidate-family-3",
+      "prior_original_selector_json_pointer": "/selectors/7",
+      "prior_request_sha256": "46a37e7d03fda8c3ca03252b186d8e166bae7518ebd3d61adab883d4aabf8914",
+      "prior_proposed_input_profiles_unchanged": [
+        {
+          "json": "9007199254740993"
+        },
+        {
+          "json": "1.5"
+        },
+        {
+          "json": "9223372036854775807"
+        },
+        {
+          "json": "9223372036854775808"
+        },
+        {
+          "json": "\"1\""
+        }
+      ],
+      "prior_profile_count": 5,
+      "verdict": "narrow_changed_contract",
+      "source_finding": "Result.Int already preserves many out-of-float64 integer lexemes via parseInt, but silently truncates fractions/saturates range and has no checked error return. The issue is error semantics, not universal precision loss.",
+      "evidence": [
+        {
+          "repo": "tidwall/gjson",
+          "revision": "9378d3bb93e20854e1677e0e0248e1d71ae5712f",
+          "path": "gjson.go",
+          "line_start": 125,
+          "line_end": 197,
+          "bytes": 77773,
+          "sha256": "443d0db6fdb2cebf9c874b022e3d59f4904fab0aa03d99b072fdf39dce72697e",
+          "Git_blob": "8c6e61275ede3303624f7071a05ae0a489dcfe91",
+          "official_source_url": "https://github.com/tidwall/gjson/blob/9378d3bb93e20854e1677e0e0248e1d71ae5712f/gjson.go#L125-L197",
+          "scope": "static source reading; not actual behavior observation"
+        },
+        {
+          "repo": "tidwall/gjson",
+          "revision": "9378d3bb93e20854e1677e0e0248e1d71ae5712f",
+          "path": "gjson.go",
+          "line_start": 2794,
+          "line_end": 2856,
+          "bytes": 77773,
+          "sha256": "443d0db6fdb2cebf9c874b022e3d59f4904fab0aa03d99b072fdf39dce72697e",
+          "Git_blob": "8c6e61275ede3303624f7071a05ae0a489dcfe91",
+          "official_source_url": "https://github.com/tidwall/gjson/blob/9378d3bb93e20854e1677e0e0248e1d71ae5712f/gjson.go#L2794-L2856",
+          "scope": "static source reading; not actual behavior observation"
+        }
+      ],
+      "changed_request_proposed": "Add checked extraction of int64 from JSON integer lexemes, rejecting fractional syntax, nonnumeric types, and overflow instead of coercing or saturating.",
+      "changed_request_bytes": 153,
+      "ascii_whitespace_words": 21,
+      "minimum_finite_observation_channels_proposed": [
+        "Type/Raw/Exists",
+        "available int64 or error identity",
+        "no numeric-string coercion"
+      ],
+      "realization_dedup_or_scope_hold": "Use JSON integer grammar with no exponent/dot for this bounded proposal; whether exact-integral exponent notation should be accepted is a different policy not hidden here. Preserve existing Int unchanged. Dependency/source-group gap remains.",
+      "Want": null,
+      "candidate_order_or_captions": null,
+      "truth": null,
+      "role": null,
+      "weight": null,
+      "numeric_group": null,
+      "qualified": false,
+      "execution_ready": false,
+      "own_source_reader_nonblind": true
+    },
+    {
+      "selector_ordinal": 10,
+      "proposal_id": "source-next60-partial-read-hash",
+      "family_option": "candidate-family-4",
+      "prior_original_selector_json_pointer": "/selectors/10",
+      "prior_request_sha256": "39328ec8afadf1acc3d60d14b3ed1b38e0c0ea1aa1fadb23fe15e4a8e105a9ac",
+      "prior_proposed_input_profiles_unchanged": [
+        {
+          "delivered": "ab",
+          "terminal": "EOF"
+        },
+        {
+          "delivered": "ab",
+          "terminal": "owned read cause"
+        },
+        {
+          "delivered": "",
+          "terminal": "owned read cause"
+        },
+        {
+          "delivered": "abc",
+          "chunks": [
+            1,
+            2
+          ],
+          "terminal": "EOF"
+        }
+      ],
+      "prior_profile_count": 4,
+      "verdict": "changed_wrapper_contract_supported",
+      "source_finding": "Digest.Write returns len,nil and updates hash state; source has no reader-taking API. A reader wrapper can retain digest/count alongside a terminal read cause.",
+      "evidence": [
+        {
+          "repo": "cespare/xxhash",
+          "revision": "ab37246c889f9db16b606fda1c232d659df9271d",
+          "path": "xxhash.go",
+          "line_start": 86,
+          "line_end": 146,
+          "bytes": 5646,
+          "sha256": "ced3c8e453e927a399ed3bc9c310ff7a2e3f9c33999d33cc8983d6d4334e4cf7",
+          "Git_blob": "e29a8c334ceb4d675c9e18f3670b7f673d7ad44e",
+          "official_source_url": "https://github.com/cespare/xxhash/blob/ab37246c889f9db16b606fda1c232d659df9271d/xxhash.go#L86-L146",
+          "scope": "static source reading; not actual behavior observation"
+        }
+      ],
+      "changed_request_proposed": "Add bounded reader hashing that returns the digest and delivered byte count alongside a non-EOF read error; process delivered bytes before handling that error.",
+      "changed_request_bytes": 159,
+      "ascii_whitespace_words": 24,
+      "minimum_finite_observation_channels_proposed": [
+        "digest uint64",
+        "delivered/read count",
+        "read cause identity knownness",
+        "EOF normal completion"
+      ],
+      "realization_dedup_or_scope_hold": "Freeze reader scripts with n>0+error, zero+error and EOF before observations. This relates to retry-body partial-read/error preservation; a hash summary is a different observable but broader semantic duplication remains an explicit audit hold. Hash arithmetic oracle must be separate/frozen, not candidate self-comparison.",
+      "Want": null,
+      "candidate_order_or_captions": null,
+      "truth": null,
+      "role": null,
+      "weight": null,
+      "numeric_group": null,
+      "qualified": false,
+      "execution_ready": false,
+      "own_source_reader_nonblind": true
+    },
+    {
+      "selector_ordinal": 12,
+      "proposal_id": "source-next60-escaped-separator-routing",
+      "family_option": "candidate-family-5",
+      "prior_original_selector_json_pointer": "/selectors/12",
+      "prior_request_sha256": "1316520a091386fcf389c48eae8639ee14006be37e7f04f82ffd5b5603885406",
+      "prior_proposed_input_profiles_unchanged": [
+        {
+          "path": "/a%2Fb"
+        },
+        {
+          "path": "/a%252Fb"
+        },
+        {
+          "path": "/a/b"
+        },
+        {
+          "path": "/bad%ZZ"
+        }
+      ],
+      "prior_profile_count": 4,
+      "verdict": "narrow_changed_contract_fixture_hold",
+      "source_finding": "routeHTTP already chooses RawPath ahead of Path; parameters contain matched raw segment bytes. Thus preserving escaped separators is partly already default behavior. Decoding a parameter exactly once would be a bounded opt-in change.",
+      "evidence": [
+        {
+          "repo": "go-chi/chi",
+          "revision": "167e1e3bd039d060696b99c8da4e876ae04f42c1",
+          "path": "mux.go",
+          "line_start": 452,
+          "line_end": 495,
+          "bytes": 17308,
+          "sha256": "cc44c2d620e6306b16d6d80f5f6c70f02b5814b357a4f5823372818f355ae67d",
+          "Git_blob": "7cfc6143d64d1e3c4f14af2ba2069878cd231b3e",
+          "official_source_url": "https://github.com/go-chi/chi/blob/167e1e3bd039d060696b99c8da4e876ae04f42c1/mux.go#L452-L495",
+          "scope": "static source reading; not actual behavior observation"
+        },
+        {
+          "repo": "go-chi/chi",
+          "revision": "167e1e3bd039d060696b99c8da4e876ae04f42c1",
+          "path": "context.go",
+          "line_start": 120,
+          "line_end": 132,
+          "bytes": 5788,
+          "sha256": "b19edcca252e2fe74e82802c4c7ce1a1c0855728f9ede1288f0224283dfc7e53",
+          "Git_blob": "c5c9a7432a3f599d8d32602523761f49052bc1c5",
+          "official_source_url": "https://github.com/go-chi/chi/blob/167e1e3bd039d060696b99c8da4e876ae04f42c1/context.go#L120-L132",
+          "scope": "static source reading; not actual behavior observation"
+        }
+      ],
+      "changed_request_proposed": "Add opt-in single decoding of matched raw route parameters, preserving escaped separators during matching and leaving default matching and parameter bytes unchanged.",
+      "changed_request_bytes": 165,
+      "ascii_whitespace_words": 22,
+      "minimum_finite_observation_channels_proposed": [
+        "URL.Path and RawPath full fields",
+        "handler invocation count",
+        "matched raw and decoded parameter",
+        "malformed-path outcome"
+      ],
+      "realization_dedup_or_scope_hold": "HOLD literal realization: old path strings do not fix both URL fields, router pattern or invalid-escape construction policy. No original request-builder API calls here. Decode after match; do not decode separators before path matching.",
+      "Want": null,
+      "candidate_order_or_captions": null,
+      "truth": null,
+      "role": null,
+      "weight": null,
+      "numeric_group": null,
+      "qualified": false,
+      "execution_ready": false,
+      "own_source_reader_nonblind": true
+    },
+    {
+      "selector_ordinal": 13,
+      "proposal_id": "source-next60-duplicate-route-parameter-check",
+      "family_option": "candidate-family-5",
+      "prior_original_selector_json_pointer": "/selectors/13",
+      "prior_request_sha256": "654776ceefbcd20f0b9f8a42f0a1aebbfe89db7b33f07aae77ac047a3a2dc364",
+      "prior_proposed_input_profiles_unchanged": [
+        {
+          "pattern": "/{id}/{id}"
+        },
+        {
+          "pattern": "/{a}/{b}"
+        },
+        {
+          "pattern": "/literal"
+        },
+        {
+          "pattern": "/{id}/*"
+        }
+      ],
+      "prior_profile_count": 4,
+      "verdict": "narrow_changed_contract",
+      "source_finding": "Duplicate parameter names already panic in patParamKeys. InsertRoute can add children before setEndpoint invokes that validation, so a returned checked error before registration is a substantive wrapper contract.",
+      "evidence": [
+        {
+          "repo": "go-chi/chi",
+          "revision": "167e1e3bd039d060696b99c8da4e876ae04f42c1",
+          "path": "tree.go",
+          "line_start": 148,
+          "line_end": 185,
+          "bytes": 22069,
+          "sha256": "f4b12b63b662fb8e36658172b36b35705cfb24eefae0665635f4fbd52e64fb79",
+          "Git_blob": "af4052c8c0b0f2d74cadc6a1312dc9555ef32316",
+          "official_source_url": "https://github.com/go-chi/chi/blob/167e1e3bd039d060696b99c8da4e876ae04f42c1/tree.go#L148-L185",
+          "scope": "static source reading; not actual behavior observation"
+        },
+        {
+          "repo": "go-chi/chi",
+          "revision": "167e1e3bd039d060696b99c8da4e876ae04f42c1",
+          "path": "tree.go",
+          "line_start": 353,
+          "line_end": 364,
+          "bytes": 22069,
+          "sha256": "f4b12b63b662fb8e36658172b36b35705cfb24eefae0665635f4fbd52e64fb79",
+          "Git_blob": "af4052c8c0b0f2d74cadc6a1312dc9555ef32316",
+          "official_source_url": "https://github.com/go-chi/chi/blob/167e1e3bd039d060696b99c8da4e876ae04f42c1/tree.go#L353-L364",
+          "scope": "static source reading; not actual behavior observation"
+        },
+        {
+          "repo": "go-chi/chi",
+          "revision": "167e1e3bd039d060696b99c8da4e876ae04f42c1",
+          "path": "tree.go",
+          "line_start": 803,
+          "line_end": 820,
+          "bytes": 22069,
+          "sha256": "f4b12b63b662fb8e36658172b36b35705cfb24eefae0665635f4fbd52e64fb79",
+          "Git_blob": "af4052c8c0b0f2d74cadc6a1312dc9555ef32316",
+          "official_source_url": "https://github.com/go-chi/chi/blob/167e1e3bd039d060696b99c8da4e876ae04f42c1/tree.go#L803-L820",
+          "scope": "static source reading; not actual behavior observation"
+        }
+      ],
+      "changed_request_proposed": "Add checked route registration that returns a duplicate-parameter error before router mutation, delegating valid patterns without changing existing registration APIs.",
+      "changed_request_bytes": 166,
+      "ascii_whitespace_words": 20,
+      "minimum_finite_observation_channels_proposed": [
+        "registration error identity/panic presence",
+        "declared public route enumeration before/after",
+        "valid handler behavior"
+      ],
+      "realization_dedup_or_scope_hold": "No claim of actual observed partial mutation; source control flow only. Freeze supported pattern grammar and public view of router changes. A regex/brace-aware preflight must use the pinned parser semantics rather than a naive brace split.",
+      "Want": null,
+      "candidate_order_or_captions": null,
+      "truth": null,
+      "role": null,
+      "weight": null,
+      "numeric_group": null,
+      "qualified": false,
+      "execution_ready": false,
+      "own_source_reader_nonblind": true
+    },
+    {
+      "selector_ordinal": 14,
+      "proposal_id": "source-next60-method-allow-response",
+      "family_option": "candidate-family-5",
+      "prior_original_selector_json_pointer": "/selectors/14",
+      "prior_request_sha256": "48c18dcde93284279a16569961268f2b2c8d0f281e60e57872b44464c2122d8d",
+      "prior_proposed_input_profiles_unchanged": [
+        {
+          "registered": [
+            "POST",
+            "GET"
+          ],
+          "method": "PUT"
+        },
+        {
+          "registered": [
+            "GET",
+            "GET"
+          ],
+          "method": "PUT"
+        },
+        {
+          "registered": [
+            "GET"
+          ],
+          "method": "GET"
+        },
+        {
+          "registered": [],
+          "method": "PUT"
+        }
+      ],
+      "prior_profile_count": 4,
+      "verdict": "narrow_changed_contract",
+      "source_finding": "Default405 already adds Allow and skips route handlers. It collects unique method types from endpoint maps; no lexicographic sorting is applied. Therefore only deterministic ordering is a source-supported new clause.",
+      "evidence": [
+        {
+          "repo": "go-chi/chi",
+          "revision": "167e1e3bd039d060696b99c8da4e876ae04f42c1",
+          "path": "tree.go",
+          "line_start": 478,
+          "line_end": 491,
+          "bytes": 22069,
+          "sha256": "f4b12b63b662fb8e36658172b36b35705cfb24eefae0665635f4fbd52e64fb79",
+          "Git_blob": "af4052c8c0b0f2d74cadc6a1312dc9555ef32316",
+          "official_source_url": "https://github.com/go-chi/chi/blob/167e1e3bd039d060696b99c8da4e876ae04f42c1/tree.go#L478-L491",
+          "scope": "static source reading; not actual behavior observation"
+        },
+        {
+          "repo": "go-chi/chi",
+          "revision": "167e1e3bd039d060696b99c8da4e876ae04f42c1",
+          "path": "tree.go",
+          "line_start": 526,
+          "line_end": 539,
+          "bytes": 22069,
+          "sha256": "f4b12b63b662fb8e36658172b36b35705cfb24eefae0665635f4fbd52e64fb79",
+          "Git_blob": "af4052c8c0b0f2d74cadc6a1312dc9555ef32316",
+          "official_source_url": "https://github.com/go-chi/chi/blob/167e1e3bd039d060696b99c8da4e876ae04f42c1/tree.go#L526-L539",
+          "scope": "static source reading; not actual behavior observation"
+        },
+        {
+          "repo": "go-chi/chi",
+          "revision": "167e1e3bd039d060696b99c8da4e876ae04f42c1",
+          "path": "mux.go",
+          "line_start": 529,
+          "line_end": 540,
+          "bytes": 17308,
+          "sha256": "cc44c2d620e6306b16d6d80f5f6c70f02b5814b357a4f5823372818f355ae67d",
+          "Git_blob": "7cfc6143d64d1e3c4f14af2ba2069878cd231b3e",
+          "official_source_url": "https://github.com/go-chi/chi/blob/167e1e3bd039d060696b99c8da4e876ae04f42c1/mux.go#L529-L540",
+          "scope": "static source reading; not actual behavior observation"
+        }
+      ],
+      "changed_request_proposed": "Return sorted unique Allow values for method mismatches on matched paths; preserve successful route handling and unmatched-path behavior.",
+      "changed_request_bytes": 137,
+      "ascii_whitespace_words": 18,
+      "minimum_finite_observation_channels_proposed": [
+        "status and ordered Header.Values Allow",
+        "handler invocation count",
+        "matched-versus-missing route"
+      ],
+      "realization_dedup_or_scope_hold": "Unregistered-path profile remains404, not an invented405. Duplicate registrations do not by themselves create duplicate Allow entries. Do not promise an original failing order deterministically from randomized map traversal; compare declared ordering predicate later.",
+      "Want": null,
+      "candidate_order_or_captions": null,
+      "truth": null,
+      "role": null,
+      "weight": null,
+      "numeric_group": null,
+      "qualified": false,
+      "execution_ready": false,
+      "own_source_reader_nonblind": true
+    },
+    {
+      "selector_ordinal": 15,
+      "proposal_id": "source-next60-checked-decimal-uint256",
+      "family_option": "candidate-family-6",
+      "prior_original_selector_json_pointer": "/selectors/15",
+      "prior_request_sha256": "e107b12d3fba410d773aa007a88b9500c7782af049c32629d1840dafc00c59e7",
+      "prior_proposed_input_profiles_unchanged": [
+        {
+          "decimal": "0"
+        },
+        {
+          "decimal": "-1"
+        },
+        {
+          "decimal": "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+        },
+        {
+          "decimal": "115792089237316195423570985008687907853269984665640564039457584007913129639936"
+        }
+      ],
+      "prior_profile_count": 4,
+      "verdict": "narrow_changed_contract",
+      "source_finding": "FromDecimal already returns errors/range rejection. SetFromDecimal strips plus/zeros and fromDecimal clears the receiver before chunk parsing; later malformed syntax can leave cleared/partial state. A transactional receiver/error taxonomy is new.",
+      "evidence": [
+        {
+          "repo": "holiman/uint256",
+          "revision": "3b6e9cdebb7a0462a2748bf24d7fac2b8a943666",
+          "path": "decimal.go",
+          "line_start": 111,
+          "line_end": 221,
+          "bytes": 6874,
+          "sha256": "40466e65ce90f430f33dc46c15f95e6033be8211bd201895be9bc55255ac0bae",
+          "Git_blob": "564ae12c86ff9d374b073db81943ea569457b2fb",
+          "official_source_url": "https://github.com/holiman/uint256/blob/3b6e9cdebb7a0462a2748bf24d7fac2b8a943666/decimal.go#L111-L221",
+          "scope": "static source reading; not actual behavior observation"
+        }
+      ],
+      "changed_request_proposed": "Add transactional uint256 decimal parsing with separate negative-syntax and overflow errors; preserve the receiver on every rejection and retain existing successful parsing behavior.",
+      "changed_request_bytes": 182,
+      "ascii_whitespace_words": 23,
+      "minimum_finite_observation_channels_proposed": [
+        "receiver four words before/after",
+        "error identities distinct/known",
+        "returned value availability"
+      ],
+      "realization_dedup_or_scope_hold": "Prior -1/boundary inputs support the changed intent but not all malformed/plus/leading-zero policies. Old FromDecimal return/error behavior is not called absent. Explicit source-created sentinels must be frozen before observation.",
+      "Want": null,
+      "candidate_order_or_captions": null,
+      "truth": null,
+      "role": null,
+      "weight": null,
+      "numeric_group": null,
+      "qualified": false,
+      "execution_ready": false,
+      "own_source_reader_nonblind": true
+    },
+    {
+      "selector_ordinal": 17,
+      "proposal_id": "source-next60-checked-divmod-zero",
+      "family_option": "candidate-family-6",
+      "prior_original_selector_json_pointer": "/selectors/17",
+      "prior_request_sha256": "2206b801dce9a89c1ed8500ba5998062fa97e26aed86a80c6d1e0e414a8550b9",
+      "prior_proposed_input_profiles_unchanged": [
+        {
+          "dividend": "7",
+          "divisor": "3"
+        },
+        {
+          "dividend": "0",
+          "divisor": "3"
+        },
+        {
+          "dividend": "7",
+          "divisor": "0"
+        },
+        {
+          "dividend": "maximum",
+          "divisor": "1"
+        }
+      ],
+      "prior_profile_count": 4,
+      "verdict": "changed_contract_supported",
+      "source_finding": "DivMod handles divisor zero by clearing both outputs and returns no error. It separately handles aliased quotient/remainder outputs.",
+      "evidence": [
+        {
+          "repo": "holiman/uint256",
+          "revision": "3b6e9cdebb7a0462a2748bf24d7fac2b8a943666",
+          "path": "uint256.go",
+          "line_start": 696,
+          "line_end": 738,
+          "bytes": 42109,
+          "sha256": "6ee28995c22aab6c83155d34142cea9c0a979f95885bb84778dbd7b4dc5bb0e8",
+          "Git_blob": "a7555e04c0345075751a0f7ab64840cd41173811",
+          "official_source_url": "https://github.com/holiman/uint256/blob/3b6e9cdebb7a0462a2748bf24d7fac2b8a943666/uint256.go#L696-L738",
+          "scope": "static source reading; not actual behavior observation"
+        }
+      ],
+      "changed_request_proposed": "Add checked uint256 DivMod with an explicit zero-divisor error, preserving both output receivers on rejection and retaining existing nonzero quotient and remainder behavior.",
+      "changed_request_bytes": 173,
+      "ascii_whitespace_words": 23,
+      "minimum_finite_observation_channels_proposed": [
+        "two output word arrays before/after",
+        "zero divisor error identity",
+        "output alias availability"
+      ],
+      "realization_dedup_or_scope_hold": "Freeze pointer-alias and nil receiver scope before implementation; bounded initial profiles use distinct nonnil outputs. Zero/error must not be inferred from a formatted message. Negative operands are not in this unsigned domain.",
+      "Want": null,
+      "candidate_order_or_captions": null,
+      "truth": null,
+      "role": null,
+      "weight": null,
+      "numeric_group": null,
+      "qualified": false,
+      "execution_ready": false,
+      "own_source_reader_nonblind": true
+    }
+  ],
+  "additional9_proposals": [
+    {
+      "expansion_selector_ordinal": 18,
+      "proposal_id": "source-next60-extract-replace-destination",
+      "family_option": "candidate-family-1",
+      "repo": "bits-and-blooms/bitset",
+      "revision": "828abff685deae97e60d299b1cdfcefabfeb44dc",
+      "request_proposed": "Add ExtractReplaceTo: pack masked bits into a reusable destination, clear stale bits, and set exact mask population length; destination remains distinct from source and mask.",
+      "request_bytes": 174,
+      "ASCII_alphanumeric_words": 25,
+      "ASCII_whitespace_words": 25,
+      "source_finding": "ExtractTo ORs packed output into existing destination, only extends short destinations, and returns early on empty source/mask. It does not establish replacement semantics for a prefilled destination. Extract already allocates a clean destination; a renamed allocating Extract is excluded.",
+      "evidence": [
+        {
+          "repo": "bits-and-blooms/bitset",
+          "revision": "828abff685deae97e60d299b1cdfcefabfeb44dc",
+          "path": "bitset.go",
+          "line_start": 1672,
+          "line_end": 1731,
+          "bytes": 50128,
+          "sha256": "450502e4569e3a876b9f4ab2e43a8d5ef82a87055c7a7a1c29a3bb56fae696e6",
+          "Git_blob": "3eb602d29c404a677d49d8ef4e8576ea2ae44eb0",
+          "official_source_url": "https://github.com/bits-and-blooms/bitset/blob/828abff685deae97e60d299b1cdfcefabfeb44dc/bitset.go#L1672-L1731",
+          "scope": "source reading only; no API observation"
+        },
+        {
+          "repo": "bits-and-blooms/bitset",
+          "revision": "828abff685deae97e60d299b1cdfcefabfeb44dc",
+          "path": "bitset.go",
+          "line_start": 868,
+          "line_end": 889,
+          "bytes": 50128,
+          "sha256": "450502e4569e3a876b9f4ab2e43a8d5ef82a87055c7a7a1c29a3bb56fae696e6",
+          "Git_blob": "3eb602d29c404a677d49d8ef4e8576ea2ae44eb0",
+          "official_source_url": "https://github.com/bits-and-blooms/bitset/blob/828abff685deae97e60d299b1cdfcefabfeb44dc/bitset.go#L868-L889",
+          "scope": "source reading only; no API observation"
+        }
+      ],
+      "finite_input_profiles_proposed": [
+        {
+          "source_length": 8,
+          "source_set": [
+            1,
+            5
+          ],
+          "mask_length": 8,
+          "mask_set": [
+            1,
+            4,
+            5
+          ],
+          "destination_length": 128,
+          "destination_set": [
+            0,
+            1,
+            2,
+            100
+          ]
+        },
+        {
+          "source_length": 8,
+          "source_set": [],
+          "mask_length": 8,
+          "mask_set": [
+            1,
+            4,
+            5
+          ],
+          "destination_length": 128,
+          "destination_set": [
+            0,
+            1,
+            2,
+            100
+          ]
+        },
+        {
+          "source_length": 0,
+          "source_set": [],
+          "mask_length": 8,
+          "mask_set": [
+            1,
+            4,
+            5
+          ],
+          "destination_length": 128,
+          "destination_set": [
+            0,
+            100
+          ]
+        },
+        {
+          "source_length": 8,
+          "source_set": [
+            1
+          ],
+          "mask_length": 0,
+          "mask_set": [],
+          "destination_length": 128,
+          "destination_set": [
+            0,
+            100
+          ]
+        },
+        {
+          "source_length": 65,
+          "source_set": [
+            0,
+            63,
+            64
+          ],
+          "mask_length": 66,
+          "mask_set": [
+            0,
+            1,
+            63,
+            64,
+            65
+          ],
+          "destination_length": 1,
+          "destination_set": []
+        }
+      ],
+      "profile_count": 5,
+      "profile_status": "new source-based proposals; not frozen execution inputs or observed cases",
+      "observation_channels_proposed": [
+        "destination Len/set positions before-after",
+        "source and mask Len/set positions unchanged",
+        "nil/panic presence without Error/String formatting",
+        "destination alias excluded by visible request"
+      ],
+      "candidate_caption_claims_proposed": [
+        "Packs selected bits with replacement length and cleared destination content.",
+        "Accumulates selected bits into existing destination words and keeps a larger length.",
+        "Clears destination content while retaining its previous logical length."
+      ],
+      "caption_status": "claims for future implementations, not source-fidelity endorsements or known-positive references",
+      "candidate_positions": null,
+      "specific_holds": [
+        "pext.gen.go remains unacquired; no full-package compiler closure",
+        "all actual Wanted outputs and implementation code pending",
+        "nil behavior not asserted; bounded nonnil distinct objects"
+      ],
+      "distinctness_and_neighbor_watch": "Packing masked positions and resetting reused output differs from retained fixed-width complement and strict decoder. Alias variants are not additional parents.",
+      "Want": null,
+      "Got": null,
+      "truth": null,
+      "label": null,
+      "training_role": null,
+      "BCE_weight": null,
+      "pair_eligibility": null,
+      "numeric_group": null,
+      "qualified": false,
+      "execution_ready": false
+    },
+    {
+      "expansion_selector_ordinal": 19,
+      "proposal_id": "source-next60-quotient-bank-rounding",
+      "family_option": "candidate-family-2",
+      "repo": "shopspring/decimal",
+      "revision": "ca4740823783f3bc026235a5ed3515aca626da92",
+      "request_proposed": "Add DivRoundBank for nonzero divisors: round the exact quotient to requested decimal places using nearest ties to even, without global precision or an intermediate rounded quotient.",
+      "request_bytes": 181,
+      "ASCII_alphanumeric_words": 26,
+      "ASCII_whitespace_words": 26,
+      "source_finding": "DivRound compares exact remainder with half and chooses away from zero at equality. RoundBank exists for a decimal value, not direct exact division; Div followed by RoundBank can introduce an intermediate rounded quotient. Calling existing RoundBank unchanged is excluded.",
+      "evidence": [
+        {
+          "repo": "shopspring/decimal",
+          "revision": "ca4740823783f3bc026235a5ed3515aca626da92",
+          "path": "decimal.go",
+          "line_start": 655,
+          "line_end": 695,
+          "bytes": 67565,
+          "sha256": "7b47645b284bcd9d85b8de8086c001c30cb9ab10773c0e9d9f9db40c1ba9d863",
+          "Git_blob": "ee554d4cabd10733aebcb78863ddff26a3f3e0bc",
+          "official_source_url": "https://github.com/shopspring/decimal/blob/ca4740823783f3bc026235a5ed3515aca626da92/decimal.go#L655-L695",
+          "scope": "source reading only; no API observation"
+        },
+        {
+          "repo": "shopspring/decimal",
+          "revision": "ca4740823783f3bc026235a5ed3515aca626da92",
+          "path": "decimal.go",
+          "line_start": 1689,
+          "line_end": 1708,
+          "bytes": 67565,
+          "sha256": "7b47645b284bcd9d85b8de8086c001c30cb9ab10773c0e9d9f9db40c1ba9d863",
+          "Git_blob": "ee554d4cabd10733aebcb78863ddff26a3f3e0bc",
+          "official_source_url": "https://github.com/shopspring/decimal/blob/ca4740823783f3bc026235a5ed3515aca626da92/decimal.go#L1689-L1708",
+          "scope": "source reading only; no API observation"
+        }
+      ],
+      "finite_input_profiles_proposed": [
+        {
+          "numerator": "5",
+          "denominator": "2",
+          "places": 0
+        },
+        {
+          "numerator": "7",
+          "denominator": "2",
+          "places": 0
+        },
+        {
+          "numerator": "-5",
+          "denominator": "2",
+          "places": 0
+        },
+        {
+          "numerator": "-7",
+          "denominator": "2",
+          "places": 0
+        },
+        {
+          "numerator": "10049",
+          "denominator": "10000",
+          "places": 2
+        },
+        {
+          "numerator": "250",
+          "denominator": "1",
+          "places": -2
+        }
+      ],
+      "profile_count": 6,
+      "profile_status": "new source-based proposals; not frozen execution inputs or observed cases",
+      "observation_channels_proposed": [
+        "coefficient/exponent or exact decimal string",
+        "input operand snapshots and global precision unchanged",
+        "zero divisor outside visible contract",
+        "exact-remainder tie comparison proof, independent oracle pending"
+      ],
+      "candidate_caption_claims_proposed": [
+        "Rounds the exact division remainder to an even last retained digit.",
+        "Rounds exact division ties away from zero.",
+        "Rounds a precision-limited intermediate quotient again to an even digit."
+      ],
+      "caption_status": "claims for future implementations, not source-fidelity endorsements or known-positive references",
+      "candidate_positions": null,
+      "specific_holds": [
+        "fpd exact origin and two Go BSD helper notices unresolved",
+        "exact rational oracle and literals not yet sealed",
+        "extreme exponent/precision resource limits excluded from finite proposal"
+      ],
+      "distinctness_and_neighbor_watch": "Neighbor to prior ftoa ties-even and new uint256 binary64 rounding; different quotient operation and representation, but similarity audit remains required. Not a module substitution for standalone RoundBank.",
+      "Want": null,
+      "Got": null,
+      "truth": null,
+      "label": null,
+      "training_role": null,
+      "BCE_weight": null,
+      "pair_eligibility": null,
+      "numeric_group": null,
+      "qualified": false,
+      "execution_ready": false
+    },
+    {
+      "expansion_selector_ordinal": 20,
+      "proposal_id": "source-next60-per-call-decimal-json-policy",
+      "family_option": "candidate-family-2",
+      "repo": "shopspring/decimal",
+      "revision": "ca4740823783f3bc026235a5ed3515aca626da92",
+      "request_proposed": "Add per-call decimal JSON formatting with explicit quoting, trailing-zero, and scientific-notation options; preserve receiver and package globals, with default MarshalJSON behavior unchanged.",
+      "request_bytes": 191,
+      "ASCII_alphanumeric_words": 25,
+      "ASCII_whitespace_words": 22,
+      "source_finding": "MarshalJSON reads a process-global quote flag and calls String, which reads process-global trimming/scientific options. The private string helper already accepts two options; the change is per-call policy and no global mutation, not inventing those formatting modes.",
+      "evidence": [
+        {
+          "repo": "shopspring/decimal",
+          "revision": "ca4740823783f3bc026235a5ed3515aca626da92",
+          "path": "decimal.go",
+          "line_start": 60,
+          "line_end": 82,
+          "bytes": 67565,
+          "sha256": "7b47645b284bcd9d85b8de8086c001c30cb9ab10773c0e9d9f9db40c1ba9d863",
+          "Git_blob": "ee554d4cabd10733aebcb78863ddff26a3f3e0bc",
+          "official_source_url": "https://github.com/shopspring/decimal/blob/ca4740823783f3bc026235a5ed3515aca626da92/decimal.go#L60-L82",
+          "scope": "source reading only; no API observation"
+        },
+        {
+          "repo": "shopspring/decimal",
+          "revision": "ca4740823783f3bc026235a5ed3515aca626da92",
+          "path": "decimal.go",
+          "line_start": 1496,
+          "line_end": 1498,
+          "bytes": 67565,
+          "sha256": "7b47645b284bcd9d85b8de8086c001c30cb9ab10773c0e9d9f9db40c1ba9d863",
+          "Git_blob": "ee554d4cabd10733aebcb78863ddff26a3f3e0bc",
+          "official_source_url": "https://github.com/shopspring/decimal/blob/ca4740823783f3bc026235a5ed3515aca626da92/decimal.go#L1496-L1498",
+          "scope": "source reading only; no API observation"
+        },
+        {
+          "repo": "shopspring/decimal",
+          "revision": "ca4740823783f3bc026235a5ed3515aca626da92",
+          "path": "decimal.go",
+          "line_start": 1804,
+          "line_end": 1813,
+          "bytes": 67565,
+          "sha256": "7b47645b284bcd9d85b8de8086c001c30cb9ab10773c0e9d9f9db40c1ba9d863",
+          "Git_blob": "ee554d4cabd10733aebcb78863ddff26a3f3e0bc",
+          "official_source_url": "https://github.com/shopspring/decimal/blob/ca4740823783f3bc026235a5ed3515aca626da92/decimal.go#L1804-L1813",
+          "scope": "source reading only; no API observation"
+        },
+        {
+          "repo": "shopspring/decimal",
+          "revision": "ca4740823783f3bc026235a5ed3515aca626da92",
+          "path": "decimal.go",
+          "line_start": 1943,
+          "line_end": 1992,
+          "bytes": 67565,
+          "sha256": "7b47645b284bcd9d85b8de8086c001c30cb9ab10773c0e9d9f9db40c1ba9d863",
+          "Git_blob": "ee554d4cabd10733aebcb78863ddff26a3f3e0bc",
+          "official_source_url": "https://github.com/shopspring/decimal/blob/ca4740823783f3bc026235a5ed3515aca626da92/decimal.go#L1943-L1992",
+          "scope": "source reading only; no API observation"
+        }
+      ],
+      "finite_input_profiles_proposed": [
+        {
+          "coefficient": "200",
+          "exponent": -2,
+          "quoted": true,
+          "trim": false,
+          "scientific": false
+        },
+        {
+          "coefficient": "200",
+          "exponent": -2,
+          "quoted": false,
+          "trim": true,
+          "scientific": false
+        },
+        {
+          "coefficient": "12",
+          "exponent": 2,
+          "quoted": true,
+          "trim": true,
+          "scientific": true
+        },
+        {
+          "coefficient": "12",
+          "exponent": 2,
+          "quoted": false,
+          "trim": true,
+          "scientific": false
+        },
+        {
+          "coefficient": "0",
+          "exponent": -2,
+          "quoted": true,
+          "trim": false,
+          "scientific": false
+        },
+        {
+          "coefficient": "-12345",
+          "exponent": -3,
+          "quoted": false,
+          "trim": true,
+          "scientific": false
+        }
+      ],
+      "profile_count": 6,
+      "profile_status": "new source-based proposals; not frozen execution inputs or observed cases",
+      "observation_channels_proposed": [
+        "exact returned JSON bytes, error availability",
+        "receiver coefficient/exponent unchanged",
+        "all three global options before-after unchanged",
+        "interleaved two caller option profiles; no concurrent runtime claim"
+      ],
+      "candidate_caption_claims_proposed": [
+        "Formats from explicit per-call options while preserving package defaults.",
+        "Temporarily updates package formatting flags to serialize each value.",
+        "Uses per-call quoting while retaining global trimming and notation."
+      ],
+      "caption_status": "claims for future implementations, not source-fidelity endorsements or known-positive references",
+      "candidate_positions": null,
+      "specific_holds": [
+        "source lineage/Go BSD notices pending",
+        "global preservation test requires controlled synthetic fork, not observed now",
+        "no JSON consumer precision preservation claim"
+      ],
+      "distinctness_and_neighbor_watch": "Per-call numeric serialization policy differs from GJSON callback-registry state and old integer/rescale changes. No concurrency or allocation advantage inferred.",
+      "Want": null,
+      "Got": null,
+      "truth": null,
+      "label": null,
+      "training_role": null,
+      "BCE_weight": null,
+      "pair_eligibility": null,
+      "numeric_group": null,
+      "qualified": false,
+      "execution_ready": false
+    },
+    {
+      "expansion_selector_ordinal": 21,
+      "proposal_id": "source-next60-strict-json-lines-prefix",
+      "family_option": "candidate-family-3",
+      "repo": "tidwall/gjson",
+      "revision": "9378d3bb93e20854e1677e0e0248e1d71ae5712f",
+      "request_proposed": "Add strict JSON-lines iteration: require one complete value per nonblank line, return the failing line number, preserve earlier callbacks, and stop before later lines.",
+      "request_bytes": 167,
+      "ASCII_alphanumeric_words": 25,
+      "ASCII_whitespace_words": 24,
+      "source_finding": "ForEachLine repeatedly parseAny and discards its boolean; it has no error/line channel and does not enforce individual line boundaries. Valid exists for a complete payload; simply renaming ForEachLine or Parse is excluded.",
+      "evidence": [
+        {
+          "repo": "tidwall/gjson",
+          "revision": "9378d3bb93e20854e1677e0e0248e1d71ae5712f",
+          "path": "gjson.go",
+          "line_start": 1932,
+          "line_end": 1947,
+          "bytes": 77773,
+          "sha256": "443d0db6fdb2cebf9c874b022e3d59f4904fab0aa03d99b072fdf39dce72697e",
+          "Git_blob": "8c6e61275ede3303624f7071a05ae0a489dcfe91",
+          "official_source_url": "https://github.com/tidwall/gjson/blob/9378d3bb93e20854e1677e0e0248e1d71ae5712f/gjson.go#L1932-L1947",
+          "scope": "source reading only; no API observation"
+        },
+        {
+          "repo": "tidwall/gjson",
+          "revision": "9378d3bb93e20854e1677e0e0248e1d71ae5712f",
+          "path": "gjson.go",
+          "line_start": 2409,
+          "line_end": 2464,
+          "bytes": 77773,
+          "sha256": "443d0db6fdb2cebf9c874b022e3d59f4904fab0aa03d99b072fdf39dce72697e",
+          "Git_blob": "8c6e61275ede3303624f7071a05ae0a489dcfe91",
+          "official_source_url": "https://github.com/tidwall/gjson/blob/9378d3bb93e20854e1677e0e0248e1d71ae5712f/gjson.go#L2409-L2464",
+          "scope": "source reading only; no API observation"
+        },
+        {
+          "repo": "tidwall/gjson",
+          "revision": "9378d3bb93e20854e1677e0e0248e1d71ae5712f",
+          "path": "gjson.go",
+          "line_start": 2775,
+          "line_end": 2797,
+          "bytes": 77773,
+          "sha256": "443d0db6fdb2cebf9c874b022e3d59f4904fab0aa03d99b072fdf39dce72697e",
+          "Git_blob": "8c6e61275ede3303624f7071a05ae0a489dcfe91",
+          "official_source_url": "https://github.com/tidwall/gjson/blob/9378d3bb93e20854e1677e0e0248e1d71ae5712f/gjson.go#L2775-L2797",
+          "scope": "source reading only; no API observation"
+        }
+      ],
+      "finite_input_profiles_proposed": [
+        {
+          "bytes_utf8": "{\"a\":1}\n2\n",
+          "callback_stop_after": null
+        },
+        {
+          "bytes_utf8": "\n  \n{\"a\":1}\n",
+          "callback_stop_after": null
+        },
+        {
+          "bytes_utf8": "1 2\n3\n",
+          "callback_stop_after": null
+        },
+        {
+          "bytes_utf8": "1\n{\"a\":\n3\n",
+          "callback_stop_after": null
+        },
+        {
+          "bytes_utf8": "1\n2\n3",
+          "callback_stop_after": 1
+        }
+      ],
+      "profile_count": 5,
+      "profile_status": "new source-based proposals; not frozen execution inputs or observed cases",
+      "observation_channels_proposed": [
+        "callback ordered raw values and one-based original line numbers",
+        "explicit parse-error availability and failing line",
+        "callback stop distinguished from invalid-line failure",
+        "prior delivered callbacks, later dispatch zero"
+      ],
+      "candidate_caption_claims_proposed": [
+        "Validates each nonblank line before yielding and reports its first invalid line.",
+        "Consumes successive JSON values without enforcing physical line boundaries.",
+        "Validates all lines before yielding any value."
+      ],
+      "caption_status": "claims for future implementations, not source-fidelity endorsements or known-positive references",
+      "candidate_positions": null,
+      "specific_holds": [
+        "match and pretty dependency source/license closure absent",
+        "blank-line ignore and CRLF normalization proposal must be frozen visibly before future run",
+        "callback panic channels and error identity still require a literal ABI contract"
+      ],
+      "distinctness_and_neighbor_watch": "Line-boundary validation plus prefix delivery/error stop differs from integer lexeme checks. Whole-document prevalidation is a separate wrong-flow hypothesis, not an extra request.",
+      "Want": null,
+      "Got": null,
+      "truth": null,
+      "label": null,
+      "training_role": null,
+      "BCE_weight": null,
+      "pair_eligibility": null,
+      "numeric_group": null,
+      "qualified": false,
+      "execution_ready": false
+    },
+    {
+      "expansion_selector_ordinal": 22,
+      "proposal_id": "source-next60-reject-invalid-utf8-append",
+      "family_option": "candidate-family-3",
+      "repo": "tidwall/gjson",
+      "revision": "9378d3bb93e20854e1677e0e0248e1d71ae5712f",
+      "request_proposed": "Add strict UTF8 JSON-string append: reject malformed input before changing destination, retain existing escaping for valid input, and return an explicit encoding error.",
+      "request_bytes": 168,
+      "ASCII_alphanumeric_words": 24,
+      "ASCII_whitespace_words": 23,
+      "source_finding": "AppendJSONString already decodes UTF8, replaces invalid single bytes with U+FFFD, escapes control/HTML/U+2028/U+2029, and returns no error. Replacement is existing behavior, so only an explicit reject-before-append mode is proposed.",
+      "evidence": [
+        {
+          "repo": "tidwall/gjson",
+          "revision": "9378d3bb93e20854e1677e0e0248e1d71ae5712f",
+          "path": "gjson.go",
+          "line_start": 2058,
+          "line_end": 2129,
+          "bytes": 77773,
+          "sha256": "443d0db6fdb2cebf9c874b022e3d59f4904fab0aa03d99b072fdf39dce72697e",
+          "Git_blob": "8c6e61275ede3303624f7071a05ae0a489dcfe91",
+          "official_source_url": "https://github.com/tidwall/gjson/blob/9378d3bb93e20854e1677e0e0248e1d71ae5712f/gjson.go#L2058-L2129",
+          "scope": "source reading only; no API observation"
+        }
+      ],
+      "finite_input_profiles_proposed": [
+        {
+          "destination_hex": "5b",
+          "input_hex": "61"
+        },
+        {
+          "destination_hex": "5b",
+          "input_hex": "ff"
+        },
+        {
+          "destination_hex": "5b",
+          "input_hex": "c0af"
+        },
+        {
+          "destination_hex": "5b",
+          "input_hex": "eda080"
+        },
+        {
+          "destination_hex": "5b",
+          "input_hex": "efbfbd"
+        },
+        {
+          "destination_hex": "5b",
+          "input_hex": "220a3c26e280a8"
+        }
+      ],
+      "profile_count": 6,
+      "profile_status": "new source-based proposals; not frozen execution inputs or observed cases",
+      "observation_channels_proposed": [
+        "destination prefix bytes unchanged on invalid input",
+        "exact appended JSON bytes for valid input",
+        "returned error channel availability; no string-format error oracle",
+        "literal U+FFFD distinguished from malformed bytes"
+      ],
+      "candidate_caption_claims_proposed": [
+        "Validates UTF8 before appending using existing valid-input escaping.",
+        "Replaces malformed bytes while producing a JSON string.",
+        "Appends a partial quoted prefix before detecting malformed UTF8."
+      ],
+      "caption_status": "claims for future implementations, not source-fidelity endorsements or known-positive references",
+      "candidate_positions": null,
+      "specific_holds": [
+        "full dependencies and rights pending",
+        "no hidden HTML escaping mode; legacy default used",
+        "new checked codec resembles retained binary decode; dedup review pending"
+      ],
+      "distinctness_and_neighbor_watch": "UTF8 byte validity and Unicode replacement policy are distinct from binary state-size validation; broad transactional decoder type substitutions remain excluded.",
+      "Want": null,
+      "Got": null,
+      "truth": null,
+      "label": null,
+      "training_role": null,
+      "BCE_weight": null,
+      "pair_eligibility": null,
+      "numeric_group": null,
+      "qualified": false,
+      "execution_ready": false
+    },
+    {
+      "expansion_selector_ordinal": 23,
+      "proposal_id": "source-next60-isolated-modifier-registry",
+      "family_option": "candidate-family-3",
+      "repo": "tidwall/gjson",
+      "revision": "9378d3bb93e20854e1677e0e0248e1d71ae5712f",
+      "request_proposed": "Add parser-local modifier registration: copy registrations at construction, isolate later changes between parsers, preserve existing modifier syntax, and never mutate the process-global registry.",
+      "request_bytes": 195,
+      "ASCII_alphanumeric_words": 25,
+      "ASCII_whitespace_words": 23,
+      "source_finding": "execModifier resolves through a global map. AddModifier writes that map and documents non-thread-safety; builtins are installed by init. Parser-local registration requires resolver plumbing rather than calling AddModifier under a new name.",
+      "evidence": [
+        {
+          "repo": "tidwall/gjson",
+          "revision": "9378d3bb93e20854e1677e0e0248e1d71ae5712f",
+          "path": "gjson.go",
+          "line_start": 2891,
+          "line_end": 2950,
+          "bytes": 77773,
+          "sha256": "443d0db6fdb2cebf9c874b022e3d59f4904fab0aa03d99b072fdf39dce72697e",
+          "Git_blob": "8c6e61275ede3303624f7071a05ae0a489dcfe91",
+          "official_source_url": "https://github.com/tidwall/gjson/blob/9378d3bb93e20854e1677e0e0248e1d71ae5712f/gjson.go#L2891-L2950",
+          "scope": "source reading only; no API observation"
+        },
+        {
+          "repo": "tidwall/gjson",
+          "revision": "9378d3bb93e20854e1677e0e0248e1d71ae5712f",
+          "path": "gjson.go",
+          "line_start": 2960,
+          "line_end": 2993,
+          "bytes": 77773,
+          "sha256": "443d0db6fdb2cebf9c874b022e3d59f4904fab0aa03d99b072fdf39dce72697e",
+          "Git_blob": "8c6e61275ede3303624f7071a05ae0a489dcfe91",
+          "official_source_url": "https://github.com/tidwall/gjson/blob/9378d3bb93e20854e1677e0e0248e1d71ae5712f/gjson.go#L2960-L2993",
+          "scope": "source reading only; no API observation"
+        }
+      ],
+      "finite_input_profiles_proposed": [
+        {
+          "parser": "A",
+          "registered_name": "tag",
+          "constant_JSON": "\"A\"",
+          "path": "@tag"
+        },
+        {
+          "parser": "B",
+          "registered_name": "tag",
+          "constant_JSON": "\"B\"",
+          "path": "@tag"
+        },
+        {
+          "sequence": [
+            "construct_A_from_map",
+            "mutate_input_map_tag",
+            "query_A_tag"
+          ],
+          "constant_JSON_before": "\"A\"",
+          "constant_JSON_after": "\"changed\""
+        },
+        {
+          "sequence": [
+            "register_A_tag",
+            "query_B_tag",
+            "query_global_tag"
+          ],
+          "unregistered_B_and_global": true
+        }
+      ],
+      "profile_count": 4,
+      "profile_status": "new source-based proposals; not frozen execution inputs or observed cases",
+      "observation_channels_proposed": [
+        "ordered callback factory/invocation trace and exact raw JSON",
+        "input map and two registry snapshots before-after",
+        "global registry preservation",
+        "callback captured state excluded; no thread safety proven"
+      ],
+      "candidate_caption_claims_proposed": [
+        "Resolves modifier callbacks from an owned parser-local registration snapshot.",
+        "Resolves callbacks from the shared process-global modifier map.",
+        "Keeps a borrowed registration map for each parser."
+      ],
+      "caption_status": "claims for future implementations, not source-fidelity endorsements or known-positive references",
+      "candidate_positions": null,
+      "specific_holds": [
+        "full resolver fork and callback ABI not implemented",
+        "callback bodies/returned invalid JSON and panics require separate literal policy",
+        "dependency/lineage and whole-family role audit pending"
+      ],
+      "distinctness_and_neighbor_watch": "Registry namespace and callback dispatch isolation differ from decimal scalar serialization options and old map snapshots; shared resolver-source descendants stay one whole family.",
+      "Want": null,
+      "Got": null,
+      "truth": null,
+      "label": null,
+      "training_role": null,
+      "BCE_weight": null,
+      "pair_eligibility": null,
+      "numeric_group": null,
+      "qualified": false,
+      "execution_ready": false
+    },
+    {
+      "expansion_selector_ordinal": 24,
+      "proposal_id": "source-next60-uint256-nearest-binary64",
+      "family_option": "candidate-family-6",
+      "repo": "holiman/uint256",
+      "revision": "3b6e9cdebb7a0462a2748bf24d7fac2b8a943666",
+      "request_proposed": "Correct uint256 Float64 conversion above 64 bits to nearest ties to even, including significand carry; retain exact small conversions and leave input limbs unchanged.",
+      "request_bytes": 166,
+      "ASCII_alphanumeric_words": 24,
+      "ASCII_whitespace_words": 24,
+      "source_finding": "For values above uint64, Float64 constructs the biased exponent and shifts the fraction right by12 without a remainder/tie increment. The request concerns binary64 rounding, not decimal text formatting or a new overflow flag.",
+      "evidence": [
+        {
+          "repo": "holiman/uint256",
+          "revision": "3b6e9cdebb7a0462a2748bf24d7fac2b8a943666",
+          "path": "conversion.go",
+          "line_start": 134,
+          "line_end": 168,
+          "bytes": 27732,
+          "sha256": "561263686ae4983957fdfcd808a19cde2749622f2a102ea45557490d9e77ac94",
+          "Git_blob": "49367f03d1c3875d6a4f543eeadacffdd33eabd1",
+          "official_source_url": "https://github.com/holiman/uint256/blob/3b6e9cdebb7a0462a2748bf24d7fac2b8a943666/conversion.go#L134-L168",
+          "scope": "source reading only; no API observation"
+        }
+      ],
+      "finite_input_profiles_proposed": [
+        {
+          "limbs_le_u64": [
+            "2049",
+            "1",
+            "0",
+            "0"
+          ]
+        },
+        {
+          "limbs_le_u64": [
+            "2048",
+            "1",
+            "0",
+            "0"
+          ]
+        },
+        {
+          "limbs_le_u64": [
+            "6144",
+            "1",
+            "0",
+            "0"
+          ]
+        },
+        {
+          "limbs_le_u64": [
+            "18446744073709551615",
+            "18446744073709551615",
+            "18446744073709551615",
+            "18446744073709551615"
+          ]
+        },
+        {
+          "limbs_le_u64": [
+            "42",
+            "0",
+            "0",
+            "0"
+          ]
+        }
+      ],
+      "profile_count": 5,
+      "profile_status": "new source-based proposals; not frozen execution inputs or observed cases",
+      "observation_channels_proposed": [
+        "math.Float64bits of result",
+        "all four limbs before-after",
+        "exact integer-to-binary64 rational oracle pending",
+        "small uint64 path and exponent carry"
+      ],
+      "candidate_caption_claims_proposed": [
+        "Rounds the discarded significand bits using nearest ties to even.",
+        "Truncates discarded significand bits for multiword values.",
+        "Rounds every nonzero discarded remainder upward."
+      ],
+      "caption_status": "claims for future implementations, not source-fidelity endorsements or known-positive references",
+      "candidate_positions": null,
+      "specific_holds": [
+        "intx, evmone and Go math/big attribution edges unresolved",
+        "exact bit Wanted literals and independent oracle not yet sealed",
+        "no model numerical-quality claim"
+      ],
+      "distinctness_and_neighbor_watch": "Binary64 mantissa/exponent rounding differs from direct decimal quotient rounding; relationship to prior ftoa oracle is exposed and needs semantic dedup review, not automatic group union.",
+      "Want": null,
+      "Got": null,
+      "truth": null,
+      "label": null,
+      "training_role": null,
+      "BCE_weight": null,
+      "pair_eligibility": null,
+      "numeric_group": null,
+      "qualified": false,
+      "execution_ready": false
+    },
+    {
+      "expansion_selector_ordinal": 25,
+      "proposal_id": "source-next60-uint256-ceiling-muldiv",
+      "family_option": "candidate-family-6",
+      "repo": "holiman/uint256",
+      "revision": "3b6e9cdebb7a0462a2748bf24d7fac2b8a943666",
+      "request_proposed": "Add ceiling MulDiv for nonzero divisors using the full 512-bit product; increment only for nonzero remainder and report overflow including the rounding carry.",
+      "request_bytes": 158,
+      "ASCII_alphanumeric_words": 24,
+      "ASCII_whitespace_words": 23,
+      "source_finding": "MulDivOverflowRem returns floor quotient, remainder and upper-limb overflow. Ceiling division changes the final quotient and must additionally catch rounding from maximum uint256 to overflow. A renamed floor/overflow API is excluded.",
+      "evidence": [
+        {
+          "repo": "holiman/uint256",
+          "revision": "3b6e9cdebb7a0462a2748bf24d7fac2b8a943666",
+          "path": "uint256.go",
+          "line_start": 836,
+          "line_end": 875,
+          "bytes": 42109,
+          "sha256": "6ee28995c22aab6c83155d34142cea9c0a979f95885bb84778dbd7b4dc5bb0e8",
+          "Git_blob": "a7555e04c0345075751a0f7ab64840cd41173811",
+          "official_source_url": "https://github.com/holiman/uint256/blob/3b6e9cdebb7a0462a2748bf24d7fac2b8a943666/uint256.go#L836-L875",
+          "scope": "source reading only; no API observation"
+        }
+      ],
+      "finite_input_profiles_proposed": [
+        {
+          "x_hex": "02",
+          "y_hex": "05",
+          "d_hex": "03"
+        },
+        {
+          "x_hex": "02",
+          "y_hex": "06",
+          "d_hex": "03"
+        },
+        {
+          "x_hex": "100000000000000000000000000000000",
+          "y_hex": "100000000000000000000000000000000",
+          "d_hex": "100000000000000000000000000000000"
+        },
+        {
+          "x_hex": "fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe",
+          "y_hex": "fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe",
+          "d_hex": "fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffd"
+        },
+        {
+          "x_hex": "00",
+          "y_hex": "05",
+          "d_hex": "03"
+        }
+      ],
+      "profile_count": 5,
+      "profile_status": "new source-based proposals; not frozen execution inputs or observed cases",
+      "observation_channels_proposed": [
+        "quotient limbs and overflow bool",
+        "operands unchanged with distinct output object",
+        "exact full-product/remainder arithmetic oracle pending",
+        "zero divisor excluded, output alias policy pending"
+      ],
+      "candidate_caption_claims_proposed": [
+        "Uses the full product, increments a nonexact quotient, and checks carry overflow.",
+        "Returns the floor quotient and original overflow flag.",
+        "Increments every quotient, including exact divisions."
+      ],
+      "caption_status": "claims for future implementations, not source-fidelity endorsements or known-positive references",
+      "candidate_positions": null,
+      "specific_holds": [
+        "full arithmetic package/attribution closure not ready",
+        "overflow result payload and alias scope must be frozen before observation",
+        "d>0 only; no second zero-division task"
+      ],
+      "distinctness_and_neighbor_watch": "Ceiling of a full-width product is distinct from retained DivMod zero handling and decimal Euclidean remainder. Exact/nonexact cases are fixtures, not different requests.",
+      "Want": null,
+      "Got": null,
+      "truth": null,
+      "label": null,
+      "training_role": null,
+      "BCE_weight": null,
+      "pair_eligibility": null,
+      "numeric_group": null,
+      "qualified": false,
+      "execution_ready": false
+    },
+    {
+      "expansion_selector_ordinal": 26,
+      "proposal_id": "source-next60-canonical-short-hash-state",
+      "family_option": "candidate-family-4",
+      "repo": "cespare/xxhash",
+      "revision": "ab37246c889f9db16b606fda1c232d659df9271d",
+      "request_proposed": "Add checked xxhash state loading: reject incoherent seeded lanes for totals below 32 and nonzero unused tail bytes, preserve receiver on rejection, and retain legacy loading.",
+      "request_bytes": 174,
+      "ASCII_alphanumeric_words": 26,
+      "ASCII_whitespace_words": 26,
+      "source_finding": "ResetWithSeed defines short-state lane relations. MarshalBinary zeroes unused tail padding; UnmarshalBinary checks only magic and76-byte length, copies all fields/tail, and derives n from total modulo32.",
+      "evidence": [
+        {
+          "repo": "cespare/xxhash",
+          "revision": "ab37246c889f9db16b606fda1c232d659df9271d",
+          "path": "xxhash.go",
+          "line_start": 59,
+          "line_end": 65,
+          "bytes": 5646,
+          "sha256": "ced3c8e453e927a399ed3bc9c310ff7a2e3f9c33999d33cc8983d6d4334e4cf7",
+          "Git_blob": "e29a8c334ceb4d675c9e18f3670b7f673d7ad44e",
+          "official_source_url": "https://github.com/cespare/xxhash/blob/ab37246c889f9db16b606fda1c232d659df9271d/xxhash.go#L59-L65",
+          "scope": "source reading only; no API observation"
+        },
+        {
+          "repo": "cespare/xxhash",
+          "revision": "ab37246c889f9db16b606fda1c232d659df9271d",
+          "path": "xxhash.go",
+          "line_start": 169,
+          "line_end": 205,
+          "bytes": 5646,
+          "sha256": "ced3c8e453e927a399ed3bc9c310ff7a2e3f9c33999d33cc8983d6d4334e4cf7",
+          "Git_blob": "e29a8c334ceb4d675c9e18f3670b7f673d7ad44e",
+          "official_source_url": "https://github.com/cespare/xxhash/blob/ab37246c889f9db16b606fda1c232d659df9271d/xxhash.go#L169-L205",
+          "scope": "source reading only; no API observation"
+        }
+      ],
+      "finite_input_profiles_proposed": [
+        {
+          "seed": "0",
+          "payload_hex": "",
+          "mutation": null
+        },
+        {
+          "seed": "7",
+          "payload_hex": "61",
+          "mutation": null
+        },
+        {
+          "seed": "7",
+          "payload_hex": "61616161616161616161616161616161616161616161616161616161616161",
+          "mutation": null
+        },
+        {
+          "seed": "7",
+          "payload_hex": "61",
+          "mutation": {
+            "field": "unused_tail",
+            "byte_index": 31,
+            "xor": 1
+          }
+        },
+        {
+          "seed": "7",
+          "payload_hex": "61",
+          "mutation": {
+            "field": "v1",
+            "xor_low_bit": 1
+          }
+        },
+        {
+          "seed": "7",
+          "payload_hex": "6161616161616161616161616161616161616161616161616161616161616161",
+          "mutation": null
+        }
+      ],
+      "profile_count": 6,
+      "profile_status": "new source-based proposals; not frozen execution inputs or observed cases",
+      "observation_channels_proposed": [
+        "returned error availability",
+        "76-byte receiver Marshal snapshot and Sum64 before-after",
+        "declared lane modular equations for total<32",
+        "state byte assembly remains pending; no arbitrary long-state preimage validation"
+      ],
+      "candidate_caption_claims_proposed": [
+        "Checks short-state seeded-lane relations and zero unused tail before committing.",
+        "Checks only state magic and exact serialized size.",
+        "Checks tail padding while accepting incoherent short-state lanes."
+      ],
+      "caption_status": "claims for future implementations, not source-fidelity endorsements or known-positive references",
+      "candidate_positions": null,
+      "specific_holds": [
+        "canonical state byte literals and independent assembly not frozen",
+        "separate opt-in loader; legacy method unchanged",
+        "not cryptographic authenticity, arbitrary total>=32 lane reachability or corruption detection proof"
+      ],
+      "distinctness_and_neighbor_watch": "Seed/total/lane coherence is hash-state-specific; padding-only decoder would overlap retained bitset strict decode and is not a second task.",
+      "Want": null,
+      "Got": null,
+      "truth": null,
+      "label": null,
+      "training_role": null,
+      "BCE_weight": null,
+      "pair_eligibility": null,
+      "numeric_group": null,
+      "qualified": false,
+      "execution_ready": false
+    }
+  ],
+  "finite_profile_counts_proposed": {
+    "prior18_including_retired": 74,
+    "retained13": 54,
+    "additional9": 48,
+    "active22": 102
+  },
+  "family_readiness_holds": {
+    "bits-and-blooms/bitset": {
+      "holds": [
+        "Whole-source historical exposure/shared-template/helper graph and source rights not cleared.",
+        "No GoList/compiler-selected stdlib/tool/source metadata; no compiled closure or runtime proof.",
+        "No frozen candidate ordering/caption implementation/literal Wants or actual role/group assignment.",
+        "pext.gen.go omitted; bitset.go1801 references pextLUT, so whole root package cannot be claimed compile-ready. Next source selection must acquire exact504593B generated asset.",
+        "binaryOrder/base64Encoding are package-level mutable settings; bounded later observation must freeze these settings, not mutate globals between profiles."
+      ],
+      "root_license": {
+        "license_path": "LICENSE",
+        "license_url": "https://github.com/bits-and-blooms/bitset/blob/828abff685deae97e60d299b1cdfcefabfeb44dc/LICENSE",
+        "license_Git_blob": "72ee212ed4c618831d6d1746847b159b5497c935",
+        "license_text_bytes": 1483,
+        "license_text_sha256": "409ae7da5df143584d1ae1e94bd0f1d5b3b2d134d1e354cf3160cdbf263849d1",
+        "GitHub_reported_SPDX": "BSD-3-Clause",
+        "Root_text_read_classification": "BSD-3-Clause"
+      },
+      "runtime_ready": false,
+      "whole_group_independence_proved": false,
+      "actual_roles_or_group": null
+    },
+    "shopspring/decimal": {
+      "holds": [
+        "Whole-source historical exposure/shared-template/helper graph and source rights not cleared.",
+        "No GoList/compiler-selected stdlib/tool/source metadata; no compiled closure or runtime proof.",
+        "No frozen candidate ordering/caption implementation/literal Wants or actual role/group assignment.",
+        "Both Go BSD headers and fpd notice ancestry remain; root MIT is insufficient for full selected copied-source attribution.",
+        "const.go12 initializes ln10 via newConstApproximation before main; package globals control division/string policy. No initializer calls were executed or dynamically counted."
+      ],
+      "root_license": {
+        "license_path": "LICENSE",
+        "license_url": "https://github.com/shopspring/decimal/blob/ca4740823783f3bc026235a5ed3515aca626da92/LICENSE",
+        "license_Git_blob": "ad2148aaf93e381475ab50d7466d91af6d1f8df8",
+        "license_text_bytes": 2245,
+        "license_text_sha256": "b92ba0f6ee02f2309628bfdadb123668a17c016e475ba477b857d33470d9d625",
+        "GitHub_reported_SPDX": "NOASSERTION",
+        "Root_text_read_classification": "MIT plus explicitly retained MIT predecessor attribution; GitHub API NOASSERTION preserved"
+      },
+      "runtime_ready": false,
+      "whole_group_independence_proved": false,
+      "actual_roles_or_group": null
+    },
+    "tidwall/gjson": {
+      "holds": [
+        "Whole-source historical exposure/shared-template/helper graph and source rights not cleared.",
+        "No GoList/compiler-selected stdlib/tool/source metadata; no compiled closure or runtime proof.",
+        "No frozen candidate ordering/caption implementation/literal Wants or actual role/group assignment.",
+        "Actual imports require match1.1.1/pretty1.2.0 sources and notices; go.sum h1 pins do not resolve exact source commits.",
+        "gjson.go2965 explicit init populates global modifier map; AddModifier is documented not thread-safe. Keep all custom modifier mutation excluded."
+      ],
+      "root_license": {
+        "license_path": "LICENSE",
+        "license_url": "https://github.com/tidwall/gjson/blob/9378d3bb93e20854e1677e0e0248e1d71ae5712f/LICENSE",
+        "license_Git_blob": "58f5819a4380fea7a84a9ebdecffc5c68b0a41eb",
+        "license_text_bytes": 1077,
+        "license_text_sha256": "be83ad53208d03a9fe08c7fac231cabf79422989ef5706bff217bd35104ebf07",
+        "GitHub_reported_SPDX": "MIT",
+        "Root_text_read_classification": "MIT"
+      },
+      "runtime_ready": false,
+      "whole_group_independence_proved": false,
+      "actual_roles_or_group": null
+    },
+    "cespare/xxhash": {
+      "holds": [
+        "Whole-source historical exposure/shared-template/helper graph and source rights not cleared.",
+        "No GoList/compiler-selected stdlib/tool/source metadata; no compiled closure or runtime proof.",
+        "No frozen candidate ordering/caption implementation/literal Wants or actual role/group assignment.",
+        "Arm64 assembly uses textflag.h; exact Go1.27.1 compiler header/tool provenance selection pending. amd64 assembly omitted; no cross-platform closure.",
+        "unsafe string path selected unless appengine; owned input stability/lifetime must be frozen if used."
+      ],
+      "root_license": {
+        "license_path": "LICENSE.txt",
+        "license_url": "https://github.com/cespare/xxhash/blob/ab37246c889f9db16b606fda1c232d659df9271d/LICENSE.txt",
+        "license_Git_blob": "24b53065f40b5d7d277a64375956ec19cb2123c5",
+        "license_text_bytes": 1068,
+        "license_text_sha256": "f566a9f97bacdaf00d9f21dd991e81dc11201c4e016c86b470799429a1c9a79c",
+        "GitHub_reported_SPDX": "MIT",
+        "Root_text_read_classification": "MIT"
+      },
+      "runtime_ready": false,
+      "whole_group_independence_proved": false,
+      "actual_roles_or_group": null
+    },
+    "go-chi/chi": {
+      "holds": [
+        "Whole-source historical exposure/shared-template/helper graph and source rights not cleared.",
+        "No GoList/compiler-selected stdlib/tool/source metadata; no compiled closure or runtime proof.",
+        "No frozen candidate ordering/caption implementation/literal Wants or actual role/group assignment.",
+        "Armon/go-radix attribution unresolved; GoogleInc author signal does not prove file reuse or automatic family union.",
+        "Route setup and request state use sync.Pool and handlers; use in-memory Request/Recorder later, no listener/network. Escaped routing fixture URL fields unresolved."
+      ],
+      "root_license": {
+        "license_path": "LICENSE",
+        "license_url": "https://github.com/go-chi/chi/blob/167e1e3bd039d060696b99c8da4e876ae04f42c1/LICENSE",
+        "license_Git_blob": "d99f02ffac5185e2550770d33333a67e2cf2092b",
+        "license_text_bytes": 1123,
+        "license_text_sha256": "a2d51b7515acfaff2f7a88688650f2fc4fd99561383e72bba2305e3db59a1647",
+        "GitHub_reported_SPDX": "MIT",
+        "Root_text_read_classification": "MIT"
+      },
+      "runtime_ready": false,
+      "whole_group_independence_proved": false,
+      "actual_roles_or_group": null
+    },
+    "holiman/uint256": {
+      "holds": [
+        "Whole-source historical exposure/shared-template/helper graph and source rights not cleared.",
+        "No GoList/compiler-selected stdlib/tool/source metadata; no compiled closure or runtime proof.",
+        "No frozen candidate ordering/caption implementation/literal Wants or actual role/group assignment.",
+        "COPYING+AUTHORS retained exact privately; intx/evmone/Go-based source notice/provenance gaps remain even if proposed candidate only calls arithmetic paths.",
+        "Receiver alias rules and output ownership need explicit finite scope; no unsafe/private-field instrumentation."
+      ],
+      "root_license": {
+        "license_path": "COPYING",
+        "license_url": "https://github.com/holiman/uint256/blob/3b6e9cdebb7a0462a2748bf24d7fac2b8a943666/COPYING",
+        "license_Git_blob": "f9611fb25a1f47152faf8863761e62ae5b37b4cd",
+        "license_text_bytes": 1496,
+        "license_text_sha256": "cbccee4c792c0ea79f6359889770ba844612d68e91f5b718de42fcb98355311f",
+        "GitHub_reported_SPDX": "BSD-3-Clause",
+        "Root_text_read_classification": "BSD-3-Clause"
+      },
+      "runtime_ready": false,
+      "whole_group_independence_proved": false,
+      "actual_roles_or_group": null
+    }
+  },
+  "lineage_edges_carried_unresolved": [
+    {
+      "family_ordinal": 1,
+      "edge": "shopspring/decimal <- oguzbilgic/fpd",
+      "kind": "explicit rootLICENSE MIT predecessor attribution",
+      "evidence": [
+        {
+          "repo": "shopspring/decimal",
+          "revision": "ca4740823783f3bc026235a5ed3515aca626da92",
+          "path": "LICENSE",
+          "line_start": 23,
+          "line_end": 26,
+          "bytes": 2245,
+          "sha256": "b92ba0f6ee02f2309628bfdadb123668a17c016e475ba477b857d33470d9d625",
+          "Git_blob": "ad2148aaf93e381475ab50d7466d91af6d1f8df8",
+          "official_source_url": "https://github.com/shopspring/decimal/blob/ca4740823783f3bc026235a5ed3515aca626da92/LICENSE#L23-L26",
+          "scope": "static source reading; not actual behavior observation"
+        }
+      ],
+      "origin_revision": null,
+      "notice_state": "Both MIT texts retained exact in originalLICENSE; exact copied history pending"
+    },
+    {
+      "family_ordinal": 1,
+      "edge": "shopspring/decimal decimal-go.go/rounding.go <- Go Authors",
+      "kind": "explicit Go2009 BSD headers",
+      "evidence": [
+        {
+          "repo": "shopspring/decimal",
+          "revision": "ca4740823783f3bc026235a5ed3515aca626da92",
+          "path": "decimal-go.go",
+          "line_start": 1,
+          "line_end": 10,
+          "bytes": 11299,
+          "sha256": "e3da06b81105dd26de72443f5980242cd821458d65d5558b44891d1a108cd97f",
+          "Git_blob": "9958d6902063f1c9f760eef714a2de23ae3f8aa7",
+          "official_source_url": "https://github.com/shopspring/decimal/blob/ca4740823783f3bc026235a5ed3515aca626da92/decimal-go.go#L1-L10",
+          "scope": "static source reading; not actual behavior observation"
+        },
+        {
+          "repo": "shopspring/decimal",
+          "revision": "ca4740823783f3bc026235a5ed3515aca626da92",
+          "path": "rounding.go",
+          "line_start": 1,
+          "line_end": 10,
+          "bytes": 5191,
+          "sha256": "1db1de0fd77a66d2ed5282ef4c95fcb42967c1426dd7cc53ce0c9159978b6d1a",
+          "Git_blob": "d4b0cd00795cae622729e2302b4e57fee16a1727",
+          "official_source_url": "https://github.com/shopspring/decimal/blob/ca4740823783f3bc026235a5ed3515aca626da92/rounding.go#L1-L10",
+          "scope": "static source reading; not actual behavior observation"
+        }
+      ],
+      "origin_revision": null,
+      "notice_state": "RootLICENSE is MIT/fpd, not the referenced Go BSD notice. Full separately attributed authoritative Go BSD notice and source comparables/exact lineage remain required; no rootMIT relicense inference."
+    },
+    {
+      "family_ordinal": 2,
+      "edge": "tidwall/gjson -> tidwall/match v1.1.1 + tidwall/pretty v1.2.0",
+      "kind": "actual imports plus require/go.sum declarations",
+      "evidence": [
+        {
+          "repo": "tidwall/gjson",
+          "revision": "9378d3bb93e20854e1677e0e0248e1d71ae5712f",
+          "path": "gjson.go",
+          "line_start": 8,
+          "line_end": 24,
+          "bytes": 77773,
+          "sha256": "443d0db6fdb2cebf9c874b022e3d59f4904fab0aa03d99b072fdf39dce72697e",
+          "Git_blob": "8c6e61275ede3303624f7071a05ae0a489dcfe91",
+          "official_source_url": "https://github.com/tidwall/gjson/blob/9378d3bb93e20854e1677e0e0248e1d71ae5712f/gjson.go#L8-L24",
+          "scope": "static source reading; not actual behavior observation"
+        },
+        {
+          "repo": "tidwall/gjson",
+          "revision": "9378d3bb93e20854e1677e0e0248e1d71ae5712f",
+          "path": "go.mod",
+          "line_start": 1,
+          "line_end": 8,
+          "bytes": 121,
+          "sha256": "22020a837a3000290937b1795ea2505a97de8ebf0ec6bd7b8e56bd3c9be66e28",
+          "Git_blob": "5f3499766e508a3859a837ec10d76e421bb43258",
+          "official_source_url": "https://github.com/tidwall/gjson/blob/9378d3bb93e20854e1677e0e0248e1d71ae5712f/go.mod#L1-L8",
+          "scope": "static source reading; not actual behavior observation"
+        },
+        {
+          "repo": "tidwall/gjson",
+          "revision": "9378d3bb93e20854e1677e0e0248e1d71ae5712f",
+          "path": "go.sum",
+          "line_start": 1,
+          "line_end": 4,
+          "bytes": 336,
+          "sha256": "dfff87a7de3ea43eb32e4297a35cbd7eb4819d36b877fd6559d69f812f326379",
+          "Git_blob": "be39c8c11a08caacd9b5e6dddd0e74fdf0565b8f",
+          "official_source_url": "https://github.com/tidwall/gjson/blob/9378d3bb93e20854e1677e0e0248e1d71ae5712f/go.sum#L1-L4",
+          "scope": "static source reading; not actual behavior observation"
+        }
+      ],
+      "origin_revision": null,
+      "notice_state": "h1 sums retained, not a pinned commit/source/notice acquisition. Exact module commits/full notices/recursive graph pending."
+    },
+    {
+      "family_ordinal": 4,
+      "edge": "go-chi/chi tree.go <- armon/go-radix",
+      "kind": "explicit source derivation attribution, MIT named",
+      "evidence": [
+        {
+          "repo": "go-chi/chi",
+          "revision": "167e1e3bd039d060696b99c8da4e876ae04f42c1",
+          "path": "tree.go",
+          "line_start": 1,
+          "line_end": 5,
+          "bytes": 22069,
+          "sha256": "f4b12b63b662fb8e36658172b36b35705cfb24eefae0665635f4fbd52e64fb79",
+          "Git_blob": "af4052c8c0b0f2d74cadc6a1312dc9555ef32316",
+          "official_source_url": "https://github.com/go-chi/chi/blob/167e1e3bd039d060696b99c8da4e876ae04f42c1/tree.go#L1-L5",
+          "scope": "static source reading; not actual behavior observation"
+        }
+      ],
+      "origin_revision": null,
+      "notice_state": "Rootchi LICENSE alone does not establish complete Armon predecessor notice retention. Acquire exact provenance/comparable pinned upstream notice/source in a separate authorized plan."
+    },
+    {
+      "family_ordinal": 5,
+      "edge": "holiman/uint256 div.go <- chfast/intx",
+      "kind": "explicit port and algorithm attribution",
+      "evidence": [
+        {
+          "repo": "holiman/uint256",
+          "revision": "3b6e9cdebb7a0462a2748bf24d7fac2b8a943666",
+          "path": "div.go",
+          "line_start": 15,
+          "line_end": 19,
+          "bytes": 844,
+          "sha256": "41e10ab7c1398033c41d694c6ee4aaaf9d19457bf1e6701a2f6ec219440bade1",
+          "Git_blob": "fd65d28f284404955dd124b7fd47aae0595f3b91",
+          "official_source_url": "https://github.com/holiman/uint256/blob/3b6e9cdebb7a0462a2748bf24d7fac2b8a943666/div.go#L15-L19",
+          "scope": "static source reading; not actual behavior observation"
+        }
+      ],
+      "origin_revision": null,
+      "notice_state": "Exact source ancestry and full intx notice unknown; paper reference is not copied-source license clearance."
+    },
+    {
+      "family_ordinal": 5,
+      "edge": "holiman/uint256 ExtendSign <- ethereum/evmone PR390",
+      "kind": "source cites earlier implementation",
+      "evidence": [
+        {
+          "repo": "holiman/uint256",
+          "revision": "3b6e9cdebb7a0462a2748bf24d7fac2b8a943666",
+          "path": "uint256.go",
+          "line_start": 1393,
+          "line_end": 1400,
+          "bytes": 42109,
+          "sha256": "6ee28995c22aab6c83155d34142cea9c0a979f95885bb84778dbd7b4dc5bb0e8",
+          "Git_blob": "a7555e04c0345075751a0f7ab64840cd41173811",
+          "official_source_url": "https://github.com/holiman/uint256/blob/3b6e9cdebb7a0462a2748bf24d7fac2b8a943666/uint256.go#L1393-L1400",
+          "scope": "static source reading; not actual behavior observation"
+        }
+      ],
+      "origin_revision": null,
+      "notice_state": "PR reference identifies a history investigation target; no commit/notice or file-equivalence claim."
+    },
+    {
+      "family_ordinal": 5,
+      "edge": "holiman/uint256 Sqrt <- Go math/big/nat.go",
+      "kind": "explicit source-based implementation reference",
+      "evidence": [
+        {
+          "repo": "holiman/uint256",
+          "revision": "3b6e9cdebb7a0462a2748bf24d7fac2b8a943666",
+          "path": "uint256.go",
+          "line_start": 1438,
+          "line_end": 1444,
+          "bytes": 42109,
+          "sha256": "6ee28995c22aab6c83155d34142cea9c0a979f95885bb84778dbd7b4dc5bb0e8",
+          "Git_blob": "a7555e04c0345075751a0f7ab64840cd41173811",
+          "official_source_url": "https://github.com/holiman/uint256/blob/3b6e9cdebb7a0462a2748bf24d7fac2b8a943666/uint256.go#L1438-L1444",
+          "scope": "static source reading; not actual behavior observation"
+        }
+      ],
+      "origin_revision": null,
+      "notice_state": "Copied-versus-algorithmic lineage and any extra Go BSD notice remain unresolved. Do not turn all stdlib imports into family-union edges."
+    }
+  ],
+  "group_policy": "One whole connected source family; no splitting by task, helper, new API, alias, A/B caption or fixture. Shared copyright or stdlib use alone does not force union. Exact dependency/fork extent remains unproven.",
+  "prospective_family_role_policy": {
+    "train_family_options": [
+      1,
+      2,
+      3
+    ],
+    "validation_family_options": [
+      4,
+      5
+    ],
+    "calibration_family_options": [
+      6
+    ],
+    "status": "prior proposal only, no assignment; any future verified cross-role source edge requires Root audit before role freeze"
+  },
+  "source_reader_role": {
+    "task52": "Own old13/new9 proposal author, nonblind; source reading is not independent oracle QA.",
+    "peer114": "Read-only critique of uint256/xxhash unused source, nonauthor of this metadata; no executable semantic proof."
+  },
+  "authority": {
+    "Want": null,
+    "Got": null,
+    "truth": null,
+    "label": null,
+    "training_role": null,
+    "BCE_weight": null,
+    "pair_eligibility": null,
+    "numeric_group": null,
+    "qualified": false,
+    "execution_ready": false
+  }
+}

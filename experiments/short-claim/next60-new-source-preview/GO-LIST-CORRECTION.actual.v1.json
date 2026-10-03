@@ -1,0 +1,103 @@
+{
+  "schema": "riido-source-compiler-metadata-additive-correction-v1",
+  "state": "WRITE_STOP",
+  "scope": "Saved Go-list metadata reconciliation only; original sealed 305 files remain unchanged.",
+  "references": [
+    {
+      "artifact_id": "HANDOFF.final.v1.json",
+      "bytes": 4379,
+      "sha256": "4f07421bf2f2e7eb198321b1e7be05b7158dd0a26a24523f452640e6c2000a86"
+    },
+    {
+      "artifact_id": "SELECTION.actual.v1.json",
+      "bytes": 192850,
+      "sha256": "af867ed8d0bbcd749d7b2be2b89757698f8f7440bc8a8d9b8a0f3852a5cb0018"
+    },
+    {
+      "artifact_id": "private/LIST.0.stdout.private.txt",
+      "bytes": 40923,
+      "sha256": "bc7d5cae9a1c5a904c481dcd7cb41552d9faecfaea34db461e94bbfbbffecbb1"
+    },
+    {
+      "artifact_id": "private/LIST.1.stdout.private.txt",
+      "bytes": 41849,
+      "sha256": "e21609da6d4eebeac0aeb1ca95fee797c183d6c58b2f32ffb3f0d344c28f4954"
+    }
+  ],
+  "erratum": {
+    "artifact_id": "HANDOFF.final.v1.json",
+    "json_pointer": "/selection_counts/standard_union",
+    "historical_incorrect_value": 78,
+    "corrected_value": 73,
+    "historical_error_preserved": true
+  },
+  "recomputation": {
+    "saved_selection_json_pointer": "/standard_package_union",
+    "saved_value": 73,
+    "raw_list_rows": "PKG rows with Standard=true, ImportPath field only",
+    "raw_lists_equal_saved_family_sets": true,
+    "set_digest_representation": "UTF-8; unique import paths sorted lexicographically; each path followed by one LF; no BOM or CR.",
+    "bitset_standard": {
+      "count": 72,
+      "sha256": "f3e8a53290d71eec4c1b0629f918a2b2106e2d5b6d298fbc1be532ac20663be7"
+    },
+    "gjson_standard": {
+      "count": 73,
+      "sha256": "1f320de7ac3654344d62c74161af52259ea48ebd36c980f2508fce92cd751918"
+    },
+    "standard_union": {
+      "count": 73,
+      "sha256": "1f320de7ac3654344d62c74161af52259ea48ebd36c980f2508fce92cd751918"
+    },
+    "standard_intersection": {
+      "count": 72,
+      "sha256": "f3e8a53290d71eec4c1b0629f918a2b2106e2d5b6d298fbc1be532ac20663be7"
+    },
+    "bitset_proper_subset_gjson": true,
+    "gjson_minus_bitset_count": 1,
+    "gjson_minus_bitset_import_paths": [
+      "sort"
+    ]
+  },
+  "guide_review": {
+    "references": [
+      {
+        "artifact_id": "GUIDE.ko.md",
+        "bytes": 2543,
+        "sha256": "5ce830d0eba0d4832b792a5fb91f6f59e6e7638f7f6c6969aaec6fd307fe4854"
+      },
+      {
+        "artifact_id": "GUIDE.en.md",
+        "bytes": 2205,
+        "sha256": "117e06b1fb3dab14a02e78e7dda8c818eb697804d7292336a98cc0cf26d72326"
+      }
+    ],
+    "incorrect_standard_union_claims_found": 0,
+    "correction_required": false,
+    "note": "The Korean guide occurrence of digits 78 is part of the GJSON revision abbreviation 9378d3, not a package count."
+  },
+  "preparation_history": {
+    "failed_assertion_before_directory_or_file_writes": 1,
+    "failure_type": "AssertionError",
+    "failure_scope": "Correction preparation check; no Go-list or scientific execution. The failing assertion was not identified from the retained traceback. Subsequent direct raw/saved set reconciliation passed.",
+    "later_raw_saved_reconciliation": "equal for both families"
+  },
+  "execution": {
+    "go_list_reruns": 0,
+    "original_api_calls": 0,
+    "native_calls": 0,
+    "model_calls": 0,
+    "fit_calls": 0,
+    "network_calls": 0,
+    "original_sealed_file_mutations": 0
+  },
+  "authority": {
+    "new_truth_labels": 0,
+    "roles_assigned": 0,
+    "groups_assigned": 0,
+    "execution_permission_granted": false,
+    "compiler_or_native_success_claim": false
+  },
+  "ko": "원 최종 인계의 표준 패키지 합집합 78은 작성 오류입니다. 저장 목록과 SELECTION을 직접 대조한 실제 합집합은 73이며 Bitset 72개는 GJSON 73개의 진부분집합입니다. 추가 패키지는 sort입니다. 원 305파일과 오류 기록은 보존하며 Go-list 재실행, 원 API·모델·Fit 호출은 없습니다.",
+  "en": "The final handoff standard-package union of 78 was a recording error. Direct reconciliation of saved lists and SELECTION gives 73; Bitset has 72 standard packages and is a proper subset of GJSON with 73. The additional package is sort. The original 305 files and error record remain unchanged; no Go-list rerun or original API, model, or Fit call occurred."
+}

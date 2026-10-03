@@ -1,0 +1,120 @@
+{
+  "schema": "riido-two-source-metadata-execution-receipt-v1",
+  "state": "completed_metadata_only_final_readback_corrected",
+  "actual_GoList": 2,
+  "GoList_exit0": 2,
+  "GoList_failures": 0,
+  "automatic_retries": 0,
+  "unused_from_max3": 1,
+  "commands_public": [
+    {
+      "id": "bitset",
+      "command": "EXACT_GO list -mod=readonly -deps -f BOUNDED_TEMPLATE .",
+      "cwd_id": "local-module/bitset"
+    },
+    {
+      "id": "gjson",
+      "command": "EXACT_GO list -modfile=go.local.mod -mod=readonly -deps -f BOUNDED_TEMPLATE .",
+      "cwd_id": "local-module/gjson"
+    }
+  ],
+  "environment_public": {
+    "GOTOOLCHAIN": "local",
+    "GOPROXY": "off",
+    "GOSUMDB": "off",
+    "CGO_ENABLED": "0",
+    "GOMAXPROCS": "1",
+    "GOMEMLIMIT": "268435456",
+    "GOWORK": "off",
+    "GOENV": "off",
+    "GOFLAGS": "",
+    "GOEXPERIMENT": "",
+    "GOOS": "darwin",
+    "GOARCH": "arm64",
+    "GOCACHE": "fresh local cache, fully retained and charged",
+    "GOPATH": "fresh local empty path",
+    "auth_environment": "not inherited"
+  },
+  "tool_binary": {
+    "artifact_id": "Root-provided-local-Go1.27.1/bin/go",
+    "bytes": 16071392,
+    "sha256": "132b69336a1f809932a8a20b0201dbbb980e86e3a323ae32e893639d83d71598"
+  },
+  "tool_VERSION_file": {
+    "artifact_id": "toolchain/VERSION",
+    "bytes": 35,
+    "sha256": "25eb74b09036e1ad894fb63b86cb0f0ee53342df8d2e2e860da4ff5079607758"
+  },
+  "tool_version_evidence": "VERSION says go1.27.1; go list reports gc/darwin/arm64/go1.27 release tag. No go-version command or independent binary version attestation.",
+  "actual_OS": "Darwin",
+  "actual_arch": "arm64",
+  "outcomes": [
+    {
+      "id": "bitset",
+      "exit_code": 0,
+      "failure": null,
+      "elapsed_seconds": 0.327351,
+      "stdout_bytes_seen": 40923,
+      "stdout_bytes_retained": 40923,
+      "stdout_sha256": "bc7d5cae9a1c5a904c481dcd7cb41552d9faecfaea34db461e94bbfbbffecbb1",
+      "stderr_bytes_seen": 0,
+      "stderr_bytes_retained": 0,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "terminated_for_bound": false
+    },
+    {
+      "id": "gjson",
+      "exit_code": 0,
+      "failure": null,
+      "elapsed_seconds": 0.069424,
+      "stdout_bytes_seen": 41849,
+      "stdout_bytes_retained": 41849,
+      "stdout_sha256": "e21609da6d4eebeac0aeb1ca95fee797c183d6c58b2f32ffb3f0d344c28f4954",
+      "stderr_bytes_seen": 0,
+      "stderr_bytes_retained": 0,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "terminated_for_bound": false
+    }
+  ],
+  "retained_bounds": {
+    "total_max": 2097152,
+    "stdout_each_max": 131072,
+    "stderr_each_max": 32768,
+    "source_notices_copies": 17,
+    "source_notices_copy_bytes": 662302,
+    "cache_files": 259,
+    "cache_bytes": 777294,
+    "cache_data_public": false,
+    "tmp_files": 0,
+    "GOPATH_files": 0
+  },
+  "input_seals": [
+    {
+      "artifact_id": "bitset52/HANDOFF.v1.json",
+      "bytes": 2967,
+      "sha256": "2223b5b75acecbc2217b825398d09e7e8274b76a475d18ad3425c975e2354966"
+    },
+    {
+      "artifact_id": "deps45/HANDOFF.v1.json",
+      "bytes": 7721,
+      "sha256": "9bc80a9be2b79c9c13492b37542a196f082a004dae407d14405700ce55bdaed7"
+    },
+    {
+      "artifact_id": "read52/SOURCE-ASSETS.private.v1.json",
+      "bytes": 50673,
+      "sha256": "b2da3e77d1ee2f1be7a611000b95ffbd74486aeabfa623683d261054612f9304"
+    }
+  ],
+  "actual_build_test_go_run_go_generate_compiler_original_init_function_model_Fit": 0,
+  "new_network_HTTP_Git_HF": 0,
+  "new_truth_roles_numericgroups": null,
+  "execution_ready": false,
+  "prior_hypotheses_or_HOLDs_cleared": false,
+  "own_metadata_checker_history": {
+    "initial_failures": 2,
+    "cause": "Overbroad privacy substring rejected a relative private artifact ID, not an absolute host path.",
+    "correction": "Boundary-aware absolute host-path check; source/provenance unchanged, no Go-list rerun.",
+    "corrected_checks_passed": true,
+    "additional_failure": "Final draft artifact-count was one low; byte total was correct. Unverified draft manifest/SUMS/handoff preserved, final names supersede."
+  }
+}
