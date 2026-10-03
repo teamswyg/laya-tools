@@ -74,6 +74,17 @@ jobs:
         run: bash scripts/verify-next60-native-wire3.sh
       - name: Qualified finite37 saved materialization and project Reader (no training)
         run: bash scripts/verify-next60-thirtyseven.sh
+      - name: Nonlearned37 paired ordering and bias diagnostic (Go; no model or Fit)
+        env:
+          RIIDOLAYA_BIAS37_ACTUAL: ${{ runner.temp }}/riidolaya-bias37-actual/actual.json
+        run: bash scripts/verify-next60-bias37.sh
+      - name: Preserve actual nonlearned37 scores and matrix
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: bias37-${{ matrix.os }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/riidolaya-bias37-actual/actual.json
+          if-no-files-found: warn
       - name: Variable Go input controls and frozen nonlearned33 ranking reproduction (no training)
         env:
           RIIDOLAYA_BIAS_ACTUAL: ${{ runner.temp }}/riidolaya-bias-actual/actual.json

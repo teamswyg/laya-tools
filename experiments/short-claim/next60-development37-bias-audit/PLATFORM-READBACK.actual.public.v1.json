@@ -1,0 +1,78 @@
+{
+  "schema": "riido-ci133-platform-actual-readback-v1",
+  "state": "failed_original_comparison_preserved_platform_sensitivity_observed",
+  "CI": {
+    "run": 37153935218,
+    "job": 111293307194,
+    "conclusion": "failure",
+    "artifact_id": 11285340237,
+    "artifact_name": "bias37-ubuntu-latest-1",
+    "observed_toolchain": "go1.27.1 linux/amd64"
+  },
+  "inputs": [
+    {
+      "bytes": 23506,
+      "sha256": "a18ba835d609320aa1a7c953f555dfc844d3809f3b076c891687de9bfc6f5924"
+    },
+    {
+      "bytes": 23506,
+      "sha256": "19e51a7bd283fc05adbbac3c05d79603a3051e16606fb3714a3ef0cdb22eff0a"
+    }
+  ],
+  "absolute_tolerance": 1e-12,
+  "relative_tolerance": 1e-12,
+  "maximum_primary_score_delta": 5.329070518200751e-15,
+  "changed_primary_score_cells": 64,
+  "changed_outcome_parents": [
+    {
+      "id": "next60-go53-mapstructure-hooks-errors-is",
+      "frozen_primary_scores": [
+        5.268788604998299,
+        5.268788604998298,
+        2.549657157215737
+      ],
+      "linux_primary_scores": [
+        5.2687886049983,
+        5.2687886049983,
+        2.549657157215737
+      ],
+      "frozen_permutation_visits": [
+        12,
+        12,
+        6,
+        12
+      ],
+      "linux_permutation_visits": [
+        12,
+        9,
+        6,
+        9
+      ],
+      "frozen_permutation_top1": [
+        2,
+        0,
+        6,
+        0
+      ],
+      "linux_permutation_top1": [
+        2,
+        3,
+        6,
+        3
+      ]
+    }
+  ],
+  "frozen_matrix": "083738fb57490440039651b110dbcbf86a4105465aba687912dc6114d46725a6",
+  "linux_matrix": "b1fb986c663f28f5bc867f6d70b0e6ca9b352e379cdd474efae8c869b2baa388",
+  "independent_linux_saved_matrix_receipt": {
+    "bytes": 1929,
+    "sha256": "71ae4e986cd2c32430f9afd67264b1ff639e9c5e3571af343d46df4bac05698d"
+  },
+  "frozen_unchanged": true,
+  "linux_unchanged": true,
+  "production_exact_ties_unchanged": true,
+  "scoring_formula_independently_validated": false,
+  "original_model_or_Fit_calls": 0,
+  "whole_work_claim": false,
+  "explanation": "Observed score rounding makes one previously distinct BM25 pair exactly equal on Linux. Strict display-stable ties then change permutation metrics. The frozen Mac report remains valid for that execution; cross-platform equality of its derived ties/costs was not established. Both saved matrices independently recompute exactly from their own scores. This is not measured verifier work or a learned utility gain."
+}

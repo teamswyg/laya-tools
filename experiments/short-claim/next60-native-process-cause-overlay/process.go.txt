@@ -1,0 +1,383 @@
+// SPDX-License-Identifier: Apache-2.0
+// Successor overlay: first abort cause and signal results are separate.
+// Sealed controller source and historical receipts remain unchanged.
+package main
+
+import (
+	"context"
+	"errors"
+	"io"
+	"math"
+	"os/exec"
+	"path/filepath"
+	"runtime"
+	"sync/atomic"
+	"syscall"
+	"time"
+)
+
+type ProcessReceipt struct {
+	StartAttempts        uint8  "json:\"start_attempts\""
+	Started              bool   "json:\"started\""
+	WaitAttempts         uint8  "json:\"wait_attempts\""
+	Reaped               *bool  "json:\"reaped\""
+	ExitCode             *int   "json:\"exit_code\""
+	StdoutJoined         bool   "json:\"stdout_joined\""
+	StderrJoined         bool   "json:\"stderr_joined\""
+	WatcherJoined        bool   "json:\"watcher_joined\""
+	DeadlineExceeded     bool   "json:\"deadline_exceeded\""
+	AbortCause           string "json:\"first_abort_cause\""
+	GroupKillAttempted   bool   "json:\"group_kill_attempted\""
+	GroupKillCalls       uint8  "json:\"group_signal_attempts\""
+	GroupKillFailed      bool   "json:\"group_kill_failed\""
+	GroupSignalOutcome   string "json:\"group_signal_outcome\""
+	GroupSignalErrno     *int   "json:\"group_signal_errno\""
+	StderrOverflow       bool   "json:\"stderr_overflow\""
+	WallNanoseconds      int64  "json:\"whole_child_wall_nanoseconds\""
+	RusageMaxRSSRaw      *int64 "json:\"rusage_maxrss_raw\""
+	RusageMaxRSSUnits    string "json:\"rusage_maxrss_units\""
+	DarwinMaxRSSBytes    *int64 "json:\"darwin_maxrss_bytes\""
+	UserCPUNanoseconds   *int64 "json:\"user_cpu_nanoseconds\""
+	SystemCPUNanoseconds *int64 "json:\"system_cpu_nanoseconds\""
+	AdvisoryGoHeapBytes  uint64 "json:\"advisory_go_heap_bytes\""
+}
+
+type stderrCapture struct {
+	Data     [stderrCap]byte
+	N        int
+	Overflow bool
+}
+
+// One drain owns capture. Its completion channel publishes all fields.
+func drainStderr(in io.Reader, abort func()) (r stderrCapture, err error) {
+	returned := false
+	defer func() {
+		if !returned {
+			_ = recover()
+			abort()
+			err = code("stderr_drain_interrupted")
+		}
+	}()
+	var buf [4096]byte
+	for {
+		n, e := in.Read(buf[:])
+		if n < 0 || n > len(buf) {
+			abort()
+			returned = true
+			return r, code("stderr_reader_contract")
+		}
+		if n > 0 {
+			space := len(r.Data) - r.N
+			keep := n
+			if keep > space {
+				keep = space
+			}
+			copy(r.Data[r.N:], buf[:keep])
+			r.N += keep
+			if n > space {
+				r.Overflow = true
+				abort()
+				returned = true
+				return r, code("stderr_cap_exceeded")
+			}
+		}
+		if e != nil {
+			returned = true
+			if e == io.EOF {
+				return r, nil
+			}
+			abort()
+			return r, code("stderr_read_failed")
+		}
+		if n == 0 {
+			abort()
+			returned = true
+			return r, code("stderr_no_progress")
+		}
+	}
+}
+
+func safeConsume(fn func(io.Reader, io.Writer) error, out io.Reader, ack io.Writer) (err error) {
+	returned := false
+	defer func() {
+		if !returned {
+			_ = recover()
+			err = code("receiver_interrupted")
+		}
+	}()
+	err = fn(out, ack)
+	returned = true
+	return
+}
+
+func timevalNS(t syscall.Timeval) (int64, bool) {
+	s, u := int64(t.Sec), int64(t.Usec)
+	if s < 0 || u < 0 || u >= 1000000 || s > (math.MaxInt64-u*1000)/1000000000 {
+		return 0, false
+	}
+	return s*1000000000 + u*1000, true
+}
+
+type abortCause uint32
+
+const (
+	abortNone abortCause = iota
+	abortReceiver
+	abortStderr
+	abortDeadline
+	abortUnspecified
+)
+
+func (c abortCause) name() string {
+	switch c {
+	case abortNone:
+		return "none"
+	case abortReceiver:
+		return "receiver"
+	case abortStderr:
+		return "stderr"
+	case abortDeadline:
+		return "deadline"
+	default:
+		return "unspecified"
+	}
+}
+
+// Per-invocation dependency; production passes syscall.Kill directly.
+// Hooks must return. Failed-signal tests use only self-exiting owned children.
+type groupKill func(int, syscall.Signal) error
+
+func invokeGroupKill(k groupKill, pid int) (err error) {
+	returned := false
+	defer func() {
+		if !returned {
+			_ = recover()
+			err = code("group_signal_interrupted")
+		}
+	}()
+	err = k(pid, syscall.SIGKILL)
+	returned = true
+	return
+}
+
+// first means the first accepted abort request, not an unobserved event order.
+// The winner alone writes result fields; all callers must join before reading.
+type groupStop struct {
+	first    atomic.Uint32
+	kill     groupKill
+	close    func()
+	pid      int
+	calls    uint8
+	outcome  string
+	errno    int
+	hasErrno bool
+}
+
+func (s *groupStop) request(c abortCause) {
+	if c < abortReceiver || c > abortDeadline {
+		c = abortUnspecified
+	}
+	if !s.first.CompareAndSwap(uint32(abortNone), uint32(c)) {
+		return
+	}
+	// Closure even after a panicking hook; closing is never genuine EOF proof.
+	defer s.close()
+	s.calls = 1
+	e := invokeGroupKill(s.kill, -s.pid)
+	if e != nil {
+		var errno syscall.Errno
+		if errors.As(e, &errno) {
+			s.errno, s.hasErrno = int(errno), true
+		}
+	}
+	switch {
+	case e == nil:
+		// Accepted signal does not prove the child or entire group was killed.
+		s.outcome = "signal_accepted"
+	case errors.Is(e, syscall.ESRCH):
+		// No matching group at this instant does not prove the child is gone.
+		s.outcome = "no_matching_group"
+	default:
+		// EPERM, EINVAL, unknown/interrupted results remain failures.
+		s.outcome = "failed"
+	}
+}
+
+// Only after stdout, stderr and watcher joins. Missing errno remains unknown.
+func (s *groupStop) appendReceipt(r *ProcessReceipt) {
+	r.AbortCause = abortCause(s.first.Load()).name()
+	r.GroupKillCalls = s.calls
+	r.GroupKillAttempted = s.calls != 0
+	r.GroupSignalOutcome = "not_attempted"
+	if s.calls != 0 {
+		r.GroupSignalOutcome = s.outcome
+	}
+	r.GroupKillFailed = s.outcome == "failed"
+	if s.hasErrno {
+		v := s.errno
+		r.GroupSignalErrno = &v
+	}
+}
+
+func firstAbortError(c abortCause, streamErr, drainErr error) error {
+	switch c {
+	case abortNone:
+		return nil
+	case abortReceiver:
+		if streamErr != nil {
+			return streamErr
+		}
+		return code("receiver_abort_cause_unavailable")
+	case abortStderr:
+		if drainErr != nil {
+			return drainErr
+		}
+		return code("stderr_abort_cause_unavailable")
+	case abortDeadline:
+		return code("child_deadline_no_retry")
+	default:
+		return code("child_abort_cause_unknown")
+	}
+}
+
+func runChild(c Config, consume func(io.Reader, io.Writer) error) (ProcessReceipt, stderrCapture, error) {
+	return runChildWithKill(c, consume, syscall.Kill)
+}
+
+// One Start/Wait attempt. Both drains and watcher join before results are read.
+// Genuine signal failure remains a secondary fact; abort never becomes success.
+func runChildWithKill(c Config, consume func(io.Reader, io.Writer) error, kill groupKill) (r ProcessReceipt, saved stderrCapture, err error) {
+	r.AdvisoryGoHeapBytes = 64 << 20
+	r.AbortCause, r.GroupSignalOutcome = "none", "not_attempted"
+	if kill == nil {
+		return r, saved, code("group_signal_hook_missing")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), c.Deadline)
+	defer cancel()
+	cmd := exec.Command(c.Worker, "--evidence", c.Evidence, "--summary", c.Summary,
+		"--freeze", c.Freeze, "--fixtures", c.Fixtures, "--captions", c.Captions)
+	cmd.Dir = filepath.Dir(c.Evidence)
+	cmd.Env = []string{"PATH=/usr/bin:/bin", "LANG=C", "LC_ALL=C", "GOMAXPROCS=2", "GOMEMLIMIT=64MiB", "GOTOOLCHAIN=local", "GOWORK=off", "GOENV=off", "GOPROXY=off", "GOSUMDB=off", "GOFLAGS=", "GOEXPERIMENT=", "CGO_ENABLED=0"}
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	stdout, e := cmd.StdoutPipe()
+	if e != nil {
+		return r, saved, code("stdout_pipe_failed")
+	}
+	stdin, e := cmd.StdinPipe()
+	if e != nil {
+		_ = stdout.Close()
+		return r, saved, code("stdin_pipe_failed")
+	}
+	stderr, e := cmd.StderrPipe()
+	if e != nil {
+		_ = stdout.Close()
+		_ = stdin.Close()
+		return r, saved, code("stderr_pipe_failed")
+	}
+	closePipes := func() { _ = stdin.Close(); _ = stdout.Close(); _ = stderr.Close() }
+	r.StartAttempts = 1
+	start := time.Now()
+	if e = cmd.Start(); e != nil {
+		closePipes()
+		r.WaitAttempts = 1
+		_ = cmd.Wait()
+		r.WallNanoseconds = time.Since(start).Nanoseconds()
+		return r, saved, code("child_start_failed_no_retry")
+	}
+	r.Started = true
+	stop := groupStop{kill: kill, close: closePipes, pid: cmd.Process.Pid}
+	watchStop, watchDone := make(chan struct{}), make(chan struct{})
+	go func() {
+		defer close(watchDone)
+		select {
+		case <-ctx.Done():
+			stop.request(abortDeadline)
+		case <-watchStop:
+		}
+	}()
+	outDone := make(chan error, 1)
+	go func() {
+		e := safeConsume(consume, stdout, stdin)
+		_ = stdin.Close()
+		if e != nil {
+			stop.request(abortReceiver)
+		}
+		outDone <- e
+	}()
+	type drained struct {
+		capture stderrCapture
+		err     error
+	}
+	errDone := make(chan drained, 1)
+	go func() {
+		s, e := drainStderr(stderr, func() { stop.request(abortStderr) })
+		errDone <- drained{capture: s, err: e}
+	}()
+	streamErr := <-outDone
+	r.StdoutJoined = true
+	drain := <-errDone
+	r.StderrJoined = true
+	saved = drain.capture
+	_ = stdout.Close()
+	_ = stdin.Close()
+	_ = stderr.Close()
+	r.WaitAttempts = 1
+	waitErr := cmd.Wait()
+	r.WallNanoseconds = time.Since(start).Nanoseconds()
+	close(watchStop)
+	<-watchDone
+	r.WatcherJoined = true
+	r.DeadlineExceeded = ctx.Err() == context.DeadlineExceeded
+	stop.appendReceipt(&r)
+	r.StderrOverflow = saved.Overflow
+	if cmd.ProcessState != nil {
+		v, exit := true, cmd.ProcessState.ExitCode()
+		r.Reaped, r.ExitCode = &v, &exit
+		if u, ok := cmd.ProcessState.SysUsage().(*syscall.Rusage); ok {
+			rss := int64(u.Maxrss)
+			if rss >= 0 {
+				r.RusageMaxRSSRaw = &rss
+				switch runtime.GOOS {
+				case "darwin":
+					r.RusageMaxRSSUnits = "bytes"
+					r.DarwinMaxRSSBytes = &rss
+				case "linux":
+					r.RusageMaxRSSUnits = "KiB"
+				default:
+					r.RusageMaxRSSUnits = "platform_unresolved"
+				}
+			}
+			if ns, ok := timevalNS(u.Utime); ok {
+				r.UserCPUNanoseconds = &ns
+			}
+			if ns, ok := timevalNS(u.Stime); ok {
+				r.SystemCPUNanoseconds = &ns
+			}
+		}
+	}
+	if primary := firstAbortError(abortCause(stop.first.Load()), streamErr, drain.err); primary != nil {
+		return r, saved, primary
+	}
+	if r.DeadlineExceeded {
+		return r, saved, code("child_deadline_no_retry")
+	}
+	if r.GroupKillFailed {
+		return r, saved, code("process_group_kill_failed")
+	}
+	if r.StderrOverflow {
+		return r, saved, code("stderr_cap_exceeded")
+	}
+	if streamErr != nil {
+		return r, saved, streamErr
+	}
+	if drain.err != nil {
+		return r, saved, drain.err
+	}
+	if r.GroupKillAttempted {
+		return r, saved, code("child_aborted_no_retry")
+	}
+	if waitErr != nil || r.Reaped == nil || r.ExitCode == nil || *r.ExitCode != 0 {
+		return r, saved, code("child_wait_or_exit_failed")
+	}
+	return r, saved, nil
+}
