@@ -1,0 +1,97 @@
+package compare
+
+import (
+	"bytes"
+	"encoding/json"
+	"math"
+	"reflect"
+	"riido.local/initwocomparison/internal/quoted"
+	"strings"
+	"unicode/utf8"
+)
+
+// Receipts/configurations require every known exact field, literal array arity
+// and nonnull scalar values. Slices are bounded; no hash-keyed maps are retained.
+func shape(raw []byte, t reflect.Type, depth int) error {
+	if depth > 20 || len(raw) == 0 || !utf8.Valid(raw) {
+		return ErrInput
+	}
+	if t.Kind() == reflect.Pointer {
+		if bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
+			return nil
+		}
+		return shape(raw, t.Elem(), depth+1)
+	}
+	switch t.Kind() {
+	case reflect.Struct:
+		keys := make([]string, t.NumField())
+		for i := range keys {
+			k := strings.Split(t.Field(i).Tag.Get("json"), ",")[0]
+			if k == "" {
+				k = t.Field(i).Name
+			}
+			keys[i] = k
+		}
+		values, e := protocol.Object(raw, keys)
+		if e != nil {
+			return ErrInput
+		}
+		for i, v := range values {
+			if shape(v, t.Field(i).Type, depth+1) != nil {
+				return ErrInput
+			}
+		}
+	case reflect.Array, reflect.Slice:
+		var values []json.RawMessage
+		if json.Unmarshal(raw, &values) != nil || values == nil || len(values) > 128 || t.Kind() == reflect.Array && len(values) != t.Len() {
+			return ErrInput
+		}
+		for _, v := range values {
+			if shape(v, t.Elem(), depth+1) != nil {
+				return ErrInput
+			}
+		}
+	case reflect.Bool:
+		v := string(bytes.TrimSpace(raw))
+		if v != "true" && v != "false" {
+			return ErrInput
+		}
+	case reflect.String:
+		if _, e := protocol.ReadString(raw); e != nil {
+			return ErrInput
+		}
+	case reflect.Int, reflect.Int64:
+		if _, e := protocol.ReadInt(raw); e != nil {
+			return ErrInput
+		}
+	case reflect.Float64:
+		var v float64
+		if json.Unmarshal(raw, &v) != nil || math.IsInf(v, 0) || math.IsNaN(v) || bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
+			return ErrInput
+		}
+	default:
+		return ErrInput
+	}
+	return nil
+}
+func strict(raw []byte, v any, cap int) error {
+	if len(raw) < 1 || len(raw) > cap || !utf8.Valid(raw) || !json.Valid(raw) {
+		return ErrInput
+	}
+	t := reflect.TypeOf(v)
+	if t == nil || t.Kind() != reflect.Pointer || shape(raw, t.Elem(), 0) != nil || json.Unmarshal(raw, v) != nil {
+		return ErrInput
+	}
+	return nil
+}
+func null(raw json.RawMessage) bool { return bytes.Equal(bytes.TrimSpace(raw), []byte("null")) }
+func literal(raw []byte, v any) error {
+	if len(raw) < 1 || len(raw) > InputCap || !json.Valid(raw) || !utf8.Valid(raw) || json.Unmarshal(raw, v) != nil {
+		return ErrInput
+	}
+	return nil
+}
+func equalJSON(a, b []byte) bool {
+	var x, y bytes.Buffer
+	return json.Compact(&x, a) == nil && json.Compact(&y, b) == nil && bytes.Equal(x.Bytes(), y.Bytes())
+}

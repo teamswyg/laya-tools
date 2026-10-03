@@ -1,0 +1,273 @@
+package compare
+
+import (
+	"bytes"
+	"encoding/json"
+	d "riido.local/initwocomparison/internal/deleted"
+	q "riido.local/initwocomparison/internal/quoted"
+)
+
+func text(v string) Value  { return Value{Known: true, Text: &v} }
+func boolean(v bool) Value { return Value{Known: true, Bool: &v} }
+func stringsValue(v []string) Value {
+	x := append([]string{}, v...)
+	return Value{Known: true, Strings: &x}
+}
+func intsValue(v []int) Value { x := append([]int{}, v...); return Value{Known: true, Integers: &x} }
+func nilValue() Value         { return Value{Known: true, Null: true} }
+func quotedValue(v q.Text) Value {
+	if !v.Known {
+		return Value{}
+	}
+	if v.Null {
+		return nilValue()
+	}
+	return text(v.Value)
+}
+func predicate(key string, want json.RawMessage, got Value) Predicate {
+	p := Predicate{Key: key, Want: bytes.Clone(want), Got: got, State: Unknown}
+	if !got.Known {
+		return p
+	}
+	if got.NonNullError {
+		if null(want) {
+			p.State = False
+		}
+		return p
+	}
+	var raw []byte
+	if got.Null {
+		raw = []byte("null")
+	} else if got.Text != nil {
+		raw, _ = json.Marshal(*got.Text)
+	} else if got.Bool != nil {
+		raw, _ = json.Marshal(*got.Bool)
+	} else if got.Strings != nil {
+		raw, _ = json.Marshal(*got.Strings)
+	} else if got.Integers != nil {
+		raw, _ = json.Marshal(*got.Integers)
+	} else {
+		return p
+	}
+	if equalJSON(want, raw) {
+		p.State = True
+	} else {
+		p.State = False
+	}
+	return p
+}
+func quotedPredicates(o q.Observation, w wanted) []Predicate {
+	out := make([]Predicate, len(w.keys))
+	for i, key := range w.keys {
+		var v Value
+		switch key {
+		case "error":
+			if o.CandidateReturnedKnown && o.CandidateReturned && o.CandidateError.Available && o.CandidateError.Known {
+				if o.CandidateError.Nil {
+					v = nilValue()
+				} else {
+					v = Value{Known: true, NonNullError: true}
+				}
+			}
+		case "error_kind":
+			if o.CandidateReturnedKnown && o.CandidateReturned && o.CandidateError.Available && o.CandidateError.Known {
+				if o.CandidateError.Nil {
+					v = nilValue()
+				} else {
+					v = quotedValue(o.CandidateError.Kind)
+				}
+			}
+		case "value":
+			v = quotedValue(o.Value)
+		case "comment":
+			v = quotedValue(o.Comment)
+		}
+		out[i] = predicate(key, w.raw[i], v)
+	}
+	return out
+}
+
+// Full public state equality includes DEFAULT, nilness and public occurrence
+// mapping, never private sectionIndexes or pointer addresses. Known partial
+// contradictions are enough for false; absent fields remain unknown.
+func unchanged(a, b d.Snapshot) Value {
+	different := a.BlockModeKnown && b.BlockModeKnown && a.BlockMode != b.BlockMode || a.Names.Known && b.Names.Known && a.Names != b.Names || a.SectionsKnown && b.SectionsKnown && (a.SectionsNil != b.SectionsNil || a.N != b.N)
+	if a.SectionsKnown && b.SectionsKnown {
+		n := a.N
+		if b.N < n {
+			n = b.N
+		}
+		if n > 4 || n < 0 {
+			return Value{}
+		}
+		for i := 0; i < n; i++ {
+			x, y := a.Sections[i], b.Sections[i]
+			if x.Nil != y.Nil || x.NameKnown && y.NameKnown && x.Name != y.Name || x.KeyNames.Known && y.KeyNames.Known && x.KeyNames != y.KeyNames || x.KeysKnown && y.KeysKnown && (x.KeysNil != y.KeysNil || x.KeyN != y.KeyN) || x.OccurrenceKnown && y.OccurrenceKnown && x.Occurrence != y.Occurrence {
+				different = true
+			}
+			if x.KeysKnown && y.KeysKnown && x.KeyN == 1 && y.KeyN == 1 {
+				k, l := x.Keys[0], y.Keys[0]
+				if k.Nil != l.Nil || k.NameKnown && l.NameKnown && k.Name != l.Name || k.ValueKnown && l.ValueKnown && k.Value != l.Value {
+					different = true
+				}
+			}
+		}
+	}
+	if different {
+		return boolean(false)
+	}
+	if !a.Known || !b.Known {
+		return Value{}
+	}
+	// Getter exceptions/classifier metadata describe acquisition, not user state.
+	a.AccessorPanic = d.PanicView{}
+	b.AccessorPanic = d.PanicView{}
+	a.BindingError = d.ErrorView{}
+	b.BindingError = d.ErrorView{}
+	return boolean(a == b)
+}
+func userSections(s d.Snapshot) Value {
+	if !s.SectionsKnown || s.N < 0 || s.N > 4 {
+		return Value{}
+	}
+	if s.SectionsNil {
+		return nilValue()
+	}
+	values := make([]string, 0, s.N)
+	for i := 0; i < s.N; i++ {
+		sec := s.Sections[i]
+		if sec.Nil {
+			return nilValue()
+		}
+		if !sec.NameKnown {
+			return Value{}
+		}
+		if sec.Name == "DEFAULT" {
+			continue
+		}
+		if !sec.KeysKnown {
+			return Value{}
+		}
+		if sec.KeysNil || sec.KeyN != 1 {
+			return nilValue()
+		}
+		key := sec.Keys[0]
+		if key.Nil {
+			return nilValue()
+		}
+		if !key.NameKnown || !key.ValueKnown {
+			return Value{}
+		}
+		if key.Name != "v" {
+			return nilValue()
+		}
+		values = append(values, sec.Name+":"+key.Value)
+	}
+	return stringsValue(values)
+}
+func xIndexes(s d.Snapshot) Value {
+	if !s.SectionsKnown || s.N < 0 || s.N > 4 {
+		return Value{}
+	}
+	if s.SectionsNil {
+		return nilValue()
+	}
+	vals := make([]int, 0, 2)
+	for i := 0; i < s.N; i++ {
+		sec := s.Sections[i]
+		if sec.Nil {
+			return nilValue()
+		}
+		if !sec.NameKnown {
+			return Value{}
+		}
+		if sec.Name == "x" {
+			if !sec.OccurrenceKnown {
+				return Value{}
+			}
+			vals = append(vals, sec.Occurrence)
+		}
+	}
+	return intsValue(vals)
+}
+func deletedPredicates(o d.Observation, w wanted) []Predicate {
+	out := make([]Predicate, len(w.keys))
+	for i, key := range w.keys {
+		var v Value
+		switch key {
+		case "error":
+			if o.CandidateReturnedKnown && o.CandidateReturned && o.CandidateError.Known {
+				if o.CandidateError.Nil {
+					v = nilValue()
+				} else {
+					v = Value{Known: true, NonNullError: true}
+				}
+			}
+		case "error_kind":
+			if o.CandidateReturnedKnown && o.CandidateReturned && o.CandidateError.Known {
+				if o.CandidateError.Nil {
+					v = nilValue()
+				} else if o.CandidateError.RangeKnown {
+					if o.CandidateError.Range {
+						v = text("range")
+					} else {
+						v = boolean(false)
+					}
+				}
+			}
+		case "sections":
+			v = userSections(o.After)
+		case "x_indexes":
+			v = xIndexes(o.After)
+		case "state_unchanged", "indexes_unchanged":
+			v = unchanged(o.Before, o.After)
+		}
+		out[i] = predicate(key, w.raw[i], v)
+	}
+	return out
+}
+func compareRows(family int, ws [5]wanted, qs [15]q.Record, ds [15]d.Record) Report {
+	_, _, id := familyPins(family)
+	r := Report{Schema: "riido-ini-two-saved-finite-comparison-v1", State: "complete", Family: family, RequestID: id, Fixtures: 5, SavedObservations: 15, Scope: "Only fixed Wanted keys from one saved15-observation worker with final transport binding. Unknown predicates remain unknown even beside known contradictions. No all-input, concurrency, private-index, label, role, weight, source diversity, training or model utility claim."}
+	for i := range r.Candidates {
+		r.Candidates[i].Index = i
+	}
+	for i := range r.Rows {
+		f, c := i/3, i%3
+		row := Row{Ordinal: i, Fixture: f, CaseID: ws[f].caseID, Candidate: c}
+		if family == 0 {
+			row.Predicates = quotedPredicates(qs[i].Observation, ws[f])
+			row.StoredErrorAvailability, _ = json.Marshal(struct {
+				CandidateError q.ErrorView
+				CandidatePanic q.PanicView
+				AccessorError  q.ErrorView
+				AccessorPanic  q.PanicView
+			}{qs[i].Observation.CandidateError, qs[i].Observation.CandidatePanic, qs[i].Observation.AccessorError, qs[i].Observation.AccessorPanic})
+		} else {
+			row.Predicates = deletedPredicates(ds[i].Observation, ws[f])
+			row.StoredErrorAvailability, _ = json.Marshal(struct {
+				CandidateError d.ErrorView
+				CandidatePanic d.PanicView
+				AccessorPanic  d.PanicView
+				BindingError   d.ErrorView
+			}{ds[i].Observation.CandidateError, ds[i].Observation.CandidatePanic, ds[i].Observation.After.AccessorPanic, ds[i].Observation.After.BindingError})
+		}
+		for _, p := range row.Predicates {
+			row.Counts.add(p.State)
+			r.Predicates.add(p.State)
+		}
+		row.State = combine(row.Counts)
+		r.Observations.add(row.State)
+		aggregate := &r.Candidates[c]
+		aggregate.Counts.add(row.State)
+		aggregate.UnknownPredicatePositions += row.Counts.Unknown
+		if row.State == False {
+			aggregate.KnownCounterexampleFixtures[f] = true
+		}
+		r.Rows[i] = row
+	}
+	for i := range r.Candidates {
+		r.Candidates[i].State = combine(r.Candidates[i].Counts)
+	}
+	return r
+}

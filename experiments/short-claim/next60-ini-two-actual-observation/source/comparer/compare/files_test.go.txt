@@ -1,0 +1,109 @@
+package compare
+
+import (
+	"bytes"
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"testing"
+)
+
+func TestStrictRejectsExtraArraysMissingAliasesAndNull(t *testing.T) {
+	type tiny struct {
+		V [2]int `json:"values"`
+		B bool   `json:"known"`
+	}
+	for _, raw := range []string{`{"values":[1,2,3],"known":true}`, `{"values":[1,2]}`, `{"values":[1,2],"Known":true}`, `{"values":[1,2],"known":null}`, `{"values":[1,2],"known":true,"kno\u0077n":false}`, `{"values":[1.0,2],"known":true}`} {
+		var v tiny
+		if strict([]byte(raw), &v, 256) == nil {
+			t.Fatalf("accepted %s", raw)
+		}
+	}
+	var v tiny
+	if strict([]byte(`{"values":[1,2],"known":true}`), &v, 256) != nil {
+		t.Fatal("valid rejected")
+	}
+}
+func TestEmptyStderrPinAllowedOnlyForThatSlot(t *testing.T) {
+	s := syntheticQuoted(t)
+	s.Stderr = nil
+	s.Pins[4] = Pin{0, Digest(nil)}
+	if savedPins(0, s) != nil {
+		t.Fatal("empty stderr pin")
+	}
+	s.Result = nil
+	s.Pins[0] = Pin{0, Digest(nil)}
+	if savedPins(0, s) == nil {
+		t.Fatal("empty result admitted")
+	}
+}
+func TestPinnedReadBoundsAndSymlink(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "owned")
+	raw := []byte("owned synthetic")
+	if os.WriteFile(path, raw, 0600) != nil {
+		t.Fatal("write")
+	}
+	f := File{path, len(raw), Digest(raw)}
+	got, e := ReadPinned(f, 128, false)
+	if e != nil || !bytes.Equal(got, raw) {
+		t.Fatal(e)
+	}
+	if _, e = ReadPinned(f, 2, false); e == nil {
+		t.Fatal("cap")
+	}
+	f.SHA = Digest([]byte("different"))
+	if _, e = ReadPinned(f, 128, false); e == nil {
+		t.Fatal("wrong pin")
+	}
+	link := filepath.Join(dir, "link")
+	if os.Symlink(path, link) != nil {
+		t.Fatal("symlink")
+	}
+	f.Path = link
+	f.SHA = Digest(raw)
+	if _, e = ReadPinned(f, 128, false); e == nil {
+		t.Fatal("symlink accepted")
+	}
+}
+func TestExclusiveOutputPreservesExistingAndPartial(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "out")
+	f, e := ReserveOutput(p)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if _, e = ReserveOutput(p); e == nil {
+		t.Fatal("overwrite")
+	}
+	raw := []byte("owned output\n")
+	if FinishOutput(f, raw) != nil {
+		t.Fatal("write")
+	}
+	got, _ := os.ReadFile(p)
+	if !bytes.Equal(got, raw) {
+		t.Fatal("output")
+	}
+	q := filepath.Join(t.TempDir(), "failed")
+	f, e = ReserveOutput(q)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if FinishOutput(f, nil) == nil {
+		t.Fatal("empty accepted")
+	}
+	if _, e = os.Stat(q); e != nil {
+		t.Fatal("failure erased")
+	}
+}
+func TestConfigArityControlDoesNotLoadRealFiles(t *testing.T) {
+	c := Config{Schema: "riido-ini-two-saved-comparison-config-v1"}
+	raw, _ := json.Marshal(c)
+	var v Config
+	if strict(raw, &v, ConfigCap) != nil {
+		t.Fatal("struct shape")
+	}
+	raw = bytes.Replace(raw, []byte(`"saved_files":[`), []byte(`"saved_files":[{"path":"owned","bytes":1,"sha256":"owned"},`), 1)
+	if strict(raw, &v, ConfigCap) == nil {
+		t.Fatal("fixed file array overflow")
+	}
+}

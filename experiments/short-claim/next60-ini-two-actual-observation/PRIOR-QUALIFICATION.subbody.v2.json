@@ -1,0 +1,324 @@
+{
+  "schema": "riido-subbody-Root-finite-development-qualification-v2",
+  "state": "Root_adopted_two_finite_semantic_requests_data_materialization_separate",
+  "authority": "Root nonauthor full new source, tests, peer receipt and all actual predicates read; finite nonblind adoption, not protected model evaluation.",
+  "prior_materialized_data": {
+    "bytes": 31493,
+    "sha256": "39edb1bb60e88d56cb2fec271b511a5ce09a0ff8bd33ce21d0dda7defb3ce362",
+    "requests": 23,
+    "labels": 67,
+    "positive": 23,
+    "negative": 44,
+    "inputs": 113,
+    "original_evidence_observations": 335,
+    "selected_candidate_observations": 331
+  },
+  "fixture_pin": {
+    "bytes": 12302,
+    "sha256": "35751547d26030df285ba4df3623a832d2ab3e86551debd703c97b9649a41447"
+  },
+  "Want_pin": {
+    "bytes": 3488,
+    "sha256": "42b078ed54a9f66e0939e821c6aae4b1510e62723fa585194a5f403c6cbeda6a"
+  },
+  "comparison_pin": {
+    "bytes": 20285,
+    "sha256": "8b28dceb2bc28559dd683d08b92d0086a9d371c70aa0defd08cf7d59394c5d3b"
+  },
+  "actual_comparison_receipt_pin": {
+    "bytes": 3967,
+    "sha256": "e73db6ce384de12c0dd7bd2f6272e96eaff76ee004d6cc6bf0b8c162e7348dfe"
+  },
+  "source_peer_sha256": "6e85159a54982c9f24510b5b0bc4dcdd4349308e4df7ad42cdb6d77e7a00255c",
+  "role": "development_train",
+  "weight_per_candidate": 1,
+  "new_requests": 2,
+  "new_inputs": 9,
+  "new_original_observations": 27,
+  "new_selected_observations": 27,
+  "new_labels": 6,
+  "new_positive": 2,
+  "new_negative": 4,
+  "qualified_pool": {
+    "requests": 25,
+    "labels": 73,
+    "positive": 25,
+    "negative": 48,
+    "inputs": 122,
+    "original_evidence_observations": 362,
+    "selected_candidate_observations": 358
+  },
+  "requests": [
+    {
+      "id": "next60-afero-sub-validation",
+      "request": "Validate IOFS.Sub using fs.ValidPath before constructing a sub-filesystem, returning a PathError for invalid names and preserving the valid root case.",
+      "source_family": "upstream53-afero",
+      "source_reference": {
+        "artifact_id": "primary120/source-survey53",
+        "artifact_sha256": "e79cf90505fff4c636de99f322ab82001afd22516216cebcd8249b9b3d61cf67",
+        "json_pointer": "/tasks/15"
+      },
+      "source_revision": "eb6a92826ea568e3f40ab91fcbda8d2b38b61d3e",
+      "source_spans": [
+        "afero.go:36-111 Fs/File interfaces",
+        "iofs.go:36-56 Open",
+        "iofs.go:118 Sub",
+        "iofs.go:163-243 FromIOFS",
+        "basepath.go:62-89 constructor/RealPath",
+        "basepath.go:171-181 Open"
+      ],
+      "scope": "Only five frozen Sub names; invalid names reject before constructor-side filesystem boundaries. Dot root is one Open(dir/item) marker, not pointer identity or whole-filesystem equality.",
+      "finite_inputs": 5,
+      "source_group_policy": "Keep entire existing repository, aliases and helpers connected. Numeric group assignment awaits source-topology correspondence before new data materialization; no protected split or generalization claim.",
+      "connected_group": null,
+      "source_group_assignment_pending": true,
+      "text_revision": "subbody-finite-v1",
+      "selected_candidate_observations": 15,
+      "selected": [
+        {
+          "source_candidate_position": 0,
+          "metadata_id": "baseline_original",
+          "text": "Construct IOFS sub-filesystem views without validating the subdirectory name at Sub time.",
+          "truth": false,
+          "role": "development_train",
+          "weight": 1,
+          "known_counterexample_fixture_positions": [
+            0,
+            1,
+            2
+          ],
+          "aggregate_unknown_fixture_positions": [],
+          "unknown_predicates_retained": [
+            {
+              "fixture": 0,
+              "field": "error_type",
+              "reason": "observable_unavailable"
+            }
+          ],
+          "row_ordinals": [
+            0,
+            3,
+            6,
+            9,
+            12
+          ],
+          "row_vector": [
+            "unsatisfied",
+            "unsatisfied",
+            "unsatisfied",
+            "satisfied",
+            "satisfied"
+          ]
+        },
+        {
+          "source_candidate_position": 1,
+          "metadata_id": "reference_authored",
+          "text": "Validate subdirectory names before constructing views, returning PathError for invalid names and preserving valid root behavior.",
+          "truth": true,
+          "role": "development_train",
+          "weight": 1,
+          "known_counterexample_fixture_positions": [],
+          "aggregate_unknown_fixture_positions": [],
+          "unknown_predicates_retained": [],
+          "row_ordinals": [
+            1,
+            4,
+            7,
+            10,
+            13
+          ],
+          "row_vector": [
+            "satisfied",
+            "satisfied",
+            "satisfied",
+            "satisfied",
+            "satisfied"
+          ]
+        },
+        {
+          "source_candidate_position": 2,
+          "metadata_id": "negative_authored",
+          "text": "Clean subdirectory names before validation so empty names become the root before constructing a view.",
+          "truth": false,
+          "role": "development_train",
+          "weight": 1,
+          "known_counterexample_fixture_positions": [
+            0
+          ],
+          "aggregate_unknown_fixture_positions": [],
+          "unknown_predicates_retained": [
+            {
+              "fixture": 0,
+              "field": "error_type",
+              "reason": "observable_unavailable"
+            }
+          ],
+          "row_ordinals": [
+            2,
+            5,
+            8,
+            11,
+            14
+          ],
+          "row_vector": [
+            "unsatisfied",
+            "satisfied",
+            "satisfied",
+            "satisfied",
+            "satisfied"
+          ]
+        }
+      ],
+      "excluded": []
+    },
+    {
+      "id": "go53-retryhttp-request-body-snapshot",
+      "request": "Construct a retryable request that snapshots byte slice bodies before caller mutation and preserves that snapshot across replay reads, while retaining the original constructor.",
+      "source_family": "upstream53-retryablehttp",
+      "source_reference": {
+        "artifact_id": "primary120/source-survey53",
+        "artifact_sha256": "e79cf90505fff4c636de99f322ab82001afd22516216cebcd8249b9b3d61cf67",
+        "json_pointer": "/tasks/51"
+      },
+      "source_revision": "fd004584a46724fae09e2f21d7c382e15c893f42",
+      "source_spans": [
+        "client.go:144-190 BodyBytes/SetBody",
+        "client.go:238-244 []byte capture",
+        "client.go:204-237 ReaderFunc initial length probe",
+        "client.go:323-339 constructor"
+      ],
+      "scope": "Only four nonempty byte-body inputs and ordered caller mutations; constructor-time snapshot and one-or-two replays, no HTTP transport, nil/empty/concurrent bodies or deadline policy.",
+      "finite_inputs": 4,
+      "source_group_policy": "Keep entire existing repository, aliases and helpers connected. Numeric group assignment awaits source-topology correspondence before new data materialization; no protected split or generalization claim.",
+      "connected_group": null,
+      "source_group_assignment_pending": true,
+      "text_revision": "subbody-finite-v1",
+      "selected_candidate_observations": 12,
+      "selected": [
+        {
+          "source_candidate_position": 0,
+          "metadata_id": "baseline_original",
+          "text": "Store the caller byte slice and create each replay reader from its current bytes.",
+          "truth": false,
+          "role": "development_train",
+          "weight": 1,
+          "known_counterexample_fixture_positions": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "aggregate_unknown_fixture_positions": [],
+          "unknown_predicates_retained": [],
+          "row_ordinals": [
+            15,
+            18,
+            21,
+            24
+          ],
+          "row_vector": [
+            "unsatisfied",
+            "unsatisfied",
+            "unsatisfied",
+            "unsatisfied"
+          ]
+        },
+        {
+          "source_candidate_position": 1,
+          "metadata_id": "reference_authored",
+          "text": "Clone the byte slice during request construction and replay the owned snapshot without changing the original constructor.",
+          "truth": true,
+          "role": "development_train",
+          "weight": 1,
+          "known_counterexample_fixture_positions": [],
+          "aggregate_unknown_fixture_positions": [],
+          "unknown_predicates_retained": [],
+          "row_ordinals": [
+            16,
+            19,
+            22,
+            25
+          ],
+          "row_vector": [
+            "satisfied",
+            "satisfied",
+            "satisfied",
+            "satisfied"
+          ]
+        },
+        {
+          "source_candidate_position": 2,
+          "metadata_id": "negative_authored",
+          "text": "Clone the caller byte slice on each replay, preserving mutations made before that replay.",
+          "truth": false,
+          "role": "development_train",
+          "weight": 1,
+          "known_counterexample_fixture_positions": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "aggregate_unknown_fixture_positions": [],
+          "unknown_predicates_retained": [],
+          "row_ordinals": [
+            17,
+            20,
+            23,
+            26
+          ],
+          "row_vector": [
+            "unsatisfied",
+            "unsatisfied",
+            "unsatisfied",
+            "unsatisfied"
+          ]
+        }
+      ],
+      "excluded": []
+    }
+  ],
+  "comparison_counts": {
+    "observations": {
+      "true": 15,
+      "false": 12,
+      "unknown": 0
+    },
+    "predicates": {
+      "true": 57,
+      "false": 16,
+      "unknown": 2
+    }
+  },
+  "unknown_never_false": true,
+  "negative_predicate_unknowns_preserved": 2,
+  "materialized_rows_current": 23,
+  "HF_published_rows_current": 21,
+  "CI119_pending_full_acceptance": true,
+  "numeric_group_assignment_pending_before_data_materialization": true,
+  "position_controls": {
+    "positive_index1_requests": 22,
+    "total_requests": 25,
+    "always_negative_labels": 48,
+    "total_labels": 73,
+    "different_denominators_not_model_accuracy": true
+  },
+  "execution_history": {
+    "original_worker_Starts": 2,
+    "original_worker_Waits": 2,
+    "reaped_exit0": 2,
+    "saved_only_comparison": 1,
+    "original_native_replays": 0,
+    "error_text_calls": 0,
+    "startup_original_calls": null,
+    "nested_original_calls": null
+  },
+  "new_corpus_Fit": 0,
+  "new_model_calls": 0,
+  "qualified_30_required_before_Fit": true,
+  "protected_2400_per_claimed_domain_pending": true,
+  "utility_improvement_unproved": true,
+  "limits": "Finite semantic adoption only. Group topology and generated data/reader correspondence remain separate; dataset stays23 until then. Model/GPU/LLM cost benefit unproved; no original/fixture/caption changes.",
+  "historical_v1_qualification_sha256": "df8d2c3d1c52648427f6e5a68337ade645efd6cc4e2b0fc37fe2d193b40e47e7",
+  "source_tool_flag_correction_recorded": true
+}

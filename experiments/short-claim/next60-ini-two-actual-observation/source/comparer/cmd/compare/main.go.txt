@@ -1,0 +1,100 @@
+// Saved-file-only command. It never starts a worker or imports originals.
+package main
+
+import (
+	"encoding/json"
+	"os"
+	c "riido.local/initwocomparison/compare"
+	"strings"
+)
+
+func arguments(args []string) (file, sha, out string, ok bool) {
+	if len(args) != 6 {
+		return
+	}
+	for i := 0; i < 6; i += 2 {
+		switch args[i] {
+		case "--config":
+			if file != "" {
+				return
+			}
+			file = args[i+1]
+		case "--config-sha256":
+			if sha != "" {
+				return
+			}
+			sha = args[i+1]
+		case "--out":
+			if out != "" {
+				return
+			}
+			out = args[i+1]
+		default:
+			return
+		}
+	}
+	ok = file != "" && sha != "" && out != "" && file != out
+	return
+}
+func run(args []string) int {
+	file, sha, out, ok := arguments(args)
+	if !ok {
+		return 2
+	}
+	f, e := c.ReserveOutput(out)
+	if e != nil {
+		return 2
+	}
+	report := c.Report{Schema: "riido-ini-two-saved-finite-comparison-v1", State: "failed", Scope: "No comparison admitted after input/transport failure."}
+	cfg, e := c.ReadPinned(c.File{Path: file, Bytes: configSize(file), SHA: sha}, c.ConfigCap, false)
+	if e == nil {
+		var in c.Input
+		in, e = c.Load(cfg, sha)
+		if e == nil {
+			report, e = c.Compare(in)
+		}
+	}
+	envelope := struct {
+		Schema    string   `json:"schema"`
+		State     string   `json:"state"`
+		Failure   string   `json:"failure_code"`
+		ConfigSHA string   `json:"config_sha256"`
+		Report    c.Report `json:"report"`
+	}{"riido-ini-two-saved-comparison-envelope-v1", report.State, c.Code(e), sha, report}
+	raw, je := json.MarshalIndent(envelope, "", "  ")
+	if je != nil {
+		f.Close()
+		return 1
+	}
+	raw = append(raw, '\n')
+	if c.FinishOutput(f, raw) != nil {
+		return 1
+	}
+	summary := struct {
+		State        string   `json:"state"`
+		Failure      string   `json:"failure_code"`
+		Validated    int      `json:"validated_saved_workers"`
+		Started      bool     `json:"comparisons_started"`
+		Observations c.Counts `json:"observation_counts"`
+	}{report.State, c.Code(e), report.ValidatedSavedWorkers, report.ComparisonStarted, report.Observations}
+	if json.NewEncoder(os.Stdout).Encode(summary) != nil {
+		return 1
+	}
+	if e != nil {
+		return 1
+	}
+	return 0
+}
+func configSize(path string) int {
+	s, e := os.Lstat(path)
+	if e != nil || !s.Mode().IsRegular() || s.Size() < 1 || s.Size() > c.ConfigCap {
+		return -1
+	}
+	return int(s.Size())
+}
+func main() {
+	if code := run(os.Args[1:]); code != 0 {
+		os.Stderr.WriteString(strings.TrimSpace("ini_two_saved_comparison_failed") + "\n")
+		os.Exit(code)
+	}
+}

@@ -1,0 +1,176 @@
+package protocol
+
+import (
+	"bytes"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"io"
+	"reflect"
+	"strconv"
+	"strings"
+	"unicode/utf8"
+)
+
+func bad() error { return errors.New("iniquoted_protocol_invalid") }
+func SHA(s string) bool {
+	if len(s) != 64 {
+		return false
+	}
+	raw, e := hex.DecodeString(s)
+	return e == nil && len(raw) == 32 && strings.ToLower(s) == s
+}
+func ReadString(raw []byte) (string, error) {
+	trimmed := bytes.TrimSpace(raw)
+	if len(trimmed) < 2 || trimmed[0] != '"' || trimmed[len(trimmed)-1] != '"' {
+		return "", bad()
+	}
+	var s string
+	if json.Unmarshal(raw, &s) != nil || !utf8.ValidString(s) {
+		return "", bad()
+	}
+	return s, nil
+}
+func ReadInt(raw []byte) (int, error) {
+	trimmed := bytes.TrimSpace(raw)
+	if len(trimmed) == 0 || trimmed[0] == '"' {
+		return 0, bad()
+	}
+	s := string(trimmed)
+	n, e := strconv.Atoi(s)
+	if e != nil || strconv.Itoa(n) != s {
+		return 0, bad()
+	}
+	return n, nil
+}
+
+// Object requires exactly one occurrence of each exact key, no aliases,
+// unknown fields or trailing JSON. Arrays/slices hold the small key sets.
+func Object(raw []byte, keys []string) ([]json.RawMessage, error) {
+	if !utf8.Valid(raw) {
+		return nil, bad()
+	}
+	d := json.NewDecoder(bytes.NewReader(raw))
+	t, e := d.Token()
+	if e != nil || t != json.Delim('{') {
+		return nil, bad()
+	}
+	vals := make([]json.RawMessage, len(keys))
+	seen := make([]bool, len(keys))
+	n := 0
+	for d.More() {
+		t, e = d.Token()
+		s, ok := t.(string)
+		if e != nil || !ok {
+			return nil, bad()
+		}
+		index := -1
+		for i, k := range keys {
+			if s == k {
+				index = i
+				break
+			}
+		}
+		if index < 0 || seen[index] {
+			return nil, bad()
+		}
+		seen[index] = true
+		n++
+		if d.Decode(&vals[index]) != nil {
+			return nil, bad()
+		}
+	}
+	t, e = d.Token()
+	if e != nil || t != json.Delim('}') || n != len(keys) {
+		return nil, bad()
+	}
+	var tail any
+	if d.Decode(&tail) != io.EOF {
+		return nil, bad()
+	}
+	return vals, nil
+}
+
+// shape derives only the known local DTO fields. It prevents json.Unmarshal
+// from discarding excess fixed-array elements or defaulting absent fields.
+// This is a bounded transport check, not a candidate/truth evaluation.
+func shape(raw []byte, t reflect.Type, depth int) error {
+	if depth > 16 || len(raw) == 0 || !utf8.Valid(raw) {
+		return bad()
+	}
+	if t.Kind() == reflect.Pointer {
+		if bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
+			return nil
+		}
+		return shape(raw, t.Elem(), depth+1)
+	}
+	switch t.Kind() {
+	case reflect.Struct:
+		keys := make([]string, t.NumField())
+		for i := range keys {
+			f := t.Field(i)
+			k := strings.Split(f.Tag.Get("json"), ",")[0]
+			if k == "" {
+				k = f.Name
+			}
+			keys[i] = k
+		}
+		vals, e := Object(raw, keys)
+		if e != nil {
+			return e
+		}
+		for i, v := range vals {
+			if shape(v, t.Field(i).Type, depth+1) != nil {
+				return bad()
+			}
+		}
+	case reflect.Array:
+		var vals []json.RawMessage
+		if json.Unmarshal(raw, &vals) != nil || len(vals) != t.Len() {
+			return bad()
+		}
+		for _, v := range vals {
+			if shape(v, t.Elem(), depth+1) != nil {
+				return bad()
+			}
+		}
+	case reflect.Bool:
+		s := string(bytes.TrimSpace(raw))
+		if s != "true" && s != "false" {
+			return bad()
+		}
+	case reflect.String:
+		if _, e := ReadString(raw); e != nil {
+			return e
+		}
+	case reflect.Int, reflect.Int64:
+		if _, e := ReadInt(raw); e != nil {
+			return e
+		}
+	case reflect.Uint8:
+		n, e := ReadInt(raw)
+		if e != nil || n < 0 || n > 255 {
+			return bad()
+		}
+	case reflect.Float64:
+		// Only the permanently-null weight pointer has this shape. Non-null
+		// supervision is rejected without interpreting a float label/weight.
+		return bad()
+	default:
+		return bad()
+	}
+	return nil
+}
+func decode(raw []byte, out any, cap int) error {
+	if len(raw) == 0 || len(raw) > cap || !json.Valid(raw) || !utf8.Valid(raw) {
+		return bad()
+	}
+	t := reflect.TypeOf(out)
+	if t.Kind() != reflect.Pointer {
+		return bad()
+	}
+	if shape(raw, t.Elem(), 0) != nil || json.Unmarshal(raw, out) != nil {
+		return bad()
+	}
+	return nil
+}

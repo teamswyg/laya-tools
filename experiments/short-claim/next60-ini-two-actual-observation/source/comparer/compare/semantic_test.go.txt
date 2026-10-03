@@ -1,0 +1,129 @@
+package compare
+
+import (
+	"encoding/json"
+	d "riido.local/initwocomparison/internal/deleted"
+	q "riido.local/initwocomparison/internal/quoted"
+	"testing"
+)
+
+func w(key, raw string) wanted {
+	return wanted{keys: []string{key}, raw: []json.RawMessage{json.RawMessage(raw)}, caseID: "owned-synthetic"}
+}
+func TestQuotedUnavailableKindNotTextGuessed(t *testing.T) {
+	o := q.Observation{CandidateReturnedKnown: true, CandidateReturned: true, CandidateError: q.ErrorView{Available: true, Known: true, Type: q.Text{Known: true, Value: "*owned.other"}}}
+	p := quotedPredicates(o, w("error_kind", `"unclosed_quote"`))[0]
+	if p.State != Unknown || p.Got.Known {
+		t.Fatal(p)
+	}
+	o.CandidateError.Kind = q.Text{Known: true, Value: "trailing_value"}
+	if quotedPredicates(o, w("error_kind", `"unclosed_quote"`))[0].State != False {
+		t.Fatal("typed known mismatch lost")
+	}
+}
+func TestKnownNullVersusEmptyString(t *testing.T) {
+	o := q.Observation{Value: q.Text{Known: true, Value: ""}}
+	if quotedPredicates(o, w("value", `""`))[0].State != True {
+		t.Fatal("known empty")
+	}
+	o.Value = q.Text{}
+	if quotedPredicates(o, w("value", `""`))[0].State != Unknown {
+		t.Fatal("missing became empty")
+	}
+	o.Value = q.Text{Known: true, Null: true}
+	if quotedPredicates(o, w("value", `""`))[0].State != False {
+		t.Fatal("nil became empty")
+	}
+}
+func TestKnownErrorNotInventedText(t *testing.T) {
+	o := q.Observation{CandidateReturnedKnown: true, CandidateReturned: true, CandidateError: q.ErrorView{Available: true, Known: true}}
+	p := quotedPredicates(o, w("error", `null`))[0]
+	if p.State != False || !p.Got.NonNullError || p.Got.Text != nil {
+		t.Fatal(p)
+	}
+	o.CandidateReturned = false
+	if quotedPredicates(o, w("error", `null`))[0].State != Unknown {
+		t.Fatal("panic inferred nil")
+	}
+}
+func TestValueSurvivesLaterCommentPanic(t *testing.T) {
+	o := q.Observation{Value: q.Text{Known: true, Value: "owned"}, AccessorPanic: q.PanicView{Known: true, Present: true}}
+	if quotedPredicates(o, w("value", `"owned"`))[0].State != True || quotedPredicates(o, w("comment", `""`))[0].State != Unknown {
+		t.Fatal("separate getter channels collapsed")
+	}
+}
+func syntheticSnapshot() d.Snapshot {
+	s := d.Snapshot{Known: true, BlockModeKnown: true, BlockMode: true, SectionsKnown: true, N: 2, Names: d.Strings{Known: true, N: 2, Values: [4]string{"DEFAULT", "x"}}}
+	s.Sections[0] = d.SectionState{NameKnown: true, Name: "DEFAULT", KeysKnown: true, OccurrenceKnown: true}
+	s.Sections[1] = d.SectionState{NameKnown: true, Name: "x", KeysKnown: true, KeyN: 1, OccurrenceKnown: true, Keys: [1]d.KeyState{{NameKnown: true, ValueKnown: true, Name: "v", Value: "owned"}}}
+	return s
+}
+func TestDeletePublicProjectionDefaultExcluded(t *testing.T) {
+	s := syntheticSnapshot()
+	v := userSections(s)
+	if !v.Known || v.Strings == nil || len(*v.Strings) != 1 || (*v.Strings)[0] != "x:owned" {
+		t.Fatal(v)
+	}
+	idx := xIndexes(s)
+	if idx.Integers == nil || len(*idx.Integers) != 1 || (*idx.Integers)[0] != 0 {
+		t.Fatal(idx)
+	}
+	s.Sections[1].OccurrenceKnown = false
+	if xIndexes(s).Known {
+		t.Fatal("private index guessed")
+	}
+}
+func TestPartialUnchangedPreservesKnownMismatch(t *testing.T) {
+	a := syntheticSnapshot()
+	b := a
+	b.Known = false
+	b.Names.Values[1] = "owned-different"
+	v := unchanged(a, b)
+	if !v.Known || v.Bool == nil || *v.Bool {
+		t.Fatal("known name contradiction lost")
+	}
+	b = a
+	b.Known = false
+	if unchanged(a, b).Known {
+		t.Fatal("partial equality became full equality")
+	}
+}
+func TestDeleteRangeIdentityAndUnknown(t *testing.T) {
+	o := d.Observation{CandidateReturnedKnown: true, CandidateReturned: true, CandidateError: d.ErrorView{Known: true, TypeKnown: true, Type: "*owned.other"}}
+	if deletedPredicates(o, w("error_kind", `"range"`))[0].State != Unknown {
+		t.Fatal("unclassified error guessed")
+	}
+	o.CandidateError.RangeKnown = true
+	if deletedPredicates(o, w("error_kind", `"range"`))[0].State != False {
+		t.Fatal("known nonrange lost")
+	}
+	o.CandidateError.Range = true
+	if deletedPredicates(o, w("error_kind", `"range"`))[0].State != True {
+		t.Fatal("owned range not recognized")
+	}
+}
+func TestKnownFalseCoexistsUnknownNoCandidateAssumption(t *testing.T) {
+	var ws [5]wanted
+	var rows [15]q.Record
+	for i := range ws {
+		ws[i] = wanted{keys: []string{"value", "comment"}, raw: []json.RawMessage{json.RawMessage(`"owned"`), json.RawMessage(`"tail"`)}, caseID: "synthetic"}
+	}
+	// All candidates are unknown except candidate2's own known counterexample.
+	rows[2].Observation.Value = q.Text{Known: true, Value: "wrong"}
+	r := compareRows(0, ws, rows, [15]d.Record{})
+	if r.Candidates[0].State != Unknown || r.Candidates[1].State != Unknown || r.Candidates[2].State != False || r.Candidates[2].UnknownPredicatePositions != 9 || !r.Candidates[2].KnownCounterexampleFixtures[0] {
+		t.Fatal(r.Candidates)
+	}
+	if r.Rows[2].Counts.False != 1 || r.Rows[2].Counts.Unknown != 1 {
+		t.Fatal(r.Rows[2])
+	}
+	if r.Labels || r.Roles || r.Weights || r.Qualified || r.OriginalCalls+r.OracleCalls+r.ModelCalls+r.FitCalls != 0 {
+		t.Fatal("authority invented")
+	}
+}
+func TestFrozenInputsNotAdmittedBySyntheticCore(t *testing.T) {
+	r, e := Compare(Input{Family: 0, Fixtures: []byte("owned"), Wants: []byte("synthetic")})
+	if e != ErrInput || r.ComparisonStarted || r.ValidatedSavedWorkers != 0 || r.SavedObservations != 0 {
+		t.Fatal(r, e)
+	}
+}

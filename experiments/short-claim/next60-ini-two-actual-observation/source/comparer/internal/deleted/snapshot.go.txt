@@ -1,0 +1,322 @@
+// Owned snapshot-stage validator adapted from sealed worker snapshot.go.
+package protocol
+
+type snapshotCursor struct{ stage, section, key, name int }
+
+var snapshotStages = [19]string{"after_blockmode_field", "before_section_strings", "after_section_strings", "before_sections", "after_sections", "before_section_name", "after_section_name", "before_key_strings", "after_key_strings", "before_keys", "after_keys", "before_key_name", "after_key_name", "before_key_value", "after_key_value", "before_sections_by_name", "after_sections_by_name", "after_public_occurrence_mapping", "snapshot_complete"}
+
+func validStrings(v Strings, max int) bool {
+	if !v.Known {
+		return v == (Strings{})
+	}
+	if v.N < 0 || v.N > max || v.Nil && v.N != 0 {
+		return false
+	}
+	for i, s := range v.Values {
+		if !bounded(s, MaxTextBytes) || i >= v.N && s != "" {
+			return false
+		}
+	}
+	return true
+}
+func validSnapshot(v Snapshot) bool {
+	if !validStrings(v.Names, MaxSections) || v.N < 0 || v.N > MaxSections || v.GroupN < 0 || v.GroupN > MaxSections || v.SectionsNil && v.N != 0 || !v.SectionsKnown && (v.N != 0 || v.SectionsNil) || !validPanic(v.AccessorPanic) || !validError(v.BindingError) {
+		return false
+	}
+	for i, s := range v.Sections {
+		if s.RawPrivateIndexKnown || !bounded(s.Name, MaxTextBytes) || !s.NameKnown && s.Name != "" || !validStrings(s.KeyNames, MaxKeys) || s.KeyN < 0 || s.KeyN > MaxKeys || s.KeysNil && s.KeyN != 0 || !s.KeysKnown && (s.KeyN != 0 || s.KeysNil) || s.Occurrence < 0 || s.Occurrence >= MaxSections || !s.OccurrenceKnown && s.Occurrence != 0 {
+			return false
+		}
+		if i >= v.N && s != (SectionState{}) {
+			return false
+		}
+		for j, k := range s.Keys {
+			if !bounded(k.Name, MaxTextBytes) || !bounded(k.Value, MaxTextBytes) || !k.NameKnown && k.Name != "" || !k.ValueKnown && k.Value != "" || k.Nil && (k.NameKnown || k.ValueKnown) || j >= s.KeyN && k != (KeyState{}) {
+				return false
+			}
+		}
+	}
+	for i, g := range v.Groups {
+		if !bounded(g.Name, MaxTextBytes) || g.N < 0 || g.N > MaxSections || g.Nil && g.N != 0 || !g.Known && (g.N != 0 || g.Nil) || !validError(g.Error) || i > v.GroupN && g != (GroupState{}) {
+			return false
+		}
+		for j, p := range g.PublicPositions {
+			if p < 0 || p >= MaxSections || j >= g.N && p != 0 {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+// Preserve only fields whose prior callback actually exposed them as known.
+// Uncheckpointed owned mapping/nil guards may add partial facts on terminal
+// failure, but never erase an acknowledged public value or fake private indexes.
+func preservesSnapshot(a, b Snapshot) bool {
+	if a.Known {
+		return a == b
+	}
+	if a.BlockModeKnown && (!b.BlockModeKnown || a.BlockMode != b.BlockMode) || a.Names.Known && a.Names != b.Names || a.SectionsKnown && (!b.SectionsKnown || a.SectionsNil != b.SectionsNil || a.N != b.N) || a.GroupN > b.GroupN {
+		return false
+	}
+	for i, s := range a.Sections {
+		t := b.Sections[i]
+		if s.Nil && !t.Nil || s.NameKnown && (!t.NameKnown || s.Name != t.Name) || s.KeyNames.Known && s.KeyNames != t.KeyNames || s.KeysKnown && (!t.KeysKnown || s.KeysNil != t.KeysNil || s.KeyN != t.KeyN) || s.OccurrenceKnown && (!t.OccurrenceKnown || s.Occurrence != t.Occurrence) {
+			return false
+		}
+		for j, k := range s.Keys {
+			n := t.Keys[j]
+			if k.Nil && !n.Nil || k.NameKnown && (!n.NameKnown || k.Name != n.Name) || k.ValueKnown && (!n.ValueKnown || k.Value != n.Value) {
+				return false
+			}
+		}
+	}
+	for i, g := range a.Groups {
+		t := b.Groups[i]
+		if g.Name != "" && g.Name != t.Name || g.Known && (!t.Known || g.Nil != t.Nil || g.N != t.N) || g.Error.Known && g.Error != t.Error {
+			return false
+		}
+		if i < a.GroupN && g != t {
+			return false
+		}
+	}
+	return (!a.AccessorPanic.Present || a.AccessorPanic == b.AccessorPanic) && (!a.BindingError.Known || a.BindingError == b.BindingError)
+}
+func snapshotFailure(s Snapshot) bool {
+	if s.AccessorPanic.Known && s.AccessorPanic.Present || s.BindingError.Known && !s.BindingError.Nil {
+		return true
+	}
+	if s.GroupN < MaxSections {
+		g := s.Groups[s.GroupN]
+		return g.Error.Known && !g.Error.Nil
+	}
+	return false
+}
+func (c *snapshotCursor) nextGroup(s Snapshot) {
+	for c.name < s.Names.N {
+		seen := false
+		name := s.Names.Values[c.name]
+		for j := 0; j < s.GroupN; j++ {
+			if s.Groups[j].Name == name {
+				seen = true
+				break
+			}
+		}
+		if !seen {
+			c.stage = 15
+			return
+		}
+		c.name++
+	}
+	c.stage = 18
+}
+func (c *snapshotCursor) nextSection(s Snapshot) {
+	c.section++
+	c.key = 0
+	if c.section < s.N {
+		c.stage = 5
+	} else {
+		c.nextGroup(s)
+	}
+}
+func snapshotStage(c snapshotCursor, prefix string) string {
+	if c.stage < 0 || c.stage >= len(snapshotStages) {
+		return ""
+	}
+	return prefix + "_" + snapshotStages[c.stage]
+}
+
+// No API or callback is invoked here. The returned cursor and counters are
+// tentative until the containing frame has been written and Synced.
+func advanceSnapshot(cursor snapshotCursor, prefix, stage string, a, b Snapshot, c Counters) (snapshotCursor, Counters, string) {
+	next := cursor
+	t := a
+	if stage != snapshotStage(cursor, prefix) || !validSnapshot(b) {
+		return next, c, "snapshot_stage"
+	}
+	i, j, g := cursor.section, cursor.key, a.GroupN
+	switch cursor.stage {
+	case 0:
+		if !b.BlockModeKnown && !b.AccessorPanic.Present {
+			return next, c, "snapshot_field"
+		}
+		t.BlockModeKnown = b.BlockModeKnown
+		t.BlockMode = b.BlockMode
+		t.AccessorPanic = b.AccessorPanic
+		c.FieldReads++
+		next.stage = 1
+	case 1, 3, 5, 7, 9, 11, 13, 15:
+		if c.AccessorReserved >= MaxAccessorCalls {
+			return next, c, "snapshot_accessor_cap"
+		}
+		c.AccessorReserved++
+		if cursor.stage == 15 {
+			if g >= MaxSections || cursor.name >= a.Names.N {
+				return next, c, "snapshot_group"
+			}
+			t.Groups[g].Name = a.Names.Values[cursor.name]
+		}
+		next.stage++
+	case 2, 4, 6, 8, 10, 12, 14, 16:
+		c.AccessorDispatched++
+		pan := b.AccessorPanic.Known && b.AccessorPanic.Present
+		if pan {
+			if a.AccessorPanic.Present {
+				return next, c, "snapshot_repeated_panic"
+			}
+			c.AccessorPanicked++
+			t.AccessorPanic = b.AccessorPanic
+		} else {
+			c.AccessorReturned++
+			t.BindingError = b.BindingError
+		}
+		// A conversion error may happen after setting a subset of this exact
+		// target's fields. All other targets remain immutable in this event.
+		switch cursor.stage {
+		case 2:
+			t.Names = b.Names
+		case 4:
+			t.SectionsKnown = b.SectionsKnown
+			t.SectionsNil = b.SectionsNil
+			t.N = b.N
+		case 6:
+			if i >= a.N {
+				return next, c, "snapshot_section"
+			}
+			t.Sections[i].NameKnown = b.Sections[i].NameKnown
+			t.Sections[i].Name = b.Sections[i].Name
+		case 8:
+			if i >= a.N {
+				return next, c, "snapshot_section"
+			}
+			t.Sections[i].KeyNames = b.Sections[i].KeyNames
+		case 10:
+			if i >= a.N {
+				return next, c, "snapshot_section"
+			}
+			t.Sections[i].KeysKnown = b.Sections[i].KeysKnown
+			t.Sections[i].KeysNil = b.Sections[i].KeysNil
+			t.Sections[i].KeyN = b.Sections[i].KeyN
+		case 12:
+			if i >= a.N || j >= a.Sections[i].KeyN {
+				return next, c, "snapshot_key"
+			}
+			t.Sections[i].Keys[j].NameKnown = b.Sections[i].Keys[j].NameKnown
+			t.Sections[i].Keys[j].Name = b.Sections[i].Keys[j].Name
+		case 14:
+			if i >= a.N || j >= a.Sections[i].KeyN {
+				return next, c, "snapshot_key"
+			}
+			t.Sections[i].Keys[j].ValueKnown = b.Sections[i].Keys[j].ValueKnown
+			t.Sections[i].Keys[j].Value = b.Sections[i].Keys[j].Value
+		case 16:
+			if g >= MaxSections {
+				return next, c, "snapshot_group"
+			}
+			old := t.Groups[g]
+			n := b.Groups[g]
+			old.Known = n.Known
+			old.Nil = n.Nil
+			old.N = n.N
+			old.Error = n.Error
+			t.Groups[g] = old
+		}
+		if pan || snapshotFailure(b) {
+			next.stage = 19
+			break
+		}
+		switch cursor.stage {
+		case 2:
+			if !b.Names.Known {
+				return next, c, "snapshot_names"
+			}
+			next.stage = 3
+		case 4:
+			if !b.SectionsKnown {
+				return next, c, "snapshot_sections"
+			}
+			if b.N > 0 {
+				next.stage = 5
+			} else {
+				next.nextGroup(b)
+			}
+		case 6:
+			if !b.Sections[i].NameKnown {
+				return next, c, "snapshot_name"
+			}
+			next.stage = 7
+		case 8:
+			if !b.Sections[i].KeyNames.Known {
+				return next, c, "snapshot_key_names"
+			}
+			next.stage = 9
+		case 10:
+			if !b.Sections[i].KeysKnown {
+				return next, c, "snapshot_keys"
+			}
+			if b.Sections[i].KeyN > 0 {
+				next.stage = 11
+			} else {
+				next.nextSection(b)
+			}
+		case 12:
+			if !b.Sections[i].Keys[j].NameKnown {
+				return next, c, "snapshot_key_name"
+			}
+			next.stage = 13
+		case 14:
+			if !b.Sections[i].Keys[j].ValueKnown {
+				return next, c, "snapshot_key_value"
+			}
+			next.key++
+			if next.key < b.Sections[i].KeyN {
+				next.stage = 11
+			} else {
+				next.nextSection(b)
+			}
+		case 16:
+			if !b.Groups[g].Known || !b.Groups[g].Error.Known || !b.Groups[g].Error.Nil {
+				return next, c, "snapshot_group_return"
+			}
+			next.stage = 17
+		}
+	case 17:
+		if g >= MaxSections || !a.Groups[g].Known || b.GroupN != g+1 {
+			return next, c, "snapshot_mapping"
+		}
+		var seen [MaxSections]bool
+		for ordinal := 0; ordinal < a.Groups[g].N; ordinal++ {
+			pos := b.Groups[g].PublicPositions[ordinal]
+			if pos < 0 || pos >= a.N || seen[pos] || !a.Sections[pos].NameKnown || a.Sections[pos].Name != a.Groups[g].Name || a.Sections[pos].OccurrenceKnown {
+				return next, c, "snapshot_mapping"
+			}
+			seen[pos] = true
+			t.Groups[g].PublicPositions[ordinal] = pos
+			t.Sections[pos].OccurrenceKnown = true
+			t.Sections[pos].Occurrence = ordinal
+		}
+		t.GroupN++
+		next.name++
+		next.nextGroup(t)
+	case 18:
+		if a.N != a.Names.N {
+			return next, c, "snapshot_complete"
+		}
+		for i := 0; i < a.N; i++ {
+			if !a.Sections[i].NameKnown || a.Sections[i].Name != a.Names.Values[i] || !a.Sections[i].OccurrenceKnown {
+				return next, c, "snapshot_complete"
+			}
+		}
+		t.Known = true
+		next.stage = 20
+	default:
+		return next, c, "snapshot_stage"
+	}
+	if b != t || !preservesSnapshot(a, b) {
+		return next, c, "snapshot_prefix"
+	}
+	if cursor.stage == 0 && snapshotFailure(b) {
+		next.stage = 19
+	}
+	return next, c, ""
+}
