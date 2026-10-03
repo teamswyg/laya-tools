@@ -4,6 +4,8 @@
 
 [HF30 고정 버전](https://huggingface.co/datasets/JooYoon/riidolaya-shortclaim-next60-development/tree/next60-30-finite-v1)을 게시해 소유558파일·표30행의 모든 값과 순서를 확인했습니다. [실제 게시·PR121 CI 근거](experiments/short-claim/publication-proof-122/README.ko.md)를 보세요. Linux·macOS의 새30행 재현 검사와 기존 Laya native 검사가 각각 통과했고 CI 봇이 병합했습니다. GPU 실행은 확인하지 않았습니다. [다음 원천22개 제안과 보류 이유](experiments/short-claim/next60-new-source-preview/README.ko.md)를 구분해 기록합니다.
 
+[다음 세 과제의 실행 전 기대값·후보 설명](experiments/short-claim/next60-native-three-preparation/README.ko.md)을 고정했습니다. 14입력·9후보·예정42실행이며 아직 새 관측·라벨·학습은0입니다. 원본 JSON Int에 없는 오류 반환은 확인 불가로 보존합니다. [PR122 CI·Wiki 게시 완료와 저장 공간 검증](experiments/short-claim/publication-proof-123/README.ko.md)도 한영으로 기록했습니다.
+
 <details>
 <summary>이전 단계 기록 — 아래 수치와 “현재”는 각 단계 작성 당시 상태입니다</summary>
 

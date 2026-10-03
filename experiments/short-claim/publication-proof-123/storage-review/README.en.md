@@ -1,0 +1,5 @@
+No blocking finding in four inactive-copy archive records. All 47 pin checks matched, including the prior 16 current archives. Full bounded gzip decoding verified CRC/EOF and SHA for each 8,390,462-byte original, without interpreting scientific JSON. Each archive is 518,222 bytes, mode 0600, link count 1. Four originals and four temporary restores are absent.
+
+Logical disk-file savings before control growth are 31,488,960 bytes. The 62 roots retain all prior 42 optional-root conditions. The saved census reports 500,736,148 bytes and 36,134,764 headroom, but is a non-atomic past snapshot, not current admission.
+
+Historical disk-restore SHA/mode and Sync facts rely on pinned source and completed records; this reviewer did not repeat them. Future restoration changes inode/mtime and needs new metadata freezing. Disk savings do not establish model RAM/speed or whole-machine usage. The reviewer did not author Root archiver/v4 helper, but authored the prior v3 census and fake controls: nonblind cross-review. An initial seal size guard rejected before creating any file. Exact SHA pins are in REVIEW.v1.json.

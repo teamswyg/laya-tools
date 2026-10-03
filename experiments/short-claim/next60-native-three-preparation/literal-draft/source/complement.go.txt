@@ -1,0 +1,14 @@
+// DRAFT candidates at fixed positions 0/1/2. Original callbacks are not bound here.
+package threeliteral
+
+func ComplementCandidate(api BitsetAPI, position int, src Bitset, width uint) Bitset {
+    // A later observer validates bindings and width/Len<=128 before dispatch.
+    if position == 1 { return api.Complement(src) }
+    resultLength := width
+    if position == 2 { resultLength = src.Len() }
+    dst := api.New(resultLength)
+    for i := uint(0); i < width; i++ {
+        if !src.Test(i) { api.Set(dst, i) }
+    }
+    return dst
+}

@@ -1,0 +1,66 @@
+{
+  "schema": "riido-three-literal-ABI-proposed-v1",
+  "state": "DRAFT",
+  "native_binding_written": false,
+  "worker_written": false,
+  "outside_controller_written": false,
+  "compiler_or_linkage_verified_here": false,
+  "scaffold_contract": {
+    "Bitset": "opaque original pointer behind Len/Test/Words; New, Set, Complement, UnmarshalBinary and authored Assign callback wrappers. Original Set returns *BitSet; the binder discards that return explicitly. Assign copies the temporary owned bitset value after strict validation, without aliasing the rejected original receiver. Raw Words is borrowed; snapshots copy at most two uint64 words immediately into fixed arrays.",
+    "GJSON": "Valid whole input then Parse root; exported Type/Raw/Num copied; opaque Result retained only for its exact Int method callback. No Get path or query string. Original Int has only int64 return, never an error channel.",
+    "ABI_direct_signatures_pending": "Original wrappers and same-version source/module bindings must be supplied by Root in a later explicit native preparation."
+  },
+  "candidate_order": [
+    {
+      "request_ordinal": 2,
+      "positions": [
+        "explicit_width",
+        "original_local_complement",
+        "requested_domain_stored_length"
+      ],
+      "intended_contract_position": 0
+    },
+    {
+      "request_ordinal": 7,
+      "positions": [
+        "original_Int",
+        "checked_lexeme",
+        "discard_ParseInt_error"
+      ],
+      "intended_contract_position": 1
+    },
+    {
+      "request_ordinal": 1,
+      "positions": [
+        "length_only_transactional",
+        "original_UnmarshalBinary",
+        "length_and_padding_transactional"
+      ],
+      "intended_contract_position": 2
+    }
+  ],
+  "availability": {
+    "Complement": "result pointer/state available if returned normally; no error return channel for any declared candidate signature; panic affects state knownness.",
+    "JSON_original": "int64 value available on normal return; error channel unavailable, including values 9007199254740993 and max-int64. No fabricated nil error. Missing requested error channel alone yields U.",
+    "JSON_checked_or_discard": "explicit returned error channel available. Nil/non-nil and own sentinel direct identity; no Error/String/Formatter calls. Failure value is not a required Want.",
+    "Binary": "error return channel available; source original errors remain their actual types/identities if available. Wants compare presence plus state, not invented original typed policy errors.",
+    "panic": "type/presence only; text unavailable unless a future bounded primitive-only policy is separately frozen. No Error/String/Formatter dispatch."
+  },
+  "guards": {
+    "max_bits": 128,
+    "max_binary_input_bytes": 25,
+    "max_exact_binary_bytes": 24,
+    "huge_header_policy": "Reject before original dispatch, preserving excluded-input status; not an observed baseline outcome.",
+    "byte_order": "Fresh worker, source default BigEndian; do not call mutable BigEndian/LittleEndian setters. Verify binding before any candidate dispatch.",
+    "JSON": "Complete JSON only, root Number, integer lexeme grammar minus? (0 or [1-9][0-9]*); no dot or exponent. No current exponent/invalid-JSON fixture: source-only policy, finite coverage explicitly limited."
+  },
+  "call_count_status": {
+    "candidate_dispatches_proposed": 42,
+    "candidate_dispatches_actual": 0,
+    "original_init_count_actual": null,
+    "original_nested_call_count_actual": null,
+    "direct_original_method_reservations": "not frozen; New/Set/Len/Words/Test/Complement/Valid/Parse/Int/UnmarshalBinary and authored Assign must be included in a later scoped plan",
+    "checkpoint_durability": "not implemented or attested by these inert candidates; before-method reservation and after-return snapshot ACK remain required before an actual run"
+  },
+  "qualification_role_group_authority": false
+}

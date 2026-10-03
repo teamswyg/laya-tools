@@ -1,0 +1,59 @@
+// Separate DRAFT oracle preparation by the same author; not an independent review.
+// These functions do not invoke an original/candidate function or an original getter.
+package threeliteral
+
+import (
+    "encoding/json"
+    "strings"
+)
+
+func ComplementOracle(width uint, set []uint) (BitsetState, error) {
+    if width>MaxBits { return BitsetState{}, ErrBounds }
+    var present [128]bool
+    for _,i:=range set { if i>=MaxBits { return BitsetState{},ErrBounds }; present[i]=true }
+    s:=BitsetState{Length:width,WordN:int((width+63)/64)}
+    for i:=uint(0); i<width; i++ { if !present[i] { s.Words[i/64]|=uint64(1)<<(i%64) } }
+    return s,nil
+}
+func BinaryOracle(initial BitsetState, data []byte) (BitsetState,string) {
+    if len(data)<8 || len(data)>MaxBinaryInputBytes { return initial,"excluded_bounds" }
+    n:=uint64(0)
+    for i:=0;i<8;i++ { n=n*256+uint64(data[i]) }
+    if n>128 { return initial,"excluded_bounds" }
+    nw:=(n+63)/64
+    if len(data)!=8+int(nw)*8 { return initial,"payload_length" }
+    s:=BitsetState{Length:uint(n),WordN:int(nw)}
+    for w:=0;w<int(nw);w++ {
+        for j:=0;j<8;j++ { s.Words[w]=s.Words[w]*256+uint64(data[8+8*w+j]) }
+    }
+    for i:=n;i<nw*64;i++ {
+        if s.Words[i/64]&(uint64(1)<<(i%64))!=0 { return initial,"tail_padding" }
+    }
+    return s,""
+}
+func IntegerOracle(text string) (int64,string) {
+    if !json.Valid([]byte(text)) { return 0,"invalid_json" }
+    s:=strings.Trim(text," \t\r\n")
+    if len(s)==0 || (s[0]!='-' && (s[0]<'0' || s[0]>'9')) { return 0,"non_number" }
+    negative:=s[0]=='-'
+    i:=0
+    if negative { i++ }
+    start:=i
+    if i==len(s) { return 0,"integer_syntax" }
+    if s[i]=='0' && i+1!=len(s) { return 0,"integer_syntax" }
+    limit:=uint64(9223372036854775807)
+    if negative { limit++ }
+    var magnitude uint64
+    for ;i<len(s);i++ {
+        if s[i]<'0' || s[i]>'9' { return 0,"integer_syntax" }
+        digit:=uint64(s[i]-'0')
+        if magnitude>(limit-digit)/10 { return 0,"out_of_range" }
+        magnitude=magnitude*10+digit
+    }
+    if i==start { return 0,"integer_syntax" }
+    if negative {
+        if magnitude==uint64(9223372036854775808) { return -9223372036854775807-1,"" }
+        return -int64(magnitude),""
+    }
+    return int64(magnitude),""
+}

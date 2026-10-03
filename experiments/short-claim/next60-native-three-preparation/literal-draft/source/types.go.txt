@@ -1,0 +1,62 @@
+// DRAFT inert source. No upstream package import and no execution permission.
+package threeliteral
+
+import "errors"
+
+const MaxBits uint = 128
+const MaxBinaryInputBytes = 25
+var ErrBinding = errors.New("binding unavailable")
+var ErrBounds = errors.New("outside finite bounds")
+var ErrPayloadLength = errors.New("payload length")
+var ErrPadding = errors.New("tail padding")
+var ErrJSON = errors.New("invalid JSON")
+var ErrType = errors.New("non-number root")
+var ErrInteger = errors.New("integer syntax")
+var ErrRange = errors.New("int64 range")
+
+// Original BitSet satisfies these read methods. Mutation wrappers are supplied later.
+type Bitset interface {
+    Len() uint
+    Test(uint) bool
+    Words() []uint64
+}
+type BitsetAPI struct {
+    New func(uint) Bitset
+    Set func(Bitset, uint)
+    Complement func(Bitset) Bitset
+    UnmarshalBinary func(Bitset, []byte) error
+    Assign func(Bitset, Bitset) // authored *dst = *temporary; rejection never commits
+}
+type BitsetState struct {
+    Length uint
+    WordsNil bool
+    WordN int
+    Words [2]uint64
+}
+func CopyState(b Bitset) (BitsetState, error) {
+    if b == nil { return BitsetState{}, ErrBinding }
+    n := b.Len()
+    if n > MaxBits { return BitsetState{}, ErrBounds }
+    words := b.Words() // borrowed original slice; immediately copied, never retained
+    if len(words) > 2 || len(words) != int((n+63)/64) { return BitsetState{}, ErrBounds }
+    s := BitsetState{Length:n, WordsNil:words==nil, WordN:len(words)}
+    copy(s.Words[:], words)
+    return s, nil
+}
+type Root struct {
+    Number bool
+    Raw string
+    Num float64
+    Native any // opaque exact Result; not an input feature or serialized channel
+}
+type JSONAPI struct {
+    Valid func(string) bool
+    Parse func(string) Root
+    Int func(Root) int64
+}
+type IntegerReturn struct {
+    Value int64
+    ValueAvailable bool
+    ErrorAvailable bool
+    Err error // retained only for future explicit identity/type observation; no formatting
+}
