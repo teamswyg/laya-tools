@@ -1,0 +1,474 @@
+// Copyright 2026 teamswyg. SPDX-License-Identifier: Apache-2.0
+package data33
+
+import (
+	"bufio"
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"strings"
+)
+
+func Digest(b []byte) string                { h := sha256.Sum256(b); return hex.EncodeToString(h[:]) }
+func pinned(b []byte, n int, h string) bool { return len(b) == n && Digest(b) == h }
+
+var requestIDs = [3]string{"source-next60-fixed-width-complement", "source-next60-lossless-integer-channel", "source-next60-strict-binary-decode"}
+var fixtureN = [3]int{4, 5, 5}
+var bases = [3]int{0, 12, 27}
+var mappings = [3][3]int{{0, 1, 2}, {2, 1, 0}, {0, 1, 2}}
+
+func initSources(in Inputs) (Qualification, Comparison, []Retained, error) {
+	var q Qualification
+	var c Comparison
+	for _, p := range []struct {
+		b []byte
+		n int
+		h string
+	}{{in.Previous, PreviousBytes, PreviousSHA}, {in.PriorSummary, PriorSummaryBytes, PriorSummarySHA}, {in.Qualification, QualificationBytes, QualificationSHA}, {in.Literal, LiteralBytes, LiteralSHA}, {in.Captions, CaptionsBytes, CaptionsSHA}, {in.Comparison, ComparisonBytes, ComparisonSHA}, {in.Family, FamilyBytes, FamilySHA}} {
+		if !pinned(p.b, p.n, p.h) {
+			return q, c, nil, code("fixed_input_pin")
+		}
+	}
+	if in.ExpectedQualificationSHA != QualificationSHA {
+		return q, c, nil, code("external_Root_qualification_pin")
+	}
+	if e := decode(in.Qualification, &q); e != nil {
+		return q, c, nil, e
+	}
+	if q.Schema != "riido-native-three-Root-finite-development-qualification-v3" || q.State != "Root_adopted_three_finite_requests_materialization_separate" || !strings.HasPrefix(q.Authority, "Root ") || !yes(q.UnknownNeverFalse) || !yes(q.Coexist) || !yes(q.Roles) || !yes(q.Immutable) || len(q.Requests) != 3 || q.NewRequests != 3 || q.NewLabels != 8 || q.Reexecution != 0 || q.Materialized != 0 || q.Model != 0 || q.Protected != 0 || q.PublicCurrent != 30 {
+		return q, c, nil, code("external_adoption_state")
+	}
+	if q.Basis.Previous != (Pin{PreviousBytes, PreviousSHA}) || q.Basis.Comparison != (Pin{ComparisonBytes, ComparisonSHA}) || q.Basis.Literal != (Pin{LiteralBytes, LiteralSHA}) || q.Basis.Captions != (Pin{CaptionsBytes, CaptionsSHA}) || q.Basis.Family != (Pin{FamilyBytes, FamilySHA}) {
+		return q, c, nil, code("adoption_basis")
+	}
+	wantBefore := Pool{Requests: 30, Labels: 88, Positive: 30, Negative: 58, Inputs: 146, Original: 434, Selected: 430}
+	wantAfter := Pool{33, 96, 33, 63, 160, 476, 467, 28, 9, 8, 1}
+	if q.Before != wantBefore || q.After != wantAfter || q.UnknownScope.NewAll != 15 || q.UnknownScope.NewSelected != 2 || q.UnknownScope.Prior != 8 || q.UnknownScope.Selected != 10 || q.UnknownScope.All != 23 || !yes(q.UnknownScope.OlderPreserved) || !yes(q.UnknownScope.WholeHistoryNotClaimed) {
+		return q, c, nil, code("adoption_pool_or_unknown_scope")
+	}
+	if e := decode(in.Comparison, &c); e != nil {
+		return q, c, nil, e
+	}
+	if e := comparisonShape(c); e != nil {
+		return q, c, nil, e
+	}
+	var old struct {
+		Schema    string `json:"schema"`
+		State     string `json:"state"`
+		DataBytes int    `json:"data_bytes"`
+		DataSHA   string `json:"data_sha256"`
+		False     *bool  `json:"unknown_converted_to_false"`
+		Items     []struct {
+			ID       string `json:"request_id"`
+			Position int    `json:"source_candidate_position"`
+			Fixture  int    `json:"fixture"`
+			Field    string `json:"field"`
+			Reason   string `json:"reason"`
+		} `json:"new_retained_unknown_predicates"`
+	}
+	if e := decode(in.PriorSummary, &old); e != nil {
+		return q, c, nil, e
+	}
+	if old.Schema != "riido-next60-27-or30-data-correspondence-v1" || old.State != "materialized_Root_adopted_data_only" || old.DataBytes != PreviousBytes || old.DataSHA != PreviousSHA || !no(old.False) || len(old.Items) != 8 {
+		return q, c, nil, code("prior_unknown_metadata")
+	}
+	retained := make([]Retained, 0, 10)
+	for _, u := range old.Items {
+		if !identifier(u.ID, 64) || u.Position < 0 || u.Position > 2 || u.Fixture < 0 || u.Fixture > 4 || u.Field == "" || u.Reason == "" {
+			return q, c, nil, code("prior_unknown_item")
+		}
+		retained = append(retained, Retained{Request: u.ID, SourcePosition: u.Position, Fixture: u.Fixture, Key: u.Field, Reason: u.Reason})
+	}
+	return q, c, retained, nil
+}
+func add(t *TFU, s string) error {
+	switch s {
+	case "satisfied":
+		t.T++
+	case "unsatisfied":
+		t.F++
+	case "unknown":
+		t.U++
+	default:
+		return code("saved_state")
+	}
+	return nil
+}
+func overall(t TFU) string {
+	if t.F > 0 {
+		return "unsatisfied"
+	}
+	if t.U > 0 {
+		return "unknown"
+	}
+	return "satisfied"
+}
+func comparisonShape(c Comparison) error {
+	if c.Schema != "riido-next60-three-saved-finite-comparison-v1" || len(c.Rows) != 42 || !yes(c.Unknown) || !no(c.Privilege) || c.Qualified != 0 || c.Assigned != 0 || c.Calls != 0 {
+		return code("saved_comparison_header")
+	}
+	var rt, pt TFU
+	for d, r := range c.Rows {
+		q, f, pos, internal := schedule(d)
+		if r.Ordinal != d || r.Request != q || r.Fixture != f || r.Candidate != pos || r.Internal != internal || r.RequestID != requestIDs[q] || r.FixtureID == "" || len(r.Predicates) != 16 || r.Count < 1 || r.Count > 16 {
+			return code("saved_row_identity")
+		}
+		var count TFU
+		for k, p := range r.Predicates {
+			if k >= r.Count {
+				if p.Key != "" || p.State != "" {
+					return code("saved_unused_predicate")
+				}
+				continue
+			}
+			if p.Key == "" {
+				return code("saved_predicate_key")
+			}
+			for _, prev := range r.Predicates[:k] {
+				if prev.Key == p.Key {
+					return code("saved_duplicate_predicate")
+				}
+			}
+			if e := add(&count, p.State); e != nil {
+				return e
+			}
+		}
+		if count != r.Counts || overall(count) != r.State {
+			return code("saved_predicate_bookkeeping")
+		}
+		if e := add(&rt, r.State); e != nil {
+			return e
+		}
+		pt.T += count.T
+		pt.F += count.F
+		pt.U += count.U
+	}
+	if rt != c.RowsTFU || pt != c.PredTFU || rt != (TFU{26, 11, 5}) || pt != (TFU{272, 31, 15}) {
+		return code("saved_totals")
+	}
+	return nil
+}
+func schedule(d int) (q, f, pos, internal int) {
+	if d < 12 {
+		return 0, d % 4, d / 4, d / 4
+	}
+	if d < 27 {
+		k := d - 12
+		return 1, k % 5, k / 5, 2 - k/5
+	}
+	k := d - 27
+	return 2, k % 5, k / 5, k / 5
+}
+
+// Check Root labels against saved states; never create a label from a vector.
+// Negative accepts a known counterexample even if other conditions are U.
+func evidence(s Slot, q int, c Comparison) error {
+	n := fixtureN[q]
+	if s.Position == nil || *s.Position < 0 || *s.Position > 2 || s.Selected == nil || len(s.Vector) != n || len(s.Ordinals) != n || s.Known == nil || s.Unknown == nil || s.Retained == nil {
+		return code("candidate_evidence_shape")
+	}
+	pos := *s.Position
+	known := []int{}
+	unknown := []int{}
+	retained := []Unknown{}
+	var total TFU
+	for f := 0; f < n; f++ {
+		d := bases[q] + pos*n + f
+		r := c.Rows[d]
+		if s.Ordinals[f] != d || s.Vector[f] != r.State {
+			return code("candidate_vector_binding")
+		}
+		if r.State == "unsatisfied" {
+			known = append(known, f)
+		} else if r.State == "unknown" {
+			unknown = append(unknown, f)
+		}
+		if e := add(&total, r.State); e != nil {
+			return e
+		}
+		for _, p := range r.Predicates[:r.Count] {
+			if p.State == "unknown" {
+				retained = append(retained, Unknown{f, p.Key, d})
+			}
+		}
+	}
+	if !eqInts(s.Known, known) || !eqInts(s.Unknown, unknown) || len(retained) != len(s.Retained) {
+		return code("candidate_unknown_counterexample_positions")
+	}
+	for i, u := range retained {
+		if u != s.Retained[i] {
+			return code("candidate_retained_unknown")
+		}
+	}
+	state := overall(total)
+	if *s.Selected {
+		if s.Label == nil || s.Weight == nil || *s.Weight != 1 {
+			return code("selected_supervision_presence")
+		}
+		if *s.Label {
+			if state != "satisfied" || len(retained) > 0 {
+				return code("positive_not_all_known_true")
+			}
+		} else if state != "unsatisfied" || len(known) == 0 {
+			return code("negative_without_known_counterexample")
+		}
+	} else if s.Label != nil || s.Weight != nil || state != "unknown" || len(known) > 0 {
+		return code("unknown_exclusion_cannot_be_negative")
+	}
+	return nil
+}
+func count(r Row, p *Pool) error {
+	positives := 0
+	for i, c := range r.Candidates {
+		if c.Label == nil {
+			return code("row_label_missing")
+		}
+		p.Labels++
+		if *c.Label {
+			p.Positive++
+			positives++
+			if i == 1 {
+				p.Index1++
+			}
+		} else {
+			p.Negative++
+		}
+	}
+	if positives != 1 {
+		return code("Root_finite_positive_count")
+	}
+	p.Requests++
+	p.Inputs += r.Scope.Inputs
+	p.Selected += r.Scope.Observations
+	return nil
+}
+func prefix(raw []byte) (Pool, [30]string, error) {
+	var p Pool
+	var ids [30]string
+	if len(raw) > MaxData || len(raw) < 1 || raw[len(raw)-1] != '\n' {
+		return p, ids, code("prefix_end_cap")
+	}
+	scan := bufio.NewScanner(bytes.NewReader(raw))
+	scan.Buffer(make([]byte, 4096), MaxRow+1)
+	for scan.Scan() {
+		if p.Requests >= 30 {
+			return p, ids, code("prefix_count")
+		}
+		r, e := readRow(scan.Bytes())
+		if e != nil {
+			return p, ids, e
+		}
+		if r.Group < 76 || r.Group > 81 {
+			return p, ids, code("prefix_group")
+		}
+		for _, id := range ids[:p.Requests] {
+			if id == r.ID {
+				return p, ids, code("prefix_duplicate")
+			}
+		}
+		ids[p.Requests] = r.ID
+		if e = count(r, &p); e != nil {
+			return p, ids, e
+		}
+	}
+	if scan.Err() != nil || p != (Pool{Requests: 30, Labels: 88, Positive: 30, Negative: 58, Inputs: 146, Selected: 430, Index1: 27}) {
+		return p, ids, code("prefix_counts")
+	}
+	p.Original = 434
+	return p, ids, nil
+}
+func Compose(in Inputs) ([]byte, Summary, error) {
+	s := Initial()
+	q, c, prior, e := initSources(in)
+	if e != nil {
+		return nil, s, e
+	}
+	p, oldIDs, e := prefix(in.Previous)
+	if e != nil {
+		return nil, s, e
+	}
+	s.Retained = prior
+	var literal struct {
+		Requests []struct {
+			ID       string `json:"request_id"`
+			Text     string `json:"request_text"`
+			Fixtures []struct {
+				ID string `json:"id"`
+			} `json:"fixtures"`
+		} `json:"requests"`
+	}
+	var captions struct {
+		Rows []struct {
+			Ordinal int      `json:"request_ordinal"`
+			IDs     []string `json:"semantic_ids"`
+			Texts   []string `json:"captions"`
+			Mapping []int    `json:"display_to_inert_scaffold_position"`
+		} `json:"rows"`
+	}
+	var family struct {
+		State    string `json:"state"`
+		Families []struct {
+			Group    int      `json:"group"`
+			Repo     string   `json:"family"`
+			Revision string   `json:"revision"`
+			Role     string   `json:"role"`
+			Requests []string `json:"requests"`
+		} `json:"families"`
+		Unchanged *bool `json:"existing_roles_groups_data_immutable"`
+	}
+	for _, v := range []struct {
+		b   []byte
+		out any
+	}{{in.Literal, &literal}, {in.Captions, &captions}, {in.Family, &family}} {
+		if e = decode(v.b, v.out); e != nil {
+			return nil, s, e
+		}
+	}
+	if len(literal.Requests) != 3 || len(captions.Rows) != 3 || len(family.Families) != 2 || family.State != "ROOT_ADOPTED_PROSPECTIVE_DEVELOPMENT_FAMILY_ROLES" || !yes(family.Unchanged) {
+		return nil, s, code("source_caption_family_shape")
+	}
+	out := append([]byte(nil), in.Previous...)
+	newSelected, newExcluded, allUnknown := 0, 0, 0
+	for a, r := range q.Requests {
+		source := literal.Requests[a]
+		cap := captions.Rows[a]
+		fa := family.Families[0]
+		canonical := "bits-and-blooms-bitset"
+		if a == 1 {
+			fa = family.Families[1]
+			canonical = "tidwall-gjson"
+		}
+		if r.ID != requestIDs[a] || source.ID != r.ID || source.Text != r.Request || !textOK(r.Request) || r.Family != canonical || r.Repository != fa.Repo || r.Revision != fa.Revision || r.Group != fa.Group || r.Group != [3]int{82, 83, 82}[a] || r.Role != "development_train" || fa.Role != r.Role || r.TextRevision != "native-three-finite-v1" || r.Scope.Inputs != fixtureN[a] || len(source.Fixtures) != fixtureN[a] || !no(r.Scope.All) || !no(r.Scope.Unseen) || len(r.Scope.Description) < 1 || len(r.Scope.Description) > 512 || strings.ContainsRune(r.Scope.Description, 0) || len(r.Candidates) != 3 || len(cap.IDs) != 3 || len(cap.Texts) != 3 || !eqInts(cap.Mapping, mappings[a][:]) {
+			return nil, s, code("Root_request_source_family_binding")
+		}
+		found := false
+		for _, id := range fa.Requests {
+			if id == r.ID {
+				found = true
+			}
+		}
+		if !found {
+			return nil, s, code("Root_descendant_family_membership")
+		}
+		for _, id := range oldIDs {
+			if id == r.ID {
+				return nil, s, code("new_request_alias_prefix")
+			}
+		}
+		row := Row{Schema: "riido-finite-development-request-row-v1", ID: r.ID, Request: r.Request, Role: r.Role, Group: r.Group, Family: r.Family, Revision: r.Revision, Scope: r.Scope, TextRevision: r.TextRevision, Policy: "request_and_candidates_text_only", Candidates: make([]Candidate, 0, 3)}
+		selected := []int{}
+		excluded := []int{}
+		for pos, slot := range r.Candidates {
+			if slot.Position == nil || *slot.Position != pos || slot.ID != cap.IDs[pos] || slot.Text != cap.Texts[pos] || !identifier(slot.ID, 64) || !textOK(slot.Text) {
+				return nil, s, code("Root_candidate_text_order")
+			}
+			if e = evidence(slot, a, c); e != nil {
+				return nil, s, e
+			}
+			for f, id := range source.Fixtures {
+				if c.Rows[bases[a]+pos*fixtureN[a]+f].FixtureID != id.ID {
+					return nil, s, code("saved_fixture_binding")
+				}
+			}
+			allUnknown += len(slot.Retained)
+			if *slot.Selected {
+				selected = append(selected, pos)
+				newSelected++
+				label, weight := *slot.Label, *slot.Weight
+				row.Candidates = append(row.Candidates, Candidate{ID: slot.ID, Text: slot.Text, Label: &label, Weight: &weight})
+				for _, u := range slot.Retained {
+					ordinal := u.Ordinal
+					s.Retained = append(s.Retained, Retained{Request: r.ID, SourcePosition: pos, Fixture: u.Fixture, Key: u.Key, Ordinal: &ordinal})
+				}
+			} else {
+				excluded = append(excluded, pos)
+				newExcluded++
+				s.Excluded = append(s.Excluded, Excluded{Request: r.ID, SourcePosition: pos, ID: slot.ID, Vector: append([]string(nil), slot.Vector...), Retained: append([]Unknown(nil), slot.Retained...)})
+			}
+		}
+		if !eqInts(r.Selected, selected) || !eqInts(r.Excluded, excluded) || r.Scope.Observations != fixtureN[a]*len(row.Candidates) {
+			return nil, s, code("Root_selected_positions_scope")
+		}
+		b, e := json.Marshal(row)
+		if e != nil {
+			return nil, s, code("row_encode")
+		}
+		if _, e = readRow(b); e != nil {
+			return nil, s, e
+		}
+		if e = count(row, &p); e != nil {
+			return nil, s, e
+		}
+		if len(out)+len(b)+1 > MaxData {
+			return nil, s, code("data_output_cap")
+		}
+		out = append(out, b...)
+		out = append(out, '\n')
+	}
+	p.Original += 42
+	p.NewSlots = 9
+	p.NewSelected = newSelected
+	p.NewExcluded = newExcluded
+	if p != q.After || newSelected != 8 || newExcluded != 1 || len(s.Retained) != 10 || allUnknown != 15 || len(s.Excluded) != 1 || s.Excluded[0].Request != requestIDs[1] || s.Excluded[0].SourcePosition != 2 || len(s.Excluded[0].Retained) != 13 || !bytes.Equal(out[:PreviousBytes], in.Previous) {
+		return nil, s, code("combined_counts_or_unknown_preservation")
+	}
+	s.State = "materialization_prepared_from_Root_adoption"
+	s.DataBytes = len(out)
+	s.DataSHA = Digest(out)
+	s.Pool = p
+	s.PrefixExact = true
+	s.SupervisionCopied = true
+	s.UnknownScope = q.UnknownScope
+	return out, s, nil
+}
+func VerifyReader(in Inputs, data []byte, expected string, read Reader) (Summary, error) {
+	out, s, e := Compose(in)
+	if e != nil {
+		return s, e
+	}
+	if read == nil || !hashOK(expected, 64) || Digest(data) != expected || !bytes.Equal(data, out) {
+		return s, code("reader_data_pin_correspondence")
+	}
+	s.State = "reader_not_completed"
+	scan := bufio.NewScanner(bytes.NewReader(data))
+	scan.Buffer(make([]byte, 4096), MaxRow+1)
+	for scan.Scan() {
+		raw := scan.Bytes()
+		r, e := readRow(raw)
+		if e != nil {
+			return s, e
+		}
+		s.ReaderAttempts++
+		v, e := read(raw)
+		s.ReaderReturned++
+		if e != nil {
+			return s, code("project_reader_failed")
+		}
+		if e = matchLoaded(r, v); e != nil {
+			return s, e
+		}
+		s.ReaderMatched++
+	}
+	if scan.Err() != nil || s.ReaderAttempts != 33 || s.ReaderReturned != 33 || s.ReaderMatched != 33 {
+		return s, code("reader_count")
+	}
+	s.State = "project_reader_correspondence_complete"
+	return s, nil
+}
+func matchLoaded(r Row, v Loaded) error {
+	if !v.Valid || !v.UnusedZero || v.Schema != "riido-short-behavior-claim-v1" || v.Provenance != "finite-development-v1" || v.ID != r.ID || v.Request != r.Request || v.Role != r.Role || v.Family != r.Family || v.Revision != r.Revision || v.TextRevision != r.TextRevision || v.Policy != r.Policy || v.Group != r.Group || v.Inputs != r.Scope.Inputs || v.Observations != r.Scope.Observations || v.ScopeDescription != r.Scope.Description || v.All || v.Unseen || v.Count != len(r.Candidates) || v.SupervisionCount != len(r.Candidates) {
+		return code("reader_metadata_correspondence")
+	}
+	for j, c := range r.Candidates {
+		if c.Label == nil || c.Weight == nil || v.Candidates[j] != (LoadedCandidate{c.ID, c.Text, *c.Label, *c.Weight}) {
+			return code("reader_supervision_correspondence")
+		}
+	}
+	for _, c := range v.Candidates[len(r.Candidates):] {
+		if c != (LoadedCandidate{}) {
+			return code("reader_unused_slots")
+		}
+	}
+	return nil
+}

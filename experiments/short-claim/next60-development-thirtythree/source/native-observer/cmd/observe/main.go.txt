@@ -1,0 +1,84 @@
+// Inert entry point. Original initializers precede main; only separately admitted Root outside may Start.
+package main
+
+import (
+	"os"
+	"riido.local/next60three-nativeprep/native"
+	"riido.local/next60three-nativeprep/threeliteral"
+	"riido.local/next60three-nativeprep/workerio"
+)
+
+func args(a []string) (string, string, string, bool) {
+	if len(a) != 6 {
+		return "", "", "", false
+	}
+	var plan, sha, dir string
+	var seen [3]bool
+	for i := 0; i < 6; i += 2 {
+		index := -1
+		switch a[i] {
+		case "--plan":
+			index = 0
+		case "--plan-sha256":
+			index = 1
+		case "--attempt-dir":
+			index = 2
+		default:
+			return "", "", "", false
+		}
+		if seen[index] || a[i+1] == "" {
+			return "", "", "", false
+		}
+		seen[index] = true
+		switch index {
+		case 0:
+			plan = a[i+1]
+		case 1:
+			sha = a[i+1]
+		case 2:
+			dir = a[i+1]
+		}
+	}
+	return plan, sha, dir, plan != "" && sha != "" && dir != ""
+}
+func run() int {
+	path, sha, dir, ok := args(os.Args[1:])
+	if !ok {
+		return 2
+	}
+	p, literal, _, e := workerio.LoadPlan(path, sha)
+	if e != nil {
+		return 3
+	}
+	files, e := workerio.Open(dir, sha, p)
+	if e != nil {
+		return 4
+	}
+	base := threeliteral.Result{Schema: threeliteral.ResultSchema, PlanSHA256: sha, Literal: p.Literal.Pin, Wants: p.Wants.Pin, Captions: p.Captions.Pin}
+	fs, base, e := threeliteral.LoadLiteral(literal, base)
+	if e != nil {
+		_ = files.Failure(nil, "literal_metadata")
+		return 5
+	}
+	transport := workerio.NewTransport(os.Stdin, os.Stdout)
+	s, e := threeliteral.NewSession(native.Operations(), transport.Exchange)
+	if e != nil {
+		_ = files.Failure(nil, "binding")
+		return 6
+	}
+	result := threeliteral.Execute(s, fs, base)
+	if result.State != "completed" {
+		_ = files.Failure(s, "dispatch_stopped")
+		return 7
+	}
+	if files.Final(result) != nil {
+		_ = files.Failure(s, "result_save")
+		return 8
+	}
+	if s.Final(result) != nil {
+		_ = files.Failure(s, "final_ack")
+		return 9
+	}
+	return 0
+}
+func main() { os.Exit(run()) }

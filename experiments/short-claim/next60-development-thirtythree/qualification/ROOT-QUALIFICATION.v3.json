@@ -1,0 +1,494 @@
+{
+  "schema": "riido-native-three-Root-finite-development-qualification-v3",
+  "state": "Root_adopted_three_finite_requests_materialization_separate",
+  "authority": "Root reviewed fixed contracts, selected source semantics, all 318 saved primitive judgments and nonauthor separate recomputation. Positive requires every fixed condition known satisfied. One known counterexample proves finite-contract negative while other unknowns remain unknown. Candidate identity and position confer no truth privilege. Nonblind development adoption only.",
+  "basis": {
+    "previous_data": {
+      "bytes": 41428,
+      "sha256": "9cdfb758f03adc34a9fb5e00e3c1525921df26d0912f6b554e4ed4c890fd10a2"
+    },
+    "comparison": {
+      "artifact": "SAVED-COMPARISON.actual.private.v1.json",
+      "bytes": 76004,
+      "sha256": "1811bd54fb109eaf2e031fde787c6f772a652c8b4d5a09f963e646b9f4006458"
+    },
+    "literal": {
+      "artifact": "LITERAL-PLAN.proposed.v1.json",
+      "bytes": 27551,
+      "sha256": "a57fd4f3f37f73984df9522b5607d18143277dc4c527124bac6c56a067799c13"
+    },
+    "captions": {
+      "artifact": "CAPTIONS-ORDER.frozen.actual.v1.json",
+      "bytes": 4115,
+      "sha256": "45a421ce909c63949c30935889fad883f7e7202e6c4cd4c85ee4da55386fbd71"
+    },
+    "prospective_family": {
+      "artifact": "FAMILY-ROLE-DECISION.actual.v1.json",
+      "bytes": 3089,
+      "sha256": "1677d33aeb32c18c809e9ea717f375d5086d5b371e68f09f48fd24ae2f254b7f"
+    },
+    "independent_saved_audit": {
+      "artifact": "REVIEW.v1.json",
+      "bytes": 8657,
+      "sha256": "08a3bc3c61aa2a9c5e66c938f128ca611e597b0068756fa9c874c2a48cd4de7d"
+    }
+  },
+  "pool_before": {
+    "requests": 30,
+    "known_labels": 88,
+    "positive": 30,
+    "negative": 58,
+    "input_fixtures": 146,
+    "original_evidence_observations": 434,
+    "selected_candidate_observations": 430
+  },
+  "pool_after_if_materialized": {
+    "requests": 33,
+    "known_labels": 96,
+    "positive": 33,
+    "negative": 63,
+    "input_fixtures": 160,
+    "original_evidence_observations": 476,
+    "selected_candidate_observations": 467,
+    "positive_selected_index1_requests": 28,
+    "new_catalog_slots": 9,
+    "new_selected_candidates": 8,
+    "new_excluded_unknown_candidates": 1
+  },
+  "requests": [
+    {
+      "stable_id": "source-next60-fixed-width-complement",
+      "request": "Add ComplementWithin with explicit width independent of stored length: complement only that domain, clear unused tail bits, preserve the input, and return exactly the requested length.",
+      "source_family": "bits-and-blooms-bitset",
+      "source_revision": "828abff685deae97e60d299b1cdfcefabfeb44dc",
+      "whole_group": 82,
+      "role": "development_train",
+      "text_revision": "native-three-finite-v1",
+      "finite_scope": {
+        "input_count": 4,
+        "candidate_observations": 12,
+        "description": "Four fixed inputs, requested widths 0/1/64/65, including stored lengths 65/66. Exact complement width, tail words, logical indices and receiver preservation only; no arbitrary-size or all-input guarantee.",
+        "all_input_guarantee": false,
+        "unseen_source_guarantee": false
+      },
+      "candidates": [
+        {
+          "source_candidate_position": 0,
+          "metadata_id": "explicit_width",
+          "text": "Builds a fresh result for the requested width and masks its tail.",
+          "label": true,
+          "sample_weight": 1,
+          "selected": true,
+          "row_ordinals": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "row_vector": [
+            "satisfied",
+            "satisfied",
+            "satisfied",
+            "satisfied"
+          ],
+          "known_counterexample_fixture_positions": [],
+          "aggregate_unknown_fixture_positions": [],
+          "unknown_predicates_retained": []
+        },
+        {
+          "source_candidate_position": 1,
+          "metadata_id": "original_local_complement",
+          "text": "Builds a fresh result for the stored length and masks its tail.",
+          "label": false,
+          "sample_weight": 1,
+          "selected": true,
+          "row_ordinals": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "row_vector": [
+            "satisfied",
+            "satisfied",
+            "unsatisfied",
+            "unsatisfied"
+          ],
+          "known_counterexample_fixture_positions": [
+            2,
+            3
+          ],
+          "aggregate_unknown_fixture_positions": [],
+          "unknown_predicates_retained": []
+        },
+        {
+          "source_candidate_position": 2,
+          "metadata_id": "requested_domain_stored_length",
+          "text": "Builds a fresh result for the stored length over the requested width.",
+          "label": false,
+          "sample_weight": 1,
+          "selected": true,
+          "row_ordinals": [
+            8,
+            9,
+            10,
+            11
+          ],
+          "row_vector": [
+            "satisfied",
+            "satisfied",
+            "unsatisfied",
+            "unsatisfied"
+          ],
+          "known_counterexample_fixture_positions": [
+            2,
+            3
+          ],
+          "aggregate_unknown_fixture_positions": [],
+          "unknown_predicates_retained": []
+        }
+      ],
+      "selected_candidate_positions": [
+        0,
+        1,
+        2
+      ],
+      "excluded_candidate_positions": [],
+      "upstream_repository": "bits-and-blooms/bitset"
+    },
+    {
+      "stable_id": "source-next60-lossless-integer-channel",
+      "request": "Add checked int64 extraction from a complete JSON root integer lexeme; reject fractions, exponent syntax, strings, and overflow, retaining existing Int unchanged.",
+      "source_family": "tidwall-gjson",
+      "source_revision": "9378d3bb93e20854e1677e0e0248e1d71ae5712f",
+      "whole_group": 83,
+      "role": "development_train",
+      "text_revision": "native-three-finite-v1",
+      "finite_scope": {
+        "input_count": 5,
+        "candidate_observations": 10,
+        "description": "Five complete root lexemes: 9007199254740993, 1.5, int64 max, one above int64 max, and a JSON string. Required checked error channel and exact decimal int64 only. Exponent, malformed and general UTF-8 cases were not executed in this batch.",
+        "all_input_guarantee": false,
+        "unseen_source_guarantee": false
+      },
+      "candidates": [
+        {
+          "source_candidate_position": 0,
+          "metadata_id": "discard_ParseInt_error",
+          "text": "Checks root type and parses numeric text before returning the numeric result.",
+          "label": false,
+          "sample_weight": 1,
+          "selected": true,
+          "row_ordinals": [
+            12,
+            13,
+            14,
+            15,
+            16
+          ],
+          "row_vector": [
+            "satisfied",
+            "unsatisfied",
+            "satisfied",
+            "unsatisfied",
+            "satisfied"
+          ],
+          "known_counterexample_fixture_positions": [
+            1,
+            3
+          ],
+          "aggregate_unknown_fixture_positions": [],
+          "unknown_predicates_retained": []
+        },
+        {
+          "source_candidate_position": 1,
+          "metadata_id": "checked_lexeme",
+          "text": "Checks root type, integer spelling and range before returning an int64 or error.",
+          "label": true,
+          "sample_weight": 1,
+          "selected": true,
+          "row_ordinals": [
+            17,
+            18,
+            19,
+            20,
+            21
+          ],
+          "row_vector": [
+            "satisfied",
+            "satisfied",
+            "satisfied",
+            "satisfied",
+            "satisfied"
+          ],
+          "known_counterexample_fixture_positions": [],
+          "aggregate_unknown_fixture_positions": [],
+          "unknown_predicates_retained": []
+        },
+        {
+          "source_candidate_position": 2,
+          "metadata_id": "original_Int",
+          "text": "Uses the root integer interpretation and exposes the existing original return channels.",
+          "label": null,
+          "sample_weight": null,
+          "selected": false,
+          "row_ordinals": [
+            22,
+            23,
+            24,
+            25,
+            26
+          ],
+          "row_vector": [
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown"
+          ],
+          "known_counterexample_fixture_positions": [],
+          "aggregate_unknown_fixture_positions": [
+            0,
+            1,
+            2,
+            3,
+            4
+          ],
+          "unknown_predicates_retained": [
+            {
+              "fixture": 0,
+              "key": "error_channel_required",
+              "ordinal": 22
+            },
+            {
+              "fixture": 0,
+              "key": "error_nil",
+              "ordinal": 22
+            },
+            {
+              "fixture": 1,
+              "key": "error_channel_required",
+              "ordinal": 23
+            },
+            {
+              "fixture": 1,
+              "key": "error_nil",
+              "ordinal": 23
+            },
+            {
+              "fixture": 1,
+              "key": "own_error_kind",
+              "ordinal": 23
+            },
+            {
+              "fixture": 2,
+              "key": "error_channel_required",
+              "ordinal": 24
+            },
+            {
+              "fixture": 2,
+              "key": "error_nil",
+              "ordinal": 24
+            },
+            {
+              "fixture": 3,
+              "key": "error_channel_required",
+              "ordinal": 25
+            },
+            {
+              "fixture": 3,
+              "key": "error_nil",
+              "ordinal": 25
+            },
+            {
+              "fixture": 3,
+              "key": "own_error_kind",
+              "ordinal": 25
+            },
+            {
+              "fixture": 4,
+              "key": "error_channel_required",
+              "ordinal": 26
+            },
+            {
+              "fixture": 4,
+              "key": "error_nil",
+              "ordinal": 26
+            },
+            {
+              "fixture": 4,
+              "key": "own_error_kind",
+              "ordinal": 26
+            }
+          ]
+        }
+      ],
+      "selected_candidate_positions": [
+        0,
+        1
+      ],
+      "excluded_candidate_positions": [
+        2
+      ],
+      "upstream_repository": "tidwall/gjson"
+    },
+    {
+      "stable_id": "source-next60-strict-binary-decode",
+      "request": "Add strict BigEndian bitset decoding up to 128 bits: require exact payload and zero tail padding; reject trailing bytes and preserve the receiver on rejection.",
+      "source_family": "bits-and-blooms-bitset",
+      "source_revision": "828abff685deae97e60d299b1cdfcefabfeb44dc",
+      "whole_group": 82,
+      "role": "development_train",
+      "text_revision": "native-three-finite-v1",
+      "finite_scope": {
+        "input_count": 5,
+        "candidate_observations": 15,
+        "description": "Five fixed BigEndian byte streams up to 17 bytes and 128 declared bits: valid, trailing byte, short payload, truncated word and nonzero tail padding. Exact receiver and rejection preservation only; no oversized allocation or arbitrary-input guarantee.",
+        "all_input_guarantee": false,
+        "unseen_source_guarantee": false
+      },
+      "candidates": [
+        {
+          "source_candidate_position": 0,
+          "metadata_id": "length_only_transactional",
+          "text": "Checks complete storage size before replacing the receiver with decoded words.",
+          "label": false,
+          "sample_weight": 1,
+          "selected": true,
+          "row_ordinals": [
+            27,
+            28,
+            29,
+            30,
+            31
+          ],
+          "row_vector": [
+            "satisfied",
+            "satisfied",
+            "satisfied",
+            "satisfied",
+            "unsatisfied"
+          ],
+          "known_counterexample_fixture_positions": [
+            4
+          ],
+          "aggregate_unknown_fixture_positions": [],
+          "unknown_predicates_retained": []
+        },
+        {
+          "source_candidate_position": 1,
+          "metadata_id": "original_UnmarshalBinary",
+          "text": "Reads the declared storage into the receiver and reports read errors.",
+          "label": false,
+          "sample_weight": 1,
+          "selected": true,
+          "row_ordinals": [
+            32,
+            33,
+            34,
+            35,
+            36
+          ],
+          "row_vector": [
+            "satisfied",
+            "unsatisfied",
+            "unsatisfied",
+            "unsatisfied",
+            "unsatisfied"
+          ],
+          "known_counterexample_fixture_positions": [
+            1,
+            2,
+            3,
+            4
+          ],
+          "aggregate_unknown_fixture_positions": [],
+          "unknown_predicates_retained": [
+            {
+              "fixture": 2,
+              "key": "own_error_kind",
+              "ordinal": 34
+            },
+            {
+              "fixture": 3,
+              "key": "own_error_kind",
+              "ordinal": 35
+            }
+          ]
+        },
+        {
+          "source_candidate_position": 2,
+          "metadata_id": "length_and_padding_transactional",
+          "text": "Checks complete storage size and tail bits before replacing the receiver.",
+          "label": true,
+          "sample_weight": 1,
+          "selected": true,
+          "row_ordinals": [
+            37,
+            38,
+            39,
+            40,
+            41
+          ],
+          "row_vector": [
+            "satisfied",
+            "satisfied",
+            "satisfied",
+            "satisfied",
+            "satisfied"
+          ],
+          "known_counterexample_fixture_positions": [],
+          "aggregate_unknown_fixture_positions": [],
+          "unknown_predicates_retained": []
+        }
+      ],
+      "selected_candidate_positions": [
+        0,
+        1,
+        2
+      ],
+      "excluded_candidate_positions": [],
+      "upstream_repository": "bits-and-blooms/bitset"
+    }
+  ],
+  "unknown_never_false": true,
+  "known_F_and_U_coexist_preserved": true,
+  "whole_source_roles_preserved": true,
+  "old30_data_immutable": true,
+  "new_qualified_requests": 3,
+  "new_labels_adopted": 8,
+  "new_original_reexecution": 0,
+  "new_materialized_data_rows": 0,
+  "new_Fit_or_model": 0,
+  "protected_evaluation": 0,
+  "public_current_requests": 30,
+  "limits": "Finite candidate contracts only. No unseen-input correctness, model accuracy, GPU execution, memory advantage or Codex cost savings demonstrated. New source family groups82/83 remain development_train. Proven later cross-role edges hold affected Fits. Existing current30 slots88 are not padded to90; no invented 99-slot or three-unknown claim.",
+  "retained_unknown_metadata_scope": {
+    "new_batch_all_predicates": 15,
+    "new_batch_selected_candidates": 2,
+    "existing30_post23_materialization_predicates": 8,
+    "post23_plus_new_selected": 10,
+    "post23_plus_new_all": 23,
+    "older_prefix_metadata_preserved_in_original_artifacts": true,
+    "whole_history_unknown_total_not_claimed": true
+  },
+  "successor": {
+    "supersedes": {
+      "bytes": 15674,
+      "sha256": "ca7bd8be2f930c1faac89e69aa6f7d2f6c5c4a383b27c4817c6e5d553927404f"
+    },
+    "reason": "v2 pool labels, finite vectors and unknown scope remain valid, but repository slashes cannot be passed as SourceFamily under the existing flat metadata ABI. Root assigns explicit flat family identifiers while retaining upstream repository names, unchanged prospective groups and every revision. v1 unknown-count correction remains in immutable v2; no execution or data materialization used either predecessor."
+  },
+  "metadata_family_mapping": [
+    {
+      "repository": "bits-and-blooms/bitset",
+      "identifier": "bits-and-blooms-bitset",
+      "whole_group": 82
+    },
+    {
+      "repository": "tidwall/gjson",
+      "identifier": "tidwall-gjson",
+      "whole_group": 83
+    }
+  ]
+}

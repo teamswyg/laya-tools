@@ -1,0 +1,182 @@
+// Copyright 2026 teamswyg. SPDX-License-Identifier: Apache-2.0
+package data33
+
+import (
+	"bytes"
+	"encoding/json"
+	"io"
+	"os"
+	"path/filepath"
+	"syscall"
+)
+
+type Paths struct{ Previous, PriorSummary, Qualification, ExpectedQualificationSHA, Literal, Captions, Comparison, Family string }
+
+func clean(path string) bool {
+	return filepath.IsAbs(path) && filepath.Clean(path) == path && path != "/" && !bytes.ContainsAny([]byte(path), "\x00\r\n")
+}
+func ReadPinned(path string, n int, h string) ([]byte, error) {
+	if !clean(path) || !hashOK(h, 64) || n < 1 || n > 1<<20 {
+		return nil, code("file_argument")
+	}
+	st, e := os.Lstat(path)
+	if e != nil || !st.Mode().IsRegular() || st.Size() != int64(n) {
+		return nil, code("file_stat")
+	}
+	real, e := filepath.EvalSymlinks(path)
+	if e != nil || real != path {
+		return nil, code("file_symlink")
+	}
+	f, e := os.OpenFile(path, os.O_RDONLY|syscall.O_NOFOLLOW, 0)
+	if e != nil {
+		return nil, code("file_open")
+	}
+	defer f.Close()
+	opened, e := f.Stat()
+	if e != nil || !os.SameFile(st, opened) {
+		return nil, code("file_identity")
+	}
+	b, e := io.ReadAll(io.LimitReader(f, int64(n)+1))
+	if e != nil || !pinned(b, n, h) {
+		return nil, code("file_bytes_pin")
+	}
+	last, e := os.Lstat(path)
+	if e != nil || !os.SameFile(st, last) || last.Size() != st.Size() || !last.ModTime().Equal(st.ModTime()) {
+		return nil, code("file_changed")
+	}
+	return b, nil
+}
+func Load(p Paths) (Inputs, error) {
+	var in Inputs
+	in.ExpectedQualificationSHA = p.ExpectedQualificationSHA
+	if in.ExpectedQualificationSHA != QualificationSHA {
+		return in, code("external_Root_qualification_pin")
+	}
+	var e error
+	for _, item := range []struct {
+		path string
+		n    int
+		h    string
+		dst  *[]byte
+	}{{p.Previous, PreviousBytes, PreviousSHA, &in.Previous}, {p.PriorSummary, PriorSummaryBytes, PriorSummarySHA, &in.PriorSummary}, {p.Qualification, QualificationBytes, QualificationSHA, &in.Qualification}, {p.Literal, LiteralBytes, LiteralSHA, &in.Literal}, {p.Captions, CaptionsBytes, CaptionsSHA, &in.Captions}, {p.Comparison, ComparisonBytes, ComparisonSHA, &in.Comparison}, {p.Family, FamilyBytes, FamilySHA, &in.Family}} {
+		*item.dst, e = ReadPinned(item.path, item.n, item.h)
+		if e != nil {
+			return Inputs{}, e
+		}
+	}
+	return in, nil
+}
+func Arguments(args, names []string) ([]string, error) {
+	if len(args) != 2*len(names) {
+		return nil, code("arguments")
+	}
+	out := make([]string, len(names))
+	var seen [12]bool
+	if len(names) > len(seen) {
+		return nil, code("argument_bound")
+	}
+	for i := 0; i < len(args); i += 2 {
+		at := -1
+		for j, n := range names {
+			if args[i] == n {
+				at = j
+				break
+			}
+		}
+		if at < 0 || seen[at] || args[i+1] == "" {
+			return nil, code("arguments")
+		}
+		seen[at] = true
+		out[at] = args[i+1]
+	}
+	return out, nil
+}
+func syncDirectory(path string) error {
+	f, e := os.Open(path)
+	if e != nil {
+		return code("directory_open")
+	}
+	a := f.Sync()
+	b := f.Close()
+	if a != nil || b != nil {
+		return code("directory_sync_uncertain")
+	}
+	return nil
+}
+func writeExclusive(path string, b []byte, cap int) error {
+	if !clean(path) || len(b) < 1 || len(b) > cap {
+		return code("output_bounds")
+	}
+	f, e := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if e != nil {
+		return code("output_exclusive")
+	}
+	n, e := f.Write(b)
+	if e != nil || n != len(b) {
+		f.Close()
+		return code("output_partial_preserved")
+	}
+	if e = f.Sync(); e != nil {
+		f.Close()
+		return code("output_sync_uncertain")
+	}
+	if e = f.Close(); e != nil {
+		return code("output_close_uncertain")
+	}
+	return syncDirectory(filepath.Dir(path))
+}
+
+// Fresh output directory and files survive uncertain writes; no retry or delete.
+// Root controls physical ancestor aliases and reserves this bounded output scope.
+func Save(dir string, data []byte, s *Summary) error {
+	if s == nil || !clean(dir) || len(data) > MaxData {
+		return code("output_arguments")
+	}
+	parent := filepath.Dir(dir)
+	real, e := filepath.EvalSymlinks(parent)
+	if e != nil || real != parent {
+		return code("output_parent_alias")
+	}
+	if e = os.Mkdir(dir, 0o700); e != nil {
+		return code("output_directory_exists")
+	}
+	if e = syncDirectory(parent); e != nil {
+		return e
+	}
+	if e = writeExclusive(filepath.Join(dir, "train.jsonl"), data, MaxData); e != nil {
+		return e
+	}
+	s.State = "materialized_Root_adopted_data_only"
+	b, e := json.Marshal(s)
+	if e != nil {
+		return code("receipt_encode")
+	}
+	b = append(b, '\n')
+	if e = writeExclusive(filepath.Join(dir, "MATERIALIZATION.json"), b, MaxReceipt); e != nil {
+		s.State = "materialization_receipt_uncertain"
+		s.Failure = FailureCode(e)
+		return e
+	}
+	return nil
+}
+func SaveReader(dir string, s Summary) error {
+	if !clean(dir) {
+		return code("reader_output_path")
+	}
+	parent := filepath.Dir(dir)
+	real, e := filepath.EvalSymlinks(parent)
+	if e != nil || real != parent {
+		return code("reader_output_parent_alias")
+	}
+	if e = os.Mkdir(dir, 0o700); e != nil {
+		return code("reader_output_directory_exists")
+	}
+	if e = syncDirectory(parent); e != nil {
+		return e
+	}
+	b, e := json.Marshal(s)
+	if e != nil {
+		return code("reader_receipt_encode")
+	}
+	return writeExclusive(filepath.Join(dir, "READER.json"), append(b, '\n'), MaxReceipt)
+}

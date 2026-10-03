@@ -1,0 +1,35 @@
+// Copyright 2026 teamswyg. SPDX-License-Identifier: Apache-2.0
+// Inert Root CLI proposal; stdlib and owned data33 only, no original imports.
+package main
+
+import (
+	"io"
+	"os"
+	data33 "riido.local/development33prep"
+	"runtime"
+	"runtime/debug"
+)
+
+func main() {
+	runtime.GOMAXPROCS(1)
+	debug.SetMemoryLimit(256 << 20)
+	names := []string{"--previous-data", "--prior-summary", "--qualification", "--qualification-sha256", "--literal", "--captions", "--comparison", "--family-decision", "--out"}
+	v, e := data33.Arguments(os.Args[1:], names)
+	if e != nil {
+		io.WriteString(os.Stderr, "data33_arguments\n")
+		os.Exit(2)
+	}
+	in, e := data33.Load(data33.Paths{Previous: v[0], PriorSummary: v[1], Qualification: v[2], ExpectedQualificationSHA: v[3], Literal: v[4], Captions: v[5], Comparison: v[6], Family: v[7]})
+	if e == nil {
+		data, s, err := data33.Compose(in)
+		e = err
+		if e == nil {
+			e = data33.Save(v[8], data, &s)
+		}
+	}
+	if e != nil {
+		io.WriteString(os.Stderr, data33.FailureCode(e)+"\n")
+		os.Exit(1)
+	}
+	io.WriteString(os.Stdout, "data33_Root_adoption_copied_no_model\n")
+}

@@ -1,0 +1,369 @@
+// Owned ACK proxies. Raw original handles never implement the public getter interface.
+package threeliteral
+
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"reflect"
+	"strconv"
+)
+
+type stoppedSignal struct{}
+type sourcePanicSignal struct{ State PanicState }
+type Session struct {
+	ops         Ops
+	exchange    Exchange
+	Counts      Counts
+	Row         Row
+	Sequence    uint32
+	Previous    string
+	Stopped     bool
+	Failure     string
+	ackCounts   Counts
+	ackSequence uint32
+	ackRows     [Dispatches]Row
+	ackRowN     uint8
+}
+
+func NewSession(o Ops, x Exchange) (*Session, error) {
+	if x == nil || o.New == nil || o.Set == nil || o.Len == nil || o.Words == nil ||
+		o.Test == nil || o.Complement == nil || o.Unmarshal == nil || o.Assign == nil ||
+		o.Valid == nil || o.Parse == nil || o.Int == nil {
+		return nil, ErrBinding
+	}
+	return &Session{ops: o, exchange: x, Previous: zeroHash()}, nil
+}
+func zeroHash() string { return "0000000000000000000000000000000000000000000000000000000000000000" }
+func typeName(v any) (string, bool) {
+	t := reflect.TypeOf(v)
+	if t == nil {
+		return "", false
+	}
+	s := t.String() // reflect.Type.String, never a method on the original object.
+	if len(s) == 0 || len(s) > 64 {
+		return "", false
+	}
+	for _, c := range []byte(s) {
+		if c < 32 || c > 126 {
+			return "", false
+		}
+	}
+	return s, true
+}
+func panicState(v any) PanicState {
+	t, k := typeName(v)
+	return PanicState{Known: true, Present: true, TypeKnown: k, Type: t}
+}
+func errorState(err error, available bool) ErrorChannel {
+	e := ErrorChannel{Available: available, Known: available}
+	if !available {
+		return e
+	}
+	if err == nil {
+		e.OwnIdentityKnown = true
+		return e
+	}
+	e.Present = true
+	e.Type, e.TypeKnown = typeName(err)
+	t := reflect.TypeOf(err)
+	if t != nil && t.Comparable() {
+		sentinels := [7]error{ErrBounds, ErrPayloadLength, ErrPadding, ErrJSON, ErrType, ErrInteger, ErrRange}
+		for i, s := range sentinels {
+			if err == s {
+				e.OwnIdentityKnown = true
+				e.OwnIdentity = uint8(i + 1)
+				break
+			}
+		}
+	}
+	// Unclassified identity stays unknown, including errors.errorString.
+	return e
+}
+func copyRow(r Row) Row {
+	if r.Panic != nil {
+		v := *r.Panic
+		r.Panic = &v
+	}
+	if r.Before != nil {
+		v := *r.Before
+		r.Before = &v
+	}
+	if r.After != nil {
+		v := *r.After
+		r.After = &v
+	}
+	if r.Result != nil {
+		v := *r.Result
+		r.Result = &v
+	}
+	if r.JSON != nil {
+		v := *r.JSON
+		r.JSON = &v
+	}
+	if r.Value != nil {
+		v := *r.Value
+		r.Value = &v
+	}
+	if r.Error != nil {
+		v := *r.Error
+		r.Error = &v
+	}
+	return r
+}
+func copyFact(f *Fact) *Fact {
+	if f == nil {
+		return nil
+	}
+	v := *f
+	if v.Pointer != nil {
+		x := *v.Pointer
+		v.Pointer = &x
+	}
+	if v.Uint != nil {
+		x := *v.Uint
+		v.Uint = &x
+	}
+	if v.Bool != nil {
+		x := *v.Bool
+		v.Bool = &x
+	}
+	if v.Words != nil {
+		x := *v.Words
+		v.Words = &x
+	}
+	if v.JSON != nil {
+		x := *v.JSON
+		v.JSON = &x
+	}
+	if v.Int != nil {
+		x := *v.Int
+		v.Int = &x
+	}
+	if v.Error != nil {
+		x := *v.Error
+		v.Error = &x
+	}
+	return &v
+}
+func (s *Session) stop(reason string) {
+	s.Stopped = true
+	if s.Failure == "" {
+		s.Failure = reason
+	}
+	panic(stoppedSignal{})
+}
+func (s *Session) emit(stage, method uint8, f *Fact, z *Result) {
+	if s.Stopped {
+		panic(stoppedSignal{})
+	}
+	frame := Frame{Version: 1, Sequence: s.Sequence + 1, Previous: s.Previous, Stage: stage, Method: method,
+		Dispatch: s.Row.Dispatch, Counts: s.Counts, Row: copyRow(s.Row), Fact: copyFact(f), Final: z}
+	if frame.Sequence > FrameMax {
+		s.stop("frame_budget")
+	}
+	b, err := json.Marshal(frame)
+	cap := EventLineMax
+	if stage == 4 {
+		cap = FinalLineMax
+	}
+	if err != nil || len(b)+1 > cap {
+		s.stop("frame_shape_or_budget")
+	}
+	var cpErr error
+	panicked := false
+	func() {
+		defer func() {
+			if recover() != nil {
+				panicked = true
+			}
+		}()
+		cpErr = s.exchange(frame)
+	}()
+	if panicked || cpErr != nil {
+		s.stop("ack_failure")
+	}
+	b = append(b, '\n')
+	h := sha256.Sum256(b)
+	s.Sequence = frame.Sequence
+	s.Previous = hex.EncodeToString(h[:])
+	s.ackSequence = frame.Sequence
+	s.ackCounts = frame.Counts
+	if stage == 3 {
+		if frame.Dispatch != s.ackRowN || s.ackRowN >= Dispatches {
+			s.stop("ack_row_order")
+		}
+		s.ackRows[s.ackRowN] = copyRow(s.Row)
+		s.ackRowN++
+	}
+}
+func (s *Session) call(method uint8, invoke func() (any, Fact)) any {
+	if s.Stopped {
+		panic(stoppedSignal{})
+	}
+	if s.Counts.Original[0]+s.Counts.Assignment[0] >= MethodMax {
+		s.stop("method_budget")
+	}
+	tuple := &s.Counts.Original
+	if method == 11 {
+		tuple = &s.Counts.Assignment
+	}
+	tuple[0]++
+	s.emit(1, method, nil, nil) // no raw operation is possible before successful ACK.
+	tuple[1]++
+	var v any
+	var fact Fact
+	var panicValue any
+	panicked := true
+	func() {
+		defer func() {
+			if panicked {
+				panicValue = recover()
+			}
+		}()
+		v, fact = invoke()
+		panicked = false
+	}()
+	if panicked {
+		tuple[3]++
+		fact = Fact{Panic: panicState(panicValue)}
+	} else {
+		tuple[2]++
+		fact.Returned = true
+		fact.Panic = PanicState{Known: true}
+	}
+	s.emit(2, method, &fact, nil)
+	if panicked {
+		s.Row.Panic = &fact.Panic
+		panic(sourcePanicSignal{fact.Panic})
+	}
+	return v // opaque result is exposed only after the after-method ACK.
+}
+
+// BitProxy intentionally has no exported raw handle and intercepts all direct getters.
+type BitProxy struct {
+	s   *Session
+	raw any
+}
+
+func (s *Session) New(n uint) *BitProxy {
+	if n > MaxBits {
+		s.stop("bit_bound")
+	}
+	v := s.call(1, func() (any, Fact) { v := s.ops.New(n); p := v != nil; return v, Fact{Pointer: &p} })
+	if v == nil {
+		s.stop("nil_bitset")
+	}
+	return &BitProxy{s: s, raw: v}
+}
+func (b *BitProxy) Set(i uint) {
+	if b == nil || i >= MaxBits {
+		panic(stoppedSignal{})
+	}
+	b.s.call(2, func() (any, Fact) { v := b.s.ops.Set(b.raw, i); p := v != nil; return v, Fact{Pointer: &p} })
+}
+func (b *BitProxy) Len() uint {
+	v := b.s.call(3, func() (any, Fact) {
+		n := b.s.ops.Len(b.raw)
+		f := Fact{}
+		if n <= MaxBits {
+			k := uint16(n)
+			f.Uint = &k
+		}
+		return n, f
+	})
+	n := v.(uint)
+	if n > MaxBits {
+		b.s.stop("len_outside_bounds")
+	}
+	return n
+}
+func (b *BitProxy) Test(i uint) bool {
+	if i >= MaxBits {
+		b.s.stop("test_bound")
+	}
+	return b.s.call(5, func() (any, Fact) { v := b.s.ops.Test(b.raw, i); return v, Fact{Bool: &v} }).(bool)
+}
+func wordHex(v uint64) string { s := strconv.FormatUint(v, 16); return "0000000000000000"[len(s):] + s }
+func (b *BitProxy) Words() []uint64 {
+	type wordsReturn struct {
+		Copy    []uint64
+		Bounded bool
+	}
+	v := b.s.call(4, func() (any, Fact) {
+		w := b.s.ops.Words(b.raw)
+		if len(w) > 2 {
+			return wordsReturn{}, Fact{}
+		}
+		var out []uint64
+		if w != nil {
+			out = make([]uint64, len(w))
+			copy(out, w)
+		}
+		f := WordFact{Nil: w == nil, Count: uint8(len(w))}
+		for i, x := range out {
+			f.Words[i] = wordHex(x)
+		}
+		return wordsReturn{out, true}, Fact{Words: &f}
+	}).(wordsReturn)
+	if !v.Bounded {
+		b.s.stop("words_outside_bounds")
+	}
+	return v.Copy
+}
+func (b *BitProxy) Complement() *BitProxy {
+	v := b.s.call(6, func() (any, Fact) { v := b.s.ops.Complement(b.raw); p := v != nil; return v, Fact{Pointer: &p} })
+	if v == nil {
+		b.s.stop("nil_complement")
+	}
+	return &BitProxy{s: b.s, raw: v}
+}
+func (b *BitProxy) Unmarshal(data []byte) error {
+	v := b.s.call(10, func() (any, Fact) {
+		e := b.s.ops.Unmarshal(b.raw, data)
+		return struct{ E error }{e}, Fact{Error: ptrError(errorState(e, true))}
+	})
+	return v.(struct{ E error }).E
+}
+func (b *BitProxy) Assign(other *BitProxy) {
+	if b.s != other.s {
+		b.s.stop("cross_session_assignment")
+	}
+	b.s.call(11, func() (any, Fact) { b.s.ops.Assign(b.raw, other.raw); return nil, Fact{} })
+}
+func ptrError(e ErrorChannel) *ErrorChannel { return &e }
+func (s *Session) Valid(text string) bool {
+	return s.call(7, func() (any, Fact) { v := s.ops.Valid(text); return v, Fact{Bool: &v} }).(bool)
+}
+func (s *Session) Parse(text string) ParseReturn {
+	p := s.call(8, func() (any, Fact) {
+		p := s.ops.Parse(text)
+		f := Fact{}
+		if p.Type <= 5 && len(p.Raw) <= 32 {
+			j := JSONState{Known: true, Type: p.Type, Raw: p.Raw, NumBits: wordHex(p.NumBits)}
+			f.JSON = &j
+		}
+		return p, f
+	}).(ParseReturn)
+	if p.Type > 5 || len(p.Raw) > 32 {
+		s.stop("parse_outside_bounds")
+	}
+	j := JSONState{Known: true, Type: p.Type, Raw: p.Raw, NumBits: wordHex(p.NumBits)}
+	s.Row.JSON = &j
+	return p
+}
+func (s *Session) Int(p ParseReturn) int64 {
+	return s.call(9, func() (any, Fact) { n := s.ops.Int(p.Native); v := strconv.FormatInt(n, 10); return n, Fact{Int: &v} }).(int64)
+}
+func snapshot(b *BitProxy) BitState {
+	n := b.Len()
+	w := b.Words()
+	if len(w) != int((n+63)/64) {
+		b.s.stop("word_length_bound")
+	}
+	v := BitState{Known: true, Length: uint16(n), Count: uint8(len(w)), Nil: w == nil}
+	for i, x := range w {
+		v.Words[i] = wordHex(x)
+	}
+	return v
+}

@@ -1,0 +1,298 @@
+// Copyright 2026 teamswyg. Licensed under the Apache License, Version 2.0.
+// Compare primitive saved channels only; no original method or formatter calls.
+package main
+
+import (
+	"encoding/json"
+	"strconv"
+
+	core "riido.local/next60threecompare/threeliteral"
+)
+
+type State string
+
+const (
+	T State = "satisfied"
+	F State = "unsatisfied"
+	U State = "unknown"
+)
+const maximumPredicates = 16
+
+type Predicate struct {
+	Key      string          `json:"key"`
+	State    State           `json:"state"`
+	Expected json.RawMessage `json:"expected"`
+	Actual   json.RawMessage `json:"actual"`
+}
+type Totals struct {
+	Satisfied   uint16 `json:"satisfied"`
+	Unsatisfied uint16 `json:"unsatisfied"`
+	Unknown     uint16 `json:"unknown"`
+}
+
+func (t *Totals) add(s State) {
+	switch s {
+	case T:
+		t.Satisfied++
+	case F:
+		t.Unsatisfied++
+	default:
+		t.Unknown++
+	}
+}
+
+type RowComparison struct {
+	Dispatch            uint8                        `json:"dispatch"`
+	Request             uint8                        `json:"request"`
+	Fixture             uint8                        `json:"fixture"`
+	Candidate           uint8                        `json:"candidate"`
+	Internal            uint8                        `json:"internal"`
+	RequestID           string                       `json:"request_id"`
+	FixtureID           string                       `json:"fixture_id"`
+	LiteralWant         json.RawMessage              `json:"full_literal_Want"`
+	SkippedControlCount uint8                        `json:"skipped_control_count"`
+	SkippedControls     [3]string                    `json:"skipped_controls"`
+	PredicateCount      uint8                        `json:"predicate_count"`
+	Predicates          [maximumPredicates]Predicate `json:"predicates"`
+	Counts              Totals                       `json:"predicate_counts"`
+	State               State                        `json:"state"`
+}
+
+func primitive(v any) json.RawMessage {
+	b, e := json.Marshal(v)
+	if e != nil {
+		panic("owned primitive encode")
+	}
+	return b
+}
+func verdict(known, equal bool) State {
+	if !known {
+		return U
+	}
+	if equal {
+		return T
+	}
+	return F
+}
+func (r *RowComparison) add(key string, s State, expected, actual any) {
+	if int(r.PredicateCount) >= len(r.Predicates) {
+		panic("owned predicate bound")
+	}
+	p := Predicate{Key: key, State: s, Expected: primitive(expected)}
+	if s != U {
+		p.Actual = primitive(actual)
+	}
+	r.Predicates[r.PredicateCount] = p
+	r.PredicateCount++
+	r.Counts.add(s)
+}
+func (r *RowComparison) skip(key string) {
+	if int(r.SkippedControlCount) >= len(r.SkippedControls) {
+		panic("owned control bound")
+	}
+	r.SkippedControls[r.SkippedControlCount] = key
+	r.SkippedControlCount++
+}
+func knownBit(b *core.BitState) bool {
+	if b == nil || !b.Known || b.Length > 128 || b.Count > 2 || int(b.Count) != int((b.Length+63)/64) || b.Nil && b.Count != 0 {
+		return false
+	}
+	for i, w := range b.Words {
+		if i < int(b.Count) {
+			if !hexWord(w) {
+				return false
+			}
+		} else if w != "" {
+			return false
+		}
+	}
+	return true
+}
+func words(b *core.BitState) []string {
+	out := make([]string, int(b.Count))
+	copy(out, b.Words[:b.Count])
+	return out
+}
+func compareBit(r *RowComparison, key string, w *BitWant, b *core.BitState) {
+	k := knownBit(b)
+	var length uint16
+	var nilWords bool
+	var actual []string
+	if k {
+		length = b.Length
+		nilWords = b.Nil
+		actual = words(b)
+	}
+	r.add(key+".length", verdict(k, k && length == *w.Length), *w.Length, length)
+	r.add(key+".words_nil", verdict(k, k && nilWords == *w.Nil), *w.Nil, nilWords)
+	equal := k && len(actual) == len(w.Words)
+	if equal {
+		for i, s := range actual {
+			if s != w.Words[i] {
+				equal = false
+				break
+			}
+		}
+	}
+	r.add(key+".words_hex", verdict(k, equal), w.Words, actual)
+}
+func indices(b *core.BitState) ([128]uint16, int, bool) {
+	var out [128]uint16
+	if !knownBit(b) {
+		return out, 0, false
+	}
+	var parsed [2]uint64
+	for i := 0; i < int(b.Count); i++ {
+		n, e := strconv.ParseUint(b.Words[i], 16, 64)
+		if e != nil {
+			return out, 0, false
+		}
+		parsed[i] = n
+	}
+	at := 0
+	for bit := uint16(0); bit < b.Length; bit++ {
+		if parsed[bit/64]&(uint64(1)<<(bit%64)) != 0 {
+			out[at] = bit
+			at++
+		}
+	}
+	return out, at, true
+}
+func decimalKnown(v *core.IntegerState) bool {
+	if v == nil || !v.Available || !v.Known {
+		return false
+	}
+	n, e := strconv.ParseInt(v.Decimal, 10, 64)
+	return e == nil && strconv.FormatInt(n, 10) == v.Decimal
+}
+func compareError(r *RowComparison, w Want, e *core.ErrorChannel) {
+	if !*w.ErrorRequired {
+		r.skip("error_channel_required=false: not required, not required absence")
+		return
+	}
+	available := e != nil && e.Available
+	r.add("error_channel_required", verdict(available, true), true, true)
+	known := available && e.Known
+	nilError := false
+	if known {
+		nilError = !e.Present
+	}
+	if w.ErrorNil != nil {
+		r.add("error_nil", verdict(known, known && nilError == *w.ErrorNil), *w.ErrorNil, nilError)
+	}
+	if w.OwnErrorKind != nil {
+		s := U
+		var actual any
+		if known && !e.Present {
+			s = F
+			actual = "nil"
+		} else if known && e.Present && e.OwnIdentityKnown && e.OwnIdentity != 0 {
+			s = verdict(true, e.OwnIdentity == errorID(*w.OwnErrorKind))
+			actual = e.OwnIdentity
+		}
+		// A present *errors.errorString with unavailable identity remains U. Type
+		// text alone does not identify or contradict a frozen sentinel.
+		r.add("own_error_kind", s, *w.OwnErrorKind, actual)
+	}
+}
+func compareRow(c Contract, got core.Row) RowComparison {
+	r := RowComparison{Dispatch: got.Dispatch, Request: got.Request, Fixture: got.Profile, Candidate: got.Display, Internal: got.Internal, RequestID: c.RequestID, FixtureID: c.FixtureID, LiteralWant: append(json.RawMessage(nil), c.Raw...)}
+	w := c.Want
+	// Done is an observed-row terminal, not a promise about hidden calls.
+	returnKnown := got.Done
+	r.add("returned_normally", verdict(returnKnown, returnKnown && got.Returned == *w.Returned), *w.Returned, got.Returned)
+	panicKnown := got.Panic != nil && got.Panic.Known
+	panicPresent := false
+	if panicKnown {
+		panicPresent = got.Panic.Present
+	}
+	r.add("panic_present", verdict(panicKnown, panicKnown && panicPresent == *w.Panic), *w.Panic, panicPresent)
+	if w.Result != nil {
+		compareBit(&r, "result_state", w.Result, got.Result)
+		actual, n, k := indices(got.Result)
+		equal := k && n == len(w.SetIndices)
+		if equal {
+			for i, v := range w.SetIndices {
+				if actual[i] != v {
+					equal = false
+					break
+				}
+			}
+		}
+		r.add("result_set_indices", verdict(k, equal), w.SetIndices, actual[:n])
+	}
+	if w.After != nil {
+		compareBit(&r, "receiver_after", w.After, got.After)
+	}
+	if w.ValueRequired != nil {
+		if *w.ValueRequired {
+			available := got.Value != nil && got.Value.Available
+			r.add("value_required", verdict(available, true), true, true)
+			k := decimalKnown(got.Value)
+			value := ""
+			if k {
+				value = got.Value.Decimal
+			}
+			r.add("value_decimal", verdict(k, k && value == *w.ValueDecimal), *w.ValueDecimal, value)
+		} else {
+			r.skip("value_required=false: optional value, not required absence")
+		}
+	}
+	compareError(&r, w, got.Error)
+	if w.Preservation != nil {
+		if *w.Preservation {
+			known := knownBit(got.Before) && knownBit(got.After)
+			equal := known && *got.Before == *got.After
+			r.add("receiver_preserved_on_rejection", verdict(known, equal), true, equal)
+		} else {
+			r.skip("receiver_preserved_on_rejection=false: condition not applicable, not required mutation")
+		}
+	}
+	r.State = T
+	if r.Counts.Unsatisfied > 0 {
+		r.State = F
+	} else if r.Counts.Unknown > 0 {
+		r.State = U
+	}
+	return r
+}
+
+type Comparison struct {
+	Schema                     string            `json:"schema"`
+	ResultSHA256               string            `json:"result_sha256"`
+	OutsideSHA256              string            `json:"outside_sha256"`
+	PlanSHA256                 string            `json:"plan_sha256"`
+	LiteralSHA256              string            `json:"literal_sha256"`
+	WantsSHA256                string            `json:"wants_sha256"`
+	CaptionsSHA256             string            `json:"captions_sha256"`
+	WantFreezeSHA256           string            `json:"Root_want_freeze_sha256"`
+	RootReceiptPins            [4]core.Pin       `json:"Root_opaque_receipt_pins"`
+	Rows                       [42]RowComparison `json:"rows"`
+	RowCounts                  Totals            `json:"row_counts"`
+	PredicateCounts            Totals            `json:"predicate_counts"`
+	ByRequestCandidate         [3][3]Totals      `json:"by_request_candidate_rows"`
+	UnknownPredicatesPreserved bool              `json:"unknown_predicates_preserved"`
+	PositionPrivilege          bool              `json:"position_privilege"`
+	QualifiedAssigned          uint16            `json:"qualified_assigned"`
+	LabelsRolesWeightsAssigned uint16            `json:"labels_roles_weights_assigned"`
+	OriginalModelFitCalls      uint16            `json:"original_model_Fit_calls"`
+	Scope                      string            `json:"scope"`
+}
+
+func compareAll(cs Contracts, z core.Result, c Config) Comparison {
+	out := Comparison{Schema: "riido-next60-three-saved-finite-comparison-v1", ResultSHA256: c.Result.SHA256, OutsideSHA256: c.Outside.SHA256, PlanSHA256: c.PlanSHA256, LiteralSHA256: literalSHA, WantsSHA256: wantsSHA, CaptionsSHA256: captionsSHA, WantFreezeSHA256: wantFreezeSHA, UnknownPredicatesPreserved: true, Scope: "Saved primitive-channel finite comparison only; no original reexecution, semantic generalization, role, training or execution approval."}
+	for i, p := range c.RootReceipts {
+		out.RootReceiptPins[i] = core.Pin{ID: p.ID, Bytes: p.Bytes, SHA256: p.SHA256}
+	}
+	for d, record := range z.Records {
+		_, _, _, _, index := schedule(d)
+		r := compareRow(cs[index], record.Row)
+		out.Rows[d] = r
+		out.RowCounts.add(r.State)
+		out.PredicateCounts.Satisfied += r.Counts.Satisfied
+		out.PredicateCounts.Unsatisfied += r.Counts.Unsatisfied
+		out.PredicateCounts.Unknown += r.Counts.Unknown
+		out.ByRequestCandidate[r.Request][r.Candidate].add(r.State)
+	}
+	return out
+}

@@ -1,0 +1,295 @@
+// Copyright 2026 teamswyg. Licensed under the Apache License, Version 2.0.
+// Saved-file hash and transport binding only; never launches a worker.
+package main
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"io"
+	"os"
+	"path/filepath"
+	"strconv"
+	"syscall"
+
+	core "riido.local/next60threecompare/threeliteral"
+)
+
+type failure string
+
+func (f failure) Error() string { return string(f) }
+func fail(s string) error       { return failure(s) }
+func sha(b []byte) string       { h := sha256.Sum256(b); return hex.EncodeToString(h[:]) }
+func validHash(s string) bool {
+	if len(s) != 64 {
+		return false
+	}
+	for _, c := range s {
+		if !(c >= '0' && c <= '9' || c >= 'a' && c <= 'f') {
+			return false
+		}
+	}
+	return true
+}
+
+type Pin struct {
+	ID     string `json:"id"`
+	Path   string `json:"path"`
+	Bytes  int64  `json:"bytes"`
+	SHA256 string `json:"sha256"`
+}
+type Config struct {
+	Schema              string `json:"schema"`
+	Result              Pin    `json:"result"`
+	Outside             Pin    `json:"outside"`
+	Literal             Pin    `json:"literal"`
+	Wants               Pin    `json:"wants"`
+	Captions            Pin    `json:"captions"`
+	WantFreeze          Pin    `json:"Root_want_freeze"`
+	RootReceipts        []Pin  `json:"Root_receipts"`
+	PlanSHA256          string `json:"plan_sha256"`
+	WorkerSHA256        string `json:"worker_sha256"`
+	ControllerSHA256    string `json:"controller_sha256"`
+	OutsideConfigSHA256 string `json:"outside_config_sha256"`
+	Output              string `json:"output"`
+}
+
+func canonicalPath(s string) bool {
+	return filepath.IsAbs(s) && filepath.Clean(s) == s && s != "/" && bytes.IndexByte([]byte(s), 0) < 0 && bytes.IndexByte([]byte(s), '\n') < 0 && bytes.IndexByte([]byte(s), '\r') < 0
+}
+func readPin(p Pin, cap int64) ([]byte, error) {
+	if p.ID == "" || !canonicalPath(p.Path) || p.Bytes <= 0 || p.Bytes > cap || !validHash(p.SHA256) {
+		return nil, fail("invalid_pin")
+	}
+	st, e := os.Lstat(p.Path)
+	if e != nil || !st.Mode().IsRegular() || st.Size() != p.Bytes {
+		return nil, fail("pin_stat")
+	}
+	real, e := filepath.EvalSymlinks(p.Path)
+	if e != nil || real != p.Path {
+		return nil, fail("pin_symlink_or_alias")
+	}
+	f, e := os.OpenFile(p.Path, os.O_RDONLY|syscall.O_NOFOLLOW, 0)
+	if e != nil {
+		return nil, fail("pin_open")
+	}
+	defer f.Close()
+	opened, e := f.Stat()
+	if e != nil || !os.SameFile(st, opened) {
+		return nil, fail("pin_identity_changed")
+	}
+	b, e := io.ReadAll(io.LimitReader(f, cap+1))
+	if e != nil || int64(len(b)) != p.Bytes || sha(b) != p.SHA256 {
+		return nil, fail("pin_bytes_or_hash")
+	}
+	after, e := os.Lstat(p.Path)
+	if e != nil || !os.SameFile(st, after) || after.Size() != st.Size() || !after.ModTime().Equal(st.ModTime()) {
+		return nil, fail("pin_changed")
+	}
+	return b, nil
+}
+func canonicalJSON(raw []byte, out any, LF bool) error {
+	if e := decode(raw, out); e != nil {
+		return e
+	}
+	b, e := json.Marshal(out)
+	if e != nil {
+		return fail("json_encode")
+	}
+	if LF {
+		b = append(b, '\n')
+	}
+	if !bytes.Equal(raw, b) {
+		return fail("noncanonical_json")
+	}
+	return nil
+}
+
+type ProcessReceipt struct {
+	StartAttempts    int             `json:"start_attempts"`
+	Started          bool            `json:"started"`
+	WaitAttempts     int             `json:"wait_attempts"`
+	Reaped           *bool           `json:"reaped"`
+	ExitCode         *int            `json:"exit_code"`
+	DeadlineExceeded bool            `json:"deadline_exceeded"`
+	StderrOverflow   bool            `json:"stderr_overflow"`
+	Wall             int64           `json:"whole_child_wall_nanoseconds"`
+	RSS              *int64          `json:"darwin_time_max_rss_bytes"`
+	RSSCapExceeded   *bool           `json:"rss_cap_exceeded"`
+	Init             json.RawMessage `json:"initialization_calls"`
+	Nested           json.RawMessage `json:"nested_original_calls"`
+	Scope            string          `json:"scope"`
+}
+type DurableReceipt struct {
+	Frames     int    `json:"frames_synced"`
+	Bytes      int64  `json:"bytes_synced"`
+	LastSHA256 string `json:"last_sha256"`
+}
+
+// Exact collector report field order preserves its one-LF canonical encoding.
+type Outside struct {
+	Schema                string          `json:"schema"`
+	State                 string          `json:"state"`
+	Failure               string          `json:"failure"`
+	ConfigSHA256          string          `json:"config_sha256"`
+	PlanSHA256            string          `json:"plan_sha256"`
+	WorkerSHA256          string          `json:"worker_sha256"`
+	ControllerSHA256      string          `json:"controller_sha256"`
+	Process               ProcessReceipt  `json:"process"`
+	DurablePrefix         DurableReceipt  `json:"durable_prefix"`
+	FramesACKWritten      int             `json:"frames_ack_written"`
+	LastDurable           *core.Counts    `json:"last_durable_frame_counts"`
+	LastACKWritten        *core.Counts    `json:"last_ack_written_counts"`
+	TerminalRows          int             `json:"terminal_rows_ack_written"`
+	RemainingUnknown      bool            `json:"remaining_calls_unknown"`
+	FinalACKWritten       bool            `json:"final_ack_written"`
+	FinalChildIdentity    bool            `json:"final_child_file_identity"`
+	CompleteCountersKnown bool            `json:"complete_counters_known"`
+	CompleteRows          *int            `json:"complete_rows"`
+	Initialization        json.RawMessage `json:"initialization_calls"`
+	Nested                json.RawMessage `json:"nested_original_calls"`
+	Authority             json.RawMessage `json:"source_rights_compiler_resource_authority"`
+	TruthAssigned         int             `json:"truth_assigned"`
+	LabelsAssigned        int             `json:"labels_assigned"`
+	ModelFitCalls         int             `json:"fit_or_model_calls"`
+	OutputBytes           *int64          `json:"output_bytes_retained"`
+	AggregateCap          int             `json:"aggregate_cap_bytes"`
+	NoRetry               bool            `json:"no_automatic_retry"`
+}
+
+func null(raw json.RawMessage) bool { return bytes.Equal(raw, []byte("null")) }
+func finalCounts(c core.Counts) bool {
+	tuple := func(t [4]uint32, max uint32) bool { return t[0] <= max && t[0] == t[1] && t[1] == t[2] && t[3] == 0 }
+	return c.Candidate == ([4]uint32{42, 42, 42, 0}) && c.Invocation == ([4]uint32{42, 42, 42, 0}) && tuple(c.Original, 792) && tuple(c.Assignment, 3) && c.Original[0]+c.Assignment[0] <= 795
+}
+func validateOutside(o Outside, z core.Result, c Config) error {
+	p := o.Process
+	if o.Schema != "riido-three-native-outside-result-v1" || o.State != "complete_observation_transport" || o.Failure != "" || o.PlanSHA256 != c.PlanSHA256 || o.WorkerSHA256 != c.WorkerSHA256 || o.ControllerSHA256 != c.ControllerSHA256 || o.ConfigSHA256 != c.OutsideConfigSHA256 || !o.FinalACKWritten || !o.FinalChildIdentity || !o.CompleteCountersKnown || o.CompleteRows == nil || *o.CompleteRows != 42 || o.TerminalRows != 42 || o.RemainingUnknown || !o.NoRetry {
+		return fail("outside_completion_binding")
+	}
+	if p.StartAttempts != 1 || !p.Started || p.WaitAttempts != 1 || p.Reaped == nil || !*p.Reaped || p.ExitCode == nil || *p.ExitCode != 0 || p.DeadlineExceeded || p.StderrOverflow || p.Wall < 0 || p.RSS == nil || *p.RSS < 0 || *p.RSS > 256<<20 || p.RSSCapExceeded == nil || *p.RSSCapExceeded {
+		return fail("outside_process_binding")
+	}
+	if !null(o.Initialization) || !null(o.Nested) || !null(o.Authority) || !null(p.Init) || !null(p.Nested) || o.TruthAssigned != 0 || o.LabelsAssigned != 0 || o.ModelFitCalls != 0 {
+		return fail("outside_unknown_or_adoption_claim")
+	}
+	if o.AggregateCap != 2<<20 || o.OutputBytes == nil || *o.OutputBytes <= 0 || *o.OutputBytes > 2<<20 || o.DurablePrefix.Frames < 1 || o.DurablePrefix.Frames > 1759 || o.DurablePrefix.Bytes < 1 || o.DurablePrefix.Bytes > 1865728 || !validHash(o.DurablePrefix.LastSHA256) || o.FramesACKWritten != o.DurablePrefix.Frames || uint32(o.FramesACKWritten) != z.LastAcknowledgedSequence+1 || o.LastDurable == nil || o.LastACKWritten == nil || *o.LastDurable != z.Counts || *o.LastACKWritten != z.Counts {
+		return fail("outside_ack_prefix_binding")
+	}
+	// Complete normal collection has two frames for every row, invocation and
+	// tracked method, plus the final frame. This checks arithmetic only; it does
+	// not replay or newly observe the journal or hidden original calls.
+	if o.FramesACKWritten != 169+2*int(z.Counts.Original[0]+z.Counts.Assignment[0]) {
+		return fail("outside_complete_frame_count")
+	}
+	return nil
+}
+func validateResult(z core.Result, cs Contracts, c Config) error {
+	if z.Schema != core.ResultSchema || z.State != "completed" || z.PlanSHA256 != c.PlanSHA256 || z.Completed != 42 || !finalCounts(z.Counts) || z.OriginalInitialization != nil || z.OriginalNested != nil || z.Qualified != 0 || z.ParentsCreated != 0 || z.LabelsCreated != 0 || z.TrainingAllowed || z.Failure != "" {
+		return fail("result_completion_or_adoption")
+	}
+	for _, p := range []struct {
+		got   core.Pin
+		bytes int64
+		hash  string
+	}{{z.Literal, 27551, literalSHA}, {z.Wants, 10703, wantsSHA}, {z.Captions, 4115, captionsSHA}} {
+		if p.got.ID == "" || p.got.Bytes != p.bytes || p.got.SHA256 != p.hash {
+			return fail("result_input_pin")
+		}
+	}
+	for d, record := range z.Records {
+		q, f, v, i, index := schedule(d)
+		r := record.Row
+		want := cs[index]
+		pointer := "/requests/" + strconv.Itoa(q) + "/fixtures/" + strconv.Itoa(f) + "/input"
+		if int(r.Dispatch) != d || int(r.Request) != q || int(r.Profile) != f || int(r.Display) != v || int(r.Internal) != i || record.RequestID != want.RequestID || record.FixtureID != want.FixtureID || record.InputPointer != pointer || record.Truth != nil || record.Role != nil || record.Weight != nil || !bytes.Equal(compact(record.Input), compact(want.Input)) || !bytes.Equal(compact(record.Want), compact(want.Raw)) {
+			return fail("result_record_position_input_or_Want")
+		}
+		if !r.Done || !r.Returned || !r.InputKnown || !r.InputValid || !r.InvocationKnown || !r.Called || !r.CallReturned || r.PanicScope != 0 {
+			return fail("result_row_completion")
+		}
+	}
+	return nil
+}
+func loadSaved(c Config) (Contracts, core.Result, error) {
+	var cs Contracts
+	var z core.Result
+	if c.Schema != "riido-next60-three-saved-comparison-config-v1" || len(c.RootReceipts) != 4 || !validHash(c.PlanSHA256) || !validHash(c.WorkerSHA256) || !validHash(c.ControllerSHA256) || !validHash(c.OutsideConfigSHA256) {
+		return cs, z, fail("config_shape")
+	}
+	if filepath.Base(c.Result.Path) != "results.json" || filepath.Base(c.Outside.Path) != "outside.json" || filepath.Dir(c.Result.Path) != filepath.Join(filepath.Dir(c.Outside.Path), "worker-attempt") {
+		return cs, z, fail("saved_child_outside_path_binding")
+	}
+	inputs := []Pin{c.Result, c.Outside, c.Literal, c.Wants, c.Captions, c.WantFreeze}
+	inputs = append(inputs, c.RootReceipts...)
+	for i, p := range inputs {
+		for _, old := range inputs[:i] {
+			if p.Path == old.Path || p.ID == old.ID {
+				return cs, z, fail("config_input_alias")
+			}
+		}
+		if p.Path == c.Output {
+			return cs, z, fail("output_input_alias")
+		}
+	}
+	refs := []struct {
+		pin   Pin
+		bytes int64
+		hash  string
+	}{{c.Literal, 27551, literalSHA}, {c.Wants, 10703, wantsSHA}, {c.Captions, 4115, captionsSHA}, {c.WantFreeze, 2130, wantFreezeSHA}}
+	for _, p := range refs {
+		if p.pin.Bytes != p.bytes || p.pin.SHA256 != p.hash {
+			return cs, z, fail("frozen_source_pin")
+		}
+	}
+	rootIDs := [4]string{"root_source", "root_compiler", "root_rights", "root_resource"}
+	for i, p := range c.RootReceipts {
+		if p.ID != rootIDs[i] {
+			return cs, z, fail("Root_receipt_order")
+		}
+		if _, e := readPin(p, 128<<10); e != nil {
+			return cs, z, e
+		}
+	}
+	l, e := readPin(c.Literal, 65536)
+	if e != nil {
+		return cs, z, e
+	}
+	w, e := readPin(c.Wants, 65536)
+	if e != nil {
+		return cs, z, e
+	}
+	if _, e = readPin(c.Captions, 65536); e != nil {
+		return cs, z, e
+	}
+	if _, e = readPin(c.WantFreeze, 65536); e != nil {
+		return cs, z, e
+	}
+	cs, e = loadContracts(l, w)
+	if e != nil {
+		return cs, z, e
+	}
+	raw, e := readPin(c.Result, 65536)
+	if e != nil {
+		return cs, z, e
+	}
+	if e = canonicalJSON(raw, &z, false); e != nil {
+		return cs, z, e
+	}
+	if e = validateResult(z, cs, c); e != nil {
+		return cs, z, e
+	}
+	raw, e = readPin(c.Outside, 16384)
+	if e != nil {
+		return cs, z, e
+	}
+	var o Outside
+	if e = canonicalJSON(raw, &o, true); e != nil {
+		return cs, z, e
+	}
+	if e = validateOutside(o, z, c); e != nil {
+		return cs, z, e
+	}
+	return cs, z, nil
+}

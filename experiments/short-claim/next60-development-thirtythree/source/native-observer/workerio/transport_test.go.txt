@@ -1,0 +1,43 @@
+// SOURCE-ONLY fake byte streams; no original/native package import or process.
+package workerio
+
+import (
+	"bytes"
+	"encoding/json"
+	"riido.local/next60three-nativeprep/threeliteral"
+	"testing"
+)
+
+func TestExactRawLineACKAndNoRetry(t *testing.T) {
+	frame := threeliteral.Frame{Version: 1, Sequence: 1, Previous: "0000000000000000000000000000000000000000000000000000000000000000"}
+	b, _ := json.Marshal(frame)
+	b = append(b, '\n')
+	a, _ := json.Marshal(threeliteral.Ack{Version: 1, Sequence: 1, SHA256: SHA(b)})
+	var out bytes.Buffer
+	tr := NewTransport(bytes.NewReader(append(a, '\n')), &out)
+	if tr.Exchange(frame) != nil || !bytes.Equal(out.Bytes(), b) {
+		t.Fatal("exact ACK")
+	}
+	if tr.Exchange(frame) == nil || !bytes.Equal(out.Bytes(), b) {
+		t.Fatal("duplicate retry")
+	}
+}
+func TestBadACKStopsWithoutSecondWrite(t *testing.T) {
+	var out bytes.Buffer
+	tr := NewTransport(bytes.NewBufferString("{\"v\":1,\"s\":1,\"h\":\"bad\"}\n"), &out)
+	f := threeliteral.Frame{Version: 1, Sequence: 1, Previous: tr.previous}
+	if tr.Exchange(f) == nil {
+		t.Fatal("wrong ACK accepted")
+	}
+	n := out.Len()
+	f.Sequence = 2
+	if tr.Exchange(f) == nil || out.Len() != n {
+		t.Fatal("write after sticky failure")
+	}
+}
+func TestCanonicalAliasRejected(t *testing.T) {
+	var a threeliteral.Ack
+	if DecodeCanonical([]byte("{\"v\":1,\"s\":1,\"h\":\"x\",\"H\":\"y\"}\n"), &a) == nil {
+		t.Fatal("case alias")
+	}
+}

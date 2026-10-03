@@ -1,0 +1,91 @@
+// SPDX-License-Identifier: Apache-2.0
+package main
+
+import (
+	"bytes"
+	"encoding/json"
+	"io"
+	"os"
+	"path/filepath"
+	"testing"
+
+	core "riido.local/next60threecompare/threeliteral"
+)
+
+// This optional integration check reads owned public saved observations only.
+// It never starts a worker, imports an original package or loads a model.
+func TestPublicSavedPrimitiveReproduction(t *testing.T) {
+	root := os.Getenv("RIIDO_NATIVE_THREE_PUBLIC_ROOT")
+	if root == "" {
+		t.Skip("public saved fixture directory not supplied")
+	}
+	root, err := filepath.EvalSymlinks(root)
+	if err != nil || !filepath.IsAbs(root) {
+		t.Fatal("public_fixture_root")
+	}
+	pin := func(id, rel string) Pin {
+		p := filepath.Join(root, rel)
+		st, e := os.Lstat(p)
+		if e != nil || !st.Mode().IsRegular() || st.Size() < 1 || st.Size() > 128<<10 {
+			t.Fatal("public_fixture_stat")
+		}
+		f, e := os.Open(p)
+		if e != nil {
+			t.Fatal("public_fixture_open")
+		}
+		opened, statErr := f.Stat()
+		b, readErr := io.ReadAll(io.LimitReader(f, (128<<10)+1))
+		closeErr := f.Close()
+		after, afterErr := os.Lstat(p)
+		if statErr != nil || readErr != nil || closeErr != nil || afterErr != nil || !os.SameFile(st, opened) || !os.SameFile(st, after) || st.Size() != int64(len(b)) || st.Size() != after.Size() || !st.ModTime().Equal(after.ModTime()) || len(b) < 1 || len(b) > 128<<10 {
+			t.Fatal("public_fixture_read")
+		}
+		return Pin{id, p, int64(len(b)), sha(b)}
+	}
+	c := Config{
+		Schema:              "riido-next60-three-saved-comparison-config-v1",
+		Result:              pin("result", "evidence/worker-attempt/results.json"),
+		Outside:             pin("outside", "evidence/outside.json"),
+		Literal:             pin("literal", "evidence/LITERAL.v1.json"),
+		Wants:               pin("wants", "evidence/WANTS.v1.json"),
+		Captions:            pin("captions", "evidence/CAPTIONS.v1.json"),
+		WantFreeze:          pin("Want_freeze", "evidence/WANT-FREEZE.v1.json"),
+		RootReceipts:        []Pin{pin("root_source", "evidence/public-root/source.json"), pin("root_compiler", "evidence/public-root/compiler.json"), pin("root_rights", "evidence/public-root/rights.json"), pin("root_resource", "evidence/public-root/resource.json")},
+		PlanSHA256:          "1ea21a7e3638f2eaafa178044dcf6e3a2cdaa11e2f5e6bb8931d05cc1b2d3087",
+		WorkerSHA256:        "d4dd83265e790e8d825d78d11b1dbf17bb18e384a3709c163ec857832c70b01f",
+		ControllerSHA256:    "12816254556d0c9d7104882c41282edb134fec021ca5d5dd00b5898a4833d0c3",
+		OutsideConfigSHA256: "a5b97df8c9c3c5c96a4daaeea46cd8d77e2dba35fe7cd61fcc41e45ebdbc0bae",
+		Output:              filepath.Join(root, "not-written-public-recomparison.json"),
+	}
+	if c.Result.Bytes != 38453 || c.Result.SHA256 != "7475e9504d3c72f613a98c39d5c53eef7d1045d9cadd6b4f131eb781ef60f518" || c.Outside.Bytes != 1672 || c.Outside.SHA256 != "be20af0227e7e45e804e66b18e65a674d244f836aa3f629fe86bd05ae3695a9b" {
+		t.Fatal("public_saved_observation_pin")
+	}
+	contracts, result, err := loadSaved(c)
+	if err != nil {
+		t.Fatal("public_saved_binding")
+	}
+	got := compareAll(contracts, result, c)
+	wantPin := pin("saved_comparison", "evidence/SAVED-COMPARISON.v1.json")
+	if wantPin.Bytes != 76004 || wantPin.SHA256 != "1811bd54fb109eaf2e031fde787c6f772a652c8b4d5a09f963e646b9f4006458" {
+		t.Fatal("public_saved_comparison_pin")
+	}
+	b, err := readPin(wantPin, 128<<10)
+	var want Comparison
+	if err != nil || canonicalJSON(b, &want, true) != nil {
+		t.Fatal("public_saved_comparison_shape")
+	}
+	// The four opaque receipt pins intentionally refer to public path-free
+	// projections here. All other fields, all 42 full rows, 318 primitive
+	// Expected/Actual/state values, unknowns and skipped controls must match.
+	// This does not assert that private admission receipts were distributed.
+	got.RootReceiptPins, want.RootReceiptPins = [4]core.Pin{}, [4]core.Pin{}
+	gotJSON, gotErr := json.Marshal(got)
+	wantJSON, wantErr := json.Marshal(want)
+	if gotErr != nil || wantErr != nil || !bytes.Equal(gotJSON, wantJSON) {
+		t.Fatal("public_saved_primitive_mismatch")
+	}
+	if got.RowCounts != (Totals{26, 11, 5}) || got.PredicateCounts != (Totals{272, 31, 15}) {
+		t.Fatal("public_saved_totals")
+	}
+	t.Log("42 rows / 318 saved predicates reproduced; public opaque projections; original and model calls zero")
+}

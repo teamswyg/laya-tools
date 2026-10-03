@@ -1,0 +1,192 @@
+// Owned source preparation; no original body, build, or execution authorization.
+package threeliteral
+
+import (
+	"encoding/json"
+	"errors"
+)
+
+const (
+	MaxBits                uint = 128
+	MaxInputBytes               = 25
+	Dispatches                  = 42
+	MethodMax                   = 795
+	EventLineMax                = 1024
+	FinalLineMax                = 65536
+	AckLineMax                  = 256
+	FrameMax                    = 1759
+	JournalMax                  = 1865728
+	AggregateOutputReserve      = 2070528
+	ResultSchema                = "riido-next60-three-method-observation-v1"
+)
+
+var ErrBounds = errors.New("finite bounds")
+var ErrStopped = errors.New("checkpoint stopped")
+var ErrBinding = errors.New("binding unavailable")
+var ErrPayloadLength = errors.New("payload length")
+var ErrPadding = errors.New("tail padding")
+var ErrJSON = errors.New("invalid JSON")
+var ErrType = errors.New("non-number root")
+var ErrInteger = errors.New("integer syntax")
+var ErrRange = errors.New("int64 range")
+
+// Tuple order: reserved, dispatched, returned normally, recovered source panic.
+type Counts struct {
+	Candidate  [4]uint32 `json:"c"`
+	Invocation [4]uint32 `json:"b"` // actual candidate function, after admitted fixture setup.
+	Original   [4]uint32 `json:"o"`
+	Assignment [4]uint32 `json:"a"`
+}
+type BitState struct {
+	Known  bool      `json:"k"`
+	Length uint16    `json:"l"`
+	Count  uint8     `json:"c"`
+	Nil    bool      `json:"n"`
+	Words  [2]string `json:"w"`
+}
+type PanicState struct {
+	Known     bool   `json:"k"`
+	Present   bool   `json:"p"`
+	TypeKnown bool   `json:"t"`
+	Type      string `json:"s"`
+	// No text channel: Error/String/Formatter are never invoked.
+}
+type ErrorChannel struct {
+	Available        bool   `json:"a"`
+	Known            bool   `json:"k"`
+	Present          bool   `json:"p"`
+	TypeKnown        bool   `json:"t"`
+	Type             string `json:"s"`
+	OwnIdentityKnown bool   `json:"j"`
+	OwnIdentity      uint8  `json:"i"` // 0 none/unclassified; 1..7 closed owned sentinels.
+}
+type JSONState struct {
+	Known   bool   `json:"k"`
+	Type    uint8  `json:"t"`
+	Raw     string `json:"r"`
+	NumBits string `json:"n"`
+}
+type IntegerState struct {
+	Available bool   `json:"a"`
+	Known     bool   `json:"k"`
+	Decimal   string `json:"s"`
+}
+type Row struct {
+	Dispatch        uint8         `json:"d"`
+	Request         uint8         `json:"q"` // 0 complement, 1 JSON, 2 binary.
+	Profile         uint8         `json:"f"`
+	Display         uint8         `json:"c"`
+	Internal        uint8         `json:"i"`
+	InputKnown      bool          `json:"ik"`
+	InputValid      bool          `json:"iv"`
+	InvocationKnown bool          `json:"u"`
+	Called          bool          `json:"h"`
+	CallReturned    bool          `json:"g"`
+	PanicScope      uint8         `json:"ps"` // 1 fixture source method, 2 candidate source method.
+	Done            bool          `json:"z"`
+	Returned        bool          `json:"n"`
+	Panic           *PanicState   `json:"p,omitempty"`
+	Before          *BitState     `json:"b,omitempty"`
+	After           *BitState     `json:"a,omitempty"`
+	Result          *BitState     `json:"r,omitempty"`
+	JSON            *JSONState    `json:"j,omitempty"`
+	Value           *IntegerState `json:"v,omitempty"`
+	Error           *ErrorChannel `json:"e,omitempty"`
+}
+type WordFact struct {
+	Nil   bool      `json:"n"`
+	Count uint8     `json:"c"`
+	Words [2]string `json:"w"`
+}
+type Fact struct {
+	Returned bool          `json:"k"`
+	Panic    PanicState    `json:"p"`
+	Pointer  *bool         `json:"n,omitempty"`
+	Uint     *uint16       `json:"u,omitempty"`
+	Bool     *bool         `json:"b,omitempty"`
+	Words    *WordFact     `json:"w,omitempty"`
+	JSON     *JSONState    `json:"j,omitempty"`
+	Int      *string       `json:"i,omitempty"`
+	Error    *ErrorChannel `json:"e,omitempty"`
+}
+type Pin struct {
+	ID     string `json:"id"`
+	Bytes  int64  `json:"bytes"`
+	SHA256 string `json:"sha256"`
+}
+type Record struct {
+	RequestID    string          `json:"request_id"`
+	FixtureID    string          `json:"fixture_id"`
+	InputPointer string          `json:"input_pointer"`
+	Row          Row             `json:"Got"`
+	Input        json.RawMessage `json:"input"`
+	Want         json.RawMessage `json:"Want"`
+	Truth        *bool           `json:"truth"`
+	Role         *string         `json:"role"`
+	Weight       *float64        `json:"weight"`
+}
+type Result struct {
+	Schema                   string             `json:"schema"`
+	State                    string             `json:"state"`
+	PlanSHA256               string             `json:"plan_sha256"`
+	Literal                  Pin                `json:"literal"`
+	Wants                    Pin                `json:"wants"`
+	Captions                 Pin                `json:"captions"`
+	Counts                   Counts             `json:"counts"`
+	Records                  [Dispatches]Record `json:"records"`
+	Completed                uint8              `json:"completed"`
+	LastAcknowledgedSequence uint32             `json:"last_acknowledged_sequence"` // before final frame.
+	OriginalInitialization   *uint64            `json:"original_initialization_actual"`
+	OriginalNested           *uint64            `json:"original_nested_actual"`
+	Qualified                uint32             `json:"qualified"`
+	ParentsCreated           uint32             `json:"parents_created"`
+	LabelsCreated            uint32             `json:"labels_created"`
+	TrainingAllowed          bool               `json:"training_allowed"`
+	Failure                  string             `json:"failure"` // fixed owned reason, no raw errors/paths.
+}
+
+// Stage 0 before observed row,1 before method,2 after method,3 after observed row,4 final,
+// 5 before actual candidate invocation,6 after actual candidate invocation. c counts rows; b counts invocations.
+// Method 0 none; 1 New,2 Set,3 Len,4 Words,5 Test,6 Complement,7 Valid,8 Parse,
+// 9 Int,10 UnmarshalBinary,11 owned value assignment. Method11 is not upstream.
+type Frame struct {
+	Version  uint8   `json:"v"`
+	Sequence uint32  `json:"s"`
+	Previous string  `json:"p"`
+	Stage    uint8   `json:"k"`
+	Method   uint8   `json:"m"`
+	Dispatch uint8   `json:"d"`
+	Counts   Counts  `json:"n"`
+	Row      Row     `json:"x"`
+	Fact     *Fact   `json:"f,omitempty"`
+	Final    *Result `json:"z,omitempty"`
+}
+type Ack struct {
+	Version  uint8  `json:"v"`
+	Sequence uint32 `json:"s"`
+	SHA256   string `json:"h"`
+}
+
+// Exchange is synchronous: successful return means the exact frame was durably ACKed.
+// An implementation must not acknowledge on raw row presence or mere Write success.
+type Exchange func(Frame) error
+
+type ParseReturn struct {
+	Type    uint8
+	Raw     string
+	NumBits uint64
+	Native  any
+}
+type Ops struct {
+	New        func(uint) any
+	Set        func(any, uint) any
+	Len        func(any) uint
+	Words      func(any) []uint64
+	Test       func(any, uint) bool
+	Complement func(any) any
+	Unmarshal  func(any, []byte) error
+	Assign     func(any, any)
+	Valid      func(string) bool
+	Parse      func(string) ParseReturn
+	Int        func(any) int64
+}

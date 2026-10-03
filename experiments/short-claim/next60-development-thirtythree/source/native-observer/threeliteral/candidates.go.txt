@@ -1,0 +1,91 @@
+// Fixed internal candidate positions; display permutation is supplied by the frozen schedule.
+package threeliteral
+
+import (
+	"encoding/binary"
+	"strconv"
+)
+
+func complement(s *Session, internal int, src *BitProxy, width uint) *BitProxy {
+	if internal == 1 {
+		return src.Complement()
+	}
+	n := width
+	if internal == 2 {
+		n = src.Len()
+	}
+	dst := s.New(n)
+	for i := uint(0); i < width; i++ {
+		if !src.Test(i) {
+			dst.Set(i)
+		}
+	}
+	return dst
+}
+func integerLexeme(s string) bool {
+	if len(s) == 0 {
+		return false
+	}
+	i := 0
+	if s[0] == '-' {
+		i++
+		if i == len(s) {
+			return false
+		}
+	}
+	if s[i] == '0' {
+		return i+1 == len(s)
+	}
+	if s[i] < '1' || s[i] > '9' {
+		return false
+	}
+	for i++; i < len(s); i++ {
+		if s[i] < '0' || s[i] > '9' {
+			return false
+		}
+	}
+	return true
+}
+func jsonInteger(s *Session, internal int, text string) (int64, bool, error, bool) {
+	if !s.Valid(text) {
+		return 0, false, ErrJSON, internal != 0
+	}
+	p := s.Parse(text)
+	if internal == 0 {
+		return s.Int(p), true, nil, false
+	} // original Int has no error channel.
+	if p.Type != 2 {
+		return 0, false, ErrType, true
+	}
+	if internal == 2 {
+		n, _ := strconv.ParseInt(p.Raw, 10, 64)
+		return n, true, nil, true
+	}
+	if !integerLexeme(p.Raw) {
+		return 0, false, ErrInteger, true
+	}
+	n, e := strconv.ParseInt(p.Raw, 10, 64)
+	if e != nil {
+		return 0, false, ErrRange, true
+	}
+	return n, true, nil, true
+}
+func binaryCandidate(s *Session, internal int, dst *BitProxy, data []byte) error {
+	if internal == 1 {
+		return dst.Unmarshal(data)
+	}
+	n := binary.BigEndian.Uint64(data[:8])
+	words := (n + 63) / 64
+	if len(data) != 8+int(words)*8 {
+		return ErrPayloadLength
+	}
+	if internal == 2 && n%64 != 0 && binary.BigEndian.Uint64(data[len(data)-8:])>>(n%64) != 0 {
+		return ErrPadding
+	}
+	tmp := s.New(0)
+	if e := tmp.Unmarshal(data); e != nil {
+		return e
+	}
+	dst.Assign(tmp)
+	return nil
+}

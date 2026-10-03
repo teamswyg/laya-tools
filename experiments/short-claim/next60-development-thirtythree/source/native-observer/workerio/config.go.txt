@@ -1,0 +1,171 @@
+// Private Root-filled plan loader. Byte pins do not confer semantic/rights authority.
+package workerio
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"io"
+	"os"
+	"path/filepath"
+	"riido.local/next60three-nativeprep/threeliteral"
+)
+
+const PlanSchema = "riido-next60-three-native-plan-v1"
+
+type Ref struct {
+	Path string           `json:"path"`
+	Pin  threeliteral.Pin `json:"pin"`
+}
+type Plan struct {
+	Schema               string           `json:"schema"`
+	Frozen               bool             `json:"frozen"`
+	Literal              Ref              `json:"literal"`
+	Wants                Ref              `json:"wants"`
+	Captions             Ref              `json:"captions"`
+	RootWantFreeze       Ref              `json:"Root_want_freeze"`
+	RootFamilyDecision   Ref              `json:"Root_family_decision"`
+	SourceManifest       Ref              `json:"source_manifest"`
+	RootCompilerReview   Ref              `json:"Root_compiler_review"`
+	RootSourceReview     Ref              `json:"Root_source_review"`
+	RootResourceReview   Ref              `json:"Root_resource_review"`
+	RootExecutionBinding Ref              `json:"Root_execution_binding"`
+	Worker               threeliteral.Pin `json:"worker"`
+	Controller           threeliteral.Pin `json:"controller"`
+	RequestOrder         [3]int           `json:"request_order"`
+	Mapping              [3][3]int        `json:"display_to_internal"`
+	Fixtures             [3]int           `json:"fixture_counts"`
+	MethodMaximum        int              `json:"method_maximum"`
+	FrameMaximum         int              `json:"frame_maximum"`
+	OutputReserve        int              `json:"output_reserve_bytes"`
+}
+
+func SHA(b []byte) string { h := sha256.Sum256(b); return hex.EncodeToString(h[:]) }
+func validHash(s string) bool {
+	if len(s) != 64 {
+		return false
+	}
+	for _, c := range []byte(s) {
+		if !(c >= '0' && c <= '9' || c >= 'a' && c <= 'f') {
+			return false
+		}
+	}
+	return true
+}
+func validPin(p threeliteral.Pin) bool {
+	return p.ID != "" && p.Bytes > 0 && p.Bytes <= 64<<20 && validHash(p.SHA256)
+}
+
+// Canonical one-LF JSON rejects unknown fields, duplicate keys, aliases, extra documents,
+// reordered/case-varied keys and noncanonical arrays. No permissive case-insensitive fallback.
+func DecodeCanonical(b []byte, out any) error {
+	d := json.NewDecoder(bytes.NewReader(b))
+	d.DisallowUnknownFields()
+	if d.Decode(out) != nil {
+		return threeliteral.ErrBounds
+	}
+	var extra any
+	if d.Decode(&extra) != io.EOF {
+		return threeliteral.ErrBounds
+	}
+	c, e := json.Marshal(out)
+	if e != nil || !bytes.Equal(b, append(c, '\n')) {
+		return threeliteral.ErrBounds
+	}
+	return nil
+}
+func ReadRef(r Ref, cap int64) ([]byte, error) {
+	if !validPin(r.Pin) || r.Pin.Bytes > cap || !filepath.IsAbs(r.Path) {
+		return nil, threeliteral.ErrBounds
+	}
+	st, e := os.Lstat(r.Path)
+	if e != nil || !st.Mode().IsRegular() || st.Size() != r.Pin.Bytes {
+		return nil, threeliteral.ErrBounds
+	}
+	f, e := os.Open(r.Path)
+	if e != nil {
+		return nil, threeliteral.ErrBounds
+	}
+	defer f.Close()
+	b, e := io.ReadAll(io.LimitReader(f, cap+1))
+	if e != nil || int64(len(b)) != r.Pin.Bytes || SHA(b) != r.Pin.SHA256 {
+		return nil, threeliteral.ErrBounds
+	}
+	return b, nil
+}
+func CheckPlan(p Plan) error {
+	if p.Schema != PlanSchema || !p.Frozen || p.RequestOrder != [3]int{2, 7, 1} || p.Mapping != [3][3]int{{0, 1, 2}, {2, 1, 0}, {0, 1, 2}} ||
+		p.Fixtures != [3]int{4, 5, 5} || p.MethodMaximum != 795 || p.FrameMaximum != 1759 || p.OutputReserve != 2070528 {
+		return threeliteral.ErrBounds
+	}
+	exact := []struct {
+		r Ref
+		b int64
+		h string
+	}{
+		{p.Literal, 27551, "a57fd4f3f37f73984df9522b5607d18143277dc4c527124bac6c56a067799c13"},
+		{p.Wants, 10703, "4bc7c8ee36e38ae57da29d385c2feadb90261f81744988870ad1fe7ff334df02"},
+		{p.Captions, 4115, "45a421ce909c63949c30935889fad883f7e7202e6c4cd4c85ee4da55386fbd71"},
+		{p.RootWantFreeze, 2130, "73c85851347a3039906604923387719877e7969c70a8ca0fd6a9969679cc48d3"},
+		{p.RootFamilyDecision, 3089, "1677d33aeb32c18c809e9ea717f375d5086d5b371e68f09f48fd24ae2f254b7f"},
+	}
+	for _, v := range exact {
+		if !validPin(v.r.Pin) || v.r.Pin.Bytes != v.b || v.r.Pin.SHA256 != v.h {
+			return threeliteral.ErrBounds
+		}
+	}
+	for _, r := range []Ref{p.SourceManifest, p.RootCompilerReview, p.RootSourceReview, p.RootResourceReview, p.RootExecutionBinding} {
+		if !validPin(r.Pin) || r.Pin.Bytes > 128<<10 || !filepath.IsAbs(r.Path) {
+			return threeliteral.ErrBounds
+		}
+	}
+	if !validPin(p.Worker) || !validPin(p.Controller) {
+		return threeliteral.ErrBounds
+	}
+	return nil
+}
+func LoadPlan(path, sha string) (Plan, []byte, []byte, error) {
+	var p Plan
+	if !validHash(sha) || !filepath.IsAbs(path) {
+		return p, nil, nil, threeliteral.ErrBounds
+	}
+	st, e := os.Lstat(path)
+	if e != nil || !st.Mode().IsRegular() || st.Size() > 65536 {
+		return p, nil, nil, threeliteral.ErrBounds
+	}
+	f, e := os.Open(path)
+	if e != nil {
+		return p, nil, nil, threeliteral.ErrBounds
+	}
+	b, e := io.ReadAll(io.LimitReader(f, 65537))
+	f.Close()
+	if e != nil || len(b) > 65536 || SHA(b) != sha || DecodeCanonical(b, &p) != nil || CheckPlan(p) != nil {
+		return p, nil, nil, threeliteral.ErrBounds
+	}
+	var literal, wants []byte
+	refs := []Ref{p.Literal, p.Wants, p.Captions, p.RootWantFreeze, p.RootFamilyDecision, p.SourceManifest, p.RootCompilerReview, p.RootSourceReview, p.RootResourceReview, p.RootExecutionBinding}
+	for i, r := range refs {
+		v, err := ReadRef(r, 128<<10)
+		if err != nil {
+			return p, nil, nil, err
+		}
+		if i == 0 {
+			literal = v
+		}
+		if i == 1 {
+			wants = v
+		}
+	}
+	if threeliteral.CheckWants(literal, wants) != nil {
+		return p, nil, nil, threeliteral.ErrBounds
+	}
+	exe, e := os.Executable()
+	if e != nil {
+		return p, nil, nil, threeliteral.ErrBounds
+	}
+	if _, e = ReadRef(Ref{Path: exe, Pin: p.Worker}, 64<<20); e != nil {
+		return p, nil, nil, e
+	}
+	return p, literal, wants, nil
+}

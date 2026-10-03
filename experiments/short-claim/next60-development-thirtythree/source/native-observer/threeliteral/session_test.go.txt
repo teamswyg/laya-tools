@@ -1,0 +1,142 @@
+// SOURCE-ONLY synthetic controls. These fake functions are not original implementations or semantic oracles.
+package threeliteral
+
+import (
+	"errors"
+	"testing"
+)
+
+type fakeBit struct {
+	n uint
+	w []uint64
+}
+
+func fakeOperations() Ops {
+	return Ops{
+		New: func(n uint) any { return &fakeBit{n: n, w: make([]uint64, (n+63)/64)} },
+		Set: func(v any, i uint) any {
+			b := v.(*fakeBit)
+			if i >= b.n {
+				b.n = i + 1
+			}
+			for len(b.w) < int((b.n+63)/64) {
+				b.w = append(b.w, 0)
+			}
+			b.w[i/64] |= 1 << (i % 64)
+			return b
+		},
+		Len: func(v any) uint { return v.(*fakeBit).n }, Words: func(v any) []uint64 { return v.(*fakeBit).w },
+		Test:       func(v any, i uint) bool { b := v.(*fakeBit); return i < b.n && b.w[i/64]&(1<<(i%64)) != 0 },
+		Complement: func(v any) any { return v }, Unmarshal: func(any, []byte) error { return nil }, Assign: func(any, any) {},
+		Valid: func(string) bool { return true }, Parse: func(string) ParseReturn { return ParseReturn{Type: 2, Raw: "1"} }, Int: func(any) int64 { return 1 },
+	}
+}
+func TestBeforeMethodACKFailurePreventsRawNew(t *testing.T) {
+	calls := 0
+	o := fakeOperations()
+	o.New = func(uint) any { calls++; return &fakeBit{} }
+	s, e := NewSession(o, func(f Frame) error {
+		if f.Stage == 1 {
+			return errors.New("fake refusal")
+		}
+		return nil
+	})
+	if e != nil {
+		t.Fatal("binding")
+	}
+	_, e = s.Observe(Schedule()[0], Fixture{Request: 0, Profile: 0, Initial: BitState{Known: true}})
+	if e == nil || calls != 0 || s.Counts.Original[1] != 0 || s.Counts.Invocation[1] != 0 || s.Counts.Candidate[3] != 0 {
+		t.Fatal("ACK failure dispatched or became candidate panic")
+	}
+}
+func TestCheckpointPanicIsNotSourcePanic(t *testing.T) {
+	s, _ := NewSession(fakeOperations(), func(f Frame) error {
+		if f.Stage == 1 {
+			panic("fake checkpoint")
+		}
+		return nil
+	})
+	_, e := s.Observe(Schedule()[0], Fixture{Request: 0, Profile: 0})
+	if e == nil || !s.Stopped || s.Counts.Original[3] != 0 || s.Counts.Invocation[3] != 0 || s.Counts.Candidate[3] != 0 {
+		t.Fatal("checkpoint panic layer")
+	}
+}
+func TestFixtureMismatchDoesNotInvokeCandidate(t *testing.T) {
+	calls := 0
+	o := fakeOperations()
+	o.Complement = func(v any) any { calls++; return v }
+	s, _ := NewSession(o, func(Frame) error { return nil })
+	e := Schedule()[4] // display1 fixture0; source factory still New(0).
+	_, err := s.Observe(e, Fixture{Request: 0, Profile: 0, Initial: BitState{Known: true, Length: 1, Count: 1}})
+	if err == nil || calls != 0 || s.Counts.Invocation[0] != 0 || !s.Row.InputKnown || s.Row.InputValid {
+		t.Fatal("invalid fixture admitted")
+	}
+}
+func TestWordsCopyIsOwnedAndReturnedAfterACK(t *testing.T) {
+	raw := &fakeBit{n: 1, w: []uint64{1}}
+	o := fakeOperations()
+	o.New = func(uint) any { return raw }
+	after := false
+	s, _ := NewSession(o, func(f Frame) error {
+		if f.Stage == 2 && f.Method == 4 {
+			after = true
+		}
+		return nil
+	})
+	b := s.New(1)
+	words := b.Words()
+	if !after {
+		t.Fatal("value exposed before ACK")
+	}
+	raw.w[0] = 9
+	if words[0] != 1 {
+		t.Fatal("borrowed words escaped")
+	}
+}
+func TestUnavailableOriginalIntegerErrorChannel(t *testing.T) {
+	s, _ := NewSession(fakeOperations(), func(Frame) error { return nil })
+	n, v, e, a := jsonInteger(s, 0, "1")
+	if n != 1 || !v || e != nil || a {
+		t.Fatal("invented original error channel")
+	}
+}
+
+func TestForgedCompletedResultHasNoAcknowledgedRows(t *testing.T) {
+	s, _ := NewSession(fakeOperations(), func(Frame) error { return nil })
+	s.Counts.Candidate = [4]uint32{42, 42, 42, 0}
+	s.Counts.Invocation = [4]uint32{42, 42, 42, 0}
+	r := Result{State: "completed", Completed: 42, Counts: s.Counts}
+	if s.Final(r) == nil {
+		t.Fatal("completed output without acknowledged rows")
+	}
+}
+
+// Failure after a raw return must retain the durable before-method prefix and stop retries.
+func TestAfterMethodACKFailureStopsWithoutRetry(t *testing.T) {
+	calls := 0
+	o := fakeOperations()
+	o.New = func(n uint) any { calls++; return &fakeBit{n: n, w: make([]uint64, (n+63)/64)} }
+	s, err := NewSession(o, func(f Frame) error {
+		if f.Stage == 2 && f.Method == 1 {
+			return errors.New("fake after-ACK failure")
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal("binding")
+	}
+	_, err = s.Observe(Schedule()[0], Fixture{Request: 0, Profile: 0, Initial: BitState{Known: true}})
+	if err == nil || calls != 1 || !s.Stopped || s.Failure != "ack_failure" {
+		t.Fatal("missing stop after raw return")
+	}
+	if s.Counts.Original != [4]uint32{1, 1, 1, 0} || s.ackCounts.Original != [4]uint32{1, 0, 0, 0} || s.Sequence != 2 || s.ackSequence != 2 {
+		t.Fatal("in-memory return confused with acknowledged prefix")
+	}
+	if s.Counts.Invocation != [4]uint32{} || s.Counts.Candidate[3] != 0 {
+		t.Fatal("ACK failure invented candidate call or panic")
+	}
+	_, err = s.Observe(Schedule()[1], Fixture{Request: 0, Profile: 1})
+	if err == nil || calls != 1 || s.Sequence != 2 {
+		t.Fatal("stopped method retried")
+	}
+}
