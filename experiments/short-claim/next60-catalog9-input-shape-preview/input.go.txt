@@ -1,0 +1,118 @@
+package main
+
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"github.com/teamswyg/laya-tools/pkg/shortclaim"
+	"io"
+	"os"
+	"strings"
+)
+
+type Caption struct {
+	Index int    `json:"candidate_index"`
+	Text  string `json:"text"`
+}
+type Request struct {
+	Index    int       `json:"request_index"`
+	ID       string    `json:"id"`
+	Text     string    `json:"model_request_proposal"`
+	Order    []string  `json:"candidate_order"`
+	Captions []Caption `json:"caption_proposals"`
+}
+type Catalog struct {
+	Frozen   bool      `json:"frozen"`
+	Requests []Request `json:"requests"`
+}
+type Row struct {
+	Index        int    `json:"request_index"`
+	ID           string `json:"request_id"`
+	Completed    bool   `json:"ValidateInput_completed"`
+	Error        string `json:"error_code"`
+	RequestBytes int    `json:"request_bytes"`
+	RequestWords int    `json:"normalized_request_words"`
+	CaptionBytes [3]int `json:"caption_bytes"`
+	CaptionWords [3]int `json:"normalized_caption_words"`
+}
+type Receipt struct {
+	Schema    string `json:"schema"`
+	SHA       string `json:"catalog_sha256"`
+	Attempts  int    `json:"ValidateInput_attempts"`
+	Completed int    `json:"ValidateInput_completed"`
+	Rows      [9]Row `json:"rows"`
+	Model     int    `json:"model_calls"`
+	Features  int    `json:"Features_calls"`
+	Score     int    `json:"Score_calls"`
+	Project   int    `json:"Project_calls"`
+	Fit       int    `json:"Fit_calls"`
+	Native    int    `json:"original_calls"`
+	Labels    int    `json:"labels_assigned"`
+	Scope     string `json:"scope"`
+}
+
+func run() error {
+	if len(os.Args) != 2 {
+		return errors.New("argument_bounds")
+	}
+	st, err := os.Lstat(os.Args[1])
+	if err != nil || !st.Mode().IsRegular() || st.Size() != 106576 {
+		return errors.New("pinned_source_regular_bounds")
+	}
+	f, err := os.Open(os.Args[1])
+	if err != nil {
+		return errors.New("pinned_read")
+	}
+	defer f.Close()
+	b, err := io.ReadAll(io.LimitReader(f, 106577))
+	if err != nil || len(b) != 106576 {
+		return errors.New("pinned_read_bounds")
+	}
+	h := sha256.Sum256(b)
+	hs := hex.EncodeToString(h[:])
+	if hs != "c7b0446710a6d629a584aac16f3723d439330a9684ac299491aa430edf33f80c" {
+		return errors.New("pinned_sha")
+	}
+	var c Catalog
+	if json.Unmarshal(b, &c) != nil || c.Frozen || len(c.Requests) != 10 {
+		return errors.New("catalog_shape")
+	}
+	out := Receipt{Schema: "riido-catalog9-input-shape-preview-v1", SHA: hs, Scope: "Only shape/normalization of nine public literal text proposals; no semantic, execution, rights, supervision or qualification authority."}
+	for i := 0; i < 9; i++ {
+		r := c.Requests[i]
+		if r.Index != i || len(r.Order) != 3 || len(r.Captions) != 3 {
+			return errors.New("proposal_order")
+		}
+		row := Row{Index: i, ID: r.ID, RequestBytes: len(r.Text)}
+		var cand [shortclaim.MaxCandidates]shortclaim.Candidate
+		for j := 0; j < 3; j++ {
+			if r.Captions[j].Index != j {
+				return errors.New("caption_order")
+			}
+			cand[j] = shortclaim.Candidate{ID: r.Order[j], Text: r.Captions[j].Text}
+			row.CaptionBytes[j] = len(cand[j].Text)
+		}
+		out.Attempts++
+		v, e := shortclaim.ValidateInput(shortclaim.Input{Schema: shortclaim.Schema, Request: r.Text, Candidates: cand[:3], Provenance: "catalog9-literal-preview-v1"})
+		if e != nil {
+			row.Error = e.Error()
+		} else {
+			p := v.Prepared()
+			row.Completed = true
+			row.RequestWords = len(strings.Fields(p.NormalizedRequest))
+			for j := 0; j < 3; j++ {
+				row.CaptionWords[j] = len(strings.Fields(p.Candidates[j].NormalizedText))
+			}
+			out.Completed++
+		}
+		out.Rows[i] = row
+	}
+	return json.NewEncoder(os.Stdout).Encode(out)
+}
+func main() {
+	if e := run(); e != nil {
+		_, _ = io.WriteString(os.Stderr, e.Error()+"\n")
+		os.Exit(1)
+	}
+}

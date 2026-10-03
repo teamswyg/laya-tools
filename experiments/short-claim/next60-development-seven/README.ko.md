@@ -8,7 +8,7 @@
 
 재현은 저장소에서 `bash scripts/verify-next60-development.sh data`를 실행하면 됩니다. Go 1.27.1이 필요하며 이 검사는 모델이나 Python을 실행하지 않습니다. 해당 PR의 CI 통과 여부는 GitHub 체크를 확인하세요.
 
-현재 HF의 고정 공개 버전은 [3개 요청 태그](https://huggingface.co/datasets/JooYoon/riidolaya-shortclaim-next60-development/tree/next60-3-finite-v1)입니다. 이 7행 버전은 CI 확인 후 별도 태그로 게시할 계획이며, 이미 게시한 태그를 이동하지 않습니다. GitHub에는 모델 본체를 올리지 않습니다.
+[HF 7개 요청 태그](https://huggingface.co/datasets/JooYoon/riidolaya-shortclaim-next60-development/tree/next60-7-finite-v1)를 별도 게시했습니다. [PR115](https://github.com/teamswyg/laya-tools/pull/115)의 필수 CI 네 개·자동 병합 뒤 112개 파일 재다운로드와 viewer 7행 전체 필드를 확인했습니다. [게시 기록](../publication-proof-116/HF-PUBLICATION.v3.json)을 보세요. 이전 2개·3개 태그는 그대로이며 GitHub에는 모델 본체를 올리지 않습니다.
 
 기존 79개 자료·실패 모델의 비활성 상태·누적 Fit 3회는 그대로입니다. 30개·60개 점검 전에는 새 corpus Fit을 하지 않습니다. [다음 10개 요청의 literal 보완](../next60-catalog10-literal-correction/TRANSITION.ko.md)은 관측·라벨 없는 제안이며, 보고 채널 계측이 필요한 여섯 입력은 계속 보류합니다.
 
