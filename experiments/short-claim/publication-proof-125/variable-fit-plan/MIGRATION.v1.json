@@ -1,0 +1,100 @@
+{
+  "schema": "riido-variable-Go-fit-migration-design-v1",
+  "state": "source_only_design_not_execution_readiness",
+  "trainer_implementation_written": false,
+  "driver_source_found": true,
+  "actual33_materialization_and_reader": "Root-owned pending receipts at assignment; not executed or reclassified here.",
+  "author_relation": "Agent45 nonblind preparation; prior related comparers/outside collectors/materializers author, not Fit79 driver author. Agent114 after30 source-only plan pinned and preserved.",
+  "recipe": {
+    "seed": 1729,
+    "mode": "fp32",
+    "dimension": 8192,
+    "epochs": 50,
+    "batch": 128,
+    "learning_rate": 0.1,
+    "L2": 0.0001,
+    "pair_lambda": 0,
+    "start_from_old_weights": false,
+    "trainer": "pairlearn.FitWithTrace",
+    "epoch_choice": "earliest strict minimum validation NLL; complete finite50-epoch trace"
+  },
+  "unchanged_budget": {
+    "corpus_Fits": 3,
+    "maximum_Fits": 8,
+    "logical_models": 3,
+    "maximum_models": 16,
+    "new_Fits": 0,
+    "new_models": 0,
+    "historical_failed_models": "inactive",
+    "budget_changed": false
+  },
+  "input_contract": {
+    "variable_requests": "Root-declared33 and later approximately60 development requests; no fixed79/235 count tables. Total joined membership is separately frozen after dedup.",
+    "arithmetic_not_independence": "79+33=112 or79+60=139 is arithmetic, not evidence of distinct admitted requests.",
+    "known_selection": "New JSONL contains only Root-selected Boolean labels/unit weights. U-only candidates remain excluded with null label/weight in the evidence ledger. Root-adopted knownF+U negatives may enter; never silently turn U into false or zero weight.",
+    "NoAnswer": "Require explicit Root no-answer authority for all-false rows; otherwise reject rather than infer no-answer.",
+    "bounds": "Existing one-row16KiB/candidate1..8/text512-byte32-word reader limits. Freeze total request/byte/CSR bounds before allocation; existing64MiB owned projection payload bound remains.",
+    "mapping": "Preserve source candidate positions, IDs and selected order outside features, including two-candidate rows after unknown exclusion.",
+    "roles": "Whole connected-family role closure; append admitted training only. Preserve old text/truth/acceptable/masks/0weights/validation/calibration and old sparse prefixes.",
+    "group_ids": "Do not index a parent-sized array by group ID;82/83 exceed33. Sorted group-role slice/binary search +fixed[3] role aggregates +[8] candidate slots; existing reader group cap65535.",
+    "features": "Only Example.Input().Prepared() request/caption text. Supervision/Metadata and Wanted/Got/IDs/roles/counts never reach Features."
+  },
+  "migration_units": [
+    {
+      "unit": "Existing algorithm",
+      "action": "Keep pairlearn and hintlearn unchanged, including PCG seed semantics, row shuffle, weight normalization, batch divisor, L2 and feature order.",
+      "evidence": "types.go:19; pairlearn/learn.go:177-257"
+    },
+    {
+      "unit": "New input bridge",
+      "action": "Proposed internal/claimtrain/inputs.go: strict bounded shortclaimdata reader plus Root-pinned selected-index/family/label join; no role allocation.",
+      "evidence": "shortclaimdata/reader.go:11-187; claimfit/projection.go:345-353 treats every known-parent candidate as known"
+    },
+    {
+      "unit": "Projection/join guard",
+      "action": "Generalize fit.go checkInput and projectioncheck.go counts from frozen plan; preserve appendguard.go exact old sparse prefixes. Generic claimfit.Project already accepts variable slices, but grants no readiness.",
+      "evidence": "fit.go:21-92; projectioncheck.go:14-140; appendguard.go:64-106"
+    },
+    {
+      "unit": "Training trace",
+      "action": "Reuse oneFitCheckpoint/checkFit: one durable intent before entry, no retry, finiteFP32 coefficients, full50 epochs, earliest strict minimum validation NLL.",
+      "evidence": "fit.go:98-190"
+    },
+    {
+      "unit": "Thin versioned driver",
+      "action": "Proposed cmd/riido-shortclaim-fitnext plus internal/claimtrain plan/io guards. Preserve historical riido79fit sealed source, replace stale count/source/attempt pins with a separately frozen successor contract.",
+      "evidence": "main.go:130-158,347-458; assets.go/amendment.go unchanged resource mechanisms are references, not new admission"
+    },
+    {
+      "unit": "Utility/diagnostics",
+      "action": "Retain fixed4 baselines and stable ties, oracle headroom>=5%, achieved check reduction>=5%, no Top1/Top3 regression on identical validation denominator. Generalize origin.go fixed76..78 range to admitted new-train refs; never pool it as validation.",
+      "evidence": "utility.go:130-180,234-249; origin.go:8-19"
+    }
+  ],
+  "Root_required_before_corpus_entry": [
+    "Actual33 or future approximately60 materialization +independent actual Go reader evidence",
+    "Semantic dedup/alias/helper/family review against79/current/proposed and frozen actual join counts; exact normalized duplicates alone are insufficient",
+    "Whole-family role membership; preserve old assignments and reject cross-role collisions; prospective3train/2val/1cal is still a proposal",
+    "Exact old validation/calibration/mask/source pins; exposed validation remains development regression, not unseen evidence",
+    "Fresh compiler/binary/owned synthetic CI plus archive-aware resource and consumption registry; historical source or resource proof is not current approval",
+    "Before-Fit fixed baseline/oracle headroom and one-primary-Fit recipe/intent separately frozen"
+  ],
+  "tests_proposed_only": [
+    "Old prefix or family-role conflict rejects before Features/Project/Fit; injected callback entry count0.",
+    "U-only excluded/null versus Root-qualified F+U negative; missing authority rejects.",
+    "Same text with changed metadata/supervision gives same normalized text/features; does not establish truth.",
+    "Source-index/selected-index order preserved after exclusion; duplicates/missing candidate IDs rejected.",
+    "NLL ties choose earliest epoch; incomplete/nonfinite trace fails.",
+    "Durable checkpoint failure/panic stops later entry and preserves attempts/unknown state; no successful/active model fabricated."
+  ],
+  "hard_boundaries": {
+    "auto_Fit_after33_or60": false,
+    "new_2400_each_development_fit_requirement": false,
+    "new_15_repository_requirement": false,
+    "protected2400_read": false,
+    "validation_raw_label_or_score_array_read": false,
+    "new_seed_feature_loss_caption_threshold_search": false,
+    "ternary_this_migration": false
+  },
+  "test_Fit_accounting": "Injected fake callback has0 real Fit entries. Actual owned-synthetic test-fitting is disclosed separately and does not demonstrate corpus utility. Every real corpus Fit dispatch, including failure/profiling repeat, consumes the unchanged global scientific ledger; no hidden retry/reset."
+}

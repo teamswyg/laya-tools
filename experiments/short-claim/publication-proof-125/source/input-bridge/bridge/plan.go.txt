@@ -1,0 +1,348 @@
+// SPDX-License-Identifier: Apache-2.0
+package bridge
+
+import (
+	"bytes"
+	"encoding/json"
+	"io"
+	"reflect"
+	"sort"
+	"strconv"
+	"strings"
+	"unicode/utf8"
+
+	"github.com/teamswyg/laya-tools/pkg/shortclaim"
+	"github.com/teamswyg/laya-tools/pkg/shortclaimdata"
+)
+
+// walk requires every exact decoded key once; case aliases, duplicates, null
+// containers, extra fields, floating integer spellings and trailing input fail.
+// Pointer fields may explicitly be null; admission checks their meanings later.
+func walk(d *json.Decoder, t reflect.Type, depth int) error {
+	if depth > 16 {
+		return ErrPlan
+	}
+	if t.Kind() == reflect.Pointer {
+		var raw json.RawMessage
+		if d.Decode(&raw) != nil {
+			return ErrPlan
+		}
+		if bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
+			return nil
+		}
+		n := json.NewDecoder(bytes.NewReader(raw))
+		n.UseNumber()
+		if err := walk(n, t.Elem(), depth+1); err != nil {
+			return err
+		}
+		if _, err := n.Token(); err != io.EOF {
+			return ErrPlan
+		}
+		return nil
+	}
+	token, err := d.Token()
+	if err != nil {
+		return ErrPlan
+	}
+	switch t.Kind() {
+	case reflect.Struct:
+		if token != json.Delim('{') || t.NumField() > 24 {
+			return ErrPlan
+		}
+		var seen [24]bool
+		for d.More() {
+			key, err := d.Token()
+			if err != nil {
+				return ErrPlan
+			}
+			s, ok := key.(string)
+			if !ok {
+				return ErrPlan
+			}
+			idx := -1
+			for i := 0; i < t.NumField(); i++ {
+				if t.Field(i).Tag.Get("json") == s {
+					idx = i
+					break
+				}
+			}
+			if idx < 0 || seen[idx] {
+				return ErrPlan
+			}
+			seen[idx] = true
+			if err := walk(d, t.Field(idx).Type, depth+1); err != nil {
+				return err
+			}
+		}
+		if x, e := d.Token(); e != nil || x != json.Delim('}') {
+			return ErrPlan
+		}
+		for i := 0; i < t.NumField(); i++ {
+			if !seen[i] {
+				return ErrPlan
+			}
+		}
+	case reflect.Slice:
+		if token != json.Delim('[') {
+			return ErrPlan
+		}
+		limit := MaxRegistry
+		if t.Elem() == reflect.TypeOf(RowPlan{}) {
+			limit = MaxRows
+		}
+		if t.Elem() == reflect.TypeOf(CandidatePlan{}) || t.Elem() == reflect.TypeOf(ExcludedPlan{}) {
+			limit = shortclaim.MaxCandidates
+		}
+		n := 0
+		for d.More() {
+			if n == limit {
+				return ErrBounds
+			}
+			n++
+			if e := walk(d, t.Elem(), depth+1); e != nil {
+				return e
+			}
+		}
+		if x, e := d.Token(); e != nil || x != json.Delim(']') {
+			return ErrPlan
+		}
+	case reflect.String:
+		if _, ok := token.(string); !ok {
+			return ErrPlan
+		}
+	case reflect.Bool:
+		if _, ok := token.(bool); !ok {
+			return ErrPlan
+		}
+	case reflect.Int:
+		x, ok := token.(json.Number)
+		if !ok {
+			return ErrPlan
+		}
+		i, e := strconv.ParseInt(x.String(), 10, 32)
+		if e != nil || strconv.FormatInt(i, 10) != x.String() {
+			return ErrPlan
+		}
+	default:
+		return ErrPlan
+	}
+	return nil
+}
+func decodePlan(raw []byte) (Plan, error) {
+	if !utf8.Valid(raw) || !json.Valid(raw) || !scalarEscapes(raw) {
+		return Plan{}, ErrPlan
+	}
+	d := json.NewDecoder(bytes.NewReader(raw))
+	d.UseNumber()
+	if err := walk(d, reflect.TypeOf(Plan{}), 0); err != nil {
+		return Plan{}, err
+	}
+	if _, err := d.Token(); err != io.EOF {
+		return Plan{}, ErrPlan
+	}
+	var p Plan
+	if json.Unmarshal(raw, &p) != nil {
+		return Plan{}, ErrPlan
+	}
+	return p, nil
+}
+func validRole(s string) bool {
+	return s == "development_train" || s == "development_validation" || s == "development_calibration"
+}
+func groupIndex(groups []GroupRole, group int) int {
+	i := sort.Search(len(groups), func(i int) bool { return groups[i].WholeGroup >= group })
+	if i == len(groups) || groups[i].WholeGroup != group {
+		return -1
+	}
+	return i
+}
+func familyIndex(families []FamilyRole, family string) int {
+	i := sort.Search(len(families), func(i int) bool { return families[i].SourceFamily >= family })
+	if i == len(families) || families[i].SourceFamily != family {
+		return -1
+	}
+	return i
+}
+func validatePlan(p Plan, pins Pins) error {
+	if p.Schema != Schema || p.State != State || p.RootAdmissionSHA256 != pins.RootAdmissionSHA256 ||
+		p.DataSHA256 != pins.DataSHA256 || p.FeaturePolicy != shortclaimdata.FeaturePolicy {
+		return ErrPlan
+	}
+	if len(p.Rows) < 1 || len(p.Rows) > MaxRows || len(p.GroupRoles) < 1 || len(p.GroupRoles) > MaxRegistry ||
+		len(p.FamilyRoles) < 1 || len(p.FamilyRoles) > MaxRegistry {
+		return ErrBounds
+	}
+	for i, g := range p.GroupRoles {
+		if g.WholeGroup < 1 || g.WholeGroup > shortclaimdata.MaxGroup || !validRole(g.Role) ||
+			i > 0 && p.GroupRoles[i-1].WholeGroup >= g.WholeGroup {
+			return ErrRole
+		}
+	}
+	for i, f := range p.FamilyRoles {
+		if !identifier(f.SourceFamily, shortclaimdata.MaxMetadataBytes) || !validRole(f.Role) ||
+			i > 0 && p.FamilyRoles[i-1].SourceFamily >= f.SourceFamily {
+			return ErrRole
+		}
+		g := groupIndex(p.GroupRoles, f.WholeGroup)
+		if g < 0 || p.GroupRoles[g].Role != f.Role {
+			return ErrRole
+		}
+	}
+	for i, r := range p.Rows {
+		if !sha(r.RawSHA256) || !identifier(r.StableID, shortclaim.MaxIDBytes) || !sha1(r.SourceRevision) ||
+			!identifier(r.TextRevision, shortclaimdata.MaxMetadataBytes) || r.FeaturePolicy != shortclaimdata.FeaturePolicy {
+			return ErrPlan
+		}
+		for j := 0; j < i; j++ {
+			if p.Rows[j].StableID == r.StableID {
+				return ErrPlan
+			}
+		}
+		g := groupIndex(p.GroupRoles, r.WholeGroup)
+		f := familyIndex(p.FamilyRoles, r.SourceFamily)
+		if r.Role != shortclaimdata.Role || g < 0 || f < 0 || p.GroupRoles[g].Role != r.Role ||
+			p.FamilyRoles[f].Role != r.Role || p.FamilyRoles[f].WholeGroup != r.WholeGroup {
+			return ErrRole
+		}
+		n := len(r.Candidates)
+		if n < 1 || n > shortclaim.MaxCandidates || r.SourceCandidateCount < n || r.SourceCandidateCount > shortclaim.MaxCandidates ||
+			n+len(r.Excluded) != r.SourceCandidateCount {
+			return ErrPlan
+		}
+		s := r.FiniteScope
+		if s.InputCount < 1 || s.InputCount > shortclaimdata.MaxFiniteInputs || s.CandidateObservations != s.InputCount*n ||
+			s.AllInputGuarantee || s.UnseenSourceGuarantee || len(s.Description) > shortclaim.MaxTextBytes || strings.TrimSpace(s.Description) == "" {
+			return ErrPlan
+		}
+		var seen [shortclaim.MaxCandidates]bool
+		var ids [shortclaim.MaxCandidates]string
+		positives := 0
+		for j, c := range r.Candidates {
+			if !identifier(c.MetadataID, shortclaim.MaxIDBytes) || c.SourceIndex < 0 || c.SourceIndex >= r.SourceCandidateCount || seen[c.SourceIndex] {
+				return ErrPlan
+			}
+			seen[c.SourceIndex] = true
+			ids[j] = c.MetadataID
+			if c.Supervision != "known" || c.Label == nil {
+				return ErrUnknown
+			}
+			if c.SampleWeight == nil || *c.SampleWeight != 1 || c.UnknownPredicates < 0 || c.UnknownPredicates > 65535 {
+				return ErrPlan
+			}
+			if *c.Label {
+				positives++
+				if c.RootEvidence != "all_required_known_true" || c.UnknownPredicates != 0 {
+					return ErrUnknown
+				}
+			} else if c.RootEvidence != "known_counterexample" {
+				return ErrUnknown
+			}
+		}
+		for j, c := range r.Excluded {
+			if !identifier(c.MetadataID, shortclaim.MaxIDBytes) || c.SourceIndex < 0 || c.SourceIndex >= r.SourceCandidateCount || seen[c.SourceIndex] {
+				return ErrPlan
+			}
+			seen[c.SourceIndex] = true
+			ids[n+j] = c.MetadataID
+			if c.Supervision != "unknown" || c.Label != nil || c.SampleWeight != nil || strings.TrimSpace(c.Reason) == "" || len(c.Reason) > shortclaim.MaxTextBytes {
+				return ErrUnknown
+			}
+		}
+		for j := 0; j < r.SourceCandidateCount; j++ {
+			if !seen[j] {
+				return ErrPlan
+			}
+			for k := 0; k < j; k++ {
+				if ids[j] == ids[k] {
+					return ErrPlan
+				}
+			}
+		}
+		if r.RootTruth != "known" && r.RootTruth != "no_answer" || (r.RootTruth == "known") != (positives > 0) {
+			return ErrUnknown
+		}
+		var candidates [shortclaim.MaxCandidates]shortclaim.Candidate
+		for j, c := range r.Candidates {
+			candidates[j] = shortclaim.Candidate{ID: c.MetadataID, Text: c.Text}
+		}
+		if _, err := shortclaim.ValidateInput(shortclaim.Input{Schema: shortclaim.Schema, Request: r.Request,
+			Candidates: candidates[:n], Provenance: shortclaimdata.InputProvenance}); err != nil {
+			return ErrPlan
+		}
+	}
+	return nil
+}
+func identifier(s string, bound int) bool {
+	if len(s) < 1 || len(s) > bound {
+		return false
+	}
+	for i, c := range []byte(s) {
+		if !(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9') && (i == 0 || c != '.' && c != '_' && c != '-') {
+			return false
+		}
+	}
+	return true
+}
+func hex(s string, n int) bool {
+	if len(s) != n {
+		return false
+	}
+	for _, c := range []byte(s) {
+		if !(c >= '0' && c <= '9' || c >= 'a' && c <= 'f') {
+			return false
+		}
+	}
+	return true
+}
+func sha(s string) bool  { return hex(s, 64) }
+func sha1(s string) bool { return hex(s, 40) }
+
+// Adapted from the project's Apache-2.0 shortclaimdata scalarEscapes. JSON must
+// be valid first. Literal U+FFFD is valid; isolated UTF-16 escapes are rejected.
+func scalarEscapes(raw []byte) bool {
+	for i := 0; i < len(raw); i++ {
+		if raw[i] != '"' {
+			continue
+		}
+		for i++; i < len(raw) && raw[i] != '"'; i++ {
+			if raw[i] != '\\' {
+				continue
+			}
+			i++
+			if raw[i] != 'u' {
+				continue
+			}
+			u := hex4(raw[i+1 : i+5])
+			i += 4
+			if u >= 0xdc00 && u <= 0xdfff {
+				return false
+			}
+			if u >= 0xd800 && u <= 0xdbff {
+				if i+6 >= len(raw) || raw[i+1] != '\\' || raw[i+2] != 'u' {
+					return false
+				}
+				low := hex4(raw[i+3 : i+7])
+				if low < 0xdc00 || low > 0xdfff {
+					return false
+				}
+				i += 6
+			}
+		}
+	}
+	return true
+}
+func hex4(b []byte) uint16 {
+	var v uint16
+	for _, c := range b {
+		v <<= 4
+		switch {
+		case c >= '0' && c <= '9':
+			v |= uint16(c - '0')
+		case c >= 'a' && c <= 'f':
+			v |= uint16(c - 'a' + 10)
+		case c >= 'A' && c <= 'F':
+			v |= uint16(c - 'A' + 10)
+		}
+	}
+	return v
+}

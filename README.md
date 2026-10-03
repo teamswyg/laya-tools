@@ -2,12 +2,16 @@
 
 [작은 주장·힌트 모델용 개발 자료](experiments/short-claim/next60-development-thirtythree/README.ko.md)를 **33개 요청·96라벨**로 늘렸습니다. 실제 Go Reader의 33회 호출·반환·값 일치와 기존 30행의 바이트 보존을 확인했습니다. 고정한 원본 관측 42건의 조건 318개를 재현하는 [오프라인 검사](scripts/verify-next60-thirtythree.sh)를 제공합니다. 새 모델 학습은 아직 0회이며, 약 60개 수집 뒤에도 원천 중복·역할 분리·후보 위치 편향을 검토해야 합니다. Codex 절감 효과는 아직 검증하지 않았습니다.
 
-[HF30 고정 버전](https://huggingface.co/datasets/JooYoon/riidolaya-shortclaim-next60-development/tree/next60-30-finite-v1)을 게시해 소유558파일·표30행의 모든 값과 순서를 확인했습니다. [실제 게시·PR121 CI 근거](experiments/short-claim/publication-proof-122/README.ko.md)를 보세요. Linux·macOS의 새30행 재현 검사와 기존 Laya native 검사가 각각 통과했고 CI 봇이 병합했습니다. GPU 실행은 확인하지 않았습니다. [다음 원천22개 제안과 보류 이유](experiments/short-claim/next60-new-source-preview/README.ko.md)를 구분해 기록합니다.
+[HF33 고정 버전](https://huggingface.co/datasets/JooYoon/riidolaya-shortclaim-next60-development/tree/next60-33-finite-v1)을 게시했습니다. 변경한 82파일을 다시 내려받아 지문을 확인했고, 전체 소유638파일 목록과 viewer33행의 모든 값·순서를 확인했습니다. [게시·Go 검사·다음 학습 준비 근거](experiments/short-claim/publication-proof-125/README.ko.md)를 보세요. PR124의 Linux·macOS33행 재현과 기존 Laya native 검사가 각각 통과했고 CI 봇이 병합했습니다. GPU 실행은 확인하지 않았습니다.
+
+33개에서 단순 어휘 순서는 정답26개·모의 확인43회였지만, 정답이 두 번째 위치에28개 몰려 있었습니다. 사후에 만든 ‘두 번째부터 확인’ 규칙은 정답28개·모의 확인39회입니다. 위치 편향과 후보2~3개에서 Top3가 항상 성공하는 한계를 해결해야 학습 결과를 평가할 수 있습니다. [Go 입력 검사와 전체 비학습 비교 재현](scripts/verify-next60-learning-preparation.sh)을 CI에 추가했고, 독립적인2,400개 평가 자료는 아직 계획입니다.
 
 [세 과제의 실행 전 기대값·후보 설명](experiments/short-claim/next60-native-three-preparation/README.ko.md)을 고정한 뒤 14입력·9후보·42실행을 실제로 관찰했습니다. 이 배치에서 긍정 3개·부정 5개를 채택했고, 원본 JSON Int의 오류 채널을 확인할 수 없는 후보 1개는 라벨 없이 제외했습니다. 알려진 반례와 확인 불가 조건이 함께 있어도 두 근거를 그대로 보존합니다. [기존 PR122 CI·Wiki 게시와 저장 공간 기록](experiments/short-claim/publication-proof-123/README.ko.md)을 유지합니다.
 
 <details>
 <summary>이전 단계 기록 — 아래 수치와 “현재”는 각 단계 작성 당시 상태입니다</summary>
+
+[HF30 고정 버전](https://huggingface.co/datasets/JooYoon/riidolaya-shortclaim-next60-development/tree/next60-30-finite-v1)은 소유558파일·viewer30행의 값과 순서를 확인했습니다. [PR121 CI와 게시 근거](experiments/short-claim/publication-proof-122/README.ko.md), [다음 원천22개 제안·보류](experiments/short-claim/next60-new-source-preview/README.ko.md)를 보존합니다.
 
 [다음 개발 학습 안내](docs/wiki/Next60-Development-KO.md): [현재 유한 개발 자료](experiments/short-claim/next60-development-seven/README.ko.md)는 **요청 7개·라벨 20개**입니다. [네 작업의 실제 실행과 독립 검토](experiments/short-claim/next60-four-selector-actual-observation/README.ko.md)에서 입력 19개·관측 57개를 확인했습니다. 원본 검사 프로세스의 OS 최대 RSS는 약 7.89 MiB이며 모델 추론 메모리나 비용 절감 수치는 아닙니다. 기존 세 줄은 그대로 보존했습니다. [HF 7개 요청 고정 버전](https://huggingface.co/datasets/JooYoon/riidolaya-shortclaim-next60-development/tree/next60-7-finite-v1)의 112개 파일과 viewer 7행을 확인했습니다. [게시 기록](experiments/short-claim/publication-proof-116/HF-PUBLICATION.v3.json)을 보세요. 새 학습은 0회이며 [다음 의미 작업 10개의 구체화](experiments/short-claim/next60-catalog10-literal-correction/TRANSITION.ko.md)를 이어갑니다.
 

@@ -1,0 +1,312 @@
+// SPDX-License-Identifier: Apache-2.0
+// Package audit measures nonlearned ordering on frozen development supervision.
+// Simulated candidate visits are not actual verification work or model quality.
+package audit
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"io"
+	"math"
+	"strings"
+
+	"github.com/teamswyg/laya-tools/pkg/shortclaim"
+	"github.com/teamswyg/laya-tools/pkg/shortclaimdata"
+)
+
+const (
+	Rows               = 33
+	SelectedCandidates = 96
+	PermutationCases   = 186
+	MaxDataBytes       = 1 << 20
+	MaxReportBytes     = 512 << 10
+)
+
+type Error string
+
+func (e Error) Error() string { return string(e) }
+
+const (
+	ErrInput   Error = "bias_audit_input_failed"
+	ErrPin     Error = "bias_audit_pin_mismatch"
+	ErrShape   Error = "bias_audit_shape_mismatch"
+	ErrRanking Error = "bias_audit_invalid_ranking"
+)
+
+type Counts struct {
+	ReaderAttempts, ReaderReturned, ReaderSucceeded int
+	BaselinesAttempts, BaselinesReturned            int
+	PrimaryCases, PermutationCases, RankingRecords  int
+}
+type Style struct {
+	RequestBytes, RequestNormalizedWords     int
+	CandidateBytes, CandidateNormalizedWords [3]int
+}
+type Parent struct {
+	StableID     string    `json:"stable_id"`
+	CandidateIDs [3]string `json:"candidate_ids"`
+	Labels       [3]bool   `json:"frozen_known_labels"`
+	Count        int       `json:"count"`
+	Style        Style     `json:"style"`
+}
+type Rank struct {
+	Kind                        string `json:"kind"`
+	DisplayOrder, SelectedOrder [3]int
+	Scores                      [3]float64 `json:"scores_by_display_index"`
+	TiedPairs                   [3]bool    `json:"tied_pairs_01_02_12"`
+	FirstPositiveVisit          int        `json:"simulated_first_positive_visit"`
+	FallbackReason              string     `json:"fallback_reason"`
+}
+type Case struct {
+	ParentIndex       int     `json:"parent_index"`
+	Primary           bool    `json:"primary"`
+	Count             int     `json:"count"`
+	DisplayToSelected [3]int  `json:"display_to_selected"`
+	Ranks             [4]Rank `json:"ranks"`
+}
+type Aggregate struct {
+	Kind                                                                  string `json:"kind"`
+	Cases, CandidateVisitsWithoutOrdering, SimulatedVisitsToFirstPositive int
+	Top1KnownPositive, Top3KnownPositive, FallbackCases                   int
+	SimulatedReduction                                                    float64 `json:"simulated_visit_reduction"`
+}
+type Report struct {
+	Schema, State, DataSHA256                     string
+	SimulatedOnly, ActualVerificationWorkObserved bool
+	Counts                                        Counts
+	Parents                                       [Rows]Parent
+	Cases                                         []Case
+	Primary, Permuted                             [4]Aggregate
+	PrimaryPositivePositions                      [3]int
+	PositionIndexOneHits                          int
+	ExcludedUnknownCandidatesNotRead              bool
+	ModelInferenceCalls, FitCalls                 int
+}
+type loaded struct {
+	input  shortclaim.Prepared
+	labels [3]bool
+	parent Parent
+}
+type baselineFunc func(shortclaim.Prepared) ([4]shortclaim.Ranking, error)
+
+func sha(raw []byte) string { h := sha256.Sum256(raw); return hex.EncodeToString(h[:]) }
+func validSHA(s string) bool {
+	if len(s) != 64 {
+		return false
+	}
+	for _, c := range []byte(s) {
+		if !(c >= '0' && c <= '9' || c >= 'a' && c <= 'f') {
+			return false
+		}
+	}
+	return true
+}
+func kinds() [4]string {
+	return [4]string{shortclaim.FixedOrderKind, shortclaim.BM25Kind, shortclaim.LexicalOrderedKind, shortclaim.NarrowRuleKind}
+}
+
+// Run reads one Root-pinned current public development33 file. The unchanged
+// Reader sees each original selected row once. No old validation/protected data,
+// model weights, features API, model.Score, claimfit.Project or Fit is called.
+func Run(source io.Reader, dataSHA256 string) (Report, error) {
+	return run(source, dataSHA256, shortclaim.Baselines)
+}
+func run(source io.Reader, pin string, ranker baselineFunc) (Report, error) {
+	out := Report{Schema: "riido-development33-nonlearned-bias-audit-v1", State: "failed", DataSHA256: pin, SimulatedOnly: true, ExcludedUnknownCandidatesNotRead: true}
+	if source == nil || ranker == nil || !validSHA(pin) {
+		return out, ErrInput
+	}
+	raw, err := io.ReadAll(io.LimitReader(source, MaxDataBytes+1))
+	if err != nil || len(raw) > MaxDataBytes {
+		return out, ErrInput
+	}
+	if sha(raw) != pin {
+		return out, ErrPin
+	}
+	if len(raw) == 0 || raw[len(raw)-1] != '\n' {
+		return out, ErrShape
+	}
+	var all [Rows]loaded
+	pos, candidates, permutations, positives := 0, 0, 0, 0
+	for i := 0; i < Rows; i++ {
+		if pos >= len(raw) {
+			return out, ErrShape
+		}
+		n := bytes.IndexByte(raw[pos:], '\n')
+		if n <= 0 || n > shortclaimdata.MaxRowBytes {
+			return out, ErrShape
+		}
+		line := raw[pos : pos+n]
+		pos += n + 1
+		out.Counts.ReaderAttempts++
+		e, err := shortclaimdata.LoadDevelopmentRow(bytes.NewReader(line))
+		out.Counts.ReaderReturned++
+		if err != nil || !e.Valid() {
+			return out, ErrInput
+		}
+		out.Counts.ReaderSucceeded++
+		p, s, m := e.Input().Prepared(), e.Supervision(), e.Metadata()
+		if (p.Count != 2 && p.Count != 3) || s.Count != p.Count || m.Role != shortclaimdata.Role {
+			return out, ErrShape
+		}
+		parent := Parent{StableID: m.StableID, Count: p.Count, Style: Style{RequestBytes: len(p.Request), RequestNormalizedWords: len(strings.Fields(p.NormalizedRequest))}}
+		for j := 0; j < i; j++ {
+			if all[j].parent.StableID == m.StableID {
+				return out, ErrShape
+			}
+		}
+		hits := 0
+		for j := 0; j < p.Count; j++ {
+			if s.Weights[j] != 1 {
+				return out, ErrShape
+			}
+			parent.CandidateIDs[j] = p.Candidates[j].ID
+			parent.Labels[j] = s.Labels[j]
+			parent.Style.CandidateBytes[j] = len(p.Candidates[j].Text)
+			parent.Style.CandidateNormalizedWords[j] = len(strings.Fields(p.Candidates[j].NormalizedText))
+			if s.Labels[j] {
+				hits++
+				out.PrimaryPositivePositions[j]++
+				if j == 1 {
+					out.PositionIndexOneHits++
+				}
+			}
+		}
+		if hits != 1 {
+			return out, ErrShape
+		} // Current Root-adopted33 scope, not a future one-positive rule.
+		positives += hits
+		candidates += p.Count
+		if p.Count == 2 {
+			permutations += 2
+		} else {
+			permutations += 6
+		}
+		all[i] = loaded{input: p, labels: parent.Labels, parent: parent}
+		out.Parents[i] = parent
+	}
+	if pos != len(raw) || candidates != SelectedCandidates || permutations != PermutationCases || positives != Rows {
+		return out, ErrShape
+	}
+	return evaluate(all, ranker, out)
+}
+
+// Lexicographic permutations of selected dataset indices. Identity is retained
+// in both the separate primary series and exhaustive permutation series.
+func permutation(n, k int) [3]int {
+	if n == 2 {
+		if k == 0 {
+			return [3]int{0, 1, 0}
+		}
+		return [3]int{1, 0, 0}
+	}
+	return [6][3]int{{0, 1, 2}, {0, 2, 1}, {1, 0, 2}, {1, 2, 0}, {2, 0, 1}, {2, 1, 0}}[k]
+}
+func evaluate(all [Rows]loaded, ranker baselineFunc, out Report) (Report, error) {
+	ks := kinds()
+	for i := 0; i < 4; i++ {
+		out.Primary[i].Kind = ks[i]
+		out.Permuted[i].Kind = ks[i]
+	}
+	out.Cases = make([]Case, 0, Rows+PermutationCases)
+	for i, r := range all {
+		for k := -1; k < 6; k++ {
+			n := r.input.Count
+			if n == 2 && k >= 2 {
+				break
+			}
+			mapping := permutation(n, 0)
+			primary := k == -1
+			if !primary {
+				mapping = permutation(n, k)
+			}
+			p := r.input // Text and validated normalization move together, never rewritten.
+			var labels [3]bool
+			for j := 0; j < n; j++ {
+				p.Candidates[j] = r.input.Candidates[mapping[j]]
+				labels[j] = r.labels[mapping[j]]
+			}
+			out.Counts.BaselinesAttempts++
+			ranks, err := ranker(p)
+			out.Counts.BaselinesReturned++
+			if err != nil {
+				return out, ErrRanking
+			}
+			c := Case{ParentIndex: i, Primary: primary, Count: n, DisplayToSelected: mapping}
+			for b, rk := range ranks {
+				if rk.Kind != ks[b] || rk.Count != n || len(rk.FallbackReason) > 128 {
+					return out, ErrRanking
+				}
+				var seen [3]bool
+				v := Rank{Kind: rk.Kind, FallbackReason: rk.FallbackReason}
+				for j := 0; j < n; j++ {
+					idx := rk.Order[j]
+					if idx < 0 || idx >= n || seen[idx] || math.IsNaN(rk.Scores[j]) || math.IsInf(rk.Scores[j], 0) {
+						return out, ErrRanking
+					}
+					seen[idx] = true
+					if j > 0 {
+						prev := rk.Order[j-1]
+						if rk.Scores[prev] < rk.Scores[idx] || rk.Scores[prev] == rk.Scores[idx] && prev > idx {
+							return out, ErrRanking
+						}
+					}
+					v.DisplayOrder[j] = idx
+					v.SelectedOrder[j] = mapping[idx]
+					v.Scores[j] = rk.Scores[j]
+					if v.FirstPositiveVisit == 0 && labels[idx] {
+						v.FirstPositiveVisit = j + 1
+					}
+				}
+				for j := n; j < shortclaim.MaxCandidates; j++ {
+					if rk.Order[j] != 0 || rk.Scores[j] != 0 {
+						return out, ErrRanking
+					}
+				}
+				if v.FirstPositiveVisit == 0 {
+					return out, ErrRanking
+				}
+				v.TiedPairs[0] = rk.Scores[0] == rk.Scores[1]
+				if n == 3 {
+					v.TiedPairs[1] = rk.Scores[0] == rk.Scores[2]
+					v.TiedPairs[2] = rk.Scores[1] == rk.Scores[2]
+				}
+				c.Ranks[b] = v
+				out.Counts.RankingRecords++
+				ag := &out.Permuted[b]
+				if primary {
+					ag = &out.Primary[b]
+				}
+				ag.Cases++
+				ag.CandidateVisitsWithoutOrdering += n
+				ag.SimulatedVisitsToFirstPositive += v.FirstPositiveVisit
+				if v.FirstPositiveVisit == 1 {
+					ag.Top1KnownPositive++
+				}
+				if v.FirstPositiveVisit <= 3 {
+					ag.Top3KnownPositive++
+				}
+				if v.FallbackReason != "" {
+					ag.FallbackCases++
+				}
+			}
+			out.Cases = append(out.Cases, c)
+			if primary {
+				out.Counts.PrimaryCases++
+			} else {
+				out.Counts.PermutationCases++
+			}
+		}
+	}
+	if out.Counts.BaselinesAttempts != 219 || out.Counts.PrimaryCases != Rows || out.Counts.PermutationCases != PermutationCases || out.Counts.RankingRecords != 876 {
+		return out, ErrShape
+	}
+	for i := 0; i < 4; i++ {
+		for _, a := range []*Aggregate{&out.Primary[i], &out.Permuted[i]} {
+			a.SimulatedReduction = float64(a.CandidateVisitsWithoutOrdering-a.SimulatedVisitsToFirstPositive) / float64(a.CandidateVisitsWithoutOrdering)
+		}
+	}
+	out.State = "complete"
+	return out, nil
+}

@@ -1,6 +1,98 @@
+# Finite development data for a small claim and hint model: verified 33 requests
+
+The target is a tiny **claim and hint model** that frequently suggests useful code candidates at low cost. Tests and counterexamples support the hint. This package builds development supervision; it does not report a new model's accuracy or Codex savings.
+
+**Owned Go generated33 requests and96 labels; the actual project Reader completed33 calls,33 returns and33 value matches.** See the [materialization receipt](https://github.com/teamswyg/laya-tools/blob/511e8ac7c213f3b48568025eb9d83882d525bcdb/experiments/short-claim/next60-development-thirtythree/MATERIALIZATION.v1.json) and [Reader receipt](https://github.com/teamswyg/laya-tools/blob/511e8ac7c213f3b48568025eb9d83882d525bcdb/experiments/short-claim/next60-development-thirtythree/READER.v1.json). The previous30 rows remain byte-exact. Data:45,390 bytes, SHA-2567b28ae6d119884c902b32ba781b3514f1d3774ca3a60cea16fe4ce11a3aad919. PR124 passed Linux/macOS reproduction and all four required CI jobs, then the bot merged it. Actual publication below was checked afterwards.
+
+| Unit | New batch | Verified33-request pool |
+|---|---:|---:|
+| Semantic requests | 3 | 33 |
+| Selected candidate labels | 8: positive3, negative5 | 96: positive33, negative63 |
+| Fixed inputs | 14 | 160 |
+| All original observations | 42 | 476 |
+| Selected candidate observations | 37 | 467 |
+| New Fits or model inference in this expansion | 0 | 0 |
+
+42 executions are input variants and candidates for three requests, not42 independent tasks. The existing30 rows contain88 candidates; they are not padded to90. Of nine new candidates, one unknown-only candidate is excluded, adding eight labels.
+
+## Three tested contracts
+
+| Request | Observed distinction | Finite suitable position |
+|---|---|---:|
+| Complement within a requested width | A requested width64 with stored length65 must return length64 | First |
+| Checked JSON integer extraction | Preserve exact large integer text and distinguish fractions and range errors | Second |
+| Strict binary bitset decoding | Reject trailing/short bytes and tail padding, preserving the receiver | Third |
+
+Existing APIs follow their existing contracts. We compare fulfillment of **new requested contracts**; a mismatch alone is not an upstream bug. Source metadata is for traceability. Only request and candidate text become model features.
+
+Keep satisfied, contradicted and unknown distinct. The42 candidate-input rows contain **26 satisfied,11 contradicted,5 unknown**;318 primitive conditions contain **272 satisfied,31 contradicted,15 unknown**. Original GJSON Int has no requested error-return channel, so its five rows remain unknown and its candidate receives no label. Two binary-decoding rows combine a known receiver-mutation counterexample and an unknown error identity. The counterexample supports a negative label; the unknown condition is not converted to false.
+
+Two of the new15 unknown conditions belong to selected candidates;13 belong to the excluded candidate. Combined with eight metadata entries **after row23** in the previous30 materialization, those scoped counts are10 and23. Earlier-prefix evidence keeps its own metadata. These are not whole-research-history totals.
+
+## Usage for people and agents
+
+data/train.jsonl contains one request per line. The exact previous30-row byte prefix is retained; three rows are appended. Selected candidates have known labels and unit weights. Exclusions and unknowns remain in qualification/ROOT-QUALIFICATION.v3.json and evidence/SAVED-COMPARISON.v1.json.
+
+Owned Go sources and a verifier command are supplied for a checkout:
+
+```sh
+bash scripts/verify-next60-thirtythree.sh
+```
+
+The checks cover saved finite comparison, old-data preservation, generation, actual LoadDevelopmentRow value correspondence and authored failure controls. They execute no original candidate, Laya or claim model. The public saved-comparison check compares all42 full rows and318 primitive conditions with the original saved report. Only four opaque receipt pins are replaced by public path-free projections and excluded from that equality comparison. It does not recertify undistributed private admission receipts.
+
+See the [previous30 usage guide](https://github.com/teamswyg/laya-tools/blob/511e8ac7c213f3b48568025eb9d83882d525bcdb/experiments/short-claim/next60-development-thirty/README.en.md) for Go Reader examples. The Reader uses fixed arrays for rows up to16KiB and eight candidates, without locks. Bitset stays in source group82; GJSON, Match and Pretty stay together in group83, all development_train. Flat metadata names bits-and-blooms-bitset and tidwall-gjson map explicitly to preserved upstream repository names.
+
+## Measurements and next training
+
+Original collection ran once. Whole-worker OS peak RSS was **17,612,800 bytes, about16.8MiB**, and wall time was **8.052 seconds**, including1,739 durable file/directory writes and ACKs. These are not model inference memory, GPU execution or speedup results. The stripped saved-comparer executable was **2,850,722 bytes**, which is not a model size. Go pprof and OS RSS have different measurement scopes.
+
+The three new suitable candidates occupy different positions, but always choosing the second candidate still yields28/33 for this pool. Position, style, lexical controls and semantic duplication must be checked before training. **33 is a collection checkpoint, not an automatic Fit trigger.** Reassess whole-source-family readiness around60 requests; retain the protected2,400 requests per domain plan and5% total verification-work reduction target. Existing three Fits, three logical models and the inactive failed model remain unchanged. Ternary storage size and CPU utility are separate experiments.
+
+Next collection preparation covers complete values per physical JSON line, preserved callback prefixes before invalid lines, and invalid UTF-8 append rejection. Existing ForEachLine already honors callback stopping; that behavior is not repackaged as a defect. Freeze new expected outputs before observation.
+
+## Public scope and history
+
+Owned code, descriptions and fixtures are Apache-2.0. Separate complete BSD/MIT notices for selected upstream APIs remain in evidence/notices. No original source bodies, model weights, execution binaries, raw journals, private task inputs or credentials are included. Original source/go.mod/notice hashes provide traceability. Model publication rights are separate.
+
+history/CORRECTIONS.v1.json records the draft unknown-scope error, flat metadata correction, first comparer build's size-budget failure and subsequent verification. Failed files and old drafts remain private and recoverable. Labels have finite fixed-input support and do not guarantee correctness on unseen inputs.
+
+[Issue19](https://github.com/teamswyg/laya-tools/issues/19) · [Previous immutable HF30](https://huggingface.co/datasets/JooYoon/riidolaya-shortclaim-next60-development/tree/next60-30-finite-v1) · [한국어](https://github.com/teamswyg/laya-tools/blob/511e8ac7c213f3b48568025eb9d83882d525bcdb/experiments/short-claim/next60-development-thirtythree/README.ko.md)
+
+## Actual publication and a small download
+
+The [immutable HF33 release](https://huggingface.co/datasets/JooYoon/riidolaya-shortclaim-next60-development/tree/2a1c2224e89f60eef9e381f98c0117206f60e0d2) is public. All **82 new/changed files,842,356 bytes**, plus managed attributes, were downloaded at the fixed commit and compared. Inventory is638 owned files/639 including attributes; previous paths and seven tag refs remain. The earlier558-file whole-release proof belongs to HF30; old files were not all downloaded again at this commit.
+
+The first viewer request returned500 while the server prepared data. The second matched **every field/order of33 rows,partial=false,zero truncated cells**. Response revision and top-level truncation fields are unavailable and remain unknown. The viewer follows current main, separate from fixed-commit file proof.
+
+Download **one data file** below. People and agents can read it without downloading a model or running training.
+
+```sh
+hf download JooYoon/riidolaya-shortclaim-next60-development \
+  releases/next60-33-finite-v1/next60-development-thirtythree/data/train.jsonl \
+  --type dataset --revision 2a1c2224e89f60eef9e381f98c0117206f60e0d2 \
+  --local-dir ./riidolaya-next60-data
+```
+
+[Go Reader](https://github.com/teamswyg/laya-tools/blob/511e8ac7c213f3b48568025eb9d83882d525bcdb/pkg/shortclaimdata) example. Import bytes and github.com/teamswyg/laya-tools/pkg/shortclaimdata.
+
+```go
+example, err := shortclaimdata.LoadDevelopmentRow(bytes.NewReader(line))
+if err != nil {
+    return err
+}
+input := example.Input()
+supervision := example.Supervision()
+```
+
+Input, supervision and provenance remain separate. Reading does not score or train. The next input bridge passed eight Go tests covering synthetic1/7/33/60-row collections, sparse groups and invalid plans/pins/row bindings. It has not admitted the real new corpus to training or called Fit. Exhaustive candidate-order bias auditing is in preparation.
+
+<details>
+<summary>Previous HF30 guide verbatim — “current” and counts below describe that stage</summary>
+
 # Development data for a small claim/hint model
 
-**30 semantic requests and88 candidate labels were verified and published on HF.** Read the [30-row data and guide](../../experiments/short-claim/next60-development-thirty/README.en.md) and [immutable HF30 release](https://huggingface.co/datasets/JooYoon/riidolaya-shortclaim-next60-development/tree/next60-30-finite-v1). All558 owned files and every field/order of30 viewer rows matched; older tags were preserved. See [publication and actual CI evidence](../../experiments/short-claim/publication-proof-122/README.en.md). New claim-model/Fit calls for this expansion are zero; Codex savings remain unproven.
+**30 semantic requests and88 candidate labels were verified and published on HF.** Read the [30-row data and guide](https://github.com/teamswyg/laya-tools/blob/560d5b2cfcdf6f1c23f8b624dbdca3a258ca462c/experiments/short-claim/next60-development-thirty/README.en.md) and [immutable HF30 release](https://huggingface.co/datasets/JooYoon/riidolaya-shortclaim-next60-development/tree/next60-30-finite-v1). All558 owned files and every field/order of30 viewer rows matched; older tags were preserved. See [publication and actual CI evidence](https://github.com/teamswyg/laya-tools/blob/560d5b2cfcdf6f1c23f8b624dbdca3a258ca462c/experiments/short-claim/publication-proof-122/README.en.md). New claim-model/Fit calls for this expansion are zero; Codex savings remain unproven.
 
 The goal is a **claim/hint model** cheap enough to call frequently with very little CPU and memory. It might suggest “this candidate seems useful for the request.” Tests, search and verification support the final choice. Reducing total work by narrowing candidates matters more than generating prose.
 
@@ -17,7 +109,7 @@ Input variants and candidate executions do not increase independent request coun
 
 ## Use by people and agents
 
-Read the [guide](../../experiments/short-claim/next60-development-thirty/README.en.md), then consume data/train.jsonl one line at a time. It is **41,428bytes**, SHA-256 **9cdfb758f03adc34a9fb5e00e3c1525921df26d0912f6b554e4ed4c890fd10a2**. Rows contain request/candidate text, labels, weights and provenance.
+Read the [guide](https://github.com/teamswyg/laya-tools/blob/560d5b2cfcdf6f1c23f8b624dbdca3a258ca462c/experiments/short-claim/next60-development-thirty/README.en.md), then consume data/train.jsonl one line at a time. It is **41,428bytes**, SHA-256 **9cdfb758f03adc34a9fb5e00e3c1525921df26d0912f6b554e4ed4c890fd10a2**. Rows contain request/candidate text, labels, weights and provenance.
 
 With HF CLI installed, download **one data file at the fixed commit** as follows. Reading requires neither training nor model download. Run the full verification command from this repository checkout root.
 
@@ -28,7 +120,7 @@ hf download JooYoon/riidolaya-shortclaim-next60-development \
   --local-dir ./riidolaya-next60-data
 ```
 
-The [Go reader](../../pkg/shortclaimdata) uses bounded arrays and immutable values:16KiB maximum row, at most8 candidates, no locks. Import bytes and github.com/teamswyg/laya-tools/pkg/shortclaimdata for this example.
+The [Go reader](https://github.com/teamswyg/laya-tools/tree/560d5b2cfcdf6f1c23f8b624dbdca3a258ca462c/pkg/shortclaimdata) uses bounded arrays and immutable values:16KiB maximum row, at most8 candidates, no locks. Import bytes and github.com/teamswyg/laya-tools/pkg/shortclaimdata for this example.
 
 ```go
 example, err := shortclaimdata.LoadDevelopmentRow(bytes.NewReader(line))
@@ -55,7 +147,7 @@ The last three requests cover an INI total input byte budget, bounded file readi
 
 The observation collector peaked at about **17.4MiB OS RSS**, taking about **2.52seconds** including startup, source verification and durable storage. These are not Laya/claim-model inference memory, GPU execution or Codex savings measurements. Original code ran once. The first saved-comparer configuration-format failure was preserved; only reading saved files was repeated.
 
-[22 proposed new-source contracts](../../experiments/short-claim/next60-new-source-preview/README.en.md) add zero qualified requests. Three proposals are held because existing behavior suffices or current inputs do not distinguish candidates. Go-list dependency selection and zero text duplicates do not establish execution, semantic independence or training readiness.
+[22 proposed new-source contracts](https://github.com/teamswyg/laya-tools/blob/560d5b2cfcdf6f1c23f8b624dbdca3a258ca462c/experiments/short-claim/next60-new-source-preview/README.en.md) add zero qualified requests. Three proposals are held because existing behavior suffices or current inputs do not distinguish candidates. Go-list dependency selection and zero text duplicates do not establish execution, semantic independence or training readiness.
 
 ## Criteria for the next training round
 
@@ -68,3 +160,5 @@ A later model must reduce total verification work by at least **5%** against fix
 [Issue19](https://github.com/teamswyg/laya-tools/issues/19) records progress and actual publication/CI results. Owned documentation/source use Apache-2.0; full upstream notices retain their licenses. Original runtime bodies, model weights, private inputs, credentials and raw journals are excluded. Source-license checks do not provide blanket clearance for the complete model lineage.
 
 [First two training requests](Native2-Training-EN) · [First original observations](Native2-Observation-EN) · [한국어](Next60-Development-KO)
+
+</details>

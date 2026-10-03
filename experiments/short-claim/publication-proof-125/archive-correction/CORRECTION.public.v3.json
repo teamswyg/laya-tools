@@ -1,0 +1,32 @@
+{
+  "schema": "riido-completed-binary-archive-Root-correction-v3",
+  "state": "SOURCE_ONLY_NOT_EXECUTED",
+  "prior_source": {
+    "bytes": 15709,
+    "sha256": "c6d9b7c6c132e77558576a59d8aa7ee643254e7cb2657dccf3e7e486a7431f57"
+  },
+  "prior_preserved": true,
+  "probe_basis": "COMPLETED-BINARY-GZIP-PROBE.actual.public.v1.json",
+  "archive_max_bytes_before": 2097152,
+  "archive_max_bytes_after": 3145728,
+  "cap_bytes_unchanged": 536870912,
+  "goal_bytes_unchanged": 10485760,
+  "control_reserve_bytes_unchanged": 262144,
+  "prospective_order": [
+    "saved/comparer-small",
+    "data33/reader",
+    "data33/materialize",
+    "native/worker",
+    "native/outside"
+  ],
+  "peak_admission": "Check first leaf before creating output; recheck every leaf in sequence after prior cleanup. Never claim initial headroom covers the largest leaf.",
+  "partial_metric": "Any uncommitted archive/restore, committed original still present, or unacknowledged cleanup makes net reclaimed bytes null and goal false. Recoverability counts remain separate.",
+  "measured_total_raw_bytes": 18050042,
+  "measured_total_gzip_bytes": 9216713,
+  "expected_reclaim_before_controls": 8833329,
+  "expected_reclaim_after_control_reservation": 8571185,
+  "expected_goal_reached": false,
+  "original_archiving_calls": 0,
+  "original_unlinks": 0,
+  "science_calls": 0
+}

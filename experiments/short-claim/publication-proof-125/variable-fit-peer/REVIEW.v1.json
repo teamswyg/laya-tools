@@ -1,0 +1,223 @@
+{
+  "schema": "riido-variable-Go-fit-independent-source-review-v1",
+  "state": "source_design_review_complete_implementation_readiness_pending",
+  "relation": {
+    "reviewer": "checkpoint_native_peer_114",
+    "author": "experiment_audit_45",
+    "current_design_nonauthor": true,
+    "nonblind": true,
+    "prior": "Earlier after30 Fit plan and related Reader/materializer/saved-audit author; own previous plan not independently approved here. Fit79 driver/core/current45 design not authored by reviewer."
+  },
+  "pins": {
+    "prep_handoff": {
+      "artifact": "author45_HANDOFF",
+      "bytes": 2201,
+      "sha256": "af4fc8ebb92920d380ecb78a66806e15b5f3e9fba82b4999b6e47efb043c82f1"
+    },
+    "public_design_payloads": [
+      {
+        "id": "ATTEMPT-LEDGER.v1.json",
+        "bytes": 506,
+        "sha256": "b317a6f3d77e42ddcf9cc47dc6a329f7f7393fd41b3c0ea3b307ca87d73f5c1e"
+      },
+      {
+        "id": "MIGRATION.v1.json",
+        "bytes": 6916,
+        "sha256": "b589ecb14d5533b91391b617ae1753fb55ad63a548eb66d79e42d9d24ef96500"
+      },
+      {
+        "id": "PROFILE.v1.json",
+        "bytes": 2419,
+        "sha256": "3ebd06077dacb7dcb1bba15181ef8eddfdf5df2e30c395f17db26e9a09094ffe"
+      },
+      {
+        "id": "README.en.md",
+        "bytes": 2631,
+        "sha256": "50b30db534c61ff9ef4e9fd9d9377e1ea75e110d1e62abdaeba72ed9bdaec8a2"
+      },
+      {
+        "id": "README.ko.md",
+        "bytes": 3116,
+        "sha256": "95fff93071580e9c5f7ccd194e75ca971f769ea7deb18ac558141b69c98aa76c"
+      },
+      {
+        "id": "SOURCE-PINS.v1.json",
+        "bytes": 6113,
+        "sha256": "c4477380ee38447999d770963fec379bbd57287551508de196b70d4b8ee426a5"
+      }
+    ],
+    "private_basis": {
+      "artifact": "private_basis_withheld",
+      "bytes": 609,
+      "sha256": "e3d28fa908deb1417091d297a278602e5aba9caef83d63d19b1c67cb6c449d15"
+    },
+    "historic_plan": {
+      "artifact": "historic_FIT_PLAN",
+      "bytes": 10600,
+      "sha256": "b337f229c31640c32765728d8d9aa12c1da6814c2025ce5a80758b7d83448dfe"
+    },
+    "historic_freeze": {
+      "artifact": "historic_FIT_FREEZE",
+      "bytes": 1394,
+      "sha256": "7b68da6b3664d33e07617836b2768728f6c822d259c710f5de1600d761b3cabd"
+    },
+    "complete_driver11_core16_table": {
+      "artifact": "SOURCE_PINS",
+      "bytes": 6113,
+      "sha256": "c4477380ee38447999d770963fec379bbd57287551508de196b70d4b8ee426a5"
+    },
+    "reader": {
+      "id": "pkg/shortclaimdata/reader.go",
+      "bytes": 11642,
+      "sha256": "08fc06419acaf22a07249c736f5dfb0b3aa8c8468a9735936048ca5bbcb89bae"
+    },
+    "prior_after30": [
+      {
+        "id": "after30/PLAN.proposed.v1.json",
+        "bytes": 15701,
+        "sha256": "b9cab707c43a1049416bed9ddc884db01759380d69cecb19c0196bfcfbff673b"
+      },
+      {
+        "id": "after30/HANDOFF.v1.json",
+        "bytes": 2397,
+        "sha256": "77faffc1155c790e64529287acccfdca14efa3a062ee9beef62cc747cec1fffc"
+      }
+    ]
+  },
+  "verified": {
+    "prep_payloads": 7,
+    "actual_driver_pins": 11,
+    "actual_core_pins": 16,
+    "all27_historical_matches": true
+  },
+  "read_scope": {
+    "driver": "types/fit/projectioncheck/appendguard/origin/main/utility/amendment; assets resource/checkpoint sections",
+    "core": "pairlearn fit/trace; hintlearn quantize/model codec; claimfit projection; current Prepared/Reader ABI. Other core references hash-bound, not every line reread.",
+    "forbidden_reads": "No raw dataset labels/Acceptable arrays, saved score arrays, model bytes, protected2400, original API/native results."
+  },
+  "recipe": {
+    "trainer": "pairlearn.FitWithTrace",
+    "seed": 1729,
+    "mode": "fp32",
+    "dimension": 8192,
+    "epochs": 50,
+    "batch": 128,
+    "learning_rate": 0.1,
+    "L2": 0.0001,
+    "pair_lambda": 0,
+    "warm_start": false,
+    "epoch_choice": "earliest strict minimum validation NLL",
+    "anchors": "types18; fit105-179; pairlearn learn177-258/trace56-74",
+    "preserved": "PCG initialization, shuffle, per-batch FP32 coefficients, global weight normalization, batch divisor/L2 and feature accumulation order.",
+    "not_claimed": "New samples change shuffle/batches/normalization and work per epoch. Same recipe is not bit-identical old weights/losses.",
+    "zero_weight_rows": "Keep old0weights/masks: removal changes ordering, len(train.Labels)/sum(weights), batch divisor and number of L2 updates."
+  },
+  "deltas": [
+    {
+      "unit": "Input bridge",
+      "anchors": "shortclaimdata.Reader; claimfit345-353",
+      "change": "Bound joined bytes/requests/candidates first. Strict Reader + Root-pinned ID/text/family/revision/role/selected-index/supervision join. U-only stays excluded/null ledger. Root-adopted F+U negative permitted. Only Prepared request/caption text reaches Features.",
+      "guard": "Known parent makes every included candidate known; do not pass U-only as false. All-false needs explicit Root NoAnswer authority. Preserve old79 Truth/Acceptable/LossEligible."
+    },
+    {
+      "unit": "Count/group guards",
+      "anchors": "types12-13; fit22-86; projectioncheck17-29/63-71",
+      "change": "Replace fixed79/235/41/17/21/role/FeatureScans290 values with Root-frozen joined counts. Replace [expectedParents] group-index arrays by sorted sparse group-role slice/binary search; fixed3 role aggregates and8 candidate slots.",
+      "guard": "82/83 are group IDs, not33-array indices. Existing claimfit.Project already supports variable slices/sparse groups. Reject same connected group across roles; never renumber merely to fit an array."
+    },
+    {
+      "unit": "Old projection/prefix",
+      "anchors": "appendguard54-93/114-127; projectioncheck74-131",
+      "change": "Version old76+3 guard to exact old79+admitted append. Preserve RuntimeParents, acceptable order/masks, bitwise old FP64 CSR prefixes/offsets/indices/refs; validation/calibration remain exact. Freeze dedup/family-role/current joined order before Features/Project.",
+      "guard": "79+33=112 is arithmetic, not independent requests. Numeric family IDs alone grant no global lineage/role clearance."
+    },
+    {
+      "unit": "Plan/consumption",
+      "anchors": "main130-187; assets185-233; amendment32-45",
+      "change": "New driver schema/binary/source/CI pins and current ledger/priorFits3/models3. Historic checkPlan and consumption still demand priorFits2, old input pins/CI/counts; immutable successor required.",
+      "guard": "Global Fit3/8 and model3/16, inactive failed historical model, no hidden retry/reset. Fresh archive-aware all-output/temp/model/profile reservations; no old resource approval reused."
+    },
+    {
+      "unit": "Origin diagnostics",
+      "anchors": "origin11-18/48-81",
+      "change": "Replace79/76..78/[3][8]/count3 with Root-frozen appended parent list and each Text.Count. Owned slices of fixed8 score values; preserve cached feature scoring.",
+      "guard": "Train-origin diagnostics separate from unchanged validation utility; Top3 with2/3 candidates can be trivial."
+    },
+    {
+      "unit": "OneFit/lifecycle",
+      "anchors": "fit105-179; main380-438; pairlearn trace45-105",
+      "change": "One durable before-entry intent, no Fit retry, unchanged50-epoch finite trace and strict ties; weight/encode/decode/NLL checks after one successful return.",
+      "guard": "Epoch recorder in memory, no external per-epoch durable checkpoint. Kill before return leaves intent and unknown epoch progress. Error/panic/incomplete trace remain failed; no active/public-qualified model."
+    }
+  ],
+  "utility": {
+    "anchors": "utility130-180/234-249",
+    "controls": [
+      "fixed_order",
+      "bm25",
+      "lexical_ordered",
+      "narrow_rule"
+    ],
+    "ties": "stable control/candidate order",
+    "thresholds": {
+      "oracle_headroom": 0.05,
+      "check_reduction": 0.05,
+      "Top1_no_regression": true,
+      "Top3_no_regression": true
+    },
+    "denominator": "Identical exposed old validation is development selection/regression, not new unseen evidence. Appended train diagnostics never pooled.",
+    "readiness": "No autoFit at33/60. Approximately60 collection/role/readiness decision separate. Protected2400 unread and not newly required before every development Fit."
+  },
+  "resources": {
+    "profile_unexecuted": true,
+    "CPU": 1,
+    "heap_soft_bytes": 268435456,
+    "observed_RSS_budget": 268435456,
+    "wall_seconds": 300,
+    "sparse_cap_bytes": 67108864,
+    "FP32_file_estimate": 32792,
+    "FP64_decoded_weights_estimate": 65536,
+    "precision": "FP32 scoring, FP64 shadow/gradient/loss/CSR. Packed ternary is disk format, not native1.58-bit arithmetic; noGPU/MPS/Laya backbone in this migration.",
+    "retained": "Current roughly9MiB headroom is not admission for old64MiB stage/two8MiB receipt maxima/projection/temp/model/profile. Fresh current census/reservation required.",
+    "profiling": "Separate frozen workload/reservation; pprof overhead disclosed. Every real corpus profiling Fit repeats budget; fake callback entry0 is distinct from actual synthetic test-fitting."
+  },
+  "controls_proposed": "Role collision at82/83, old prefix drift, U-only vs F+U, source/selected indices, all-false withoutNoAnswer, earliest tied NLL/incomplete trace, failed before-checkpoint prevents entry. Not run.",
+  "bookkeeping": {
+    "review_prewrite_cap_refusals": 1,
+    "payload_files_written": 0,
+    "directory_created": false,
+    "resolution": "Shorter lossless report; source/science unchanged."
+  },
+  "status": {
+    "design_blockers": 0,
+    "implementation": 0,
+    "direct_unmodified_Fit79_compatible": false,
+    "execution_ready": false,
+    "autoFit": false,
+    "newFit_orModel": 0,
+    "Root_sole_repo_writer": true
+  },
+  "executions": {
+    "Go": 0,
+    "test": 0,
+    "build": 0,
+    "Reader": 0,
+    "Features": 0,
+    "Project": 0,
+    "Score": 0,
+    "Fit": 0,
+    "model": 0,
+    "native": 0,
+    "original_API": 0,
+    "network": 0,
+    "protected": 0
+  },
+  "assignments": {
+    "labels": 0,
+    "roles": 0,
+    "weights": 0,
+    "groups": 0,
+    "readiness": 0
+  },
+  "public_scope": "Report/notes path-free; PRIVATE-PINS excluded. No corpora/models/journals/upstream body copies or blanket model/license rights approval."
+}

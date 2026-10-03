@@ -1,0 +1,122 @@
+{
+  "schema": "riido-bias-audit-Root-actual-v1",
+  "process_Starts": 1,
+  "process_Waits": 1,
+  "exit_code": 0,
+  "automatic_retry": false,
+  "wall_including_start_time_tool_and_final_hash_ms": 587,
+  "OS_peak_RSS_bytes": 9224192,
+  "OS_peak_RSS_scope": "Darwin whole CPU-only nonlearned audit process; not Go pprof live heap, GPU or learned-model memory.",
+  "binary_bytes": 2816386,
+  "binary_sha256": "0a80441ccf51a9a2e829fbe0857f4d9ea4eefa41d157a4ea460e22e24ecc3be4",
+  "result_bytes": 242297,
+  "result_sha256": "9a7b15eec028f5014791bec9a9aed7de0f60f1bc6eee404073d53e2d5a47670e",
+  "Reader_attempts": 33,
+  "Reader_returned": 33,
+  "Reader_succeeded": 33,
+  "Baselines_attempts": 219,
+  "Baselines_returned": 219,
+  "primary_cases": 33,
+  "permutation_cases": 186,
+  "ranking_records": 876,
+  "positive_position_counts": [
+    4,
+    28,
+    1
+  ],
+  "second_position_hits": 28,
+  "primary": [
+    {
+      "kind": "fixed_order",
+      "Cases": 33,
+      "CandidateVisitsWithoutOrdering": 96,
+      "SimulatedVisitsToFirstPositive": 63,
+      "Top1KnownPositive": 4,
+      "Top3KnownPositive": 33,
+      "FallbackCases": 0,
+      "simulated_visit_reduction": 0.34375
+    },
+    {
+      "kind": "bm25",
+      "Cases": 33,
+      "CandidateVisitsWithoutOrdering": 96,
+      "SimulatedVisitsToFirstPositive": 45,
+      "Top1KnownPositive": 24,
+      "Top3KnownPositive": 33,
+      "FallbackCases": 0,
+      "simulated_visit_reduction": 0.53125
+    },
+    {
+      "kind": "lexical_ordered",
+      "Cases": 33,
+      "CandidateVisitsWithoutOrdering": 96,
+      "SimulatedVisitsToFirstPositive": 43,
+      "Top1KnownPositive": 26,
+      "Top3KnownPositive": 33,
+      "FallbackCases": 0,
+      "simulated_visit_reduction": 0.5520833333333334
+    },
+    {
+      "kind": "narrow_rule",
+      "Cases": 33,
+      "CandidateVisitsWithoutOrdering": 96,
+      "SimulatedVisitsToFirstPositive": 45,
+      "Top1KnownPositive": 24,
+      "Top3KnownPositive": 33,
+      "FallbackCases": 33,
+      "simulated_visit_reduction": 0.53125
+    }
+  ],
+  "permuted": [
+    {
+      "kind": "fixed_order",
+      "Cases": 186,
+      "CandidateVisitsWithoutOrdering": 552,
+      "SimulatedVisitsToFirstPositive": 369,
+      "Top1KnownPositive": 63,
+      "Top3KnownPositive": 186,
+      "FallbackCases": 0,
+      "simulated_visit_reduction": 0.33152173913043476
+    },
+    {
+      "kind": "bm25",
+      "Cases": 186,
+      "CandidateVisitsWithoutOrdering": 552,
+      "SimulatedVisitsToFirstPositive": 258,
+      "Top1KnownPositive": 132,
+      "Top3KnownPositive": 186,
+      "FallbackCases": 0,
+      "simulated_visit_reduction": 0.532608695652174
+    },
+    {
+      "kind": "lexical_ordered",
+      "Cases": 186,
+      "CandidateVisitsWithoutOrdering": 552,
+      "SimulatedVisitsToFirstPositive": 252,
+      "Top1KnownPositive": 144,
+      "Top3KnownPositive": 186,
+      "FallbackCases": 0,
+      "simulated_visit_reduction": 0.5434782608695652
+    },
+    {
+      "kind": "narrow_rule",
+      "Cases": 186,
+      "CandidateVisitsWithoutOrdering": 552,
+      "SimulatedVisitsToFirstPositive": 258,
+      "Top1KnownPositive": 132,
+      "Top3KnownPositive": 186,
+      "FallbackCases": 186,
+      "simulated_visit_reduction": 0.532608695652174
+    }
+  ],
+  "model_inference_calls": 0,
+  "Fit_calls": 0,
+  "actual_verification_work_observed": false,
+  "simulated_only": true,
+  "source_correction": "Reserve output directory before Run",
+  "caveats": [
+    "Top3 is trivial for two or three candidates.",
+    "Permutations repeat the same33 parents; pooled permutations weight three-candidate parents six times and two-candidate parents twice.",
+    "Simulated unit-cost visits against an all-candidate scan do not establish the5% improvement gate against the best baseline."
+  ]
+}
