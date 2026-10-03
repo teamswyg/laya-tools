@@ -17,13 +17,17 @@ The diagnostic assumes cost1 per candidate check. Lexical ordering's equal-paren
 
 [results.json](results.json) contains the actual report; [POSTCLOSE](POSTCLOSE.actual.public.v1.json) pins the closed file; [INDEPENDENT-READBACK](INDEPENDENT-READBACK.actual.public.v2.json) records a separate Node matrix recomputation. That implementation checks saved-score ordering, permutations and aggregates. It does not independently establish BM25 score correctness or actual verifier cost. Existing predicate unknowns remain in their original evidence and do not become negative labels.
 
+The table preserves the Mac execution. Linux BM25/narrow-rule permutation means are1.3649 because of near-tie rounding; lexical remains best on both. This environment difference is not an improvement. [The scope supplement](READBACK-SCOPE.en.md) lists which exported aggregates the Node readback did and did not separately check.
+
 Reproduce from this repository with Go1.27.1:
 
 ```sh
 bash scripts/verify-next60-bias37.sh
 ```
 
-The command checks owned controls, reads the public37-row file and runs the nonlearned comparison once into a fresh output. It starts no original library, model or Fit. Linux/macOS scores use absolute/relative tolerances of1e-12; ranking, cost, tie behavior and all other fields must match exactly. Actual scores and matrix digests remain CI artifacts; tolerance never changes the ranking.
+The command checks owned controls, reads the public37-row file and runs the nonlearned comparison once into a fresh output. It starts no original library, model or Fit. Absolute and relative score tolerances remain1e-12 each. Each platform's saved actual scores must independently reconstruct its complete permutation orders, ties, costs and matrix digest exactly. Common data, labels, denominators and no-training authority must match. Tolerance never changes actual scores or rankings.
+
+The first Linux CI failed the original requirement that every aggregate match the Mac report. [The Linux actual report](LINUX-AMD64.actual.public.v1.json) differs by at most approximately5.33e-15 in score, yet one request's BM25 pair becomes exactly tied and changes permutation visits. [Independent recomputation](LINUX-INDEPENDENT-READBACK.actual.public.v1.json) confirms the Linux matrix and aggregates against its own scores. [The difference receipt](PLATFORM-READBACK.actual.public.v1.json) preserves the failure and both inputs. This is not learned improvement or measured work savings. Well-separated pair ordering must still agree; near-tie changes are reported separately.
 
 An oversized result remains a failure. If storage completes successfully, a bounded record preserves errors and actual counters. Write/sync failures remain separate errors. This maintainer source is not automatically registered with the default CLI or Codex.
 

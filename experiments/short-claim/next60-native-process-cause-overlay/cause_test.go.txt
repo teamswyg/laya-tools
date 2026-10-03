@@ -1,0 +1,228 @@
+// SPDX-License-Identifier: Apache-2.0
+// Source-only controls; Root executes. Error hooks signal no real process.
+// Owned integration children exit themselves, with no failed-kill sleep child.
+package main
+
+import (
+	"errors"
+	"fmt"
+	"io"
+	"sync"
+	"syscall"
+	"testing"
+	"time"
+)
+
+func TestGroupSignalResultsPreserveExactFailureClass(t *testing.T) {
+	unknown := errors.New("owned signal failure")
+	tests := []struct {
+		name    string
+		err     error
+		outcome string
+		failed  bool
+		errno   int
+		known   bool
+	}{
+		{"accepted", nil, "signal_accepted", false, 0, false},
+		{"missing", syscall.ESRCH, "no_matching_group", false, int(syscall.ESRCH), true},
+		{"wrapped_missing", fmt.Errorf("owned wrapper: %w", syscall.ESRCH), "no_matching_group", false, int(syscall.ESRCH), true},
+		{"permission", syscall.EPERM, "failed", true, int(syscall.EPERM), true},
+		{"invalid", syscall.EINVAL, "failed", true, int(syscall.EINVAL), true},
+		{"wrapped_invalid", fmt.Errorf("owned wrapper: %w", syscall.EINVAL), "failed", true, int(syscall.EINVAL), true},
+		{"unknown", unknown, "failed", true, 0, false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			calls, closes := 0, 0
+			s := groupStop{
+				pid: 42,
+				kill: func(pid int, sig syscall.Signal) error {
+					calls++
+					if pid != -42 || sig != syscall.SIGKILL {
+						t.Error("incorrect group/signal arguments", pid, sig)
+					}
+					return tc.err
+				},
+				close: func() { closes++ },
+			}
+			s.request(abortStderr)
+			s.request(abortReceiver)
+			s.request(abortDeadline)
+			var r ProcessReceipt
+			s.appendReceipt(&r)
+			if calls != 1 || closes != 1 || r.GroupKillCalls != 1 || !r.GroupKillAttempted || r.GroupSignalOutcome != tc.outcome || r.GroupKillFailed != tc.failed || r.AbortCause != "stderr" {
+				t.Fatal("signal result/cause lost", calls, closes, r)
+			}
+			if (r.GroupSignalErrno != nil) != tc.known || tc.known && *r.GroupSignalErrno != tc.errno {
+				t.Fatal("errno fabricated or dropped", r.GroupSignalErrno, tc.errno, tc.known)
+			}
+			if e := firstAbortError(abortCause(s.first.Load()), code("derived_pipe_error"), code("stderr_cap_exceeded")); e != code("stderr_cap_exceeded") {
+				t.Fatal("secondary signal/pipe failure replaced overflow", e)
+			}
+		})
+	}
+}
+
+func TestFirstAbortCauseRetainsReceiverStderrAndDeadline(t *testing.T) {
+	for _, tc := range []struct {
+		first abortCause
+		want  error
+	}{
+		{abortReceiver, code("owned_original_receiver")},
+		{abortStderr, code("stderr_cap_exceeded")},
+		{abortDeadline, code("child_deadline_no_retry")},
+	} {
+		t.Run(tc.first.name(), func(t *testing.T) {
+			calls, closes := 0, 0
+			s := groupStop{pid: 1, kill: func(int, syscall.Signal) error { calls++; return syscall.EPERM }, close: func() { closes++ }}
+			s.request(tc.first)
+			for _, c := range []abortCause{abortReceiver, abortStderr, abortDeadline} {
+				s.request(c)
+			}
+			var r ProcessReceipt
+			s.appendReceipt(&r)
+			e := firstAbortError(abortCause(s.first.Load()), code("owned_original_receiver"), code("stderr_cap_exceeded"))
+			if e != tc.want || r.AbortCause != tc.first.name() || !r.GroupKillFailed || calls != 1 || closes != 1 || r.GroupSignalErrno == nil || *r.GroupSignalErrno != int(syscall.EPERM) {
+				t.Fatal("first cause or secondary failure changed", tc.first, e, r, calls, closes)
+			}
+		})
+	}
+}
+
+func TestConcurrentLaterAbortRequestsDoNotRetryOrChangeCause(t *testing.T) {
+	calls, closes := 0, 0
+	s := groupStop{pid: 7, kill: func(int, syscall.Signal) error { calls++; return syscall.EINVAL }, close: func() { closes++ }}
+	s.request(abortStderr)
+	var joined sync.WaitGroup
+	for i := 0; i < 12; i++ {
+		joined.Add(1)
+		go func(i int) {
+			defer joined.Done()
+			if i%2 == 0 {
+				s.request(abortReceiver)
+			} else {
+				s.request(abortDeadline)
+			}
+		}(i)
+	}
+	joined.Wait()
+	var r ProcessReceipt
+	s.appendReceipt(&r)
+	if calls != 1 || closes != 1 || r.AbortCause != "stderr" || !r.GroupKillFailed || r.GroupSignalOutcome != "failed" || r.GroupSignalErrno == nil || *r.GroupSignalErrno != int(syscall.EINVAL) {
+		t.Fatal("later requests rewrote winner/results", r, calls, closes)
+	}
+}
+
+func TestResultReadWaitsForWinningAbortCompletion(t *testing.T) {
+	entered, release, done := make(chan struct{}), make(chan struct{}), make(chan struct{})
+	closes := 0
+	s := groupStop{pid: 8, kill: func(int, syscall.Signal) error {
+		close(entered)
+		<-release
+		return syscall.EPERM
+	}, close: func() { closes++ }}
+	go func() { defer close(done); s.request(abortStderr) }()
+	<-entered
+	// A loser returns before the winner finishes; read no result fields yet.
+	s.request(abortReceiver)
+	close(release)
+	<-done
+	var r ProcessReceipt
+	s.appendReceipt(&r)
+	if closes != 1 || r.GroupKillCalls != 1 || !r.GroupKillFailed || r.AbortCause != "stderr" || r.GroupSignalErrno == nil || *r.GroupSignalErrno != int(syscall.EPERM) {
+		t.Fatal("completion failed to publish result/closure", r, closes)
+	}
+}
+
+func TestPanickingSignalHookCannotBecomeAcceptedOrSkipClosure(t *testing.T) {
+	closes := 0
+	s := groupStop{pid: 3, kill: func(int, syscall.Signal) error { panic(nil) }, close: func() { closes++ }}
+	s.request(abortStderr)
+	var r ProcessReceipt
+	s.appendReceipt(&r)
+	if closes != 1 || r.GroupKillCalls != 1 || !r.GroupKillFailed || r.GroupSignalOutcome != "failed" || r.GroupSignalErrno != nil || r.AbortCause != "stderr" {
+		t.Fatal("panic interpreted as success or errno", r, closes)
+	}
+	if firstAbortError(abortStderr, nil, code("stderr_cap_exceeded")) != code("stderr_cap_exceeded") {
+		t.Fatal("hook interruption replaced overflow")
+	}
+}
+
+func TestUnattemptedSignalAndMissingCauseStayExplicit(t *testing.T) {
+	var s groupStop
+	var r ProcessReceipt
+	s.appendReceipt(&r)
+	if r.AbortCause != "none" || r.GroupKillAttempted || r.GroupKillCalls != 0 || r.GroupKillFailed || r.GroupSignalOutcome != "not_attempted" || r.GroupSignalErrno != nil || firstAbortError(abortNone, nil, nil) != nil {
+		t.Fatal("unattempted signal fabricated", r)
+	}
+	if firstAbortError(abortReceiver, nil, nil) == nil || firstAbortError(abortStderr, nil, nil) == nil || firstAbortError(abortUnspecified, nil, nil) == nil {
+		t.Fatal("missing abort cause accepted")
+	}
+}
+
+// No sleep child and no real group signal. Shells exit themselves: exit0,
+// completed dd, or read reaching EOF when the owned stdin pipe closes.
+func TestOwnedSelfExitingChildrenRetainPrimaryAndFailedSignal(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		script   string
+		deadline time.Duration
+		cause    string
+		want     error
+		consume  func(io.Reader, io.Writer) error
+	}{
+		{
+			name:     "stderr",
+			script:   "/bin/dd if=/dev/zero bs=32769 count=1 1>&2 2>/dev/null\nexit 0",
+			deadline: 5 * time.Second,
+			cause:    "stderr",
+			want:     code("stderr_cap_exceeded"),
+			consume:  func(out io.Reader, _ io.Writer) error { _, e := io.Copy(io.Discard, out); return e },
+		},
+		{
+			name:     "receiver",
+			script:   "exit 0",
+			deadline: 5 * time.Second,
+			cause:    "receiver",
+			want:     code("owned_primary_receiver"),
+			consume:  func(io.Reader, io.Writer) error { return code("owned_primary_receiver") },
+		},
+		{
+			name:     "deadline",
+			script:   "read owned_line\nexit 0",
+			deadline: 200 * time.Millisecond,
+			cause:    "deadline",
+			want:     code("child_deadline_no_retry"),
+			consume:  func(out io.Reader, _ io.Writer) error { _, e := io.Copy(io.Discard, out); return e },
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c := ownedProcessConfig(t, tc.script, tc.deadline)
+			calls := 0
+			r, saved, e := runChildWithKill(c, tc.consume, func(pid int, sig syscall.Signal) error {
+				calls++
+				if pid >= 0 || sig != syscall.SIGKILL {
+					t.Error("group signal arguments", pid, sig)
+				}
+				return syscall.EPERM
+			})
+			fullyJoined(t, r)
+			if e != tc.want || calls != 1 || r.GroupKillCalls != 1 || r.AbortCause != tc.cause || !r.GroupKillAttempted || !r.GroupKillFailed || r.GroupSignalOutcome != "failed" || r.GroupSignalErrno == nil || *r.GroupSignalErrno != int(syscall.EPERM) {
+				t.Fatal("primary or secondary failure lost", e, r, calls)
+			}
+			if tc.name == "stderr" {
+				if !saved.Overflow || !r.StderrOverflow || saved.N != stderrCap {
+					t.Fatal("bounded overflow prefix lost", saved.N, saved.Overflow, r)
+				}
+				for _, b := range saved.Data[:saved.N] {
+					if b != 0 {
+						t.Fatal("owned zero prefix changed")
+					}
+				}
+			}
+			if tc.name == "deadline" && !r.DeadlineExceeded {
+				t.Fatal("deadline diagnostic lost", r)
+			}
+		})
+	}
+}

@@ -2,15 +2,403 @@
 package main
 
 import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/binary"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math"
 	"os"
 	"reflect"
 	"testing"
+	"unicode/utf8"
 )
 
-// This test reads already saved reports. It calls no Reader, Baselines or model.
+// Saved reports only: no Reader, scorer, Baselines, original, model or Fit.
+// This remains the ARM historical artifact, not an expected Linux outcome.
+const historical37SHA = "a18ba835d609320aa1a7c953f555dfc844d3809f3b076c891687de9bfc6f5924"
+const historical37Bytes = 23506
+const score37AbsoluteTolerance = 1e-12
+const score37RelativeTolerance = 1e-12
+
+func saved37Error(code string) error { return fmt.Errorf("saved37_%s", code) }
+
+func loadSaved37(path string) (report, string, error) {
+	var r report
+	f, err := os.Open(path)
+	if err != nil {
+		return r, "", saved37Error("open")
+	}
+	info, err := f.Stat()
+	if err != nil || !info.Mode().IsRegular() || info.Size() < 1 || info.Size() > maxOutput {
+		_ = f.Close()
+		return r, "", saved37Error("file_bound")
+	}
+	raw, err := io.ReadAll(io.LimitReader(f, maxOutput+1))
+	closeErr := f.Close()
+	if err != nil || closeErr != nil || len(raw) < 1 || len(raw) > maxOutput || !utf8.Valid(raw) {
+		return r, "", saved37Error("read_bound_utf8")
+	}
+	d := json.NewDecoder(bytes.NewReader(raw))
+	d.DisallowUnknownFields()
+	if err = d.Decode(&r); err != nil {
+		return r, "", saved37Error("json")
+	}
+	var extra any
+	if d.Decode(&extra) != io.EOF {
+		return r, "", saved37Error("json_tail")
+	}
+	s := sha256.Sum256(raw)
+	return r, hex.EncodeToString(s[:]), nil
+}
+
+// Enumerate lexicographically by backtracking, independently of production's
+// fixed permutation table. The inactive third slot stays zero for N=2.
+func saved37Mappings(n int) ([][3]int, error) {
+	if n != 2 && n != 3 {
+		return nil, saved37Error("candidate_count")
+	}
+	var out [][3]int
+	var current [3]int
+	var used [3]bool
+	var visit func(int)
+	visit = func(depth int) {
+		if depth == n {
+			out = append(out, current)
+			return
+		}
+		for i := 0; i < n; i++ {
+			if !used[i] {
+				current[depth], used[i] = i, true
+				visit(depth + 1)
+				used[i] = false
+			}
+		}
+	}
+	visit(0)
+	return out, nil
+}
+
+// Selection by maximum score avoids using production's insertion-sort helper.
+// Equality is exact. Stable display order is never replaced by an epsilon tie.
+func saved37Order(scores [3]float64, n int) ([3]uint8, int, error) {
+	var order [3]uint8
+	var selected [3]bool
+	for i, score := range scores {
+		if math.IsNaN(score) || math.IsInf(score, 0) || score < 0 || (i >= n && math.Float64bits(score) != 0) {
+			return order, 0, saved37Error("score_shape")
+		}
+	}
+	for position := 0; position < n; position++ {
+		best := -1
+		for i := 0; i < n; i++ {
+			if !selected[i] && (best < 0 || scores[i] > scores[best]) {
+				best = i
+			}
+		}
+		order[position], selected[best] = uint8(best), true
+	}
+	ties := 0
+	for i := 0; i < n; i++ {
+		for j := i + 1; j < n; j++ {
+			if scores[i] == scores[j] {
+				ties++
+			}
+		}
+	}
+	return order, ties, nil
+}
+
+// Authority is the pinned historical report. All score-dependent fields are
+// derived afresh; none is copied from the platform report being checked.
+// A full matrix digest match also checks exact score-permutation equivariance.
+func deriveSaved37(platform, authority report) (report, error) {
+	if len(platform.Parents) != parentCount || len(authority.Parents) != parentCount {
+		return report{}, saved37Error("parent_count")
+	}
+	out := authority
+	out.Parents = append([]parent(nil), authority.Parents...)
+	out.Controls = [4]aggregate{}
+	out.PositivePositions = [3]int{}
+	out.KnownCandidateLabels = 0
+	out.Counts = counts{ReaderAttempts: parentCount, ReaderReturns: parentCount, ReaderMatches: parentCount}
+	h := sha256.New()
+	u64 := func(value uint64) {
+		var b [8]byte
+		binary.LittleEndian.PutUint64(b[:], value)
+		_, _ = h.Write(b[:])
+	}
+	for index, base := range authority.Parents {
+		mappings, err := saved37Mappings(base.N)
+		if err != nil || base.Permutations != len(mappings) || base.PairDenominator != len(mappings)*base.N*(base.N-1)/2 {
+			return report{}, saved37Error("parent_shape")
+		}
+		positive := -1
+		for i := 0; i < 3; i++ {
+			if i >= base.N && (base.IDs[i] != "" || base.Labels[i]) {
+				return report{}, saved37Error("metadata_padding")
+			}
+			if base.Labels[i] {
+				if positive >= 0 {
+					return report{}, saved37Error("positive_scope")
+				}
+				positive = i
+			}
+		}
+		if positive < 0 {
+			return report{}, saved37Error("positive_scope")
+		}
+		out.PositivePositions[positive]++
+		out.KnownCandidateLabels += base.N
+		p := parent{ID: base.ID, Group: base.Group, N: base.N, IDs: base.IDs, Labels: base.Labels, Permutations: len(mappings), PairDenominator: base.PairDenominator, PrimaryScores: platform.Parents[index].PrimaryScores}
+		for i := 0; i < 3; i++ {
+			if math.Float64bits(p.PrimaryScores[0][i]) != 0 || math.Float64bits(p.PrimaryScores[1][i]) != math.Float64bits(p.PrimaryScores[3][i]) {
+				return report{}, saved37Error("fixed_or_fallback_score")
+			}
+			if p.PrimaryScores[2][i] > 1 {
+				return report{}, saved37Error("lexical_score_range")
+			}
+		}
+		for schedule := -1; schedule < len(mappings); schedule++ {
+			primary := schedule < 0
+			mapping := mappings[0]
+			if !primary {
+				mapping = mappings[schedule]
+			}
+			u64(uint64(index))
+			if primary {
+				u64(1)
+			} else {
+				u64(0)
+			}
+			u64(uint64(base.N))
+			for _, original := range mapping {
+				u64(uint64(original))
+			}
+			for column := 0; column < 4; column++ {
+				var scores [3]float64
+				for display := 0; display < base.N; display++ {
+					scores[display] = p.PrimaryScores[column][mapping[display]]
+				}
+				// The primary vector's inactive slot is checked separately, before
+				// permutation copying could hide nonzero or nonfinite padding.
+				if _, _, err = saved37Order(p.PrimaryScores[column], base.N); err != nil {
+					return report{}, err
+				}
+				order, ties, err := saved37Order(scores, base.N)
+				if err != nil {
+					return report{}, err
+				}
+				checks := 0
+				for checks < base.N {
+					original := mapping[int(order[checks])]
+					checks++
+					if base.Labels[original] {
+						break
+					}
+				}
+				fallback := ""
+				if column == 3 {
+					fallback = "unsupported_rule_request"
+				}
+				if primary {
+					p.PrimaryOrder[column] = order
+					p.PrimaryVisits[column] = checks
+					p.PrimaryTiePairs[column] = ties
+					if fallback != "" {
+						p.PrimaryFallbacks[column] = 1
+					}
+				} else {
+					p.PermutationVisits[column] += checks
+					if checks == 1 {
+						p.PermutationTop1[column]++
+					}
+					p.PermutationTiePairs[column] += ties
+					if ties > 0 {
+						p.PermutationTiedRankings[column]++
+					}
+					if fallback != "" {
+						p.PermutationFallbacks[column]++
+					}
+				}
+				u64(uint64(column))
+				for i := 0; i < 8; i++ {
+					value := uint64(0)
+					if i < base.N {
+						value = uint64(order[i])
+					}
+					u64(value)
+				}
+				for i := 0; i < 8; i++ {
+					value := uint64(0)
+					if i < base.N {
+						value = math.Float64bits(scores[i])
+					}
+					u64(value)
+				}
+				// The selected supervision has exactly one known T per parent:
+				// cost=checks, unknown=0, positive=1, resolved=1.
+				for _, value := range []uint64{uint64(checks), uint64(checks), 0, 1, 1, uint64(len(fallback))} {
+					u64(value)
+				}
+				_, _ = io.WriteString(h, fallback)
+				out.Counts.ValidatedRankings++
+				out.Counts.ActiveScores += base.N
+			}
+			out.Counts.BaselinesAttempts++
+			out.Counts.BaselinesReturns++
+			if primary {
+				out.Counts.Primary++
+			} else {
+				out.Counts.Permuted++
+			}
+		}
+		out.Parents[index] = p
+	}
+	if out.Counts != (counts{37, 37, 37, 247, 247, 988, 2928, 37, 210}) || out.KnownCandidateLabels != 108 {
+		return report{}, saved37Error("matrix_scope")
+	}
+	for column, kind := range authority.Kinds {
+		a := aggregate{Kind: kind}
+		for _, p := range out.Parents {
+			a.PrimaryVisits += p.PrimaryVisits[column]
+			if p.PrimaryVisits[column] == 1 {
+				a.PrimaryTop1++
+			}
+			a.PrimaryTiePairs += p.PrimaryTiePairs[column]
+			a.PrimaryFallbacks += p.PrimaryFallbacks[column]
+			a.PermutationVisits += p.PermutationVisits[column]
+			a.PermutationTop1 += p.PermutationTop1[column]
+			a.PermutationTiePairs += p.PermutationTiePairs[column]
+			a.PermutationTiedRankings += p.PermutationTiedRankings[column]
+			a.PermutationFallbacks += p.PermutationFallbacks[column]
+			a.MacroCostSixths += p.PermutationVisits[column] * (6 / p.Permutations)
+			a.MacroTop1Sixths += p.PermutationTop1[column] * (6 / p.Permutations)
+		}
+		a.MacroMeanCost = float64(a.MacroCostSixths) / float64(6*parentCount)
+		out.Controls[column] = a
+	}
+	out.Best = 0
+	for column := 1; column < 4; column++ {
+		if out.Controls[column].MacroCostSixths < out.Controls[out.Best].MacroCostSixths {
+			out.Best = column
+		}
+	}
+	out.BestKind = authority.Kinds[out.Best]
+	for column := range out.Controls {
+		for _, p := range out.Parents {
+			a, b := p.PermutationVisits[column], p.PermutationVisits[out.Best]
+			if a < b {
+				out.Controls[column].BetterThanBest++
+			} else if a > b {
+				out.Controls[column].WorseThanBest++
+			} else {
+				out.Controls[column].TiedWithBest++
+			}
+		}
+	}
+	out.OraclePrimary, out.OraclePermuted = out.Counts.Primary, out.Counts.Permuted
+	out.OracleMacroSixths = 6 * parentCount
+	out.GainDenominatorSixths = out.Controls[out.Best].MacroCostSixths
+	out.GainNumeratorSixths = out.GainDenominatorSixths - out.OracleMacroSixths
+	out.ProxyHeadroom5 = 100*out.GainNumeratorSixths >= 5*out.GainDenominatorSixths
+	out.AllCaseDigest = hex.EncodeToString(h.Sum(nil))
+	return out, nil
+}
+
+type relationChange37 struct {
+	Parent         string `json:"parent"`
+	Column         int    `json:"column"`
+	Left           int    `json:"left_candidate"`
+	Right          int    `json:"right_candidate"`
+	FrozenRelation int    `json:"historical_relation"`
+	ActualRelation int    `json:"actual_relation"`
+}
+type comparison37 struct {
+	MaxScoreDelta         float64            `json:"max_primary_score_delta"`
+	GoodSeparationPairs   int                `json:"well_separated_pairs_checked"`
+	NearPairs             int                `json:"pairs_within_combined_error_bounds"`
+	NearRelationChanges   int                `json:"changed_near_pair_relations"`
+	ParentOutcomeChanges  int                `json:"parents_with_changed_derived_outcomes"`
+	ControlOutcomeChanges int                `json:"controls_with_changed_derived_outcomes"`
+	Changes               []relationChange37 `json:"first_16_changed_relations"`
+}
+
+func relation37(x, y float64) int {
+	if x < y {
+		return -1
+	}
+	if x > y {
+		return 1
+	}
+	return 0
+}
+func tolerance37(reference float64) float64 {
+	return score37AbsoluteTolerance + score37RelativeTolerance*math.Abs(reference)
+}
+func compareSaved37(actual, historical report) (comparison37, error) {
+	var summary comparison37
+	for _, pair := range []struct{ platform, authority report }{{historical, historical}, {actual, historical}} {
+		expected, err := deriveSaved37(pair.platform, pair.authority)
+		if err != nil {
+			return summary, err
+		}
+		if !reflect.DeepEqual(pair.platform, expected) {
+			return summary, saved37Error("derived_report_mismatch")
+		}
+	}
+	for index, historicalParent := range historical.Parents {
+		actualParent := actual.Parents[index]
+		for column := 0; column < 4; column++ {
+			for candidate := 0; candidate < 3; candidate++ {
+				x, y := actualParent.PrimaryScores[column][candidate], historicalParent.PrimaryScores[column][candidate]
+				delta := math.Abs(x - y)
+				if delta > tolerance37(y) {
+					return summary, saved37Error("score_tolerance")
+				}
+				if delta > summary.MaxScoreDelta {
+					summary.MaxScoreDelta = delta
+				}
+			}
+			for left := 0; left < historicalParent.N; left++ {
+				for right := left + 1; right < historicalParent.N; right++ {
+					x, y := historicalParent.PrimaryScores[column][left], historicalParent.PrimaryScores[column][right]
+					before := relation37(x, y)
+					after := relation37(actualParent.PrimaryScores[column][left], actualParent.PrimaryScores[column][right])
+					if math.Abs(x-y) > tolerance37(x)+tolerance37(y) {
+						summary.GoodSeparationPairs++
+						if before != after {
+							return summary, saved37Error("well_separated_order")
+						}
+					} else {
+						summary.NearPairs++
+						if before != after {
+							summary.NearRelationChanges++
+							if len(summary.Changes) < 16 {
+								summary.Changes = append(summary.Changes, relationChange37{historicalParent.ID, column, left, right, before, after})
+							}
+						}
+					}
+				}
+			}
+		}
+		// Compare outcomes without treating a bit-level score difference alone
+		// as an outcome change. Authority was already checked by full equality.
+		actualParent.PrimaryScores, historicalParent.PrimaryScores = [4][3]float64{}, [4][3]float64{}
+		if actualParent != historicalParent {
+			summary.ParentOutcomeChanges++
+		}
+	}
+	for column := 0; column < 4; column++ {
+		if actual.Controls[column] != historical.Controls[column] {
+			summary.ControlOutcomeChanges++
+		}
+	}
+	return summary, nil
+}
+
 func TestSavedActualReportMatchesFrozen(t *testing.T) {
 	a, f := os.Getenv("RIIDOLAYA_BIAS37_ACTUAL"), os.Getenv("RIIDOLAYA_BIAS37_FROZEN")
 	if a == "" && f == "" {
@@ -19,50 +407,162 @@ func TestSavedActualReportMatchesFrozen(t *testing.T) {
 	if a == "" || f == "" {
 		t.Fatal("both saved report paths required")
 	}
-	load := func(path string) report {
-		t.Helper()
-		raw, err := os.ReadFile(path)
-		if err != nil || len(raw) > maxOutput {
-			t.Fatal("saved report read/bound", err)
+	actual, actualSHA, err := loadSaved37(a)
+	if err != nil {
+		t.Fatal(err)
+	}
+	historical, historicalSHA, err := loadSaved37(f)
+	if err != nil || historicalSHA != historical37SHA {
+		t.Fatal("historical ARM artifact pin changed")
+	}
+	// The SHA pin covers every immutable identity/label/count/scope/claim field.
+	// Expected runtime outputs are always recomputed from that platform's scores.
+	summary, err := compareSaved37(actual, historical)
+	if err != nil {
+		t.Fatal(err)
+	}
+	message := struct {
+		State          string       `json:"state"`
+		ActualFileSHA  string       `json:"actual_file_sha256"`
+		ActualMatrix   string       `json:"actual_matrix_sha256"`
+		HistoricalFile string       `json:"historical_ARM_file_sha256"`
+		Comparison     comparison37 `json:"comparison"`
+		WholeWorkClaim bool         `json:"whole_work_claim"`
+		TrainingReady  bool         `json:"training_ready"`
+	}{"saved37_platform_self_consistent_no_parity_claim", actualSHA, actual.AllCaseDigest, historicalSHA, summary, false, false}
+	b, err := json.Marshal(message)
+	if err != nil || len(b) > 8192 {
+		t.Fatal("comparison scalar bound")
+	}
+	fmt.Println(string(b))
+}
+
+// This synthetic report has hand-selected scores and known unit costs, not
+// observations from actual37. The literal arithmetic checks below anchor the
+// reconstruction independently of its own generated report.
+func syntheticSaved37(t *testing.T) report {
+	t.Helper()
+	authority := newReport()
+	authority.State = "complete_saved37_proxy_diagnostic"
+	authority.Parents = make([]parent, parentCount)
+	for i := range authority.Parents {
+		n := 3
+		if i < 3 {
+			n = 2
 		}
-		var r report
-		if err = json.Unmarshal(raw, &r); err != nil {
-			t.Fatal(err)
+		p := parent{ID: fmt.Sprintf("owned-platform-control-%02d", i), Group: 76, N: n, IDs: [3]string{"zero", "one", "two"}, Labels: [3]bool{false, true, false}, Permutations: 6, PairDenominator: 18}
+		if n == 2 {
+			p.IDs[2], p.Permutations, p.PairDenominator = "", 2, 2
 		}
-		return r
+		p.PrimaryScores[1] = [3]float64{math.Nextafter(1, 2), 1, 0.1}
+		p.PrimaryScores[2] = [3]float64{0.25, 0.75, 0.125}
+		if n == 2 {
+			p.PrimaryScores[1][2], p.PrimaryScores[2][2] = 0, 0
+		}
+		p.PrimaryScores[3] = p.PrimaryScores[1]
+		authority.Parents[i] = p
 	}
-	actual, frozen := load(a), load(f)
-	if len(actual.Parents) != parentCount || len(frozen.Parents) != parentCount || actual.State != "complete_saved37_proxy_diagnostic" {
-		t.Fatal("incomplete actual report")
+	r, err := deriveSaved37(authority, authority)
+	if err != nil {
+		t.Fatal(err)
 	}
-	actualDigest := actual.AllCaseDigest
-	if len(actualDigest) != 64 {
-		t.Fatal("missing actual matrix digest")
+	if r.Controls[0].PrimaryVisits != 74 || r.Controls[0].PermutationVisits != 417 || r.Controls[0].MacroCostSixths != 435 || r.Controls[1].PermutationVisits != 420 || r.Controls[1].MacroCostSixths != 444 || r.Controls[2].PermutationVisits != 210 || r.Controls[2].MacroCostSixths != 222 || r.Best != 2 {
+		t.Fatal("hand-calculated fixture arithmetic changed")
 	}
-	maxDelta := 0.0
-	for i := range actual.Parents {
-		for col := 0; col < 4; col++ {
-			for j := 0; j < 3; j++ {
-				x, y := actual.Parents[i].PrimaryScores[col][j], frozen.Parents[i].PrimaryScores[col][j]
-				if math.IsNaN(x) || math.IsInf(x, 0) || math.IsNaN(y) || math.IsInf(y, 0) {
-					t.Fatal("nonfinite actual score")
-				}
-				delta := math.Abs(x - y)
-				if delta > maxDelta {
-					maxDelta = delta
-				}
-				if delta > 1e-12+1e-12*math.Abs(y) {
-					t.Fatal("architecture score difference exceeds declared tolerance", i, col, j)
-				}
-				actual.Parents[i].PrimaryScores[col][j] = y
+	return r
+}
+func copySaved37(r report) report {
+	r.Parents = append([]parent(nil), r.Parents...)
+	return r
+}
+
+func TestSaved37NearTieChangesAreMeasuredNotForced(t *testing.T) {
+	historical := syntheticSaved37(t)
+	actual := copySaved37(historical)
+	actual.Parents[3].PrimaryScores[1][0] = 1
+	actual.Parents[3].PrimaryScores[3][0] = 1
+	var err error
+	actual, err = deriveSaved37(actual, historical)
+	if err != nil {
+		t.Fatal(err)
+	}
+	summary, err := compareSaved37(actual, historical)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if summary.NearRelationChanges != 2 || summary.ParentOutcomeChanges != 1 || summary.ControlOutcomeChanges != 2 || summary.GoodSeparationPairs == 0 || actual.Parents[3].PermutationVisits[1] != 9 || actual.Parents[3].PermutationTop1[1] != 3 || actual.Parents[3].PermutationTiePairs[1] != 6 || historical.Parents[3].PermutationVisits[1] != 12 || actual.Controls[1].PermutationVisits != 417 || actual.Controls[1].MacroCostSixths != 441 || actual.Controls[1].PrimaryVisits != historical.Controls[1].PrimaryVisits || actual.AllCaseDigest == historical.AllCaseDigest {
+		t.Fatal("near-tie outcome change was hidden or invented")
+	}
+	if historical.Parents[3].PrimaryScores[1][0] != math.Nextafter(1, 2) || actual.Parents[3].PrimaryScores[1][0] != 1 || actual.WholeWork5Claimed || actual.TrainingReady {
+		t.Fatal("platform scores or authority changed")
+	}
+}
+
+func TestSaved37RejectsCorruptOutcomesAndAuthority(t *testing.T) {
+	historical := syntheticSaved37(t)
+	cases := []struct {
+		name string
+		edit func(*report)
+	}{
+		{"rank", func(r *report) { r.Parents[3].PrimaryOrder[1] = [3]uint8{1, 0, 2} }},
+		{"tie", func(r *report) { r.Parents[3].PrimaryTiePairs[1]++ }},
+		{"parent_cost", func(r *report) { r.Parents[3].PermutationVisits[1]-- }},
+		{"aggregate_cost", func(r *report) { r.Controls[1].MacroCostSixths-- }},
+		{"digest", func(r *report) { r.AllCaseDigest = "0000000000000000000000000000000000000000000000000000000000000000" }},
+		{"metadata", func(r *report) { r.Parents[3].Group++ }},
+		{"labels", func(r *report) { r.Parents[3].Labels = [3]bool{true, false, false} }},
+		{"fallback", func(r *report) { r.Parents[3].PrimaryFallbacks[3] = 0 }},
+		{"counts", func(r *report) { r.Counts.ValidatedRankings-- }},
+		{"Fit_authority", func(r *report) { r.Fit = 1 }},
+		{"whole_work_claim", func(r *report) { r.WholeWork5Claimed = true }},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			bad := copySaved37(historical)
+			tc.edit(&bad)
+			if _, err := compareSaved37(bad, historical); err == nil {
+				t.Fatal("corruption accepted")
 			}
+		})
+	}
+}
+
+func TestSaved37RejectsScoreDriftAndHiddenPadding(t *testing.T) {
+	historical := syntheticSaved37(t)
+	drift := copySaved37(historical)
+	drift.Parents[3].PrimaryScores[1][0] += 1e-6
+	drift.Parents[3].PrimaryScores[3] = drift.Parents[3].PrimaryScores[1]
+	drift, err := deriveSaved37(drift, historical)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = compareSaved37(drift, historical); err == nil {
+		t.Fatal("score tolerance was widened")
+	}
+	for _, value := range []float64{math.NaN(), math.Inf(1), 1, math.Copysign(0, -1)} {
+		bad := copySaved37(historical)
+		bad.Parents[0].PrimaryScores[1][2] = value
+		bad.Parents[0].PrimaryScores[3][2] = value
+		if _, err = deriveSaved37(bad, historical); err == nil {
+			t.Fatal("invalid inactive score was hidden by permutation copy")
 		}
 	}
-	// Only scores and their binary matrix digest may differ. Actual source file
-	// remains unchanged; rank/cost/tie/label/denominator differences fail CI.
-	actual.AllCaseDigest = frozen.AllCaseDigest
-	if !reflect.DeepEqual(actual, frozen) {
-		t.Fatal("non-score fields differ from frozen report; preserve actual artifact")
+}
+
+func TestSaved37ReadingRejectsInvalidUTF8AndUnknownFields(t *testing.T) {
+	for _, raw := range [][]byte{{'{', '"', 'x', '"', ':', '"', 0xff, '"', '}'}, []byte("{\"unexpected_field\":1}")} {
+		f, err := os.CreateTemp(t.TempDir(), "owned-saved-report-")
+		if err != nil {
+			t.Fatal("fixture create")
+		}
+		if _, err = f.Write(raw); err != nil {
+			t.Fatal("fixture write")
+		}
+		if f.Close() != nil {
+			t.Fatal("fixture close")
+		}
+		if _, _, err = loadSaved37(f.Name()); err == nil {
+			t.Fatal("invalid saved report accepted")
+		}
 	}
-	fmt.Printf("saved37 actual scores preserved; max_delta=%.17g actual_matrix=%s\n", maxDelta, actualDigest)
 }

@@ -5,11 +5,13 @@ set -euo pipefail
 riido_repo=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)
 riido_prior="$riido_repo/experiments/short-claim/next60-durable-evidence"
 riido_case="$riido_repo/experiments/short-claim/next60-native-wire3-execution"
+riido_process_overlay="$riido_repo/experiments/short-claim/next60-native-process-cause-overlay"
 export GOTOOLCHAIN=local GOWORK=off GOENV=off GOPROXY=off GOSUMDB=off GOFLAGS=
 unset RIIDO_OWNED_PROFILE_DIR
 [[ $(go version) == "go version go1.27.1 "* ]]
 (cd "$riido_prior" && shasum -a 256 -c SHA256SUMS >/dev/null)
 (cd "$riido_case" && shasum -a 256 -c SHA256SUMS >/dev/null)
+(cd "$riido_process_overlay" && shasum -a 256 -c SHA256SUMS >/dev/null)
 riido_scratch=$(mktemp -d)
 trap 'rm -rf "$riido_scratch"' EXIT
 for riido_module in frame worker compact file baseline durable adapter; do
@@ -22,6 +24,8 @@ for riido_module in controller comparer archive compiler; do
   mkdir -p "$riido_scratch/$riido_module"
   cp -R "$riido_case/source/$riido_module/." "$riido_scratch/$riido_module/"
 done
+cp "$riido_process_overlay/process.go.txt" "$riido_scratch/controller/process.go.txt"
+cp "$riido_process_overlay/cause_test.go.txt" "$riido_scratch/controller/cause_test.go.txt"
 for riido_module in frame worker compact file baseline durable adapter controller comparer archive compiler; do
   mv "$riido_scratch/$riido_module/go.mod.template" "$riido_scratch/$riido_module/go.mod"
   while IFS= read -r -d '' riido_source; do
