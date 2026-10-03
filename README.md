@@ -1,6 +1,8 @@
 # laya-tools
 
-[작은 주장·힌트 모델용 개발 자료](experiments/short-claim/next60-development-thirtythree/README.ko.md)를 **33개 요청·96라벨**로 늘렸습니다. 실제 Go Reader의 33회 호출·반환·값 일치와 기존 30행의 바이트 보존을 확인했습니다. 고정한 원본 관측 42건의 조건 318개를 재현하는 [오프라인 검사](scripts/verify-next60-thirtythree.sh)를 제공합니다. 새 모델 학습은 아직 0회이며, 약 60개 수집 뒤에도 원천 중복·역할 분리·후보 위치 편향을 검토해야 합니다. Codex 절감 효과는 아직 검증하지 않았습니다.
+[작은 주장·힌트 모델용 개발 자료](experiments/short-claim/next60-development-thirtyfive/README.ko.md)를 **35개 요청·102라벨**로 늘렸습니다. 실제 Go Reader의 35회 호출·반환·전체 값 일치와 기존 33행의 바이트 보존을 확인했습니다. 새 두 요청의 저장 판단309개와 35행 전체를 재현하는 [오프라인 검사](scripts/verify-next60-thirtyfive.sh)를 로컬에서 통과했고 CI에 추가했습니다. 새 모델 학습은 아직0회이며, 약60개 수집 뒤에도 원천 중복·역할 분리·후보 위치 편향을 검토해야 합니다. Codex 절감 효과는 아직 검증하지 않았습니다.
+
+[PR125 CI·Linux 실제 차이·저장 공간 기록](experiments/short-claim/publication-proof-126/README.ko.md)을 보존합니다. 필수 CI 네 작업을 통과해 봇이 병합했고, Linux의 미세한 점수 차이와 실제 동점·순서 변화도 전체 결과로 남겼습니다. 35행 위치 분포는5·28·2로 여전히 편향돼 있습니다. 완료한 HF33 임시 사본334파일은 복원 검증 후 압축 보관해 보수적으로 약1.24MB의 논리 저장 공간을 확보했습니다. 모델 메모리나 비용 절감 수치는 아닙니다.
 
 [HF33 고정 버전](https://huggingface.co/datasets/JooYoon/riidolaya-shortclaim-next60-development/tree/next60-33-finite-v1)을 게시했습니다. 변경한 82파일을 다시 내려받아 지문을 확인했고, 전체 소유638파일 목록과 viewer33행의 모든 값·순서를 확인했습니다. [게시·Go 검사·다음 학습 준비 근거](experiments/short-claim/publication-proof-125/README.ko.md)를 보세요. PR124의 Linux·macOS33행 재현과 기존 Laya native 검사가 각각 통과했고 CI 봇이 병합했습니다. GPU 실행은 확인하지 않았습니다.
 

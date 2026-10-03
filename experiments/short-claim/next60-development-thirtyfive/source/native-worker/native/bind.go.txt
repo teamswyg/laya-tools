@@ -1,0 +1,27 @@
+// Inert native binder. Original package init executes before main upon future native Start.
+package native
+
+import (
+	original "github.com/tidwall/gjson"
+	"riido.local/next60gjson-two-nativeprep/twoliteral"
+	"strconv"
+)
+
+func primitive(v original.Result) twoliteral.Primitive {
+	typ := uint8(255)
+	if v.Type >= original.Null && v.Type <= original.JSON {
+		typ = uint8(v.Type)
+	}
+	return twoliteral.Primitive{Type: typ, Raw: v.Raw, Index: strconv.Itoa(v.Index)}
+}
+func Operations() twoliteral.Ops {
+	return twoliteral.Ops{
+		DisableEscapeHTML: original.DisableEscapeHTML,
+		ForEachLine: func(s string, callback func(twoliteral.Primitive) bool) {
+			original.ForEachLine(s, func(v original.Result) bool { return callback(primitive(v)) })
+		},
+		Valid:            original.Valid,
+		Parse:            func(s string) twoliteral.Primitive { return primitive(original.Parse(s)) },
+		AppendJSONString: original.AppendJSONString,
+	}
+}

@@ -1,0 +1,252 @@
+package twoliteral
+
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"reflect"
+	"strconv"
+)
+
+type stopSignal struct{}
+type sourcePanicSignal struct{ evidence Panic }
+type Session struct {
+	ops          Ops
+	cp           Checkpoint
+	counts       Counts
+	seq          uint32
+	previous     string
+	row          Row
+	failure      string
+	stopped      bool
+	planSHA      string
+	primitiveMax int
+}
+
+func typeName(v any) (string, bool) {
+	t := reflect.TypeOf(v)
+	if t == nil {
+		return "", false
+	}
+	name := t.String()
+	if len(name) > 128 {
+		return "", false
+	}
+	return name, true
+}
+func cloneRow(r Row) Row {
+	r.Input = append(json.RawMessage(nil), r.Input...)
+	r.Want = append(json.RawMessage(nil), r.Want...)
+	return r
+}
+func cloneFact(f *Fact) *Fact {
+	if f == nil {
+		return nil
+	}
+	v := *f
+	if f.Bool != nil {
+		x := *f.Bool
+		v.Bool = &x
+	}
+	if f.Primitive != nil {
+		x := *f.Primitive
+		v.Primitive = &x
+	}
+	if f.ReturnedHex != nil {
+		x := *f.ReturnedHex
+		v.ReturnedHex = &x
+	}
+	if f.ReturnedNil != nil {
+		x := *f.ReturnedNil
+		v.ReturnedNil = &x
+	}
+	if f.BackingHex != nil {
+		x := *f.BackingHex
+		v.BackingHex = &x
+	}
+	if f.CallbackReturnComplete != nil {
+		x := *f.CallbackReturnComplete
+		v.CallbackReturnComplete = &x
+	}
+	return &v
+}
+func checkpoint(cp Checkpoint, f Frame) (err error, panicked bool) {
+	normal := false
+	defer func() {
+		if !normal {
+			recover()
+			panicked = true
+		}
+	}()
+	err = cp(f)
+	normal = true
+	return
+}
+func (s *Session) stop(reason string) {
+	if !s.stopped {
+		s.failure = reason
+	}
+	s.stopped = true
+	panic(stopSignal{})
+}
+func (s *Session) emit(stage, method int, fact *Fact, cb *Callback, withRow bool) {
+	if s.stopped {
+		panic(stopSignal{})
+	}
+	if s.seq >= FrameMax {
+		s.stop("frame_cap")
+	}
+	f := Frame{Version: 2, Sequence: s.seq + 1, Previous: s.previous, Stage: stage, Dispatch: s.row.Ordinal,
+		Request: s.row.Request, Fixture: s.row.Fixture, Display: s.row.Display, Internal: s.row.Internal,
+		Method: method, Counts: s.counts, Fact: cloneFact(fact)}
+	if cb != nil {
+		v := *cb
+		f.Callback = &v
+	}
+	if withRow {
+		r := cloneRow(s.row)
+		f.Row = &r
+	}
+	b, e := json.Marshal(f)
+	if e != nil || len(b)+1 > EventLineMax {
+		s.stop("event_bytes")
+	}
+	h := sha256.Sum256(append(b, '\n'))
+	expected := hex.EncodeToString(h[:])
+	cpErr, cpPanicked := checkpoint(s.cp, f)
+	if cpPanicked || cpErr != nil {
+		s.stop("checkpoint_failure")
+	}
+	s.seq = f.Sequence
+	s.previous = expected
+}
+func (s *Session) invoke(id int, fn func(*Fact)) {
+	if s.counts.Original[0] >= MethodsMax {
+		s.stop("method_cap")
+	}
+	s.counts.Original[0]++
+	s.emit(BeforeMethod, id, nil, nil, false)
+	s.counts.Original[1]++
+	fact := Fact{ErrorChannelAvailable: false}
+	normal := false
+	var pv any
+	func() {
+		defer func() {
+			if !normal {
+				pv = recover()
+			}
+		}()
+		fn(&fact)
+		normal = true
+	}()
+	if !normal {
+		switch pv.(type) {
+		case stopSignal, sourcePanicSignal:
+			panic(pv)
+		}
+		t, k := typeName(pv)
+		fact.Panic = Panic{Known: true, Present: true, TypeKnown: k, Type: t, Scope: "direct_original_method"}
+		s.counts.Original[3]++
+		s.emit(AfterMethod, id, &fact, nil, false)
+		panic(sourcePanicSignal{fact.Panic})
+	}
+	fact.Returned = true
+	fact.Panic = Panic{Known: true}
+	s.counts.Original[2]++
+	s.emit(AfterMethod, id, &fact, nil, false)
+	if fact.OwnedBoundUnsupported {
+		s.stop("owned_return_bound")
+	}
+}
+func (s *Session) valid(text string) bool {
+	var out bool
+	s.invoke(MethodValid, func(f *Fact) { out = s.ops.Valid(text); f.PrimitiveKnown = true; f.Bool = &out })
+	return out
+}
+func (s *Session) parse(text string) Primitive {
+	var out Primitive
+	s.invoke(MethodParse, func(f *Fact) {
+		out = s.ops.Parse(text)
+		if !validPrimitive(out) || len(out.Raw) > len(text) {
+			f.OwnedBoundUnsupported = true
+			return
+		}
+		f.PrimitiveKnown = true
+		f.Primitive = &out
+	})
+	return out
+}
+func (s *Session) appendString(dst []byte, text string, backing *[32]byte) []byte {
+	var out []byte
+	s.invoke(MethodAppendJSONString, func(f *Fact) {
+		defer func() { h := hex.EncodeToString(backing[:]); f.BackingHex = &h }()
+		out = s.ops.AppendJSONString(dst, text)
+		if len(out) > 32 || cap(out) > 32 {
+			f.OwnedBoundUnsupported = true
+			return
+		}
+		h := hex.EncodeToString(out)
+		nilValue := out == nil
+		bh := hex.EncodeToString(backing[:])
+		f.PrimitiveKnown = true
+		f.ReturnedHex = &h
+		f.ReturnedNil = &nilValue
+		f.BackingHex = &bh
+	})
+	return out
+}
+func validPrimitive(p Primitive) bool {
+	if p.Type > 5 || len(p.Raw) > 128 || len(p.Index) == 0 || len(p.Index) > 20 {
+		return false
+	}
+	n, e := strconv.ParseInt(p.Index, 10, 64)
+	return e == nil && strconv.FormatInt(n, 10) == p.Index
+}
+func (s *Session) callback(p Primitive, line int, lineKnown bool, cont func() bool) bool {
+	if s.row.Got.CallbackN >= 3 || s.counts.Callback[0] >= CallbacksMax {
+		s.stop("callback_cap")
+	}
+	if !validPrimitive(p) || len(p.Raw) > s.primitiveMax {
+		s.stop("owned_callback_bound")
+	}
+	// Exported values are already owned strings before any span mapping or checkpoint.
+	c := Callback{PrimitiveKnown: true, Primitive: p, Line: line, LineKnown: lineKnown}
+	at := s.row.Got.CallbackN
+	s.row.Got.Callbacks[at] = c
+	s.row.Got.CallbackN++
+	if lineKnown {
+		s.row.Got.MappedPrefix++
+	}
+	s.counts.Callback[0]++
+	s.emit(BeforeCallback, 0, nil, &c, true)
+	s.counts.Callback[1]++
+	decision := cont()
+	c = s.row.Got.Callbacks[at]
+	c.ContinueKnown = true
+	c.Continue = decision
+	s.row.Got.Callbacks[at] = c
+	s.counts.Callback[2]++
+	s.emit(AfterCallback, 0, nil, &c, true)
+	return decision
+}
+func ownError(err error, available bool) ErrorState {
+	if !available {
+		return ErrorState{}
+	}
+	e := ErrorState{Available: true, Known: true, Present: err != nil, OwnIdentityKnown: true, OwnIdentity: "none"}
+	if err == nil {
+		return e
+	}
+	t, k := typeName(err)
+	e.Type = t
+	e.TypeKnown = k
+	if err == ErrInvalidLine {
+		e.OwnIdentity = "invalid_line"
+	} else if err == ErrInvalidUTF8 {
+		e.OwnIdentity = "invalid_utf8"
+	} else {
+		e.OwnIdentityKnown = false
+		e.OwnIdentity = ""
+	}
+	return e
+}

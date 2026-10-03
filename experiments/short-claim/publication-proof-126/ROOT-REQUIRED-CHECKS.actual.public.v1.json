@@ -1,0 +1,41 @@
+{
+  "schema": "riido-public35-Root-required-checks-v1",
+  "state": "corrected_local_checks_pass",
+  "root_race": {
+    "command": "go test -race -timeout=20m ./...",
+    "exit": 0,
+    "note": "Existing valid Go cache results are retained; this does not claim uncached new model experiments"
+  },
+  "root_vet": {
+    "command": "go vet ./...",
+    "exit": 0
+  },
+  "format": {
+    "tracked_owned_sources": "pass",
+    "new_owned_active_Go_sources": "pass"
+  },
+  "diff_check": "pass",
+  "offline35_after_native_snapshot_rename": {
+    "exit": 0,
+    "saved_predicates": 309,
+    "saved_report_bytes": 106426,
+    "saved_report_sha256": "394017f724d59b6fd13f92e6ada53c20ccd9425f9a3d6b48ccb8dc8835ac87f4",
+    "data_bytes": 48618,
+    "data_sha256": "d6afaf0b6f5f3b5fd9a7c2df039552b64a40a1b0a78521694dfb188d62617d15",
+    "project_Reader_calls": 35,
+    "full_matches": 35,
+    "receipt_fields_match_except_separately_checked_config": true
+  },
+  "archive_helper_synthetic_controls": {
+    "race_exit": 0,
+    "vet_exit": 0,
+    "top_level_tests": 11,
+    "subtests": 7,
+    "actual_retained_target_restore_delete": 0
+  },
+  "new_corpus_Fit": 0,
+  "verified_GPU_execution": false,
+  "root_model_or_original_worker_replays": 0,
+  "CI": "pending after push; do not infer CI success from local checks",
+  "redacted_secret_scan": "pending before push"
+}

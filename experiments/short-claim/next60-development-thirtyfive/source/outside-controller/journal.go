@@ -1,0 +1,147 @@
+// Copyright 2026 teamswyg. Licensed under the Apache License, Version 2.0.
+package main
+
+import (
+	"io"
+	"os"
+	"path/filepath"
+)
+
+const journalCap = 1634304
+
+// Supplied by the Root-frozen two-request method schedule. Thirty-three
+// observed rows do not bound original methods or owned callback decisions.
+// The sealed worker supplies the 384-frame maximum; Root still must freeze
+// actual binaries, plan, source/rights/compiler reviews and resource admission.
+
+type DurableReceipt struct {
+	FramesSynced int    `json:"frames_synced"`
+	BytesSynced  int64  `json:"bytes_synced"`
+	LastSHA256   string `json:"last_sha256"`
+}
+type journalFile interface {
+	Write([]byte) (int, error)
+	Sync() error
+	Close() error
+}
+type DurableJournal struct {
+	file       journalFile
+	dir        string
+	parentSync func(string) error
+	Receipt    DurableReceipt
+	FrameBound int
+	uncertain  bool
+}
+
+// Single controller-loop owner. The receipt advances only after the frame,
+// file Sync and directory Sync all succeed. ACK callers must use this returned
+// receipt, never the mere presence of bytes or a partially written last frame.
+func (j *DurableJournal) Append(raw []byte) (DurableReceipt, error) {
+	if j.uncertain || j.file == nil || j.FrameBound < 1 || j.Receipt.FramesSynced >= j.FrameBound || len(raw) < 2 || len(raw) > frameCap || raw[len(raw)-1] != '\n' {
+		return j.Receipt, errCode("journal_not_appendable")
+	}
+	// The worker already carries sequence and previous acknowledged raw hash.
+	// Store those exact bytes once; wrapping would invalidate the 2 MiB bound.
+	b := raw
+	if j.Receipt.BytesSynced+int64(len(b)) > journalCap {
+		return j.Receipt, errCode("journal_cap_exceeded")
+	}
+	// Any attempted write may be partial. There is no automatic re-append.
+	j.uncertain = true
+	n, e := j.file.Write(b)
+	if e != nil || n != len(b) {
+		return j.Receipt, errCode("journal_write_uncertain")
+	}
+	if j.file.Sync() != nil {
+		return j.Receipt, errCode("journal_file_sync_uncertain")
+	}
+	if j.parentSync == nil || j.parentSync(j.dir) != nil {
+		return j.Receipt, errCode("journal_directory_sync_uncertain")
+	}
+	j.Receipt.FramesSynced++
+	j.Receipt.BytesSynced += int64(len(b))
+	j.Receipt.LastSHA256 = digest(b)
+	j.uncertain = false
+	return j.Receipt, nil
+}
+func (j *DurableJournal) Close() error {
+	if j.file == nil {
+		return nil
+	}
+	e := j.file.Close()
+	j.file = nil
+	if e != nil {
+		return errCode("journal_close_failed")
+	}
+	return nil
+}
+
+func openJournal(dir string, frameBound int) (*DurableJournal, error) {
+	if frameBound < 1 {
+		return nil, errCode("missing_frozen_frame_bound")
+	}
+	f, e := os.OpenFile(filepath.Join(dir, "journal.jsonl"), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if e != nil {
+		return nil, errCode("journal_reservation_failed")
+	}
+	j := &DurableJournal{file: f, dir: dir, parentSync: syncDir, FrameBound: frameBound}
+	if f.Sync() != nil || syncDir(dir) != nil {
+		f.Close()
+		return nil, errCode("journal_reservation_sync_failed")
+	}
+	return j, nil
+}
+
+func durableFile(dir, name string, b []byte, cap int) error {
+	if len(b) > cap {
+		return errCode("output_cap_exceeded")
+	}
+	f, e := os.OpenFile(filepath.Join(dir, name), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if e != nil {
+		return errCode("exclusive_output_failed")
+	}
+	n, e := f.Write(b)
+	if e != nil || n != len(b) {
+		f.Close()
+		return errCode("output_write_uncertain")
+	}
+	if f.Sync() != nil {
+		f.Close()
+		return errCode("output_sync_uncertain")
+	}
+	if f.Close() != nil {
+		return errCode("output_close_uncertain")
+	}
+	if syncDir(dir) != nil {
+		return errCode("output_directory_sync_uncertain")
+	}
+	return nil
+}
+
+// readLine never asks the worker to resend a frame. A partial EOF is ambiguous.
+// Pending protocol validation must happen before the journal is acknowledged.
+func readLine(r io.Reader) ([]byte, error) {
+	b := make([]byte, 0, 256)
+	var one [1]byte
+	for {
+		n, e := r.Read(one[:])
+		if n == 1 {
+			b = append(b, one[0])
+			if len(b) > frameCap {
+				return nil, errCode("wire_frame_cap_exceeded")
+			}
+			if one[0] == '\n' {
+				return b, nil
+			}
+		}
+		if e != nil {
+			if e == io.EOF && len(b) == 0 {
+				return nil, io.EOF
+			}
+			return nil, errCode("wire_partial_or_read_failed")
+		}
+		if n == 0 {
+			return nil, errCode("wire_no_progress")
+		}
+	}
+}

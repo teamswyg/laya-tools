@@ -1,0 +1,15 @@
+module riido.local/next60gjson-two-nativeprep
+
+go 1.27.1
+
+require (
+    github.com/tidwall/gjson v0.0.0
+    github.com/tidwall/match v1.1.1 // indirect
+    github.com/tidwall/pretty v1.2.0 // indirect
+)
+
+replace github.com/tidwall/gjson => ../external-reviewed-fixtures/gjson
+replace github.com/tidwall/match v1.1.1 => ../external-reviewed-fixtures/match
+replace github.com/tidwall/pretty v1.2.0 => ../external-reviewed-fixtures/pretty
+
+// Template only: the independently rights-reviewed upstream fixture modules are not included.

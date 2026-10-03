@@ -1,0 +1,126 @@
+package workerio
+
+import (
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"riido.local/next60gjson-two-nativeprep/twoliteral"
+)
+
+type Reservation struct {
+	Schema                 string            `json:"schema"`
+	PlanSHA256             string            `json:"plan_sha256"`
+	Literal                Pin               `json:"literal"`
+	Wants                  Pin               `json:"wants"`
+	Captions               Pin               `json:"captions"`
+	RootFreeze             Pin               `json:"Root_freeze"`
+	Rows                   int               `json:"rows"`
+	Methods                int               `json:"methods"`
+	Callbacks              int               `json:"callbacks"`
+	Frames                 int               `json:"frames"`
+	OutputReserve          int               `json:"output_reserve_bytes"`
+	InitialCounts          twoliteral.Counts `json:"initial_counts"`
+	OriginalInitialization *int              `json:"original_initialization"`
+	OriginalNested         *int              `json:"original_nested"`
+}
+type Files struct {
+	root           string
+	finished       bool
+	failureWritten bool
+}
+
+func syncDir(path string) error {
+	f, e := os.Open(path)
+	if e != nil {
+		return twoliteral.ErrStopped
+	}
+	defer f.Close()
+	if f.Sync() != nil {
+		return twoliteral.ErrStopped
+	}
+	return nil
+}
+func writeExclusive(path string, b []byte, limit int) error {
+	if len(b) > limit {
+		return twoliteral.ErrBounds
+	}
+	f, e := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if e != nil {
+		return twoliteral.ErrStopped
+	}
+	n, e := f.Write(b)
+	if e == nil && n != len(b) {
+		e = twoliteral.ErrStopped
+	}
+	if e == nil {
+		e = f.Sync()
+	}
+	ce := f.Close()
+	if e != nil || ce != nil {
+		return twoliteral.ErrStopped
+	}
+	return nil
+}
+func Open(path, sha string, p Plan) (*Files, error) {
+	if !filepath.IsAbs(path) || filepath.Clean(path) != path || path == "/" {
+		return nil, twoliteral.ErrBounds
+	}
+	if _, e := os.Lstat(path); !os.IsNotExist(e) {
+		return nil, twoliteral.ErrBounds
+	}
+	if !noSymlink(filepath.Dir(path)) {
+		return nil, twoliteral.ErrBounds
+	}
+	if os.Mkdir(path, 0700) != nil {
+		return nil, twoliteral.ErrStopped
+	}
+	r := Reservation{Schema: "riido-gjson-two-native-reservation-v1", PlanSHA256: sha, Literal: p.Literal.Pin, Wants: p.Wants.Pin, Captions: p.Captions.Pin, RootFreeze: p.RootWantFreeze.Pin, Rows: 33, Methods: 61, Callbacks: 33, Frames: 384, OutputReserve: 2097152}
+	b, e := json.Marshal(r)
+	if e != nil || writeExclusive(filepath.Join(path, "reservation.json"), b, 16384) != nil || syncDir(path) != nil || syncDir(filepath.Dir(path)) != nil {
+		return nil, twoliteral.ErrStopped
+	}
+	return &Files{root: path}, nil
+}
+func (f *Files) SaveResult(r twoliteral.Result) error {
+	if f == nil || f.finished || r.Schema != twoliteral.ResultSchema || r.Labels != 0 || r.Qualified != 0 || r.NewParents != 0 || r.TrainingAuthorized || r.OriginalInitialization != nil || r.OriginalNested != nil {
+		return twoliteral.ErrStopped
+	}
+	b, e := CanonicalResult(r)
+	if e != nil {
+		return e
+	}
+	if writeExclusive(filepath.Join(f.root, "results.json"), b, 65536) != nil || syncDir(f.root) != nil {
+		return twoliteral.ErrStopped
+	}
+	f.finished = true
+	return nil
+}
+
+type Failure struct {
+	Schema                  string            `json:"schema"`
+	Reason                  string            `json:"reason"`
+	LastACKSequence         uint32            `json:"last_ack_sequence"`
+	LastACKSHA256           string            `json:"last_ack_sha256"`
+	InMemoryCounts          twoliteral.Counts `json:"in_memory_counts"`
+	Current                 *twoliteral.Row   `json:"in_memory_current,omitempty"`
+	InMemoryPrefixIsDurable bool              `json:"in_memory_prefix_is_durable"`
+	RemainingUnknown        bool              `json:"remaining_unknown"`
+}
+
+func (f *Files) SaveFailure(r twoliteral.Result, reason string, t *Transport) error {
+	if f == nil || f.failureWritten {
+		return twoliteral.ErrStopped
+	}
+	s, h := t.Prefix()
+	v := Failure{Schema: "riido-gjson-two-native-failure-v1", Reason: reason, LastACKSequence: s, LastACKSHA256: h, InMemoryCounts: r.Counts, RemainingUnknown: true}
+	if r.Completed < 33 {
+		current := r.Records[r.Completed]
+		v.Current = &current
+	}
+	b, e := json.Marshal(v)
+	if e != nil || writeExclusive(filepath.Join(f.root, "failure.json"), b, 16384) != nil || syncDir(f.root) != nil {
+		return twoliteral.ErrStopped
+	}
+	f.failureWritten = true
+	return nil
+}

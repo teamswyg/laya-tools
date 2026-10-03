@@ -1,0 +1,116 @@
+{
+  "schema": "riido-hf33-directory-archive-independent-source-review-v1",
+  "state": "corrected_v2_source_review_pass_runtime_QA_and_Root_admission_pending",
+  "reviewer": "peer125",
+  "scope": "non-author source-only development review; nonblind; no protected or blind-evaluation proof",
+  "source_identity": {
+    "author_id": "resource-HF33-directory-archive-helper52-v1",
+    "author_handoff": {
+      "bytes": 1261,
+      "sha256": "863c54f7b4055db728cf8ce8cb3167f8aaae6f2e31a53109af3261ba8697c955"
+    },
+    "author_manifest": {
+      "bytes": 2268,
+      "sha256": "6d7f70d294ccba4426a0f8f5588698f5a2cfc58904f9b2e63fd4418949bd64cd"
+    },
+    "author_files": 15,
+    "author_bytes": 65293,
+    "Root_correction_id": "resource-HF33-directory-archive-Root-QA-v1",
+    "Root_v1_pin_document": {
+      "bytes": 1287,
+      "sha256": "e43383e4f5246706e4881579cfdaa36c08cb8101af814f652dc6c4dd018c7f07"
+    },
+    "Root_v2_pin_document": {
+      "bytes": 1687,
+      "sha256": "9bef3988357335ccda1786d5bf93f38e225cbd08c3eff26737d60e4531b913b8"
+    },
+    "Root_v2_module_files": 7,
+    "Root_v2_module_bytes": 49184,
+    "author_original_seal_unchanged": true,
+    "Root_v1_pin_document_preserved": true
+  },
+  "verdict": {
+    "original_required_fixes": 3,
+    "corrected_v2_remaining_source_blockers": 0,
+    "execution_readiness_proven": false
+  },
+  "required_fixes": [
+    {
+      "id": "input_metadata_cap",
+      "original_evidence": "module/types.go.txt:21; module/run.go.txt:205,254",
+      "problem": "128 KiB readPin limit rejects the 170774-byte prospective frozen selection reported by Root. Reviewer did not read a generated selection or target science.",
+      "corrected_evidence": "module/types.go:21; module/archive_test.go:274",
+      "status": "fixed_in_Root_v1_and_preserved_v2",
+      "change": "Input metadata cap is 256 KiB. The 128 KiB output-control cap, 1 MiB restore payload and 2 MiB inflation cap remain unchanged. Synthetic readPin accepts owned 170774-byte content and rejects declared metadataCap+1.",
+      "accounting_requirement": "All Root-generated selection/config/admission/source/census/tool/review artifacts must be charged in current retained logical bytes before prospective archive admission; input allowance is not a new output reserve."
+    },
+    {
+      "id": "canonical_fake_temp_paths",
+      "original_evidence": "module/archive_test.go.txt:17 and other t.TempDir paths",
+      "problem": "Mac temporary /var alias paths violate the production no-symlink-ancestor guard, preventing the intended fake controls from reaching their target checks.",
+      "corrected_evidence": "module/archive_test.go:13",
+      "status": "fixed_in_Root_v1_and_preserved_v2",
+      "change": "canonicalTemp uses filepath.EvalSymlinks only for owned fake temporary paths. All direct test temporary bases use it; production path guards stay intact."
+    },
+    {
+      "id": "plain_permission_bits",
+      "original_evidence": "module/types.go.txt:178-185; module/contract.go.txt:137,161,171",
+      "problem": "Mode().Perm() discards setuid/setgid/sticky bits, so original plain-permission admission and restored mode equivalence could silently miss them.",
+      "corrected_evidence": "module/types.go:199-204; module/contract.go:84,207,240; module/archive_test.go:301",
+      "status": "fixed_in_Root_v2",
+      "change": "plainPermissions explicitly rejects all three bits. infoMeta and enclosing-root/checkTree root/every visited entry guards use it, including restored directories and markers. Synthetic FileInfo controls cover each bit; owned sticky root and nested-directory checks cover restored-tree guards."
+    }
+  ],
+  "reviewed_properties": [
+    "Typed canonical JSON reencoding plus unknown-field/trailing-data rejection; external config SHA is checked before output creation.",
+    "Selection fixes two target names, 82/252 regular files, 29/62 directories, and 842356/962496 payload bytes. No semantic inspection, label/role allocation or science transformation occurs.",
+    "Physical path separation, fresh output/restore names, no symlink ancestors, regular single-link files, exact selected device/inode/time/mode/SHA and whole-tree matching precede work.",
+    "Encoded cappedWriter is sticky and cannot exceed its supplied cap. Archives use O_EXCL, successful file Sync/Close and parent Sync. Failed partial files remain retained.",
+    "Restore writes directly into fresh exclusive files, without a decompressed-tar or duplicate temporary payload file; payload and inflated stream have separate fixed caps.",
+    "Gzip Multistream(false) on a buffered byte reader plus full capped drain validates EOF/CRC/ISIZE; reading one trailing compressed byte rejects additional members and trailing compressed data.",
+    "Tar validation checks safe exact inventory paths, duplicate/count/type/size/plain mode/UID/GID/link/xattr/PAX constraints and hashes; unexpected entries and nonzero remaining trailer are rejected. Empty files are restored.",
+    "All physical restored file bytes/SHA/plain modes and tree counts are verified; file/directory/parent Sync calls return before durable COMMIT. The COMMIT binds selection/admission/prior account/inventory/archive/restore before any original unlink.",
+    "COMMIT and marker pins plus archive hash are rechecked before original removal. Full source matching precedes captured-inode checks; each selected file is rehashed/restatted immediately before intent/unlink/parent Sync/ACK.",
+    "Only selected regular files and captured empty selected directories are removed; no RemoveAll. The source top root retains its fresh recovery marker. Phase two begins only after verified restore cleanup and CLEANUP-ACK for phase one.",
+    "Acknowledged counters advance only after journal Sync and output directory Sync return. An original unlink before its ACK sets a distinct possible-unacknowledged flag. Failures retain artifacts, complete=false, reclaim=null and automatic_retries=0.",
+    "Every retained control, marker and journal line is charged before write against one shared 128 KiB reserve; 2 KiB is reserved for captured stdout. In-memory event-size arithmetic gives 672 completed events / 67640 journal bytes, leaving 61384 B for other retained controls.",
+    "Current + archiveCap0 + restoreCap + controlCap and current - firstPayload + both archiveCaps + restoreCap + controlCap are checked independently. No compression estimate or historical accounting reset is used.",
+    "384 KiB prospective caps imply phase-one additional1572864 B and phase-two additional1123724 B only after all preparation artifacts are in current census. No encoded-fit or present-headroom claim is made.",
+    "main.go and run.go token sequences are unchanged after comments/format/separators normalization; archive.go differs only in import sorting/formatting. types.go changes input cap/plain guard; contract.go adds plain guard checks. Fake controls alone add path/cap/mode checks. No runtime budget or safety check was weakened.",
+    "No static Go compile issue was identified by source inspection. This is not compiler, fake-test or actual recovery evidence."
+  ],
+  "limits_and_Root_requirements": [
+    "Root must independently format/build/run owned fake controls, pin executing source/tool/compiler, establish quiescent writers and exact selected identities, and re-admit the final current census and encoded caps. This review executed none of those operations.",
+    "Census/prior-account/helper pins are byte-bound, but their meaning, actual executing-tool correspondence and machine-wide completeness remain Root-owned prerequisites.",
+    "Tar matching establishes semantic inventory equivalence; it does not claim canonical tar bytes. Uname/Gname, regular-entry device fields, per-entry padding and interchangeable safe entry order are not canonicalized by the decoder.",
+    "Failure-summary null archive size never excludes retained partial bytes from Root census. A surviving journal row alone is not proof its Sync returned.",
+    "Output/restore reservations mean names and capacity; their directories must remain absent for the helper exclusive creation checks. Hostile concurrent filesystem atomic safety is not claimed.",
+    "Both target membership exclusions, retained enclosing accounting root, unchanged old25 archives and old20 mapping preservation are Root-supplied scope prerequisites. New directory recovery proof must remain separate."
+  ],
+  "independent_stream_peer": {
+    "agent": "archive_stream_peer",
+    "read_scope": "four owned source files only",
+    "confirmed_stream_blockers": 0,
+    "permission_omission_escalated_and_fixed": true
+  },
+  "execution_counts": {
+    "Go": 0,
+    "formatter": 0,
+    "compiler": 0,
+    "tests": 0,
+    "helper_CLI": 0,
+    "archive": 0,
+    "restore": 0,
+    "unlink": 0,
+    "network": 0,
+    "original_API": 0,
+    "Reader": 0,
+    "model": 0,
+    "Fit": 0,
+    "shared_repository_writes": 0
+  },
+  "private_exclusions": [
+    "PINNING.private.v1.json"
+  ],
+  "review_directory_total_cap_bytes": 24576
+}

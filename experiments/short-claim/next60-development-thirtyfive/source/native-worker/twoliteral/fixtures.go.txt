@@ -1,0 +1,95 @@
+package twoliteral
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"io"
+	"strconv"
+)
+
+// The carrier metadata is pinned byte-for-byte by workerio before this selective read.
+// Arrays use slices first to enforce arity; no fixed-array truncation acceptance.
+func strictValue(raw []byte, out any) error {
+	d := json.NewDecoder(bytes.NewReader(raw))
+	d.DisallowUnknownFields()
+	if d.Decode(out) != nil {
+		return ErrBounds
+	}
+	var rest any
+	if d.Decode(&rest) != io.EOF {
+		return ErrBounds
+	}
+	b, e := json.Marshal(out)
+	if e != nil || !bytes.Equal(b, raw) {
+		return ErrBounds
+	}
+	return nil
+}
+func Assets(literal, wanted []byte) (fs [Inputs]Fixture, ws [Inputs]WantRecord, err error) {
+	var lt, wt map[string]json.RawMessage
+	if json.Unmarshal(literal, &lt) != nil || json.Unmarshal(wanted, &wt) != nil {
+		return fs, ws, ErrBounds
+	}
+	var input []Fixture
+	var wants []WantRecord
+	if strictValue(lt["fixtures"], &input) != nil || strictValue(wt["records"], &wants) != nil || len(input) != Inputs || len(wants) != Inputs {
+		return fs, ws, ErrBounds
+	}
+	texts := [5]string{"{\"a\":1}\n2\n", "\n  \n{\"a\":1}\n", "1 2\n3\n", "1\n{\"a\":\n3\n", "1\n2\n3"}
+	hexes := [6]string{"61", "ff", "c0af", "eda080", "efbfbd", "220a3c26e280a8"}
+	for i, f := range input {
+		q, fi := 0, i
+		if i >= 5 {
+			q = 1
+			fi = i - 5
+		}
+		rid := [2]string{"source-next60-strict-json-lines-prefix", "source-next60-reject-invalid-utf8-append"}[q]
+		fid := "gjson-" + strconv.Itoa(21+q) + "-0" + strconv.Itoa(fi+1)
+		pointer := "/additional9_proposals/" + strconv.Itoa(3+q) + "/finite_input_profiles_proposed/" + strconv.Itoa(fi)
+		if f.Ordinal != i || f.Request != q || f.Index != fi || f.RequestID != rid || f.ID != fid || f.InputReference.Artifact != "prior_tasks" || f.InputReference.Pointer != pointer {
+			return fs, ws, ErrBounds
+		}
+		var data []byte
+		if q == 0 {
+			var v LineInput
+			if strictValue(f.Input, &v) != nil || v.Text != texts[fi] {
+				return fs, ws, ErrBounds
+			}
+			if fi == 4 {
+				if v.StopAfter == nil || *v.StopAfter != 1 {
+					return fs, ws, ErrBounds
+				}
+			} else if v.StopAfter != nil {
+				return fs, ws, ErrBounds
+			}
+			data = []byte(v.Text)
+		} else {
+			var v UTF8Input
+			if strictValue(f.Input, &v) != nil || v.Destination != "5b" || v.Input != hexes[fi] {
+				return fs, ws, ErrBounds
+			}
+			data, err = hex.DecodeString(v.Input)
+			if err != nil {
+				return fs, ws, ErrBounds
+			}
+		}
+		h := sha256.Sum256(data)
+		if f.Bytes != len(data) || f.Bytes > 128 || f.SHA256 != hex.EncodeToString(h[:]) {
+			return fs, ws, ErrBounds
+		}
+		w := wants[i]
+		if w.Ordinal != i || w.RequestID != rid || w.FixtureID != fid || !json.Valid(w.Want) {
+			return fs, ws, ErrBounds
+		}
+		for _, v := range []json.RawMessage{w.Got, w.Truth, w.Role, w.Weight, w.Group} {
+			if !bytes.Equal(v, []byte("null")) {
+				return fs, ws, ErrBounds
+			}
+		}
+		fs[i] = f
+		ws[i] = w
+	}
+	return fs, ws, nil
+}
