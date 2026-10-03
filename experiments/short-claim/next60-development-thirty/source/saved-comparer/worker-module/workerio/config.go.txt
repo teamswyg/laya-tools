@@ -1,0 +1,268 @@
+package workerio
+
+import (
+	"bytes"
+	"encoding/json"
+	"io"
+	"os"
+	"path/filepath"
+	"strings"
+)
+
+type Pin struct {
+	ID    string `json:"id"`
+	Path  string `json:"path"`
+	Bytes int64  `json:"bytes"`
+	SHA   string `json:"sha256"`
+}
+type Plan struct {
+	Schema             string `json:"schema"`
+	Frozen             bool   `json:"frozen"`
+	SourceRoot         string `json:"source_root"`
+	Manifest           Pin    `json:"source_manifest"`
+	Fixture            Pin    `json:"fixture_binding"`
+	RootReceipts       []Pin  `json:"root_review_receipts"`
+	Parents            int    `json:"parents"`
+	Inputs             int    `json:"inputs"`
+	Dispatches         int    `json:"dispatches"`
+	MaxFrames          int    `json:"max_frames"`
+	MaxFrame           int    `json:"max_frame_bytes"`
+	MaxJournal         int    `json:"max_journal_bytes"`
+	MaxResult          int    `json:"max_result_bytes"`
+	CPU                int    `json:"cpu"`
+	SoftHeap           int64  `json:"soft_heap_bytes"`
+	OutsideWallSeconds int    `json:"outside_wall_seconds"`
+	LabelsAssigned     bool   `json:"labels_assigned"`
+	Qualified          bool   `json:"qualified"`
+}
+type Manifest struct {
+	Schema            string   `json:"schema"`
+	Files             []Pin    `json:"files"`
+	GoDirs            []string `json:"closed_module_Go_directories"`
+	CompilerInventory Pin      `json:"root_reviewed_compiler_inventory"`
+}
+
+func validSHA(s string) bool {
+	if len(s) != 64 {
+		return false
+	}
+	for _, x := range s {
+		if !(x >= '0' && x <= '9' || x >= 'a' && x <= 'f') {
+			return false
+		}
+	}
+	return true
+}
+func safePath(s string) bool {
+	return s != "" && len(s) <= 256 && !filepath.IsAbs(s) && filepath.Clean(s) == s && s != "." && !strings.HasPrefix(s, "../") && !strings.ContainsAny(s, "\\\x00\r\n")
+}
+func validPin(p Pin, cap int64) bool {
+	return p.ID != "" && len(p.ID) <= 128 && safePath(p.Path) && p.Bytes > 0 && p.Bytes <= cap && validSHA(p.SHA)
+}
+func uniqueJSON(b []byte) bool {
+	d := json.NewDecoder(bytes.NewReader(b))
+	d.UseNumber()
+	var visit func() bool
+	visit = func() bool {
+		t, e := d.Token()
+		if e != nil {
+			return false
+		}
+		v, delim := t.(json.Delim)
+		if !delim {
+			return true
+		}
+		switch v {
+		case '{':
+			seen := map[string]bool{}
+			for d.More() {
+				t, e = d.Token()
+				if e != nil {
+					return false
+				}
+				k, ok := t.(string)
+				if !ok || seen[k] {
+					return false
+				}
+				seen[k] = true
+				if !visit() {
+					return false
+				}
+			}
+			t, e = d.Token()
+			return e == nil && t == json.Delim('}')
+		case '[':
+			for d.More() {
+				if !visit() {
+					return false
+				}
+			}
+			t, e = d.Token()
+			return e == nil && t == json.Delim(']')
+		}
+		return false
+	}
+	if !visit() {
+		return false
+	}
+	_, e := d.Token()
+	return e == io.EOF
+}
+func decode(b []byte, o any) bool {
+	if !uniqueJSON(b) {
+		return false
+	}
+	d := json.NewDecoder(bytes.NewReader(b))
+	d.DisallowUnknownFields()
+	if d.Decode(o) != nil {
+		return false
+	}
+	return d.Decode(new(any)) == io.EOF
+}
+func boundedFile(path string, cap int64) ([]byte, bool) {
+	st, e := os.Lstat(path)
+	if e != nil || !st.Mode().IsRegular() || st.Size() < 1 || st.Size() > cap {
+		return nil, false
+	}
+	f, e := os.Open(path)
+	if e != nil {
+		return nil, false
+	}
+	opened, e := f.Stat()
+	if e != nil || !os.SameFile(st, opened) {
+		_ = f.Close()
+		return nil, false
+	}
+	b, e := io.ReadAll(io.LimitReader(f, cap+1))
+	ce := f.Close()
+	return b, e == nil && ce == nil && int64(len(b)) == st.Size() && int64(len(b)) <= cap
+}
+func regularRelative(root, path string) bool {
+	if !safePath(path) {
+		return false
+	}
+	cur := root
+	for _, part := range strings.Split(path, string(filepath.Separator)) {
+		cur = filepath.Join(cur, part)
+		st, e := os.Lstat(cur)
+		if e != nil || st.Mode()&os.ModeSymlink != 0 {
+			return false
+		}
+	}
+	return true
+}
+func readPin(root string, p Pin, cap int64) ([]byte, bool) {
+	if !validPin(p, cap) || !regularRelative(root, p.Path) {
+		return nil, false
+	}
+	b, ok := boundedFile(filepath.Join(root, p.Path), cap)
+	return b, ok && int64(len(b)) == p.Bytes && SHA(b) == p.SHA
+}
+func parse(args []string) (c Config, planPath, code string) {
+	if len(args) != 6 {
+		return c, "", "arguments_shape"
+	}
+	seen := map[string]bool{}
+	for i := 0; i < 6; i += 2 {
+		if seen[args[i]] || args[i+1] == "" {
+			return c, "", "arguments_shape"
+		}
+		seen[args[i]] = true
+		switch args[i] {
+		case "--plan":
+			planPath = args[i+1]
+		case "--plan-sha256":
+			c.PlanSHA = args[i+1]
+		case "--attempt-dir":
+			c.Attempt = args[i+1]
+		default:
+			return c, "", "arguments_shape"
+		}
+	}
+	if planPath == "" || !filepath.IsAbs(planPath) || filepath.Clean(planPath) != planPath || !validSHA(c.PlanSHA) || !filepath.IsAbs(c.Attempt) || filepath.Clean(c.Attempt) != c.Attempt {
+		return c, "", "arguments_shape"
+	}
+	return
+}
+func preflight(path string, c Config) string {
+	b, ok := boundedFile(path, MaxMetadata)
+	if !ok || SHA(b) != c.PlanSHA {
+		return "plan_pin"
+	}
+	var p Plan
+	if !decode(b, &p) || p.Schema != PlanSchema || !p.Frozen || len(p.RootReceipts) != 4 || !filepath.IsAbs(p.SourceRoot) || filepath.Clean(p.SourceRoot) != p.SourceRoot || p.Parents != 3 || p.Inputs != 14 || p.Dispatches != 42 || p.MaxFrames != MaxFrames || p.MaxFrame != MaxFrame || p.MaxJournal != MaxJournal || p.MaxResult != MaxResult || p.CPU != 1 || p.SoftHeap != 268435456 || p.OutsideWallSeconds != 60 || p.LabelsAssigned || p.Qualified {
+		return "plan_contract"
+	}
+	st, e := os.Lstat(p.SourceRoot)
+	if e != nil || !st.IsDir() || st.Mode()&os.ModeSymlink != 0 {
+		return "source_root"
+	}
+	// The outside controller must additionally establish physical ancestor and
+	// executable/build/CI/resource separation before original imports initialize.
+	if c.Attempt == p.SourceRoot || strings.HasPrefix(c.Attempt, p.SourceRoot+string(filepath.Separator)) || p.SourceRoot == c.Attempt || strings.HasPrefix(p.SourceRoot, c.Attempt+string(filepath.Separator)) {
+		return "source_output_overlap"
+	}
+	if p.Fixture.Bytes != FixtureBytes || p.Fixture.SHA != FixtureSHA {
+		return "fixture_pin"
+	}
+	if _, ok = readPin(p.SourceRoot, p.Fixture, MaxMetadata); !ok {
+		return "fixture_pin"
+	}
+	mb, ok := readPin(p.SourceRoot, p.Manifest, MaxMetadata)
+	if !ok {
+		return "manifest_pin"
+	}
+	var m Manifest
+	if !decode(mb, &m) || m.Schema != "riido-remaining-three-source-manifest-v1" || len(m.Files) < 1 || len(m.Files) > 512 || len(m.GoDirs) < 1 || len(m.GoDirs) > 64 {
+		return "manifest_contract"
+	}
+	ids, paths := map[string]bool{}, map[string]bool{}
+	var total int64
+	for _, f := range m.Files {
+		if ids[f.ID] || paths[f.Path] {
+			return "source_duplicate"
+		}
+		ids[f.ID] = true
+		paths[f.Path] = true
+		total += f.Bytes
+		if total > 64*1024*1024 {
+			return "source_total_bound"
+		}
+		if _, ok = readPin(p.SourceRoot, f, 1024*1024); !ok {
+			return "source_pin"
+		}
+	}
+	seen := map[string]bool{}
+	for _, d := range m.GoDirs {
+		if !safePath(d) || seen[d] || !regularRelative(p.SourceRoot, d) {
+			return "source_Go_directory"
+		}
+		seen[d] = true
+		entries, e := os.ReadDir(filepath.Join(p.SourceRoot, d))
+		if e != nil {
+			return "source_Go_directory"
+		}
+		for _, x := range entries {
+			if strings.HasSuffix(x.Name(), ".go") && !paths[filepath.Join(d, x.Name())] {
+				return "source_extra_Go"
+			}
+		}
+	}
+	// This hash binds Root-reviewed cached toolchain evidence. It does not claim
+	// that this worker rehashes a compiler/cache or independently trusts it.
+	if _, ok = readPin(p.SourceRoot, m.CompilerInventory, MaxMetadata); !ok {
+		return "compiler_evidence_pin"
+	}
+	rid, rpath := map[string]bool{}, map[string]bool{}
+	for _, r := range p.RootReceipts {
+		if rid[r.ID] || rpath[r.Path] {
+			return "review_duplicate"
+		}
+		rid[r.ID] = true
+		rpath[r.Path] = true
+		if _, ok = readPin(p.SourceRoot, r, MaxMetadata); !ok {
+			return "review_pin"
+		}
+	}
+	return ""
+}

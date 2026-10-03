@@ -1,0 +1,186 @@
+package pure
+
+import (
+	"errors"
+	"io"
+	"testing"
+)
+
+// A synthetic fork-like error proves identity mapping without importing a fork.
+type identityError struct {
+	target           error
+	unwraps, formats *int
+}
+
+func (e identityError) Error() string { *e.formats++; panic("formatter_forbidden") }
+func (e identityError) Unwrap() error { *e.unwraps++; return e.target }
+
+type fakeKey struct {
+	value string
+	calls *int
+}
+
+func (k fakeKey) String() string { *k.calls++; return k.value }
+
+type fakeSection struct{ calls *int }
+
+func (s fakeSection) GetKey(k string) (KeyHandle, error) { return fakeKey{k, s.calls}, nil }
+
+type fakeHandle struct{ calls *int }
+
+func (f fakeHandle) DefaultSection() (SectionHandle, error) { return fakeSection{f.calls}, nil }
+
+func TestActualTargetIdentityAndPreProbeUnknown(t *testing.T) {
+	f, _ := FixtureAt(1)
+	target := errors.New("synthetic_fork_limit")
+	unwraps, formats := 0, 0
+	spec := CandidateSpec{InputLimitTarget: target, Load: func([2]io.ReadCloser, int, int64) (FileHandle, error) {
+		return nil, identityError{target, &unwraps, &formats}
+	}}
+	before := false
+	o, c, e := Observe(f, 1, spec, ObserveCounters{}, func(ev Event) error {
+		if ev.Stage == "before_error_is" {
+			before = true
+			if !ev.Snapshot.ReturnedKnown || !ev.Snapshot.Returned || !ev.Snapshot.Error.Known || ev.Snapshot.Error.InputLimitKnown {
+				t.Fatal("pre-probe channels")
+			}
+		}
+		ev.Snapshot.Sources[0].Data[0] = 99
+		return nil
+	})
+	if e != nil || !before || !o.Error.InputLimitKnown || !o.Error.InputLimit || c.Identity.Returned != 1 || unwraps != 1 || formats != 0 {
+		t.Fatal("actual target identity")
+	}
+	if target == ErrInputByteLimit || o.Error.Type == "" {
+		t.Fatal("distinct object/type")
+	}
+}
+func TestCheckpointFailureBeforeIdentityStopsCall(t *testing.T) {
+	f, _ := FixtureAt(1)
+	target := errors.New("synthetic_fork_limit")
+	unwraps, formats := 0, 0
+	spec := CandidateSpec{InputLimitTarget: target, Load: func([2]io.ReadCloser, int, int64) (FileHandle, error) {
+		return nil, identityError{target, &unwraps, &formats}
+	}}
+	o, c, e := Observe(f, 1, spec, ObserveCounters{}, func(ev Event) error {
+		if ev.Stage == "before_error_is" {
+			return ErrObserveStopped
+		}
+		return nil
+	})
+	if e == nil || !c.Stopped || c.Identity.Reserved != 1 || c.Identity.Dispatched != 0 || unwraps != 0 || formats != 0 || o.Error.InputLimitKnown || !o.Returned {
+		t.Fatal("dispatch after failed ACK")
+	}
+}
+func TestSourceCheckpointFailureDoesNotRead(t *testing.T) {
+	f, _ := FixtureAt(0)
+	called := 0
+	spec := CandidateSpec{Load: func(s [2]io.ReadCloser, n int, limit int64) (FileHandle, error) {
+		called++
+		_, e := io.ReadAll(s[0])
+		return nil, e
+	}}
+	o, c, e := Observe(f, 0, spec, ObserveCounters{}, func(ev Event) error {
+		if ev.Stage == "before_source_method" {
+			return ErrObserveStopped
+		}
+		return nil
+	})
+	if e == nil || called != 1 || c.Source.Reserved != 1 || c.Source.Dispatched != 0 || o.Reads[0] != 0 || o.SourceN != 1 || o.Sources[0].ReturnedKnown {
+		t.Fatal("raw read before failed checkpoint")
+	}
+}
+func TestRequestedGettersAndFailurePrefix(t *testing.T) {
+	f, _ := FixtureAt(0)
+	calls := 0
+	spec := CandidateSpec{Load: func([2]io.ReadCloser, int, int64) (FileHandle, error) { return fakeHandle{&calls}, nil }}
+	o, c, e := Observe(f, 1, spec, ObserveCounters{}, func(ev Event) error {
+		if ev.Stage == "before_getter" && ev.Snapshot.Getters[ev.Step].Method == "String" {
+			if ev.Snapshot.A.Known {
+				t.Fatal("value before getter")
+			}
+			return ErrObserveStopped
+		}
+		return nil
+	})
+	if e == nil || calls != 0 || c.Getter.Reserved != 3 || c.Getter.Dispatched != 2 || o.A.Known || o.B.Known {
+		t.Fatal("getter prefix/unknown")
+	}
+}
+func TestCandidatePanicHasNoReturnOrFormatterChannel(t *testing.T) {
+	f, _ := FixtureAt(0)
+	unwraps, formats := 0, 0
+	spec := CandidateSpec{Load: func([2]io.ReadCloser, int, int64) (FileHandle, error) {
+		panic(identityError{ErrObserveInput, &unwraps, &formats})
+	}}
+	o, c, e := Observe(f, 0, spec, ObserveCounters{}, nil)
+	if e != nil || !o.Panic.Present || !o.Panic.TypeKnown || o.Returned || o.FileKnown || o.Error.Known || c.Candidate.Panicked != 1 || c.Completed != 1 || formats != 0 || unwraps != 0 {
+		t.Fatal("panic channels")
+	}
+}
+func TestSourceSnapshotsAreCopiesAndExactInputGuard(t *testing.T) {
+	f, _ := FixtureAt(0)
+	spec := CandidateSpec{Load: func(s [2]io.ReadCloser, n int, limit int64) (FileHandle, error) {
+		_, e := io.ReadAll(s[0])
+		if e == nil {
+			e = s[0].Close()
+		}
+		return nil, e
+	}}
+	o, c, e := Observe(f, 0, spec, ObserveCounters{}, func(ev Event) error {
+		if ev.Stage == "after_source_method" {
+			ev.Snapshot.Sources[ev.Step].Data[0] = 0
+			ev.Snapshot.Delivered[0] = 100
+		}
+		return nil
+	})
+	if e != nil || o.Delivered[0] != 4 || o.Sources[0].Data[0] != 'a' || o.Closes[0] != 1 || c.Source.Returned != 3 {
+		t.Fatal("snapshot alias")
+	}
+	f.Limit = 3
+	called := false
+	spec.Load = func([2]io.ReadCloser, int, int64) (FileHandle, error) { called = true; return nil, nil }
+	_, _, e = Observe(f, 0, spec, ObserveCounters{}, nil)
+	if e == nil || called {
+		t.Fatal("changed fixture dispatched")
+	}
+}
+
+func TestStringGetterHasNoInventedErrorChannel(t *testing.T) {
+	f, _ := FixtureAt(2)
+	calls := 0
+	spec := CandidateSpec{Load: func([2]io.ReadCloser, int, int64) (FileHandle, error) { return fakeHandle{&calls}, nil }}
+	o, c, e := Observe(f, 1, spec, ObserveCounters{}, nil)
+	if e != nil || !o.A.Known || !o.B.Known || c.Getter.Returned != 5 || calls != 2 {
+		t.Fatal("requested key channels")
+	}
+	for _, index := range [2]int{2, 4} {
+		v := o.Getters[index]
+		if v.Method != "String" || !v.Returned || v.ErrorAvailable || v.Error.Known {
+			t.Fatal("String has no error return channel")
+		}
+	}
+	if !o.Getters[0].ErrorAvailable || !o.Getters[0].Error.Known || !o.Getters[0].Error.Nil {
+		t.Fatal("GetSection error channel")
+	}
+}
+
+func TestCheckpointPanicIsTransportFailureBeforeSourceDispatch(t *testing.T) {
+	f, _ := FixtureAt(0)
+	loads := 0
+	spec := CandidateSpec{Load: func(s [2]io.ReadCloser, n int, limit int64) (FileHandle, error) {
+		loads++
+		var b [1]byte
+		_, e := s[0].Read(b[:])
+		return nil, e
+	}}
+	o, c, e := Observe(f, 0, spec, ObserveCounters{}, func(ev Event) error {
+		if ev.Stage == "before_source_method" {
+			panic("synthetic_checkpoint_failure")
+		}
+		return nil
+	})
+	if e != ErrObserveStopped || !c.Stopped || loads != 1 || c.Candidate.Panicked != 0 || c.Candidate.Returned != 1 || c.Completed != 0 || c.Source.Reserved != 1 || c.Source.Dispatched != 0 || o.Reads[0] != 0 || o.Sources[0].ReturnedKnown || o.Panic.Present {
+		t.Fatal("checkpoint panic confused with candidate/source outcome")
+	}
+}

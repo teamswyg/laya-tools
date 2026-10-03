@@ -1,0 +1,145 @@
+package thirtycontract
+
+import (
+	"bytes"
+	"encoding/json"
+	"errors"
+	"io"
+	"strings"
+	"unicode/utf8"
+)
+
+// Validates Unicode scalars before Go's decoder can replace an unpaired escape.
+// Byte-exact helper body copied from pinned data30 strict.go; package and cap
+// identifier adapted here. json.Valid is a precondition for indexed slices.
+func scalarEscapes(raw []byte) bool {
+	for i := 0; i < len(raw); i++ {
+		if raw[i] != '"' {
+			continue
+		}
+		for i++; i < len(raw) && raw[i] != '"'; i++ {
+			if raw[i] != '\\' {
+				continue
+			}
+			i++
+			if raw[i] != 'u' {
+				continue
+			}
+			u := hex4(raw[i+1 : i+5])
+			i += 4
+			if u >= 0xdc00 && u <= 0xdfff {
+				return false
+			}
+			if u >= 0xd800 && u <= 0xdbff {
+				if i+6 >= len(raw) || raw[i+1] != '\\' || raw[i+2] != 'u' {
+					return false
+				}
+				lo := hex4(raw[i+3 : i+7])
+				if lo < 0xdc00 || lo > 0xdfff {
+					return false
+				}
+				i += 6
+			}
+		}
+	}
+	return true
+}
+func hex4(b []byte) uint16 {
+	var v uint16
+	for _, c := range b {
+		v <<= 4
+		switch {
+		case c >= '0' && c <= '9':
+			v |= uint16(c - '0')
+		case c >= 'a' && c <= 'f':
+			v |= uint16(c - 'a' + 10)
+		case c >= 'A' && c <= 'F':
+			v |= uint16(c - 'A' + 10)
+		}
+	}
+	return v
+}
+
+// The complete JSON is checked for decoded duplicate/case-alias keys and bounded
+// shape before typed decoding. Arrays/slices track keys; no label-keyed maps.
+func checkedJSON(raw []byte, dst any, exactFields int) error {
+	if len(raw) < 1 || len(raw) > maxMetadataBytes || !utf8.Valid(raw) || !json.Valid(raw) || !scalarEscapes(raw) {
+		return failure("input_json_unicode_bounds")
+	}
+	d := json.NewDecoder(bytes.NewReader(raw))
+	d.UseNumber()
+	nodes := 0
+	fields, e := walk(d, 0, &nodes)
+	if e != nil {
+		return e
+	}
+	if exactFields >= 0 && fields != exactFields {
+		return failure("input_fields")
+	}
+	if _, e = d.Token(); !errors.Is(e, io.EOF) {
+		return failure("input_trailing")
+	}
+	if json.Unmarshal(raw, dst) != nil {
+		return failure("input_types")
+	}
+	return nil
+}
+func walk(d *json.Decoder, depth int, nodes *int) (int, error) {
+	*nodes++
+	if depth > 32 || *nodes > 65536 {
+		return 0, failure("input_shape_bounds")
+	}
+	t, e := d.Token()
+	if e != nil {
+		return 0, failure("input_json")
+	}
+	delim, ok := t.(json.Delim)
+	if !ok {
+		return -1, nil
+	}
+	if delim == '{' {
+		keys := make([]string, 0, 16)
+		for d.More() {
+			if len(keys) >= 128 {
+				return 0, failure("input_shape_bounds")
+			}
+			kt, e := d.Token()
+			key, ok := kt.(string)
+			if e != nil || !ok {
+				return 0, failure("input_json")
+			}
+			for _, old := range keys {
+				if strings.EqualFold(old, key) {
+					return 0, failure("input_duplicate")
+				}
+			}
+			keys = append(keys, key)
+			if _, e = walk(d, depth+1, nodes); e != nil {
+				return 0, e
+			}
+		}
+		end, e := d.Token()
+		if e != nil || end != json.Delim('}') {
+			return 0, failure("input_json")
+		}
+		return len(keys), nil
+	}
+	if delim == '[' {
+		n := 0
+		for d.More() {
+			n++
+			if n > 1024 {
+				return 0, failure("input_shape_bounds")
+			}
+			if _, e = walk(d, depth+1, nodes); e != nil {
+				return 0, e
+			}
+		}
+		end, e := d.Token()
+		if e != nil || end != json.Delim(']') {
+			return 0, failure("input_json")
+		}
+		return -1, nil
+	}
+	return 0, failure("input_json")
+}

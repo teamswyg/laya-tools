@@ -1,0 +1,15 @@
+package main
+
+import "testing"
+
+func TestExactArgumentShape(t *testing.T) {
+	_, _, _, ok := args([]string{"--out", "fresh", "--config", "path", "--config-sha256", "sha"})
+	if !ok {
+		t.Fatal("three-option shape rejected")
+	}
+	for _, a := range [][]string{{"--config=x", "--out", "o", "--config-sha256", "s"}, {"--config", "x", "--config", "y", "--out", "o"}, {"--config", "x", "--out", "o", "--config-sha256", "s", "tail"}} {
+		if _, _, _, ok := args(a); ok {
+			t.Fatal("malformed argument shape accepted")
+		}
+	}
+}

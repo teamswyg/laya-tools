@@ -1,0 +1,348 @@
+{
+  "schema": "riido-ini-two-Root-finite-development-qualification-v1",
+  "state": "Root_adopted_two_finite_semantic_requests_data_materialization_separate",
+  "authority": "Root read all 69 actual typed predicates, owned new production code, source-only peer receipts and frozen original provenance. Finite nonblind adoption; not independent held-out model quality.",
+  "prior_qualification_pin": {
+    "bytes": 11174,
+    "sha256": "bf6091b7bd2efb71c3500928de7fbfae1a881b9d0bc4a169e986dadb5e850f45"
+  },
+  "prior_qualified_pool": {
+    "requests": 25,
+    "labels": 73,
+    "positive": 25,
+    "negative": 48,
+    "inputs": 122,
+    "original_evidence_observations": 362,
+    "selected_candidate_observations": 358
+  },
+  "qualified_pool": {
+    "requests": 27,
+    "labels": 79,
+    "positive": 27,
+    "negative": 52,
+    "inputs": 132,
+    "original_evidence_observations": 392,
+    "selected_candidate_observations": 388
+  },
+  "new_requests": 2,
+  "new_inputs": 10,
+  "new_labels": 6,
+  "new_positive": 2,
+  "new_negative": 4,
+  "new_original_observations": 30,
+  "new_selected_observations": 30,
+  "requests": [
+    {
+      "id": "next60-ini-quoted-comments",
+      "request": "Add a strict quoted-value mode where comment markers inside quotes are literal and trailing comments begin only after the closing quote.",
+      "source_family": "upstream53-ini",
+      "source_revision": "e2db55b0e088fa4ee0c128aa4ade263cdc1d7f08",
+      "source_reference": {
+        "artifact_id": "original20/drafts-v1",
+        "artifact_sha256": "c7bbf7bcc7912300fabdd6e671b0922df295299f00e5e7201df1ab5e824a2a9b",
+        "json_pointer": "/drafts/2"
+      },
+      "primary_catalog_id": "go53-ini-quoted-comment",
+      "source_spans": [
+        "parser.go:236-315"
+      ],
+      "scope": "Opt-in strict single-line double-quoted values; # and ; inside quotes are literal; trailing comment begins after the closing quote; reject non-comment suffix or unclosed quote. Backslash escapes quote/backslash only.",
+      "finite_scope_addendum": "Only five fixed single-line double-quoted inputs with strict option enabled. Original default/off-option and other option combinations retained in source; not exhaustive executed equivalence. Owned sentinel identity classifies strict errors; no error-text oracle.",
+      "finite_inputs": 5,
+      "connected_group": null,
+      "source_group_assignment_pending": true,
+      "source_group_policy": "Whole repository, aliases and shared helpers connected before materialization; never split candidates or repeated inputs into independent requests.",
+      "text_revision": "ini-two-finite-v1",
+      "selected_candidate_observations": 15,
+      "fixture_pin": {
+        "bytes": 20764,
+        "sha256": "c7bc526b3faf27a63b55c10ee259c6ec2fa1bf21bb54baee412a2c4b0ba48b69"
+      },
+      "Want_pin": {
+        "bytes": 5528,
+        "sha256": "67e7a2a7812e28325601ce233c00a86c476185bc275457fb1f8b3a9fcb0736c9"
+      },
+      "comparison_pin": {
+        "bytes": 46224,
+        "sha256": "b354ea839d39f6a8c9d245cc67f1297d17425988e20fd7c658e3e872d9826c79"
+      },
+      "actual_comparison_receipt_pin": {
+        "bytes": 2590,
+        "sha256": "2fa0fa8990902806472a81d3fcb53aa92e50a1b7e3503017d561a808d619e42c"
+      },
+      "source_peer_sha256": "4a1c7f674e16331bfbbeeafbba5f567a511f5ca6ff27bd771e1f88666016a731",
+      "selected": [
+        {
+          "source_candidate_position": 0,
+          "metadata_id": "baseline-design",
+          "text": "readValue has different quote modes, otherwise searches inline #/; before trimming surrounding quotes; strict suffix rejection is not declared.",
+          "truth": false,
+          "role": "development_train",
+          "weight": 1,
+          "known_counterexample_fixture_positions": [
+            0,
+            2,
+            3,
+            4
+          ],
+          "aggregate_unknown_fixture_positions": [],
+          "unknown_predicates_retained": [],
+          "row_ordinals": [
+            0,
+            3,
+            6,
+            9,
+            12
+          ],
+          "row_vector": [
+            "unsatisfied",
+            "satisfied",
+            "unsatisfied",
+            "unsatisfied",
+            "unsatisfied"
+          ]
+        },
+        {
+          "source_candidate_position": 1,
+          "metadata_id": "reference-design",
+          "text": "Scan quote/escape state to a closing quote before recognizing trailing comments; preserve default loader when option is off.",
+          "truth": true,
+          "role": "development_train",
+          "weight": 1,
+          "known_counterexample_fixture_positions": [],
+          "aggregate_unknown_fixture_positions": [],
+          "unknown_predicates_retained": [],
+          "row_ordinals": [
+            1,
+            4,
+            7,
+            10,
+            13
+          ],
+          "row_vector": [
+            "satisfied",
+            "satisfied",
+            "satisfied",
+            "satisfied",
+            "satisfied"
+          ]
+        },
+        {
+          "source_candidate_position": 2,
+          "metadata_id": "wrong-seed-design",
+          "text": "Cut at the first # or ; regardless of quote state.",
+          "truth": false,
+          "role": "development_train",
+          "weight": 1,
+          "known_counterexample_fixture_positions": [
+            0,
+            1
+          ],
+          "aggregate_unknown_fixture_positions": [],
+          "unknown_predicates_retained": [
+            {
+              "fixture": 0,
+              "field": "comment",
+              "reason": "observable_unavailable_preserved"
+            },
+            {
+              "fixture": 0,
+              "field": "value",
+              "reason": "observable_unavailable_preserved"
+            }
+          ],
+          "row_ordinals": [
+            2,
+            5,
+            8,
+            11,
+            14
+          ],
+          "row_vector": [
+            "unsatisfied",
+            "unsatisfied",
+            "satisfied",
+            "satisfied",
+            "satisfied"
+          ]
+        }
+      ],
+      "excluded": []
+    },
+    {
+      "id": "next60-ini-delete-index",
+      "request": "Return a declared range error for negative or missing section indexes without changing section lists, while preserving valid duplicate-index deletion.",
+      "source_family": "upstream53-ini",
+      "source_revision": "e2db55b0e088fa4ee0c128aa4ade263cdc1d7f08",
+      "source_reference": {
+        "artifact_id": "original20/drafts-v1",
+        "artifact_sha256": "c7bbf7bcc7912300fabdd6e671b0922df295299f00e5e7201df1ab5e824a2a9b",
+        "json_pointer": "/drafts/3"
+      },
+      "primary_catalog_id": "go53-ini-section-delete-index",
+      "source_spans": [
+        "file.go:240-289"
+      ],
+      "scope": "AllowNonUniqueSections=true, sections x:A, x:B, y:C. Negative or missing index returns declared RangeError with all names, indexes, key data and ordering unchanged.",
+      "finite_scope_addendum": "Only five fixed inputs on a fresh duplicate-section file. User projection excludes only implicit DEFAULT; full public snapshots retain it. x_indexes are public occurrence ordinals, not private indexes. Preflight validation and delegated mutation are separate operations: concurrent atomicity is unproved. Negative realizes missing/out-of-range silent success, not the alternative map-only change. Getter panic preserves unavailable observations.",
+      "finite_inputs": 5,
+      "connected_group": null,
+      "source_group_assignment_pending": true,
+      "source_group_policy": "Whole repository, aliases and shared helpers connected before materialization; never split candidates or repeated inputs into independent requests.",
+      "text_revision": "ini-two-finite-v1",
+      "selected_candidate_observations": 15,
+      "fixture_pin": {
+        "bytes": 6270,
+        "sha256": "3f48aedb1726062b2efd2ffafaed02f0bf966a2ab21538a7bea2372327ebc4df"
+      },
+      "Want_pin": {
+        "bytes": 2797,
+        "sha256": "0d7d41fffddc457a1e75b849771ae437c44539896ba601131b75e123b8a07bd0"
+      },
+      "comparison_pin": {
+        "bytes": 37418,
+        "sha256": "2746dc3b329a49e20320fb8d0eef790658b711444233c7a7a95b92df8ea3b78a"
+      },
+      "actual_comparison_receipt_pin": {
+        "bytes": 2589,
+        "sha256": "e7cc5e0ab7c294f93214e9d20be9dbbf03f53138963be29a08ad1681156aebea"
+      },
+      "source_peer_sha256": "4a1c7f674e16331bfbbeeafbba5f567a511f5ca6ff27bd771e1f88666016a731",
+      "selected": [
+        {
+          "source_candidate_position": 0,
+          "metadata_id": "baseline-design",
+          "text": "DeleteSectionWithIndex loops occurrence/index arrays and returns nil when no requested occurrence matched; no initial negative/range guard.",
+          "truth": false,
+          "role": "development_train",
+          "weight": 1,
+          "known_counterexample_fixture_positions": [
+            0,
+            1,
+            2
+          ],
+          "aggregate_unknown_fixture_positions": [],
+          "unknown_predicates_retained": [
+            {
+              "fixture": 0,
+              "field": "indexes_unchanged",
+              "reason": "observable_unavailable_preserved"
+            },
+            {
+              "fixture": 0,
+              "field": "sections",
+              "reason": "observable_unavailable_preserved"
+            }
+          ],
+          "row_ordinals": [
+            0,
+            3,
+            6,
+            9,
+            12
+          ],
+          "row_vector": [
+            "unsatisfied",
+            "unsatisfied",
+            "unsatisfied",
+            "satisfied",
+            "satisfied"
+          ]
+        },
+        {
+          "source_candidate_position": 1,
+          "metadata_id": "reference-design",
+          "text": "Count/validate the requested occurrence before mutation, then update list/map/index arrays consistently under the existing lock.",
+          "truth": true,
+          "role": "development_train",
+          "weight": 1,
+          "known_counterexample_fixture_positions": [],
+          "aggregate_unknown_fixture_positions": [],
+          "unknown_predicates_retained": [],
+          "row_ordinals": [
+            1,
+            4,
+            7,
+            10,
+            13
+          ],
+          "row_vector": [
+            "satisfied",
+            "satisfied",
+            "satisfied",
+            "satisfied",
+            "satisfied"
+          ]
+        },
+        {
+          "source_candidate_position": 2,
+          "metadata_id": "wrong-seed-design",
+          "text": "Reject negative indexes but silently succeed for missing index, or update only the section map.",
+          "truth": false,
+          "role": "development_train",
+          "weight": 1,
+          "known_counterexample_fixture_positions": [
+            1,
+            2
+          ],
+          "aggregate_unknown_fixture_positions": [],
+          "unknown_predicates_retained": [],
+          "row_ordinals": [
+            2,
+            5,
+            8,
+            11,
+            14
+          ],
+          "row_vector": [
+            "satisfied",
+            "unsatisfied",
+            "unsatisfied",
+            "satisfied",
+            "satisfied"
+          ]
+        }
+      ],
+      "excluded": []
+    }
+  ],
+  "comparison_counts": {
+    "observations": {
+      "satisfied": 19,
+      "unsatisfied": 11,
+      "unknown": 0
+    },
+    "predicates": {
+      "satisfied": 53,
+      "unsatisfied": 12,
+      "unknown": 4
+    }
+  },
+  "unknown_predicates_retained": 4,
+  "unknown_never_false": true,
+  "materialized_rows_current": 23,
+  "HF_published_rows_current": 23,
+  "HF_immutable_revision": "0d964a547708db596b13b0eae18d2c93dd3e3ac4",
+  "numeric_group_assignment_pending_before_materialization": true,
+  "position_controls": {
+    "positive_index1_requests": 24,
+    "total_requests": 27,
+    "always_negative_labels": 52,
+    "total_labels": 79,
+    "different_denominators_not_model_accuracy": true
+  },
+  "execution_history": {
+    "new_original_worker_Starts": 2,
+    "new_original_worker_Waits": 2,
+    "reaped_exit0": 2,
+    "saved_only_comparisons": 2,
+    "original_native_replays": 0,
+    "original_internal_formatter_calls_unmeasured": null
+  },
+  "new_corpus_Fit": 0,
+  "new_model_calls": 0,
+  "qualified_30_required_before_Fit": true,
+  "protected_2400_per_claimed_domain_pending": true,
+  "utility_improvement_unproved": true,
+  "limits": "Development semantic requests only:79 candidate labels are not79 independent tasks. Published dataset remains23; numeric source groups and Go writer/reader still pending. No model/GPU/Codex cost or routing quality claim."
+}

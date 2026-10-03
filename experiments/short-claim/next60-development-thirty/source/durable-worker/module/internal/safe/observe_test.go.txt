@@ -1,0 +1,169 @@
+package pure
+
+import (
+	"errors"
+	"fmt"
+	"io"
+	"os"
+	"testing"
+)
+
+func ack(Event) error { return nil }
+
+// A declared stdlib synthetic only, never original SafeWriteReader execution
+// or an independent proof of exact baseline parity/whole-package semantics.
+func syntheticLegacy(f *FakeFS, n string, r io.Reader) (ret error) {
+	if ret = f.MkdirAll("data/", 0777); ret != nil {
+		return ret
+	}
+	_, e := f.Stat(n)
+	if e == nil {
+		return fmt.Errorf("%s already exists", n)
+	}
+	if !os.IsNotExist(e) {
+		return e
+	}
+	d, e := f.Create(n)
+	if e != nil {
+		return e
+	}
+	defer func() {
+		if ce := d.Close(); ce != nil {
+			ret = errors.Join(ret, ce)
+		}
+	}()
+	_, ret = io.Copy(d, r)
+	return ret
+}
+func text(b Bytes) string { return string(b.Data[:b.N]) }
+func TestReferenceFrozenFakes(t *testing.T) {
+	c := OwnedCandidates(syntheticLegacy)
+	for i, f := range Fixtures() {
+		t.Run(string(rune('A'+i)), func(t *testing.T) {
+			o, k, e := Observe(f, 1, c[1], Counters{}, ack)
+			if e != nil || !o.Returned || k.Returned != 1 || k.Completed != 1 || o.Panic || o.Trace.Stat != 0 || o.Trace.Unsupported {
+				t.Fatal("reference boundary")
+			}
+			switch i {
+			case 0, 2:
+				if text(o.Contents) != "old" || !o.Error.ExistKnown || !o.Error.Exist || o.Trace.Truncate != 0 || o.Trace.Close != 0 {
+					t.Fatal("existing identity and no replacement")
+				}
+			case 1:
+				if text(o.Contents) != "new" || !o.Error.Nil || !o.Trace.ExclusiveKnown || !o.Trace.Exclusive || o.Trace.Close != 1 {
+					t.Fatal("successful exclusive open")
+				}
+			case 3:
+				if !o.Error.CopyKnown || !o.Error.Copy || !o.Error.CloseKnown || !o.Error.Close || o.Trace.Close != 1 || o.Trace.BytesRead != 3 || o.Trace.BytesWritten != 3 {
+					t.Fatal("separate joined causes")
+				}
+			}
+		})
+	}
+}
+func TestNegativeDropsOnlyCloseCause(t *testing.T) {
+	c := OwnedCandidates(syntheticLegacy)
+	o, _, e := Observe(Fixtures()[3], 2, c[2], Counters{}, ack)
+	if e != nil || !o.Trace.Exclusive || o.Trace.Create != 0 || o.Trace.Close != 1 || !o.Error.CopyKnown || !o.Error.Copy || !o.Error.CloseKnown || o.Error.Close || text(o.Contents) != "new" {
+		t.Fatal("chosen negative branch")
+	}
+}
+func TestCommonAcquisitionHookAndCreateIsNotTruncate(t *testing.T) {
+	c := OwnedCandidates(syntheticLegacy)
+	for i, fn := range c {
+		t.Run(string(rune('A'+i)), func(t *testing.T) {
+			o, _, e := Observe(Fixtures()[0], i, fn, Counters{}, ack)
+			if e != nil || o.Trace.HookRuns != 1 || o.Trace.Truncate != 0 {
+				t.Fatal("common hook once")
+			}
+			if i == 0 {
+				if o.Trace.Create != 1 || o.Trace.CreateReplacements != 1 || text(o.Contents) != "new" || !o.Error.Nil {
+					t.Fatal("Create replacement diagnostics")
+				}
+			} else if o.Trace.OpenFile != 1 || o.Trace.CreateReplacements != 0 || text(o.Contents) != "old" {
+				t.Fatal("exclusive refusal")
+			}
+		})
+	}
+}
+func TestBeforeIdentitySnapshotAndValueCopy(t *testing.T) {
+	c := OwnedCandidates(syntheticLegacy)
+	var before, after Event
+	o, _, e := Observe(Fixtures()[3], 1, c[1], Counters{Reserved: 2, Dispatched: 2, Returned: 2, Completed: 2}, func(ev Event) error {
+		if ev.Stage == "before_error_is" && ev.Step == 0 {
+			before = ev
+		}
+		if ev.Stage == "after_candidate" {
+			after = ev
+		}
+		return nil
+	})
+	if e != nil || !before.Snapshot.Returned || !before.Snapshot.Error.Known || before.Snapshot.Error.CopyKnown || before.Local.IsReserved != 1 || before.Local.IsDispatched != 0 || before.Local.Completed != 0 {
+		t.Fatal("pre-identity known channels")
+	}
+	if !after.Snapshot.Error.Copy || !after.Snapshot.Error.Close || after.Local.IsReturned != 2 || after.Cumulative.Completed != 3 || text(after.Snapshot.Contents) != "new" {
+		t.Fatal("final snapshot")
+	}
+	after.Snapshot.Contents.Data[0] = 'X'
+	if text(o.Contents) != "new" || text(before.Snapshot.Contents) != "new" {
+		t.Fatal("immutable value copy")
+	}
+}
+func TestStickyCallbackFailureBeforeAcquisition(t *testing.T) {
+	c := OwnedCandidates(syntheticLegacy)
+	r := Execute(c, func(e Event) error {
+		if e.Stage == "before_competition" {
+			return errors.New("owned fault")
+		}
+		return nil
+	})
+	if r.N != 1 || !r.Counters.Stopped || r.Counters.Dispatched != 1 || r.Rows[0].Trace.Create != 0 || r.Rows[0].Trace.HookRuns != 0 || r.Rows[0].Trace.Close != 0 || r.Rows[0].Trace.Read != 0 {
+		t.Fatal("later dispatch after failure")
+	}
+}
+
+type dangerousPanic struct{ n *int }
+
+func (p dangerousPanic) Error() string { *p.n++; return "must not call" }
+func TestPanicNoFormatterOrInventedReturn(t *testing.T) {
+	n := 0
+	o, k, e := Observe(Fixtures()[0], 0, func(*FakeFS, string, io.Reader) error { panic(dangerousPanic{&n}) }, Counters{}, ack)
+	if e != nil || !o.Panic || o.Returned || o.Error.Known || o.PanicTextKnown || n != 0 || k.Panicked != 1 || k.Completed != 1 {
+		t.Fatal("panic unknown return")
+	}
+}
+func TestSyntheticScheduleNotQualification(t *testing.T) {
+	r := Execute(OwnedCandidates(syntheticLegacy), ack)
+	if r.N != 12 || r.Counters.Reserved != 12 || r.Counters.Returned != 12 || r.Counters.Completed != 12 || r.Counters.IsReturned != 12 || r.Counters.Stopped || r.Qualified {
+		t.Fatal("synthetic schedule")
+	}
+	for i, o := range r.Rows {
+		if o.Fixture != i/3 || o.Candidate != i%3 || o.InnerOriginalCalls != nil || o.StartupCalls != nil || o.Truth != nil || o.Role != nil || o.Weight != nil || o.Group != nil {
+			t.Fatal("order or authority")
+		}
+	}
+}
+func TestInvalidFixtureAndCheckpointPanic(t *testing.T) {
+	f := Fixtures()[0]
+	f.FailClose = true
+	_, k, e := Observe(f, 1, OwnedCandidates(syntheticLegacy)[1], Counters{}, ack)
+	if e != ErrInput || k.Dispatched != 0 {
+		t.Fatal("changed literal")
+	}
+	_, k, e = Observe(Fixtures()[0], 1, OwnedCandidates(syntheticLegacy)[1], Counters{}, func(Event) error { panic("callback") })
+	if e != ErrCheckpoint || k.Dispatched != 0 || !k.Stopped {
+		t.Fatal("callback stop")
+	}
+}
+
+type panicIs struct{ formatted *int }
+
+func (p panicIs) Error() string { *p.formatted++; return "must not call" }
+func (p panicIs) Is(error) bool { panic("identity") }
+func TestIdentityPanicStaysUnknownAndStops(t *testing.T) {
+	n := 0
+	o, k, e := Observe(Fixtures()[0], 0, func(*FakeFS, string, io.Reader) error { return panicIs{&n} }, Counters{}, ack)
+	if e != ErrUnsupported || !o.Returned || !o.Error.Known || o.Error.ExistKnown || k.IsPanicked != 1 || k.IsReturned != 0 || !k.Stopped || n != 0 {
+		t.Fatal("identity failure")
+	}
+}

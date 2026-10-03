@@ -1,0 +1,35 @@
+// Future Root execution entry. No actual materialization ran in preparation.
+package main
+
+import (
+	"io"
+	"os"
+	data30 "riido.local/data30prep"
+)
+
+func main() {
+	names := []string{"--mode", "--previous-data", "--subbody-adoption", "--ini-adoption", "--group-decision", "--group-decision-sha256", "--additional-adoption", "--data-output", "--receipt-output"}
+	v, e := data30.ParseOptions(os.Args[1:], names)
+	if e != nil {
+		io.WriteString(os.Stderr, "data30_arguments\n")
+		os.Exit(2)
+	}
+	mode, e := data30.ParseMode(v[0])
+	s := data30.InitialSummary()
+	if e == nil {
+		e = data30.Materialize(data30.Paths{Mode: mode, Previous: v[1], Sub: v[2], Ini: v[3], Decision: v[4], DecisionSHA: v[5], Additional: v[6]}, v[7], &s)
+	}
+	if e != nil {
+		s.State = "materialization_failed"
+		s.Failure = data30.FailureCode(e)
+	}
+	if data30.SaveSummary(v[8], s) != nil {
+		io.WriteString(os.Stderr, "data30_receipt_failed\n")
+		os.Exit(1)
+	}
+	if e != nil {
+		io.WriteString(os.Stderr, "data30_materialization_failed\n")
+		os.Exit(1)
+	}
+	io.WriteString(os.Stdout, "data30_materialization_saved\n")
+}

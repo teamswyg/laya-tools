@@ -1,0 +1,47 @@
+{
+  "schema": "riido-next60-public-failed-attempt-history-v1",
+  "derivation": "Source receipt scalar facts only; private paths, raw log bodies, configs and journals omitted.",
+  "attempts": [
+    {
+      "stage": "remaining-three_saved_comparer",
+      "source_receipt_pin": {
+        "bytes": 1458,
+        "sha256": "b9bd1c0074a8dd61ebf52050a6898350ba17ee50cfdad09aacd1602952810119"
+      },
+      "attempt": 1,
+      "exit_code": 1,
+      "semantic_comparison_started": false,
+      "output_directory_present": false,
+      "cause": "Root emitted pretty JSON, while strict config reader requires compact Go JSON plus one LF.",
+      "correction": "Preserve first config and failed attempt; use separately canonicalized successor config.",
+      "native_reexecution": 0,
+      "labels_or_qualification_from_failed_attempt": 0
+    },
+    {
+      "stage": "data27_orchestration_and_materializer",
+      "source_receipt_pin": {
+        "bytes": 1380,
+        "sha256": "b44c7670a261be530dfe439a84f8cc7832c78ba81da020336ee164e45e13feaa"
+      },
+      "attempt": 1,
+      "admission_failed": true,
+      "cause": "Admission script read payload_pins, while the sealed handoff field is payloads.",
+      "dependent_materializer_dispatched_after_failed_admission": true,
+      "materializer_exit_code": 1,
+      "failure_code": "output_parent",
+      "composition_in_memory_succeeded": true,
+      "data_file_created": false,
+      "correction": "Validate handoff shape and pins, reserve fresh output parent, and inspect previous exit before dependent dispatch.",
+      "native_API_calls": 0,
+      "model_calls": 0,
+      "Fit_calls": 0
+    }
+  ],
+  "later_success_is_separate_saved_receipt": true,
+  "failures_not_erased_or_counted_as_scientific_success": true,
+  "publication_preparation_metadata_only_lookup_history": {
+    "missing_metadata_filename_reads": 2,
+    "source_listing_syntax_error": 1,
+    "scientific_API_or_model_calls": 0
+  }
+}

@@ -1,0 +1,55 @@
+package pure
+
+import (
+	"errors"
+	"io"
+	"os"
+	"path/filepath"
+)
+
+// WriteExclusive is the owned wrapper kernel; original SafeWriteReader remains
+// separate. Its parent preparation follows the pinned original path. Closing
+// an acquired file once and joining its cause is retained compatibility, not
+// a baseline join defect. Only the four literal cases are scientific scope.
+func WriteExclusive(mkdir Mkdir, open OpenDestination, name string, r io.Reader) (ret error) {
+	return write(mkdir, open, name, r, true)
+}
+
+// DropCloseCause chooses just the declared negative alternative: exclusive
+// acquisition stays correct; Close is called once but its cause is omitted.
+func DropCloseCause(mkdir Mkdir, open OpenDestination, name string, r io.Reader) (ret error) {
+	return write(mkdir, open, name, r, false)
+}
+func write(mkdir Mkdir, open OpenDestination, name string, r io.Reader, joinClose bool) (ret error) {
+	if mkdir == nil || open == nil || r == nil {
+		return ErrInput
+	}
+	dir, _ := filepath.Split(name)
+	dir = filepath.FromSlash(dir)
+	if dir != "" {
+		if ret = mkdir(dir, 0777); ret != nil {
+			return ret
+		}
+	}
+	f, e := open(name, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0666)
+	if e != nil {
+		return e
+	}
+	if f == nil {
+		return ErrUnsupported
+	}
+	defer func() {
+		ce := f.Close()
+		if joinClose && ce != nil {
+			ret = errors.Join(ret, ce)
+		}
+	}()
+	_, ret = io.Copy(f, r)
+	return ret
+}
+func OwnedCandidates(baseline Candidate) Candidates {
+	return Candidates{baseline,
+		func(f *FakeFS, n string, r io.Reader) error { return WriteExclusive(f.MkdirAll, f.OpenFile, n, r) },
+		func(f *FakeFS, n string, r io.Reader) error { return DropCloseCause(f.MkdirAll, f.OpenFile, n, r) },
+	}
+}

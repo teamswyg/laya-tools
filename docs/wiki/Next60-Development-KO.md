@@ -1,35 +1,25 @@
-# 작은 주장 모델을 위한 개발 자료
+# 작은 주장·힌트 모델의 개발 자료
 
-현재 공개된 고정 버전은 **23개 의미 요청·67개 후보 라벨**입니다. [Hugging Face `next60-23-finite-v1`](https://huggingface.co/datasets/JooYoon/riidolaya-shortclaim-next60-development/tree/next60-23-finite-v1)에서 내려받을 수 있습니다. 별도로 개발용 채택을 마친 풀은 **27개 요청·79개 라벨**이며, 뒤의 네 요청은 아직 이 23행 파일에 포함되지 않았습니다.
+**30개 의미 요청·88개 후보 라벨을 로컬에서 검증했습니다.** [30행 자료와 설명](../../experiments/short-claim/next60-development-thirty/README.ko.md)을 함께 제공합니다. 현재 확인된 HF 공개 버전은 [23행 고정 버전](https://huggingface.co/datasets/JooYoon/riidolaya-shortclaim-next60-development/tree/next60-23-finite-v1)이며, 30행의 HF 게시·원격 재검증은 별도 단계입니다. 이번 자료 확장에서는 새 학습·모델 추론0회이며 Codex 절감 효과는 아직 입증하지 않았습니다.
 
-목표는 아주 작은 CPU·메모리 비용으로 자주 호출하는 **주장·힌트 모델**입니다. 요청에 도움이 될 후보를 좁히는 힌트를 주고, 최종 판단은 테스트와 검증 근거에 맡깁니다. 지금 늘리는 것은 검증된 학습 재료입니다. 이번 자료 추가에서 새 학습·모델 추론은 0회이며, LLM 가속이나 Codex 토큰 절감은 아직 입증하지 않았습니다.
+목표는 아주 작은 CPU·메모리 비용으로 자주 호출하는 **주장·힌트 모델**입니다. “이 요청에 도움이 될 후보는 이것 같다”는 힌트를 주고, 최종 선택은 실제 테스트·검색·검증으로 뒷받침합니다. 문장 생성 능력보다 후보를 좁혀 전체 작업량을 줄이는지가 중요합니다.
 
-| 단위 | 공개 고정 버전 | 별도 채택 풀 |
+| 단위 | 검증한30행 | 기존 HF23행 |
 |---|---:|---:|
-| 서로 다른 의미 요청 | 23 | 27 |
-| 후보 라벨 | 67: 긍정23·부정44 | 79: 긍정27·부정52 |
-| 고정 입력 변형 | 113 | 132 |
-| 전체 원관측 | 335 | 392 |
-| 선택한 학습 후보의 관측 | 331 | 388 |
-| 새 corpus Fit | 0 | 0 |
+| 서로 다른 의미 요청 | 30 | 23 |
+| 후보 라벨 | 88: 긍정30·부정58 | 67: 긍정23·부정44 |
+| 고정 입력 변형 | 146 | 113 |
+| 전체 원관측 | 434 | 335 |
+| 선택한 학습 후보의 관측 | 430 | 331 |
+| 이번 확장의 새 학습·모델 추론 | 0 | 0 |
 
-입력 변형·후보 실행 횟수를 독립 요청 수로 더하지 않습니다. 공개 23행은 모두 `development_train`, 후보 가중치는 1입니다. 기존 humanize 그룹76, pflag/Cobra 그룹77, mapstructure 그룹78을 재사용합니다. 뒤의 네 요청에 필요한 Afero·retryablehttp·INI와 기존 보조 코드의 연결 그룹은 **다음 자료 생성 전에 확인할 항목**입니다. 새 번호를 임의로 부여하거나 새 원천 일반화를 주장하지 않습니다.
+입력 변형이나 후보 실행 횟수를 독립 요청 수로 더하지 않습니다. 30행은 모두 development_train, 후보 가중치는1입니다. 기존23행과 별도 검증했던27행은 바이트 그대로 앞부분에 남겼습니다. 출처 가족을 묶은 그룹76–81을 사용하며 retryablehttp 가족의 다음 수집은 보류 상태입니다. 새 원천 일반화는 아직 검증하지 않았습니다.
 
-## 내려받아 읽기
+## 사람과 에이전트가 사용하는 방법
 
-HF에서 `development` 설정과 `train` split을 선택하세요. 실제 파일은 `releases/next60-23-finite-v1/next60-development-twentythree/data/train.jsonl`입니다. 루트의 `data/train.jsonl`은 최초 두 요청의 역사 자료입니다.
+[사용 설명](../../experiments/short-claim/next60-development-thirty/README.ko.md)을 읽고 data/train.jsonl을 한 줄씩 사용하세요. 파일은 **41,428바이트**, SHA-256은 **9cdfb758f03adc34a9fb5e00e3c1525921df26d0912f6b554e4ed4c890fd10a2**입니다. 요청·후보 문장, 라벨·가중치, 출처 추적 정보가 있습니다.
 
-```sh
-hf download JooYoon/riidolaya-shortclaim-next60-development \
-  --type dataset \
-  --revision 0d964a547708db596b13b0eae18d2c93dd3e3ac4 \
-  --include "releases/next60-23-finite-v1/next60-development-twentythree/data/train.jsonl" \
-  --local-dir ./next60-23
-```
-
-파일은 **31,493바이트**, SHA-256은 `39edb1bb60e88d56cb2fec271b511a5ce09a0ff8bd33ce21d0dda7defb3ce362`입니다. 이전 21행의 28,800바이트를 그대로 보존합니다. [자료 사용 설명과 실제 reader 검증](https://github.com/teamswyg/laya-tools/tree/67319e639b52d302292a0abdbbd83149c1fb0d99/experiments/short-claim/next60-development-twentythree)을 함께 읽을 수 있습니다.
-
-[Go reader](https://github.com/teamswyg/laya-tools/tree/67319e639b52d302292a0abdbbd83149c1fb0d99/pkg/shortclaimdata)는 한 행씩 읽습니다. 최대 행16KiB·후보8개이며 고정 배열과 불변 문자열을 보유하고 lock을 쓰지 않습니다.
+[Go reader](../../pkg/shortclaimdata)는 최대 행16KiB·후보8개의 고정 배열과 불변 값을 사용하며 lock을 쓰지 않습니다. 아래 코드에서 bytes와 github.com/teamswyg/laya-tools/pkg/shortclaimdata를 가져옵니다.
 
 ```go
 example, err := shortclaimdata.LoadDevelopmentRow(bytes.NewReader(line))
@@ -40,30 +30,30 @@ input := example.Input()
 supervision := example.Supervision()
 ```
 
-`bytes`와 `github.com/teamswyg/laya-tools/pkg/shortclaimdata`를 가져옵니다. 모델 특징에는 **요청과 후보의 문장만** 사용합니다. ID·출처·그룹·리비전·유한 범위는 추적 정보이고, 라벨·가중치는 정답 정보입니다. Reader 호출은 점수나 학습을 실행하지 않습니다. 배열 구조 자체를 측정된 속도 향상으로 해석하지 않습니다.
+모델 특징에는 **요청과 후보 문장만** 사용합니다. ID·출처·그룹·리비전·검사 결과는 추적 또는 정답 정보입니다. Reader 호출은 점수·학습·모델 추론을 실행하지 않습니다. 배열 구조를 사용한다는 사실만으로 속도 향상을 주장하지 않습니다.
 
-## 실제로 확인한 것
+다음 명령은 저장된 자료로 데이터 재생성·실제 프로젝트 Reader·판정 기록111개를 검사합니다. 로컬 검사는 통과했으며, GitHub CI 결과는 해당 PR과 실행 기록에서 별도로 확인합니다.
 
-[PR119](https://github.com/teamswyg/laya-tools/pull/119)의 정확한 head `9d4b0b5e39628a8d7a2bb50a3eb9f9b018ccd0ef`에서 [필수 CI 네 개](https://github.com/teamswyg/laya-tools/actions/runs/37093356839)가 모두 통과했습니다. GitHub Actions 봇이 같은 소스 트리의 `67319e639b52d302292a0abdbbd83149c1fb0d99`로 병합했습니다. 두 추가 Go 검사는 저장된 유한 비교를 재현하고, 23행을 다시 생성해 실제 reader와 대조합니다. 기존 Laya native inference CI는 별도 단계입니다.
+```sh
+bash scripts/verify-next60-thirty.sh
+```
 
-HF 커밋 [`0d964a547708db596b13b0eae18d2c93dd3e3ac4`](https://huggingface.co/datasets/JooYoon/riidolaya-shortclaim-next60-development/tree/0d964a547708db596b13b0eae18d2c93dd3e3ac4)에서 소유 파일 **401개·2,989,766바이트**를 모두 다시 내려받아 확인했습니다. 현재 목록의 payload399개도 일치합니다. 원격402파일의 나머지 하나는 이전과 바이트가 같은 HF 관리 `.gitattributes`입니다. 루트 `FILE-MANIFEST.v6.json`과 `SHA256SUMS.v6`를 사용하며 과거 목록은 해당 과거 태그에서 검증합니다. 기존2·3·7·16·21 태그는 이동하지 않았습니다.
+## 실제로 확인한 범위
 
-Viewer는 HTTP200, 관측23행·전체 필드·행 순서 일치, `truncated=false`, 잘린 셀0입니다. 이 응답에는 커밋과 전체 행수 필드가 없으므로 현재 화면 검증과 고정 커밋의 파일 검증을 구분합니다. 최초 조회의 HTTP500은 보존했으며 이후 실제200 응답으로 확인했습니다. 첫 실제 Go reader 검사도 23호출·23반환·23일치와 호출 전후46저장 checkpoint를 확인했습니다.
+30행을 생성하고 실제 Reader의 **30호출·30반환·30일치**, 호출 전후 **60개 저장 checkpoint**를 확인했습니다. 입력·후보·라벨·가중치와 제한된 배열의 빈 칸까지 대조합니다. 판단 불가 조건 **8개**를 보존합니다. 미상을 거짓으로 바꾸지 않고, 부정 후보에는 별도의 알려진 반례가 있어야 합니다.
 
-23개 버전에 새로 포함된 두 요청은 문자열 목록의 누적 항목 수 제한과 검증 오류 모두 수집입니다. 입력10개×후보3개를 실제 실행한30관측에서 만족23·불만족7·판단 불가0, 세부 조건은 일치125·불일치15·미상1입니다. 오류 코드 미상은 그대로 남깁니다. 이전 writer 원본의 미상4관측도 학습 후보 선택에서 제외한 상태입니다. 미상을 부정으로 바꾸지 않습니다.
+마지막 세 요청은 INI 전체 입력 바이트 예산, 제한된 파일 읽기, 배타적 파일 쓰기입니다. 실제 Go 원본에서 입력14개×후보3개의 **42관측**을 수집했습니다. 세부 조건111개는 참89·거짓20·판단 불가2였습니다. 참고 후보도 관측을 만족했기 때문에 채택했으며 그 이름 때문에 정답을 부여하지 않았습니다. 전체 parser 옵션·파일시스템 동시성·모든 입력을 보장하지 않습니다.
 
-별도 채택을 마친 두 요청은 `IOFS.Sub` 이름 검증과 요청 body의 byte-slice snapshot입니다. 최초27관측은 만족15·불만족12·판단 불가0, 세부 조건은 참57·거짓16·미상2입니다. Sub 오류 타입 미상2개는 알려진 반례와 함께 보존했습니다. 각 참고 후보는 고정 입력을 만족하고 다른 후보에는 알려진 반례가 있어 Root가 유한 개발 요청으로 채택했습니다. 이 결과는 모든 경로나 모든 body 타입을 보장하지 않습니다. 원본 worker의 내부·초기화 호출은 미계측 null입니다.
+관측 수집 프로세스의 OS 최대 RSS는 약 **17.4MiB**, 시작·소스 확인·저장을 포함한 시간은 약 **2.52초**였습니다. Laya 또는 주장 모델의 추론 메모리·GPU 실행·Codex 절감 수치가 아닙니다. 원본은 한 번 실행했고, 저장 비교기의 최초 설정 형식 오류를 보존한 뒤 저장 파일 읽기만 다시 수행했습니다.
 
-## 다음에 무엇이 달라지나
+## 다음 학습의 판단 기준
 
-INI quoted value와 INI section 삭제 범위도 고정 입력 다섯 개씩의 실제 관측·저장 비교를 마쳐 별도 채택했습니다. 관측은 각각 만족9/불만족6, 만족10/불만족5입니다. 세부 조건 미상은 각각2개씩 유지합니다. 삭제에서 기존 구현의 getter panic 뒤 읽지 못한 상태는 미상으로 남겼고, 공개 발생 순서와 내부 인덱스를 구분합니다. 동시성·원자성이나 parser의 모든 옵션을 보장하지 않습니다. [상세 검증 기록](https://github.com/teamswyg/laya-tools/tree/research/next60-ini-two-qualified-and-hf23-120/experiments/short-claim/next60-ini-two-actual-observation)을 볼 수 있습니다.
+현재 항상 두 번째 후보를 고르면 요청 기준 **27/30=90%**, 항상 부정을 고르면 후보 라벨 기준 **58/88≈65.9%**입니다. 분모가 다른 단순 기준이며 모델 정확도가 아닙니다. 의미 이해 없이 높은 점수가 가능해 후보 위치·설명 문체·어휘 대조군이 필요합니다. 기존 자료와 실패 기록을 고쳐 점수를 만들지 않습니다.
 
-남은 세 요청은 INI 전체 입력 바이트 예산, bounded file read, 배타적 file write입니다. 고정 입력과 정답을 먼저 검토한 뒤 원본 관측·저장 결과 비교·별도 채택을 거칩니다. 실행을 준비했다는 사실만으로 채택 수를 올리지 않습니다.
+**30개는 자료 수집 checkpoint이며 자동 학습 시작 조건이 아닙니다.** 새로운 코드 가족의 의존성·공유 보조 코드·의미 중복을 확인하고, 전체 가족 단위의 학습·검증·보정 역할을 관측 전에 정합니다. 약60개 checkpoint에서 자료 준비도를 다시 확인합니다. 기존79개와 합친109개는 현재 단순 합계이며 계보·중복 검토 전에는 독립 학습량으로 주장하지 않습니다.
 
-후보 위치 편향은 큽니다. 공개23행에서 항상 인덱스1을 고르는 기준은 요청 기준20/23≈87.0%, 항상 부정을 고르는 기준은 후보 라벨 기준44/67≈65.7%입니다. 별도27개 풀에서는24/27과52/79입니다. 분모가 다르며 모델 정확도가 아닙니다. 후보 순서 변경·어휘 대조군·연결 원천 분리 없이 높은 점수를 개선으로 채택하지 않습니다.
+후속 모델은 단순 순서 선택·어휘·규칙 기준보다 검증에 필요한 전체 작업량을 최소 **5% 줄이는지** 평가합니다. 주장 도메인별 보호 요청 **2,400개** 계획을 유지합니다. 기존 Fit3회·논리 모델3개와 실패 모델 비활성은 그대로입니다. 3진 저장은 별도 실험이며 저장 크기 감소만으로 CPU 속도·효용 개선을 인정하지 않습니다.
 
-**적격 의미 요청30개 전에는 새 corpus Fit을 시작하지 않습니다.** 이후60개 checkpoint, 주장 도메인별 보호 요청2,400개, 단순 대조군 대비 효용5% 기준을 유지합니다. 기존79개 자료·역사적 Fit3회·논리 모델3개·실패 모델 비활성은 그대로입니다. 이용 가능한 힌트 모델인지 증거로 확인한 뒤 활성화합니다. [이슈19](https://github.com/teamswyg/laya-tools/issues/19)에서 진행을 확인할 수 있습니다.
-
-자체 문서·주석·소유 소스는 Apache-2.0이며 원천의 전문 고지는 원래 라이선스를 유지합니다. 원본 본문·모델 본체·사적 입력·인증정보·원시 journal은 이 공개 자료에 없습니다. 미해결 과거 join 계보는 제외한 상태이며 모델 계보 전체의 포괄적 권리 승인을 뜻하지 않습니다.
+[이슈19](https://github.com/teamswyg/laya-tools/issues/19)에서 실제 게시·CI 결과와 진행을 볼 수 있습니다. 자체 문서·소유 소스는 Apache-2.0, 원천 전문 고지는 해당 라이선스를 유지합니다. 원본 본문·모델 본체·사적 입력·인증정보·원시 journal은 공개 자료에 없습니다. 코드 라이선스 확인이 모델 계보 전체의 포괄적 권리 승인을 뜻하지 않습니다.
 
 [첫 두 요청의 학습 자료](Native2-Training-KO) · [첫 원본 관측](Native2-Observation-KO) · [English](Next60-Development-EN)

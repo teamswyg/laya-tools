@@ -1,0 +1,260 @@
+package thirtycontract
+
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"reflect"
+	"strings"
+	"unicode/utf8"
+)
+
+func digest(raw []byte) string { h := sha256.Sum256(raw); return hex.EncodeToString(h[:]) }
+func validPin(p Pin) bool {
+	if p.Bytes < 1 || p.Bytes > maxMetadataBytes || len(p.SHA) != 64 {
+		return false
+	}
+	for _, c := range p.SHA {
+		if !(c >= '0' && c <= '9' || c >= 'a' && c <= 'f') {
+			return false
+		}
+	}
+	return true
+}
+func matches(raw []byte, p Pin) bool {
+	return validPin(p) && len(raw) == p.Bytes && digest(raw) == p.SHA
+}
+func trueValue(p *bool) bool { return p != nil && *p }
+func textOK(s string) bool {
+	return utf8.ValidString(s) && len(s) > 0 && len(s) <= 512 && strings.TrimSpace(s) != "" && !strings.ContainsRune(s, 0)
+}
+func idOK(s string) bool {
+	if len(s) < 1 || len(s) > 128 {
+		return false
+	}
+	for i, c := range []byte(s) {
+		if !(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9') && (i == 0 || c != '.' && c != '_' && c != '-') {
+			return false
+		}
+	}
+	return true
+}
+
+// validateKeyCase rejects aliases of known typed keys even without a second
+// alias key. Extra Root evidence fields are not normalized or dropped: the
+// entire input bytes remain bound by the caller's external pin.
+func validateKeyCase(raw []byte, t reflect.Type) error {
+	for t.Kind() == reflect.Pointer {
+		t = t.Elem()
+	}
+	if t == reflect.TypeOf(json.RawMessage{}) {
+		return nil
+	}
+	if t.Kind() == reflect.Slice || t.Kind() == reflect.Array {
+		var a []json.RawMessage
+		if json.Unmarshal(raw, &a) != nil {
+			return failure("input_types")
+		}
+		for _, b := range a {
+			if e := validateKeyCase(b, t.Elem()); e != nil {
+				return e
+			}
+		}
+		return nil
+	}
+	if t.Kind() != reflect.Struct || string(raw) == "null" {
+		return nil
+	}
+	var fields map[string]json.RawMessage
+	if json.Unmarshal(raw, &fields) != nil {
+		return failure("input_types")
+	}
+	if t == reflect.TypeOf(Qualification{}) || t == reflect.TypeOf(Request{}) || t == reflect.TypeOf(Selected{}) || t == reflect.TypeOf(Unknown{}) {
+		for i := 0; i < t.NumField(); i++ {
+			tag := strings.Split(t.Field(i).Tag.Get("json"), ",")[0]
+			if _, ok := fields[tag]; !ok {
+				return failure("input_required_field")
+			}
+		}
+	}
+	for k, b := range fields {
+		for i := 0; i < t.NumField(); i++ {
+			f := t.Field(i)
+			tag := strings.Split(f.Tag.Get("json"), ",")[0]
+			if tag == "" || tag == "-" || !strings.EqualFold(k, tag) {
+				continue
+			}
+			if k != tag {
+				return failure("input_key_case")
+			}
+			if e := validateKeyCase(b, f.Type); e != nil {
+				return e
+			}
+		}
+	}
+	return nil
+}
+func decodeView(raw []byte, dst any) error {
+	if e := checkedJSON(raw, dst, -1); e != nil {
+		return e
+	}
+	return validateKeyCase(raw, reflect.TypeOf(dst).Elem())
+}
+
+// Validate binds bytes first, then checks a metadata correspondence contract.
+// It does not issue authority, assign labels, emit rows or call a corpus reader.
+// The immutable current mode-27 input cannot stand in for the future decision.
+func Validate(e Envelope) (Counts, error) {
+	var out Counts
+	if !matches(e.CurrentDecision, currentPin) || !matches(e.FutureDecision, e.FutureDecisionPin) || e.FutureDecisionPin == currentPin || !matches(e.RemainingQualification, e.RemainingPin) {
+		return out, failure("external_input_pin")
+	}
+	var current, future Decision
+	var q Qualification
+	if err := decodeView(e.CurrentDecision, &current); err != nil {
+		return out, err
+	}
+	if err := decodeView(e.FutureDecision, &future); err != nil {
+		return out, err
+	}
+	if err := decodeView(e.RemainingQualification, &q); err != nil {
+		return out, err
+	}
+	return checkMetadata(current, future, q, e.RemainingPin)
+}
+func checkDecision(d Decision, mode int) error {
+	if d.Schema != "riido-next60-Root-whole-family-group-decision-v1" || d.State != "Root_adopted" || !strings.HasPrefix(d.Authority, "Root") || d.Mode != mode || d.Registry != registryPin || d.ExistingMax != 78 || !trueValue(d.OldUnchanged) || d.Previous != prefixPin || d.Sub != subPin || d.Ini != iniPin || len(d.Groups) != 3 || len(d.Order) != mode-23 || d.Allocated != 3 || d.Reassigned != 0 || d.Model != 0 {
+		return failure("external_group_decision")
+	}
+	for i, g := range d.Groups {
+		if g != families[i] {
+			return failure("current_family_roles_changed")
+		}
+	}
+	for i, id := range d.Order {
+		if id != appendIDs[i] {
+			return failure("append_order")
+		}
+	}
+	return nil
+}
+func equalInts(a, b []int) bool {
+	if a == nil || b == nil || len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+func positions(a []int, n int) bool {
+	if a == nil {
+		return false
+	}
+	prev := -1
+	for _, v := range a {
+		if v <= prev || v < 0 || v >= n {
+			return false
+		}
+		prev = v
+	}
+	return true
+}
+func checkSelected(c Selected, n, base int) error {
+	if c.Index == nil || *c.Index < 0 || *c.Index > 2 || c.ID != candidateIDs[*c.Index] || c.Truth == nil || c.Role != "development_train" || c.Weight != 1 || !positions(c.Known, n) || !positions(c.Unknown, n) || c.Retained == nil || len(c.Ordinals) != n || len(c.Vector) != n {
+		return failure("selected_shape")
+	}
+	k, u := []int{}, []int{}
+	for f, state := range c.Vector {
+		switch state {
+		case "satisfied":
+		case "unsatisfied":
+			k = append(k, f)
+		case "unknown":
+			u = append(u, f)
+		default:
+			return failure("selected_state")
+		}
+		if c.Ordinals[f] != base+f*3+*c.Index {
+			return failure("source_ordinal")
+		}
+	}
+	if !equalInts(k, c.Known) || !equalInts(u, c.Unknown) {
+		return failure("evidence_positions")
+	}
+	for i, x := range c.Retained {
+		if x.Fixture < 0 || x.Fixture >= n || !textOK(x.Field) || !textOK(x.Reason) {
+			return failure("retained_unknown_shape")
+		}
+		for j := 0; j < i; j++ {
+			if c.Retained[j].Fixture == x.Fixture && c.Retained[j].Field == x.Field {
+				return failure("retained_unknown_duplicate")
+			}
+		}
+	}
+	if *c.Truth && (len(k) != 0 || len(u) != 0 || len(c.Retained) != 0) {
+		return failure("positive_not_all_known_true")
+	}
+	if !*c.Truth && len(k) == 0 {
+		return failure("negative_without_known_counterexample")
+	}
+	return nil
+}
+func checkMetadata(current, future Decision, q Qualification, remainingPin Pin) (Counts, error) {
+	var out Counts
+	if err := checkDecision(current, 27); err != nil {
+		return out, err
+	}
+	if current.Additional != nil {
+		return out, failure("current27_has_future_adoption")
+	}
+	if err := checkDecision(future, 30); err != nil {
+		return out, err
+	}
+	if !validPin(remainingPin) || future.Additional == nil || *future.Additional != remainingPin {
+		return out, failure("new_Root_adoption_required")
+	}
+	if q.Schema != "riido-remaining-three-Root-finite-development-qualification-v1" || q.State != "Root_adopted_three_finite_semantic_requests_data_materialization_separate" || len(q.Requests) != 3 || !trueValue(q.UnknownNeverFalse) {
+		return out, failure("Root_adoption_header")
+	}
+	out = Counts{Requests: 27, Labels: 79, Positive: 27, Negative: 52, Inputs: 132, Full: 392, Selected: 388, PositiveSelectedIndex1: 24}
+	for i, r := range q.Requests {
+		g := families[familyIndex[i]]
+		if r.ID != appendIDs[i+4] || r.Request != requests[i] || r.Family != g.Family || r.Revision != g.Revision || r.Inputs != inputs[i] || r.Base == nil || *r.Base != bases[i] || r.Group != nil || !trueValue(r.Pending) || !textOK(r.Scope) || !idOK(r.TextRevision) || len(r.Selected) < 2 || len(r.Selected) > 3 || r.Excluded == nil || r.Observations != r.Inputs*len(r.Selected) {
+			return Counts{}, failure("remaining_request_binding")
+		}
+		positive, last := 0, -1
+		for j, c := range r.Selected {
+			if err := checkSelected(c, r.Inputs, *r.Base); err != nil {
+				return Counts{}, err
+			}
+			idx := *c.Index
+			if idx <= last || c.Text != captions[i][idx] {
+				return Counts{}, failure("source_caption_order")
+			}
+			last = idx
+			out.Labels++
+			if *c.Truth {
+				positive++
+				out.Positive++
+				if j == 1 {
+					out.PositiveSelectedIndex1++
+				}
+			} else {
+				out.Negative++
+			}
+			out.RetainedUnknown += len(c.Retained)
+		}
+		if positive != 1 {
+			return Counts{}, failure("Root_one_positive_required")
+		}
+		out.Requests++
+		out.Inputs += r.Inputs
+		out.Full += r.Inputs * 3
+		out.Selected += r.Observations
+		out.Excluded += len(r.Excluded)
+	}
+	return out, nil
+}

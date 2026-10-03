@@ -1,0 +1,83 @@
+package batch
+
+import (
+	"io"
+	ini "riido.local/remainingthreeprep/internal/ini"
+	"testing"
+)
+
+func TestINISourceBoundaryIsNotLostAtBridge(t *testing.T) {
+	var in Inputs
+	for i := range in.INI {
+		in.INI[i] = ini.CandidateSpec{Load: func(s [2]io.ReadCloser, n int, l int64) (ini.FileHandle, error) {
+			var b [1]byte
+			_, e := s[0].Read(b[:])
+			return nil, e
+		}}
+	}
+	before, after := false, false
+	r := Execute(in, func(e Event) error {
+		if e.Dispatch.Ordinal != 0 {
+			return ErrStopped
+		}
+		if e.Stage == "before_source_method" {
+			before = true
+			if e.Cumulative.Source != (Boundary{Reserved: 1}) {
+				t.Fatal("source reserve lost")
+			}
+		}
+		if e.Stage == "after_source_method" {
+			after = true
+			if e.Cumulative.Source != (Boundary{Reserved: 1, Dispatched: 1, Returned: 1}) || !e.Snapshot.INI.Sources[0].Returned {
+				t.Fatal("source return lost")
+			}
+		}
+		return nil
+	})
+	if !before || !after || r.Counters.Source.Returned != 1 || r.Counters.Source.Panicked != 0 {
+		t.Fatal("source bridge ledger")
+	}
+}
+
+func TestFixedScheduleAndFailStop(t *testing.T) {
+	s := Schedule()
+	if len(s) != 42 || s[14] != (Dispatch{14, 0, 4, 2}) || s[15] != (Dispatch{15, 1, 0, 0}) || s[30] != (Dispatch{30, 2, 0, 0}) || s[41] != (Dispatch{41, 2, 3, 2}) {
+		t.Fatal("schedule")
+	}
+	called := 0
+	in := Inputs{}
+	for i := range in.INI {
+		in.INI[i] = ini.CandidateSpec{Load: func([2]io.ReadCloser, int, int64) (ini.FileHandle, error) { called++; return nil, nil }}
+	}
+	r := Execute(in, func(e Event) error {
+		if e.Dispatch.Ordinal != 0 || e.Stage != "before_candidate" || e.Cumulative.Candidate.Dispatched != 0 {
+			t.Fatal("pre-dispatch prefix")
+		}
+		return ErrStopped
+	})
+	if called != 0 || r.N != 1 || !r.Counters.Stopped || r.Counters.Candidate.Reserved != 1 || r.Counters.Candidate.Dispatched != 0 || r.Rows[0].INI.ReturnedKnown || r.InnerOriginalCalls != nil || r.Qualified {
+		t.Fatal("failed checkpoint dispatched or qualified")
+	}
+}
+
+func TestINICheckpointPanicStopsFollowingCandidates(t *testing.T) {
+	loads := 0
+	var in Inputs
+	for i := range in.INI {
+		in.INI[i] = ini.CandidateSpec{Load: func(s [2]io.ReadCloser, n int, limit int64) (ini.FileHandle, error) {
+			loads++
+			var b [1]byte
+			_, e := s[0].Read(b[:])
+			return nil, e
+		}}
+	}
+	r := Execute(in, func(e Event) error {
+		if e.Stage == "before_source_method" {
+			panic("synthetic_checkpoint_failure")
+		}
+		return nil
+	})
+	if loads != 1 || r.N != 1 || !r.Counters.Stopped || r.Counters.Completed != 0 || r.Counters.Candidate.Panicked != 0 || r.Counters.Candidate.Returned != 1 || r.Rows[0].INI.Reads[0] != 0 {
+		t.Fatal("checkpoint panic allowed later candidate or became native panic")
+	}
+}

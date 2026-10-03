@@ -1,0 +1,113 @@
+// Package pure contains owned byte-budget primitives and fixed memory readers.
+// It imports no original INI package and assigns no observation or label.
+package pure
+
+import (
+	"errors"
+	"io"
+)
+
+var ErrInputByteLimit = errors.New("ini_input_byte_limit")
+var ErrInvalidLimit = errors.New("ini_invalid_input_byte_limit")
+var errInvalidBudgetReader = errors.New("ini_invalid_budget_reader")
+
+type InputByteLimitError struct{ Limit int64 }
+
+func (e *InputByteLimitError) Error() string { return "ini_input_byte_limit" }
+func (e *InputByteLimitError) Unwrap() error { return ErrInputByteLimit }
+
+type InvalidLimitError struct{ Limit int64 }
+
+func (e *InvalidLimitError) Error() string { return "ini_invalid_input_byte_limit" }
+func (e *InvalidLimitError) Unwrap() error { return ErrInvalidLimit }
+
+// One owner uses one budget across the ordered sources. There is no lock and
+// no concurrent-read guarantee. Zero has no cap; the retained INI default path
+// bypasses this primitive altogether.
+type inputByteBudget struct {
+	limit     int64
+	remaining int64
+	cause     error
+}
+
+func newInputByteBudget(limit int64) (*inputByteBudget, error) {
+	if limit < 0 {
+		return nil, &InvalidLimitError{Limit: limit}
+	}
+	return &inputByteBudget{limit: limit, remaining: limit}, nil
+}
+
+func (b *inputByteBudget) wrap(r io.ReadCloser) *budgetReadCloser {
+	return &budgetReadCloser{budget: b, source: r}
+}
+
+// Preserve the captured read cause rather than parsing a formatted parser
+// error. This also keeps identity when a BOM boundary uses %v instead of %w.
+func (b *inputByteBudget) parserResult(parseErr error) error {
+	if b.cause != nil {
+		return b.cause
+	}
+	return parseErr
+}
+
+type budgetReadCloser struct {
+	budget *inputByteBudget
+	source io.ReadCloser
+}
+
+func (r *budgetReadCloser) Read(p []byte) (int, error) {
+	if len(p) == 0 {
+		return 0, nil
+	}
+	b := r.budget
+	if b.cause != nil {
+		return 0, b.cause
+	}
+	if r.source == nil {
+		b.cause = errInvalidBudgetReader
+		return 0, b.cause
+	}
+	want := len(p)
+	if b.limit > 0 && b.remaining < int64(want) {
+		// remaining < len(p), so this addition cannot overflow int or int64.
+		// Reading one detecting byte distinguishes exact EOF from oversize.
+		want = int(b.remaining) + 1
+	}
+	n, err := r.source.Read(p[:want])
+	if n < 0 || n > want {
+		b.cause = errInvalidBudgetReader
+		return 0, b.cause
+	}
+	if err != nil && err != io.EOF {
+		// A read failure keeps its original identity, including n>0+error.
+		// Overlapping error/oversize is not part of the five frozen fixtures.
+		b.cause = err
+		if b.limit > 0 {
+			if int64(n) > b.remaining {
+				b.remaining = 0
+			} else {
+				b.remaining -= int64(n)
+			}
+		}
+		return n, err
+	}
+	if b.limit > 0 {
+		if int64(n) > b.remaining {
+			b.remaining = 0
+			b.cause = &InputByteLimitError{Limit: b.limit}
+			// A failed load has no successful File. The overflow chunk is not
+			// delivered as truncated parser success; the side channel survives
+			// any original BOM error formatting.
+			return 0, b.cause
+		}
+		b.remaining -= int64(n)
+	}
+	return n, err
+}
+
+func (r *budgetReadCloser) Close() error {
+	if r.source == nil {
+		return errInvalidBudgetReader
+	}
+	return r.source.Close()
+}

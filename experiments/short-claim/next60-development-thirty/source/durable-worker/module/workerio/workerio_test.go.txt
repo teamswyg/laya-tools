@@ -1,0 +1,393 @@
+package workerio
+
+import (
+	"bytes"
+	"encoding/json"
+	"errors"
+	"io"
+	"os"
+	"path/filepath"
+	"reflect"
+	"riido.local/remainingthreeprep/batch"
+	ini "riido.local/remainingthreeprep/internal/ini"
+	read "riido.local/remainingthreeprep/internal/read"
+	safe "riido.local/remainingthreeprep/internal/safe"
+	"strings"
+	"testing"
+)
+
+type memorySink struct {
+	bytes.Buffer
+	syncs, failSync, closes int
+	short                   bool
+}
+
+func (s *memorySink) Write(b []byte) (int, error) {
+	if s.short {
+		n := len(b) / 2
+		_, _ = s.Buffer.Write(b[:n])
+		return n, nil
+	}
+	return s.Buffer.Write(b)
+}
+func (s *memorySink) Sync() error {
+	s.syncs++
+	if s.syncs == s.failSync {
+		return ErrTransport
+	}
+	return nil
+}
+func (s *memorySink) Close() error { s.closes++; return nil }
+func memoryWriter() (*Writer, *memorySink, *memorySink) {
+	c := Config{PlanSHA: strings.Repeat("1", 64)}
+	j, r := &memorySink{}, &memorySink{}
+	w := &Writer{config: c, journal: j, result: r, receipt: baseReceipt(c), syncDirectory: func() error { return nil }}
+	w.receipt.Initialized = true
+	return w, j, r
+}
+
+type ownedFile struct{}
+type ownedSection struct{}
+type ownedKey string
+
+func (ownedFile) DefaultSection() (ini.SectionHandle, error) { return ownedSection{}, nil }
+func (ownedSection) GetKey(k string) (ini.KeyHandle, error)  { return ownedKey(k), nil }
+func (k ownedKey) String() string {
+	if k == "a" {
+		return "1"
+	}
+	return "2"
+}
+func syntheticInputs() batch.Inputs {
+	var in batch.Inputs
+	limit, invalid := errors.New("synthetic_fork_limit"), errors.New("synthetic_fork_invalid")
+	for i := range in.INI {
+		in.INI[i] = ini.CandidateSpec{InputLimitTarget: limit, InvalidLimitTarget: invalid, Load: func(s [2]io.ReadCloser, n int, l int64) (ini.FileHandle, error) {
+			if l < 0 {
+				return nil, invalid
+			}
+			total := 0
+			for k := 0; k < n; k++ {
+				b, e := io.ReadAll(s[k])
+				total += len(b)
+				_ = s[k].Close()
+				if e != nil {
+					return nil, e
+				}
+			}
+			if l > 0 && int64(total) > l {
+				return nil, limit
+			}
+			return ownedFile{}, nil
+		}}
+	}
+	baseRead := func(fs *read.FakeFS, name string, l int64) ([]byte, error) {
+		f, e := fs.Open(name)
+		if e != nil {
+			return nil, e
+		}
+		defer f.Close()
+		return io.ReadAll(f)
+	}
+	in.Read = read.OwnedCandidates(baseRead)
+	baseSafe := func(fs *safe.FakeFS, name string, r io.Reader) error {
+		if e := fs.MkdirAll("data", 0755); e != nil {
+			return e
+		}
+		w, e := fs.Create(name)
+		if e != nil {
+			return e
+		}
+		_, ce := io.Copy(w, r)
+		return errors.Join(ce, w.Close())
+	}
+	in.Safe = safe.OwnedCandidates(baseSafe)
+	return in
+}
+func completeSynthetic(t *testing.T, w *Writer) batch.Result {
+	t.Helper()
+	r := batch.Execute(syntheticInputs(), w.Checkpoint)
+	if r.N != 42 || r.Failure != "" || r.Counters.Stopped || w.receipt.Stopped {
+		t.Fatalf("synthetic fixed flow stopped at %d: %s / %s", r.N, r.Failure, w.receipt.Failure)
+	}
+	return r
+}
+func TestDurable42AndExactHashChain(t *testing.T) {
+	w, j, out := memoryWriter()
+	r := completeSynthetic(t, w)
+	if !w.cursor.matches(r) || w.receipt.Completed != 42 || w.receipt.Frames > 1902 || w.receipt.Counters.Source.Returned == 0 {
+		t.Fatal("completion/source boundary lost")
+	}
+	lines := bytes.Split(bytes.TrimSuffix(j.Bytes(), []byte{'\n'}), []byte{'\n'})
+	previous := strings.Repeat("0", 64)
+	for i, line := range lines {
+		var f Frame
+		if !decode(line, &f) || f.Sequence != i+1 || f.Previous != previous || len(line)+1 > MaxFrame {
+			t.Fatal("exact frame chain")
+		}
+		previous = SHA(append(append([]byte{}, line...), '\n'))
+	}
+	if previous != w.receipt.LastSHA {
+		t.Fatal("LF hash mismatch")
+	}
+	raw, code := w.Finish(Result{Schema: Schema, State: "complete", RunnerReturned: true, Worker: &r})
+	if code != "" || !bytes.Equal(raw, out.Bytes()) || !w.receipt.JournalClosed || !bytes.Contains(raw, []byte(`"qualified":false`)) {
+		t.Fatal("final persistence")
+	}
+	if _, code = w.Finish(Result{}); code != "result_already_finished" {
+		t.Fatal("second finish")
+	}
+}
+func TestSyncFailureDoesNotAckOrAllowLaterDispatch(t *testing.T) {
+	w, j, _ := memoryWriter()
+	j.failSync = 2
+	r := batch.Execute(syntheticInputs(), w.Checkpoint)
+	if !w.receipt.Stopped || w.receipt.Frames != 1 || w.receipt.LastSequence != 1 || w.receipt.Counters.Source.Dispatched != 0 || r.N != 1 || r.Counters.Source.Dispatched != 0 || r.Counters.Candidate.Dispatched != 1 || r.Counters.Candidate.Panicked != 0 {
+		t.Fatal("Sync failure ACK/dispatch scope")
+	}
+	if len(bytes.Split(bytes.TrimSuffix(j.Bytes(), []byte{'\n'}), []byte{'\n'})) != 2 {
+		t.Fatal("written but unacknowledged frame evidence")
+	}
+	if w.Checkpoint(batch.Event{}) == nil || w.receipt.Frames != 1 {
+		t.Fatal("failure not sticky")
+	}
+	raw, code := w.Finish(Result{State: "failed", Failure: "adapter_or_transport_stopped", RunnerReturned: true, Worker: &r})
+	if code != "" {
+		t.Fatal(code)
+	}
+	var got Result
+	if !decode(raw, &got) || got.Worker == nil || got.State != "failed" || got.Transport.Frames != 1 || got.Worker.Rows[0].INI.Sources[0].ReturnedKnown {
+		t.Fatal("returned partial vs last ACK")
+	}
+}
+func TestShortWriteRetainsUnknownACK(t *testing.T) {
+	w, j, _ := memoryWriter()
+	j.short = true
+	r := batch.Execute(syntheticInputs(), w.Checkpoint)
+	if w.receipt.Frames != 0 || w.receipt.Bytes != 0 || w.receipt.LastSnapshot != nil || !w.receipt.Stopped || r.Counters.Candidate.Dispatched != 0 || j.Len() == 0 {
+		t.Fatal("partial physical bytes treated as ACK")
+	}
+}
+func TestForgedCompletionAndStickyFailureRejected(t *testing.T) {
+	t.Run("without_frames", func(t *testing.T) {
+		w, _, _ := memoryWriter()
+		r := batch.Result{Schema: batch.Schema, N: 42}
+		_, code := w.Finish(Result{State: "complete", RunnerReturned: true, Worker: &r})
+		if code != "" || w.receipt.Failure != "incomplete_or_changed_report" {
+			t.Fatal("forged completion accepted")
+		}
+	})
+	t.Run("after_sticky_failure", func(t *testing.T) {
+		w, _, out := memoryWriter()
+		r := completeSynthetic(t, w)
+		if w.Checkpoint(batch.Event{}) == nil {
+			t.Fatal("bad event accepted")
+		}
+		raw, code := w.Finish(Result{State: "complete", RunnerReturned: true, Worker: &r})
+		if code != "" || bytes.Contains(raw, []byte(`"state":"complete"`)) || out.Len() == 0 {
+			t.Fatal("old report completed after sticky failure")
+		}
+	})
+	t.Run("changed_saved_row", func(t *testing.T) {
+		w, _, _ := memoryWriter()
+		r := completeSynthetic(t, w)
+		r.Rows[0].INI.Error.Nil = false
+		if w.cursor.matches(r) {
+			t.Fatal("saved row mutated through cursor")
+		}
+	})
+}
+func TestSnapshotCopiesAndAuxPreCallUnknown(t *testing.T) {
+	w, _, _ := memoryWriter()
+	var held *batch.Snapshot
+	r := batch.Execute(syntheticInputs(), func(e batch.Event) error {
+		if code := w.Checkpoint(e); code != nil {
+			return code
+		}
+		s := w.Receipt().LastSnapshot
+		if s != nil && s.INI != nil {
+			held = s
+			s.INI.Sources[0].Data[0] = 255
+		}
+		return nil
+	})
+	if held == nil || r.Failure != "" || !w.cursor.matches(r) {
+		t.Fatal("receipt mutation leaked to writer")
+	}
+}
+func TestFreshReservationAndExistingOutputRefused(t *testing.T) {
+	parent := t.TempDir()
+	c := Config{PlanSHA: strings.Repeat("a", 64), Attempt: filepath.Join(parent, "attempt")}
+	w, code := Open(c)
+	defer w.Close()
+	if code != "" || !w.receipt.Initialized {
+		t.Fatal("fresh reservation")
+	}
+	for _, n := range []string{"reservation.json", "journal.jsonl", "results.json"} {
+		st, e := os.Lstat(filepath.Join(c.Attempt, n))
+		if e != nil || !st.Mode().IsRegular() {
+			t.Fatal("reservation files")
+		}
+	}
+	x, code := Open(c)
+	x.Close()
+	if code != "output_reserve" {
+		t.Fatal("existing attempt reused")
+	}
+}
+func TestStrictArgsAndDuplicateJSON(t *testing.T) {
+	for _, a := range [][]string{{"--plan", "/p", "--plan", "/q", "--attempt-dir", "/x"}, {"--plan=/p", "--plan-sha256", strings.Repeat("a", 64), "--attempt-dir", "/x"}, {"--help"}} {
+		var out bytes.Buffer
+		called := 0
+		if RunCLI(a, &out, func(batch.Checkpoint) batch.Result { called++; return batch.Result{} }) != 2 || called != 0 || strings.Contains(out.String(), "/p") || strings.Contains(out.String(), "/q") {
+			t.Fatal("argument leakage/dispatch")
+		}
+	}
+	if uniqueJSON([]byte(`{"x":1,"x":2}`)) || uniqueJSON([]byte(`{"x":{"a":1,"a":2}}`)) || !uniqueJSON([]byte(`{"x":[1,null]}`)) {
+		t.Fatal("duplicate/token parsing")
+	}
+}
+
+func TestPlanBindingsArityAndClosedGoSource(t *testing.T) {
+	base := t.TempDir()
+	root := filepath.Join(base, "source")
+	if os.Mkdir(root, 0700) != nil {
+		t.Fatal("source dir")
+	}
+	put := func(name, id string, b []byte) Pin {
+		t.Helper()
+		if os.MkdirAll(filepath.Dir(filepath.Join(root, name)), 0700) != nil || os.WriteFile(filepath.Join(root, name), b, 0600) != nil {
+			t.Fatal("synthetic asset")
+		}
+		return Pin{ID: id, Path: name, Bytes: int64(len(b)), SHA: SHA(b)}
+	}
+	b, e := os.ReadFile("../../basis/FIXTURE-BINDINGS.v1.json")
+	if e != nil || len(b) != FixtureBytes || SHA(b) != FixtureSHA {
+		t.Fatal("unchanged public fixture binding metadata")
+	}
+	f := put("inputs/fixture.json", "fixture", b)
+	src := put("code/source.go", "owned-synthetic-source", []byte("package example\n"))
+	compiler := put("evidence/compiler.json", "compiler", []byte(`{"synthetic":true,"compiler_authority":false}`))
+	m := Manifest{Schema: "riido-remaining-three-source-manifest-v1", Files: []Pin{src, f}, GoDirs: []string{"code"}, CompilerInventory: compiler}
+	mb, _ := json.Marshal(m)
+	mp := put("manifest.json", "manifest", mb)
+	p := Plan{Schema: PlanSchema, Frozen: true, SourceRoot: root, Manifest: mp, Fixture: f, Parents: 3, Inputs: 14, Dispatches: 42, MaxFrames: MaxFrames, MaxFrame: MaxFrame, MaxJournal: MaxJournal, MaxResult: MaxResult, CPU: 1, SoftHeap: 268435456, OutsideWallSeconds: 60}
+	for _, n := range []string{"source", "rights", "resource", "runtime"} {
+		p.RootReceipts = append(p.RootReceipts, put("evidence/"+n+".json", n, []byte(`{"synthetic":true,"approval":false}`)))
+	}
+	check := func(p Plan) string {
+		t.Helper()
+		raw, _ := json.Marshal(p)
+		path := filepath.Join(base, "plan.json")
+		if os.WriteFile(path, raw, 0600) != nil {
+			t.Fatal("plan")
+		}
+		return preflight(path, Config{PlanSHA: SHA(raw), Attempt: filepath.Join(base, "fresh-attempt")})
+	}
+	if code := check(p); code != "" {
+		t.Fatal(code)
+	} // Byte binding, no approval inference.
+	for _, n := range []int{0, 3, 5} {
+		q := p
+		q.RootReceipts = append([]Pin{}, p.RootReceipts...)
+		if n < 4 {
+			q.RootReceipts = q.RootReceipts[:n]
+		} else {
+			q.RootReceipts = append(q.RootReceipts, p.RootReceipts[0])
+		}
+		if check(q) != "plan_contract" {
+			t.Fatal("Root receipt arity")
+		}
+	}
+	q := p
+	q.RootReceipts = append([]Pin{}, p.RootReceipts...)
+	q.RootReceipts[0].SHA = strings.Repeat("0", 64)
+	if check(q) != "review_pin" {
+		t.Fatal("receipt hash loosened")
+	}
+	if os.WriteFile(filepath.Join(root, "code/extra.go"), []byte("package example\n"), 0600) != nil || check(p) != "source_extra_Go" {
+		t.Fatal("unlisted Go")
+	}
+}
+
+func TestCompletedRowRequiresReturnedChannelAvailability(t *testing.T) {
+	w, _, _ := memoryWriter()
+	r := batch.Execute(syntheticInputs(), func(e batch.Event) error {
+		if e.Stage == "after_candidate" {
+			e.Snapshot.INI.Error.Known = false
+		}
+		return w.Checkpoint(e)
+	})
+	if !w.receipt.Stopped || w.receipt.Completed != 0 || r.N != 1 || r.Counters.Candidate.Dispatched != 1 {
+		t.Fatal("completed row with invented unavailable channels")
+	}
+}
+func TestBoundsAndPhaseCounterTampering(t *testing.T) {
+	w, _, _ := memoryWriter()
+	called := 0
+	r := batch.Execute(syntheticInputs(), func(e batch.Event) error { called++; e.Cumulative.Source.Reserved++; return w.Checkpoint(e) })
+	if called != 1 || r.Counters.Candidate.Dispatched != 0 || !w.receipt.Stopped {
+		t.Fatal("inflated counters")
+	}
+	s := batch.Snapshot{Kind: "INI", INI: &ini.Observation{}}
+	s.INI.Error.Type = strings.Repeat("x", 129)
+	if snapshot(s, batch.Dispatch{}) {
+		t.Fatal("oversize text")
+	}
+	s.INI.Error.Type = ""
+	x := "shadow"
+	s.INI.Truth = &x
+	if snapshot(s, batch.Dispatch{}) {
+		t.Fatal("shadow label")
+	}
+}
+
+// Reflection builds maximal-width metadata only, never invoking a native/oracle
+// method. Six JSON bytes per input string byte are accounted independently.
+func maximal(v reflect.Value) {
+	switch v.Kind() {
+	case reflect.Struct:
+		for i := 0; i < v.NumField(); i++ {
+			maximal(v.Field(i))
+		}
+	case reflect.Array:
+		for i := 0; i < v.Len(); i++ {
+			maximal(v.Index(i))
+		}
+	case reflect.Int, reflect.Int64:
+		v.SetInt(-9223372036854775808)
+	case reflect.Uint8:
+		v.SetUint(255)
+	case reflect.Uint32:
+		v.SetUint(4294967295)
+	}
+}
+func TestFullDTOConservativeFrameAndJournalBounds(t *testing.T) {
+	for _, kind := range []string{"INI", "Read", "Safe"} {
+		s := batch.Snapshot{Kind: kind}
+		switch kind {
+		case "INI":
+			s.INI = &ini.Observation{}
+			maximal(reflect.ValueOf(s.INI).Elem())
+		case "Read":
+			s.Read = &read.Observation{}
+			maximal(reflect.ValueOf(s.Read).Elem())
+		case "Safe":
+			s.Safe = &safe.Observation{}
+			maximal(reflect.ValueOf(s.Safe).Elem())
+		}
+		e := batch.Event{Stage: strings.Repeat("x", 32), Snapshot: s}
+		maximal(reflect.ValueOf(&e.Dispatch).Elem())
+		e.Step = -9223372036854775808
+		maximal(reflect.ValueOf(&e.Cumulative).Elem())
+		f := Frame{Schema: FrameSchema, Sequence: -9223372036854775808, Previous: strings.Repeat("0", 64), Event: e}
+		b, er := json.Marshal(f)
+		if er != nil || len(b)+6*MaxSnapshotText+1 > MaxFrame {
+			t.Fatal("fixed DTO/escaping envelope")
+		}
+		t.Log(kind, len(b)+6*MaxSnapshotText+1)
+	}
+	if MaxJournal != 38952960 || MaxJournal+MaxResult+MaxReservation != 40005632 {
+		t.Fatal("admission arithmetic")
+	}
+}

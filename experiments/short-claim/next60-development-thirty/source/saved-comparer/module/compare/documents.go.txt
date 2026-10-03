@@ -1,0 +1,91 @@
+package compare
+
+import (
+	"encoding/json"
+	"fmt"
+	"riido.local/remainingthreeprep/batch"
+	"riido.local/remainingthreeprep/workerio"
+)
+
+func documents(raw []byte) (w [14]wanted, e error) {
+	if len(raw) != workerio.FixtureBytes || workerio.SHA(raw) != workerio.FixtureSHA {
+		return w, ErrInput
+	}
+	// The full immutable84,658-byte document is pinned, including all historical
+	// nulls/order/inputs/captions. Projection here reads no alternative fixture.
+	var root map[string]json.RawMessage
+	if !workerio.StrictDecode(raw, &root, false) {
+		return w, ErrInput
+	}
+	var req []struct {
+		Index int                        `json:"request_index"`
+		Exact map[string]json.RawMessage `json:"request_exact"`
+		Wants []struct {
+			RequestID  string          `json:"request_id"`
+			Fixture    int             `json:"fixture_index"`
+			CaseID     string          `json:"case_id"`
+			Want       json.RawMessage `json:"Want"`
+			Got        json.RawMessage `json:"Got"`
+			Role       json.RawMessage `json:"role"`
+			Truth      json.RawMessage `json:"truth"`
+			Weight     json.RawMessage `json:"weight"`
+			Acceptable json.RawMessage `json:"acceptable"`
+		} `json:"Want_rows_exact"`
+	}
+	if json.Unmarshal(root["requests"], &req) != nil || len(req) != 3 {
+		return w, ErrInput
+	}
+	var schedule []struct {
+		Ordinal                    int    `json:"ordinal"`
+		Request                    int    `json:"request_index"`
+		RequestID                  string `json:"request_id"`
+		Fixture                    int    `json:"fixture_index"`
+		CaseID                     string `json:"case_id"`
+		Candidate                  int    `json:"candidate_index"`
+		CandidateID                string `json:"candidate_id"`
+		Truth, Role, Weight, Group json.RawMessage
+	}
+	if json.Unmarshal(root["schedule"], &schedule) != nil || len(schedule) != 42 {
+		return w, ErrInput
+	}
+	n := 0
+	for r, q := range req {
+		count := [3]int{5, 5, 4}[r]
+		if q.Index != r || len(q.Wants) != count {
+			return w, ErrInput
+		}
+		for f, z := range q.Wants {
+			if z.Fixture != f || z.RequestID != requestIDs[r] || z.CaseID != fmt.Sprintf("%s-vector-%02d", requestIDs[r], f+1) || string(z.Got) != "null" || string(z.Role) != "null" || string(z.Truth) != "null" || string(z.Weight) != "null" || string(z.Acceptable) != "null" {
+				return w, ErrInput
+			}
+			var values map[string]json.RawMessage
+			if json.Unmarshal(z.Want, &values) != nil || len(values) < 1 || len(values) > 4 {
+				return w, ErrInput
+			}
+			for k := range values {
+				if !supported(r, k) {
+					return w, ErrInput
+				}
+			}
+			w[n] = wanted{z.RequestID, z.CaseID, append(json.RawMessage{}, z.Want...), values}
+			n++
+		}
+	}
+	for i, d := range batch.Schedule() {
+		z := schedule[i]
+		wi := [3]int{0, 5, 10}[d.Request] + d.Fixture
+		if z.Ordinal != d.Ordinal || z.Request != d.Request || z.Fixture != d.Fixture || z.Candidate != d.Candidate || z.RequestID != requestIDs[d.Request] || z.CaseID != w[wi].CaseID || z.CandidateID != candidateIDs[d.Candidate] || string(z.Truth) != "null" || string(z.Role) != "null" || string(z.Weight) != "null" || string(z.Group) != "null" {
+			return w, ErrInput
+		}
+	}
+	return w, nil
+}
+func supported(r int, k string) bool {
+	sets := [3][]string{{"a", "b", "error", "error_kind", "file", "source_reads", "error_is", "error_kind_not"}, {"close_calls", "data", "error", "error_kind", "bytes_read_max", "error_is", "open_calls"}, {"contents", "error_is", "truncate_calls", "close_calls", "error", "exclusive_open", "errors_is"}}
+	for _, s := range sets[r] {
+		if s == k {
+			return true
+		}
+	}
+	return false
+}

@@ -1,0 +1,157 @@
+// Package batch provides the fixed three-request typed callback bridge.
+// Native bindings and a durable writer are separate; it grants no authority.
+package batch
+
+import (
+	"errors"
+	ini "riido.local/remainingthreeprep/internal/ini"
+	read "riido.local/remainingthreeprep/internal/read"
+	safe "riido.local/remainingthreeprep/internal/safe"
+)
+
+const RequestCount = 3
+const InputCount = 14
+const DispatchCount = 42
+const Schema = "riido-remaining-three-typed-callback-v2"
+
+var ErrStopped = errors.New("remaining_three_stopped")
+
+type Dispatch struct{ Ordinal, Request, Fixture, Candidate int }
+
+func Schedule() [DispatchCount]Dispatch {
+	var out [DispatchCount]Dispatch
+	n := 0
+	for r, count := range [RequestCount]int{5, 5, 4} {
+		for f := 0; f < count; f++ {
+			for c := 0; c < 3; c++ {
+				out[n] = Dispatch{n, r, f, c}
+				n++
+			}
+		}
+	}
+	return out
+}
+
+type Boundary struct{ Reserved, Dispatched, Returned, Panicked int }
+type Counters struct {
+	Candidate, Identity, Getter Boundary
+	// Source counts only explicitly wrapped INI Read/Close boundaries. Read and
+	// Safe retain typed raw Trace slots; nested original calls remain unknown.
+	Source    Boundary
+	Completed int
+	Stopped   bool
+}
+
+// Each active snapshot is a fresh value copy, including bounded arrays. The
+// callback cannot mutate the observer's own active state through these pointers.
+// Null original counts/labels are preserved rather than replaced by zero.
+type Snapshot struct {
+	Kind string
+	INI  *ini.Observation  `json:",omitempty"`
+	Read *read.Observation `json:",omitempty"`
+	Safe *safe.Observation `json:",omitempty"`
+}
+type Event struct {
+	Dispatch   Dispatch
+	Stage      string
+	Step       int
+	Snapshot   Snapshot
+	Cumulative Counters
+}
+type Checkpoint func(Event) error
+type Inputs struct {
+	INI  ini.Candidates
+	Read read.Candidates
+	Safe safe.Candidates
+}
+type Result struct {
+	Schema                           string
+	Rows                             [DispatchCount]Snapshot
+	N                                int
+	Counters                         Counters
+	Failure                          string
+	InnerOriginalCalls, StartupCalls *int
+	Qualified                        bool
+	ParentCreated, LabelsCreated     int
+}
+
+func add(a, b Counters) Counters {
+	f := func(x, y Boundary) Boundary {
+		return Boundary{x.Reserved + y.Reserved, x.Dispatched + y.Dispatched, x.Returned + y.Returned, x.Panicked + y.Panicked}
+	}
+	return Counters{Candidate: f(a.Candidate, b.Candidate), Identity: f(a.Identity, b.Identity), Getter: f(a.Getter, b.Getter), Source: f(a.Source, b.Source), Completed: a.Completed + b.Completed, Stopped: a.Stopped || b.Stopped}
+}
+func iniCounters(c ini.ObserveCounters) Counters {
+	return Counters{Candidate: Boundary{c.Candidate.Reserved, c.Candidate.Dispatched, c.Candidate.Returned, c.Candidate.Panicked}, Identity: Boundary{c.Identity.Reserved, c.Identity.Dispatched, c.Identity.Returned, c.Identity.Panicked}, Getter: Boundary{c.Getter.Reserved, c.Getter.Dispatched, c.Getter.Returned, c.Getter.Panicked}, Source: Boundary{c.Source.Reserved, c.Source.Dispatched, c.Source.Returned, c.Source.Panicked}, Completed: c.Completed, Stopped: c.Stopped}
+}
+func readCounters(c read.Counters) Counters {
+	return Counters{Candidate: Boundary{c.Reserved, c.Dispatched, c.Returned, c.Panicked}, Completed: c.Completed, Stopped: c.Stopped}
+}
+func safeCounters(c safe.Counters) Counters {
+	return Counters{Candidate: Boundary{c.Reserved, c.Dispatched, c.Returned, c.Panicked}, Identity: Boundary{c.IsReserved, c.IsDispatched, c.IsReturned, c.IsPanicked}, Completed: c.Completed, Stopped: c.Stopped}
+}
+func Execute(in Inputs, cp Checkpoint) Result {
+	r := Result{Schema: Schema}
+	stopped := false
+	for _, d := range Schedule() {
+		if stopped {
+			break
+		}
+		base := r.Counters
+		emit := func(stage string, step int, s Snapshot, c Counters) error {
+			if stopped {
+				return ErrStopped
+			}
+			if cp != nil && cp(Event{d, stage, step, s, add(base, c)}) != nil {
+				stopped = true
+				return ErrStopped
+			}
+			return nil
+		}
+		var snap Snapshot
+		var local Counters
+		var err error
+		switch d.Request {
+		case 0:
+			f, ok := ini.FixtureAt(d.Fixture)
+			if !ok {
+				err = ErrStopped
+				break
+			}
+			o, c, e := ini.Observe(f, d.Candidate, in.INI[d.Candidate], ini.ObserveCounters{}, func(ev ini.Event) error {
+				x := ev.Snapshot
+				return emit(ev.Stage, ev.Step, Snapshot{Kind: "INI", INI: &x}, iniCounters(ev.Local))
+			})
+			snap = Snapshot{Kind: "INI", INI: &o}
+			local = iniCounters(c)
+			err = e
+		case 1:
+			f := read.Fixtures()[d.Fixture]
+			o, c, e := read.Observe(f, d.Candidate, in.Read[d.Candidate], read.Counters{}, func(ev read.Event) error {
+				x := ev.Snapshot
+				return emit(ev.Stage, ev.CallIndex, Snapshot{Kind: "Read", Read: &x}, readCounters(ev.Local))
+			})
+			snap = Snapshot{Kind: "Read", Read: &o}
+			local = readCounters(c)
+			err = e
+		case 2:
+			f := safe.Fixtures()[d.Fixture]
+			o, c, e := safe.Observe(f, d.Candidate, in.Safe[d.Candidate], safe.Counters{}, func(ev safe.Event) error {
+				x := ev.Snapshot
+				return emit(ev.Stage, ev.Step, Snapshot{Kind: "Safe", Safe: &x}, safeCounters(ev.Local))
+			})
+			snap = Snapshot{Kind: "Safe", Safe: &o}
+			local = safeCounters(c)
+			err = e
+		}
+		r.Rows[r.N] = snap
+		r.N++
+		r.Counters = add(base, local)
+		if err != nil || stopped {
+			r.Counters.Stopped = true
+			r.Failure = "remaining_three_stopped"
+			break
+		}
+	}
+	return r
+}

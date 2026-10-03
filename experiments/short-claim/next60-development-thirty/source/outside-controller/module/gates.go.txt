@@ -1,0 +1,292 @@
+package main
+
+import (
+	"debug/buildinfo"
+	"debug/macho"
+	"encoding/json"
+	"errors"
+	"io"
+	"os"
+	"path/filepath"
+	"riido.local/remainingthreeprep/workerio"
+	"runtime/debug"
+	"strings"
+)
+
+const ConfigSchema = "riido-remaining-three-outside-config-v1"
+const BinaryCap = 8 << 20
+const EvidenceCap = 128 << 10
+const WorkerOutputReserve = 40005632
+const OutsideOutputReserve = 2 << 20
+
+var errOutside = errors.New("remaining_three_outside")
+
+type Pin struct {
+	ID    string `json:"id"`
+	Path  string `json:"path"`
+	Bytes int64  `json:"bytes"`
+	SHA   string `json:"sha256"`
+}
+type Config struct {
+	Schema               string `json:"schema"`
+	Frozen               bool   `json:"frozen"`
+	SourceRoot           string `json:"source_root"`
+	Child                string `json:"child_attempt"`
+	Worker               Pin    `json:"worker"`
+	Self                 Pin    `json:"self"`
+	Plan                 Pin    `json:"worker_plan"`
+	Time                 Pin    `json:"Darwin_time"`
+	RootReceipts         []Pin  `json:"root_review_receipts"`
+	WorkerModule         string `json:"worker_module"`
+	WorkerPackage        string `json:"worker_package"`
+	WorkerOutputReserve  int64  `json:"worker_output_reserve_bytes"`
+	OutsideOutputReserve int64  `json:"outside_output_reserve_bytes"`
+	ExecutionReady       bool   `json:"execution_ready"`
+}
+type PinFact struct {
+	ID    string `json:"id"`
+	Bytes int64  `json:"bytes"`
+	SHA   string `json:"sha256"`
+	Match bool   `json:"match"`
+}
+
+func validSHA(s string) bool {
+	if len(s) != 64 {
+		return false
+	}
+	for _, v := range s {
+		if !(v >= '0' && v <= '9' || v >= 'a' && v <= 'f') {
+			return false
+		}
+	}
+	return true
+}
+func absClean(p string) bool {
+	return filepath.IsAbs(p) && filepath.Clean(p) == p && !strings.ContainsAny(p, "\x00\r\n")
+}
+func noSymlinks(p string) bool {
+	if !absClean(p) {
+		return false
+	}
+	cur := string(filepath.Separator)
+	for _, v := range strings.Split(strings.TrimPrefix(p, cur), cur) {
+		cur = filepath.Join(cur, v)
+		s, e := os.Lstat(cur)
+		if e != nil || s.Mode()&os.ModeSymlink != 0 {
+			return false
+		}
+	}
+	return true
+}
+func regular(p string, cap int64, empty bool) ([]byte, os.FileInfo, error) {
+	s, e := os.Lstat(p)
+	if e != nil || !s.Mode().IsRegular() || s.Size() > cap || s.Size() < 0 || (!empty && s.Size() == 0) {
+		return nil, nil, errOutside
+	}
+	f, e := os.Open(p)
+	if e != nil {
+		return nil, nil, errOutside
+	}
+	o, e := f.Stat()
+	if e != nil || !os.SameFile(s, o) {
+		_ = f.Close()
+		return nil, nil, errOutside
+	}
+	b, e := io.ReadAll(io.LimitReader(f, cap+1))
+	after, ae := f.Stat()
+	ce := f.Close()
+	if e != nil || ae != nil || ce != nil || int64(len(b)) != s.Size() || len(b) > int(cap) || !os.SameFile(s, after) || after.Size() != s.Size() || !s.ModTime().Equal(after.ModTime()) {
+		return nil, nil, errOutside
+	}
+	return b, s, nil
+}
+func verify(p Pin, cap int64) (PinFact, error) {
+	q := PinFact{ID: p.ID, Bytes: p.Bytes, SHA: p.SHA}
+	if p.ID == "" || len(p.ID) > 128 || p.Bytes < 1 || p.Bytes > cap || !validSHA(p.SHA) || !noSymlinks(p.Path) {
+		return q, errOutside
+	}
+	b, _, e := regular(p.Path, cap, false)
+	q.Match = e == nil && int64(len(b)) == p.Bytes && workerio.SHA(b) == p.SHA
+	if !q.Match {
+		return q, errOutside
+	}
+	return q, nil
+}
+func requiredFields(raw []byte, n int) bool {
+	var m map[string]json.RawMessage
+	return json.Unmarshal(raw, &m) == nil && len(m) == n
+}
+func parseConfig(raw []byte) (Config, bool) {
+	var c Config
+	if len(raw) > EvidenceCap || !workerio.StrictDecode(raw, &c, false) || !requiredFields(raw, 14) || c.Schema != ConfigSchema || !c.Frozen || !c.ExecutionReady || !absClean(c.SourceRoot) || !absClean(c.Child) || len(c.RootReceipts) != 4 || c.WorkerModule != "riido.local/remainingthreeprep/native" || c.WorkerPackage != "riido.local/remainingthreeprep/native/cmd/observe" || c.WorkerOutputReserve != WorkerOutputReserve || c.OutsideOutputReserve != OutsideOutputReserve {
+		return c, false
+	}
+	required := map[string]bool{"root/source": false, "root/compiler": false, "root/rights": false, "root/resource": false}
+	for _, p := range c.RootReceipts {
+		if _, ok := required[p.ID]; !ok || required[p.ID] {
+			return c, false
+		}
+		required[p.ID] = true
+	}
+	return c, true
+}
+func buildInfoOK(i *debug.BuildInfo, module, pkg string) bool {
+	if i == nil || i.GoVersion != "go1.27.1" || i.Main.Path != module || i.Path != pkg {
+		return false
+	}
+	for _, k := range [][2]string{{"GOOS", "darwin"}, {"GOARCH", "arm64"}, {"CGO_ENABLED", "0"}, {"-trimpath", "true"}, {"-buildmode", "exe"}} {
+		n := 0
+		for _, s := range i.Settings {
+			if s.Key == k[0] {
+				if s.Value != k[1] {
+					return false
+				}
+				n++
+			}
+		}
+		if n != 1 {
+			return false
+		}
+	}
+	return true
+}
+func binaryOK(p, module, pkg string) bool {
+	m, e := macho.Open(p)
+	if e != nil {
+		return false
+	}
+	ok := m.Magic == macho.Magic64 && m.Cpu == macho.CpuArm64 && m.Type == macho.TypeExec
+	_ = m.Close()
+	if !ok {
+		return false
+	}
+	i, e := buildinfo.ReadFile(p)
+	return e == nil && buildInfoOK(i, module, pkg)
+}
+func contains(a, b string) bool { return a == b || strings.HasPrefix(b, a+string(filepath.Separator)) }
+
+// Fresh outputs cannot be a physical alias of any existing source ancestor.
+// Lowercase ASCII leaves also close case-only collisions on Darwin volumes.
+func separated(source, out string, absent bool) bool {
+	if !noSymlinks(source) || !absClean(out) || contains(source, out) || contains(out, source) {
+		return false
+	}
+	if absent {
+		if _, e := os.Lstat(out); !os.IsNotExist(e) {
+			return false
+		}
+	} else {
+		s, e := os.Lstat(out)
+		if e != nil || !s.IsDir() || !noSymlinks(out) {
+			return false
+		}
+	}
+	parent := filepath.Dir(out)
+	if !noSymlinks(parent) {
+		return false
+	}
+	leaf := filepath.Base(out)
+	if leaf == "" || len(leaf) > 128 {
+		return false
+	}
+	for _, v := range leaf {
+		if !(v >= 'a' && v <= 'z' || v >= '0' && v <= '9' || v == '-' || v == '_') {
+			return false
+		}
+	}
+	ps, e := os.Stat(parent)
+	if e != nil {
+		return false
+	}
+	cur := source
+	for {
+		st, e := os.Stat(cur)
+		if e != nil {
+			return false
+		}
+		if os.SameFile(ps, st) {
+			if cur == source {
+				return false
+			}
+			rel, e := filepath.Rel(cur, source)
+			if e != nil {
+				return false
+			}
+			first := strings.Split(rel, string(filepath.Separator))[0]
+			if strings.EqualFold(first, leaf) {
+				return false
+			}
+		}
+		if cur == filepath.Dir(cur) {
+			break
+		}
+		cur = filepath.Dir(cur)
+	}
+	return true
+}
+func gate(c Config, selfPath, planSHA string, out string, fresh bool) ([]PinFact, string) {
+	if c.Self.Path != selfPath || c.Time.Path != "/usr/bin/time" || !separated(c.SourceRoot, out, fresh) || !separated(c.SourceRoot, c.Child, true) || contains(out, c.Child) || contains(c.Child, out) || strings.EqualFold(out, c.Child) {
+		return nil, "path_separation"
+	}
+	if filepath.Dir(out) == filepath.Dir(c.Child) && strings.EqualFold(filepath.Base(out), filepath.Base(c.Child)) {
+		return nil, "path_separation"
+	}
+	ps := []Pin{c.Worker, c.Self, c.Plan, c.Time}
+	ps = append(ps, c.RootReceipts...)
+	facts := make([]PinFact, 0, len(ps))
+	ids := map[string]bool{}
+	paths := map[string]bool{}
+	var physical []os.FileInfo
+	for i, p := range ps {
+		if ids[p.ID] || paths[p.Path] || contains(out, p.Path) || contains(c.Child, p.Path) {
+			return facts, "pin_duplicate_output"
+		}
+		ids[p.ID] = true
+		paths[p.Path] = true
+		cap := int64(EvidenceCap)
+		if i == 0 || i == 1 || i == 3 {
+			cap = BinaryCap
+		}
+		f, e := verify(p, cap)
+		facts = append(facts, f)
+		if e != nil {
+			return facts, "pin_mismatch"
+		}
+		st, e := os.Stat(p.Path)
+		if e != nil {
+			return facts, "pin_stat"
+		}
+		for _, s := range physical {
+			if os.SameFile(s, st) {
+				return facts, "pin_alias"
+			}
+		}
+		physical = append(physical, st)
+	}
+	if !binaryOK(c.Worker.Path, c.WorkerModule, c.WorkerPackage) || !binaryOK(c.Self.Path, "example.com/riido-remaining-three-outside", "example.com/riido-remaining-three-outside") {
+		return facts, "build_metadata"
+	}
+	raw, _, e := regular(c.Plan.Path, EvidenceCap, false)
+	if e != nil || c.Plan.SHA != planSHA || !requiredFields(raw, 18) {
+		return facts, "plan_shape"
+	}
+	p, code := workerio.ReadPlan(raw, c.Plan.SHA, c.Child)
+	if code != "" || p.SourceRoot != c.SourceRoot {
+		return facts, "worker_plan"
+	}
+	for i, r := range p.RootReceipts {
+		matched := false
+		for _, e := range c.RootReceipts {
+			if r.ID == e.ID && filepath.Join(c.SourceRoot, r.Path) == e.Path && r.Bytes == e.Bytes && r.SHA == e.SHA {
+				matched = true
+			}
+		}
+		if !matched || i >= 4 {
+			return facts, "review_binding"
+		}
+	}
+	if workerio.VerifyWorkerInputs(c.Plan.Path, c.Plan.SHA, c.Child) != "" {
+		return facts, "declared_source_fixture"
+	}
+	return facts, ""
+}

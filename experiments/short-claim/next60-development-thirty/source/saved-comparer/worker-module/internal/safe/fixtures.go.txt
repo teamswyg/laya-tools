@@ -1,0 +1,15 @@
+package pure
+
+// All input, Want, realization and caption carriers remain byte-exact in basis.
+// Payload is new for every fixture; initial/hook contents are the fixed old.
+func Fixtures() [FixtureCount]Fixture {
+	return [FixtureCount]Fixture{
+		{Index: 0, Competition: true},
+		{Index: 1},
+		{Index: 2, InitialExists: true},
+		{Index: 3, FailCopy: true, FailClose: true},
+	}
+}
+func validFixture(f Fixture) bool {
+	return f.Index >= 0 && f.Index < FixtureCount && f == Fixtures()[f.Index]
+}

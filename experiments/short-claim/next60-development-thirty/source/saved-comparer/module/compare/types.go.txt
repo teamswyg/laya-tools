@@ -1,0 +1,144 @@
+// Package compare evaluates only already-saved typed evidence. It dispatches
+// no source API, getter, formatter, errors.Is, model or qualification action.
+package compare
+
+import (
+	"encoding/json"
+	"errors"
+	"riido.local/remainingthreeprep/batch"
+)
+
+const InputCap = 1 << 20
+const OutputCap = 1 << 20
+const OutsideCap = 64 << 10
+
+var ErrInput = errors.New("remaining_three_compare_input")
+var ErrBinding = errors.New("remaining_three_compare_binding")
+var ErrOutput = errors.New("remaining_three_compare_output")
+
+type State string
+
+const (
+	True    State = "satisfied"
+	False   State = "unsatisfied"
+	Unknown State = "unknown"
+)
+
+type Count struct {
+	True    int `json:"satisfied"`
+	False   int `json:"known_mismatches"`
+	Unknown int `json:"unknown"`
+}
+
+func (c *Count) add(s State) {
+	switch s {
+	case True:
+		c.True++
+	case False:
+		c.False++
+	default:
+		c.Unknown++
+	}
+}
+func (c Count) state() State {
+	if c.False > 0 {
+		return False
+	}
+	if c.Unknown > 0 {
+		return Unknown
+	}
+	return True
+}
+
+type Pin struct {
+	ID    string `json:"id"`
+	Bytes int    `json:"bytes"`
+	SHA   string `json:"sha256"`
+}
+type Saved struct {
+	PlanSHA                                     string
+	Pins                                        []Pin
+	Result, Stdout, Reservation, Outside, Trial []byte
+}
+type Input struct {
+	Fixture []byte
+	Saved   Saved
+}
+type Value struct {
+	Known   bool    `json:"known"`
+	Null    bool    `json:"null"`
+	NonNull bool    `json:"known_nonnull"`
+	Text    *string `json:"text"`
+	Bool    *bool   `json:"boolean"`
+	Number  *int    `json:"integer"`
+	Reason  string  `json:"unknown_reason"`
+}
+type Predicate struct {
+	Key      string          `json:"key"`
+	Want     json.RawMessage `json:"Want"`
+	Operator string          `json:"operator"`
+	Channel  string          `json:"saved_typed_channel"`
+	Got      Value           `json:"Got"`
+	State    State           `json:"state"`
+}
+type Row struct {
+	Ordinal     int             `json:"ordinal"`
+	Request     int             `json:"request"`
+	Fixture     int             `json:"fixture"`
+	Candidate   int             `json:"candidate"`
+	RequestID   string          `json:"request_id"`
+	CaseID      string          `json:"case_id"`
+	CandidateID string          `json:"candidate_id"`
+	Want        json.RawMessage `json:"full_literal_Want"`
+	Got         batch.Snapshot  `json:"full_saved_Got"`
+	Predicates  []Predicate     `json:"predicates"`
+	Counts      Count           `json:"predicate_counts"`
+	State       State           `json:"state"`
+	Truth       *string         `json:"truth"`
+	Role        *string         `json:"role"`
+	Weight      *float64        `json:"weight"`
+	Group       *int            `json:"group"`
+}
+type Candidate struct {
+	Index                int   `json:"candidate"`
+	Counts               Count `json:"observations"`
+	UnknownPredicates    int   `json:"unknown_predicates"`
+	KnownCounterexamples []int `json:"known_counterexample_fixtures"`
+	State                State `json:"state"`
+	AllSatisfied         *bool `json:"all_frozen_inputs_satisfied"`
+}
+type Request struct {
+	ID         string       `json:"id"`
+	Inputs     int          `json:"inputs"`
+	Candidates [3]Candidate `json:"candidates"`
+}
+type Report struct {
+	Schema                        string     `json:"schema"`
+	State                         string     `json:"state"`
+	PlanSHA                       string     `json:"plan_sha256"`
+	FixturePin                    Pin        `json:"fixture_pin"`
+	SavedPins                     []Pin      `json:"saved_pins"`
+	Rows                          [42]Row    `json:"rows"`
+	Requests                      [3]Request `json:"requests"`
+	Observations                  Count      `json:"observations"`
+	Predicates                    Count      `json:"predicates"`
+	Compared                      bool       `json:"comparison_started"`
+	Qualified                     bool       `json:"qualified"`
+	Labels                        bool       `json:"labels_assigned"`
+	Roles                         bool       `json:"roles_assigned"`
+	Weights                       bool       `json:"weights_assigned"`
+	Groups                        bool       `json:"groups_assigned"`
+	OriginalCalls                 int        `json:"original_API_calls"`
+	ModelCalls                    int        `json:"model_calls"`
+	Fits                          int        `json:"Fit_calls"`
+	SourceGettersIsFormatterCalls int        `json:"recomputed_getter_Is_Error_String_Formatter_calls"`
+	Scope                         string     `json:"scope"`
+}
+type wanted struct {
+	RequestID, CaseID string
+	Raw               json.RawMessage
+	Values            map[string]json.RawMessage
+}
+
+var requestIDs = [3]string{"next60-ini-byte-budget", "next60-afero-bounded-read", "next60-afero-exclusive-write"}
+var candidateIDs = [3]string{"baseline-design", "reference-design", "wrong-seed-design"}

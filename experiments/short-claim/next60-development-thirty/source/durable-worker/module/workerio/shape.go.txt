@@ -1,0 +1,237 @@
+package workerio
+
+import (
+	"reflect"
+	"riido.local/remainingthreeprep/batch"
+	"unicode/utf8"
+)
+
+// Full snapshots are admitted, never shortened or interpreted as supervision.
+// This recursive check calls no interface methods and admits no arbitrary map.
+func texts(v reflect.Value, total *int) bool {
+	switch v.Kind() {
+	case reflect.Pointer:
+		return v.IsNil() || texts(v.Elem(), total)
+	case reflect.Struct:
+		for i := 0; i < v.NumField(); i++ {
+			if !texts(v.Field(i), total) {
+				return false
+			}
+		}
+	case reflect.Array:
+		for i := 0; i < v.Len(); i++ {
+			if !texts(v.Index(i), total) {
+				return false
+			}
+		}
+	case reflect.String:
+		s := v.String()
+		if len(s) > MaxFieldText || !utf8.ValidString(s) {
+			return false
+		}
+		*total += len(s)
+	case reflect.Bool, reflect.Int, reflect.Int64, reflect.Uint8, reflect.Uint32, reflect.Float64:
+	default:
+		return false
+	}
+	return *total <= MaxSnapshotText
+}
+func clone(s batch.Snapshot) batch.Snapshot {
+	out := batch.Snapshot{Kind: s.Kind}
+	if s.INI != nil {
+		x := *s.INI
+		out.INI = &x
+	}
+	if s.Read != nil {
+		x := *s.Read
+		out.Read = &x
+	}
+	if s.Safe != nil {
+		x := *s.Safe
+		out.Safe = &x
+	}
+	return out
+}
+func snapshot(s batch.Snapshot, d batch.Dispatch) bool {
+	n := 0
+	if !texts(reflect.ValueOf(s), &n) {
+		return false
+	}
+	switch d.Request {
+	case 0:
+		if s.Kind != "INI" || s.INI == nil || s.Read != nil || s.Safe != nil {
+			return false
+		}
+		o := s.INI
+		return o.Fixture == d.Fixture && o.Candidate == d.Candidate && o.SourceN >= 0 && o.SourceN <= 16 && o.GetterN >= 0 && o.GetterN <= 5 && o.IdentityN >= 0 && o.IdentityN <= 2 && o.InnerOriginalCalls == nil && o.StartupCalls == nil && o.Truth == nil && o.Role == nil && o.Weight == nil && o.Group == nil && len(o.A.Value) <= 4 && len(o.B.Value) <= 4
+	case 1:
+		if s.Kind != "Read" || s.Read == nil || s.INI != nil || s.Safe != nil {
+			return false
+		}
+		o := s.Read
+		return o.Fixture == d.Fixture && o.Candidate == d.Candidate && o.Trace.N >= 0 && o.Trace.N <= 16 && o.Data.N >= 0 && o.Data.N <= 5 && !o.PanicTextKnown && o.InnerOriginalCalls == nil && o.StartupCalls == nil && o.Truth == nil && o.Role == nil && o.Weight == nil && o.Group == nil
+	case 2:
+		if s.Kind != "Safe" || s.Safe == nil || s.INI != nil || s.Read != nil {
+			return false
+		}
+		o := s.Safe
+		return o.Fixture == d.Fixture && o.Candidate == d.Candidate && o.Trace.N >= 0 && o.Trace.N <= 24 && o.InitialContents.N >= 0 && o.InitialContents.N <= 5 && o.Contents.N >= 0 && o.Contents.N <= 5 && !o.PanicTextKnown && o.InnerOriginalCalls == nil && o.StartupCalls == nil && o.Truth == nil && o.Role == nil && o.Weight == nil && o.Group == nil
+	}
+	return false
+}
+func candidate(s batch.Snapshot) (known, ret, panKnown, pan bool) {
+	if s.INI != nil {
+		return s.INI.ReturnedKnown, s.INI.Returned, s.INI.Panic.Known, s.INI.Panic.Present
+	}
+	if s.Read != nil {
+		return s.Read.CandidateReturnedKnown, s.Read.CandidateReturned, s.Read.PanicKnown, s.Read.Panic
+	}
+	if s.Safe != nil {
+		return s.Safe.ReturnedKnown, s.Safe.Returned, s.Safe.PanicKnown, s.Safe.Panic
+	}
+	return
+}
+func returnedChannels(s batch.Snapshot, ret bool) bool {
+	if s.INI != nil {
+		o := s.INI
+		return ret && o.FileKnown && o.Error.Known || !ret && !o.FileKnown && !o.Error.Known
+	}
+	if s.Read != nil {
+		o := s.Read
+		return ret && o.Data.Known && o.Error.Known || !ret && !o.Data.Known && !o.Error.Known
+	}
+	if s.Safe != nil {
+		o := s.Safe
+		return o.DestinationExistsKnown && (ret && o.Error.Known || !ret && !o.Error.Known)
+	}
+	return false
+}
+
+// FS destination state is intentionally mutable. Freeze returned-call evidence,
+// not the destination contents/exists view that the next operation may change.
+func preservesSnapshot(a, b batch.Snapshot) bool {
+	if a.Kind != b.Kind {
+		return false
+	}
+	ak, ar, ap, ax := candidate(a)
+	bk, br, bp, bx := candidate(b)
+	if ak && (!bk || ar != br) || ap && (!bp || ax != bx) {
+		return false
+	}
+	keep := func(x, y any) bool { return preserves(reflect.ValueOf(x), reflect.ValueOf(y)) }
+	if a.INI != nil && b.INI != nil {
+		x, y := a.INI, b.INI
+		if x.SourceN > y.SourceN || x.GetterN > y.GetterN || x.IdentityN > y.IdentityN || !keep(x.Error, y.Error) || !keep(x.Panic, y.Panic) || !keep(x.A, y.A) || !keep(x.B, y.B) || x.FileKnown && (!y.FileKnown || x.FileNil != y.FileNil) {
+			return false
+		}
+		for i := 0; i < x.SourceN; i++ {
+			if x.Sources[i].ReturnedKnown && x.Sources[i] != y.Sources[i] {
+				return false
+			}
+		}
+		for i := 0; i < x.GetterN; i++ {
+			if x.Getters[i].ReturnedKnown && x.Getters[i] != y.Getters[i] {
+				return false
+			}
+		}
+		for i := 0; i < x.IdentityN; i++ {
+			if x.Identities[i].ReturnedKnown && x.Identities[i] != y.Identities[i] {
+				return false
+			}
+		}
+		return true
+	}
+	if a.Read != nil && b.Read != nil {
+		x, y := a.Read, b.Read
+		if x.Trace.N > y.Trace.N || !keep(x.Error, y.Error) || !keep(x.Data, y.Data) || x.PanicTypeKnown && (!y.PanicTypeKnown || x.PanicType != y.PanicType) {
+			return false
+		}
+		for i := 0; i < x.Trace.N; i++ {
+			if x.Trace.Calls[i].ReturnedKnown && x.Trace.Calls[i] != y.Trace.Calls[i] {
+				return false
+			}
+		}
+		return true
+	}
+	if a.Safe != nil && b.Safe != nil {
+		x, y := a.Safe, b.Safe
+		if x.Trace.N > y.Trace.N || x.InitialContents != y.InitialContents || !keep(x.Error, y.Error) || x.PanicTypeKnown && (!y.PanicTypeKnown || x.PanicType != y.PanicType) {
+			return false
+		}
+		for i := 0; i < x.Trace.N; i++ {
+			if x.Trace.Calls[i].ReturnedKnown && x.Trace.Calls[i] != y.Trace.Calls[i] {
+				return false
+			}
+		}
+		return true
+	}
+	return false
+}
+
+// Known channels and completed call slots must survive subsequent snapshots.
+// Newly learned Error identity predicates may advance their own Known flags.
+func preserves(a, b reflect.Value) bool {
+	if a.Type() != b.Type() {
+		return false
+	}
+	switch a.Kind() {
+	case reflect.Pointer:
+		if a.IsNil() {
+			return true
+		}
+		return !b.IsNil() && preserves(a.Elem(), b.Elem())
+	case reflect.Struct:
+		t := a.Type()
+		for i := 0; i < a.NumField(); i++ {
+			name := t.Field(i).Name
+			av, bv := a.Field(i), b.Field(i)
+			if av.Kind() == reflect.Bool && av.Bool() {
+				if name == "Known" || len(name) >= 5 && name[len(name)-5:] == "Known" {
+					if !bv.Bool() {
+						return false
+					}
+					pair := name[:len(name)-5]
+					if pair != "" {
+						x, y := a.FieldByName(pair), b.FieldByName(pair)
+						if x.IsValid() && !reflect.DeepEqual(x.Interface(), y.Interface()) {
+							return false
+						}
+					}
+					if name == "Known" {
+						for _, k := range []string{"Nil", "Present", "Value"} {
+							x, y := a.FieldByName(k), b.FieldByName(k)
+							if x.IsValid() && !reflect.DeepEqual(x.Interface(), y.Interface()) {
+								return false
+							}
+						}
+						if x := a.FieldByName("Data"); x.IsValid() {
+							for _, k := range []string{"Data", "N"} {
+								if !reflect.DeepEqual(a.FieldByName(k).Interface(), b.FieldByName(k).Interface()) {
+									return false
+								}
+							}
+						}
+					}
+				}
+			}
+			if !preserves(av, bv) {
+				return false
+			}
+		}
+	case reflect.Array:
+		for i := 0; i < a.Len(); i++ {
+			if !preserves(a.Index(i), b.Index(i)) {
+				return false
+			}
+		}
+	case reflect.String:
+		return a.String() == "" || a.String() == b.String()
+	}
+	return true
+}
+func boundary(b batch.Boundary, max int) bool {
+	return b.Reserved >= 0 && b.Reserved <= max && b.Dispatched >= 0 && b.Dispatched <= b.Reserved && b.Returned >= 0 && b.Panicked >= 0 && b.Returned+b.Panicked <= b.Dispatched && b.Reserved-b.Dispatched <= 1 && b.Dispatched-b.Returned-b.Panicked <= 1
+}
+func counters(c batch.Counters) bool {
+	return boundary(c.Candidate, 42) && boundary(c.Identity, 54) && boundary(c.Getter, 75) && boundary(c.Source, 240) && c.Completed >= 0 && c.Completed <= 42 && !c.Stopped
+}

@@ -1,0 +1,374 @@
+package compare
+
+import (
+	"bytes"
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"riido.local/remainingthreeprep/batch"
+	"riido.local/remainingthreeprep/workerio"
+	"strings"
+	"testing"
+)
+
+// All result/outside bytes below are authored fake transport metadata, never
+// an original callback execution, observed result or claimed journal replay.
+func enc(t *testing.T, v any) []byte {
+	t.Helper()
+	b, e := json.Marshal(v)
+	if e != nil {
+		t.Fatal(e)
+	}
+	return append(b, '\n')
+}
+func ptr[T any](x T) *T { return &x }
+func snap(t *testing.T, raw string) batch.Snapshot {
+	t.Helper()
+	var s batch.Snapshot
+	if json.Unmarshal([]byte(raw), &s) != nil {
+		t.Fatal("fake snapshot decode")
+	}
+	return s
+}
+func raw(s string) json.RawMessage { return json.RawMessage(s) }
+func fakeRows(t *testing.T) (rows [42]batch.Snapshot) {
+	for _, d := range batch.Schedule() {
+		var s batch.Snapshot
+		switch d.Request {
+		case 0:
+			s = snap(t, `{"Kind":"INI","INI":{"ReturnedKnown":true,"Returned":true,"Panic":{"Known":true},"FileKnown":true,"FileNil":true,"Error":{"Known":true,"Nil":true}}}`)
+			s.INI.Fixture = d.Fixture
+			s.INI.Candidate = d.Candidate
+		case 1:
+			s = snap(t, `{"Kind":"Read","Read":{"CandidateReturnedKnown":true,"CandidateReturned":true,"PanicKnown":true,"Data":{"Known":true,"Nil":true},"Error":{"Known":true,"Nil":true}}}`)
+			s.Read.Fixture = d.Fixture
+			s.Read.Candidate = d.Candidate
+		case 2:
+			s = snap(t, `{"Kind":"Safe","Safe":{"ReturnedKnown":true,"Returned":true,"PanicKnown":true,"DestinationExistsKnown":true,"Error":{"Known":true,"Nil":true}}}`)
+			s.Safe.Fixture = d.Fixture
+			s.Safe.Candidate = d.Candidate
+		}
+		rows[d.Ordinal] = s
+	}
+	return
+}
+
+const ACK = "A surviving complete journal row does not prove Sync returned. Final persistence requires identical full stdout/result and externally joined exit0 after file Sync/Close and output-directory Sync. In-flight callback/runner state remains unknown on kill."
+
+func fakeSaved(t *testing.T) Saved {
+	sha := strings.Repeat("a", 64)
+	c := batch.Counters{Candidate: batch.Boundary{Reserved: 42, Dispatched: 42, Returned: 42}, Completed: 42}
+	w := batch.Result{Schema: batch.Schema, Rows: fakeRows(t), N: 42, Counters: c}
+	r := workerio.Result{Schema: workerio.Schema, State: "complete", RunnerReturned: true, Worker: &w, Transport: workerio.Receipt{Schema: "riido-remaining-three-transport-receipt-v1", PlanSHA: sha, FixtureSHA: workerio.FixtureSHA, Initialized: true, Frames: 84, Bytes: 1000, LastSequence: 84, LastSHA: strings.Repeat("b", 64), Counters: c, Completed: 42, LastSnapshot: &w.Rows[41], JournalClosed: true, FinalACK: ACK}}
+	res := enc(t, workerio.Reservation{Schema: "riido-remaining-three-reservation-v1", PlanSHA: sha, FixtureSHA: workerio.FixtureSHA, MaxFrames: workerio.MaxFrames, MaxFrame: workerio.MaxFrame, MaxJournal: workerio.MaxJournal, MaxResult: workerio.MaxResult})
+	o := outside{Schema: "riido-remaining-three-outside-result-v1", State: "complete_observation_transport", ConfigSHA: strings.Repeat("d", 64), PlanSHA: sha, Process: process{StartAttempts: 1, Started: true, WaitAttempts: 1, WaitReturned: true, Reaped: true, Exit: ptr(0), Wall: 0.5}, Metrics: metrics{RSS: ptr(int64(1 << 20)), Real: ptr(0.5), User: ptr(0.01), System: ptr(0.01), Scope: "authored synthetic OS values"}, SavedState: "saved_unaccepted_report_ACK_unknown", Counters: &c, Completed: ptr(42), ACK: true, StdoutEqual: true, WorkerReserve: 40005632, OutsideReserve: 2097152, Prefix: &workerio.JournalAssessment{Frames: 84, Bytes: 1000, SHA: r.Transport.LastSHA, Completed: 42, Counters: c, Tail: "complete_physical_prefix_no_ACK"}}
+	for i, id := range []string{"worker", "outside", "worker-plan", "Darwin-time", "root/source", "root/compiler", "root/rights", "root/resource"} {
+		q := strings.Repeat("e", 64)
+		if i == 2 {
+			q = sha
+		}
+		o.Bindings = append(o.Bindings, fact{ID: id, Bytes: 1, SHA: q, Match: true})
+	}
+	s := Saved{PlanSHA: sha, Result: enc(t, r), Reservation: res}
+	s.Stdout = bytes.Clone(s.Result)
+	for i, id := range []string{"reservation.json", "journal.jsonl", "results.json"} {
+		n := int64(1000)
+		h := strings.Repeat("c", 64)
+		if i == 0 {
+			n = int64(len(res))
+			h = workerio.SHA(res)
+		}
+		if i == 2 {
+			n = int64(len(s.Result))
+			h = workerio.SHA(s.Result)
+		}
+		o.Artifacts = append(o.Artifacts, artifact{ID: id, Present: true, Regular: true, Bytes: &n, SHA: &h})
+	}
+	s.Outside = enc(t, o)
+	repin(t, &s)
+	return s
+}
+func repin(t *testing.T, s *Saved) {
+	s.Pins = nil
+	for i, b := range [][]byte{s.Result, s.Stdout, s.Reservation, s.Outside} {
+		id := []string{"worker-result", "worker-stdout", "worker-reservation", "outside-result"}[i]
+		s.Pins = append(s.Pins, Pin{ID: id, Bytes: len(b), SHA: workerio.SHA(b)})
+	}
+	q := Trial{Schema: "riido-remaining-three-actual-trial-binding-v1", PlanSHA: s.PlanSHA, Result: s.Pins[0], Stdout: s.Pins[1], Reservation: s.Pins[2], Outside: s.Pins[3], OutsideExit: ptr(0), OutsideInvocations: 1}
+	s.Trial = enc(t, q)
+	s.Pins = append(s.Pins, Pin{ID: "Root-actual-trial", Bytes: len(s.Trial), SHA: workerio.SHA(s.Trial)})
+}
+func fixture(t *testing.T) []byte {
+	t.Helper()
+	b, e := os.ReadFile("../../basis/FIXTURE-BINDINGS.v1.json")
+	if e != nil {
+		t.Fatal("fixed fixture unavailable")
+	}
+	return b
+}
+func TestFrozenFixtureAndReferenceHasNoPrivilege(t *testing.T) {
+	b := fixture(t)
+	w, e := documents(b)
+	if e != nil || len(w) != 14 {
+		t.Fatal("fixed document rejected")
+	}
+	bad := bytes.Replace(b, []byte(`"source_reads": 0`), []byte(`"source_reads": 1`), 1)
+	if bytes.Equal(b, bad) {
+		t.Fatal("synthetic mutation not applied")
+	}
+	if _, e = documents(bad); e == nil {
+		t.Fatal("changed frozen Want accepted")
+	}
+	s := fakeSaved(t)
+	r, e := Compare(Input{Fixture: b, Saved: s})
+	if e != nil || !r.Compared || len(r.Rows) != 42 {
+		t.Fatal("authored fake complete binding rejected")
+	}
+	if r.Requests[0].Candidates[1].State == True {
+		t.Fatal("reference got automatic positive status")
+	}
+	if r.Qualified || r.Labels || r.Roles || r.Weights || r.Groups || r.OriginalCalls != 0 {
+		t.Fatal("authority invented")
+	}
+}
+func TestKnownFalseAndUnknownRemainSeparate(t *testing.T) {
+	s := snap(t, `{"Kind":"INI","INI":{"ReturnedKnown":true,"Returned":true,"Error":{"Known":true,"Nil":false},"A":{"Known":false}}}`)
+	w := wanted{Raw: raw(`{"a":"1","error":null}`), Values: map[string]json.RawMessage{"a": raw(`"1"`), "error": raw(`null`)}}
+	p := predicates(s, w)
+	var c Count
+	for _, q := range p {
+		c.add(q.State)
+	}
+	if c.False != 1 || c.Unknown != 1 || c.state() != False {
+		t.Fatal("false/unknown conflated")
+	}
+	rows := fakeRows(t)
+	rows[0] = s
+	var ws [14]wanted
+	for i := range ws {
+		ws[i] = w
+	}
+	r := compareRows(ws, rows)
+	if r.Requests[0].Candidates[0].AllSatisfied != nil {
+		t.Fatal("unknown converted into false all-input boolean")
+	}
+}
+func TestNilEmptyPanicAndMonotonePrefix(t *testing.T) {
+	s := snap(t, `{"Kind":"Read","Read":{"CandidateReturnedKnown":true,"CandidateReturned":true,"Data":{"Known":true,"Nil":false},"Error":{"Known":true,"Nil":true}}}`)
+	_, _, v := observed(s, "data", raw(`""`))
+	if pred("data", raw(`""`), "eq", "Read.Data", v).State != True {
+		t.Fatal("nonnil empty lost")
+	}
+	s.Read.Data.Nil = true
+	_, _, v = observed(s, "data", raw(`""`))
+	if pred("data", raw(`""`), "eq", "Read.Data", v).State != False {
+		t.Fatal("nil merged with empty")
+	}
+	s.Read.CandidateReturned = false
+	s.Read.PanicKnown = true
+	s.Read.Panic = true
+	s.Read.Data.Known = false
+	s.Read.Trace.Close = 1
+	_, _, v = observed(s, "data", raw(`null`))
+	if v.Known {
+		t.Fatal("panic fabricated null return")
+	}
+	_, _, v = observed(s, "close_calls", raw(`1`))
+	if v.Known {
+		t.Fatal("incomplete prefix equality asserted")
+	}
+	s.Read.Trace.Close = 2
+	_, _, v = observed(s, "close_calls", raw(`1`))
+	if pred("close_calls", raw(`1`), "eq", "prefix", v).State != False {
+		t.Fatal("known monotone contradiction erased")
+	}
+}
+func TestDirectIdentityIsNotUnwrapOracle(t *testing.T) {
+	s := snap(t, `{"Kind":"Read","Read":{"CandidateReturnedKnown":true,"CandidateReturned":true,"Error":{"Known":true,"Nil":false,"TypeKnown":true,"Type":"*owned.unknownWrapper","ReadCauseIdentityKnown":true,"ReadCauseIdentity":false}}}`)
+	op, ch, v := observed(s, "error_is", raw(`"injected_reader_error"`))
+	if pred("error_is", raw(`"injected_reader_error"`), op, ch, v).State != Unknown {
+		t.Fatal("false direct equality became false errors.Is")
+	}
+	s.Read.Error.ReadCauseIdentity = true
+	_, _, v = observed(s, "error_is", raw(`"injected_reader_error"`))
+	if !v.Known || v.Bool == nil || !*v.Bool {
+		t.Fatal("direct identity witness lost")
+	}
+}
+
+func TestUnavailableSentinelIdentityStaysUnknown(t *testing.T) {
+	s := snap(t, `{"Kind":"Read","Read":{"CandidateReturnedKnown":true,"CandidateReturned":true,"Error":{"Known":true,"Nil":false,"TypeKnown":true,"Type":"*errors.errorString","ReadCauseIdentityKnown":false,"ReadCauseIdentity":false}}}`)
+	for _, q := range []struct {
+		known, value bool
+		want         State
+	}{{false, false, Unknown}, {true, false, False}, {true, true, True}} {
+		s.Read.Error.ReadCauseIdentityKnown = q.known
+		s.Read.Error.ReadCauseIdentity = q.value
+		op, ch, v := observed(s, "error_is", raw(`"injected_reader_error"`))
+		if pred("error_is", raw(`"injected_reader_error"`), op, ch, v).State != q.want {
+			t.Fatal("sentinel type fabricated direct identity")
+		}
+	}
+}
+func TestPartialACKSourceAndExitRefusals(t *testing.T) {
+	cases := []struct {
+		name   string
+		change func(*Saved)
+	}{
+		{"partial", func(s *Saved) {
+			var r workerio.Result
+			_ = json.Unmarshal(s.Result, &r)
+			r.State = "failed"
+			r.Failure = "adapter_or_transport_stopped"
+			s.Result = enc(t, r)
+			s.Stdout = bytes.Clone(s.Result)
+		}},
+		{"missingACK", func(s *Saved) { var o outside; _ = json.Unmarshal(s.Outside, &o); o.ACK = false; s.Outside = enc(t, o) }},
+		{"sourceEquality", func(s *Saved) {
+			var o outside
+			_ = json.Unmarshal(s.Outside, &o)
+			x := *o.Counters
+			x.Source = batch.Boundary{Reserved: 1, Dispatched: 1, Returned: 1}
+			o.Counters = &x
+			s.Outside = enc(t, o)
+		}},
+		{"counterWithoutSourceRows", func(s *Saved) {
+			var r workerio.Result
+			_ = json.Unmarshal(s.Result, &r)
+			r.Worker.Counters.Source = batch.Boundary{Reserved: 1, Dispatched: 1, Returned: 1}
+			r.Transport.Counters = r.Worker.Counters
+			s.Result = enc(t, r)
+			s.Stdout = bytes.Clone(s.Result)
+		}},
+		{"malformedNegativeCount", func(s *Saved) {
+			var r workerio.Result
+			_ = json.Unmarshal(s.Result, &r)
+			r.Worker.Rows[15].Read.Trace.Close = -1
+			s.Result = enc(t, r)
+			s.Stdout = bytes.Clone(s.Result)
+		}},
+		{"exit", func(s *Saved) {
+			var o outside
+			_ = json.Unmarshal(s.Outside, &o)
+			o.Process.Exit = ptr(1)
+			s.Outside = enc(t, o)
+		}},
+		{"stdout", func(s *Saved) { s.Stdout = append(bytes.Clone(s.Stdout), ' ') }},
+		{"aliasKey", func(s *Saved) {
+			s.Result = bytes.Replace(s.Result, []byte(`"runner_return_known"`), []byte(`"Runner_Return_Known"`), 1)
+			s.Stdout = bytes.Clone(s.Result)
+		}},
+		{"shortArray", func(s *Saved) {
+			var m map[string]json.RawMessage
+			_ = json.Unmarshal(s.Result, &m)
+			var w map[string]json.RawMessage
+			_ = json.Unmarshal(m["worker"], &w)
+			var rows []json.RawMessage
+			_ = json.Unmarshal(w["Rows"], &rows)
+			w["Rows"], _ = json.Marshal(rows[:41])
+			m["worker"], _ = json.Marshal(w)
+			s.Result = enc(t, m)
+			s.Stdout = bytes.Clone(s.Result)
+		}},
+	}
+	for _, q := range cases {
+		t.Run(q.name, func(t *testing.T) {
+			s := fakeSaved(t)
+			q.change(&s)
+			repin(t, &s)
+			if _, e := bind(s); e == nil {
+				t.Fatal("invalid evidence accepted")
+			}
+		})
+	}
+}
+func TestBoundedFilesAndExclusiveOutput(t *testing.T) {
+	p := t.TempDir()
+	real, e := filepath.EvalSymlinks(p)
+	if e != nil {
+		t.Fatal(e)
+	}
+	f := filepath.Join(real, "own.json")
+	if os.WriteFile(f, []byte("{}\n"), 0600) != nil {
+		t.Fatal("fake write")
+	}
+	if _, e = readRegular(f, 2); e == nil {
+		t.Fatal("oversize read accepted")
+	}
+	link := filepath.Join(real, "link")
+	if os.Symlink(f, link) != nil {
+		t.Fatal("fake symlink")
+	}
+	if _, e = readRegular(link, 10); e == nil {
+		t.Fatal("symlink accepted")
+	}
+	out := filepath.Join(real, "exclusive.json")
+	if exclusive(out, []byte("{}\n"), 10) != nil {
+		t.Fatal("first fake output")
+	}
+	if exclusive(out, []byte("second"), 10) == nil {
+		t.Fatal("overwrite allowed")
+	}
+	if b, _ := os.ReadFile(out); string(b) != "{}\n" {
+		t.Fatal("original output changed")
+	}
+	if _, e = ReadInput(Config{}); e == nil {
+		t.Fatal("invalid exported config accepted")
+	}
+}
+
+// The filesystem fixture here contains authored fake Root/worker evidence.
+// It tests the reader and writer, never any actual saved observation or API.
+func TestFakeReaderPinsCaseAndFrozenGate(t *testing.T) {
+	parent, e := filepath.EvalSymlinks(t.TempDir())
+	if e != nil {
+		t.Fatal(e)
+	}
+	s := fakeSaved(t)
+	c := Config{Schema: "riido-remaining-three-saved-comparison-config-v1", Frozen: true, PlanSHA: s.PlanSHA}
+	f := fixture(t)
+	c.Fixture = FilePin{Pin: Pin{ID: "fixture", Bytes: len(f), SHA: workerio.SHA(f)}, Path: filepath.Join(parent, "fixture.json")}
+	if os.WriteFile(c.Fixture.Path, f, 0600) != nil {
+		t.Fatal("fake file")
+	}
+	for i, b := range [][]byte{s.Result, s.Stdout, s.Reservation, s.Outside, s.Trial} {
+		p := FilePin{Pin: s.Pins[i], Path: filepath.Join(parent, s.Pins[i].ID+".json")}
+		if os.WriteFile(p.Path, b, 0600) != nil {
+			t.Fatal("fake file")
+		}
+		c.Files = append(c.Files, p)
+	}
+	cb := enc(t, c)
+	cfg := filepath.Join(parent, "config.json")
+	if os.WriteFile(cfg, cb, 0600) != nil {
+		t.Fatal("fake config")
+	}
+	out := filepath.Join(parent, "comparison")
+	if RunFiles(cfg, workerio.SHA(cb), out) != nil {
+		t.Fatal("fake reader rejected")
+	}
+	b, e := os.ReadFile(filepath.Join(out, "comparison.json"))
+	if e != nil || len(b) > OutputCap {
+		t.Fatal("fake output missing/bounded")
+	}
+	if RunFiles(cfg, workerio.SHA(cb), out) == nil {
+		t.Fatal("output directory reused")
+	}
+	for _, change := range []func([]byte) []byte{
+		func(b []byte) []byte { return bytes.Replace(b, []byte(`"frozen":true`), []byte(`"frozen":false`), 1) },
+		func(b []byte) []byte { return bytes.Replace(b, []byte(`"frozen"`), []byte(`"Frozen"`), 1) },
+	} {
+		bad := change(cb)
+		if os.WriteFile(cfg, bad, 0600) != nil {
+			t.Fatal("fake config")
+		}
+		if _, e := ReadConfig(cfg, workerio.SHA(bad)); e == nil {
+			t.Fatal("inactive/aliased config accepted")
+		}
+	}
+	r := Report{}
+	r.Rows[0].Want = enc(t, strings.Repeat("x", OutputCap))
+	if _, e := Marshal(r); e == nil {
+		t.Fatal("oversize report accepted")
+	}
+}

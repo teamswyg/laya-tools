@@ -1,0 +1,84 @@
+// Package workerio persists only the fixed remaining-three callback protocol.
+// It grants no rights, labels, scientific qualification, or execution authority.
+package workerio
+
+import (
+	"errors"
+	"riido.local/remainingthreeprep/batch"
+)
+
+const (
+	Schema          = "riido-remaining-three-worker-result-v1"
+	PlanSchema      = "riido-remaining-three-worker-plan-v1"
+	FrameSchema     = "riido-remaining-three-journal-frame-v1"
+	MaxFrames       = 1902
+	MaxFrame        = 20 * 1024 // Includes the final LF.
+	MaxJournal      = MaxFrames * MaxFrame
+	MaxResult       = 1024 * 1024
+	MaxReservation  = 4096
+	MaxMetadata     = 128 * 1024
+	MaxFieldText    = 128
+	MaxSnapshotText = 1024
+	FixtureSHA      = "b8fb7a9f93b09f446ed3f92cb47c195442c10c6239b39c1bc36141af472d67f9"
+	FixtureBytes    = 84658
+)
+
+var ErrTransport = errors.New("remaining_three_transport")
+var ErrPlan = errors.New("remaining_three_plan")
+
+type Frame struct {
+	Schema   string      `json:"schema"`
+	Sequence int         `json:"sequence"`
+	Previous string      `json:"previous_sha256"`
+	Event    batch.Event `json:"event"`
+}
+type Reservation struct {
+	Schema         string `json:"schema"`
+	PlanSHA        string `json:"plan_sha256"`
+	FixtureSHA     string `json:"fixture_sha256"`
+	MaxFrames      int    `json:"max_frames"`
+	MaxFrame       int    `json:"max_frame_bytes"`
+	MaxJournal     int    `json:"max_journal_bytes"`
+	MaxResult      int    `json:"max_result_bytes"`
+	LabelsAssigned bool   `json:"labels_assigned"`
+	Qualified      bool   `json:"qualified"`
+	InnerCalls     *int   `json:"inner_original_calls"`
+	StartupCalls   *int   `json:"startup_calls"`
+}
+type Receipt struct {
+	Schema         string          `json:"schema"`
+	PlanSHA        string          `json:"plan_sha256"`
+	FixtureSHA     string          `json:"fixture_sha256"`
+	Initialized    bool            `json:"reservation_empty_files_child_parent_Sync_returned"`
+	Frames         int             `json:"synced_frames"`
+	Bytes          int             `json:"synced_journal_bytes"`
+	LastSequence   int             `json:"last_synced_sequence"`
+	LastSHA        string          `json:"last_synced_frame_sha256"`
+	Counters       batch.Counters  `json:"last_synced_counters"`
+	Completed      int             `json:"synced_terminal_rows"`
+	LastSnapshot   *batch.Snapshot `json:"last_synced_snapshot"`
+	Stopped        bool            `json:"transport_stopped"`
+	Failure        string          `json:"failure_code"`
+	JournalClosed  bool            `json:"journal_Close_returned"`
+	InnerCalls     *int            `json:"inner_original_calls"`
+	StartupCalls   *int            `json:"startup_calls"`
+	ErrorTextCalls int             `json:"transport_Error_String_Formatter_calls"`
+	LabelsAssigned bool            `json:"labels_assigned"`
+	Qualified      bool            `json:"qualified"`
+	FinalACK       string          `json:"final_acknowledgment_scope"`
+}
+type Result struct {
+	Schema         string        `json:"schema"`
+	State          string        `json:"state"`
+	Failure        string        `json:"failure_code"`
+	RunnerReturned bool          `json:"runner_return_known"`
+	RunnerPanicked bool          `json:"runner_panic_present"`
+	Worker         *batch.Result `json:"worker"`
+	Transport      Receipt       `json:"transport"`
+	InnerCalls     *int          `json:"inner_original_calls"`
+	StartupCalls   *int          `json:"startup_calls"`
+	LabelsAssigned bool          `json:"labels_assigned"`
+	Qualified      bool          `json:"qualified"`
+}
+type Runner func(batch.Checkpoint) batch.Result
+type Config struct{ PlanSHA, Attempt string }

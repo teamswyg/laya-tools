@@ -1,0 +1,213 @@
+package workerio
+
+import (
+	"reflect"
+	"riido.local/remainingthreeprep/batch"
+	"strings"
+)
+
+type operation struct {
+	Name string
+	Step int
+}
+type cursor struct {
+	Next, Phase, Depth int
+	Stack              [2]operation
+	Current            batch.Snapshot
+	Counts             batch.Counters
+	Rows               [42]batch.Snapshot
+}
+
+func operationName(d batch.Dispatch, stage string) (string, bool, bool) {
+	before := strings.HasPrefix(stage, "before_")
+	after := strings.HasPrefix(stage, "after_")
+	if !before && !after {
+		return "", false, false
+	}
+	name := strings.TrimPrefix(strings.TrimPrefix(stage, "before_"), "after_")
+	switch d.Request {
+	case 0:
+		if name == "source_method" || name == "getter" || name == "error_is" {
+			return name, before, true
+		}
+	case 1:
+		if name == "open" || name == "read" || name == "stat" || name == "close" {
+			return name, before, true
+		}
+	case 2:
+		for _, x := range []string{"mkdir_all", "stat", "create", "open_file", "read", "write", "close", "truncate", "competition", "error_is"} {
+			if name == x {
+				return name, before, true
+			}
+		}
+	}
+	return "", false, false
+}
+func stepValid(e batch.Event, name string, before bool) bool {
+	d, s := e.Dispatch, e.Snapshot
+	if name == "competition" {
+		return d.Request == 2 && e.Step == -1 && s.Safe.Trace.HookRuns >= 0 && s.Safe.Trace.HookRuns <= 1
+	}
+	if e.Step < 0 {
+		return false
+	}
+	if name == "error_is" {
+		if d.Request == 0 {
+			return e.Step < 2 && s.INI.IdentityN == e.Step+1
+		}
+		return d.Request == 2 && e.Step < 2
+	}
+	if name == "getter" {
+		return d.Request == 0 && e.Step < 5 && s.INI.GetterN == e.Step+1
+	}
+	if d.Request == 0 {
+		return e.Step < 16 && s.INI.SourceN == e.Step+1 && (s.INI.Sources[e.Step].Method == "read" || s.INI.Sources[e.Step].Method == "close")
+	}
+	n, max := s.Read, 16
+	if d.Request == 1 {
+		if before {
+			return e.Step < max && n.Trace.N == e.Step
+		}
+		return e.Step < max && n.Trace.N == e.Step+1 && n.Trace.Calls[e.Step].Method == name && n.Trace.Calls[e.Step].ReturnedKnown
+	}
+	if before {
+		return e.Step < 24 && s.Safe.Trace.N == e.Step
+	}
+	return e.Step < 24 && s.Safe.Trace.N == e.Step+1 && s.Safe.Trace.Calls[e.Step].Method == name && s.Safe.Trace.Calls[e.Step].ReturnedKnown
+}
+func auxiliaryReturn(e batch.Event, name string) (bool, bool) {
+	if e.Dispatch.Request == 0 {
+		if name == "getter" {
+			x := e.Snapshot.INI.Getters[e.Step]
+			return x.ReturnedKnown, x.Returned
+		}
+		x := e.Snapshot.INI.Identities[e.Step]
+		return x.ReturnedKnown, x.Returned
+	}
+	// Safe's errors.Is panic has no after event and stops the adapter.
+	return true, true
+}
+func (c cursor) advance(e batch.Event) (cursor, string) {
+	if c.Next >= 42 || e.Dispatch != batch.Schedule()[c.Next] || !snapshot(e.Snapshot, e.Dispatch) || !counters(e.Cumulative) {
+		return c, "checkpoint_shape_order"
+	}
+	if c.Phase != 0 && !preservesSnapshot(c.Current, e.Snapshot) {
+		return c, "checkpoint_known_prefix"
+	}
+	want := c.Counts
+	if e.Stage == "before_candidate" {
+		known, _, pk, _ := candidate(e.Snapshot)
+		if c.Phase != 0 || e.Step != -1 || known || pk {
+			return c, "checkpoint_candidate_reserve"
+		}
+		want.Candidate.Reserved++
+		c.Phase = 1
+	} else {
+		if c.Phase != 1 {
+			return c, "checkpoint_phase"
+		}
+		want.Candidate.Dispatched = want.Candidate.Reserved
+		known, ret, pk, pan := candidate(e.Snapshot)
+		if known {
+			if !pk || ret == pan {
+				return c, "checkpoint_candidate_channels"
+			}
+			base := want.Candidate.Reserved - 1
+			// Existing completed candidates may include recovered panics.
+			priorReturned := c.Counts.Candidate.Returned
+			priorPanicked := c.Counts.Candidate.Panicked
+			if priorReturned+priorPanicked == base {
+				if ret {
+					priorReturned++
+				} else {
+					priorPanicked++
+				}
+			}
+			want.Candidate.Returned = priorReturned
+			want.Candidate.Panicked = priorPanicked
+		} else if pk {
+			return c, "checkpoint_candidate_channels"
+		}
+		if e.Stage == "after_candidate" {
+			if c.Depth != 0 || e.Step != -1 || !known || !returnedChannels(e.Snapshot, ret) {
+				return c, "checkpoint_terminal"
+			}
+			want.Completed++
+		} else {
+			name, before, ok := operationName(e.Dispatch, e.Stage)
+			if !ok || !stepValid(e, name, before) {
+				return c, "checkpoint_operation"
+			}
+			if (name == "getter" || name == "error_is") && (!known || !ret) {
+				return c, "checkpoint_aux_before_return"
+			}
+			if before {
+				if c.Depth != 0 && !(c.Depth == 1 && name == "competition" && (c.Stack[0].Name == "create" || c.Stack[0].Name == "open_file")) || c.Depth >= 2 {
+					return c, "checkpoint_nested_operation"
+				}
+				c.Stack[c.Depth] = operation{name, e.Step}
+				c.Depth++
+				if name == "getter" {
+					want.Getter.Reserved++
+				}
+				if name == "error_is" {
+					want.Identity.Reserved++
+				}
+				if name == "source_method" {
+					want.Source.Reserved++
+				}
+			} else {
+				if c.Depth == 0 || c.Stack[c.Depth-1] != (operation{name, e.Step}) {
+					return c, "checkpoint_after_without_before"
+				}
+				c.Depth--
+				if name == "getter" || name == "error_is" {
+					k, r := auxiliaryReturn(e, name)
+					if !k {
+						return c, "checkpoint_aux_channels"
+					}
+					b := &want.Getter
+					if name == "error_is" {
+						b = &want.Identity
+					}
+					b.Dispatched++
+					if r {
+						b.Returned++
+					} else {
+						b.Panicked++
+					}
+				}
+				if name == "source_method" {
+					x := e.Snapshot.INI.Sources[e.Step]
+					if !x.ReturnedKnown || !x.Panic.Known || x.Returned == x.Panic.Present {
+						return c, "checkpoint_source_channels"
+					}
+					want.Source.Dispatched++
+					if x.Returned {
+						want.Source.Returned++
+					} else {
+						want.Source.Panicked++
+					}
+				}
+			}
+		}
+	}
+	if want != e.Cumulative {
+		return c, "checkpoint_counters"
+	}
+	c.Counts = e.Cumulative
+	c.Current = clone(e.Snapshot)
+	if e.Stage == "after_candidate" {
+		c.Rows[c.Next] = clone(e.Snapshot)
+		c.Next++
+		c.Phase = 0
+		c.Current = batch.Snapshot{}
+	}
+	return c, ""
+}
+func (c cursor) matches(r batch.Result) bool {
+	if c.Next != 42 || c.Phase != 0 || c.Depth != 0 || c.Counts.Stopped || r.Schema != batch.Schema || r.N != 42 || r.Counters != c.Counts || r.Failure != "" || r.InnerOriginalCalls != nil || r.StartupCalls != nil || r.Qualified || r.ParentCreated != 0 || r.LabelsCreated != 0 {
+		return false
+	}
+	return reflect.DeepEqual(r.Rows, c.Rows)
+}

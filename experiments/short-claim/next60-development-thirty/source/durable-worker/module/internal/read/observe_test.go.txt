@@ -1,0 +1,140 @@
+package pure
+
+import (
+	"bytes"
+	"errors"
+	"io"
+	"testing"
+)
+
+func ack(Event) error { return nil }
+
+// This callback is deliberately a stdlib synthetic and is not the baseline.
+// The native original.ReadFile binding remains uncompiled and unexecuted.
+func syntheticWholeFile(fs *FakeFS, n string, _ int64) ([]byte, error) {
+	f, e := fs.Open(n)
+	if e != nil {
+		return nil, e
+	}
+	defer f.Close()
+	return io.ReadAll(f)
+}
+func TestReferenceFiniteOwnedFile(t *testing.T) {
+	c := OwnedCandidates(syntheticWholeFile)
+	for i, f := range Fixtures() {
+		t.Run(string(rune('A'+i)), func(t *testing.T) {
+			o, k, e := Observe(f, 1, c[1], Counters{}, ack)
+			if e != nil || k.Returned != 1 || k.Panicked != 0 || k.Completed != 1 || o.Trace.Unsupported {
+				t.Fatal("callback completion")
+			}
+			if o.InnerOriginalCalls != nil || o.StartupCalls != nil || o.Truth != nil || o.Role != nil || o.Weight != nil || o.Group != nil {
+				t.Fatal("authority or unmeasured counter")
+			}
+			if o.Trace.Stat != 0 {
+				t.Fatal("Stat used as bound")
+			}
+			switch i {
+			case 0:
+				if !o.Data.Known || o.Data.Nil || !bytes.Equal(o.Data.Data[:o.Data.N], []byte("abcd")) || !o.Error.Nil || o.Trace.Close != 1 {
+					t.Fatal("exact-limit")
+				}
+			case 1, 2:
+				if !o.Data.Known || !o.Data.Nil || o.Error.Kind != "size_limit" || o.Trace.BytesDelivered != 5 || o.Trace.Close != 1 {
+					t.Fatal("observable fifth byte")
+				}
+			case 3:
+				if !o.Error.ReadCauseIdentityKnown || !o.Error.ReadCauseIdentity || o.Trace.BytesDelivered != 2 || o.Trace.Read != 2 || o.Trace.Close != 1 {
+					t.Fatal("read cause")
+				}
+			case 4:
+				if o.Error.Kind != "invalid_limit" || o.Trace.Open != 0 || o.Trace.Close != 0 {
+					t.Fatal("pre-acquisition limit")
+				}
+			}
+		})
+	}
+}
+func TestNegativeHasNoOverflowProbe(t *testing.T) {
+	c := OwnedCandidates(syntheticWholeFile)
+	for _, i := range []int{1, 2} {
+		t.Run(string(rune('A'+i)), func(t *testing.T) {
+			o, _, e := Observe(Fixtures()[i], 2, c[2], Counters{}, ack)
+			if e != nil || !o.Error.Nil || o.Data.Nil || o.Data.N != 4 || o.Trace.BytesDelivered != 4 || o.Trace.Read != 1 || o.Trace.Close != 1 || o.Trace.Stat != 0 {
+				t.Fatal("silent truncate branch")
+			}
+		})
+	}
+}
+func TestImmutableSnapshotBeforeReadAndFailStop(t *testing.T) {
+	var events []Event
+	c := OwnedCandidates(syntheticWholeFile)
+	r := Execute(c, func(e Event) error {
+		events = append(events, e)
+		if e.Stage == "before_read" {
+			return errors.New("owned failure")
+		}
+		return nil
+	})
+	if r.N != 1 || !r.Counters.Stopped || r.Counters.Reserved != 1 || r.Counters.Dispatched != 1 || r.Rows[0].Trace.Read != 0 || r.Rows[0].Trace.Close != 0 {
+		t.Fatal("post-failure dispatch")
+	}
+	if len(events) == 0 || events[len(events)-1].Snapshot.Trace.Read != 0 {
+		t.Fatal("pre-call snapshot")
+	}
+	copyBefore := events[0]
+	events[len(events)-1].Snapshot.Trace.Calls[0].Method = "corrupt caller copy"
+	if copyBefore.Snapshot.Trace.Calls[0].Method != "" || r.Rows[0].Trace.Calls[0].Method != "open" {
+		t.Fatal("snapshot alias")
+	}
+}
+func TestAfterCandidateContainsReturnedState(t *testing.T) {
+	var final Event
+	c := OwnedCandidates(syntheticWholeFile)
+	_, _, e := Observe(Fixtures()[1], 1, c[1], Counters{Reserved: 2, Dispatched: 2, Returned: 2, Completed: 2}, func(ev Event) error {
+		if ev.Stage == "after_candidate" {
+			final = ev
+		}
+		return nil
+	})
+	if e != nil || !final.Snapshot.Data.Known || !final.Snapshot.Data.Nil || final.Snapshot.Error.Kind != "size_limit" || final.Local.Completed != 1 || final.Cumulative.Completed != 3 || final.Snapshot.Trace.BytesDelivered != 5 {
+		t.Fatal("returned snapshot/counters")
+	}
+}
+
+type dangerousPanic struct{ calls *int }
+
+func (p dangerousPanic) Error() string { *p.calls++; return "must not call" }
+func TestPanicNoErrorFormatterCalls(t *testing.T) {
+	n := 0
+	o, c, e := Observe(Fixtures()[0], 0, func(*FakeFS, string, int64) ([]byte, error) { panic(dangerousPanic{&n}) }, Counters{}, ack)
+	if e != nil || !o.Panic || o.CandidateReturned || o.Data.Known || o.Error.Known || o.PanicTextKnown || n != 0 || c.Panicked != 1 || c.Completed != 1 {
+		t.Fatal("panic channel")
+	}
+}
+func TestNoStateReusedAcrossDispatch(t *testing.T) {
+	c := OwnedCandidates(syntheticWholeFile)
+	r := Execute(c, ack)
+	if r.N != 15 || r.Counters.Completed != 15 || r.Counters.Panicked != 0 || r.Counters.Stopped || r.Qualified {
+		t.Fatal("synthetic schedule")
+	}
+	for i, o := range r.Rows {
+		if o.Fixture != i/3 || o.Candidate != i%3 {
+			t.Fatal("order")
+		}
+		if o.Fixture == 1 && o.Candidate == 1 && o.Trace.BytesDelivered != 5 {
+			t.Fatal("fresh position")
+		}
+	}
+}
+func TestInvalidFixtureAndCheckpointPanic(t *testing.T) {
+	f := Fixtures()[0]
+	f.Contents[0] = 'x'
+	_, c, e := Observe(f, 1, OwnedCandidates(syntheticWholeFile)[1], Counters{}, ack)
+	if e != ErrInput || c.Dispatched != 0 {
+		t.Fatal("changed realization")
+	}
+	_, c, e = Observe(Fixtures()[0], 1, OwnedCandidates(syntheticWholeFile)[1], Counters{}, func(Event) error { panic("callback") })
+	if e != ErrCheckpoint || c.Dispatched != 0 || !c.Stopped {
+		t.Fatal("callback panic fail-stop")
+	}
+}

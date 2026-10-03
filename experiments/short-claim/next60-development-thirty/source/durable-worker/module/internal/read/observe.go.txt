@@ -1,0 +1,76 @@
+package pure
+
+import "reflect"
+
+// Observe is an in-memory source adapter. Checkpoint success means only that
+// the caller callback returned; a future writer must implement durable fsync.
+// No writer, worker, executable, or outside controller is implemented here.
+func Observe(f Fixture, candidate int, fn Candidate, base Counters, checkpoint Checkpoint) (Observation, Counters, error) {
+	o := Observation{Fixture: f.Index, Candidate: candidate}
+	if !validFixture(f) || candidate < 0 || candidate >= CandidateCount || fn == nil {
+		return o, Counters{Stopped: true}, ErrInput
+	}
+	s := &FakeFS{fixture: f, o: o, c: Counters{Reserved: 1}, cumulative: base, checkpoint: checkpoint}
+	if e := s.emit("before_candidate", -1); e != nil {
+		return s.o, s.c, e
+	}
+	s.c.Dispatched = 1
+	var b []byte
+	var err error
+	pan, p := capture(func() { b, err = fn(s, "data/item", f.Limit) })
+	s.o.CandidateReturnedKnown = true
+	s.o.CandidateReturned = !pan
+	s.o.PanicKnown = true
+	s.o.Panic = pan
+	if pan {
+		s.c.Panicked = 1
+		if t := reflect.TypeOf(p); t != nil {
+			s.o.PanicTypeKnown = true
+			s.o.PanicType = t.String()
+		}
+		// Deliberately no panic Error/String/Formatter calls, primitive text or
+		// returned channel invention; return data and error stay unknown.
+	} else {
+		s.c.Returned = 1
+		s.o.Error = inspect(err)
+		if len(b) > MaxFileBytes {
+			s.failure = ErrBounds
+			s.c.Stopped = true
+		} else {
+			s.o.Data = Bytes{Known: true, Nil: b == nil, N: len(b)}
+			copy(s.o.Data.Data[:], b)
+		}
+	}
+	s.c.Completed = 1 // Captured top candidate boundary, including a recovered panic.
+	if s.o.Trace.Unsupported {
+		s.failure = ErrUnsupported
+		s.c.Stopped = true
+	}
+	if s.failure != nil {
+		return s.o, s.c, s.failure
+	}
+	if e := s.emit("after_candidate", -1); e != nil {
+		return s.o, s.c, e
+	}
+	return s.o, s.c, nil
+}
+
+// Execute fixes fixture-major then candidate-major order. A sticky checkpoint
+// failure stops immediately, without favorable retry or later dispatch.
+func Execute(c Candidates, checkpoint Checkpoint) Result {
+	var r Result
+	for _, f := range Fixtures() {
+		for i, fn := range c {
+			o, n, e := Observe(f, i, fn, r.Counters, checkpoint)
+			r.Rows[r.N] = o
+			r.N++
+			r.Counters = sum(r.Counters, n)
+			if e != nil {
+				r.Counters.Stopped = true
+				r.Failure = "readfilelimit_adapter_stopped"
+				return r
+			}
+		}
+	}
+	return r
+}

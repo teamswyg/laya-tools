@@ -1,0 +1,60 @@
+package pure
+
+import (
+	"io"
+)
+
+// ReadFileLimit is the owned algorithm used by the inert original-Fs ABI
+// wrapper. max is checked before acquisition. Stat is never consulted. The
+// candidate returns nil data on a detecting byte and retains read-error causes.
+// Close errors are ignored like the original deferred Close path; all five
+// sealed fake Close returns are nil, so that broader policy has no finite proof.
+func ReadFileLimit(open Opener, name string, max int64) ([]byte, error) {
+	return read(open, name, max, true)
+}
+
+// TruncateSuccess is exactly the chosen negative branch, with the same invalid
+// limit, read error and single-Close rules but no overflow probe.
+func TruncateSuccess(open Opener, name string, max int64) ([]byte, error) {
+	return read(open, name, max, false)
+}
+func read(open Opener, name string, max int64, probe bool) ([]byte, error) {
+	if max < 0 || (probe && max == int64(^uint64(0)>>1)) {
+		return nil, &InvalidLimitError{}
+	}
+	if open == nil {
+		return nil, ErrInput
+	}
+	f, e := open(name)
+	if e != nil {
+		return nil, e
+	}
+	if f == nil {
+		return nil, ErrUnsupported
+	}
+	defer f.Close()
+	bound := max
+	if probe {
+		bound++
+	}
+	// LimitReader constrains actual delivered bytes; ReadAll's allocator growth
+	// is not asserted to be exactly bound. It is independent of Stat. Very large
+	// maxima need caller resource admission and are outside these five vectors.
+	b, e := io.ReadAll(io.LimitReader(f, bound))
+	if e != nil {
+		return b, e
+	}
+	if probe && int64(len(b)) > max {
+		return nil, &SizeLimitError{}
+	}
+	return b, nil
+}
+
+// OwnedCandidates needs a closed original ReadFile binding supplied by Root.
+// The fake tests use a named synthetic callback, never claim baseline fidelity.
+func OwnedCandidates(baseline Candidate) Candidates {
+	return Candidates{baseline,
+		func(fs *FakeFS, n string, m int64) ([]byte, error) { return ReadFileLimit(fs.Open, n, m) },
+		func(fs *FakeFS, n string, m int64) ([]byte, error) { return TruncateSuccess(fs.Open, n, m) },
+	}
+}

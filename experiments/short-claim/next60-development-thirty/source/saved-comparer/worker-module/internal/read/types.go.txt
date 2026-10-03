@@ -1,0 +1,194 @@
+// Project-authored source preparation. This package imports no upstream code.
+package pure
+
+import (
+	"errors"
+	"io"
+	"os"
+	"reflect"
+)
+
+const (
+	MaxFileBytes   = 5 // Corrects the historical common source/file cap of four.
+	MaxCalls       = 16
+	FixtureCount   = 5
+	CandidateCount = 3
+)
+
+var (
+	ErrInput       = errors.New("readfilelimit_input")
+	ErrBounds      = errors.New("readfilelimit_bounds")
+	ErrUnsupported = errors.New("readfilelimit_unsupported")
+	ErrCheckpoint  = errors.New("readfilelimit_checkpoint")
+	ErrReadCause   = errors.New("injected_reader_error")
+)
+
+type InvalidLimitError struct{}
+
+func (*InvalidLimitError) Error() string { return "invalid_limit" }
+
+type SizeLimitError struct{}
+
+func (*SizeLimitError) Error() string { return "size_limit" }
+
+// Nil and nonnil empty bytes have separate representations. Array value copies
+// make checkpoint snapshots independent of the source and return buffers.
+type Bytes struct {
+	Known bool
+	Nil   bool
+	N     int
+	Data  [MaxFileBytes]byte
+}
+type ErrorView struct {
+	Known                  bool
+	Nil                    bool
+	TypeKnown              bool
+	Type                   string
+	KindKnown              bool
+	Kind                   string
+	ReadCauseIdentityKnown bool
+	ReadCauseIdentity      bool
+}
+
+func inspect(e error) ErrorView {
+	v := ErrorView{Known: true, Nil: e == nil, ReadCauseIdentityKnown: true, ReadCauseIdentity: e == ErrReadCause}
+	if e == nil {
+		v.KindKnown = true
+		v.Kind = "nil"
+		return v
+	}
+	v.TypeKnown = true
+	v.Type = reflect.TypeOf(e).String()
+	switch e.(type) {
+	case *InvalidLimitError:
+		v.KindKnown = true
+		v.Kind = "invalid_limit"
+	case *SizeLimitError:
+		v.KindKnown = true
+		v.Kind = "size_limit"
+	default:
+		if e == ErrReadCause {
+			v.KindKnown = true
+			v.Kind = "injected_reader_error"
+		}
+	}
+	return v // No Error, String, Formatter, Is, or Unwrap callback is invoked.
+}
+
+type Call struct {
+	Method         string
+	ReturnedKnown  bool
+	Returned       bool
+	NKnown         bool
+	N              int
+	RequestedBytes int
+	Data           Bytes
+	Error          ErrorView
+}
+type Trace struct {
+	N              int
+	Calls          [MaxCalls]Call
+	Open           int
+	Read           int
+	Stat           int
+	Close          int
+	BytesDelivered int
+	Unsupported    bool
+}
+type Observation struct {
+	Fixture                int
+	Candidate              int
+	CandidateReturnedKnown bool
+	CandidateReturned      bool
+	PanicKnown             bool
+	Panic                  bool
+	PanicTypeKnown         bool
+	PanicType              string
+	PanicTextKnown         bool
+	Data                   Bytes
+	Error                  ErrorView
+	Trace                  Trace
+	InnerOriginalCalls     *int
+	StartupCalls           *int
+	Truth                  *string
+	Role                   *string
+	Weight                 *float64
+	Group                  *int
+}
+type Counters struct {
+	Reserved   int
+	Dispatched int
+	Returned   int
+	Panicked   int
+	Completed  int
+	Stopped    bool
+}
+type Event struct {
+	Ordinal    int
+	Fixture    int
+	Candidate  int
+	Stage      string
+	CallIndex  int
+	Snapshot   Observation
+	Local      Counters
+	Cumulative Counters
+}
+type Checkpoint func(Event) error
+
+type Fixture struct {
+	Index     int
+	Limit     int64
+	Contents  [MaxFileBytes]byte
+	ContentN  int
+	StatSize  int64
+	FailAfter int // -1 means EOF after all data; two is the fixed error vector.
+}
+type Reader interface {
+	io.Reader
+	io.Closer
+}
+type Opener func(string) (Reader, error)
+type Candidate func(*FakeFS, string, int64) ([]byte, error)
+type Candidates [CandidateCount]Candidate
+type Result struct {
+	Rows      [FixtureCount * CandidateCount]Observation
+	N         int
+	Counters  Counters
+	Failure   string
+	Qualified bool
+}
+
+type FakeFS struct {
+	fixture    Fixture
+	position   int
+	closed     bool
+	o          Observation
+	c          Counters
+	cumulative Counters
+	checkpoint Checkpoint
+	failure    error
+}
+type File struct{ fs *FakeFS }
+type fileInfo struct{ size int64 }
+
+func (f fileInfo) Name() string      { return "item" }
+func (f fileInfo) Size() int64       { return f.size }
+func (f fileInfo) Mode() os.FileMode { return 0444 }
+func (f fileInfo) IsDir() bool       { return false }
+func (f fileInfo) Sys() any          { return nil }
+
+func sum(a, b Counters) Counters {
+	return Counters{a.Reserved + b.Reserved, a.Dispatched + b.Dispatched, a.Returned + b.Returned, a.Panicked + b.Panicked, a.Completed + b.Completed, a.Stopped || b.Stopped}
+}
+func capture(fn func()) (pan bool, p any) {
+	returned := false
+	defer func() {
+		if !returned {
+			pan = true
+			p = recover()
+		}
+	}()
+	fn()
+	returned = true
+	return false, nil
+}

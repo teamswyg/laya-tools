@@ -1,0 +1,118 @@
+package pure
+
+import (
+	"errors"
+	"io/fs"
+)
+
+// Probe only requested frozen identity predicates. Method formatting is never
+// used. Is calls are adapter auxiliary boundaries, not hidden original calls.
+func (f *FakeFS) probe(e error) error {
+	var targets [2]error
+	n := 0
+	switch f.fixture.Index {
+	case 0, 2:
+		targets[0] = fs.ErrExist
+		n = 1
+	case 3:
+		targets[0] = ErrCopyCause
+		targets[1] = ErrCloseCause
+		n = 2
+	}
+	for i := 0; i < n; i++ {
+		f.c.IsReserved++
+		if x := f.emit("before_error_is", i); x != nil {
+			return x
+		}
+		f.c.IsDispatched++
+		v := false
+		pan, _ := capture(func() { v = errors.Is(e, targets[i]) })
+		if pan {
+			f.c.IsPanicked++
+			f.c.Stopped = true
+			f.failure = ErrUnsupported
+			return f.failure
+		}
+		f.c.IsReturned++
+		switch f.fixture.Index {
+		case 0, 2:
+			f.o.Error.ExistKnown = true
+			f.o.Error.Exist = v
+		case 3:
+			if i == 0 {
+				f.o.Error.CopyKnown = true
+				f.o.Error.Copy = v
+			} else {
+				f.o.Error.CloseKnown = true
+				f.o.Error.Close = v
+			}
+		}
+		if x := f.emit("after_error_is", i); x != nil {
+			return x
+		}
+	}
+	return nil
+}
+func Observe(f Fixture, candidate int, fn Candidate, base Counters, checkpoint Checkpoint) (Observation, Counters, error) {
+	o := Observation{Fixture: f.Index, Candidate: candidate}
+	if !validFixture(f) || candidate < 0 || candidate >= CandidateCount || fn == nil {
+		return o, Counters{Stopped: true}, ErrInput
+	}
+	s := &FakeFS{fixture: f, o: o, c: Counters{Reserved: 1}, base: base, checkpoint: checkpoint, exists: f.InitialExists, contents: bytesOf(nil)}
+	if f.InitialExists {
+		s.contents = bytesOf([]byte("old"))
+	}
+	s.o.InitialContents = s.contents
+	if e := s.emit("before_candidate", -1); e != nil {
+		return s.o, s.c, e
+	}
+	s.c.Dispatched = 1
+	var e error
+	pan, p := capture(func() { e = fn(s, "data/item", &Source{fs: s}) })
+	s.o.ReturnedKnown = true
+	s.o.Returned = !pan
+	s.o.PanicKnown = true
+	s.o.Panic = pan
+	if pan {
+		s.c.Panicked = 1
+		s.o.PanicType, s.o.PanicTypeKnown = panicType(p)
+	} else {
+		s.c.Returned = 1
+		s.o.Error = presence(e)
+	}
+	s.syncView()
+	if s.o.Trace.Unsupported && s.failure == nil {
+		s.failure = ErrUnsupported
+		s.c.Stopped = true
+	}
+	if s.failure != nil {
+		return s.o, s.c, s.failure
+	}
+	if !pan {
+		if x := s.probe(e); x != nil {
+			return s.o, s.c, x
+		}
+	}
+	s.c.Completed = 1 // A captured candidate panic is retained, not false/error=nil.
+	if x := s.emit("after_candidate", -1); x != nil {
+		return s.o, s.c, x
+	}
+	return s.o, s.c, nil
+}
+func Execute(c Candidates, checkpoint Checkpoint) Result {
+	var r Result
+	for _, f := range Fixtures() {
+		for i, fn := range c {
+			o, k, e := Observe(f, i, fn, r.Counters, checkpoint)
+			r.Rows[r.N] = o
+			r.N++
+			r.Counters = sum(r.Counters, k)
+			if e != nil {
+				r.Counters.Stopped = true
+				r.Failure = "safewrite_adapter_stopped"
+				return r
+			}
+		}
+	}
+	return r
+}

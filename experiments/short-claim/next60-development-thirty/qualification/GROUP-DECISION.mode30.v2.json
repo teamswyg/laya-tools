@@ -1,0 +1,224 @@
+{
+  "schema": "riido-next60-Root-whole-family-group-decision-v1",
+  "state": "Root_adopted",
+  "authority": "Root adopts a scoped mode30 successor after all42 saved observations and111 predicates were read. Existing79/80/81 whole families, old roles and watch edges preserved; no additional group allocation, training-readiness or rights certification.",
+  "old_roles_unchanged": true,
+  "original_registry_groups": 23,
+  "original_scoped_max": 78,
+  "new_scoped_max": 81,
+  "scope": "Verified original76 + Root append75/76 + native2 groups77/78 + current23 lineage only. Not a complete global registry or source-independence certificate.",
+  "registry_pin": {
+    "bytes": 37421,
+    "sha256": "deca202ac5d457d67781257e8cab980979fc55e8fda32a23954f1caf6ff8b8b2"
+  },
+  "proposal_pin": {
+    "bytes": 8511,
+    "sha256": "27c32403cb0c6b91b53f2a93e6418e6b498bab152fa3163813ff0f46cf682688"
+  },
+  "helper_screen_pin": {
+    "bytes": 14489,
+    "sha256": "1539160673f24a99d4008de2df7dbe000c90afa73a543ed45f8104dbebb8ec76"
+  },
+  "input_metadata_pin": {
+    "bytes": 9577,
+    "sha256": "4cd3eb1d1704d6d47b81479c93aea999682faede82cb94d164b989972bc6a143"
+  },
+  "preparation_handoff_pin": {
+    "bytes": 4243,
+    "sha256": "4aa15c82132358f28e320d16ee020d22b05ea7affd64e6f4efd8eb661cc91f3f"
+  },
+  "current23_pin": {
+    "bytes": 31493,
+    "sha256": "39edb1bb60e88d56cb2fec271b511a5ce09a0ff8bd33ce21d0dda7defb3ce362"
+  },
+  "subbody_qualification_pin": {
+    "bytes": 11174,
+    "sha256": "bf6091b7bd2efb71c3500928de7fbfae1a881b9d0bc4a169e986dadb5e850f45"
+  },
+  "ini_two_qualification_pin": {
+    "bytes": 12642,
+    "sha256": "af30996775580d777fa756f9308818e3ce3a3ad027ee08129f7a0c50e50b4969"
+  },
+  "families": [
+    {
+      "family": "upstream53-afero",
+      "repo": "spf13/afero",
+      "source_revision": "eb6a92826ea568e3f40ab91fcbda8d2b38b61d3e",
+      "whole_group": 79,
+      "role": "development_train",
+      "qualified_ids": [
+        "next60-afero-sub-validation",
+        "next60-afero-bounded-read",
+        "next60-afero-exclusive-write"
+      ],
+      "reserved_descendants": [],
+      "whole_helpers": [
+        "Fs/File",
+        "IOFS.Sub",
+        "FromIOFS",
+        "BasePathFs/RealPath",
+        "ioutil ReadFile/SafeWriteReader",
+        "same29 original assets,aliases,forks"
+      ],
+      "dependencies": [
+        "golang.org/x/text@fafe4a06967e06550e69ee42787d9902845d2a3f:runes,transform,unicode/norm"
+      ],
+      "alias_policy": "Entire repository, versions, forks, negative variants and actual reused helpers remain connected. Pending descendants require separate finite qualification."
+    },
+    {
+      "family": "upstream53-retryablehttp",
+      "repo": "hashicorp/go-retryablehttp",
+      "source_revision": "fd004584a46724fae09e2f21d7c382e15c893f42",
+      "whole_group": 80,
+      "role": "development_train",
+      "qualified_ids": [
+        "go53-retryhttp-request-body-snapshot"
+      ],
+      "reserved_descendants": [
+        "next60-retryhttp-deadline HOLD outside target30"
+      ],
+      "whole_helpers": [
+        "NewRequest/getBodyReader/SetBody/BodyBytes",
+        "ReaderFunc/constructor ownership",
+        "policy/backoff/certificate aliases",
+        "cleanhttp active closure"
+      ],
+      "dependencies": [
+        "hashicorp/go-cleanhttp@6d9e2ac5d828e5f8594b97f88c4bde14a67bb6d2"
+      ],
+      "alias_policy": "Entire repository, versions, forks, negative variants and actual reused helpers remain connected. Pending descendants require separate finite qualification."
+    },
+    {
+      "family": "upstream53-ini",
+      "repo": "go-ini/ini",
+      "source_revision": "e2db55b0e088fa4ee0c128aa4ade263cdc1d7f08",
+      "whole_group": 81,
+      "role": "development_train",
+      "qualified_ids": [
+        "next60-ini-quoted-comments",
+        "next60-ini-delete-index",
+        "next60-ini-byte-budget"
+      ],
+      "reserved_descendants": [],
+      "whole_helpers": [
+        "LoadSources/LoadOptions/parserOptions/readValue",
+        "File/Section/Key/public getters",
+        "DeleteSectionWithIndex",
+        "same13 original assets,default/opt-in branches,aliases,forks"
+      ],
+      "dependencies": [],
+      "alias_policy": "Entire repository, versions, forks, negative variants and actual reused helpers remain connected. Pending descendants require separate finite qualification."
+    }
+  ],
+  "materialization_admitted_request_ids": [
+    "next60-afero-sub-validation",
+    "go53-retryhttp-request-body-snapshot",
+    "next60-ini-quoted-comments",
+    "next60-ini-delete-index",
+    "next60-ini-byte-budget",
+    "next60-afero-bounded-read",
+    "next60-afero-exclusive-write"
+  ],
+  "qualified_requests_current": 30,
+  "source_group_count_for_qualified27": 6,
+  "groups_allocated": 3,
+  "labels_roles_weights_reassigned": 0,
+  "watch_only": [
+    {
+      "existing_group": 56,
+      "existing_role": "development_calibration",
+      "new_target": "body and snapshot ownership",
+      "old_metadata_node": "core:ownership-graph/prototype:owned-snapshot",
+      "state": "watch_only_no_union",
+      "missing_evidence": "actual shared candidate/helper/template"
+    },
+    {
+      "existing_group": 12,
+      "existing_role": "development_validation",
+      "new_target": "INI total budget",
+      "old_metadata_node": "core:sum-before-comparison/prototype:quota-total",
+      "state": "watch_only_no_union",
+      "missing_evidence": "shared semantic sum-budget implementation/template"
+    },
+    {
+      "existing_group": 64,
+      "existing_role": "development_train",
+      "new_target": "INI quoted comments",
+      "old_metadata_node": "core:lexical-state/prototype:quoted-delimiters",
+      "state": "watch_only_no_union",
+      "missing_evidence": "actual lexical helper/template reuse; old unknowns stay unknown"
+    },
+    {
+      "existing_group": 20,
+      "existing_role": "development_train",
+      "new_target": "INI deletion",
+      "old_metadata_node": "core:single-removal/prototype:remove-first",
+      "state": "watch_only_no_union",
+      "missing_evidence": "same mutation helper/template"
+    },
+    {
+      "existing_group": 48,
+      "existing_role": "development_train",
+      "new_target": "SafeWrite / commit",
+      "old_metadata_node": "core:staged-commit/prototype:atomic-commit",
+      "state": "watch_only_no_union",
+      "missing_evidence": "actual reused commit template; baseline already joins Close errors"
+    },
+    {
+      "existing_group": 52,
+      "existing_role": "development_train",
+      "new_target": "INI/read/write causes",
+      "old_metadata_node": "core:error-cause-identity/prototype:error-identity",
+      "state": "watch_only_no_union",
+      "missing_evidence": "same sentinel/helper source rather than common errors.Is API"
+    },
+    {
+      "existing_group": 60,
+      "existing_role": "development_validation",
+      "new_target": "held deadline outside30",
+      "old_metadata_node": "core:lifecycle-events/prototype:cancellation-lifecycle",
+      "state": "watch_only_no_union",
+      "missing_evidence": "concrete lifecycle helper/template"
+    },
+    {
+      "existing_group": 74,
+      "existing_role": "development_train",
+      "new_target": "copied Go ancestry in Afero/INI/doublestar",
+      "old_metadata_node": "whole-upstream-package:doublestar",
+      "state": "watch_only_no_union",
+      "missing_evidence": "exact copied release/file/span/hash, not Go Authors notice alone"
+    },
+    {
+      "existing_group": 77,
+      "existing_role": "development_train",
+      "new_target": "Afero versus Cobra/pflag",
+      "old_metadata_node": "whole source component77",
+      "state": "watch_only_no_union",
+      "missing_evidence": "real dependency/source/helper/fork edge, not spf13 author/org"
+    },
+    {
+      "existing_group": null,
+      "new_target": "x/text or cleanhttp versus prior components",
+      "state": "proven_dependency_with_cross_registered_collision_unproved",
+      "missing_evidence": "A registered exact helper/revision/symbol/candidate-behavior edge; sharing dependency alone does not merge every consumer"
+    }
+  ],
+  "global_no_collision_proved": false,
+  "primary53_full_metadata_recovery_pending": true,
+  "on_new_proven_cross_role_edge": "Preserve historical roles and stop affected Fit; never split or move components to improve scores.",
+  "new_model_or_Fit_or_protected_eval": 0,
+  "independent_decision_metadata_review_pending": true,
+  "limits": "Development-only whole-family allocation. Source asset matching is metadata evidence; copied fragments or unseen dependencies remain unresolved. No training-rights or generalization clearance.",
+  "previous_mode27_decision_pin": {
+    "bytes": 8532,
+    "sha256": "0f40a95368cfaf19463eb02332c67201ba9f0666b435b8ac7f3e65002bcaa2f8"
+  },
+  "remaining_three_qualification_pin": {
+    "bytes": 14607,
+    "sha256": "eb3aec8457a6cedcb75aa580ffd91cb3ab7e66cb764b882ea77a06ccfa2e1ded"
+  },
+  "local_materialized_requests_current": 27,
+  "HF_materialized_requests_current": 23,
+  "new_data30_materialization_pending": true,
+  "source_group_count_for_qualified30": 6
+}

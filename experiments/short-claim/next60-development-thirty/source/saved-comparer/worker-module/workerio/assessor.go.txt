@@ -1,0 +1,327 @@
+package workerio
+
+// This outside-only adapter reuses the copied worker's cursor. It establishes
+// serialization/lifecycle agreement, never independent semantic satisfaction.
+import (
+	"bytes"
+	"encoding/json"
+	"io"
+	"reflect"
+	"riido.local/remainingthreeprep/batch"
+	"strings"
+)
+
+func exactShape(raw json.RawMessage, t reflect.Type) bool {
+	if bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
+		return t.Kind() == reflect.Pointer || t.Kind() == reflect.Slice
+	}
+	for t.Kind() == reflect.Pointer {
+		t = t.Elem()
+	}
+	switch t.Kind() {
+	case reflect.Struct:
+		var m map[string]json.RawMessage
+		if json.Unmarshal(raw, &m) != nil {
+			return false
+		}
+		fields := map[string]reflect.Type{}
+		for i := 0; i < t.NumField(); i++ {
+			f := t.Field(i)
+			if f.PkgPath != "" {
+				continue
+			}
+			tag := strings.Split(f.Tag.Get("json"), ",")[0]
+			if tag == "-" {
+				continue
+			}
+			if tag == "" {
+				tag = f.Name
+			}
+			fields[tag] = f.Type
+		}
+		for k, v := range m {
+			ft, ok := fields[k]
+			if !ok || !exactShape(v, ft) {
+				return false
+			}
+		}
+		return true // Missing emitted fields are rejected by canonical equality below.
+	case reflect.Array, reflect.Slice:
+		var a []json.RawMessage
+		if json.Unmarshal(raw, &a) != nil {
+			return false
+		}
+		if t.Kind() == reflect.Array && len(a) != t.Len() {
+			return false
+		}
+		for _, v := range a {
+			if !exactShape(v, t.Elem()) {
+				return false
+			}
+		}
+		return true
+	default:
+		return true
+	}
+}
+func StrictDecode(raw []byte, out any, canonical bool) bool {
+	t := reflect.TypeOf(out)
+	if t == nil || t.Kind() != reflect.Pointer || !exactShape(raw, t.Elem()) || !decode(raw, out) {
+		return false
+	}
+	if canonical {
+		b, e := json.Marshal(out)
+		return e == nil && bytes.Equal(raw, append(b, '\n'))
+	}
+	return true
+}
+func ReadPlan(raw []byte, sha, attempt string) (Plan, string) {
+	var p Plan
+	if len(raw) > MaxMetadata || SHA(raw) != sha || !StrictDecode(raw, &p, false) {
+		return p, "plan_decode_pin"
+	}
+	if p.Schema != PlanSchema || !p.Frozen || len(p.RootReceipts) != 4 || p.Parents != 3 || p.Inputs != 14 || p.Dispatches != 42 || p.MaxFrames != MaxFrames || p.MaxFrame != MaxFrame || p.MaxJournal != MaxJournal || p.MaxResult != MaxResult || p.CPU != 1 || p.SoftHeap != 268435456 || p.OutsideWallSeconds != 60 || p.LabelsAssigned || p.Qualified {
+		return p, "plan_contract"
+	}
+	return p, preflightPath(p, attempt)
+}
+
+// Actual content verification remains the exact worker preflight, preceded by
+// this adapter's exact-case plan/manifest key checks. No package init is native.
+func preflightPath(p Plan, attempt string) string {
+	if !validPin(p.Manifest, MaxMetadata) || !validPin(p.Fixture, MaxMetadata) || !validSHA(p.Fixture.SHA) {
+		return "plan_pins"
+	}
+	mb, ok := readPin(p.SourceRoot, p.Manifest, MaxMetadata)
+	var m Manifest
+	if !ok || !StrictDecode(mb, &m, false) {
+		return "manifest_shape"
+	}
+	return ""
+}
+func VerifyWorkerInputs(path, sha, attempt string) string {
+	return preflight(path, Config{PlanSHA: sha, Attempt: attempt})
+}
+
+type JournalAssessment struct {
+	Frames    int            `json:"physical_valid_frames"`
+	Bytes     int            `json:"physical_valid_prefix_bytes"`
+	SHA       string         `json:"last_physical_valid_frame_sha256"`
+	Completed int            `json:"physical_terminal_rows"`
+	Counters  batch.Counters `json:"physical_prefix_counters_not_Sync_ACK"`
+	Tail      string         `json:"tail"`
+	state     cursor
+	last      *batch.Snapshot
+}
+
+func ReadJournal(r io.Reader) (j JournalAssessment) {
+	j.SHA = strings.Repeat("0", 64)
+	j.Tail = "complete_physical_prefix_no_ACK"
+	// A streaming bounded line reader avoids allocating a 39 MB journal copy.
+	var line []byte
+	buf := make([]byte, 4096)
+	total := 0
+	consume := func(raw []byte) bool {
+		if j.Frames >= MaxFrames || len(raw) > MaxFrame {
+			j.Tail = "budget_overflow"
+			return false
+		}
+		var f Frame
+		if !StrictDecode(raw, &f, true) || f.Schema != FrameSchema || f.Sequence != j.Frames+1 || f.Previous != j.SHA {
+			j.Tail = "invalid_frame"
+			return false
+		}
+		next, code := j.state.advance(f.Event)
+		if code != "" {
+			j.Tail = "invalid_lifecycle"
+			return false
+		}
+		j.state = next
+		j.Frames++
+		j.Bytes += len(raw)
+		j.SHA = SHA(raw)
+		j.Completed = next.Next
+		j.Counters = next.Counts
+		s := clone(f.Event.Snapshot)
+		j.last = &s
+		return true
+	}
+	for {
+		n, e := r.Read(buf)
+		if n > 0 {
+			total += n
+			if total > MaxJournal {
+				j.Tail = "budget_overflow"
+				return
+			}
+			for _, v := range buf[:n] {
+				line = append(line, v)
+				if len(line) > MaxFrame {
+					j.Tail = "budget_overflow"
+					return
+				}
+				if v == '\n' {
+					if !consume(line) {
+						return
+					}
+					line = line[:0]
+				}
+			}
+		}
+		if e != nil {
+			if e != io.EOF {
+				j.Tail = "read_failure"
+			} else if len(line) > 0 {
+				j.Tail = "incomplete_frame"
+			}
+			return
+		}
+		if n == 0 {
+			j.Tail = "read_failure"
+			return
+		}
+	}
+}
+func ValidateReservation(raw []byte, sha string) bool {
+	var r Reservation
+	return len(raw) <= MaxReservation && StrictDecode(raw, &r, true) && r == (Reservation{Schema: "riido-remaining-three-reservation-v1", PlanSHA: sha, FixtureSHA: FixtureSHA, MaxFrames: MaxFrames, MaxFrame: MaxFrame, MaxJournal: MaxJournal, MaxResult: MaxResult})
+}
+
+// A physical prefix becomes a claimed ACK only after exact finalized receipt
+// agreement and the caller's joined-exit0/full-stdout verification.
+func AssessComplete(raw []byte, j JournalAssessment, sha string) (batch.Counters, bool) {
+	var r Result
+	if len(raw) == 0 || len(raw) > MaxResult || !StrictDecode(raw, &r, true) || r.Schema != Schema || r.State != "complete" || r.Failure != "" || !r.RunnerReturned || r.RunnerPanicked || r.Worker == nil || r.InnerCalls != nil || r.StartupCalls != nil || r.LabelsAssigned || r.Qualified || j.Tail != "complete_physical_prefix_no_ACK" || !j.state.matches(*r.Worker) {
+		return batch.Counters{}, false
+	}
+	t := r.Transport
+	base := baseReceipt(Config{PlanSHA: sha})
+	if t.Schema != base.Schema || t.PlanSHA != sha || t.FixtureSHA != FixtureSHA || !t.Initialized || !t.JournalClosed || t.Stopped || t.Failure != "" || t.Frames != j.Frames || t.Bytes != j.Bytes || t.LastSequence != j.Frames || t.LastSHA != j.SHA || t.Completed != 42 || t.Counters != j.Counters || !reflect.DeepEqual(t.LastSnapshot, j.last) || t.InnerCalls != nil || t.StartupCalls != nil || t.ErrorTextCalls != 0 || t.LabelsAssigned || t.Qualified || t.FinalACK != base.FinalACK {
+		return batch.Counters{}, false
+	}
+	return r.Worker.Counters, true
+}
+func PartialResult(raw []byte, sha string) string {
+	var r Result
+	if len(raw) == 0 {
+		return "empty"
+	}
+	if len(raw) > MaxResult || !StrictDecode(raw, &r, true) || r.Schema != Schema || r.Transport.PlanSHA != sha || r.Transport.FixtureSHA != FixtureSHA || r.InnerCalls != nil || r.StartupCalls != nil || r.LabelsAssigned || r.Qualified {
+		return "invalid"
+	}
+	if r.State != "failed" && r.State != "complete" {
+		return "invalid"
+	}
+
+	t := r.Transport
+	base := baseReceipt(Config{PlanSHA: sha})
+	if t.Schema != base.Schema || t.FinalACK != base.FinalACK || t.Frames < 0 || t.Frames > MaxFrames || t.Bytes < 0 || t.Bytes > MaxJournal || t.LastSequence != t.Frames || !validSHA(t.LastSHA) || t.Completed < 0 || t.Completed > 42 || !counters(t.Counters) || t.InnerCalls != nil || t.StartupCalls != nil || t.LabelsAssigned || t.Qualified || t.ErrorTextCalls != 0 {
+		return "invalid"
+	}
+	if r.Worker != nil && (!validReturned(*r.Worker) || !counters(r.Worker.Counters)) {
+		return "invalid"
+	}
+	return "saved_unaccepted_report_ACK_unknown"
+}
+
+// SavedFinal is a comparer-only structural adapter. It does NOT replay a
+// journal or create a Sync acknowledgment: the separately pinned Root outside
+// result and Root actual-exit binding must supply that provenance.
+func SavedFinal(raw []byte, sha string) (Result, bool) {
+	var r Result
+	if len(raw) == 0 || len(raw) > MaxResult || !StrictDecode(raw, &r, true) || PartialResult(raw, sha) == "invalid" || r.State != "complete" || r.Failure != "" || !r.RunnerReturned || r.RunnerPanicked || r.Worker == nil || !validReturned(*r.Worker) || r.Worker.N != 42 || r.Worker.Failure != "" || r.Worker.Counters.Stopped || r.Worker.Counters.Completed != 42 || r.Worker.Counters.Candidate.Reserved != 42 || r.Worker.Counters.Candidate.Dispatched != 42 || r.Worker.Counters.Candidate.Returned+r.Worker.Counters.Candidate.Panicked != 42 {
+		return r, false
+	}
+	t := r.Transport
+	if !t.Initialized || !t.JournalClosed || t.Stopped || t.Failure != "" || t.Frames < 84 || t.Completed != 42 || t.Counters != r.Worker.Counters || !reflect.DeepEqual(t.LastSnapshot, &r.Worker.Rows[41]) {
+		return r, false
+	}
+	var completed, source batch.Boundary
+	for _, s := range r.Worker.Rows {
+		if !savedRanges(s) {
+			return r, false
+		}
+		known, ret, pk, pan := candidate(s)
+		if !known || !pk || ret == pan || !returnedChannels(s, ret) {
+			return r, false
+		}
+		completed.Reserved++
+		completed.Dispatched++
+		if ret {
+			completed.Returned++
+		} else {
+			completed.Panicked++
+		}
+		if s.INI != nil {
+			for i := 0; i < s.INI.SourceN; i++ {
+				x := s.INI.Sources[i]
+				if (x.Method != "read" && x.Method != "close") || !x.ReturnedKnown || !x.Panic.Known || x.Returned == x.Panic.Present {
+					return r, false
+				}
+				source.Reserved++
+				source.Dispatched++
+				if x.Returned {
+					source.Returned++
+				} else {
+					source.Panicked++
+				}
+			}
+		}
+	}
+	if completed != r.Worker.Counters.Candidate || source != r.Worker.Counters.Source {
+		return r, false
+	}
+	return r, true
+}
+
+// Range checks concern only the fixed fake-source capacities, never a new
+// Want or result inference. Malformed counts are not negative evidence.
+func savedRanges(s batch.Snapshot) bool {
+	in := func(n, max int) bool { return n >= 0 && n <= max }
+	if o := s.INI; o != nil {
+		for i := 0; i < 2; i++ {
+			if !in(o.Reads[i], 16) || !in(o.Closes[i], 16) || !in(o.Delivered[i], 4) {
+				return false
+			}
+		}
+		for i := 0; i < o.SourceN; i++ {
+			x := o.Sources[i]
+			if x.Source < 0 || x.Source >= 2 || x.Requested < 0 || !in(x.N, 4) {
+				return false
+			}
+		}
+	}
+	if o := s.Read; o != nil {
+		for _, n := range []int{o.Trace.Open, o.Trace.Read, o.Trace.Stat, o.Trace.Close} {
+			if !in(n, 16) {
+				return false
+			}
+		}
+		if !in(o.Trace.BytesDelivered, 5) || o.Trace.Unsupported {
+			return false
+		}
+		for i := 0; i < o.Trace.N; i++ {
+			x := o.Trace.Calls[i]
+			if !in(x.Data.N, 5) || x.RequestedBytes < 0 || x.NKnown && !in(x.N, 5) {
+				return false
+			}
+		}
+	}
+	if o := s.Safe; o != nil {
+		for _, n := range []int{o.Trace.MkdirAll, o.Trace.Stat, o.Trace.Create, o.Trace.OpenFile, o.Trace.Read, o.Trace.Write, o.Trace.Close, o.Trace.Truncate, o.Trace.HookRuns, o.Trace.CreateReplacements} {
+			if !in(n, 24) {
+				return false
+			}
+		}
+		if !in(o.Trace.BytesRead, 5) || !in(o.Trace.BytesWritten, 5) || o.Trace.Unsupported {
+			return false
+		}
+		for i := 0; i < o.Trace.N; i++ {
+			x := o.Trace.Calls[i]
+			if !in(x.Bytes.N, 5) || x.NKnown && !in(x.N, 5) {
+				return false
+			}
+		}
+	}
+	return true
+}

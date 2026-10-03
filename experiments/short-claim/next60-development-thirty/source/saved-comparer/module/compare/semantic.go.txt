@@ -1,0 +1,351 @@
+package compare
+
+import (
+	"bytes"
+	"encoding/json"
+	"riido.local/remainingthreeprep/batch"
+	"sort"
+)
+
+func unknown(reason string) Value { return Value{Reason: reason} }
+func boolean(b bool) Value        { return Value{Known: true, Bool: &b} }
+func integer(n int) Value         { return Value{Known: true, Number: &n} }
+func text(s string) Value         { return Value{Known: true, Text: &s} }
+func null() Value                 { return Value{Known: true, Null: true} }
+func presence(known, nilv bool) Value {
+	if !known {
+		return unknown("error_return_unobserved")
+	}
+	if nilv {
+		return null()
+	}
+	return Value{Known: true, NonNull: true}
+}
+func byteValue(known, nilv bool, n int, data []byte) Value {
+	if !known {
+		return unknown("bytes_unobserved")
+	}
+	if n < 0 || n > len(data) {
+		return unknown("byte_shape_invalid")
+	}
+	if nilv {
+		return null()
+	}
+	return text(string(data[:n]))
+}
+func pred(k string, w json.RawMessage, op, ch string, v Value) Predicate {
+	p := Predicate{Key: k, Want: bytes.Clone(w), Operator: op, Channel: ch, Got: v, State: Unknown}
+	if !v.Known {
+		return p
+	}
+	switch op {
+	case "identity", "not_identity":
+		want := op == "identity"
+		if v.Bool != nil {
+			if *v.Bool == want {
+				p.State = True
+			} else {
+				p.State = False
+			}
+		}
+	case "lte":
+		var n int
+		if json.Unmarshal(w, &n) == nil && v.Number != nil {
+			if *v.Number <= n {
+				p.State = True
+			} else {
+				p.State = False
+			}
+		}
+	default:
+		var raw []byte
+		if v.Null {
+			raw = []byte("null")
+		} else if v.NonNull {
+			if bytes.Equal(bytes.TrimSpace(w), []byte("null")) {
+				p.State = False
+			}
+			return p
+		} else if v.Text != nil {
+			raw, _ = json.Marshal(*v.Text)
+		} else if v.Bool != nil {
+			raw, _ = json.Marshal(*v.Bool)
+		} else if v.Number != nil {
+			raw, _ = json.Marshal(*v.Number)
+		} else {
+			return p
+		}
+		if bytes.Equal(bytes.TrimSpace(w), raw) {
+			p.State = True
+		} else {
+			p.State = False
+		}
+	}
+	return p
+}
+func observed(s batch.Snapshot, k string, w json.RawMessage) (op, ch string, v Value) {
+	op = "eq"
+	v = unknown("typed_channel_unobserved")
+	if s.INI != nil {
+		o := s.INI
+		returned := o.ReturnedKnown && o.Returned
+		switch k {
+		case "a", "b":
+			ch = "INI.key." + k
+			if o.Panic.Known && o.Panic.Present {
+				return op, ch, unknown("candidate_panicked_return_value_unavailable")
+			}
+			if k == "a" && o.A.Known {
+				v = text(o.A.Value)
+			}
+			if k == "b" && o.B.Known {
+				v = text(o.B.Value)
+			}
+		case "error":
+			ch = "INI.Error.Nil"
+			if returned {
+				v = presence(o.Error.Known, o.Error.Nil)
+			}
+		case "file":
+			ch = "INI.FileNil"
+			if returned && o.FileKnown {
+				if o.FileNil {
+					v = null()
+				} else {
+					v = Value{Known: true, NonNull: true}
+				}
+			}
+		case "error_kind", "error_is", "error_kind_not":
+			var target string
+			_ = json.Unmarshal(w, &target)
+			ch = "INI.Error." + target
+			op = "identity"
+			if k == "error_kind_not" {
+				op = "not_identity"
+			}
+			if returned {
+				if o.Error.Known && o.Error.Nil {
+					v = boolean(false)
+				} else {
+					switch target {
+					case "input_byte_limit":
+						if o.Error.InputLimitKnown {
+							v = boolean(o.Error.InputLimit)
+						}
+					case "invalid_limit":
+						if o.Error.InvalidLimitKnown {
+							v = boolean(o.Error.InvalidLimit)
+						}
+					case "injected_reader_error":
+						if o.Error.InjectedKnown {
+							v = boolean(o.Error.Injected)
+						}
+					}
+				}
+			}
+		case "source_reads":
+			ch = "INI.Reads sum"
+			if returned {
+				v = integer(o.Reads[0] + o.Reads[1])
+			} else if o.Reads[0]+o.Reads[1] > 0 {
+				v = integer(o.Reads[0] + o.Reads[1])
+			} // fixed Want0, monotone contradiction
+		}
+	} else if s.Read != nil {
+		o := s.Read
+		returned := o.CandidateReturnedKnown && o.CandidateReturned
+		switch k {
+		case "data":
+			ch = "Read.Data"
+			if returned {
+				v = byteValue(o.Data.Known, o.Data.Nil, o.Data.N, o.Data.Data[:])
+			}
+		case "error":
+			ch = "Read.Error.Nil"
+			if returned {
+				v = presence(o.Error.Known, o.Error.Nil)
+			}
+		case "error_kind":
+			var target string
+			_ = json.Unmarshal(w, &target)
+			ch = "Read.Error.Kind==" + target
+			op = "identity"
+			if returned {
+				if o.Error.Known && o.Error.Nil {
+					v = boolean(false)
+				} else if o.Error.KindKnown {
+					v = boolean(o.Error.Kind == target)
+				}
+			}
+		case "error_is":
+			ch = "Read.Error.ReadCauseIdentity (direct equality witness)"
+			op = "identity"
+			if returned && o.Error.Known {
+				if o.Error.Nil {
+					v = boolean(false)
+				} else if o.Error.ReadCauseIdentityKnown && o.Error.ReadCauseIdentity {
+					v = boolean(true)
+				} else if o.Error.TypeKnown && (o.Error.Type == "*pure.InvalidLimitError" || o.Error.Type == "*pure.SizeLimitError" || o.Error.Type == "*errors.errorString" && o.Error.ReadCauseIdentityKnown && !o.Error.ReadCauseIdentity) {
+					v = boolean(false)
+				} else {
+					v = unknown("direct_identity_false_does_not_prove_errors_Is_false")
+				}
+			}
+		case "close_calls":
+			ch = "Read.Trace.Close"
+			if returned {
+				v = integer(o.Trace.Close)
+			} else {
+				var want int
+				_ = json.Unmarshal(w, &want)
+				if o.Trace.Close > want {
+					v = integer(o.Trace.Close)
+				}
+			}
+		case "open_calls":
+			ch = "Read.Trace.Open"
+			if returned || o.Trace.Open > 0 {
+				v = integer(o.Trace.Open)
+			} // fixed Want0
+		case "bytes_read_max":
+			ch = "Read.Trace.BytesDelivered"
+			op = "lte"
+			if returned {
+				v = integer(o.Trace.BytesDelivered)
+			} else {
+				var want int
+				_ = json.Unmarshal(w, &want)
+				if o.Trace.BytesDelivered > want {
+					v = integer(o.Trace.BytesDelivered)
+				}
+			}
+		}
+	} else if s.Safe != nil {
+		o := s.Safe
+		returned := o.ReturnedKnown && o.Returned
+		switch k {
+		case "contents":
+			ch = "Safe.Contents"
+			if o.PanicKnown && o.Panic {
+				return op, ch, unknown("candidate_panicked_final_destination_unavailable")
+			}
+			v = byteValue(o.Contents.Known, o.Contents.Nil, o.Contents.N, o.Contents.Data[:])
+		case "error":
+			ch = "Safe.Error.Nil"
+			if returned {
+				v = presence(o.Error.Known, o.Error.Nil)
+			}
+		case "error_is":
+			ch = "Safe.Error.Exist"
+			op = "identity"
+			if returned {
+				if o.Error.Known && o.Error.Nil {
+					v = boolean(false)
+				} else if o.Error.ExistKnown {
+					v = boolean(o.Error.Exist)
+				}
+			}
+		case "close_calls":
+			ch = "Safe.Trace.Close"
+			if returned {
+				v = integer(o.Trace.Close)
+			} else {
+				var want int
+				_ = json.Unmarshal(w, &want)
+				if o.Trace.Close > want {
+					v = integer(o.Trace.Close)
+				}
+			}
+		case "truncate_calls":
+			ch = "Safe.Trace.Truncate"
+			if returned || o.Trace.Truncate > 0 {
+				v = integer(o.Trace.Truncate)
+			} // fixed Want0
+		case "exclusive_open":
+			ch = "Safe.Trace.Exclusive"
+			if o.Trace.ExclusiveKnown {
+				v = boolean(o.Trace.Exclusive)
+			}
+		}
+	}
+	if !v.Known && v.Reason == "typed_channel_unobserved" {
+		v.Reason = "unavailable_or_unobserved_saved_channel"
+	}
+	return
+}
+func predicates(s batch.Snapshot, w wanted) []Predicate {
+	keys := make([]string, 0, len(w.Values))
+	for k := range w.Values {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	out := []Predicate{}
+	for _, k := range keys {
+		raw := w.Values[k]
+		if k == "errors_is" {
+			var targets []string
+			if json.Unmarshal(raw, &targets) != nil || len(targets) != 2 {
+				out = append(out, pred(k, raw, "identity", "invalid frozen compound", unknown("Want_shape_invalid")))
+				continue
+			}
+			for _, target := range targets {
+				v := unknown("identity_result_unobserved")
+				if o := s.Safe; o != nil && o.ReturnedKnown && o.Returned {
+					if o.Error.Known && o.Error.Nil {
+						v = boolean(false)
+					} else if target == "copyCause" && o.Error.CopyKnown {
+						v = boolean(o.Error.Copy)
+					} else if target == "closeCause" && o.Error.CloseKnown {
+						v = boolean(o.Error.Close)
+					}
+				}
+				q, _ := json.Marshal(target)
+				out = append(out, pred("errors_is/"+target, q, "identity", "Safe.Error."+target, v))
+			}
+			continue
+		}
+		op, ch, v := observed(s, k, raw)
+		out = append(out, pred(k, raw, op, ch, v))
+	}
+	return out
+}
+func compareRows(w [14]wanted, got [42]batch.Snapshot) Report {
+	r := Report{Schema: "riido-remaining-three-saved-literal-comparison-v1", State: "compared_saved_finite_only", Compared: true, Scope: "Frozen14 finite inputs /42 saved candidate observations; no source execution, new truth, qualification or model-quality inference. A known mismatch may coexist with unknown predicates."}
+	for i, id := range requestIDs {
+		r.Requests[i] = Request{ID: id, Inputs: [3]int{5, 5, 4}[i]}
+		for c := 0; c < 3; c++ {
+			r.Requests[i].Candidates[c].Index = c
+			r.Requests[i].Candidates[c].KnownCounterexamples = []int{}
+		}
+	}
+	for _, d := range batch.Schedule() {
+		wi := [3]int{0, 5, 10}[d.Request] + d.Fixture
+		z := w[wi]
+		p := predicates(got[d.Ordinal], z)
+		row := Row{Ordinal: d.Ordinal, Request: d.Request, Fixture: d.Fixture, Candidate: d.Candidate, RequestID: z.RequestID, CaseID: z.CaseID, CandidateID: candidateIDs[d.Candidate], Want: bytes.Clone(z.Raw), Got: got[d.Ordinal], Predicates: p}
+		for _, v := range p {
+			row.Counts.add(v.State)
+			r.Predicates.add(v.State)
+		}
+		row.State = row.Counts.state()
+		r.Rows[d.Ordinal] = row
+		r.Observations.add(row.State)
+		c := &r.Requests[d.Request].Candidates[d.Candidate]
+		c.Counts.add(row.State)
+		c.UnknownPredicates += row.Counts.Unknown
+		if row.State == False {
+			c.KnownCounterexamples = append(c.KnownCounterexamples, d.Fixture)
+		}
+	}
+	for i := range r.Requests {
+		for c := range r.Requests[i].Candidates {
+			v := &r.Requests[i].Candidates[c]
+			v.State = v.Counts.state()
+			if v.UnknownPredicates == 0 {
+				b := v.Counts.False == 0
+				v.AllSatisfied = &b
+			}
+		}
+	}
+	return r
+}

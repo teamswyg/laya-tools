@@ -1,8 +1,8 @@
 # laya-tools
 
-[Development data for the small claim/hint model](docs/wiki/Next60-Development-EN.md) contains **23 published requests/67 labels**, with **27 requests/79 labels** in the separately qualified pool. [Actual observations, counterexamples and adoption for two INI tasks](experiments/short-claim/next60-ini-two-actual-observation/README.en.md) are recorded. We group related sources and validate the remaining three tasks before new training at30 qualified requests. New training/model inference for this expansion is zero; Codex savings remain unproven.
+[Development data for the small claim/hint model](docs/wiki/Next60-Development-EN.md) now has **30 requests/88 labels**, with30 actual Go reader calls,30 returns and30 matches. See the [30-row data and finite verification evidence](experiments/short-claim/next60-development-thirty/README.en.md). New training/model inference is zero. Thirty requests is a collection checkpoint; source deduplication and candidate-position bias must be reviewed before the next training decision. Codex savings remain unproven.
 
-[The immutable HF23 release](https://huggingface.co/datasets/JooYoon/riidolaya-shortclaim-next60-development/tree/next60-23-finite-v1) passed401-file and23-viewer-row verification. See [publication and PR119 CI evidence](experiments/short-claim/publication-proof-120/README.md). The Go reader uses bounded arrays and immutable values one row at a time. The27-request pool is separate from the published23-row file.
+[The currently verified immutable HF23 release](https://huggingface.co/datasets/JooYoon/riidolaya-shortclaim-next60-development/tree/next60-23-finite-v1) passed401-file and23-viewer-row verification. See [publication and PR119 CI evidence](experiments/short-claim/publication-proof-120/README.md). HF publication and remote verification of30 rows are separate steps. The Go reader uses bounded arrays and immutable values one row at a time.
 
 <details>
 <summary>Earlier stage history — counts and “current” below refer to their recorded stages</summary>

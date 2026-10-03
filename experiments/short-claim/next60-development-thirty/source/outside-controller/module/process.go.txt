@@ -1,0 +1,155 @@
+package main
+
+import (
+	"io"
+	"math"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
+)
+
+type Process struct {
+	StartAttempts int     `json:"Start_attempts"`
+	Started       bool    `json:"Start_succeeded"`
+	WaitAttempts  int     `json:"Wait_attempts"`
+	WaitReturned  bool    `json:"Wait_returned"`
+	Reaped        bool    `json:"reaped"`
+	ExitCode      *int    `json:"exit_code"`
+	Timeout       bool    `json:"timeout"`
+	Overflow      bool    `json:"capture_overflow"`
+	KillAttempts  int     `json:"group_kill_attempts"`
+	KillSucceeded *bool   `json:"group_kill_succeeded"`
+	WallSeconds   float64 `json:"controller_wall_seconds"`
+}
+type Child interface {
+	Start() error
+	Wait() error
+	Exit() *int
+	Kill() error
+}
+
+func lifecycle(h Child, deadline <-chan time.Time, overflow <-chan struct{}) (p Process, code string) {
+	before := time.Now()
+	p.StartAttempts = 1
+	se := h.Start()
+	p.Started = se == nil
+	p.WaitAttempts = 1
+	if !p.Started {
+		_ = h.Wait()
+		p.WaitReturned = true
+		p.WallSeconds = time.Since(before).Seconds()
+		return p, "Start_failed_no_reap"
+	}
+	done := make(chan error, 1)
+	go func() { done <- h.Wait() }()
+	var we error
+	select {
+	case we = <-done:
+	case <-deadline:
+		p.Timeout = true
+	case <-overflow:
+		p.Overflow = true
+	}
+	if p.Timeout || p.Overflow {
+		p.KillAttempts = 1
+		e := h.Kill()
+		ok := e == nil
+		p.KillSucceeded = &ok
+		// One existing Wait is always joined. A failed group kill can delay that
+		// join; 60s is a cancellation deadline, not an unconditional OS reap bound.
+		we = <-done
+	}
+	p.WaitReturned = true
+	p.ExitCode = h.Exit()
+	p.Reaped = p.ExitCode != nil
+	p.WallSeconds = time.Since(before).Seconds()
+	if p.Timeout {
+		return p, "timeout_prefix_unknown"
+	}
+	if p.Overflow {
+		return p, "capture_overflow_prefix_unknown"
+	}
+	if !p.Reaped {
+		return p, "Wait_without_ProcessState"
+	}
+	if we != nil || *p.ExitCode != 0 {
+		return p, "nonzero_or_Wait_failed"
+	}
+	return p, ""
+}
+
+type capture struct {
+	mu          sync.Mutex
+	file        io.Writer
+	cap, n      int
+	Overflow    bool
+	WriteFailed bool
+	signal      chan struct{}
+	once        *sync.Once
+}
+
+func (c *capture) Write(b []byte) (int, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	left := c.cap - c.n
+	k := len(b)
+	if k > left {
+		k = left
+		c.Overflow = true
+		c.once.Do(func() { close(c.signal) })
+	}
+	if k > 0 {
+		n, e := c.file.Write(b[:k])
+		c.n += n
+		if e != nil || n != k {
+			c.WriteFailed = true
+			c.once.Do(func() { close(c.signal) })
+			return n, errOutside
+		}
+	}
+	return len(b), nil // drain until Wait joins; retained bytes remain bounded
+}
+
+type Metrics struct {
+	RSS    *int64   `json:"whole_child_maximum_RSS_bytes"`
+	Real   *float64 `json:"OS_real_seconds"`
+	User   *float64 `json:"OS_user_seconds"`
+	System *float64 `json:"OS_system_seconds"`
+	Scope  string   `json:"scope"`
+}
+
+func metrics(raw []byte) Metrics {
+	m := Metrics{Scope: "Darwin time-l whole child including startup/source verification; post-joined-exit only; soft Go heap is not hard RSS"}
+	rn, tn := 0, 0
+	for _, line := range strings.Split(string(raw), "\n") {
+		f := strings.Fields(line)
+		if len(f) == 5 && strings.Join(f[1:], " ") == "maximum resident set size" {
+			rn++
+			x, e := strconv.ParseInt(f[0], 10, 64)
+			if e == nil && x > 0 {
+				m.RSS = &x
+			}
+		}
+		if len(f) == 6 && f[1] == "real" && f[3] == "user" && f[5] == "sys" {
+			tn++
+			a, e := strconv.ParseFloat(f[0], 64)
+			b, e2 := strconv.ParseFloat(f[2], 64)
+			c, e3 := strconv.ParseFloat(f[4], 64)
+			if e == nil && e2 == nil && e3 == nil && !math.IsNaN(a) && !math.IsNaN(b) && !math.IsNaN(c) && !math.IsInf(a, 0) && !math.IsInf(b, 0) && !math.IsInf(c, 0) && a >= 0 && b >= 0 && c >= 0 {
+				m.Real = &a
+				m.User = &b
+				m.System = &c
+			}
+		}
+	}
+	if rn != 1 {
+		m.RSS = nil
+	}
+	if tn != 1 {
+		m.Real = nil
+		m.User = nil
+		m.System = nil
+	}
+	return m
+}
