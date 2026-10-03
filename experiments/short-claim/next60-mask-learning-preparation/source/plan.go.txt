@@ -1,0 +1,193 @@
+// SPDX-License-Identifier: Apache-2.0
+// Package maskplan is a structure-only proposal. It supplies neither a Golden
+// Reader adapter, feature extraction, learning Dataset nor permission to Fit.
+package maskplan
+
+import "errors"
+
+const MaxParents = 60
+const MaxCandidates = 8
+const MaxRows = MaxParents * MaxCandidates
+
+type Role uint8
+
+const (
+	Train Role = iota
+	Validation
+	Calibration
+)
+
+type State uint8
+
+const (
+	T State = iota + 1
+	F
+	U
+)
+
+var ErrShape = errors.New("mask_plan_shape")
+var ErrMask = errors.New("mask_plan_mask")
+var ErrRoles = errors.New("mask_plan_roles")
+
+// Texts are opaque immutable Go strings. Only these fields may later be passed
+// to an independently admitted feature extractor; metadata and masks cannot be
+// feature arguments. This proposal does not normalize or extract any text.
+type TextInput struct {
+	Request    string
+	Candidates [8]string
+	Count      int
+}
+type Parent struct {
+	Text                                 TextInput
+	Group                                int
+	Role                                 Role
+	Ambiguous                            bool
+	States                               [8]State
+	LabelKnown, Positive                 [8]bool
+	GradientEligible, EvaluationEligible [8]bool
+}
+type Row struct {
+	ParentIndex, CandidateIndex int
+	Positive                    bool
+	Weight                      float64
+}
+type Rows struct {
+	Values [MaxRows]Row
+	Count  int
+}
+type Audit struct {
+	Parents, Candidates, CandidateUnknown, KnownLabels int
+	AmbiguousParents, WithheldCandidates               int
+	PositiveLabels, NegativeLabels                     int
+	GradientRows, EvaluationRows                       int
+	VerifiedNoneParents, AllPositiveParents            int
+}
+type Projection struct {
+	parents           [MaxParents]Parent
+	count             int
+	train, validation Rows
+	audit             [3]Audit
+	valid             bool
+}
+
+func (p Projection) Valid() bool      { return p.valid }
+func (p Projection) ParentCount() int { return p.count }
+func (p Projection) Parent(i int) (Parent, bool) {
+	if i < 0 || i >= p.count {
+		return Parent{}, false
+	}
+	return p.parents[i], true
+}
+func (p Projection) TrainingRows() Rows   { return p.train }
+func (p Projection) ValidationRows() Rows { return p.validation }
+func (p Projection) Audit() [3]Audit      { return p.audit }
+
+func validate(p Parent) error {
+	if p.Text.Count != 5 && p.Text.Count != 8 || p.Role > Calibration || p.Group < 1 || p.Group > 65535 || len(p.Text.Request) == 0 || len(p.Text.Request) > 4096 {
+		return ErrShape
+	}
+	bytes := len(p.Text.Request)
+	for i := 0; i < 8; i++ {
+		if i >= p.Text.Count {
+			if p.Text.Candidates[i] != "" || p.States[i] != 0 || p.LabelKnown[i] || p.Positive[i] || p.GradientEligible[i] || p.EvaluationEligible[i] {
+				return ErrShape
+			}
+			continue
+		}
+		if len(p.Text.Candidates[i]) == 0 || len(p.Text.Candidates[i]) > 4096 {
+			return ErrShape
+		}
+		bytes += len(p.Text.Candidates[i])
+		if p.States[i] != T && p.States[i] != F && p.States[i] != U {
+			return ErrShape
+		}
+		withheld := p.Ambiguous || p.States[i] == U
+		if withheld {
+			if p.LabelKnown[i] || p.Positive[i] || p.GradientEligible[i] || p.EvaluationEligible[i] {
+				return ErrMask
+			}
+		} else if !p.LabelKnown[i] || p.Positive[i] != (p.States[i] == T) {
+			return ErrMask
+		}
+		if p.GradientEligible[i] && p.Role != Train || p.EvaluationEligible[i] && p.Role == Calibration {
+			return ErrMask
+		}
+	}
+	if bytes > 16384 {
+		return ErrShape
+	}
+	return nil
+}
+
+// Project validates every structure/group-role before returning any rows.
+// WholeGroup has external provenance authority; this comparison only prevents
+// a numeric group from spanning roles. It cannot infer transitive ancestry.
+func Project(parents []Parent) (Projection, error) {
+	if len(parents) == 0 || len(parents) > MaxParents {
+		return Projection{}, ErrShape
+	}
+	for i, p := range parents {
+		if err := validate(p); err != nil {
+			return Projection{}, err
+		}
+		for j := 0; j < i; j++ {
+			if parents[j].Group == p.Group && parents[j].Role != p.Role {
+				return Projection{}, ErrRoles
+			}
+		}
+	}
+	var out Projection
+	out.count = len(parents)
+	for pi, p := range parents {
+		out.parents[pi] = p
+		a := &out.audit[p.Role]
+		a.Parents++
+		a.Candidates += p.Text.Count
+		if p.Ambiguous {
+			a.AmbiguousParents++
+		}
+		known, positive, unknown := 0, 0, 0
+		for ci := 0; ci < p.Text.Count; ci++ {
+			if p.States[ci] == U {
+				a.CandidateUnknown++
+				unknown++
+			}
+			if !p.LabelKnown[ci] {
+				a.WithheldCandidates++
+				continue
+			}
+			a.KnownLabels++
+			known++
+			if p.Positive[ci] {
+				a.PositiveLabels++
+				positive++
+			} else {
+				a.NegativeLabels++
+			}
+			// No unknown row is ever represented by a zero label/weight placeholder.
+			// Gradient and epoch-selection eligibility are distinct inputs.
+			if p.GradientEligible[ci] {
+				out.train.Values[out.train.Count] = Row{pi, ci, p.Positive[ci], 1}
+				out.train.Count++
+				a.GradientRows++
+			}
+			if p.EvaluationEligible[ci] {
+				a.EvaluationRows++
+				if p.Role == Validation {
+					out.validation.Values[out.validation.Count] = Row{pi, ci, p.Positive[ci], 1}
+					out.validation.Count++
+				}
+			}
+		}
+		if !p.Ambiguous && unknown == 0 && known == p.Text.Count {
+			if positive == 0 {
+				a.VerifiedNoneParents++
+			}
+			if positive == p.Text.Count {
+				a.AllPositiveParents++
+			}
+		}
+	}
+	out.valid = true
+	return out, nil
+}

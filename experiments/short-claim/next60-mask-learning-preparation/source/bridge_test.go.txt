@@ -1,0 +1,208 @@
+// SPDX-License-Identifier: Apache-2.0
+package maskplan
+
+import (
+	"math"
+	"reflect"
+	"strings"
+	"testing"
+
+	"github.com/teamswyg/laya-tools/internal/hintlearn"
+	"github.com/teamswyg/laya-tools/internal/pairlearn"
+)
+
+func TestSparseActualLossAndAUCExcludeUnknown(t *testing.T) {
+	a, b, c := fake(Train, 101), fake(Validation, 102), fake(Calibration, 103)
+	unknown(&a, 4)
+	unknown(&b, 4)
+	a.Text.Candidates[4] = "NEVER extract unknown"
+	b.Text.Candidates[4] = "NEVER extract unknown"
+	c.Text.Request = "NEVER extract calibration"
+	p, e := Project([]Parent{a, b, c})
+	if e != nil {
+		t.Fatal(e)
+	}
+	out, e := Build(p)
+	if e != nil {
+		t.Fatal(e)
+	}
+	for _, d := range []pairlearn.Dataset{out.Development, out.Validation} {
+		if len(d.Labels) != 4 || d.Excluded != 1 || !reflect.DeepEqual(d.Labels, []float64{1, 0, 0, 0}) || !reflect.DeepEqual(d.SampleWeights, []float64{1, 1, 1, 1}) {
+			t.Fatal("sparse known rows")
+		}
+		w := make([]float64, hintlearn.Dimension)
+		if got := pairlearn.NLL(d, w); math.IsNaN(got) || math.Abs(got-math.Log(2)) > 1e-15 {
+			t.Fatal("real NLL denominator", got)
+		}
+		auc := pairlearn.AUC(d, w)
+		if auc == nil || *auc != .5 {
+			t.Fatal("real AUC denominator")
+		}
+	}
+	if out.FeatureScans != 16 || out.Audit[Validation].GradientRows != 0 || out.Audit[Calibration].KnownLabels != 5 {
+		t.Fatal("role and scan count")
+	}
+	for _, refs := range [][]Row{out.DevelopmentRefs, out.ValidationRefs} {
+		for _, r := range refs {
+			if r.CandidateIndex == 4 {
+				t.Fatal("unknown row")
+			}
+		}
+	}
+	if out.PayloadBytes > MaxSparsePayloadBytes {
+		t.Fatal("payload")
+	}
+}
+
+func TestSparseNeverExtractsWithheldOrIneligibleTexts(t *testing.T) {
+	a, b, c := fake(Train, 201), fake(Validation, 202), fake(Calibration, 203)
+	unknown(&a, 4)
+	a.Text.Candidates[4] = "NEVER"
+	a.GradientEligible[3] = false
+	a.Text.Candidates[3] = "NEVER"
+	b.EvaluationEligible[3] = false
+	b.Text.Candidates[3] = "NEVER"
+	c.Text.Request = "NEVER"
+	d := fake(Train, 204)
+	d.Ambiguous = true
+	d.Text.Request = "NEVER"
+	for i := 0; i < 5; i++ {
+		d.LabelKnown[i] = false
+		d.Positive[i] = false
+		d.GradientEligible[i] = false
+		d.EvaluationEligible[i] = false
+	}
+	p, e := Project([]Parent{a, b, c, d})
+	if e != nil {
+		t.Fatal(e)
+	}
+	calls := 0
+	extract := func(q, c string) []hintlearn.Feature {
+		calls++
+		if strings.Contains(q, "NEVER") || strings.Contains(c, "NEVER") {
+			t.Fatal("withheld text extracted")
+		}
+		return []hintlearn.Feature{{Index: 7, Value: 1}}
+	}
+	out, e := build(p, extract, MaxSparsePayloadBytes)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if len(out.Development.Labels) != 3 || len(out.Validation.Labels) != 4 || calls != 14 || out.Development.Excluded != 7 || out.Validation.Excluded != 1 {
+		t.Fatal("selection")
+	}
+}
+
+func TestSparseRejectsFeatureWorkBeforeExtraction(t *testing.T) {
+	for _, text := range []string{strings.Repeat("a ", 33), "\xff", "!!!"} {
+		a := fake(Train, 301)
+		a.Text.Request = text
+		p, e := Project([]Parent{a})
+		if e != nil {
+			t.Fatal(e)
+		}
+		calls := 0
+		_, e = build(p, func(string, string) []hintlearn.Feature { calls++; return nil }, MaxSparsePayloadBytes)
+		if e != ErrFeatureBudget || calls != 0 {
+			t.Fatal("feature work budget")
+		}
+	}
+	if !boundedFeatureText(strings.Repeat("가 ", 32)) || boundedFeatureText(strings.Repeat("가 ", 33)) {
+		t.Fatal("unicode words")
+	}
+}
+
+func TestSparseRejectsInvalidOrChangedFeatures(t *testing.T) {
+	a := fake(Train, 401)
+	p, e := Project([]Parent{a})
+	if e != nil {
+		t.Fatal(e)
+	}
+	bad := [][]hintlearn.Feature{nil, {{Index: -1, Value: 1}}, {{Index: 8192, Value: 1}}, {{Index: 1, Value: math.NaN()}}, {{Index: 1, Value: math.Inf(1)}}, {{Index: 1, Value: 1}, {Index: 1, Value: 2}}}
+	for _, fs := range bad {
+		out, e := build(p, func(string, string) []hintlearn.Feature { return fs }, MaxSparsePayloadBytes)
+		if e != ErrFeatures || out.Development.Labels != nil {
+			t.Fatal("invalid feature returned")
+		}
+	}
+	calls := 0
+	_, e = build(p, func(string, string) []hintlearn.Feature {
+		calls++
+		v := 1.
+		if calls > 5 {
+			v = 2
+		}
+		return []hintlearn.Feature{{Index: 1, Value: v}}
+	}, MaxSparsePayloadBytes)
+	if e != ErrFeatures || calls != 6 {
+		t.Fatal("same-length altered feature accepted")
+	}
+	_, e = build(Projection{}, hintlearn.Features, MaxSparsePayloadBytes)
+	if e != ErrShape {
+		t.Fatal("invalid plan")
+	}
+}
+
+func TestSparsePayloadRejectsBeforeReturnedColumns(t *testing.T) {
+	a := fake(Train, 501)
+	p, e := Project([]Parent{a})
+	if e != nil {
+		t.Fatal(e)
+	}
+	calls := 0
+	_, e = build(p, func(string, string) []hintlearn.Feature { calls++; return []hintlearn.Feature{{Index: 1, Value: 1}} }, 1)
+	if e != ErrPayload || calls != 0 {
+		t.Fatal("base payload preflight")
+	}
+	out, e := build(p, func(string, string) []hintlearn.Feature { return []hintlearn.Feature{{Index: 1, Value: 1}} }, MaxSparsePayloadBytes)
+	if e != nil {
+		t.Fatal(e)
+	}
+	_, e = build(p, func(string, string) []hintlearn.Feature { return []hintlearn.Feature{{Index: 1, Value: 1}} }, out.PayloadBytes-1)
+	if e != ErrPayload {
+		t.Fatal("exact sparse payload bound")
+	}
+}
+
+func TestSparseAuditOnlyHasNoLossDenominator(t *testing.T) {
+	a := fake(Train, 601)
+	for i := 0; i < 5; i++ {
+		unknown(&a, i)
+	}
+	c := fake(Calibration, 602)
+	p, e := Project([]Parent{a, c})
+	if e != nil {
+		t.Fatal(e)
+	}
+	calls := 0
+	out, e := build(p, func(string, string) []hintlearn.Feature { calls++; return nil }, MaxSparsePayloadBytes)
+	if e != nil || calls != 0 || len(out.Development.Labels) != 0 || len(out.Validation.Labels) != 0 || out.Audit[Train].CandidateUnknown != 5 {
+		t.Fatal("audit-only sparse output")
+	}
+	if pairlearn.AUC(out.Development, nil) != nil {
+		t.Fatal("empty AUC")
+	}
+	// NLL intentionally is not called on an empty split. A successful structural
+	// build is not permission to train or claim a finite loss denominator.
+}
+
+func BenchmarkSparseKnown5(b *testing.B)              { benchmarkSparse(b, false) }
+func BenchmarkSparseMixed4Known1Unknown(b *testing.B) { benchmarkSparse(b, true) }
+func benchmarkSparse(b *testing.B, mixed bool) {
+	p := fake(Train, 701)
+	if mixed {
+		unknown(&p, 4)
+	}
+	plan, e := Project([]Parent{p})
+	if e != nil {
+		b.Fatal(e)
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		out, e := Build(plan)
+		if e != nil || out.FeatureScans == 0 {
+			b.Fatal("sparse build", e)
+		}
+	}
+}

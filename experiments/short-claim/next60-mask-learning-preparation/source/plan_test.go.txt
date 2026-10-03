@@ -1,0 +1,186 @@
+// SPDX-License-Identifier: Apache-2.0
+package maskplan
+
+import (
+	"math"
+	"testing"
+)
+
+func fake(role Role, group int) Parent {
+	p := Parent{Text: TextInput{Request: "Owned synthetic request", Count: 5}, Role: role, Group: group}
+	for i := 0; i < 5; i++ {
+		p.Text.Candidates[i] = "Owned synthetic candidate"
+		p.States[i] = F
+		p.LabelKnown[i] = true
+		p.GradientEligible[i] = role == Train
+		p.EvaluationEligible[i] = role != Calibration
+	}
+	p.States[0] = T
+	p.Positive[0] = true
+	return p
+}
+func unknown(p *Parent, i int) {
+	p.States[i] = U
+	p.LabelKnown[i] = false
+	p.Positive[i] = false
+	p.GradientEligible[i] = false
+	p.EvaluationEligible[i] = false
+}
+func TestMixedUnknownNeverBecomesRow(t *testing.T) {
+	p := fake(Train, 1)
+	unknown(&p, 4)
+	x, e := Project([]Parent{p})
+	if e != nil {
+		t.Fatal(e)
+	}
+	r := x.TrainingRows()
+	if r.Count != 4 || x.Audit()[Train].CandidateUnknown != 1 || x.Audit()[Train].NegativeLabels != 3 || x.Audit()[Train].WithheldCandidates != 1 {
+		t.Fatal("unknown denominator")
+	}
+	for i := 0; i < r.Count; i++ {
+		if r.Values[i].CandidateIndex == 4 || r.Values[i].Weight != 1 {
+			t.Fatal("unknown placeholder")
+		}
+	}
+	p.LabelKnown[4] = true
+	if x, e := Project([]Parent{p}); e != ErrMask || x != (Projection{}) {
+		t.Fatal("U false label permitted")
+	}
+}
+func TestValidationUsesEvaluationWithoutGradient(t *testing.T) {
+	p := fake(Validation, 65535)
+	unknown(&p, 4)
+	x, e := Project([]Parent{p})
+	if e != nil {
+		t.Fatal(e)
+	}
+	if x.TrainingRows().Count != 0 || x.ValidationRows().Count != 4 || x.Audit()[Validation].GradientRows != 0 {
+		t.Fatal("gradient/selection masks merged")
+	}
+	// Owned diagnostic only: known validation labels have a finite denominator
+	// even though every gradient flag is false. This calls no trainer or NLL.
+	r := x.ValidationRows()
+	sum, total := 0., 0.
+	for i := 0; i < r.Count; i++ {
+		sum += r.Values[i].Weight * math.Log(2)
+		total += r.Values[i].Weight
+	}
+	if total != 4 || math.IsNaN(sum/total) || sum/total != math.Log(2) {
+		t.Fatal("selection denominator")
+	}
+	p.GradientEligible[0] = true
+	if _, e := Project([]Parent{p}); e != ErrMask {
+		t.Fatal("validation gradient permitted")
+	}
+}
+func TestAmbiguousAndCalibrationStayOutsideRows(t *testing.T) {
+	p := fake(Train, 2)
+	p.Ambiguous = true
+	for i := 0; i < 5; i++ {
+		p.LabelKnown[i] = false
+		p.Positive[i] = false
+		p.GradientEligible[i] = false
+		p.EvaluationEligible[i] = false
+	}
+	c := fake(Calibration, 3)
+	x, e := Project([]Parent{p, c})
+	if e != nil {
+		t.Fatal(e)
+	}
+	if x.TrainingRows().Count != 0 || x.ValidationRows().Count != 0 || x.Audit()[Train].WithheldCandidates != 5 || x.Audit()[Calibration].KnownLabels != 5 {
+		t.Fatal("withholding or calibration audit")
+	}
+	got, _ := x.Parent(0)
+	if got.States[0] != T || got.LabelKnown[0] {
+		t.Fatal("conditional truth lost")
+	}
+	c.EvaluationEligible[0] = true
+	if _, e := Project([]Parent{c}); e != ErrMask {
+		t.Fatal("calibration selected epoch")
+	}
+}
+func TestZeroMultipleAllPositiveWithoutFabricatedLabels(t *testing.T) {
+	for _, n := range []int{0, 2, 5} {
+		p := fake(Train, n+10)
+		for i := 0; i < 5; i++ {
+			p.Positive[i] = i < n
+			if i < n {
+				p.States[i] = T
+			} else {
+				p.States[i] = F
+			}
+		}
+		x, e := Project([]Parent{p})
+		if e != nil {
+			t.Fatal(e)
+		}
+		a := x.Audit()[Train]
+		if a.PositiveLabels != n || a.NegativeLabels != 5-n || x.TrainingRows().Count != 5 {
+			t.Fatal("cardinality")
+		}
+		if (a.VerifiedNoneParents == 1) != (n == 0) || (a.AllPositiveParents == 1) != (n == 5) {
+			t.Fatal("parent audit")
+		}
+	}
+	p := fake(Train, 20)
+	for i := 0; i < 5; i++ {
+		p.States[i] = F
+		p.Positive[i] = false
+	}
+	unknown(&p, 4)
+	x, e := Project([]Parent{p})
+	if e != nil || x.Audit()[Train].VerifiedNoneParents != 0 {
+		t.Fatal("partialU became no-answer")
+	}
+}
+func TestRoleIsolationCopiesAndBoundaries(t *testing.T) {
+	a, b := fake(Train, 30), fake(Validation, 30)
+	if x, e := Project([]Parent{a, b}); e != ErrRoles || x != (Projection{}) {
+		t.Fatal("wholegroup role leak")
+	}
+	x, e := Project([]Parent{a})
+	if e != nil {
+		t.Fatal(e)
+	}
+	r := x.TrainingRows()
+	r.Values[0].Positive = false
+	p, _ := x.Parent(0)
+	p.Positive[0] = false
+	got, _ := x.Parent(0)
+	if !got.Positive[0] || !x.TrainingRows().Values[0].Positive {
+		t.Fatal("mutable copy alias")
+	}
+	a.Text.Candidates[7] = "unexpected padding"
+	if _, e := Project([]Parent{a}); e != ErrShape {
+		t.Fatal("unused slot accepted")
+	}
+	if _, ok := x.Parent(-1); ok {
+		t.Fatal("negative parent")
+	}
+	if _, ok := x.Parent(1); ok {
+		t.Fatal("past parent")
+	}
+	if _, e := Project(nil); e != ErrShape {
+		t.Fatal("empty parent set")
+	}
+	parents := make([]Parent, MaxParents)
+	for i := range parents {
+		parents[i] = fake(Train, i+100)
+		parents[i].Text.Count = 8
+		for j := 5; j < 8; j++ {
+			parents[i].Text.Candidates[j] = "Owned synthetic candidate"
+			parents[i].States[j] = F
+			parents[i].LabelKnown[j] = true
+			parents[i].GradientEligible[j] = true
+			parents[i].EvaluationEligible[j] = true
+		}
+	}
+	at, e := Project(parents)
+	if e != nil || at.TrainingRows().Count != MaxRows {
+		t.Fatal("60 by8 structural bound")
+	}
+	parents = append(parents, fake(Train, 999))
+	if _, e := Project(parents); e != ErrShape {
+		t.Fatal("61 parent bound")
+	}
+}

@@ -1,0 +1,100 @@
+{
+  "schema": "riido-mask-sparse-root-QA-public-v1",
+  "state": "ROOT_OWNED_SYNTHETIC_CONTROLS_PASS_NOT_ADOPTED",
+  "Go": "1.27.1",
+  "source": [
+    {
+      "path": "bridge.go",
+      "bytes": 5407,
+      "sha256": "830449873c08aa039b70196437cb2b41b181a4c4c9dc00c28796745aa4c2ad10",
+      "private_host_module": false
+    },
+    {
+      "path": "bridge_test.go",
+      "bytes": 6300,
+      "sha256": "1ab0dab6bd6bd64b57ea0ae3408328aee2909a271aaa7eb14bc655918cbd5b46",
+      "private_host_module": false
+    },
+    {
+      "path": "go.mod",
+      "bytes": 219,
+      "sha256": "8821ab3e3672e211c2b02be4d6ebce86f2cfc86f85fe88d6eed1df61819cd06d",
+      "private_host_module": true
+    },
+    {
+      "path": "plan.go",
+      "bytes": 5383,
+      "sha256": "7a58c19779e1628b434eb70ce440b55abe53cb8bd716ff876b2e813b7b793b2a",
+      "private_host_module": false
+    },
+    {
+      "path": "plan_test.go",
+      "bytes": 5218,
+      "sha256": "8f05cff80be6d1f59ff873a6f2a99b395ae697dfe7a969191e840c211aa43985",
+      "private_host_module": false
+    }
+  ],
+  "race": {
+    "exit": 0,
+    "top_level_tests": 11
+  },
+  "vet": {
+    "exit": 0
+  },
+  "format": {
+    "unformatted": 0
+  },
+  "actual_existing_pairlearn_NLL": {
+    "called_on_owned_synthetic_known_rows": true,
+    "train_rows": 4,
+    "validation_rows": 4,
+    "weights_all_one": true,
+    "zero_weight_loss": 0.6931471805599453,
+    "tolerance": 1e-15,
+    "empty_split_NLL_not_called": true
+  },
+  "actual_existing_pairlearn_AUC": {
+    "called_on_same_known_rows": true,
+    "zero_weights_AUC": 0.5,
+    "empty_audit_only_AUC": null
+  },
+  "features": "Existing Go hintlearn.Features, bounded to32words per text before cross-product allocation; omitted rows never reach extractor.",
+  "SoA": "Exact allocation after two-pass size/SHA feature pinning; no maps or locks in bridge/plan.",
+  "benchmark": {
+    "exit": 0,
+    "GOOS": "darwin",
+    "GOARCH": "arm64",
+    "rows": [
+      {
+        "name": "BenchmarkSparseKnown5-14",
+        "iterations": 100,
+        "ns_per_op": 41753,
+        "B_per_op": 12360,
+        "allocs_per_op": 178
+      },
+      {
+        "name": "BenchmarkSparseMixed4Known1Unknown-14",
+        "iterations": 100,
+        "ns_per_op": 29785,
+        "B_per_op": 9832,
+        "allocs_per_op": 144
+      }
+    ],
+    "scope": "100owned synthetic builds per variant; allocation and local wall-time diagnostic only, no model inference or actual Codex savings."
+  },
+  "payload_bound_bytes": 8388608,
+  "whole_process_memory_measured": false,
+  "GPU_pprof": false,
+  "independent_source_review": false,
+  "CI127_covers_this_bridge": false,
+  "strict_Root_bound_Reader_adapter": 0,
+  "real_Golden_rows": 0,
+  "corpus_Fit": 0,
+  "new_models": 0,
+  "pending": [
+    "Nonauthor source review",
+    "Reader-bound adapter",
+    "Real semantic rows with frozen roles/groups",
+    "Protected2400 and whole verification-work improvement>=5%"
+  ]
+}
