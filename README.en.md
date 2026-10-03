@@ -1,5 +1,13 @@
 # laya-tools
 
+The current qualified finite development data contains **37 requests and108 labels**, published as the [immutable HF37 release](https://huggingface.co/datasets/JooYoon/riidolaya-shortclaim-next60-development/tree/next60-37-finite-v1). The [nonlearned ordering diagnostic](experiments/short-claim/next60-development37-bias-audit/README.en.md) favored lexical ordering at29/37 first choices, but position bias and platform-specific ties prevent interpreting this as learned-model benefit or actual Codex savings.
+
+An [unknown/ambiguity-preserving Go input API](pkg/shortclaimdata/COHORT.en.md) now prepares for the next five/eight-candidate cohort. U never becomes false, and ambiguity retains known T/F facts. Every row, including audit-only rows, is checked for declared role leakage before complete known parents with eligible rows enter the existing projection. New cohort observations, labels, training and protected2,400 evaluation remain pending.
+
+## Earlier checkpoints
+
+The figures and publication statuses below are historical snapshots. Use the links above for the latest data and next input path.
+
 [Development data for the small claim/hint model](experiments/short-claim/next60-development-thirtyfive/README.en.md) now has **35 requests and 102 labels**. The actual Go Reader completed35 calls, returns and full value matches; the previous33 rows remain byte-exact. The [offline check](scripts/verify-next60-thirtyfive.sh) matched309 predicates from two added requests and the complete35-row data locally and is added to CI. New Fits remain0. About60 requests still requires source deduplication, family-role separation and candidate-position review before training. Codex savings remain unproven.
 
 [PR125 CI, actual Linux differences and storage records](experiments/short-claim/publication-proof-126/README.en.md) are preserved. All four required CI jobs passed and the bot merged it; complete Linux results retain small score differences and actual tie/order changes. The35-row positive-position distribution remains biased at5,28,2. Two completed HF33 temporary copies,334 files, were restore-verified and archived, conservatively reclaiming about1.24MB of logical storage. This measures neither model memory nor cost savings.

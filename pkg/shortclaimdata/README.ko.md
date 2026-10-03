@@ -1,5 +1,7 @@
 # 공개 개발 자료를 안전하게 읽는 Go reader
 
+현재 유한 개발 자료는 [HF37 고정 버전](https://huggingface.co/datasets/JooYoon/riidolaya-shortclaim-next60-development/tree/next60-37-finite-v1)의37개 요청·108라벨입니다. 아래 원래 reader API는 그대로입니다. 다음 후보5/8개 코호트의 U·모호함·사용 마스크를 다루려면 별도 [Cohort API 설명](COHORT.ko.md)을 보세요. 자동 학습이나 정답 적격화 기능은 아닙니다.
+
 `pkg/shortclaimdata`는 공개 개발 요청 한 행에서 모델용 문장, 정답·가중치, 출처 기록을 나누어 꺼내는 작은 Go API입니다. 후속 학습 코드를 단순하게 만들고, 정답이나 출처 ID를 문장 특징에 우연히 섞는 일을 줄이려고 만들었습니다.
 
 - `Example.Input()`: 요청·후보 문장을 검증하고 정규화한 기존 `shortclaim.ValidatedInput`입니다. 후보 ID는 기록용으로 남습니다.
@@ -26,7 +28,9 @@ JSON 객체 하나가 최대 16 KiB, 후보는 1–8개입니다. JSONL은 크�
 
 내부에는 불변 문자열과 소유한 고정 배열을 유지합니다. 정답과 가중치는 별도 배열로 두고, 접근자는 값 복사를 반환합니다. 반환 배열을 바꿔도 원 자료는 바뀌지 않습니다. reader에는 공유 가변 map·slice나 lock이 없습니다.
 
-## 현재 확인한 범위
+## 이전 reader 검증 기록
+
+아래 수치와 게시 상태는 해당 단계 당시의 기록입니다. 최신37개 자료와 별도 코호트 입력은 위 링크로 확인하세요.
 
 Go 1.27.1 로컬 race 검사에서 테스트·하위테스트 합계 46건과 vet 검사를 통과했습니다. 실패·건너뜀은 0건입니다. 별도 작성자의 소스 검토에서도 차단 문제는 없었습니다. [검증 기록](../../experiments/short-claim/publication-proof-111/READER-LOCAL-QA.v1.json)은 로컬 검사와 해당 변경의 CI를 구분합니다.
 

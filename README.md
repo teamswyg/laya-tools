@@ -1,5 +1,13 @@
 # laya-tools
 
+현재 유한 개발 자료는 **37개 요청·108라벨**이며 [HF37 고정 버전](https://huggingface.co/datasets/JooYoon/riidolaya-shortclaim-next60-development/tree/next60-37-finite-v1)에 게시했습니다. [학습 없는 후보 순서 비교](experiments/short-claim/next60-development37-bias-audit/README.ko.md)에서는 어휘 비교가 첫 정답29/37로 가장 좋았지만, 정답 위치 편향과 환경별 동점 차이가 있어 모델 효과·실제 Codex 절감의 증거로 사용하지 않습니다.
+
+다음 5/8후보 자료를 위한 [미확인·모호함 보존 Go 입력](pkg/shortclaimdata/COHORT.ko.md)을 추가했습니다. U를 false로 바꾸지 않고 모호한 요청의 알려진 T/F도 보존합니다. 감사 전용 요청까지 먼저 역할 누수를 검사하고, 완전 known·사용 행이 있는 부모만 기존 변환기에 연결합니다. 새 코호트 관측·라벨·학습과 보호2,400개 평가는 아직 진행 전입니다.
+
+## 이전 체크포인트 기록
+
+아래 수치와 게시 상태는 각 단계 당시의 기록입니다. 최신 자료와 다음 입력 경로는 위 링크를 기준으로 확인하세요.
+
 [작은 주장·힌트 모델용 개발 자료](experiments/short-claim/next60-development-thirtyfive/README.ko.md)를 **35개 요청·102라벨**로 늘렸습니다. 실제 Go Reader의 35회 호출·반환·전체 값 일치와 기존 33행의 바이트 보존을 확인했습니다. 새 두 요청의 저장 판단309개와 35행 전체를 재현하는 [오프라인 검사](scripts/verify-next60-thirtyfive.sh)를 로컬에서 통과했고 CI에 추가했습니다. 새 모델 학습은 아직0회이며, 약60개 수집 뒤에도 원천 중복·역할 분리·후보 위치 편향을 검토해야 합니다. Codex 절감 효과는 아직 검증하지 않았습니다.
 
 [PR125 CI·Linux 실제 차이·저장 공간 기록](experiments/short-claim/publication-proof-126/README.ko.md)을 보존합니다. 필수 CI 네 작업을 통과해 봇이 병합했고, Linux의 미세한 점수 차이와 실제 동점·순서 변화도 전체 결과로 남겼습니다. 35행 위치 분포는5·28·2로 여전히 편향돼 있습니다. 완료한 HF33 임시 사본334파일은 복원 검증 후 압축 보관해 보수적으로 약1.24MB의 논리 저장 공간을 확보했습니다. 모델 메모리나 비용 절감 수치는 아닙니다.
