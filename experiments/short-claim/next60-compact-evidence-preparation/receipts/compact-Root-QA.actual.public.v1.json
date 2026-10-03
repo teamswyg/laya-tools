@@ -1,0 +1,158 @@
+{
+  "schema": "riido-owned-compact-evidence-prototype-QA-v1",
+  "source": [
+    {
+      "name": "compact.go",
+      "bytes": 9825,
+      "sha256": "01a8b8540e6bf3e88dd44bf029a8482090c17a7e10c5708764b0a70b9f640785"
+    },
+    {
+      "name": "compact_test.go",
+      "bytes": 6768,
+      "sha256": "d13259e0f98dd405cded911bd1c1f06d536fe3a5e28d1a7f0909ea9002423e03"
+    },
+    {
+      "name": "go.mod",
+      "bytes": 387,
+      "sha256": "65a1b537f104cb5240f45c168c3a6a1a2d8418c7ace41424f6b1abfb882bccca"
+    },
+    {
+      "name": "profile_test.go",
+      "bytes": 1978,
+      "sha256": "6ac7d9ff5544bd0299808b50e965165f370b00d9c1544af1061c814ab5d9ce81"
+    }
+  ],
+  "source_cap": 32768,
+  "profile_cap_each": 16384,
+  "profiles": [
+    {
+      "name": "profiles-owned-benchmark/owned-cpu.pprof",
+      "bytes": 7950,
+      "sha256": "bf1e968dbc7e7b3cb9c0a48ea1eb0632c3e12b80e4d34b8a74f308d261b3c60f",
+      "public_body": false
+    },
+    {
+      "name": "profiles-owned-benchmark/owned-heap.pprof",
+      "bytes": 1931,
+      "sha256": "af80952f9e1f6c3607996e7f42fe2944b16e201c85270d66cd1d708bec4a0413",
+      "public_body": false
+    },
+    {
+      "name": "profiles-owned-race/owned-cpu.pprof",
+      "bytes": 229,
+      "sha256": "98b7334fcae458dc6103332d33cd2473faf212c333faf302cf9d64f2303a7cda",
+      "public_body": false
+    },
+    {
+      "name": "profiles-owned-race/owned-heap.pprof",
+      "bytes": 1462,
+      "sha256": "ed785941330556ef60d35a0b4b6dbe7bb88df64602785ad12e08302e7c20447b",
+      "public_body": false
+    }
+  ],
+  "race": {
+    "exit_code": 0,
+    "top_controls": 4,
+    "without_profile_elapsed_seconds": 1.591,
+    "with_bounded_profile_elapsed_seconds": 1.447
+  },
+  "vet_exit_code": 0,
+  "closed_representation_upper": {
+    "scope": "Invalid numeric and semantic supersets dominate all structurally accepted fixed DTOs; not native/corpus observations.",
+    "union_row_with_LF": 882,
+    "json_row_with_LF": 889,
+    "rows": 39,
+    "header_footer_reserve": 4096,
+    "total_upper_bytes": 38631,
+    "whole_file_reserve": 65536
+  },
+  "benchmarks": {
+    "scope": "Identical owned one-row input; three200ms repeats. Compact snapshot+encoding included separately. No I/O, Sync, hashing, process, native, inference or whole-work cost.",
+    "go_version": "go1.27.1",
+    "goos": "darwin",
+    "goarch": "arm64",
+    "cpu": "Apple M4 Pro",
+    "gomaxprocs": 2,
+    "gomemlimit": "64MiB advisory GC target; not an RSS hard limit",
+    "padded_row": {
+      "ns_per_op": [
+        13493,
+        12888,
+        12958
+      ],
+      "bytes_per_op": [
+        5889,
+        5888,
+        5888
+      ],
+      "allocs_per_op": [
+        3,
+        3,
+        3
+      ]
+    },
+    "compact_encoding": {
+      "ns_per_op": [
+        1009,
+        1008,
+        997.8
+      ],
+      "bytes_per_op": [
+        416,
+        416,
+        416
+      ],
+      "allocs_per_op": [
+        3,
+        3,
+        3
+      ]
+    },
+    "compact_snapshot_and_encode": {
+      "ns_per_op": [
+        1127,
+        1133,
+        1138
+      ],
+      "bytes_per_op": [
+        586,
+        586,
+        586
+      ],
+      "allocs_per_op": [
+        7,
+        7,
+        7
+      ]
+    }
+  },
+  "pprof_interpretation": {
+    "cpu_samples_ms": 2320,
+    "runtime_kevent_flat_percent": 44.4,
+    "json_struct_arshaler_flat_percent": 13.36,
+    "alloc_space_cumulative_mb": 1129.09,
+    "not_peak_or_RSS": true,
+    "aggregate_alloc_space_not_comparable": "Faster methods execute more iterations; use B/op.",
+    "gpu": false,
+    "native": false
+  },
+  "initial_setup_failures_preserved": "INITIAL-PROFILE-SETUP-FAILURE.actual.public.v1.json",
+  "receipt_preparation_failure": {
+    "exit_code": 1,
+    "syntax_error": "Extra closing bracket in Root inline metadata draft; parse failed before all writes. No source, tests or profiles changed."
+  },
+  "execution_gate": "ErrPending",
+  "pending": [
+    "Independent source review",
+    "Strict external decoder/mask semantics and row/journal correspondence",
+    "Actual snapshot-before-candidate-AFTER binding and offset/SHA wire3",
+    "File reservation/partial writes/Sync/orphans/FINAL/EOF/Wait/reap",
+    "Native compiler/source/license closure and admission",
+    "Native corpus/Golden and whole-work validation"
+  ],
+  "original_calls": 0,
+  "native_calls": 0,
+  "model_calls": 0,
+  "new_golden_rows": 0,
+  "new_fits": 0
+}

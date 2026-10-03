@@ -1,0 +1,81 @@
+{
+  "schema": "riido-next-native-outcome-Root-QA-v1",
+  "state": "NINETEEN_OWNED_CONTROLS_PASS_ORIGINAL_BINDING_PENDING",
+  "source": [
+    {
+      "path": "encoding_bound_test.go",
+      "bytes": 1907,
+      "sha256": "d8490f86b5a49feafa45210ce318cc1f840010270855e985e6f9a67be3ee5ebf"
+    },
+    {
+      "path": "frame.go",
+      "bytes": 12488,
+      "sha256": "d0c335e0d58e1e6cdc0d4ba47dd412dbb6507a92b5b15b6db29cb8044cfcbad5"
+    },
+    {
+      "path": "go.mod",
+      "bytes": 50,
+      "sha256": "b1d957a005aa2a57061064534249b9abf5ba15792834ec95de9bd8228162f006"
+    },
+    {
+      "path": "original_call_test.go",
+      "bytes": 3993,
+      "sha256": "662218099b244108976daa06eef356321563042a8af2ce4c3096c474a4cde90e"
+    },
+    {
+      "path": "required_corrections_test.go",
+      "bytes": 2120,
+      "sha256": "4ca3c083cbc28079b8e30c4ddbccbe440d3d7fde7a11e3fe7ec498b93eedc296"
+    },
+    {
+      "path": "writer.go",
+      "bytes": 7310,
+      "sha256": "0c93e735737cb4383d290aea06e66a446b3b9a229bc2ee432c8f270189c7e3e3"
+    },
+    {
+      "path": "writer_test.go",
+      "bytes": 8957,
+      "sha256": "39491584bfdca1aa9bda921f963366e172768a8381243332c18997bc5e672801"
+    }
+  ],
+  "Go": "1.27.1",
+  "wire_version": 2,
+  "previous_PR129_wire_version": 1,
+  "previous_source_unchanged": true,
+  "race_default": {
+    "exit": 0,
+    "tests": 19,
+    "seconds": 1.676
+  },
+  "race_nil_panic_compatibility": {
+    "GODEBUG": "panicnil=1",
+    "exit": 0,
+    "tests": 19,
+    "seconds": 1.794
+  },
+  "vet_darwin_exit": 0,
+  "format_unformatted": 0,
+  "fixed_primitive_channel": "Facts.Source OriginalCall value contains available/entered/dispatched/returned/panicked/copied markers; allowed only on AFTERMethod.",
+  "controls_added": [
+    "Native return with owned copy success/failure remains distinct",
+    "Caught native nil panic remains distinct from owned thunk return",
+    "Lost marker after owned panic stays unavailable",
+    "Unknown markers retained; contradictory/null/dirty states rejected",
+    "Method-only channel and explicit wire-version1 rejection"
+  ],
+  "encoding_superset": {
+    "frame_including_LF_bytes": 1751,
+    "frame_limit": 2048,
+    "ACK_including_LF_bytes": 91,
+    "ACK_limit": 128
+  },
+  "scope": "Direct-source marker shape/integrity only, no original API called by synthetic tests. Native source coverage/meaning is not inferred from marker presence. Startup and unobserved nested original counters remain null.",
+  "new_original_native_model_corpus_Fit": 0,
+  "independent_review": "Pending",
+  "original_start_authority": false,
+  "pending": [
+    "Source binder maps actual local markers before method-AFTER; B1 not yet closed end to end",
+    "Updated receiver/compiler/controller dependency pins",
+    "Actual OS/process/EOF/result and rights/resource admission"
+  ]
+}

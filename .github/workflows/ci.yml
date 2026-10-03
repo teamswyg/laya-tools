@@ -66,6 +66,8 @@ jobs:
         run: bash scripts/verify-next60-mask-learning.sh
       - name: Bounded next-case wire, durable ACK and file drift controls (owned fakes; no worker)
         run: bash scripts/verify-next60-union-preparation.sh
+      - name: Lossless compact evidence and native marker controls (owned fakes; no inference)
+        run: bash scripts/verify-next60-compact-evidence.sh
       - name: Variable Go input controls and frozen nonlearned33 ranking reproduction (no training)
         env:
           RIIDOLAYA_BIAS_ACTUAL: ${{ runner.temp }}/riidolaya-bias-actual/actual.json

@@ -1,0 +1,318 @@
+package frame
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"errors"
+	"io"
+	"strings"
+	"testing"
+)
+
+type fake struct {
+	b        bytes.Buffer
+	lines    [][]byte
+	badSeq   bool
+	badHash  bool
+	ackError bool
+}
+
+func (f *fake) Write(p []byte) (int, error) { return f.b.Write(p) }
+func (f *fake) ack() (Ack, error) {
+	raw := append([]byte(nil), f.b.Bytes()...)
+	if len(raw) == 0 || raw[len(raw)-1] != '\n' {
+		return Ack{}, ErrAck
+	}
+	if _, err := DecodeFrame(raw); err != nil {
+		return Ack{}, err
+	}
+	f.lines = append(f.lines, raw)
+	f.b.Reset()
+	h := sha256.Sum256(raw[:len(raw)-1])
+	a := Ack{Version, uint16(len(f.lines)), hex.EncodeToString(h[:])}
+	if f.badSeq {
+		a.Q++
+	}
+	if f.badHash {
+		a.H = strings.Repeat("0", 64)
+	}
+	if f.ackError {
+		return Ack{}, io.ErrUnexpectedEOF
+	}
+	return a, nil
+}
+func fakePins() Pins {
+	return Pins{strings.Repeat("1", 64), strings.Repeat("2", 64), strings.Repeat("3", 64)}
+}
+func newFake(t *testing.T) (*Writer, *fake) {
+	t.Helper()
+	f := &fake{}
+	w, err := New(f, f.ack, fakePins())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := w.Ready(); err != nil {
+		t.Fatal(err)
+	}
+	return w, f
+}
+func empty() Facts { return Facts{} }
+func nested(t *testing.T, w *Writer, d uint8, body func() Facts) error {
+	t.Helper()
+	_, err := w.Call(Row, d, 0, 0, func() Facts {
+		f, e := w.Call(Candidate, d, 0, 0, body)
+		if e != nil {
+			return Facts{}
+		} // sticky source must still stop enclosing call
+		return f
+	})
+	return err
+}
+func TestBeforeAckFailurePreventsThunk(t *testing.T) {
+	for _, how := range []string{"sequence", "hash", "read"} {
+		t.Run(how, func(t *testing.T) {
+			w, f := newFake(t)
+			f.badSeq = how == "sequence"
+			f.badHash = how == "hash"
+			f.ackError = how == "read"
+			n := 0
+			_, err := w.Call(Row, 0, 0, 0, func() Facts { n++; return empty() })
+			if err == nil || n != 0 || !w.Status().Stopped || w.Status().Acknowledged.Seq != 1 {
+				t.Fatal("before ACK gate", err, n, w.Status())
+			}
+			_, _ = w.Call(Row, 0, 0, 0, func() Facts { n++; return empty() })
+			if n != 0 {
+				t.Fatal("later thunk ran")
+			}
+		})
+	}
+}
+func TestAfterAckFailureRetainsPrefixAndNoRetry(t *testing.T) {
+	w, f := newFake(t)
+	n := 0
+	_, err := w.Call(Row, 0, 0, 0, func() Facts { n++; f.badHash = true; return empty() })
+	s := w.Status()
+	if err == nil || n != 1 || s.Acknowledged.Seq != 2 || s.Acknowledged.Counts[Row] != [4]uint16{1, 0, 0, 0} || !s.EffectMayHaveOccurred {
+		t.Fatal("after ACK failure", err, n, s)
+	}
+	_, _ = w.Call(Row, 0, 0, 0, func() Facts { n++; return empty() })
+	if n != 1 {
+		t.Fatal("ambiguous effect retried")
+	}
+}
+func TestNestedCallbackMayCallMethodBeforeOuterAfter(t *testing.T) {
+	w, f := newFake(t)
+	err := nested(t, w, 18, func() Facts { return empty() })
+	if err == nil {
+		t.Fatal("out of order row18 accepted")
+	}
+	// A separate writer has no prior sticky failure.
+	w, f = newFake(t)
+	err = nested(t, w, 0, func() Facts {
+		got, e := w.Call(Method, 0, Readdir, 0, func() Facts {
+			_, e := w.Call(Callback, 0, 0, Merger, func() Facts {
+				_, e := w.Call(Method, 0, Readdir, 0, empty)
+				if e != nil {
+					t.Fatal(e)
+				}
+				return empty()
+			})
+			if e != nil {
+				t.Fatal(e)
+			}
+			return empty()
+		})
+		if e != nil {
+			t.Fatal(e)
+		}
+		return got
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	n := w.Status().Acknowledged.Counts
+	if n[Row] != [4]uint16{1, 1, 1, 0} || n[Candidate] != [4]uint16{1, 1, 1, 0} || n[Method] != [4]uint16{2, 2, 2, 0} || n[Callback] != [4]uint16{1, 1, 1, 0} {
+		t.Fatal(n)
+	}
+	outerBefore := 4
+	last, _ := DecodeFrame(f.lines[len(f.lines)-3])
+	if last.K != AfterMethod || int(last.S) != outerBefore {
+		t.Fatal("outer method did not close after callback", last)
+	}
+}
+func TestNestedTransportPanicIsNotCandidatePanic(t *testing.T) {
+	w, f := newFake(t)
+	err := nested(t, w, 0, func() Facts {
+		f.ackError = true
+		_, _ = w.Call(Method, 0, Readdir, 0, empty)
+		panic("owned stop relay")
+	})
+	if err == nil || w.Status().Acknowledged.Counts[Candidate][3] != 0 || !w.Status().Stopped {
+		t.Fatal(err, w.Status())
+	}
+}
+func TestKnownPanicDoesNotInspectValue(t *testing.T) {
+	w, _ := newFake(t)
+	calls := 0
+	var got Facts
+	err := nested(t, w, 0, func() Facts {
+		f, e := w.Call(Method, 0, Readdir, 0, func() Facts { panic(&hostile{&calls}) })
+		if e != nil {
+			t.Fatal(e)
+		}
+		got = f
+		return empty()
+	})
+	if err != nil || calls != 0 || !got.Panic.K || !got.Panic.V || got.Error.K {
+		t.Fatal(err, calls, got)
+	}
+}
+
+type hostile struct{ calls *int }
+
+func (h *hostile) Error() string  { (*h.calls)++; panic("formatter") }
+func (h *hostile) String() string { (*h.calls)++; panic("formatter") }
+func TestExpectedEOFDoesNotStopNextFrozenMethod(t *testing.T) {
+	w, _ := newFake(t)
+	n := 0
+	err := nested(t, w, 0, func() Facts {
+		for i := 0; i < 2; i++ {
+			_, e := w.Call(Method, 0, Readdir, 0, func() Facts {
+				n++
+				return Facts{Error: ErrorFact{A: true, K: true, P: true, I: true, V: EOFIdentity}, Entries: Entries{A: true, K: true, N: true}}
+			})
+			if e != nil {
+				t.Fatal(e)
+			}
+		}
+		return empty()
+	})
+	if err != nil || n != 2 {
+		t.Fatal(err, n)
+	}
+}
+
+type zeroWriter struct{}
+
+func (zeroWriter) Write([]byte) (int, error) { return 0, nil }
+
+type brokenWriter struct{ n int }
+
+func (b *brokenWriter) Write(p []byte) (int, error) { b.n++; return len(p) / 2, io.ErrClosedPipe }
+
+type shortWriter struct{ b bytes.Buffer }
+
+func (s *shortWriter) Write(p []byte) (int, error) {
+	if len(p) > 3 {
+		p = p[:3]
+	}
+	return s.b.Write(p)
+}
+func TestWriteFullAndStickyFailure(t *testing.T) {
+	if !errors.Is(WriteFull(zeroWriter{}, []byte("x")), ErrTransport) {
+		t.Fatal("zero progress")
+	}
+	b := &brokenWriter{}
+	if WriteFull(b, []byte("abcdef")) == nil || b.n != 1 {
+		t.Fatal("partial failure repeated")
+	}
+	s := &shortWriter{}
+	if WriteFull(s, []byte("abcdef")) != nil || s.b.String() != "abcdef" {
+		t.Fatal("partial progress")
+	}
+	w, err := New(zeroWriter{}, func() (Ack, error) { t.Fatal("ACK after failed write"); return Ack{}, nil }, fakePins())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if w.Ready() == nil || !w.Status().Stopped {
+		t.Fatal("sticky failed ready")
+	}
+}
+func TestAbsentIdentityAndNilEmptyRemainDistinct(t *testing.T) {
+	u := Facts{Error: ErrorFact{A: false, K: false}}
+	k := Facts{Error: ErrorFact{A: true, K: true, P: false, I: true, V: NilIdentity}}
+	if ValidateFacts(u) != nil || ValidateFacts(k) != nil || u == k {
+		t.Fatal("availability erased")
+	}
+	a := Facts{Entries: Entries{A: true, K: true, N: true}}
+	b := Facts{Entries: Entries{A: true, K: true, N: false}}
+	if ValidateFacts(a) != nil || ValidateFacts(b) != nil || a == b {
+		t.Fatal("nil/empty erased")
+	}
+	b.Entries.C = 1
+	if ValidateFacts(b) == nil {
+		t.Fatal("uninitialized entry accepted")
+	}
+}
+func TestStrictWireAndBoundBeforeWrite(t *testing.T) {
+	a := Ack{Version, 1, strings.Repeat("a", 64)}
+	b, err := EncodeAck(a)
+	if err != nil {
+		t.Fatal(err)
+	}
+	alias := bytes.Replace(b, []byte("\"v\""), []byte("\"V\""), 1)
+	if _, err = DecodeAck(alias); err == nil {
+		t.Fatal("case alias")
+	}
+	dup := bytes.Replace(b, []byte("{"), []byte("{\"v\":1,"), 1)
+	if _, err = DecodeAck(dup); err == nil {
+		t.Fatal("duplicate")
+	}
+	if _, err = DecodeAck(append(b, '\n')); err == nil {
+		t.Fatal("extra LF")
+	}
+	p := fakePins()
+	p.Freeze = strings.Repeat("a", 65)
+	f := Frame{V: Version, Q: 1, K: Ready, D: 255, B: &p}
+	if _, err = CanonicalFrame(f); err == nil {
+		t.Fatal("overlong pin")
+	}
+	f.B = nil
+	if _, err = CanonicalFrame(f); err == nil {
+		t.Fatal("missing pins")
+	}
+	n := Counts{}
+	n[0] = [4]uint16{1, 1, 65535, 1}
+	f.B = &Pins{strings.Repeat("1", 64), strings.Repeat("2", 64), strings.Repeat("3", 64)}
+	f.N = n
+	if _, err = CanonicalFrame(f); err == nil {
+		t.Fatal("counter overflow accepted")
+	}
+}
+func TestFullScheduleAndFinalNoSemanticPrivilege(t *testing.T) {
+	w, _ := newFake(t)
+	if w.Finish(true, NoStop) == nil {
+		t.Fatal("forged complete")
+	}
+	w, _ = newFake(t)
+	for d := uint8(0); d < MaxRows; d++ {
+		if err := nested(t, w, d, empty); err != nil {
+			t.Fatal(err, d)
+		}
+	}
+	if err := w.Finish(true, NoStop); err != nil {
+		t.Fatal(err)
+	}
+	if !w.Status().Finished || w.Status().Acknowledged.Counts[Candidate][2] != MaxRows {
+		t.Fatal(w.Status())
+	}
+	if w.Finish(true, NoStop) == nil {
+		t.Fatal("second final")
+	}
+}
+func TestCanonicalLargestPrimitiveShape(t *testing.T) {
+	// Source-only cap control; Root still owes independent maximal encoding proof.
+	z := Facts{Normal: Bool{true, true, false, false}, Panic: Bool{true, true, false, true},
+		Entries:     Entries{true, true, false, 3, [3]Entry{{1, 20, 1}, {2, 20, 2}, {3, 20, 2}}},
+		ParserIndex: Small{true, true, false, 128}}
+	f := Frame{V: Version, Q: 640, K: AfterMethod, D: 38, X: [4]uint8{1, 6, 2, 2}, S: 638, P: 637, M: ForEach, F: &z,
+		N: Counts{{39, 39, 39, 0}, {39, 39, 39, 0}, {96, 96, 96, 0}, {91, 91, 91, 0}}}
+	b, err := CanonicalFrame(f)
+	if err != nil || len(b)+1 > MaxLineBytes {
+		t.Fatal(err, len(b))
+	}
+	if _, err = DecodeFrame(append(b, '\n')); err != nil {
+		t.Fatal(err)
+	}
+}

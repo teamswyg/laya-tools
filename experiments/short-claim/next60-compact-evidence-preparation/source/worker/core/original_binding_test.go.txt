@@ -1,0 +1,118 @@
+package core
+
+import (
+	"bytes"
+	frame "riido.local/unionduplicateframe"
+	"testing"
+)
+
+// Owned fake functions only. Native packages, init and APIs are not imported.
+func invokeControl(t *testing.T, bad frame.Stage, fn func(*context, func(bool)) frame.Facts) (*context, frame.Frame) {
+	t.Helper()
+	w, b := controlWriter(t, bad)
+	c := &context{w: w, d: 0, methodMax: 1, callbackMax: 1}
+	w.Call(frame.Row, 0, 0, 0, func() frame.Facts {
+		w.Call(frame.Candidate, 0, 0, 0, func() frame.Facts {
+			c.direct(frame.Readdir, func(mark func(bool)) frame.Facts { return fn(c, mark) })
+			return frame.Facts{}
+		})
+		return frame.Facts{}
+	})
+	var got frame.Frame
+	for _, raw := range bytes.Split(b.Bytes(), []byte{'\n'}) {
+		if len(raw) == 0 {
+			continue
+		}
+		f, e := frame.DecodeFrame(append(append([]byte(nil), raw...), '\n'))
+		if e != nil {
+			t.Fatal("owned wire decode", e)
+		}
+		if f.K == frame.AfterMethod {
+			got = f
+		}
+		if (f.K == frame.AfterRow || f.K == frame.AfterCandidate) && f.F.Source.A {
+			t.Fatal("method provenance escaped into row or candidate")
+		}
+	}
+	if got.F == nil {
+		t.Fatal("missing owned AFTER method")
+	}
+	return c, got
+}
+func TestOriginalReturnRecordedBeforeAfterACK(t *testing.T) {
+	c, f := invokeControl(t, frame.Final, func(_ *context, mark func(bool)) frame.Facts {
+		mark(false)
+		mark(true)
+		return frame.Facts{Published: known(true)}
+	})
+	s := f.F.Source
+	if c.fail != nil || !s.A || s.Dispatched != known(true) || s.Returned != known(true) ||
+		s.Panicked != known(false) || s.Copied != known(true) || !c.row.API[0].DurableOriginalOutcomeAvailable {
+		t.Fatal("original return marker lost before ACK")
+	}
+}
+func TestOriginalNilPanicSeparatedFromThunk(t *testing.T) {
+	c, f := invokeControl(t, frame.Final, func(_ *context, mark func(bool)) frame.Facts {
+		mark(false)
+		panic(nil)
+	})
+	s := f.F.Source
+	if c.fail != ErrSourcePanic || c.ownFault || s.Returned != known(false) || s.Panicked != known(true) ||
+		s.Copied != known(false) || f.F.Normal != known(true) || f.F.Panic != known(false) ||
+		c.w.Status().Acknowledged.Counts[frame.Method][3] != 0 {
+		t.Fatal("native-shaped nil panic confused with owned thunk")
+	}
+}
+func TestOwnedNilCopyInterruptionPreservesOriginalReturn(t *testing.T) {
+	c, f := invokeControl(t, frame.Final, func(c *context, mark func(bool)) frame.Facts {
+		mark(false)
+		mark(true)
+		c.fault()
+		panic(nil)
+	})
+	s := f.F.Source
+	if c.fail != ErrObserver || !c.ownFault || s.Returned != known(true) || s.Panicked != known(false) ||
+		s.Copied != known(false) || c.row.SourcePanic.K || !c.row.API[0].DurableOriginalOutcomeAvailable {
+		t.Fatal("owned copy failure changed original return")
+	}
+}
+func TestOwnedCallbackInterruptionKeepsOriginalOutcomeUnknown(t *testing.T) {
+	c, f := invokeControl(t, frame.Final, func(c *context, mark func(bool)) frame.Facts {
+		mark(false)
+		c.callback(frame.Merger, func() frame.Facts { c.fault(); panic(nil) })
+		panic(nil)
+	})
+	s := f.F.Source
+	if c.fail != ErrObserver || !c.ownFault || s.Dispatched != known(true) ||
+		s.Returned != (frame.Bool{A: true}) || s.Panicked != (frame.Bool{A: true}) || s.Copied != known(false) ||
+		c.row.SourcePanic.K {
+		t.Fatal("owned callback interruption manufactured original panic/return")
+	}
+}
+func TestMissingOrRepeatedMarkersFailClosed(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		fn   func(func(bool))
+	}{
+		{"no markers", func(func(bool)) {}},
+		{"return before dispatch", func(m func(bool)) { m(true) }},
+		{"missing return", func(m func(bool)) { m(false) }},
+		{"repeat dispatch", func(m func(bool)) { m(false); m(false) }},
+		{"repeat return", func(m func(bool)) { m(false); m(true); m(true) }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c, f := invokeControl(t, frame.Final, func(_ *context, m func(bool)) frame.Facts { tc.fn(m); return frame.Facts{} })
+			if c.fail != ErrObserver || f.F.Source.Copied != known(false) || c.row.SourcePanic.K {
+				t.Fatal("invalid marker sequence became source success/panic")
+			}
+		})
+	}
+}
+func TestAfterACKLossPreservesAttemptButWithholdsAcknowledgement(t *testing.T) {
+	c, f := invokeControl(t, frame.AfterMethod, func(_ *context, m func(bool)) frame.Facts { m(false); m(true); return frame.Facts{} })
+	if c.fail == nil || c.row.API[0].DurableOriginalOutcomeAvailable ||
+		f.F.Source.Returned != known(true) || !c.w.Status().EffectMayHaveOccurred ||
+		c.w.Status().Acknowledged.Counts[frame.Method][1] != 0 {
+		t.Fatal("ACK loss erased effect or asserted acknowledgement")
+	}
+}

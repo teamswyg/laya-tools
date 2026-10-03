@@ -1,0 +1,60 @@
+{
+  "schema": "riido-owned-worker-test-failure-v1",
+  "source": [
+    {
+      "name": "core/context.go",
+      "bytes": 4700,
+      "sha256": "311235e2b0561d341988d3ea2b0281272b028ea7c88035088b232edbaead4419"
+    },
+    {
+      "name": "core/duplicate.go",
+      "bytes": 6617,
+      "sha256": "230775036aaf03a7212eadf691f1cff27155d76baaf8aeecd04b88cc276074a6"
+    },
+    {
+      "name": "core/failure_test.go",
+      "bytes": 4897,
+      "sha256": "684b5aacd133edddadc1f2d3b9b839d31871d6366743f97c101d72cfc6103a06"
+    },
+    {
+      "name": "core/fixtures.go",
+      "bytes": 3837,
+      "sha256": "1b7d63e78308e20e00ce5dea9d4aea796002717e6ae6d087b73844363cf74962"
+    },
+    {
+      "name": "core/run.go",
+      "bytes": 3133,
+      "sha256": "5a29a9b50fe3781da219f9127ede81693cdf2c14ca714474e3256c082bc0aa7a"
+    },
+    {
+      "name": "core/types.go",
+      "bytes": 5745,
+      "sha256": "42991b708069e223b02d551dd42bdb880e11fe2f6392ce90598a28bfa9a938d5"
+    },
+    {
+      "name": "core/union.go",
+      "bytes": 4488,
+      "sha256": "0c99ea5f16803e9078e5d5489ffd810249bd1ff397547813ba0f9b3d01ca08ef"
+    },
+    {
+      "name": "go.mod",
+      "bytes": 218,
+      "sha256": "dc837bd64a618f3d2cc1c009e77493b6e85b853134f6cc6efcc06a1b36420cc5"
+    }
+  ],
+  "observed_run": {
+    "command_scope": "Go1.27.1 race ./core, GODEBUG=panicnil=1",
+    "exit_code": 1,
+    "elapsed_seconds": 0.564,
+    "failed_top_controls": 4,
+    "diagnostic": "owned setup"
+  },
+  "reason_confirmed_by_source": "controlWriter passed the line without LF to DecodeFrame, which requires LF. ACK payload hash remains over the same payload without LF.",
+  "initial_wire_dependency": 2,
+  "changed_dependency": false,
+  "upstream_imports": 0,
+  "original_calls": 0,
+  "native_calls": 0,
+  "model_calls": 0,
+  "original_seal_modified": false
+}
