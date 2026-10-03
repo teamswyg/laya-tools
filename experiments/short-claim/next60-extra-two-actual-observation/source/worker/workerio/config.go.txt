@@ -1,0 +1,290 @@
+// Package workerio records the owned extra adapter's typed checkpoints. It
+// imports no original package and grants no semantic or label authority.
+package workerio
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"io"
+	"os"
+	"path/filepath"
+	"riido.local/remainderextra/extra"
+	"unicode/utf8"
+)
+
+const (
+	FixtureSHA   = "b3875c93e6bb59291ddf39e4c66d250284a4132af090a12f4eb1824ab8126b51"
+	WantsSHA     = "73f2c789fba33904a37826cebbde87b1acfd659862274444d768912658dd76a1"
+	FixtureBytes = 15282
+	WantsBytes   = 5949
+	MaxInput     = 1 << 20
+	MaxJournal   = 1 << 20
+	MaxFrames    = 1024
+	MaxFrame     = 32 << 10
+	MaxResult    = 128 << 10
+)
+
+var ErrTransport = errors.New("extra_transport_stopped")
+var requestIDs = [2]string{"go53-pflag-bounded-string-slice", "go53-cobra-validator-all-errors"}
+var candidateIDs = [3]string{"baseline_original", "reference_authored", "negative_authored"}
+
+type Config struct {
+	Family                        int
+	Out, Fixtures, Wants, PlanSHA string
+}
+
+func sha(raw []byte) string { h := sha256.Sum256(raw); return hex.EncodeToString(h[:]) }
+func validSHA(s string) bool {
+	if len(s) != 64 {
+		return false
+	}
+	for _, c := range s {
+		if !(c >= '0' && c <= '9' || c >= 'a' && c <= 'f') {
+			return false
+		}
+	}
+	return true
+}
+func parse(family int, args []string) (Config, string) {
+	c := Config{Family: family}
+	if family < 0 || family > 1 || len(args) != 12 {
+		return c, "arguments"
+	}
+	names := [6]string{"--out", "--fixtures", "--fixtures-sha256", "--wants", "--wants-sha256", "--plan-sha256"}
+	var vals [6]string
+	var seen [6]bool
+	for i := 0; i < len(args); i += 2 {
+		found := -1
+		for j, n := range names {
+			if args[i] == n {
+				found = j
+				break
+			}
+		}
+		if found < 0 || seen[found] || args[i+1] == "" {
+			return c, "arguments"
+		}
+		seen[found] = true
+		vals[found] = args[i+1]
+	}
+	if vals[2] != FixtureSHA || vals[4] != WantsSHA || !validSHA(vals[5]) || !filepath.IsAbs(vals[0]) || filepath.Clean(vals[0]) != vals[0] {
+		return c, "arguments"
+	}
+	c.Out = vals[0]
+	c.Fixtures = vals[1]
+	c.Wants = vals[3]
+	c.PlanSHA = vals[5]
+	return c, ""
+}
+func readPinned(path, digest string, size int) ([]byte, string) {
+	st, e := os.Lstat(path)
+	if e != nil || !st.Mode().IsRegular() || st.Size() != int64(size) || size < 1 || size > MaxInput {
+		return nil, "input_regular_bounds"
+	}
+	f, e := os.Open(path)
+	if e != nil {
+		return nil, "input_open"
+	}
+	defer f.Close()
+	before, e := f.Stat()
+	if e != nil || !before.Mode().IsRegular() || !os.SameFile(st, before) {
+		return nil, "input_identity"
+	}
+	raw, e := io.ReadAll(io.LimitReader(f, MaxInput+1))
+	after, se := f.Stat()
+	if e != nil || se != nil || len(raw) != size || !os.SameFile(st, after) || after.Size() != st.Size() || !after.ModTime().Equal(st.ModTime()) {
+		return nil, "input_read"
+	}
+	if sha(raw) != digest {
+		return nil, "input_sha256"
+	}
+	return raw, ""
+}
+
+type docRequest struct {
+	ID                  string   `json:"id"`
+	Order               []string `json:"candidate_order"`
+	Qualified           *bool    `json:"qualified"`
+	Truth, Role, Weight json.RawMessage
+}
+type literalCase struct {
+	ID                              string          `json:"case_id"`
+	Input                           json.RawMessage `json:"input"`
+	Want                            json.RawMessage `json:"Want"`
+	Got, Truth, Role, Weight, Label json.RawMessage
+}
+type fixtureRecord struct {
+	Ordinal                              int         `json:"ordinal"`
+	Family                               int         `json:"request_index"`
+	Fixture                              int         `json:"fixture_index"`
+	ID                                   string      `json:"request_id"`
+	Original                             literalCase `json:"original_fixture"`
+	Got, Truth, Role, Weight, Acceptable json.RawMessage
+}
+type fixtureDoc struct {
+	Schema       string          `json:"schema"`
+	RequestCount int             `json:"requests_count"`
+	FixtureCount int             `json:"fixtures_count"`
+	Candidates   int             `json:"candidate_positions"`
+	Planned      int             `json:"planned_dispatches"`
+	Actual       int             `json:"actual_dispatches"`
+	Requests     []docRequest    `json:"requests"`
+	Records      []fixtureRecord `json:"records"`
+}
+type wantRecord struct {
+	Ordinal                  int             `json:"ordinal"`
+	ID                       string          `json:"request_id"`
+	CaseID                   string          `json:"case_id"`
+	Want                     json.RawMessage `json:"Want"`
+	Got, Truth, Role, Weight json.RawMessage
+}
+type wantDoc struct {
+	Schema        string       `json:"schema"`
+	Count         int          `json:"input_count"`
+	Actual        int          `json:"actual_observations"`
+	TextCalls     int          `json:"error_text_observation_calls"`
+	Qualification *bool        `json:"qualification"`
+	Records       []wantRecord `json:"records"`
+}
+
+func null(v json.RawMessage) bool { return bytes.Equal(bytes.TrimSpace(v), []byte("null")) }
+func rawEqual(a, b json.RawMessage) bool {
+	var x, y bytes.Buffer
+	return json.Compact(&x, a) == nil && json.Compact(&y, b) == nil && bytes.Equal(x.Bytes(), y.Bytes())
+}
+func decode(raw []byte, v any) bool {
+	return len(raw) > 0 && len(raw) <= MaxInput && utf8.Valid(raw) && json.Valid(raw) && json.Unmarshal(raw, v) == nil
+}
+func bounded(s string) bool { return len(s) <= 512 && utf8.ValidString(s) }
+func sameOrder(a []string) bool {
+	if len(a) != 3 {
+		return false
+	}
+	for i, s := range a {
+		if s != candidateIDs[i] {
+			return false
+		}
+	}
+	return true
+}
+func validateDocuments(fraw, wraw []byte) string {
+	var f fixtureDoc
+	var w wantDoc
+	if !decode(fraw, &f) || !decode(wraw, &w) || f.Schema != extra.ExtraFixtureSchema || w.Schema != extra.ExtraWantSchema || f.RequestCount != 2 || f.FixtureCount != 10 || f.Candidates != 6 || f.Planned != 30 || f.Actual != 0 || len(f.Requests) != 2 || len(f.Records) != 10 || w.Count != 10 || w.Actual != 0 || w.TextCalls != 0 || w.Qualification == nil || *w.Qualification || len(w.Records) != 10 {
+		return "input_schema"
+	}
+	for family := 0; family < 2; family++ {
+		r := f.Requests[family]
+		if r.ID != requestIDs[family] || !sameOrder(r.Order) || r.Qualified == nil || *r.Qualified || !null(r.Truth) || !null(r.Role) || !null(r.Weight) {
+			return "request_identity"
+		}
+	}
+	for n, r := range f.Records {
+		family, k := n/5, n%5
+		wr := w.Records[n]
+		prefix := "bounded-slice-0"
+		if family == 1 {
+			prefix = "all-errors-0"
+		}
+		caseID := prefix + string(rune('1'+k))
+		if r.Ordinal != n || r.Family != family || r.Fixture != k || r.ID != requestIDs[family] || r.Original.ID != caseID || wr.Ordinal != n || wr.ID != r.ID || wr.CaseID != caseID || !rawEqual(r.Original.Want, wr.Want) || len(wr.Want) < 2 || wr.Want[0] != '{' {
+			return "fixture_Want_identity"
+		}
+		for _, v := range []json.RawMessage{r.Got, r.Truth, r.Role, r.Weight, r.Acceptable, r.Original.Got, r.Original.Truth, r.Original.Role, r.Original.Weight, r.Original.Label, wr.Got, wr.Truth, wr.Role, wr.Weight} {
+			if !null(v) {
+				return "input_authority"
+			}
+		}
+		if family == 0 {
+			in, ok := sliceInput(r.Original.Input)
+			if !ok || in != extra.SliceFixtures[k] {
+				return "typed_slice_fixture"
+			}
+		} else {
+			in, ok := validatorInput(r.Original.Input)
+			if !ok || in != extra.ValidatorFixtures[k] {
+				return "typed_validator_fixture"
+			}
+		}
+	}
+	return ""
+}
+func sliceInput(raw []byte) (extra.SliceInput, bool) {
+	var v struct {
+		Initial    []string `json:"initial"`
+		Limit      int      `json:"limit"`
+		Operations []struct {
+			Method string          `json:"method"`
+			Value  json.RawMessage `json:"value"`
+		} `json:"operations"`
+	}
+	var in extra.SliceInput
+	if !decode(raw, &v) || len(v.Initial) > extra.MaxValues || len(v.Operations) < 1 || len(v.Operations) > extra.MaxSteps {
+		return in, false
+	}
+	in.InitialNil = v.Initial == nil
+	in.InitialN = len(v.Initial)
+	copy(in.Initial[:], v.Initial)
+	in.Limit = v.Limit
+	in.N = len(v.Operations)
+	for i, op := range v.Operations {
+		x := extra.Operation{Method: op.Method}
+		switch op.Method {
+		case "Set", "Append":
+			if json.Unmarshal(op.Value, &x.Text) != nil {
+				return in, false
+			}
+		case "Replace":
+			var values []string
+			if json.Unmarshal(op.Value, &values) != nil || values == nil || len(values) > extra.MaxValues {
+				return in, false
+			}
+			x.N = len(values)
+			copy(x.Values[:], values)
+		default:
+			return in, false
+		}
+		in.Operations[i] = x
+	}
+	return in, true
+}
+func validatorInput(raw []byte) (extra.ValidatorInput, bool) {
+	var v struct {
+		Args       []string `json:"args"`
+		Validators []string `json:"validators"`
+	}
+	var in extra.ValidatorInput
+	if !decode(raw, &v) || v.Args == nil || v.Validators == nil || len(v.Args) > extra.MaxValues || len(v.Validators) > extra.MaxValidators {
+		return in, false
+	}
+	in.ArgsN = len(v.Args)
+	copy(in.Args[:], v.Args)
+	in.N = len(v.Validators)
+	for i, s := range v.Validators {
+		switch s {
+		case "success":
+			in.Kinds[i] = 0
+		case "sentinel_A":
+			in.Kinds[i] = 1
+		case "typed_B_code7":
+			in.Kinds[i] = 2
+		default:
+			return in, false
+		}
+	}
+	return in, true
+}
+func preflight(c Config) string {
+	f, e := readPinned(c.Fixtures, FixtureSHA, FixtureBytes)
+	if e != "" {
+		return e
+	}
+	w, e := readPinned(c.Wants, WantsSHA, WantsBytes)
+	if e != "" {
+		return e
+	}
+	return validateDocuments(f, w)
+}

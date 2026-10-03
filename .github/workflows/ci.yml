@@ -46,6 +46,10 @@ jobs:
         run: bash scripts/verify-next60-development.sh five
       - name: Twenty-one-row data controls (synthetic only; no training)
         run: bash scripts/verify-next60-development.sh twentyone
+      - name: Two-task saved finite comparisons (no original worker launch)
+        run: bash scripts/verify-next60-extra-two.sh
+      - name: Twenty-three-row exact data and project reader correspondence (no training)
+        run: bash scripts/verify-next60-twentythree.sh
       # The suite runs multiple cold isolated compilers. This outer budget does
       # not change any candidate's verifier timeout, sandbox or acceptance gate.
       - run: go test -race -timeout=20m ./...

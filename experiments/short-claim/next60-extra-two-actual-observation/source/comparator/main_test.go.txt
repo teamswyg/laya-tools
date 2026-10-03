@@ -1,0 +1,206 @@
+package main
+
+import (
+	"bytes"
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"testing"
+)
+
+const toySHA = "1111111111111111111111111111111111111111111111111111111111111111"
+
+func toyOutside(w Worker) []byte {
+	type process struct {
+		Start    int  `json:"start_attempts"`
+		Started  bool `json:"start_succeeded"`
+		Wait     int  `json:"wait_attempts"`
+		Waited   bool `json:"wait_returned"`
+		Reaped   bool `json:"started_process_reaped"`
+		Exit     int  `json:"exit_code"`
+		Deadline bool `json:"deadline_exceeded"`
+		Cap      bool `json:"capture_cap_exceeded"`
+	}
+	type artifact struct {
+		Name  string `json:"name"`
+		Bytes int    `json:"bytes"`
+		SHA   string `json:"sha256"`
+		Valid bool   `json:"read_valid"`
+	}
+	type receipt struct {
+		Schema      string     `json:"schema"`
+		State       string     `json:"state"`
+		Family      int        `json:"family"`
+		Complete    bool       `json:"structural_completion"`
+		Count       int        `json:"actual_completed_observation_count"`
+		Unknown     bool       `json:"incomplete_actual_counts_unknown"`
+		Stdout      bool       `json:"worker_stdout_byte_matches_result"`
+		Journal     bool       `json:"journal_fully_valid"`
+		Evidence    bool       `json:"external_root_evidence_hashes_verified"`
+		Inputs      bool       `json:"post_wait_plan_input_bindings_still_match"`
+		Bindings    bool       `json:"post_wait_frozen_binary_and_receipt_pins_match"`
+		Build       bool       `json:"static_build_info_valid"`
+		Process     process    `json:"process"`
+		Comparisons bool       `json:"Want_comparisons_performed"`
+		Labels      bool       `json:"labels_assigned"`
+		Roles       bool       `json:"roles_assigned"`
+		Weights     bool       `json:"weights_assigned"`
+		Ready       bool       `json:"training_ready"`
+		Models      int        `json:"model_calls"`
+		Fits        int        `json:"fit_calls"`
+		Artifacts   []artifact `json:"artifacts"`
+		Pins        []Fact     `json:"pins"`
+		Startup     *int       `json:"original_startup_calls"`
+		Inner       *int       `json:"original_nested_calls"`
+		Interpreted bool       `json:"external_root_evidence_conclusions_interpreted"`
+		Automatic   bool       `json:"automatic_retry"`
+	}
+	names := [5]string{"worker/results.json", "worker/journal.jsonl", "worker/reservation.json", "stdout.private.bin", "stderr-time.private.bin"}
+	arts := make([]artifact, 5)
+	for i := 0; i < 4; i++ {
+		arts[i] = artifact{names[i], w.Files[i].Bytes, w.Files[i].SHA, true}
+	}
+	arts[4] = artifact{names[4], 5, toySHA, true}
+	pins := make([]Fact, 11)
+	for i := range pins {
+		pins[i] = Fact{ID: "owned/pin", Bytes: 1, SHA: toySHA, Verified: true}
+	}
+	pins[0].ID = "extratwo/execution-plan"
+	pins[0].SHA = w.Plan
+	raw, _ := json.Marshal(receipt{Schema: "riido-extra-two-outside-receipt-v1", State: "complete", Family: w.Family, Complete: true, Count: 15, Stdout: true, Journal: true, Evidence: true, Inputs: true, Bindings: true, Build: true, Process: process{Start: 1, Started: true, Wait: 1, Waited: true, Reaped: true}, Artifacts: arts, Pins: pins})
+	return raw
+}
+func TestRequiredSavedCompletionProjection(t *testing.T) {
+	w := Worker{Family: 0, Plan: toySHA}
+	for i := range w.Files {
+		w.Files[i] = Pin{ID: "owned", Bytes: i + 1, SHA: toySHA}
+	}
+	raw := toyOutside(w)
+	if outside(raw, w) != nil {
+		t.Fatal("owned metadata projection rejected")
+	}
+	for _, tc := range []struct {
+		name     string
+		old, new string
+	}{
+		{"not_reaped", `"started_process_reaped":true`, `"started_process_reaped":false`},
+		{"missing_exit", `"exit_code":0`, `"exit_code":null`},
+		{"failed_start", `"start_attempts":1`, `"start_attempts":0`},
+		{"partial_count", `"actual_completed_observation_count":15`, `"actual_completed_observation_count":14`},
+		{"labels", `"labels_assigned":false`, `"labels_assigned":true`},
+		{"missing_required", `"journal_fully_valid":true,`, ``},
+		{"duplicate_required", `"journal_fully_valid":true`, `"journal_fully_valid":true,"journal_fully_valid":true`},
+		{"case_alias", `"state":"complete"`, `"State":"complete"`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			changed := bytes.Replace(raw, []byte(tc.old), []byte(tc.new), 1)
+			if bytes.Equal(raw, changed) {
+				t.Fatal("control changed nothing")
+			}
+			if outside(changed, w) == nil {
+				t.Fatal("bad acknowledgment accepted")
+			}
+		})
+	}
+	w.Files[0].SHA = "2222222222222222222222222222222222222222222222222222222222222222"
+	if outside(raw, w) == nil {
+		t.Fatal("outside artifact mismatch ignored")
+	}
+}
+func TestIOPinBoundAndExclusiveFailure(t *testing.T) {
+	dir, e := filepath.EvalSymlinks(t.TempDir())
+	if e != nil {
+		t.Fatal(e)
+	}
+	file := filepath.Join(dir, "owned.json")
+	raw := []byte("{}\n")
+	if os.WriteFile(file, raw, 0600) != nil {
+		t.Fatal("write")
+	}
+	p := Pin{"owned/pin", file, len(raw), sha(raw)}
+	if _, f, _, e := verify(p, 64); e != nil || !f.Verified {
+		t.Fatal("owned pin")
+	}
+	if _, _, _, e := verify(p, 1); e == nil {
+		t.Fatal("size bound")
+	}
+	out := filepath.Join(dir, "new-output.json")
+	o, e := run(file, sha(raw), out)
+	if e == nil || o.ValidatedSavedWorkers != 0 || o.ComparisonsStarted || o.Report != nil {
+		t.Fatal("invalid metadata reached comparison")
+	}
+	before, e := os.ReadFile(out)
+	if e != nil || !bytes.Contains(before, []byte(`"state":"failed"`)) {
+		t.Fatal("failed output not preserved")
+	}
+	if _, e = run(file, sha(raw), out); e == nil {
+		t.Fatal("old output reused")
+	}
+	after, e := os.ReadFile(out)
+	if e != nil || !bytes.Equal(before, after) {
+		t.Fatal("existing output overwritten")
+	}
+	link := filepath.Join(dir, "link")
+	if os.Symlink(file, link) != nil {
+		t.Fatal("symlink")
+	}
+	if _, _, e = read(link, 64); e == nil {
+		t.Fatal("symlink accepted")
+	}
+}
+func TestConfigArraysAndArguments(t *testing.T) {
+	type worker struct {
+		Family int    `json:"family"`
+		Plan   string `json:"plan_sha256"`
+		Files  []Pin  `json:"files"`
+	}
+	type cfg struct {
+		Schema  string   `json:"schema"`
+		Fixture Pin      `json:"fixtures"`
+		Wants   Pin      `json:"wants"`
+		Workers []worker `json:"workers"`
+	}
+	dir, e := filepath.EvalSymlinks(t.TempDir())
+	if e != nil {
+		t.Fatal(e)
+	}
+	c := cfg{Schema: "riido-extra-two-saved-comparison-config-v1", Fixture: Pin{"extra2/fixtures", filepath.Join(dir, "fixtures"), 15282, "b3875c93e6bb59291ddf39e4c66d250284a4132af090a12f4eb1824ab8126b51"}, Wants: Pin{"extra2/wants", filepath.Join(dir, "wants"), 5949, "73f2c789fba33904a37826cebbde87b1acfd659862274444d768912658dd76a1"}, Workers: make([]worker, 2)}
+	families := [2]string{"slice", "validators"}
+	kinds := [5]string{"result", "journal", "reservation", "stdout", "outside"}
+	for i := range c.Workers {
+		c.Workers[i] = worker{Family: i, Plan: toySHA, Files: make([]Pin, 5)}
+		for j := range kinds {
+			id := "extra2/" + families[i] + "-" + kinds[j]
+			c.Workers[i].Files[j] = Pin{id, filepath.Join(dir, families[i]+"-"+kinds[j]), 1, toySHA}
+		}
+	}
+	file := filepath.Join(dir, "owned-config.json")
+	decode := func(c cfg) error {
+		raw, _ := json.Marshal(c)
+		if os.WriteFile(file, raw, 0600) != nil {
+			t.Fatal("write")
+		}
+		_, e := config(file, sha(raw))
+		return e
+	}
+	if decode(c) != nil {
+		t.Fatal("owned config rejected")
+	}
+	extra := c
+	extra.Workers = append(append([]worker(nil), c.Workers...), c.Workers[1])
+	if decode(extra) == nil {
+		t.Fatal("third worker discarded")
+	}
+	extra = c
+	extra.Workers = append([]worker(nil), c.Workers...)
+	extra.Workers[0].Files = append(append([]Pin(nil), c.Workers[0].Files...), c.Workers[0].Files[0])
+	if decode(extra) == nil {
+		t.Fatal("sixth file discarded")
+	}
+	if _, _, _, ok := args([]string{"--config", file, "--config-sha256", toySHA, "--out", filepath.Join(dir, "result")}); !ok {
+		t.Fatal("args")
+	}
+	if _, _, _, ok := args([]string{"--config", file, "--config", toySHA, "--out", filepath.Join(dir, "result")}); ok {
+		t.Fatal("duplicate flag")
+	}
+}

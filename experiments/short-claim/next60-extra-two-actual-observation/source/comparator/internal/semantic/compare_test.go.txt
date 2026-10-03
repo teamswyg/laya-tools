@@ -1,0 +1,259 @@
+package semantic
+
+import (
+	"bytes"
+	"encoding/json"
+	"example.com/riido-extra-two-semantic/internal/protocol"
+	"fmt"
+	"testing"
+)
+
+// Fabricated observations/Wants exercise logic; no pinned historical
+// fixtures, actual saved observations or original callback are evaluated.
+func toy() (Wants, [2]protocol.WorkerReport) {
+	var wants Wants
+	var reports [2]protocol.WorkerReport
+	for family := 0; family < 2; family++ {
+		reports[family] = protocol.WorkerReport{Schema: "riido-remainder-extra-two-result-proposal-v1", Family: family, Counters: protocol.Counters{Reserved: 15, Dispatched: 15, Returned: 15, Completed: 15}}
+		for f := 0; f < 5; f++ {
+			w := Want{Family: family, Fixture: f, CaseID: fmt.Sprintf("owned-%d-%d", family, f), ErrorNil: true}
+			if family == 0 {
+				w.StepsN = 1
+				w.Steps[0] = StepWant{ErrorNil: true, N: 2, Values: [8]string{"owned-a", "owned-b"}}
+			} else {
+				w.CallsN = 2
+				w.Calls = [8]int{0, 1}
+			}
+			wants[family*5+f] = w
+			for candidate := 0; candidate < 3; candidate++ {
+				o := protocol.Observation{Candidate: candidate, ReturnedNormallyKnown: true, ReturnedNormally: true, PanicKnown: true}
+				if family == 0 {
+					o.StepsN = 1
+					o.Steps[0] = protocol.Step{Returned: true, Error: protocol.ErrorView{Available: true, Known: true, Nil: true}, Values: protocol.Values{Known: true, N: 2, Items: [8]string{"owned-a", "owned-b"}}}
+				} else {
+					o.ValidatorResultKnown = true
+					o.ValidatorError = protocol.ErrorView{Available: true, Known: true, Nil: true}
+					o.CallbackCount = 2
+					o.CallbackOrder = [8]int{0, 1}
+				}
+				ordinal := f*3 + candidate
+				reports[family].Records[ordinal] = protocol.Record{Ordinal: ordinal, Fixture: f, Candidate: candidate, Completed: true, Observation: o}
+			}
+		}
+	}
+	return wants, reports
+}
+func TestOwnedCompleteAndNoAuthority(t *testing.T) {
+	w, r := toy()
+	got, e := Compare(w, r)
+	if e != nil || got.Counts != (Counts{True: 30}) || !got.ReferenceAllFive[0] || !got.ReferenceAllFive[1] {
+		t.Fatalf("owned complete %v %+v", e, got.Counts)
+	}
+	if got.Labels || got.Roles || got.Weights || got.Qualified || got.ModelCalls != 0 || got.FitCalls != 0 || got.InnerOriginalCalls != nil || got.StartupCalls != nil {
+		t.Fatal("comparison acquired authority")
+	}
+}
+func TestUnavailableErrorAndKnownCounterexample(t *testing.T) {
+	w, r := toy()
+	o := &r[0].Records[0].Observation
+	o.Steps[0].Error.Available = false
+	got, e := Compare(w, r)
+	if e != nil || got.Observations[0].State != Unknown {
+		t.Fatal("unavailable error became nil or false")
+	}
+	o.Steps[0].Values.Items[0] = "counterexample"
+	got, e = Compare(w, r)
+	if e != nil || got.Observations[0].State != False || got.Observations[0].Counts.Unknown != 1 || got.Observations[0].Counts.False != 1 {
+		t.Fatal("known mismatch lost due to separate unknown")
+	}
+}
+func TestAtomicSnapshotAndNilnessScope(t *testing.T) {
+	w, r := toy()
+	o := &r[0].Records[0].Observation
+	o.StepsN = 0
+	o.Steps[0].Values.Items[0] = "unacknowledged-partial"
+	got, e := Compare(w, r)
+	if e != nil || got.Observations[0].State != Unknown || got.Observations[0].Counts.Unknown != 2 {
+		t.Fatal("partial uncompleted step evaluated")
+	}
+	w, r = toy()
+	w[0].Steps[0].N = 0
+	r[0].Records[0].Observation.Steps[0].Values = protocol.Values{Known: true}
+	r[0].Records[0].Observation.Steps[0].Values.Nil = true
+	got, e = Compare(w, r)
+	if e != nil || got.Observations[0].State != True {
+		t.Fatal("omitted Want nilness promoted into assertion")
+	}
+}
+func TestEntryLimitIdentityNotErrorTextOrType(t *testing.T) {
+	w, r := toy()
+	w[0].Steps[0].EntryLimit = true
+	w[0].Steps[0].ErrorNil = false
+	o := &r[0].Records[0].Observation
+	o.Steps[0].Error.Nil = false
+	o.Steps[0].Error.DerivedKind = "owned_entry_limit"
+	got, e := Compare(w, r)
+	if e != nil || got.Observations[0].State != True {
+		t.Fatal("owned exact identity")
+	}
+	o.Steps[0].Error.DerivedKind = "unclassified_error"
+	o.Steps[0].Error.Type = "entry_limit"
+	got, e = Compare(w, r)
+	if e != nil || got.Observations[0].State != False {
+		t.Fatal("lookalike type classified as owned identity")
+	}
+	o.Steps[0].Error.Known = false
+	got, e = Compare(w, r)
+	if e != nil || got.Observations[0].State != Unknown {
+		t.Fatal("unknown error classified")
+	}
+	o.Steps[0].Error.Known = true
+	o.Steps[0].Error.DerivedKind = "unobserved_kind"
+	got, e = Compare(w, r)
+	if e != nil || got.Observations[0].State != Unknown {
+		t.Fatal("unknown identity vocabulary classified")
+	}
+}
+func TestValidatorOrderedCallbacksAndTypedCode(t *testing.T) {
+	w, r := toy()
+	code := 7
+	w[5].AsB = true
+	w[5].BCode = &code
+	o := &r[1].Records[0].Observation
+	o.AsB = true
+	o.BCodeKnown = true
+	o.BCode = 7
+	got, e := Compare(w, r)
+	if e != nil || got.Observations[15].State != True {
+		t.Fatal("typed value match")
+	}
+	o.CallbackOrder = [8]int{1, 0}
+	got, e = Compare(w, r)
+	if e != nil || got.Observations[15].State != False {
+		t.Fatal("callback order discarded")
+	}
+	o.CallbackOrder = [8]int{0, 1}
+	o.BCodeKnown = false
+	o.BCode = 999
+	got, e = Compare(w, r)
+	if e != nil || got.Observations[15].State != Unknown {
+		t.Fatal("unavailable code turned into counterexample")
+	}
+	o.BCodeKnown = true
+	o.BCode = 8
+	got, e = Compare(w, r)
+	if e != nil || got.Observations[15].State != False {
+		t.Fatal("known code mismatch")
+	}
+}
+func TestValidatorPanicAndNoCodeAssertion(t *testing.T) {
+	w, r := toy()
+	o := &r[1].Records[0].Observation
+	o.Panic = true
+	o.ReturnedNormally = false
+	o.CallbackCount = 0
+	got, e := Compare(w, r)
+	if e != nil || got.Observations[15].State != Unknown || got.Observations[15].Counts.Unknown != 4 {
+		t.Fatal("panic/partial callback promoted to mismatch")
+	}
+	w, r = toy()
+	r[1].Records[0].Observation.BCode = 999
+	got, e = Compare(w, r)
+	if e != nil || got.Observations[15].State != True || got.Observations[15].PredicateCount != 4 {
+		t.Fatal("historical null code asserted as zero")
+	}
+}
+func TestMalformedTypedInputsRejected(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		mutate func(*Wants, *[2]protocol.WorkerReport)
+	}{
+		{"values_bound", func(w *Wants, r *[2]protocol.WorkerReport) { w[0].Steps[0].N = 9 }},
+		{"steps_bound", func(w *Wants, r *[2]protocol.WorkerReport) { w[0].StepsN = 5 }},
+		{"ordinal", func(w *Wants, r *[2]protocol.WorkerReport) { r[0].Records[0].Ordinal = 1 }},
+		{"missing_record", func(w *Wants, r *[2]protocol.WorkerReport) { r[0].Records[0].Completed = false }},
+		{"supervision", func(w *Wants, r *[2]protocol.WorkerReport) { s := "forbidden"; r[0].Records[0].Observation.Truth = &s }},
+		{"callback_bound", func(w *Wants, r *[2]protocol.WorkerReport) { r[1].Records[0].Observation.CallbackCount = 9 }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			w, r := toy()
+			tc.mutate(&w, &r)
+			if _, e := Compare(w, r); e == nil {
+				t.Fatal("corrupt typed input accepted")
+			}
+		})
+	}
+}
+
+func toyWantJSON() []byte {
+	records := make([]any, 10)
+	for i := 0; i < 10; i++ {
+		family, f := i/5, i%5
+		var want any
+		prefix := "bounded-slice"
+		if family == 0 {
+			type step struct {
+				Kind   string   `json:"derived_error_kind,omitempty"`
+				Nil    bool     `json:"error_nil"`
+				Values []string `json:"values"`
+			}
+			ns := [5]int{1, 2, 2, 2, 4}
+			steps := make([]step, ns[f])
+			for j := range steps {
+				steps[j] = step{Nil: true, Values: []string{"owned"}}
+				if f >= 1 && f <= 3 && j == 1 {
+					steps[j].Kind = "entry_limit"
+					steps[j].Nil = false
+				}
+			}
+			want = struct {
+				Steps []step `json:"steps"`
+			}{steps}
+		} else {
+			prefix = "all-errors"
+			want = struct {
+				Code  *int  `json:"B_code"`
+				Calls []int `json:"calls"`
+				Nil   bool  `json:"error_nil"`
+				AsB   bool  `json:"errors_as_B"`
+				IsA   bool  `json:"errors_is_A"`
+			}{Calls: []int{0}, Nil: true}
+		}
+		records[i] = struct {
+			Got     *int   `json:"Got"`
+			Want    any    `json:"Want"`
+			State   string `json:"Want_state"`
+			ID      string `json:"case_id"`
+			Ordinal int    `json:"ordinal"`
+			Request string `json:"request_id"`
+			Role    *int   `json:"role"`
+			Truth   *int   `json:"truth"`
+			Weight  *int   `json:"weight"`
+		}{Want: want, State: "non_null_project_literal_pre_execution_unobserved", ID: fmt.Sprintf("%s-%02d", prefix, f+1), Ordinal: i, Request: protocol.IDs[family]}
+	}
+	raw, _ := json.Marshal(struct {
+		Actual     int    `json:"actual_observations"`
+		ErrorCalls int    `json:"error_text_observation_calls"`
+		Count      int    `json:"input_count"`
+		Qualified  bool   `json:"qualification"`
+		Records    []any  `json:"records"`
+		Schema     string `json:"schema"`
+		Scope      string `json:"scope"`
+	}{Count: 10, Records: records, Schema: "riido-remainder-extra-two-literal-Wants-v1", Scope: "owned synthetic"})
+	return raw
+}
+func TestFrozenWantPinAndSyntheticParsing(t *testing.T) {
+	raw := toyWantJSON()
+	w, e := parseWants(raw)
+	if e != nil || w[4].StepsN != 4 || w[8].CallsN != 1 {
+		t.Fatal("owned synthetic parse")
+	}
+	if _, e = ParseWants(raw); e == nil {
+		t.Fatal("unfrozen Want accepted")
+	}
+	for _, bad := range [][]byte{bytes.Replace(raw, []byte(`"ordinal":0`), []byte(`"ordinal":1`), 1), bytes.Replace(raw, []byte(`"error_nil":true`), []byte(`"error_nil":null`), 1), bytes.Replace(raw, []byte(`"qualification":false`), []byte(`"qualification":true`), 1)} {
+		if _, e = parseWants(bad); e == nil {
+			t.Fatal("bad synthetic Want accepted")
+		}
+	}
+}

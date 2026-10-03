@@ -1,0 +1,32 @@
+// Future Root execution entry only. Preparation does not run this source.
+package main
+
+import (
+	"io"
+	"os"
+	data23 "riido.local/data23prep"
+)
+
+func main() {
+	names := []string{"--previous-data", "--fixtures", "--adoption", "--finite-comparison", "--data-output", "--receipt-output"}
+	v, e := data23.ParseOptions(os.Args[1:], names)
+	if e != nil {
+		io.WriteString(os.Stderr, "data23_arguments\n")
+		os.Exit(2)
+	}
+	s := data23.InitialSummary()
+	e = data23.Materialize(data23.Paths{Previous: v[0], Fixtures: v[1], Adoption: v[2], Comparison: v[3]}, v[4], &s)
+	if e != nil {
+		s.State = "materialization_failed"
+		s.Failure = data23.FailureCode(e)
+	}
+	if data23.SaveSummary(v[5], s) != nil {
+		io.WriteString(os.Stderr, "data23_receipt_failed\n")
+		os.Exit(1)
+	}
+	if e != nil {
+		io.WriteString(os.Stderr, "data23_materialization_failed\n")
+		os.Exit(1)
+	}
+	io.WriteString(os.Stdout, "data23_materialization_saved\n")
+}

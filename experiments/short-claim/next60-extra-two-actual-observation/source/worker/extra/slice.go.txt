@@ -1,0 +1,196 @@
+package extra
+
+import (
+	"encoding/csv"
+	"strings"
+	"unicode/utf8"
+)
+
+type SliceValue interface {
+	Set(string) error
+	Append(string) error
+	Replace([]string) error
+	GetSlice() []string
+}
+type SliceFactory func(int, int, []string) (SliceValue, error)
+type Operation struct {
+	Method string
+	Text   string
+	Values [MaxValues]string
+	N      int
+}
+type SliceInput struct {
+	Initial    [MaxValues]string
+	InitialN   int
+	InitialNil bool
+	Limit      int
+	Operations [MaxSteps]Operation
+	N          int
+}
+
+func stringOK(s string) bool { return len(s) <= 512 && utf8.ValidString(s) }
+func checkSlice(in SliceInput) bool {
+	if in.InitialN < 0 || in.InitialN > MaxValues || in.N < 1 || in.N > MaxSteps || in.Limit < 0 || in.Limit > MaxValues || (in.InitialNil && in.InitialN != 0) {
+		return false
+	}
+	for i := 0; i < in.InitialN; i++ {
+		if !stringOK(in.Initial[i]) {
+			return false
+		}
+	}
+	for i := 0; i < in.N; i++ {
+		x := in.Operations[i]
+		if !stringOK(x.Text) || x.N < 0 || x.N > MaxValues {
+			return false
+		}
+		switch x.Method {
+		case "Set", "Append":
+			if x.N != 0 {
+				return false
+			}
+		case "Replace":
+		default:
+			return false
+		}
+		for j := 0; j < x.N; j++ {
+			if !stringOK(x.Values[j]) {
+				return false
+			}
+		}
+	}
+	return true
+}
+func csvEntries(s string) ([]string, error) {
+	if s == "" {
+		return []string{}, nil
+	}
+	return csv.NewReader(strings.NewReader(s)).Read()
+}
+
+// candidate0 is the unchanged native value. candidate1 uses parsed CSV
+// cardinality; candidate2 deliberately uses comma splitting for Set only.
+// Append does not change the original setter's first-Set replacement state.
+func perform(v SliceValue, candidate int, limit int, changed *bool, op Operation) error {
+	if candidate != 0 {
+		projected := 0
+		switch op.Method {
+		case "Set":
+			var entries []string
+			var err error
+			if candidate == 2 {
+				if op.Text != "" {
+					entries = strings.Split(op.Text, ",")
+				}
+			} else {
+				entries, err = csvEntries(op.Text)
+			}
+			if err != nil {
+				return err
+			}
+			projected = len(entries)
+			if *changed {
+				projected += len(v.GetSlice())
+			}
+		case "Append":
+			projected = len(v.GetSlice()) + 1
+		case "Replace":
+			projected = op.N
+		}
+		if limit > 0 && projected > limit {
+			return ErrEntryLimit
+		}
+	}
+	switch op.Method {
+	case "Set":
+		err := v.Set(op.Text)
+		if err == nil {
+			*changed = true
+		}
+		return err
+	case "Append":
+		return v.Append(op.Text)
+	case "Replace":
+		val := make([]string, op.N)
+		copy(val, op.Values[:op.N])
+		return v.Replace(val)
+	}
+	return ErrInput
+}
+
+// ObserveSlice returns immutable value snapshots to a required checkpoint.
+// A writer must fsync successfully before returning nil. This source does not
+// itself implement that writer or assert that a surviving row proves Sync.
+func ObserveSlice(candidate int, in SliceInput, factory SliceFactory, checkpoint Checkpoint) (Observation, Counters, error) {
+	o := Observation{Candidate: candidate}
+	c := Counters{}
+	if candidate < 0 || candidate > 2 || !checkSlice(in) || factory == nil {
+		return o, c, ErrInput
+	}
+	c.Reserved = 1
+	if emit(checkpoint, Event{Stage: "before_candidate", Step: -1, Counters: c}) != nil {
+		c.CheckpointStopped = true
+		return o, c, ErrCheckpoint
+	}
+	c.Dispatched = 1
+	initial := make([]string, in.InitialN)
+	copy(initial, in.Initial[:in.InitialN])
+	if in.InitialNil {
+		initial = nil
+	}
+	var v SliceValue
+	var internal error
+	panicked, p := capture(func() { v, internal = factory(candidate, in.Limit, initial) })
+	if !panicked && (internal != nil || v == nil) {
+		return o, c, ErrAdapter
+	}
+	changed := false
+	for i := 0; i < in.N && !panicked; i++ {
+		panicked, p = capture(func() {
+			err := perform(v, 0, in.Limit, &changed, in.Operations[i])
+			o.Steps[i].Returned = true
+			o.Steps[i].Error = errorView(err)
+			o.Steps[i].Values, internal = values(v.GetSlice())
+		})
+		if internal != nil {
+			return o, c, ErrAdapter
+		}
+		if !panicked {
+			o.StepsN = i + 1
+			if emit(checkpoint, Event{Stage: "after_step", Step: i, ObservationKnown: true, Observation: o, Counters: c}) != nil {
+				c.CheckpointStopped = true
+				return o, c, ErrCheckpoint
+			}
+		}
+	}
+	finish(&o, &c, panicked, p)
+	if emit(checkpoint, Event{Stage: "after_candidate", Step: -1, ObservationKnown: true, Observation: o, Counters: c}) != nil {
+		c.CheckpointStopped = true
+		return o, c, ErrCheckpoint
+	}
+	return o, c, nil
+}
+
+// BoundedSlice is the owned opt-in value method wrapper. Native registration
+// installs this wrapper as flag.Value for reference/negative candidates.
+type BoundedSlice struct {
+	Inner     SliceValue
+	Limit     int
+	Candidate int
+	changed   bool
+}
+
+func (b *BoundedSlice) Set(s string) error {
+	return perform(b.Inner, b.Candidate, b.Limit, &b.changed, Operation{Method: "Set", Text: s})
+}
+func (b *BoundedSlice) Append(s string) error {
+	return perform(b.Inner, b.Candidate, b.Limit, &b.changed, Operation{Method: "Append", Text: s})
+}
+func (b *BoundedSlice) Replace(s []string) error {
+	// MaxValues bounds observer snapshots, not this opt-in method's API.
+	// Zero limit keeps unlimited original Replace behavior.
+	if b.Candidate != 0 && b.Limit > 0 && len(s) > b.Limit {
+		return ErrEntryLimit
+	}
+	return b.Inner.Replace(s)
+}
+func (b *BoundedSlice) GetSlice() []string { return b.Inner.GetSlice() }

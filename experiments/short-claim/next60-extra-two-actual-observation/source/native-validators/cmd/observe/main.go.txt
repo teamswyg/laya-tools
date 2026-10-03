@@ -1,0 +1,15 @@
+// Native imports are deliberately excluded from pure transport preparation.
+package main
+
+import (
+	"os"
+	native "riido.local/remainderextra-validators/native"
+	"riido.local/remainderextra/extra"
+	"riido.local/remainderextra/workerio"
+)
+
+func main() {
+	os.Exit(workerio.RunCLI(1, os.Args[1:], os.Stdout, func(k extra.BatchCheckpoint) (extra.WorkerReport, error) {
+		return extra.RunValidators(native.Fanout, k)
+	}))
+}

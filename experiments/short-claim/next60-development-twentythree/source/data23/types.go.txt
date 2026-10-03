@@ -1,0 +1,310 @@
+// Package data23 prepares a pinned Root-adopted development data append.
+// It has no source observer, feature, scoring, fitting or qualification API.
+package data23
+
+import "encoding/json"
+
+const (
+	PreviousSHA     = "f8d9beb88393d2c1d2d8f690e366342157fd13bee25abb79078287e62c94b828"
+	PreviousBytes   = 28800
+	FixtureSHA      = "b3875c93e6bb59291ddf39e4c66d250284a4132af090a12f4eb1824ab8126b51"
+	FixtureBytes    = 15282
+	AdoptionSHA     = "b3b6076ae6f146e716b090cd25a4085de9ac59120a07843f63f2bfdecadcdd05"
+	AdoptionBytes   = 10462
+	ComparisonSHA   = "5252b87a6badaa8b04c2dc7ddd2049e22795583dd7678625ccb6d1cd904700d5"
+	ComparisonBytes = 28678
+	WantSHA         = "73f2c789fba33904a37826cebbde87b1acfd659862274444d768912658dd76a1"
+	maxInputBytes   = 1 << 20
+	maxRowBytes     = 16 << 10
+	maxDataBytes    = 128 << 10
+	maxSummaryBytes = 16 << 10
+)
+
+type failure string
+
+func (e failure) Error() string { return string(e) }
+func FailureCode(e error) string {
+	if e == nil {
+		return ""
+	}
+	if f, ok := e.(failure); ok {
+		return string(f)
+	}
+	return "data23_callback_failed"
+}
+
+type candidate struct {
+	ID     string `json:"metadata_id"`
+	Text   string `json:"text"`
+	Label  *bool  `json:"label"`
+	Weight int    `json:"sample_weight"`
+}
+type finiteScope struct {
+	Inputs       int    `json:"input_count"`
+	Observations int    `json:"candidate_observations"`
+	Description  string `json:"description"`
+	All          *bool  `json:"all_input_guarantee"`
+	Unseen       *bool  `json:"unseen_source_guarantee"`
+}
+type Row struct {
+	Schema       string      `json:"schema"`
+	ID           string      `json:"stable_id"`
+	Request      string      `json:"request"`
+	Candidates   []candidate `json:"candidates"`
+	Role         string      `json:"role"`
+	Group        int         `json:"whole_group"`
+	Family       string      `json:"source_family"`
+	Revision     string      `json:"source_revision"`
+	Scope        finiteScope `json:"finite_scope"`
+	TextRevision string      `json:"text_revision"`
+	Policy       string      `json:"feature_policy"`
+}
+type reference struct {
+	ID      string `json:"artifact_id"`
+	SHA     string `json:"artifact_sha256"`
+	Pointer string `json:"json_pointer"`
+}
+type unknownPredicate struct {
+	Fixture int    `json:"fixture"`
+	Field   string `json:"field"`
+	Reason  string `json:"reason"`
+}
+type adoptedCandidate struct {
+	Index    *int               `json:"source_candidate_position"`
+	ID       string             `json:"metadata_id"`
+	Text     string             `json:"text"`
+	Label    *bool              `json:"truth"`
+	Role     string             `json:"role"`
+	Weight   int                `json:"weight"`
+	Known    []int              `json:"known_counterexample_fixture_positions"`
+	Unknown  []int              `json:"unknown_fixture_positions"`
+	Retained []unknownPredicate `json:"unknown_predicates_retained"`
+	Ordinals []int              `json:"row_ordinals"`
+	Vector   []string           `json:"row_vector"`
+}
+type adoptedRequest struct {
+	ID           string             `json:"id"`
+	Request      string             `json:"request"`
+	Family       string             `json:"source_family"`
+	Source       reference          `json:"source_reference"`
+	Revision     string             `json:"source_revision"`
+	Scope        string             `json:"scope"`
+	Count        int                `json:"finite_inputs"`
+	Group        int                `json:"connected_group"`
+	TextRevision string             `json:"text_revision"`
+	Observations int                `json:"selected_candidate_observations"`
+	Selected     []adoptedCandidate `json:"selected"`
+	Excluded     []json.RawMessage  `json:"excluded"`
+}
+type totals struct {
+	Requests int `json:"requests"`
+	Labels   int `json:"labels"`
+	Positive int `json:"positive"`
+	Negative int `json:"negative"`
+	Inputs   int `json:"inputs"`
+	Original int `json:"original_evidence_observations"`
+	Selected int `json:"selected_candidate_observations"`
+}
+type countTFU struct {
+	True    int `json:"true"`
+	False   int `json:"false"`
+	Unknown int `json:"unknown"`
+}
+type qualification struct {
+	Schema string `json:"schema"`
+	State  string `json:"state"`
+	Prior  struct {
+		Bytes    int    `json:"bytes"`
+		SHA      string `json:"sha256"`
+		Rows     int    `json:"rows"`
+		Labels   int    `json:"labels"`
+		Positive int    `json:"positive"`
+		Negative int    `json:"negative"`
+		Inputs   int    `json:"inputs"`
+		Original int    `json:"original_evidence_observations"`
+		Selected int    `json:"selected_candidate_observations"`
+	} `json:"prior_data"`
+	FixtureSHA string `json:"fixture_sha256"`
+	WantSHA    string `json:"wants_sha256"`
+	Comparison struct {
+		Bytes int    `json:"bytes"`
+		SHA   string `json:"sha256"`
+	} `json:"saved_comparison"`
+	Role            string `json:"role"`
+	Weight          int    `json:"weight_per_candidate"`
+	NewRequests     int    `json:"new_requests"`
+	NewInputs       int    `json:"new_inputs"`
+	NewObservations int    `json:"new_observations"`
+	NewSelected     int    `json:"new_selected_candidate_observations"`
+	NewLabels       int    `json:"new_labels"`
+	NewPositive     int    `json:"new_positive"`
+	NewNegative     int    `json:"new_negative"`
+	Combined        totals `json:"combined"`
+	Counts          struct {
+		Observations countTFU `json:"observations"`
+		Predicates   countTFU `json:"predicates"`
+	} `json:"comparison_counts"`
+	Requests               []adoptedRequest `json:"requests"`
+	UnknownNeverFalse      *bool            `json:"unknown_never_false"`
+	NegativeRetainsUnknown *bool            `json:"known_negative_may_retain_other_unknown_predicates"`
+	Order                  *bool            `json:"source_and_selected_candidate_order_preserved"`
+	FitBefore30            *bool            `json:"fit_before_30_qualified"`
+}
+type sourceRequest struct {
+	ID        string          `json:"id"`
+	Request   string          `json:"request"`
+	Captions  []string        `json:"candidate_captions"`
+	Order     []string        `json:"candidate_order"`
+	Source    reference       `json:"source_reference"`
+	Revision  string          `json:"source_revision"`
+	Qualified *bool           `json:"qualified"`
+	Truth     json.RawMessage `json:"truth"`
+	Role      json.RawMessage `json:"role"`
+	Weight    json.RawMessage `json:"weight"`
+}
+type fixture struct {
+	Ordinal      int    `json:"ordinal"`
+	RequestIndex int    `json:"request_index"`
+	FixtureIndex int    `json:"fixture_index"`
+	ID           string `json:"request_id"`
+	Original     struct {
+		CaseID string          `json:"case_id"`
+		Want   json.RawMessage `json:"Want"`
+		Got    json.RawMessage `json:"Got"`
+		Truth  json.RawMessage `json:"truth"`
+		Label  json.RawMessage `json:"label"`
+		Role   json.RawMessage `json:"role"`
+		Weight json.RawMessage `json:"weight"`
+	} `json:"original_fixture"`
+	Got        json.RawMessage `json:"Got"`
+	Acceptable json.RawMessage `json:"acceptable"`
+	Truth      json.RawMessage `json:"truth"`
+	Role       json.RawMessage `json:"role"`
+	Weight     json.RawMessage `json:"weight"`
+}
+type fixtures struct {
+	Schema       string          `json:"schema"`
+	State        string          `json:"state"`
+	Actual       int             `json:"actual_dispatches"`
+	Positions    int             `json:"candidate_positions"`
+	Count        int             `json:"fixtures_count"`
+	Planned      int             `json:"planned_dispatches"`
+	RequestCount int             `json:"requests_count"`
+	Requests     []sourceRequest `json:"requests"`
+	Records      []fixture       `json:"records"`
+}
+type predicate struct {
+	Field  string `json:"field"`
+	State  string `json:"state"`
+	Reason string `json:"reason"`
+}
+type observation struct {
+	Family      int         `json:"family"`
+	Fixture     int         `json:"fixture"`
+	Candidate   int         `json:"candidate"`
+	CaseID      string      `json:"case_id"`
+	State       string      `json:"state"`
+	Counts      countTFU    `json:"predicate_counts"`
+	Count       int         `json:"predicate_count"`
+	Predicates  []predicate `json:"predicates"`
+	ReturnKnown *bool       `json:"returned_normally_known"`
+	Returned    *bool       `json:"returned_normally"`
+	PanicKnown  *bool       `json:"panic_known"`
+	Panic       *bool       `json:"panic"`
+	ErrorText   *bool       `json:"error_text_evaluated"`
+}
+type candidateEvidence struct {
+	Family    int      `json:"family"`
+	Candidate int      `json:"candidate"`
+	Counts    countTFU `json:"fixture_counts"`
+	State     string   `json:"state"`
+}
+type comparison struct {
+	Schema    string          `json:"schema"`
+	State     string          `json:"state"`
+	Failure   json.RawMessage `json:"failure_code"`
+	Workers   int             `json:"validated_saved_workers"`
+	Started   *bool           `json:"comparisons_started"`
+	Original  int             `json:"original_calls"`
+	Oracle    int             `json:"oracle_calls"`
+	Model     int             `json:"model_calls"`
+	Fit       int             `json:"fit_calls"`
+	Labels    *bool           `json:"labels_assigned"`
+	Roles     *bool           `json:"roles_assigned"`
+	Weights   *bool           `json:"weights_assigned"`
+	Qualified *bool           `json:"qualified"`
+	Report    struct {
+		Schema       string              `json:"schema"`
+		State        string              `json:"state"`
+		Observations []observation       `json:"observations"`
+		Counts       countTFU            `json:"observation_counts"`
+		Predicates   countTFU            `json:"predicate_counts"`
+		Candidates   []candidateEvidence `json:"candidates"`
+		References   []*bool             `json:"reference_all_five_known_match"`
+		Inner        json.RawMessage     `json:"inner_original_calls"`
+		Startup      json.RawMessage     `json:"original_startup_calls"`
+		Labels       *bool               `json:"labels_assigned"`
+		Roles        *bool               `json:"roles_assigned"`
+		Weights      *bool               `json:"weights_assigned"`
+		Qualified    *bool               `json:"qualified"`
+		Model        int                 `json:"model_calls"`
+		Fit          int                 `json:"fit_calls"`
+	} `json:"report"`
+}
+
+type Bundle struct{ Previous, Fixtures, Adoption, Comparison []byte }
+type Paths struct{ Previous, Fixtures, Adoption, Comparison string }
+type LoadedCandidate struct {
+	ID, Text string
+	Label    bool
+	Weight   int
+}
+type LoadedView struct {
+	Valid                                                                                           bool
+	ID, Request, Schema, Provenance, Role, Policy, Family, Revision, TextRevision, ScopeDescription string
+	Group, Inputs, Observations, Count, SupervisionCount                                            int
+	All, Unseen, UnusedZero                                                                         bool
+	Candidates                                                                                      [8]LoadedCandidate
+}
+type Reader func([]byte) (LoadedView, error)
+type Progress func(Summary) error
+type Summary struct {
+	Schema                string             `json:"schema"`
+	State                 string             `json:"state"`
+	Failure               string             `json:"failure_code"`
+	Requests              int                `json:"requests"`
+	Labels                int                `json:"candidate_labels"`
+	Positive              int                `json:"positive_labels"`
+	Negative              int                `json:"negative_labels"`
+	Inputs                int                `json:"frozen_input_fixtures"`
+	Selected              int                `json:"selected_candidate_observations"`
+	Original              int                `json:"original_evidence_observations"`
+	PositiveIndex1        int                `json:"positive_selected_index1_requests"`
+	PrefixExact           bool               `json:"prior21_prefix_byte_exact"`
+	CopiedRootSupervision bool               `json:"Root_adopted_supervision_copied"`
+	UnknownPredicateCount int                `json:"retained_unknown_predicates"`
+	Unknowns              []unknownPredicate `json:"retained_unknown_predicate_metadata"`
+	UnknownFalse          bool               `json:"unknown_converted_to_false"`
+	DataSHA               string             `json:"data_sha256"`
+	DataBytes             int                `json:"data_bytes"`
+	ReaderAttempts        int                `json:"LoadDevelopmentRow_dispatch_intents"`
+	ReaderReturns         int                `json:"LoadDevelopmentRow_returns"`
+	ReaderMatches         int                `json:"LoadDevelopmentRow_value_matches"`
+	Reserved              bool               `json:"output_exclusively_reserved"`
+	Written               int                `json:"output_written_bytes"`
+	FileSynced            bool               `json:"output_file_sync_returned"`
+	DirectorySynced       bool               `json:"output_directory_sync_returned"`
+	LabelsAssigned        bool               `json:"labels_assigned_by_preparer"`
+	Qualified             bool               `json:"qualified_by_preparer"`
+	Features              int                `json:"Features_calls"`
+	Score                 int                `json:"Score_calls"`
+	Project               int                `json:"Project_calls"`
+	Fit                   int                `json:"Fit_calls"`
+	OriginalCalls         int                `json:"original_candidate_calls"`
+	Model                 int                `json:"model_calls"`
+	Scope                 string             `json:"scope"`
+}
+
+func InitialSummary() Summary {
+	return Summary{Schema: "riido-twentythree-data-correspondence-v1", State: "not_completed", Scope: "Copy existing Root-adopted finite development supervision; no qualification, rights, unseen-source, model-quality or training-readiness authority."}
+}

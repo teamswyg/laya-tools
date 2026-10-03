@@ -1,0 +1,174 @@
+// Owned source-only adapters. No Go compiler or original package has run.
+// A Root-frozen worker must bind these callbacks and literal inputs; JSON
+// never supplies executable callbacks. No label or readiness is produced.
+package extra
+
+import (
+	"errors"
+	"reflect"
+	"unicode/utf8"
+)
+
+const MaxSteps = 4
+const MaxValues = 8
+const MaxValidators = 8
+
+var ErrInput = errors.New("extra_input")
+var ErrAdapter = errors.New("extra_adapter")
+var ErrCheckpoint = errors.New("extra_checkpoint")
+var ErrEntryLimit = errors.New("entry_limit")
+var SentinelA = errors.New("owned_A")
+
+type TypedB struct{ Code int }
+
+func (*TypedB) Error() string { return "owned_B" }
+
+type ErrorView struct {
+	Available   bool   `json:"available"`
+	Known       bool   `json:"known"`
+	Nil         bool   `json:"nil"`
+	TypeKnown   bool   `json:"type_known"`
+	Type        string `json:"type"`
+	DerivedKind string `json:"derived_kind"`
+	TextKnown   bool   `json:"text_known"`
+	Text        string `json:"text"`
+}
+
+func typeName(v any) (string, bool) {
+	t := reflect.TypeOf(v)
+	if t == nil {
+		return "nil", true
+	}
+	s := t.String() // Reads type metadata, never v.Error or v.String.
+	return s, len(s) <= 512 && utf8.ValidString(s)
+}
+func errorView(e error) ErrorView {
+	v := ErrorView{Available: true, Known: true, Nil: e == nil}
+	if e != nil {
+		v.Type, v.TypeKnown = typeName(e)
+		if !v.TypeKnown {
+			v.Type = ""
+		}
+		v.DerivedKind = "unclassified_error"
+		if e == ErrEntryLimit {
+			v.DerivedKind = "owned_entry_limit"
+		}
+	}
+	// No direct Error method is called. Unknown text is not a nil error.
+	return v
+}
+
+type Values struct {
+	Known bool              `json:"known"`
+	Nil   bool              `json:"nil"`
+	N     int               `json:"n"`
+	Items [MaxValues]string `json:"items"`
+}
+
+func values(s []string) (Values, error) {
+	if len(s) > MaxValues {
+		return Values{}, ErrAdapter
+	}
+	v := Values{Known: true, Nil: s == nil, N: len(s)}
+	for i, x := range s {
+		if len(x) > 512 || !utf8.ValidString(x) {
+			return Values{}, ErrAdapter
+		}
+		v.Items[i] = x
+	}
+	return v, nil // Arrays own the copied descriptors; strings are immutable.
+}
+
+type Step struct {
+	Returned bool      `json:"returned"`
+	Error    ErrorView `json:"error"`
+	Values   Values    `json:"values"`
+}
+type Observation struct {
+	Candidate             int                `json:"candidate"`
+	ReturnedNormallyKnown bool               `json:"returned_normally_known"`
+	ReturnedNormally      bool               `json:"returned_normally"`
+	PanicKnown            bool               `json:"panic_known"`
+	Panic                 bool               `json:"panic"`
+	PanicTypeKnown        bool               `json:"panic_type_known"`
+	PanicType             string             `json:"panic_type"`
+	PanicTextKnown        bool               `json:"panic_text_known"`
+	PanicText             string             `json:"panic_text"`
+	StepsN                int                `json:"steps_n"`
+	Steps                 [MaxSteps]Step     `json:"steps"`
+	ValidatorResultKnown  bool               `json:"validator_result_known"`
+	ValidatorError        ErrorView          `json:"validator_error"`
+	CallbackCount         int                `json:"callback_count"`
+	CallbackOrder         [MaxValidators]int `json:"callback_order"`
+	IsA                   bool               `json:"errors_is_A"`
+	AsB                   bool               `json:"errors_as_B"`
+	BCodeKnown            bool               `json:"B_code_known"`
+	BCode                 int                `json:"B_code"`
+	InnerOriginalCalls    *int               `json:"inner_original_calls"`
+	StartupCalls          *int               `json:"startup_calls"`
+	Truth                 *string            `json:"truth"`
+	Role                  *string            `json:"role"`
+	Weight                *float64           `json:"weight"`
+}
+type Counters struct {
+	Reserved          int  `json:"candidate_reserved"`
+	Dispatched        int  `json:"candidate_dispatched"`
+	Returned          int  `json:"candidate_returned"`
+	Panicked          int  `json:"candidate_panicked"`
+	Completed         int  `json:"completed_dispatches"`
+	CheckpointStopped bool `json:"checkpoint_stopped"`
+}
+type Event struct {
+	Stage            string      `json:"stage"`
+	Step             int         `json:"step"`
+	ObservationKnown bool        `json:"observation_known"`
+	Observation      Observation `json:"observation"`
+	Counters         Counters    `json:"counters"`
+}
+type Checkpoint func(Event) error
+
+func emit(fn Checkpoint, e Event) (err error) {
+	if fn == nil {
+		return ErrCheckpoint
+	}
+	defer func() {
+		if recover() != nil {
+			err = ErrCheckpoint
+		}
+	}()
+	if fn(e) != nil {
+		return ErrCheckpoint
+	}
+	return nil
+}
+
+// capture encloses only candidate/native work, not checkpoint callbacks.
+func capture(fn func()) (panicked bool, p any) {
+	returned := false
+	defer func() {
+		if !returned {
+			panicked = true
+			p = recover()
+		}
+	}()
+	fn()
+	returned = true
+	return false, nil
+}
+func finish(o *Observation, c *Counters, panicked bool, p any) {
+	o.ReturnedNormallyKnown = true
+	o.ReturnedNormally = !panicked
+	o.PanicKnown = true
+	o.Panic = panicked
+	if panicked {
+		c.Panicked++
+		o.PanicType, o.PanicTypeKnown = typeName(p)
+		if !o.PanicTypeKnown {
+			o.PanicType = ""
+		}
+	} else {
+		c.Returned++
+	}
+	// Panic text stays unobserved, including error-valued panic.
+	c.Completed++
+}

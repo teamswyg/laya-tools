@@ -1,0 +1,78 @@
+package extra
+
+const FixturesPerWorker = 5
+const CandidatesPerFixture = 3
+const DispatchesPerWorker = 15
+const ExtraFixtureSchema = "riido-remainder-extra-two-fixtures-v1"
+const ExtraWantSchema = "riido-remainder-extra-two-literal-Wants-v1"
+const ExtraResultSchema = "riido-remainder-extra-two-result-proposal-v1"
+
+type Record struct {
+	Ordinal     int         `json:"ordinal"`
+	Fixture     int         `json:"fixture"`
+	Candidate   int         `json:"candidate"`
+	Completed   bool        `json:"completed"`
+	Observation Observation `json:"observation"`
+}
+type WorkerReport struct {
+	Schema   string                      `json:"schema"`
+	Family   int                         `json:"family"`
+	Stopped  bool                        `json:"stopped"`
+	Counters Counters                    `json:"counters"`
+	Records  [DispatchesPerWorker]Record `json:"records"`
+}
+type BatchEvent struct {
+	Family     int      `json:"family"`
+	Ordinal    int      `json:"ordinal"`
+	Fixture    int      `json:"fixture"`
+	Candidate  int      `json:"candidate"`
+	Local      Event    `json:"local"`
+	Cumulative Counters `json:"cumulative"`
+}
+type BatchCheckpoint func(BatchEvent) error
+
+func sum(a, b Counters) Counters {
+	return Counters{Reserved: a.Reserved + b.Reserved, Dispatched: a.Dispatched + b.Dispatched, Returned: a.Returned + b.Returned, Panicked: a.Panicked + b.Panicked, Completed: a.Completed + b.Completed, CheckpointStopped: a.CheckpointStopped || b.CheckpointStopped}
+}
+
+// RunSlice and RunValidators each represent one separately built worker.
+// Schedule is fixture-major, candidate0/1/2, exactly fifteen slots. These
+// functions do not load JSON, write files, infer labels, or authorize execution.
+// A real writer/outside plan must bind the two modules, raw fixtures and this
+// fixed order before a once-only native run. Callback nil is an error.
+func RunSlice(factory SliceFactory, checkpoint BatchCheckpoint) (WorkerReport, error) {
+	return run(0, checkpoint, func(f, c int, k Checkpoint) (Observation, Counters, error) {
+		return ObserveSlice(c, SliceFixtures[f], factory, k)
+	})
+}
+func RunValidators(native NativeFanout, checkpoint BatchCheckpoint) (WorkerReport, error) {
+	return run(1, checkpoint, func(f, c int, k Checkpoint) (Observation, Counters, error) {
+		return ObserveValidators(c, ValidatorFixtures[f], native, k)
+	})
+}
+func run(family int, checkpoint BatchCheckpoint, observe func(int, int, Checkpoint) (Observation, Counters, error)) (WorkerReport, error) {
+	r := WorkerReport{Schema: ExtraResultSchema, Family: family}
+	if checkpoint == nil {
+		r.Stopped = true
+		return r, ErrCheckpoint
+	}
+	for f := 0; f < FixturesPerWorker; f++ {
+		for c := 0; c < CandidatesPerFixture; c++ {
+			ordinal := f*CandidatesPerFixture + c
+			prior := r.Counters
+			k := func(ev Event) error {
+				// Both event and cumulative snapshots contain value-only arrays.
+				// No original error interface or mutable source map escapes.
+				return checkpoint(BatchEvent{Family: family, Ordinal: ordinal, Fixture: f, Candidate: c, Local: ev, Cumulative: sum(prior, ev.Counters)})
+			}
+			o, counts, err := observe(f, c, k)
+			r.Counters = sum(prior, counts)
+			r.Records[ordinal] = Record{Ordinal: ordinal, Fixture: f, Candidate: c, Completed: counts.Completed == 1, Observation: o}
+			if err != nil {
+				r.Stopped = true
+				return r, err
+			}
+		}
+	}
+	return r, nil
+}

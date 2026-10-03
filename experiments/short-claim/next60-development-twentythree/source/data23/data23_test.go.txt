@@ -1,0 +1,403 @@
+package data23
+
+import (
+	"bytes"
+	"encoding/json"
+	"errors"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
+
+func boolPtr(v bool) *bool { return &v }
+func intPtr(v int) *int    { return &v }
+func marshal(t *testing.T, v any) []byte {
+	t.Helper()
+	b, e := json.Marshal(v)
+	if e != nil {
+		t.Fatal(e)
+	}
+	return b
+}
+
+// Entirely owned fake requests, captions, predicates and reader values. The
+// fixed Root input-pin gate is deliberately not bypassable from exported APIs.
+func synthetic(t *testing.T) Bundle {
+	t.Helper()
+	var previous []byte
+	for i, id := range priorIDs {
+		n, inputs := 3, 5
+		if i < 2 {
+			n = 2
+			inputs = 4
+		}
+		r := Row{Schema: "riido-finite-development-request-row-v1", ID: id, Request: "Owned synthetic request", Role: "development_train", Group: 76 + i%3, Family: "owned-synthetic", Revision: strings.Repeat("a", 40), TextRevision: "owned-synthetic-v1", Policy: "request_and_candidates_text_only", Scope: finiteScope{inputs, inputs * n, "Owned finite synthetic scope", boolPtr(false), boolPtr(false)}}
+		positive := 1
+		if i < 3 {
+			positive = 0
+		}
+		for j := 0; j < n; j++ {
+			r.Candidates = append(r.Candidates, candidate{string(rune('a' + j)), "Owned synthetic caption", boolPtr(j == positive), 1})
+		}
+		previous = append(previous, marshal(t, r)...)
+		previous = append(previous, '\n')
+	}
+	f := fixtures{Schema: "riido-remainder-extra-two-fixtures-v1", State: "source_only", Positions: 6, Count: 10, Planned: 30, RequestCount: 2}
+	q := qualification{Schema: "riido-extra-two-root-finite-development-qualification-v1", State: "Root_adopted_two_finite_development_requests", FixtureSHA: FixtureSHA, WantSHA: WantSHA, Role: "development_train", Weight: 1, NewRequests: 2, NewInputs: 10, NewObservations: 30, NewSelected: 30, NewLabels: 6, NewPositive: 2, NewNegative: 4, Combined: totals{23, 67, 23, 44, 113, 335, 331}, UnknownNeverFalse: boolPtr(true), NegativeRetainsUnknown: boolPtr(true), Order: boolPtr(true), FitBefore30: boolPtr(false)}
+	q.Prior.Bytes = PreviousBytes
+	q.Prior.SHA = PreviousSHA
+	q.Prior.Rows = 21
+	q.Prior.Labels = 61
+	q.Prior.Positive = 21
+	q.Prior.Negative = 40
+	q.Prior.Inputs = 103
+	q.Prior.Original = 305
+	q.Prior.Selected = 301
+	q.Comparison.Bytes = ComparisonBytes
+	q.Comparison.SHA = ComparisonSHA
+	q.Counts.Observations = countTFU{23, 7, 0}
+	q.Counts.Predicates = countTFU{125, 15, 1}
+	c := comparison{Schema: "riido-extra-two-saved-comparison-envelope-v1", State: "complete", Failure: json.RawMessage("null"), Workers: 2, Started: boolPtr(true), Labels: boolPtr(false), Roles: boolPtr(false), Weights: boolPtr(false), Qualified: boolPtr(false)}
+	c.Report.Schema = "riido-extra-two-saved-semantic-comparison-v1"
+	c.Report.State = "complete"
+	c.Report.Inner = json.RawMessage("null")
+	c.Report.Startup = json.RawMessage("null")
+	c.Report.Labels = boolPtr(false)
+	c.Report.Roles = boolPtr(false)
+	c.Report.Weights = boolPtr(false)
+	c.Report.Qualified = boolPtr(false)
+	c.Report.References = []*bool{boolPtr(true), boolPtr(true)}
+	c.Report.Counts = countTFU{23, 7, 0}
+	c.Report.Predicates = countTFU{125, 15, 1}
+	for fi, id := range newIDs {
+		ref := reference{"primary120/source-survey53", surveySHA, pointers[fi]}
+		sr := sourceRequest{ID: id, Request: "Owned synthetic append request", Captions: []string{"Owned baseline caption", "Owned reference caption", "Owned negative caption"}, Order: append([]string(nil), candidateIDs[:]...), Source: ref, Revision: revisions[fi], Qualified: boolPtr(false), Truth: json.RawMessage("null"), Role: json.RawMessage("null"), Weight: json.RawMessage("null")}
+		f.Requests = append(f.Requests, sr)
+		ar := adoptedRequest{ID: id, Request: sr.Request, Family: family, Source: ref, Revision: revisions[fi], Scope: "Owned appended finite scope", Count: 5, Group: 77, TextRevision: "extra-two-finite-v1", Observations: 15, Excluded: []json.RawMessage{}}
+		for k := 0; k < 5; k++ {
+			fr := fixture{Ordinal: fi*5 + k, RequestIndex: fi, FixtureIndex: k, ID: id, Got: json.RawMessage("null"), Acceptable: json.RawMessage("null"), Truth: json.RawMessage("null"), Role: json.RawMessage("null"), Weight: json.RawMessage("null")}
+			prefix := "bounded-slice-"
+			if fi == 1 {
+				prefix = "all-errors-"
+			}
+			fr.Original.CaseID = prefix + "0" + string(rune('1'+k))
+			fr.Original.Want = json.RawMessage(`{"owned":true}`)
+			fr.Original.Got = json.RawMessage("null")
+			fr.Original.Truth = json.RawMessage("null")
+			fr.Original.Label = json.RawMessage("null")
+			fr.Original.Role = json.RawMessage("null")
+			fr.Original.Weight = json.RawMessage("null")
+			f.Records = append(f.Records, fr)
+			for j := 0; j < 3; j++ {
+				index := fi*15 + k*3 + j
+				o := observation{Family: fi, Fixture: k, Candidate: j, CaseID: fr.Original.CaseID, State: "true", Count: 5, Predicates: make([]predicate, 12), ReturnKnown: boolPtr(true), Returned: boolPtr(true), PanicKnown: boolPtr(true), Panic: boolPtr(false), ErrorText: boolPtr(false)}
+				if index < 9 {
+					o.Count = 4
+				}
+				knownFalse := fi == 0 && j == 0 && (k == 1 || k == 2 || k == 3) || j == 2 && k == 0 || fi == 1 && j == 0 && (k == 0 || k == 3)
+				for z := 0; z < o.Count; z++ {
+					o.Predicates[z] = predicate{string(rune('a' + z)), "true", "known_match"}
+				}
+				if knownFalse {
+					o.State = "false"
+					o.Predicates[0].State = "false"
+					o.Predicates[0].Reason = "known_mismatch"
+					o.Predicates[1].State = "false"
+					o.Predicates[1].Reason = "known_mismatch"
+					if index == 3 {
+						o.Predicates[2].State = "false"
+						o.Predicates[2].Reason = "known_mismatch"
+					}
+				}
+				if fi == 1 && j == 0 && k == 0 {
+					o.Predicates[o.Count-1] = predicate{"B_code", "unknown", "observable_unavailable"}
+				}
+				for _, p := range o.Predicates[:o.Count] {
+					switch p.State {
+					case "true":
+						o.Counts.True++
+					case "false":
+						o.Counts.False++
+					case "unknown":
+						o.Counts.Unknown++
+					}
+				}
+				c.Report.Observations = append(c.Report.Observations, o)
+			}
+		}
+		for j := 0; j < 3; j++ {
+			ac := adoptedCandidate{Index: intPtr(j), ID: candidateIDs[j], Text: sr.Captions[j], Label: boolPtr(j == 1), Role: "development_train", Weight: 1, Known: []int{}, Unknown: []int{}, Retained: []unknownPredicate{}, Ordinals: []int{}, Vector: []string{}}
+			ev := candidateEvidence{Family: fi, Candidate: j, State: "true"}
+			for k := 0; k < 5; k++ {
+				ordinal := fi*15 + k*3 + j
+				o := c.Report.Observations[ordinal]
+				ac.Ordinals = append(ac.Ordinals, ordinal)
+				v := "satisfied"
+				if o.State == "false" {
+					v = "unsatisfied"
+					ac.Known = append(ac.Known, k)
+					ev.Counts.False++
+					ev.State = "false"
+				} else {
+					ev.Counts.True++
+				}
+				ac.Vector = append(ac.Vector, v)
+				for _, p := range o.Predicates[:o.Count] {
+					if p.State == "unknown" {
+						ac.Retained = append(ac.Retained, unknownPredicate{k, p.Field, p.Reason})
+					}
+				}
+			}
+			ar.Selected = append(ar.Selected, ac)
+			c.Report.Candidates = append(c.Report.Candidates, ev)
+		}
+		q.Requests = append(q.Requests, ar)
+	}
+	return Bundle{previous, marshal(t, f), marshal(t, q), marshal(t, c)}
+}
+func fakeView(raw []byte) (LoadedView, error) {
+	r, e := rowDecode(raw)
+	if e != nil {
+		return LoadedView{}, e
+	}
+	v := LoadedView{Valid: true, UnusedZero: true, ID: r.ID, Request: r.Request, Schema: "riido-short-behavior-claim-v1", Provenance: "finite-development-v1", Role: r.Role, Policy: r.Policy, Family: r.Family, Revision: r.Revision, TextRevision: r.TextRevision, ScopeDescription: r.Scope.Description, Group: r.Group, Inputs: r.Scope.Inputs, Observations: r.Scope.Observations, Count: len(r.Candidates), SupervisionCount: len(r.Candidates)}
+	for j, c := range r.Candidates {
+		v.Candidates[j] = LoadedCandidate{c.ID, c.Text, *c.Label, c.Weight}
+	}
+	return v, nil
+}
+
+func TestSyntheticPrefixAppendAndReaderCorrespondence(t *testing.T) {
+	b := synthetic(t)
+	data, s, e := composeBound(b)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if !bytes.HasPrefix(data, b.Previous) || len(data) <= len(b.Previous) || s.Labels != 67 || s.Requests != 23 || s.UnknownPredicateCount != 1 || s.UnknownFalse || s.Original != 335 || s.Selected != 331 {
+		t.Fatal("prefix/counts/unknown lost")
+	}
+	second, s2, e := composeBound(b)
+	if e != nil || !bytes.Equal(data, second) || s.DataSHA != s2.DataSHA {
+		t.Fatal("non-deterministic bytes")
+	}
+	var progress []Summary
+	calls := 0
+	e = validateBound(b, data, func(raw []byte) (LoadedView, error) { calls++; return fakeView(raw) }, func(s Summary) error { progress = append(progress, s); return nil }, &s)
+	if e != nil || calls != 23 || len(progress) != 46 || s.ReaderMatches != 23 || s.PositiveIndex1 != 20 || s.LabelsAssigned || s.Qualified {
+		t.Fatal("fake reader correspondence", e)
+	}
+	if progress[0].ReaderAttempts != 1 || progress[0].ReaderReturns != 0 || progress[1].ReaderReturns != 1 {
+		t.Fatal("dispatch/return collapsed")
+	}
+	// Real fixed-pin APIs reject this fake corpus, even though its structure passes.
+	if raw, _, e := ComposePinned(b); e == nil || raw != nil {
+		t.Fatal("fake corpus crossed fixed-pin gate")
+	}
+}
+
+func TestSyntheticAdoptionDriftFailsBeforeAppend(t *testing.T) {
+	for _, name := range []string{"order", "labelnull", "unknownerase", "vector", "weight", "group", "scope", "revision", "fixturetruth", "comparisonstate", "predicateunused", "missingfalse", "unknown_to_false"} {
+		t.Run(name, func(t *testing.T) {
+			b := synthetic(t)
+			var q qualification
+			json.Unmarshal(b.Adoption, &q)
+			var f fixtures
+			json.Unmarshal(b.Fixtures, &f)
+			var c comparison
+			json.Unmarshal(b.Comparison, &c)
+			switch name {
+			case "order":
+				q.Requests[0].Selected[0], q.Requests[0].Selected[1] = q.Requests[0].Selected[1], q.Requests[0].Selected[0]
+			case "labelnull":
+				q.Requests[0].Selected[1].Label = nil
+			case "unknownerase":
+				q.Requests[1].Selected[0].Retained = []unknownPredicate{}
+			case "vector":
+				q.Requests[0].Selected[0].Ordinals[0]++
+			case "weight":
+				q.Requests[0].Selected[1].Weight = 0
+			case "group":
+				q.Requests[1].Group = 78
+			case "scope":
+				q.Requests[1].TextRevision = "unreviewed"
+			case "revision":
+				q.Requests[1].Revision = revisions[0]
+			case "fixturetruth":
+				f.Records[0].Truth = json.RawMessage("true")
+			case "comparisonstate":
+				c.Report.Observations[3].State = "true"
+			case "predicateunused":
+				c.Report.Observations[0].Predicates[11].Field = "extra"
+			case "missingfalse":
+				c.Report.Labels = nil
+			case "unknown_to_false":
+				c.Report.Observations[15].Predicates[4].State = "false"
+			}
+			b.Adoption = marshal(t, q)
+			b.Fixtures = marshal(t, f)
+			b.Comparison = marshal(t, c)
+			if raw, _, e := composeBound(b); e == nil || raw != nil {
+				t.Fatal("unbound append accepted")
+			}
+		})
+	}
+}
+
+func TestAllRowsCheckedBeforeReaderAndFailureStops(t *testing.T) {
+	b := synthetic(t)
+	data, _, e := composeBound(b)
+	if e != nil {
+		t.Fatal(e)
+	}
+	cases := []struct {
+		name string
+		raw  []byte
+	}{{"missingLF", bytes.TrimSuffix(data, []byte{'\n'})}, {"blanktail", append(bytes.Clone(data), '\n')}, {"same_length_prefix", bytes.Replace(data, []byte("Owned synthetic request"), []byte("Other synthetic request"), 1)}, {"extra_candidate_field", bytes.Replace(data, []byte(`"sample_weight":1`), []byte(`"sample_weight":1,"extra":0`), 1)}}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			calls := 0
+			s := InitialSummary()
+			e := validateBound(b, tc.raw, func(raw []byte) (LoadedView, error) { calls++; return fakeView(raw) }, func(Summary) error { return nil }, &s)
+			if e == nil || calls != 0 {
+				t.Fatal("invalid corpus dispatched")
+			}
+		})
+	}
+	t.Run("before_dispatch_checkpoint", func(t *testing.T) {
+		calls := 0
+		s := InitialSummary()
+		e := validateBound(b, data, func(raw []byte) (LoadedView, error) { calls++; return fakeView(raw) }, func(Summary) error { return errors.New("private callback message") }, &s)
+		if FailureCode(e) != "reader_checkpoint_failed" || calls != 0 || s.ReaderAttempts != 1 || s.ReaderReturns != 0 {
+			t.Fatal("checkpoint refusal not atomic")
+		}
+	})
+	t.Run("reader_value_error", func(t *testing.T) {
+		calls := 0
+		s := InitialSummary()
+		e := validateBound(b, data, func(raw []byte) (LoadedView, error) {
+			calls++
+			v, e := fakeView(raw)
+			v.Candidates[0].Weight = 0
+			return v, e
+		}, func(Summary) error { return nil }, &s)
+		if e == nil || calls != 1 || s.ReaderReturns != 1 || s.ReaderMatches != 0 {
+			t.Fatal("forged loaded weight accepted")
+		}
+	})
+	t.Run("reader_panic", func(t *testing.T) {
+		calls := 0
+		s := InitialSummary()
+		e := validateBound(b, data, func([]byte) (LoadedView, error) { calls++; panic(errors.New("private panic text")) }, func(Summary) error { return nil }, &s)
+		if e == nil || calls != 1 || s.ReaderReturns != 0 || s.Failure != "reader_panic" {
+			t.Fatal("panic invented a return")
+		}
+	})
+	t.Run("callback_ownership", func(t *testing.T) {
+		s := InitialSummary()
+		e := validateBound(b, data, fakeView, func(v Summary) error { v.Unknowns[0].Field = "changed"; return nil }, &s)
+		if e != nil || s.Unknowns[0].Field != "B_code" {
+			t.Fatal("callback changed live evidence")
+		}
+	})
+}
+
+func TestStrictJSONNullSurrogatesDuplicatesAndOptions(t *testing.T) {
+	for _, raw := range []string{`{"truth":false,"truth":true}`, `{"truth":false,"TRUTH":true}`, `{"tr\u0075th":false,"truth":true}`, `{"x":"\ud800"}`, `{"x":"\udc00"}`, `{"x":0} {}`, `{"x":[}`} {
+		var q qualification
+		if checkedJSON([]byte(raw), &q, -1) == nil {
+			t.Fatal("bad JSON accepted")
+		}
+	}
+	b := synthetic(t)
+	line := bytes.Split(b.Previous, []byte{'\n'})[0]
+	for _, raw := range [][]byte{bytes.Replace(line, []byte(`"label":true`), []byte(`"label":null`), 1), bytes.Replace(line, []byte(`"all_input_guarantee":false`), []byte(`"all_input_guarantee":null`), 1)} {
+		if _, e := rowDecode(raw); e == nil {
+			t.Fatal("null treated as label/scope")
+		}
+	}
+	names := []string{"--one", "--two"}
+	if _, e := ParseOptions([]string{"--two", "b", "--one", "a"}, names); e != nil {
+		t.Fatal(e)
+	}
+	for _, args := range [][]string{{"--one", "a", "--one", "b"}, {"--one=a", "a", "--two", "b"}, {"--one", "a"}, {"--one", "a", "--two", "b", "extra"}} {
+		if _, e := ParseOptions(args, names); e == nil {
+			t.Fatal("ambiguous options accepted")
+		}
+	}
+}
+
+func TestOwnedPinnedFilesExclusiveOutputAndRecorder(t *testing.T) {
+	dir := t.TempDir()
+	raw := []byte("owned input\n")
+	input := filepath.Join(dir, "input")
+	if e := os.WriteFile(input, raw, 0600); e != nil {
+		t.Fatal(e)
+	}
+	if _, e := ReadPinned(input, Digest(raw), len(raw)); e != nil {
+		t.Fatal(e)
+	}
+	if _, e := ReadPinned(input, strings.Repeat("0", 64), len(raw)); e == nil {
+		t.Fatal("wrong hash accepted")
+	}
+	if e := os.Symlink(input, filepath.Join(dir, "link")); e != nil {
+		t.Fatal(e)
+	}
+	if _, e := ReadPinned(filepath.Join(dir, "link"), Digest(raw), len(raw)); e == nil {
+		t.Fatal("symlink accepted")
+	}
+	path := filepath.Join(dir, "output")
+	s := InitialSummary()
+	if e := WriteExclusive(path, raw, 128, &s); e != nil {
+		t.Fatal(e)
+	}
+	if !s.Reserved || !s.FileSynced || !s.DirectorySynced {
+		t.Fatal("sync acknowledgment missing")
+	}
+	if e := WriteExclusive(path, []byte("replace"), 128, nil); e == nil {
+		t.Fatal("overwrite accepted")
+	}
+	got, _ := os.ReadFile(path)
+	if !bytes.Equal(got, raw) {
+		t.Fatal("failed overwrite changed bytes")
+	}
+	t.Run("forged_completed_without_journal", func(t *testing.T) {
+		w, e := OpenReaderRecorder(filepath.Join(dir, "forged"))
+		if e != nil {
+			t.Fatal(e)
+		}
+		s := InitialSummary()
+		s.State = "complete_reader_value_correspondence_only"
+		s.ReaderAttempts = 23
+		s.ReaderReturns = 23
+		s.ReaderMatches = 23
+		if e = w.Finish(s); FailureCode(e) != "reader_finish_unacknowledged" {
+			t.Fatal("unacknowledged completion accepted", e)
+		}
+	})
+	t.Run("real_fake_lifecycle", func(t *testing.T) {
+		w, e := OpenReaderRecorder(filepath.Join(dir, "owned-reader"))
+		if e != nil {
+			t.Fatal(e)
+		}
+		b := synthetic(t)
+		data, _, e := composeBound(b)
+		if e != nil {
+			t.Fatal(e)
+		}
+		s := InitialSummary()
+		if e = validateBound(b, data, fakeView, w.Checkpoint, &s); e != nil {
+			t.Fatal(e)
+		}
+		if e = w.Finish(s); e != nil {
+			t.Fatal(e)
+		}
+		if e = w.Finish(s); e == nil {
+			t.Fatal("double Finish")
+		}
+		got, e := os.ReadFile(filepath.Join(dir, "owned-reader", "results.json"))
+		if e != nil || !bytes.Contains(got, []byte(`"LoadDevelopmentRow_value_matches":23`)) {
+			t.Fatal("final metadata absent")
+		}
+	})
+}

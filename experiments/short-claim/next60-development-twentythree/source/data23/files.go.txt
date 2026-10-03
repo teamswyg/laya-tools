@@ -1,0 +1,288 @@
+package data23
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"io"
+	"os"
+	"path/filepath"
+)
+
+func Digest(b []byte) string { h := sha256.Sum256(b); return hex.EncodeToString(h[:]) }
+func digestOK(s string) bool {
+	if len(s) != 64 {
+		return false
+	}
+	for _, c := range []byte(s) {
+		if !(c >= '0' && c <= '9' || c >= 'a' && c <= 'f') {
+			return false
+		}
+	}
+	return true
+}
+func ReadPinned(path, sha string, exact int) ([]byte, error) {
+	if path == "" || !digestOK(sha) || exact < 0 || exact > maxInputBytes {
+		return nil, failure("input_arguments")
+	}
+	before, e := os.Lstat(path)
+	if e != nil || !before.Mode().IsRegular() {
+		return nil, failure("input_regular")
+	}
+	f, e := os.Open(path)
+	if e != nil {
+		return nil, failure("input_open")
+	}
+	defer f.Close()
+	st, e := f.Stat()
+	if e != nil || !st.Mode().IsRegular() || !os.SameFile(before, st) || st.Size() < 1 || st.Size() > maxInputBytes || exact > 0 && st.Size() != int64(exact) {
+		return nil, failure("input_bounds")
+	}
+	raw, e := io.ReadAll(io.LimitReader(f, maxInputBytes+1))
+	after, ae := f.Stat()
+	if e != nil || ae != nil || len(raw) != int(st.Size()) || len(raw) > maxInputBytes || after.Size() != st.Size() || !after.ModTime().Equal(st.ModTime()) || Digest(raw) != sha {
+		return nil, failure("input_pin")
+	}
+	return raw, nil
+}
+func LoadInputs(p Paths) (b Bundle, e error) {
+	for _, x := range []struct {
+		path, sha string
+		size      int
+		dst       *[]byte
+	}{
+		{p.Previous, PreviousSHA, PreviousBytes, &b.Previous}, {p.Fixtures, FixtureSHA, FixtureBytes, &b.Fixtures},
+		{p.Adoption, AdoptionSHA, AdoptionBytes, &b.Adoption}, {p.Comparison, ComparisonSHA, ComparisonBytes, &b.Comparison},
+	} {
+		if *x.dst, e = ReadPinned(x.path, x.sha, x.size); e != nil {
+			return Bundle{}, e
+		}
+	}
+	return b, nil
+}
+func syncDir(path string) error {
+	f, e := os.Open(path)
+	if e != nil {
+		return failure("output_directory_open")
+	}
+	se := f.Sync()
+	ce := f.Close()
+	if se != nil {
+		return failure("output_directory_sync")
+	}
+	if ce != nil {
+		return failure("output_directory_close")
+	}
+	return nil
+}
+
+// Writes one immutable regular file. It never overwrites or unlinks a failed
+// partial reservation. Parents must be Root-owned stable physical directories.
+func WriteExclusive(path string, raw []byte, limit int, out *Summary) error {
+	if !filepath.IsAbs(path) || filepath.Clean(path) != path || len(raw) < 1 || limit < 1 || len(raw) > limit {
+		return failure("output_arguments_bounds")
+	}
+	parent, e := os.Lstat(filepath.Dir(path))
+	if e != nil || !parent.IsDir() || parent.Mode()&os.ModeSymlink != 0 {
+		return failure("output_parent")
+	}
+	f, e := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	if e != nil {
+		return failure("output_reserve")
+	}
+	if out != nil {
+		out.Reserved = true
+	}
+	n, we := f.Write(raw)
+	se := f.Sync()
+	ce := f.Close()
+	if out != nil {
+		out.Written = n
+		out.FileSynced = se == nil
+	}
+	if we != nil || n != len(raw) {
+		return failure("output_write")
+	}
+	if se != nil {
+		return failure("output_sync")
+	}
+	if ce != nil {
+		return failure("output_close")
+	}
+	if e = syncDir(filepath.Dir(path)); e != nil {
+		return e
+	}
+	if out != nil {
+		out.DirectorySynced = true
+	}
+	return nil
+}
+func Materialize(p Paths, path string, out *Summary) error {
+	if out == nil {
+		return failure("materialize_arguments")
+	}
+	*out = InitialSummary()
+	b, e := LoadInputs(p)
+	if e != nil {
+		return e
+	}
+	raw, s, e := ComposePinned(b)
+	*out = s
+	if e != nil {
+		return e
+	}
+	if e = WriteExclusive(path, raw, maxDataBytes, out); e != nil {
+		return e
+	}
+	out.State = "materialized_Root_adopted_data_only"
+	return nil
+}
+
+// ReaderRecorder durably records dispatch intent and returned metadata. Its
+// journal is not evidence of unacknowledged Sync after a kill; only a completed
+// final receipt establishes last Sync return. All children remain on failure.
+type ReaderRecorder struct {
+	journal, result   *os.File
+	root              string
+	written, events   int
+	stopped, finished bool
+	last              Summary
+}
+
+func OpenReaderRecorder(root string) (*ReaderRecorder, error) {
+	if !filepath.IsAbs(root) || filepath.Clean(root) != root {
+		return nil, failure("reader_output_arguments")
+	}
+	parent, e := os.Lstat(filepath.Dir(root))
+	if e != nil || !parent.IsDir() || parent.Mode()&os.ModeSymlink != 0 {
+		return nil, failure("reader_output_parent")
+	}
+	if e = os.Mkdir(root, 0700); e != nil {
+		return nil, failure("reader_output_reserve")
+	}
+	w := &ReaderRecorder{root: root}
+	w.journal, e = os.OpenFile(filepath.Join(root, "reader-journal.jsonl"), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	if e != nil {
+		return nil, failure("reader_journal_reserve")
+	}
+	w.result, e = os.OpenFile(filepath.Join(root, "results.json"), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	if e != nil {
+		w.journal.Close()
+		return nil, failure("reader_result_reserve")
+	}
+	if e = w.journal.Sync(); e == nil {
+		e = w.result.Sync()
+	}
+	if e == nil {
+		e = syncDir(root)
+	}
+	if e == nil {
+		e = syncDir(filepath.Dir(root))
+	}
+	if e != nil {
+		w.journal.Close()
+		w.result.Close()
+		return nil, failure("reader_reservation_sync")
+	}
+	return w, nil
+}
+func (w *ReaderRecorder) Checkpoint(s Summary) error {
+	if w == nil || w.stopped || w.finished {
+		return failure("reader_checkpoint_stopped")
+	}
+	b, e := EncodeSummary(s)
+	if e != nil {
+		w.stopped = true
+		return e
+	}
+	// 23 before/after callbacks plus a possible failure checkpoint fit 64 events.
+	if w.events >= 64 || w.written+len(b) > 256<<10 {
+		w.stopped = true
+		return failure("reader_journal_bounds")
+	}
+	n, we := w.journal.Write(b)
+	se := w.journal.Sync()
+	w.written += n
+	if we != nil || n != len(b) || se != nil {
+		w.stopped = true
+		return failure("reader_checkpoint_write_sync")
+	}
+	w.events++
+	w.last = s
+	w.last.Unknowns = append([]unknownPredicate(nil), s.Unknowns...)
+	return nil
+}
+func (w *ReaderRecorder) Finish(s Summary) error {
+	if w == nil || w.finished {
+		return failure("reader_finish_state")
+	}
+	w.finished = true
+	b, e := EncodeSummary(s)
+	if e != nil {
+		w.Close()
+		return e
+	}
+	// A stopped checkpoint cannot acknowledge a successful actual reader run.
+	if w.stopped && s.State == "complete_reader_value_correspondence_only" {
+		w.Close()
+		return failure("reader_finish_stopped")
+	}
+	if s.State == "complete_reader_value_correspondence_only" {
+		last := w.last
+		last.State = s.State
+		lb, le := EncodeSummary(last)
+		if le != nil || w.events != 46 || s.ReaderAttempts != 23 || s.ReaderReturns != 23 || s.ReaderMatches != 23 || s.Failure != "" || !bytes.Equal(lb, b) {
+			w.Close()
+			return failure("reader_finish_unacknowledged")
+		}
+	}
+	n, we := w.result.Write(b)
+	se := w.result.Sync()
+	re := w.result.Close()
+	je := w.journal.Close()
+	if we != nil || n != len(b) || se != nil || re != nil || je != nil {
+		return failure("reader_finish_write_sync")
+	}
+	return syncDir(w.root)
+}
+func (w *ReaderRecorder) Close() {
+	if w != nil {
+		if w.journal != nil {
+			w.journal.Close()
+		}
+		if w.result != nil {
+			w.result.Close()
+		}
+	}
+}
+
+// Strict pairs: duplicate flags and equals-form aliases are rejected.
+func ParseOptions(argv []string, names []string) ([]string, error) {
+	if len(names) < 1 || len(names) > 8 || len(argv) != 2*len(names) {
+		return nil, failure("data23_arguments")
+	}
+	v := make([]string, len(names))
+	for i := 0; i < len(argv); i += 2 {
+		j := -1
+		for k, n := range names {
+			if argv[i] == n {
+				j = k
+				break
+			}
+		}
+		if j < 0 || v[j] != "" || argv[i+1] == "" {
+			return nil, failure("data23_arguments")
+		}
+		v[j] = argv[i+1]
+	}
+	return v, nil
+}
+
+// Small metadata receipt helper for the future maintainer entry points.
+func SaveSummary(path string, s Summary) error {
+	b, e := EncodeSummary(s)
+	if e != nil {
+		return e
+	}
+	return WriteExclusive(path, b, maxSummaryBytes, nil)
+}

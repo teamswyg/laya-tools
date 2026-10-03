@@ -1,0 +1,361 @@
+package data23
+
+import (
+	"bufio"
+	"bytes"
+	"encoding/json"
+)
+
+var priorIDs = [21]string{
+	"next60-pflag-native-ipnet", "next60-mapstructure-native-or", "next60-humanize-precise-ftoa",
+	"next60-humanize-strict-comma", "next60-mapstructure-key-collision", "next60-pflag-map-snapshot",
+	"next60-humanize-fractional-bytes", "next60-go53-pflag-annotation-ownership", "next60-go53-pflag-bounded-count",
+	"next60-go53-pflag-single-assignment", "next60-go53-pflag-sensitive-default", "next60-go53-pflag-deferred-function",
+	"next60-go53-pflag-text-error-value", "next60-go53-mapstructure-hooks-errors-is", "next60-go53-mapstructure-remain-conflict",
+	"next60-go53-mapstructure-tag-precedence", "next60-mapstructure-nil-config", "next60-cobra-error-writer",
+	"next60-cobra-required-annotation", "next60-cobra-context-preflight", "next60-humanize-bigbytes-precision",
+}
+var newIDs = [2]string{"go53-pflag-bounded-string-slice", "go53-cobra-validator-all-errors"}
+var candidateIDs = [3]string{"baseline_original", "reference_authored", "negative_authored"}
+var revisions = [2]string{"c966cfef47379dcb01e7929504d66d94b540945b", "adbc8813901bba65827259daa8e22ff94ec1f30e"}
+var pointers = [2]string{"/tasks/8", "/tasks/36"}
+
+const family = "upstream53-cobra-pflag-connected"
+const surveySHA = "e79cf90505fff4c636de99f322ab82001afd22516216cebcd8249b9b3d61cf67"
+
+func isTrue(v *bool) bool           { return v != nil && *v }
+func isFalse(v *bool) bool          { return v != nil && !*v }
+func isNull(v json.RawMessage) bool { return bytes.Equal(bytes.TrimSpace(v), []byte("null")) }
+func stringsEqual(a, b []string) bool {
+	if a == nil || b == nil || len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+// All public entry points bind fixed historical inputs before decoding or output.
+func bind(b Bundle) error {
+	for _, p := range []struct {
+		raw  []byte
+		size int
+		sha  string
+	}{
+		{b.Previous, PreviousBytes, PreviousSHA}, {b.Fixtures, FixtureBytes, FixtureSHA},
+		{b.Adoption, AdoptionBytes, AdoptionSHA}, {b.Comparison, ComparisonBytes, ComparisonSHA},
+	} {
+		if len(p.raw) != p.size || Digest(p.raw) != p.sha {
+			return failure("input_pin")
+		}
+	}
+	return nil
+}
+
+func inspectPrefix(raw []byte) (Summary, error) {
+	s := InitialSummary()
+	if len(raw) < 1 || len(raw) > maxDataBytes || raw[len(raw)-1] != '\n' {
+		return s, failure("prefix_newline_bounds")
+	}
+	scan := bufio.NewScanner(bytes.NewReader(raw))
+	scan.Buffer(make([]byte, 4096), maxRowBytes+1)
+	for scan.Scan() {
+		i := s.Requests
+		if i >= len(priorIDs) || len(scan.Bytes()) == 0 {
+			return s, failure("prefix_rows")
+		}
+		r, e := rowDecode(scan.Bytes())
+		if e != nil {
+			return s, e
+		}
+		if r.ID != priorIDs[i] || r.Group < 76 || r.Group > 78 {
+			return s, failure("prefix_identity")
+		}
+		if e = countRow(r, &s); e != nil {
+			return s, e
+		}
+	}
+	if scan.Err() != nil || s.Requests != 21 || s.Labels != 61 || s.Positive != 21 || s.Negative != 40 || s.Inputs != 103 || s.Selected != 301 || s.PositiveIndex1 != 18 {
+		return s, failure("prefix_counts")
+	}
+	s.Original = 305
+	s.PrefixExact = true
+	return s, nil
+}
+func countRow(r Row, s *Summary) error {
+	positive := 0
+	for i, c := range r.Candidates {
+		for j := 0; j < i; j++ {
+			if r.Candidates[j].ID == c.ID {
+				return failure("duplicate_candidate_id")
+			}
+		}
+		s.Labels++
+		if *c.Label {
+			s.Positive++
+			positive++
+			if i == 1 {
+				s.PositiveIndex1++
+			}
+		} else {
+			s.Negative++
+		}
+	}
+	if positive != 1 {
+		return failure("row_positive_count")
+	}
+	s.Requests++
+	s.Inputs += r.Scope.Inputs
+	s.Selected += r.Scope.Observations
+	return nil
+}
+
+func inspectInputs(b Bundle) (fixtures, qualification, Summary, error) {
+	var f fixtures
+	var q qualification
+	s, e := inspectPrefix(b.Previous)
+	if e != nil {
+		return f, q, s, e
+	}
+	if e = checkedJSON(b.Fixtures, &f, -1); e != nil {
+		return f, q, s, e
+	}
+	if e = checkedJSON(b.Adoption, &q, -1); e != nil {
+		return f, q, s, e
+	}
+	if f.Schema != "riido-remainder-extra-two-fixtures-v1" || f.State != "source_only" || f.Actual != 0 || f.Positions != 6 || f.Count != 10 || f.Planned != 30 || f.RequestCount != 2 || len(f.Requests) != 2 || len(f.Records) != 10 {
+		return f, q, s, failure("fixture_header")
+	}
+	if q.Schema != "riido-extra-two-root-finite-development-qualification-v1" || q.State != "Root_adopted_two_finite_development_requests" || q.Prior.Bytes != PreviousBytes || q.Prior.SHA != PreviousSHA || q.Prior.Rows != 21 || q.Prior.Labels != 61 || q.Prior.Positive != 21 || q.Prior.Negative != 40 || q.Prior.Inputs != 103 || q.Prior.Original != 305 || q.Prior.Selected != 301 || q.FixtureSHA != FixtureSHA || q.WantSHA != WantSHA || q.Comparison.Bytes != ComparisonBytes || q.Comparison.SHA != ComparisonSHA || q.Role != "development_train" || q.Weight != 1 || q.NewRequests != 2 || q.NewInputs != 10 || q.NewObservations != 30 || q.NewSelected != 30 || q.NewLabels != 6 || q.NewPositive != 2 || q.NewNegative != 4 || q.Combined != (totals{23, 67, 23, 44, 113, 335, 331}) || q.Counts.Observations != (countTFU{23, 7, 0}) || q.Counts.Predicates != (countTFU{125, 15, 1}) || !isTrue(q.UnknownNeverFalse) || !isTrue(q.NegativeRetainsUnknown) || !isTrue(q.Order) || !isFalse(q.FitBefore30) || len(q.Requests) != 2 {
+		return f, q, s, failure("Root_adoption_header")
+	}
+	for i, id := range newIDs {
+		sr := f.Requests[i]
+		ar := q.Requests[i]
+		expectedRef := reference{"primary120/source-survey53", surveySHA, pointers[i]}
+		if sr.ID != id || ar.ID != id || sr.Request != ar.Request || !textOK(sr.Request) || sr.Revision != revisions[i] || ar.Revision != revisions[i] || sr.Source != expectedRef || ar.Source != expectedRef || ar.Family != family || ar.Group != 77 || ar.Count != 5 || ar.Observations != 15 || ar.TextRevision != "extra-two-finite-v1" || !textOK(ar.Scope) || len(ar.Selected) != 3 || ar.Excluded == nil || len(ar.Excluded) != 0 || len(sr.Captions) != 3 || !stringsEqual(sr.Order, candidateIDs[:]) || !isFalse(sr.Qualified) || !isNull(sr.Truth) || !isNull(sr.Role) || !isNull(sr.Weight) {
+			return f, q, s, failure("new_request_identity")
+		}
+		for j, ac := range ar.Selected {
+			if ac.Index == nil || *ac.Index != j || ac.ID != candidateIDs[j] || ac.Text != sr.Captions[j] || !textOK(ac.Text) || ac.Label == nil || *ac.Label != (j == 1) || ac.Role != "development_train" || ac.Weight != 1 || !positions(ac.Known, 5) || !positions(ac.Unknown, 5) || ac.Retained == nil || len(ac.Vector) != 5 || len(ac.Ordinals) != 5 {
+				return f, q, s, failure("Root_selected_correspondence")
+			}
+		}
+		for k := 0; k < 5; k++ {
+			fr := f.Records[i*5+k]
+			prefix := "bounded-slice-"
+			if i == 1 {
+				prefix = "all-errors-"
+			}
+			wantCase := prefix + "0" + string(rune('1'+k))
+			if fr.Ordinal != i*5+k || fr.RequestIndex != i || fr.FixtureIndex != k || fr.ID != id || fr.Original.CaseID != wantCase || len(fr.Original.Want) == 0 || isNull(fr.Original.Want) || !isNull(fr.Original.Got) || !isNull(fr.Original.Truth) || !isNull(fr.Original.Label) || !isNull(fr.Original.Role) || !isNull(fr.Original.Weight) || !isNull(fr.Got) || !isNull(fr.Acceptable) || !isNull(fr.Truth) || !isNull(fr.Role) || !isNull(fr.Weight) {
+				return f, q, s, failure("fixture_prestate_or_order")
+			}
+		}
+	}
+	if e = inspectComparison(b.Comparison, f, q, &s); e != nil {
+		return f, q, s, e
+	}
+	return f, q, s, nil
+}
+
+// Arithmetic over Root's saved finite predicate states only. No Wanted/Got
+// semantic predicate is recomputed, and the reader cannot create a label.
+func inspectComparison(raw []byte, f fixtures, q qualification, s *Summary) error {
+	var c comparison
+	if e := checkedJSON(raw, &c, -1); e != nil {
+		return e
+	}
+	r := c.Report
+	if c.Schema != "riido-extra-two-saved-comparison-envelope-v1" || c.State != "complete" || !isNull(c.Failure) || c.Workers != 2 || !isTrue(c.Started) || c.Original != 0 || c.Oracle != 0 || c.Model != 0 || c.Fit != 0 || !isFalse(c.Labels) || !isFalse(c.Roles) || !isFalse(c.Weights) || !isFalse(c.Qualified) || r.Schema != "riido-extra-two-saved-semantic-comparison-v1" || r.State != "complete" || len(r.Observations) != 30 || len(r.Candidates) != 6 || len(r.References) != 2 || !isTrue(r.References[0]) || !isTrue(r.References[1]) || !isNull(r.Inner) || !isNull(r.Startup) || !isFalse(r.Labels) || !isFalse(r.Roles) || !isFalse(r.Weights) || !isFalse(r.Qualified) || r.Model != 0 || r.Fit != 0 {
+		return failure("comparison_header")
+	}
+	var pc, oc countTFU
+	for i, o := range r.Observations {
+		fi := i / 15
+		k := (i % 15) / 3
+		j := i % 3
+		if o.Family != fi || o.Fixture != k || o.Candidate != j || o.CaseID != f.Records[fi*5+k].Original.CaseID || o.Count < 1 || o.Count > 12 || len(o.Predicates) != 12 || !isTrue(o.ReturnKnown) || !isTrue(o.Returned) || !isTrue(o.PanicKnown) || !isFalse(o.Panic) || !isFalse(o.ErrorText) {
+			return failure("saved_observation_identity")
+		}
+		var counts countTFU
+		for z, p := range o.Predicates {
+			if z >= o.Count {
+				if p != (predicate{}) {
+					return failure("saved_predicate_unused")
+				}
+				continue
+			}
+			if p.Field == "" || p.Reason == "" {
+				return failure("saved_predicate_shape")
+			}
+			for a := 0; a < z; a++ {
+				if o.Predicates[a].Field == p.Field {
+					return failure("saved_predicate_duplicate")
+				}
+			}
+			switch p.State {
+			case "true":
+				counts.True++
+			case "false":
+				counts.False++
+			case "unknown":
+				counts.Unknown++
+			default:
+				return failure("saved_predicate_state")
+			}
+		}
+		state := "true"
+		if counts.False > 0 {
+			state = "false"
+		} else if counts.Unknown > 0 {
+			state = "unknown"
+		}
+		if counts != o.Counts || o.State != state {
+			return failure("saved_predicate_counts")
+		}
+		pc.True += counts.True
+		pc.False += counts.False
+		pc.Unknown += counts.Unknown
+		switch state {
+		case "true":
+			oc.True++
+		case "false":
+			oc.False++
+		case "unknown":
+			oc.Unknown++
+		}
+	}
+	if pc != (countTFU{125, 15, 1}) || oc != (countTFU{23, 7, 0}) || r.Predicates != pc || r.Counts != oc {
+		return failure("saved_comparison_totals")
+	}
+	unknowns := 0
+	for fi, ar := range q.Requests {
+		for j, ac := range ar.Selected {
+			known := []int{}
+			unknown := []int{}
+			retained := []unknownPredicate{}
+			var fc countTFU
+			for k := 0; k < 5; k++ {
+				ordinal := fi*15 + k*3 + j
+				o := r.Observations[ordinal]
+				v := "satisfied"
+				switch o.State {
+				case "false":
+					v = "unsatisfied"
+					fc.False++
+				case "unknown":
+					v = "unknown"
+					fc.Unknown++
+				default:
+					fc.True++
+				}
+				if ac.Ordinals[k] != ordinal || ac.Vector[k] != v {
+					return failure("Root_saved_vector")
+				}
+				if o.Counts.False > 0 {
+					known = append(known, k)
+				}
+				if o.State == "unknown" {
+					unknown = append(unknown, k)
+				}
+				for _, p := range o.Predicates[:o.Count] {
+					if p.State == "unknown" {
+						retained = append(retained, unknownPredicate{k, p.Field, p.Reason})
+					}
+				}
+			}
+			if !intsEqual(ac.Known, known) || !intsEqual(ac.Unknown, unknown) || len(ac.Retained) != len(retained) {
+				return failure("Root_counterexamples_unknown")
+			}
+			for k, p := range retained {
+				if ac.Retained[k] != p {
+					return failure("Root_retained_unknown")
+				}
+			}
+			ev := r.Candidates[fi*3+j]
+			state := "true"
+			if fc.False > 0 {
+				state = "false"
+			} else if fc.Unknown > 0 {
+				state = "unknown"
+			}
+			if ev.Family != fi || ev.Candidate != j || ev.Counts != fc || ev.State != state {
+				return failure("saved_candidate_evidence")
+			}
+			if *ac.Label {
+				if state != "true" || len(retained) != 0 {
+					return failure("Root_positive_evidence")
+				}
+			} else if state != "false" || len(known) == 0 {
+				return failure("Root_negative_evidence")
+			}
+			unknowns += len(retained)
+			if len(retained) > 0 {
+				s.Unknowns = append(s.Unknowns, retained...)
+			}
+		}
+	}
+	if unknowns != 1 || len(s.Unknowns) != 1 || s.Unknowns[0] != (unknownPredicate{0, "B_code", "observable_unavailable"}) {
+		return failure("retained_unknown_identity")
+	}
+	s.UnknownPredicateCount = unknowns
+	return nil
+}
+
+func newRow(a adoptedRequest) Row {
+	no1, no2 := false, false
+	r := Row{Schema: "riido-finite-development-request-row-v1", ID: a.ID, Request: a.Request, Role: a.Selected[0].Role, Group: a.Group, Family: a.Family, Revision: a.Revision, TextRevision: a.TextRevision, Policy: "request_and_candidates_text_only", Scope: finiteScope{a.Count, a.Observations, a.Scope, &no1, &no2}}
+	for _, c := range a.Selected {
+		b := *c.Label
+		r.Candidates = append(r.Candidates, candidate{c.ID, c.Text, &b, c.Weight})
+	}
+	return r
+}
+
+// composeBound is private and accepts typed synthetic fixtures for controls.
+// Real callers must pass through ComposePinned/Materialize and their fixed pins.
+func composeBound(b Bundle) ([]byte, Summary, error) {
+	_, q, s, e := inspectInputs(b)
+	if e != nil {
+		return nil, s, e
+	}
+	data := bytes.Clone(b.Previous)
+	for _, a := range q.Requests {
+		r := newRow(a)
+		raw, e := json.Marshal(r)
+		if e != nil {
+			return nil, s, failure("row_encode")
+		}
+		checked, e := rowDecode(raw)
+		if e != nil {
+			return nil, s, e
+		}
+		if e = countRow(checked, &s); e != nil {
+			return nil, s, e
+		}
+		if len(data)+len(raw)+1 > maxDataBytes {
+			return nil, s, failure("data_bounds")
+		}
+		data = append(data, raw...)
+		data = append(data, '\n')
+	}
+	if s.Requests != 23 || s.Labels != 67 || s.Positive != 23 || s.Negative != 44 || s.Inputs != 113 || s.Selected != 331 || s.PositiveIndex1 != 20 {
+		return nil, s, failure("combined_counts")
+	}
+	s.Original = 335
+	s.CopiedRootSupervision = true
+	s.DataSHA = Digest(data)
+	s.DataBytes = len(data)
+	s.State = "composed_Root_adopted_data_only"
+	return data, s, nil
+}
+func ComposePinned(b Bundle) ([]byte, Summary, error) {
+	if e := bind(b); e != nil {
+		return nil, InitialSummary(), e
+	}
+	return composeBound(b)
+}

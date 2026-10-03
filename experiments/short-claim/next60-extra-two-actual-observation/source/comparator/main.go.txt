@@ -1,0 +1,542 @@
+// Saved-file-only comparator. No original imports, processes or model APIs.
+package main
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"example.com/riido-extra-two-semantic/internal/protocol"
+	"example.com/riido-extra-two-semantic/internal/semantic"
+	"io"
+	"os"
+	"path/filepath"
+	"runtime"
+	"runtime/debug"
+	"strings"
+	"unicode/utf8"
+)
+
+const configCap = 64 << 10
+const outputCap = 128 << 10
+const heap = 256 << 20
+
+type Pin struct {
+	ID    string `json:"id"`
+	Path  string `json:"path"`
+	Bytes int    `json:"bytes"`
+	SHA   string `json:"sha256"`
+}
+type Fact struct {
+	ID       string `json:"id"`
+	Bytes    int    `json:"bytes"`
+	SHA      string `json:"sha256"`
+	Verified bool   `json:"verified"`
+}
+type Worker struct {
+	Family int
+	Plan   string
+	Files  [5]Pin
+}
+type Config struct {
+	Fixture, Wants, Self Pin
+	Workers              [2]Worker
+}
+type Output struct {
+	Schema                string           `json:"schema"`
+	State                 string           `json:"state"`
+	Failure               *string          `json:"failure_code"`
+	Pins                  []Fact           `json:"pins"`
+	ValidatedSavedWorkers int              `json:"validated_saved_workers"`
+	ComparisonsStarted    bool             `json:"comparisons_started"`
+	Report                *semantic.Report `json:"report"`
+	OriginalCalls         int              `json:"original_calls"`
+	OracleCalls           int              `json:"oracle_calls"`
+	Models                int              `json:"model_calls"`
+	Fits                  int              `json:"fit_calls"`
+	Labels                bool             `json:"labels_assigned"`
+	Roles                 bool             `json:"roles_assigned"`
+	Weights               bool             `json:"weights_assigned"`
+	Qualified             bool             `json:"qualified"`
+}
+
+func bad() error            { return errors.New("extra_two_saved_comparison_invalid") }
+func sha(raw []byte) string { h := sha256.Sum256(raw); return hex.EncodeToString(h[:]) }
+func abs(p string) bool     { return p != "" && filepath.IsAbs(p) && filepath.Clean(p) == p }
+func within(parent, child string) bool {
+	r, e := filepath.Rel(parent, child)
+	return e == nil && r != ".." && !strings.HasPrefix(r, ".."+string(filepath.Separator))
+}
+func read(p string, max int) ([]byte, os.FileInfo, error) {
+	s, e := os.Lstat(p)
+	if e != nil || !s.Mode().IsRegular() || s.Size() < 0 || s.Size() > int64(max) {
+		return nil, nil, bad()
+	}
+	real, e := filepath.EvalSymlinks(p)
+	if e != nil || real != p {
+		return nil, nil, bad()
+	}
+	f, e := os.Open(p)
+	if e != nil {
+		return nil, nil, bad()
+	}
+	defer f.Close()
+	n, e := f.Stat()
+	if e != nil || !os.SameFile(s, n) || n.Size() != s.Size() || !n.ModTime().Equal(s.ModTime()) {
+		return nil, nil, bad()
+	}
+	raw, e := io.ReadAll(io.LimitReader(f, int64(max)+1))
+	after, se := f.Stat()
+	if e != nil || se != nil || len(raw) > max || int64(len(raw)) != s.Size() || !os.SameFile(s, after) || after.Size() != s.Size() || !after.ModTime().Equal(s.ModTime()) {
+		return nil, nil, bad()
+	}
+	return raw, s, nil
+}
+func pin(raw []byte) (Pin, error) {
+	v, e := protocol.Object(raw, []string{"id", "path", "bytes", "sha256"})
+	if e != nil {
+		return Pin{}, bad()
+	}
+	var p Pin
+	p.ID, e = protocol.ReadString(v[0])
+	if e != nil {
+		return p, bad()
+	}
+	p.Path, e = protocol.ReadString(v[1])
+	if e != nil || !abs(p.Path) {
+		return p, bad()
+	}
+	p.Bytes, e = protocol.ReadInt(v[2])
+	if e != nil || p.Bytes <= 0 {
+		return p, bad()
+	}
+	p.SHA, e = protocol.ReadString(v[3])
+	if e != nil || !protocol.SHA(p.SHA) {
+		return p, bad()
+	}
+	return p, nil
+}
+func config(path, digest string) (c Config, err error) {
+	raw, _, e := read(path, configCap)
+	if e != nil || !protocol.SHA(digest) || sha(raw) != digest {
+		return c, bad()
+	}
+	c.Self = Pin{"extra2/config", path, len(raw), digest}
+	v, e := protocol.Object(raw, []string{"schema", "fixtures", "wants", "workers"})
+	if e != nil {
+		return c, bad()
+	}
+	s, e := protocol.ReadString(v[0])
+	if e != nil || s != "riido-extra-two-saved-comparison-config-v1" {
+		return c, bad()
+	}
+	c.Fixture, e = pin(v[1])
+	if e != nil || c.Fixture.ID != "extra2/fixtures" || c.Fixture.Bytes != protocol.FixtureBytes || c.Fixture.SHA != protocol.FixtureSHA {
+		return c, bad()
+	}
+	c.Wants, e = pin(v[2])
+	if e != nil || c.Wants.ID != "extra2/wants" || c.Wants.Bytes != protocol.WantsBytes || c.Wants.SHA != protocol.WantsSHA {
+		return c, bad()
+	}
+	var workers []json.RawMessage
+	if json.Unmarshal(v[3], &workers) != nil || len(workers) != 2 {
+		return c, bad()
+	}
+	names := [2]string{"slice", "validators"}
+	kinds := [5]string{"result", "journal", "reservation", "stdout", "outside"}
+	for i, r := range workers {
+		w, e := protocol.Object(r, []string{"family", "plan_sha256", "files"})
+		if e != nil {
+			return c, bad()
+		}
+		family, e := protocol.ReadInt(w[0])
+		if e != nil || family != i {
+			return c, bad()
+		}
+		c.Workers[i].Family = family
+		c.Workers[i].Plan, e = protocol.ReadString(w[1])
+		if e != nil || !protocol.SHA(c.Workers[i].Plan) {
+			return c, bad()
+		}
+		var files []json.RawMessage
+		if json.Unmarshal(w[2], &files) != nil || len(files) != 5 {
+			return c, bad()
+		}
+		for j, r := range files {
+			p, e := pin(r)
+			if e != nil || p.ID != "extra2/"+names[i]+"-"+kinds[j] {
+				return c, bad()
+			}
+			c.Workers[i].Files[j] = p
+		}
+	}
+	return c, nil
+}
+func all(c Config) [13]Pin {
+	return [13]Pin{c.Self, c.Fixture, c.Wants, c.Workers[0].Files[0], c.Workers[0].Files[1], c.Workers[0].Files[2], c.Workers[0].Files[3], c.Workers[0].Files[4], c.Workers[1].Files[0], c.Workers[1].Files[1], c.Workers[1].Files[2], c.Workers[1].Files[3], c.Workers[1].Files[4]}
+}
+func limits() [13]int {
+	return [13]int{configCap, 1 << 20, 1 << 20, protocol.FinalCap, protocol.JournalCap, protocol.ReservationCap, 512 << 10, 64 << 10, protocol.FinalCap, protocol.JournalCap, protocol.ReservationCap, 512 << 10, 64 << 10}
+}
+func verify(p Pin, limit int) ([]byte, Fact, os.FileInfo, error) {
+	fact := Fact{ID: p.ID, Bytes: p.Bytes, SHA: p.SHA}
+	if !abs(p.Path) || p.Bytes <= 0 || p.Bytes > limit || !protocol.SHA(p.SHA) {
+		return nil, fact, nil, bad()
+	}
+	b, s, e := read(p.Path, limit)
+	if e != nil || len(b) != p.Bytes || sha(b) != p.SHA {
+		return nil, fact, nil, bad()
+	}
+	fact.Verified = true
+	return b, fact, s, nil
+}
+
+// Required-subset extraction tolerates the other pinned Root receipt fields,
+// while rejecting every duplicate key and requiring selected fields. This
+// projection is not a new full-controller schema or approval of Root rights.
+func subset(raw []byte, keys []string) ([]json.RawMessage, error) {
+	if !utf8.Valid(raw) {
+		return nil, bad()
+	}
+	d := json.NewDecoder(bytes.NewReader(raw))
+	token, e := d.Token()
+	if e != nil || token != json.Delim('{') {
+		return nil, bad()
+	}
+	values := make([]json.RawMessage, len(keys))
+	seen := make([]bool, len(keys))
+	var names []string
+	for d.More() {
+		t, e := d.Token()
+		key, ok := t.(string)
+		if e != nil || !ok {
+			return nil, bad()
+		}
+		for _, n := range names {
+			if n == key {
+				return nil, bad()
+			}
+		}
+		names = append(names, key)
+		if len(names) > 64 {
+			return nil, bad()
+		}
+		var value json.RawMessage
+		if d.Decode(&value) != nil {
+			return nil, bad()
+		}
+		for i, k := range keys {
+			if k == key {
+				values[i] = value
+				seen[i] = true
+			}
+		}
+	}
+	token, e = d.Token()
+	if e != nil || token != json.Delim('}') {
+		return nil, bad()
+	}
+	var tail any
+	if d.Decode(&tail) != io.EOF {
+		return nil, bad()
+	}
+	for _, s := range seen {
+		if !s {
+			return nil, bad()
+		}
+	}
+	return values, nil
+}
+func boolIs(raw []byte, want bool) bool {
+	expected := []byte("false")
+	if want {
+		expected = []byte("true")
+	}
+	return bytes.Equal(bytes.TrimSpace(raw), expected)
+}
+func outside(raw []byte, w Worker) error {
+	keys := []string{"schema", "state", "family", "structural_completion", "actual_completed_observation_count", "incomplete_actual_counts_unknown", "worker_stdout_byte_matches_result", "journal_fully_valid", "external_root_evidence_hashes_verified", "post_wait_plan_input_bindings_still_match", "post_wait_frozen_binary_and_receipt_pins_match", "static_build_info_valid", "process", "Want_comparisons_performed", "labels_assigned", "roles_assigned", "weights_assigned", "training_ready", "model_calls", "fit_calls", "artifacts", "pins", "original_startup_calls", "original_nested_calls", "external_root_evidence_conclusions_interpreted", "automatic_retry"}
+	v, e := subset(raw, keys)
+	if e != nil {
+		return bad()
+	}
+	s, e := protocol.ReadString(v[0])
+	if e != nil || s != "riido-extra-two-outside-receipt-v1" {
+		return bad()
+	}
+	s, e = protocol.ReadString(v[1])
+	if e != nil || s != "complete" {
+		return bad()
+	}
+	family, e := protocol.ReadInt(v[2])
+	if e != nil || family != w.Family {
+		return bad()
+	}
+	n, e := protocol.ReadInt(v[4])
+	if e != nil || n != 15 {
+		return bad()
+	}
+	for _, i := range []int{3, 6, 7, 8, 9, 10, 11} {
+		if !boolIs(v[i], true) {
+			return bad()
+		}
+	}
+	for _, i := range []int{5, 13, 14, 15, 16, 17} {
+		if !boolIs(v[i], false) {
+			return bad()
+		}
+	}
+	for _, i := range []int{22, 23} {
+		if !bytes.Equal(bytes.TrimSpace(v[i]), []byte("null")) {
+			return bad()
+		}
+	}
+	for _, i := range []int{24, 25} {
+		if !boolIs(v[i], false) {
+			return bad()
+		}
+	}
+	for _, i := range []int{18, 19} {
+		n, e := protocol.ReadInt(v[i])
+		if e != nil || n != 0 {
+			return bad()
+		}
+	}
+	p, e := subset(v[12], []string{"start_attempts", "start_succeeded", "wait_attempts", "wait_returned", "started_process_reaped", "exit_code", "deadline_exceeded", "capture_cap_exceeded"})
+	if e != nil {
+		return bad()
+	}
+	for _, i := range []int{0, 2} {
+		n, e := protocol.ReadInt(p[i])
+		if e != nil || n != 1 {
+			return bad()
+		}
+	}
+	for _, i := range []int{1, 3, 4} {
+		if !boolIs(p[i], true) {
+			return bad()
+		}
+	}
+	for _, i := range []int{6, 7} {
+		if !boolIs(p[i], false) {
+			return bad()
+		}
+	}
+	n, e = protocol.ReadInt(p[5])
+	if e != nil || n != 0 {
+		return bad()
+	}
+	var artifacts []json.RawMessage
+	if json.Unmarshal(v[20], &artifacts) != nil || len(artifacts) != 5 {
+		return bad()
+	}
+	names := [5]string{"worker/results.json", "worker/journal.jsonl", "worker/reservation.json", "stdout.private.bin", ""}
+	var found [4]bool
+	for _, a := range artifacts {
+		f, e := protocol.Object(a, []string{"name", "bytes", "sha256", "read_valid"})
+		if e != nil || !boolIs(f[3], true) {
+			return bad()
+		}
+		name, e := protocol.ReadString(f[0])
+		if e != nil {
+			return bad()
+		}
+		size, e := protocol.ReadInt(f[1])
+		if e != nil {
+			return bad()
+		}
+		digest, e := protocol.ReadString(f[2])
+		if e != nil {
+			return bad()
+		}
+		for i := 0; i < 4; i++ {
+			if name == names[i] {
+				if found[i] || size != w.Files[i].Bytes || digest != w.Files[i].SHA {
+					return bad()
+				}
+				found[i] = true
+			}
+		}
+	}
+	for _, f := range found {
+		if !f {
+			return bad()
+		}
+	}
+	var pins []json.RawMessage
+	if json.Unmarshal(v[21], &pins) != nil || len(pins) != 11 {
+		return bad()
+	}
+	planFound := false
+	for _, p := range pins {
+		f, e := protocol.Object(p, []string{"id", "bytes", "sha256", "verified"})
+		if e != nil || !boolIs(f[3], true) {
+			return bad()
+		}
+		id, e := protocol.ReadString(f[0])
+		if e != nil {
+			return bad()
+		}
+		if id == "extratwo/execution-plan" {
+			digest, e := protocol.ReadString(f[2])
+			if e != nil || planFound || digest != w.Plan {
+				return bad()
+			}
+			planFound = true
+		}
+	}
+	if !planFound {
+		return bad()
+	}
+	return nil
+}
+func evaluate(c Config, out string) (o Output, err error) {
+	o = Output{Schema: "riido-extra-two-saved-comparison-envelope-v1", State: "failed"}
+	pins, bounds := all(c), limits()
+	var raws [13][]byte
+	var info [13]os.FileInfo
+	for i, p := range pins {
+		if within(out, p.Path) || p.Path == out {
+			return o, bad()
+		}
+		raw, f, s, e := verify(p, bounds[i])
+		o.Pins = append(o.Pins, f)
+		if e != nil {
+			return o, e
+		}
+		for j := 0; j < i; j++ {
+			if os.SameFile(s, info[j]) {
+				return o, bad()
+			}
+		}
+		raws[i] = raw
+		info[i] = s
+	}
+	wants, e := semantic.ParseWants(raws[2])
+	if e != nil {
+		return o, e
+	}
+	var reports [2]protocol.WorkerReport
+	for family, w := range c.Workers {
+		base := 3 + family*5
+		r, e := protocol.ReadResult(raws[base], family, w.Plan)
+		if e != nil {
+			return o, e
+		}
+		j, e := protocol.ReadJournal(raws[base+1], family)
+		if e != nil || !protocol.Complete(r, j) || protocol.ReadReservation(raws[base+2], family, w.Plan) != nil || !bytes.Equal(raws[base], raws[base+3]) || outside(raws[base+4], w) != nil {
+			return o, bad()
+		}
+		reports[family] = *r.Worker
+		o.ValidatedSavedWorkers++
+	}
+	o.ComparisonsStarted = true
+	r, e := semantic.Compare(wants, reports)
+	if e != nil {
+		return o, e
+	}
+	o.Report = &r
+	for i, p := range pins {
+		if _, _, _, e := verify(p, bounds[i]); e != nil {
+			return o, e
+		}
+	}
+	o.State = "complete"
+	return o, nil
+}
+func args(a []string) (file, digest, out string, ok bool) {
+	if len(a) != 6 {
+		return
+	}
+	keys := [3]string{"--config", "--config-sha256", "--out"}
+	var values [3]string
+	var seen [3]bool
+	for i := 0; i < 6; i += 2 {
+		n := -1
+		for j, k := range keys {
+			if a[i] == k {
+				n = j
+				break
+			}
+		}
+		if n < 0 || seen[n] || a[i+1] == "" {
+			return
+		}
+		seen[n] = true
+		values[n] = a[i+1]
+	}
+	if !abs(values[0]) || !protocol.SHA(values[1]) || !abs(values[2]) {
+		return
+	}
+	return values[0], values[1], values[2], true
+}
+func run(file, digest, out string) (o Output, err error) {
+	o = Output{Schema: "riido-extra-two-saved-comparison-envelope-v1", State: "failed"}
+	parent := filepath.Dir(out)
+	real, e := filepath.EvalSymlinks(parent)
+	if e != nil || real != parent {
+		return o, bad()
+	}
+	f, e := os.OpenFile(out, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if e != nil {
+		return o, bad()
+	}
+	defer func() {
+		if err != nil {
+			o.State = "failed"
+			code := "extra_two_saved_comparison_invalid"
+			o.Failure = &code
+		}
+		raw, e := json.Marshal(o)
+		if e != nil || len(raw)+1 > outputCap {
+			err = bad()
+			_ = f.Close()
+			return
+		}
+		raw = append(raw, '\n')
+		n, we := f.Write(raw)
+		se := f.Sync()
+		ce := f.Close()
+		d, de := os.Open(parent)
+		if de == nil {
+			de = d.Sync()
+			closeError := d.Close()
+			if de == nil {
+				de = closeError
+			}
+		}
+		if we != nil || n != len(raw) || se != nil || ce != nil || de != nil {
+			err = bad()
+			o.State = "failed"
+		}
+	}()
+	c, e := config(file, digest)
+	if e != nil {
+		return o, e
+	}
+	return evaluate(c, out)
+}
+func main() {
+	runtime.GOMAXPROCS(1)
+	debug.SetMemoryLimit(heap)
+	file, digest, out, ok := args(os.Args[1:])
+	if !ok {
+		_, _ = os.Stderr.WriteString("extra_two_saved_comparison_arguments_invalid\n")
+		os.Exit(2)
+	}
+	o, e := run(file, digest, out)
+	summary := struct {
+		Schema    string `json:"schema"`
+		State     string `json:"state"`
+		Validated int    `json:"validated_saved_workers"`
+		Compared  bool   `json:"comparisons_started"`
+	}{"riido-extra-two-saved-comparison-summary-v1", o.State, o.ValidatedSavedWorkers, o.ComparisonsStarted}
+	raw, _ := json.Marshal(summary)
+	if _, we := os.Stdout.Write(append(raw, '\n')); we != nil {
+		os.Exit(1)
+	}
+	if e != nil {
+		os.Exit(1)
+	}
+}

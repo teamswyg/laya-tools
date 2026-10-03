@@ -1,0 +1,70 @@
+// Future actual Root reader bridge. Kept inert during pure preparation.
+// Only LoadDevelopmentRow and value getters; no Features/Score/Project/Fit.
+package main
+
+import (
+	"bytes"
+	"errors"
+	"github.com/teamswyg/laya-tools/pkg/shortclaimdata"
+	"io"
+	"os"
+	data23 "riido.local/data23prep"
+)
+
+func projectRead(raw []byte) (data23.LoadedView, error) {
+	ex, e := shortclaimdata.LoadDevelopmentRow(bytes.NewReader(raw))
+	if e != nil || !ex.Valid() {
+		return data23.LoadedView{}, errors.New("project_reader_validation")
+	}
+	m := ex.Metadata()
+	p := ex.Input().Prepared()
+	s := ex.Supervision()
+	v := data23.LoadedView{Valid: true, ID: m.StableID, Request: p.Request, Schema: p.Schema, Provenance: p.Provenance, Role: m.Role, Policy: m.FeaturePolicy, Family: m.SourceFamily, Revision: m.SourceRevision, TextRevision: m.TextRevision, ScopeDescription: m.FiniteScope.Description, Group: m.WholeGroup, Inputs: m.FiniteScope.InputCount, Observations: m.FiniteScope.CandidateObservations, Count: p.Count, SupervisionCount: s.Count, All: m.FiniteScope.AllInputGuarantee, Unseen: m.FiniteScope.UnseenSourceGuarantee, UnusedZero: true}
+	if p.Count < 1 || p.Count > len(v.Candidates) || s.Count != p.Count {
+		return data23.LoadedView{}, errors.New("project_reader_validation")
+	}
+	for j := 0; j < len(v.Candidates); j++ {
+		c := p.Candidates[j]
+		if j < p.Count {
+			v.Candidates[j] = data23.LoadedCandidate{ID: c.ID, Text: c.Text, Label: s.Labels[j], Weight: s.Weights[j]}
+		} else if c.ID != "" || c.Text != "" || c.NormalizedText != "" || s.Labels[j] || s.Weights[j] != 0 {
+			v.UnusedZero = false
+		}
+	}
+	return v, nil
+}
+func main() {
+	names := []string{"--data", "--data-sha256", "--previous-data", "--fixtures", "--adoption", "--finite-comparison", "--attempt-dir"}
+	v, e := data23.ParseOptions(os.Args[1:], names)
+	if e != nil {
+		io.WriteString(os.Stderr, "data23_arguments\n")
+		os.Exit(2)
+	}
+	w, e := data23.OpenReaderRecorder(v[6])
+	if e != nil {
+		io.WriteString(os.Stderr, "data23_reader_reservation_failed\n")
+		os.Exit(1)
+	}
+	s := data23.InitialSummary()
+	b, e := data23.LoadInputs(data23.Paths{Previous: v[2], Fixtures: v[3], Adoption: v[4], Comparison: v[5]})
+	var raw []byte
+	if e == nil {
+		raw, e = data23.ReadPinned(v[0], v[1], 0)
+	}
+	if e == nil {
+		e = data23.ValidateReader(b, raw, v[1], projectRead, w.Checkpoint, &s)
+	}
+	if e != nil {
+		s.State = "reader_correspondence_failed"
+		s.Failure = data23.FailureCode(e)
+	}
+	if w.Finish(s) != nil {
+		io.WriteString(os.Stderr, "data23_reader_receipt_failed\n")
+		os.Exit(1)
+	}
+	if e != nil {
+		io.WriteString(os.Stderr, "data23_reader_validation_failed\n")
+		os.Exit(1)
+	}
+	io.WriteString(os.Stdout, "data23_reader_correspondence_saved\n")
+}
