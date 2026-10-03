@@ -16,7 +16,7 @@
 
 [HF 3개 요청 고정 버전](https://huggingface.co/datasets/JooYoon/riidolaya-shortclaim-next60-development/tree/next60-3-finite-v1)을 게시했고 71개 파일을 다시 내려받아 확인했습니다. Viewer는 HTTP200으로 세 행을 반환하며 모든 필드가 고정 자료와 일치했습니다. [게시 기록](https://github.com/teamswyg/laya-tools/blob/main/experiments/short-claim/publication-proof-114/HF-PUBLICATION.v2.json)을 보세요. 이전 2개 요청 태그와 당시 viewer HTTP500·나중 성공 기록도 보존합니다. 모델 학습·성능 검증과는 별도의 자료 게시입니다.
 
-HF의 현재 고정 버전은 위의 3개 요청 자료입니다. 7개 버전은 CI로 검증한 뒤 별도 태그로 게시해 이전 버전을 보존합니다.
+[HF 7개 요청 고정 버전](https://huggingface.co/datasets/JooYoon/riidolaya-shortclaim-next60-development/tree/next60-7-finite-v1)을 별도 게시했습니다. [PR115](https://github.com/teamswyg/laya-tools/pull/115)의 필수 CI 네 개와 자동 병합을 확인한 뒤 112개 파일을 다시 내려받아 바이트를 비교했습니다. Viewer는 처음 HTTP500으로 준비 중이었고 이후 HTTP200으로 일곱 행의 모든 필드가 일치했습니다. 이전 두 요청·세 요청 태그는 그대로입니다. [게시 기록](https://github.com/teamswyg/laya-tools/blob/main/experiments/short-claim/publication-proof-116/HF-PUBLICATION.v3.json)은 자료 게시와 학습·성능 검증을 구분합니다.
 
 다음 [의미 작업 10개 제안](https://github.com/teamswyg/laya-tools/tree/main/experiments/short-claim/next60-catalog10-literal-correction)은 구체적 입력 46개와 관측 방법이 더 필요한 보류 입력 6개입니다. 아직 실제 관측·정답 라벨은 아닙니다. 기존 초안 20개를 모두 적격화해도 새 라운드의 30개 체크포인트에는 별도 의미 작업 10개가 더 필요합니다. 문장 변형을 새 작업으로 세지 않습니다.
 

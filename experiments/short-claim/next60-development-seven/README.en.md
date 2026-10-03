@@ -8,6 +8,6 @@ See the [data](data/train.jsonl) and [Root qualification record](ROOT-QUALIFICAT
 
 Run `bash scripts/verify-next60-development.sh data` from the repository with Go 1.27.1. This check executes neither a model nor Python. Consult the PR checks for the actual CI result.
 
-The current pinned public HF version is the [three-request tag](https://huggingface.co/datasets/JooYoon/riidolaya-shortclaim-next60-development/tree/next60-3-finite-v1). The seven-row release is planned after CI, under a new tag without moving previous tags. Model bodies are excluded from GitHub.
+The [immutable seven-request HF tag](https://huggingface.co/datasets/JooYoon/riidolaya-shortclaim-next60-development/tree/next60-7-finite-v1) is published. After [PR115](https://github.com/teamswyg/laya-tools/pull/115) passed all four required checks and automatically merged, 112 files were downloaded again and every field in the seven viewer rows matched. See the [publication record](../publication-proof-116/HF-PUBLICATION.v3.json). Previous two/three-request tags remain unchanged; model bodies are excluded from GitHub.
 
 The historical 79 requests, inactive failed models and three cumulative Fits remain unchanged. No new corpus Fit runs before the 30/60 checkpoints. [Literal corrections for ten further requests](../next60-catalog10-literal-correction/TRANSITION.en.md) remain unobserved and unlabelled; six inputs requiring report-channel instrumentation remain on hold.
