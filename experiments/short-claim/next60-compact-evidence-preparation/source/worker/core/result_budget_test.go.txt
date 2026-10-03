@@ -1,0 +1,18 @@
+package core
+
+import (
+	"encoding/json"
+	"testing"
+)
+
+func TestOwnedResultBudgetDiagnostic(t *testing.T) {
+	r := Result{Schema: "riido-union-duplicate-observer-proposed-v1"}
+	b, e := json.Marshal(r)
+	if e != nil {
+		t.Fatal(e)
+	}
+	t.Logf("owned empty-prefix full39 fixed-shape result: %d bytes; fixed retained result reserve: 65536; source proposed maximum: %d", len(b), ResultMaxBytes)
+	if len(b) <= 65536 {
+		t.Fatal("expected existing fixed-array result budget mismatch not observed")
+	}
+}

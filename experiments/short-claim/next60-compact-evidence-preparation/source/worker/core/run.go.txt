@@ -1,0 +1,112 @@
+package core
+
+import (
+	"encoding/json"
+	"io"
+	frame "riido.local/unionduplicateframe"
+)
+
+// The legacy padded shape is retained for diagnostics and rejected if it exceeds
+// the fixed retained result reserve. Actual adoption needs a compact controller
+// result derived from observable journal facts; no larger budget is implied.
+const ResultMaxBytes = 65536
+
+// Run is an injected owned observer, not a CLI, subprocess or filesystem writer.
+// The caller must supply externally durable ACKs and separate Root admission.
+// Factory construction is owned fixture setup; imported package init is unknown.
+func Run(out io.Writer, ack frame.ReadAck, factory Factory, freeze, fixtures, captions []byte) (Result, error) {
+	r := Result{Schema: "riido-union-duplicate-observer-proposed-v1", Pins: frame.Pins{Freeze: FreezeSHA, Fixtures: FixtureSHA, Captions: CaptionSHA}}
+	if VerifyFrozen(freeze, fixtures, captions) != nil || factory == nil {
+		return r, ErrObserver
+	}
+	w, e := frame.New(out, ack, r.Pins)
+	if e != nil {
+		return r, e
+	}
+	update := func() { s := w.Status(); r.Prefix = s.Acknowledged; r.EffectMayHaveOccurred = s.EffectMayHaveOccurred }
+	if e = w.Ready(); e != nil {
+		update()
+		return r, e
+	}
+	for d := uint8(0); d < 39; d++ {
+		x, _ := frame.Schedule(d)
+		m, k, _ := caps(d)
+		c := context{w: w, d: d, methodMax: m, callbackMax: k, row: RowResult{Ordinal: d, IDs: x}}
+		f, e := w.Call(frame.Row, d, 0, 0, func() frame.Facts {
+			c.api = factory(c.fault)
+			if c.api == nil {
+				c.fault()
+				return frame.Facts{}
+			}
+			cf, ce := w.Call(frame.Candidate, d, 0, 0, func() frame.Facts {
+				if x[0] == 0 {
+					return c.union(x[1], x[2])
+				}
+				return c.duplicate(x[1], x[2])
+			})
+			if ce != nil {
+				c.fail = ce
+				return frame.Facts{}
+			}
+			c.row.Invocation = cf
+			if cf.Panic.K && cf.Panic.V && c.fail == nil {
+				c.fault()
+			}
+			return cf
+		})
+		c.row.ObserverFault = c.ownFault
+		if e == nil {
+			c.row.AckKnown = true
+			r.Completed++
+			if f.Panic.K && f.Panic.V && c.fail == nil {
+				c.fault()
+				c.row.ObserverFault = true
+			}
+			if !c.row.SourcePanic.K && !c.ownFault && c.fail == nil {
+				c.row.SourcePanic = known(false)
+			}
+		}
+		r.Rows[d] = c.row
+		update()
+		if e != nil {
+			return r, e
+		}
+		if c.fail != nil {
+			reason := frame.ObserverStop
+			if c.fail == ErrSourcePanic {
+				reason = frame.SourceStop
+			}
+			// A clean acknowledged source panic can finalize an incomplete run.
+			// A sticky transport failure cannot be reset or retried here.
+			fe := w.Finish(false, reason)
+			update()
+			if fe != nil {
+				return r, fe
+			}
+			return r, c.fail
+		}
+	}
+	if e = w.Finish(true, frame.NoStop); e != nil {
+		update()
+		return r, e
+	}
+	r.Complete = true
+	update()
+	return r, nil
+}
+
+// Result encoding is separate from frame writing and has its own prospective
+// bound. No file creation, Sync, stdout identity or external final ACK is implied.
+func CanonicalResult(r Result) ([]byte, error) {
+	if r.Schema != "riido-union-duplicate-observer-proposed-v1" || r.Startup != nil || r.Nested != nil || r.OriginalOutcomeTransportAvailable || r.Completed > 39 {
+		return nil, ErrObserver
+	}
+	if r.Complete && (r.Completed != 39 || r.Prefix.Counts[frame.Row][1] != 39 || r.Prefix.Counts[frame.Candidate][1] != 39) {
+		return nil, ErrObserver
+	}
+	b, e := json.Marshal(r)
+	if e != nil || len(b) > ResultMaxBytes {
+		return nil, ErrObserver
+	}
+	return b, nil
+}

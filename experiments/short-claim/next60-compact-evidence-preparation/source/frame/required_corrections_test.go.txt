@@ -1,0 +1,87 @@
+// SPDX-License-Identifier: Apache-2.0
+package frame
+
+import (
+	"io"
+	"testing"
+)
+
+func TestAfterOutcomeMustBeNonNullAndExclusive(t *testing.T) {
+	w, f := newFake(t)
+	if e := nested(t, w, 0, empty); e != nil {
+		t.Fatal(e)
+	}
+	base, e := DecodeFrame(f.lines[3])
+	if e != nil || base.K != AfterCandidate {
+		t.Fatal(e)
+	}
+	for _, mode := range []string{"both-true", "both-false", "null-normal", "null-panic"} {
+		t.Run(mode, func(t *testing.T) {
+			v := base
+			facts := *base.F
+			v.F = &facts
+			switch mode {
+			case "both-true":
+				facts.Panic.V = true
+			case "both-false":
+				facts.Normal.V = false
+			case "null-normal":
+				facts.Normal.N = true
+				facts.Normal.V = false
+				facts.Panic.V = true
+			case "null-panic":
+				facts.Panic.N = true
+			}
+			if _, e := CanonicalFrame(v); e != ErrShape {
+				t.Fatal("forged AFTER accepted", e)
+			}
+		})
+	}
+}
+
+type nilPanicWriter struct {
+	out     io.Writer
+	enabled *bool
+}
+
+func (w nilPanicWriter) Write(p []byte) (int, error) {
+	if *w.enabled {
+		panic(nil)
+	}
+	return w.out.Write(p)
+}
+
+// Run this control with GODEBUG=panicnil=1 too. An interrupted transport must
+// fail even when recover() returns nil; no matching ACK authorizes a thunk.
+func TestNilTransportPanicAlwaysStopsBeforeThunk(t *testing.T) {
+	for _, mode := range []string{"write", "ack"} {
+		t.Run(mode, func(t *testing.T) {
+			fake := &fake{}
+			enabled := false
+			out := io.Writer(fake)
+			if mode == "write" {
+				out = nilPanicWriter{fake, &enabled}
+			}
+			read := func() (Ack, error) {
+				if mode == "ack" && enabled {
+					panic(nil)
+				}
+				return fake.ack()
+			}
+			w, e := New(out, read, fakePins())
+			if e != nil || w.Ready() != nil {
+				t.Fatal(e)
+			}
+			enabled = true
+			calls := 0
+			_, e = w.Call(Row, 0, 0, 0, func() Facts { calls++; return Facts{} })
+			if e != ErrTransport || calls != 0 || !w.Status().Stopped || w.Status().Acknowledged.Seq != 1 {
+				t.Fatal("nil panic failed open", e, calls, w.Status())
+			}
+			_, _ = w.Call(Row, 0, 0, 0, func() Facts { calls++; return Facts{} })
+			if calls != 0 {
+				t.Fatal("stopped transport authorized retry")
+			}
+		})
+	}
+}

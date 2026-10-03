@@ -1,0 +1,146 @@
+package core
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	frame "riido.local/unionduplicateframe"
+	"testing"
+)
+
+// Synthetic transport controls only. No original package/import/init/function.
+type fakeDirectory struct {
+	calls int
+	cause error
+}
+
+func (d *fakeDirectory) Readdir(n int, mark func(bool)) InfoReturn {
+	mark(false)
+	d.calls++
+	mark(true)
+	return InfoReturn{Entries: InfoList{}, Error: d.cause}
+}
+
+type fakeAPI struct{ d *fakeDirectory }
+
+func (a *fakeAPI) NewUnion(Provider, Provider, Merge) Dir                    { return a.d }
+func (*fakeAPI) Valid(string, func(bool)) bool                               { panic(ErrObserver) }
+func (*fakeAPI) Parse(string, func(bool)) Value                              { panic(ErrObserver) }
+func (*fakeAPI) Map(Value, func(bool)) MapList                               { panic(ErrObserver) }
+func (*fakeAPI) ForEach(Value, func(func() (Value, Value)) bool, func(bool)) { panic(ErrObserver) }
+
+type opaqueCause struct{ called *bool }
+
+func (e opaqueCause) Error() string { *e.called = true; panic("formatter must not run") }
+func controlWriter(t *testing.T, bad frame.Stage) (*frame.Writer, *bytes.Buffer) {
+	t.Helper()
+	b := new(bytes.Buffer)
+	w, e := frame.New(b, func() (frame.Ack, error) {
+		line := b.Bytes()
+		if len(line) == 0 || line[len(line)-1] != '\n' {
+			return frame.Ack{}, frame.ErrAck
+		}
+		end := len(line) - 1
+		start := bytes.LastIndexByte(line[:end], '\n') + 1
+		raw := line[start:end]
+		f, e := frame.DecodeFrame(line[start:])
+		if e != nil {
+			return frame.Ack{}, e
+		}
+		s := sha256.Sum256(raw)
+		h := hex.EncodeToString(s[:])
+		if f.K == bad {
+			h = string(bytes.Repeat([]byte("0"), 64))
+		}
+		return frame.Ack{V: frame.Version, Q: f.Q, H: h}, nil
+	}, frame.Pins{Freeze: FreezeSHA, Fixtures: FixtureSHA, Captions: CaptionSHA})
+	if e != nil || w.Ready() != nil {
+		t.Fatal("owned setup")
+	}
+	return w, b
+}
+func TestMethodBeforeACKFailureHasNoCall(t *testing.T) {
+	w, _ := controlWriter(t, frame.BeforeMethod)
+	d := new(fakeDirectory)
+	c := context{w: w, d: 0, api: &fakeAPI{d}, methodMax: 1, callbackMax: 0}
+	w.Call(frame.Row, 0, 0, 0, func() frame.Facts {
+		w.Call(frame.Candidate, 0, 0, 0, func() frame.Facts {
+			c.direct(frame.Readdir, func(mark func(bool)) frame.Facts { d.Readdir(1, mark); return frame.Facts{} })
+			return frame.Facts{}
+		})
+		return frame.Facts{}
+	})
+	if d.calls != 0 || c.row.API[0].Entered || !w.Status().Stopped {
+		t.Fatal("call entered before ACK")
+	}
+}
+func TestMethodAfterACKFailureKeepsUnacknowledgedEffect(t *testing.T) {
+	w, _ := controlWriter(t, frame.AfterMethod)
+	d := new(fakeDirectory)
+	c := context{w: w, d: 0, api: &fakeAPI{d}, methodMax: 2, callbackMax: 0}
+	w.Call(frame.Row, 0, 0, 0, func() frame.Facts {
+		w.Call(frame.Candidate, 0, 0, 0, func() frame.Facts {
+			invoke := func(mark func(bool)) frame.Facts { d.Readdir(1, mark); return frame.Facts{} }
+			c.direct(frame.Readdir, invoke)
+			c.direct(frame.Readdir, invoke)
+			return frame.Facts{}
+		})
+		return frame.Facts{}
+	})
+	s := w.Status()
+	if d.calls != 1 || !c.row.API[0].Returned || !s.Stopped || !s.EffectMayHaveOccurred ||
+		s.Acknowledged.Counts[frame.Method][1] != 0 || s.AttemptedStage != frame.AfterMethod {
+		t.Fatal("unacknowledged return lost or method retried")
+	}
+}
+func TestOpaqueErrorPresenceDoesNotFormat(t *testing.T) {
+	w, _ := controlWriter(t, frame.Final)
+	called := false
+	cause := opaqueCause{&called}
+	d := &fakeDirectory{cause: cause}
+	c := context{w: w, d: 0, api: &fakeAPI{d}, methodMax: 1, callbackMax: 0}
+	var observed frame.ErrorFact
+	_, e := w.Call(frame.Row, 0, 0, 0, func() frame.Facts {
+		w.Call(frame.Candidate, 0, 0, 0, func() frame.Facts {
+			f, ok := c.direct(frame.Readdir, func(mark func(bool)) frame.Facts {
+				v := d.Readdir(1, mark)
+				return frame.Facts{Error: errorFact(v.Error)}
+			})
+			if !ok {
+				t.Fatal("synthetic method")
+			}
+			observed = f.Error
+			return f
+		})
+		return frame.Facts{}
+	})
+	if e != nil || called || !observed.A || !observed.K || !observed.P || observed.I {
+		t.Fatal("opaque identity or formatter inference")
+	}
+}
+
+func TestPostReturnBoundIsNotSourcePanic(t *testing.T) {
+	w, _ := controlWriter(t, frame.Final)
+	c := context{w: w, d: 0, methodMax: 1, callbackMax: 0}
+	w.Call(frame.Row, 0, 0, 0, func() frame.Facts {
+		w.Call(frame.Candidate, 0, 0, 0, func() frame.Facts {
+			c.direct(frame.Readdir, func(mark func(bool)) frame.Facts {
+				// Fake original method has already returned; only owned mapping
+				// fails. Capture it before AFTER without fabricating a source panic.
+				mark(false)
+				mark(true)
+				c.fault()
+				panic(ErrObserver)
+			})
+			return frame.Facts{}
+		})
+		return frame.Facts{}
+	})
+	a := c.row.API[0]
+	if !a.NativeDispatched || !a.ReturnKnown || !a.Returned || !c.ownFault ||
+		c.row.SourcePanic.K || !a.DurableOriginalOutcomeAvailable ||
+		w.Status().Acknowledged.Counts[frame.Method][2] != 1 ||
+		w.Status().Acknowledged.Counts[frame.Method][3] != 0 {
+		t.Fatal("source outcome conflated with thunk panic")
+	}
+}

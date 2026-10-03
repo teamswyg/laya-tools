@@ -1,0 +1,86 @@
+package compactevidence
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"runtime"
+	"runtime/pprof"
+	"testing"
+)
+
+// Private owned-test profiles only. Each sink has one writer; CPU data is read
+// only after StopCPUProfile joins its writer, heap data after WriteHeapProfile.
+// No -cpuprofile flag is used, so Go's normal temporary test executable is not
+// converted into a retained research binary. Profiling grants no native Start.
+type boundedProfile struct {
+	data     [16384]byte
+	n        int
+	overflow bool
+}
+
+func (b *boundedProfile) Write(p []byte) (int, error) {
+	if b.overflow {
+		return 0, ErrShape
+	}
+	n := copy(b.data[b.n:], p)
+	b.n += n
+	if n != len(p) {
+		b.overflow = true
+		return n, ErrShape
+	}
+	return n, nil
+}
+func saveProfile(dir, name string, b *boundedProfile) error {
+	f, e := os.OpenFile(filepath.Join(dir, name), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if e != nil {
+		return e
+	}
+	n, e := f.Write(b.data[:b.n])
+	if e == nil && n != b.n {
+		e = ErrShape
+	}
+	if e == nil {
+		e = f.Sync()
+	}
+	if x := f.Close(); e == nil {
+		e = x
+	}
+	if e != nil {
+		return e
+	}
+	p, e := os.Open(dir)
+	if e != nil {
+		return e
+	}
+	e = p.Sync()
+	if x := p.Close(); e == nil {
+		e = x
+	}
+	return e
+}
+func TestMain(m *testing.M) {
+	dir := os.Getenv("RIIDO_OWNED_PROFILE_DIR")
+	if dir == "" {
+		os.Exit(m.Run())
+	}
+	s, e := os.Lstat(dir)
+	if e != nil || !filepath.IsAbs(dir) || !s.IsDir() || s.Mode()&os.ModeSymlink != 0 {
+		os.Exit(9)
+	}
+	var cpu, heap boundedProfile
+	if pprof.StartCPUProfile(&cpu) != nil {
+		os.Exit(10)
+	}
+	code := m.Run()
+	pprof.StopCPUProfile()
+	runtime.GC()
+	he := pprof.WriteHeapProfile(&heap)
+	ce := saveProfile(dir, "owned-cpu.pprof", &cpu)
+	we := saveProfile(dir, "owned-heap.pprof", &heap)
+	fmt.Printf("owned-profile bytes cpu=%d heap=%d bound-per-file=16384 cpu-overflow=%t heap-overflow=%t\n", cpu.n, heap.n, cpu.overflow, heap.overflow)
+	if cpu.overflow || heap.overflow || he != nil || ce != nil || we != nil {
+		os.Exit(11)
+	}
+	os.Exit(code)
+}

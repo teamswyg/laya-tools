@@ -1,0 +1,24 @@
+{
+  "schema": "riido-owned-profile-setup-failure-v1",
+  "directory_setup": {
+    "exit_code": 1,
+    "cause": "Root inline JavaScript used legacy octal mode literal0600 in strict module syntax; parse failure before any statement."
+  },
+  "dependent_race": {
+    "exit_code": 1,
+    "go_elapsed_seconds": 0.539,
+    "testmain_exit": 9
+  },
+  "dependent_benchmark": {
+    "exit_code": 1,
+    "go_elapsed_seconds": 0.368,
+    "testmain_exit": 9
+  },
+  "testmain_cause": "Missing profile directory rejected before starting CPU profiling or m.Run.",
+  "vet_exit_code": 0,
+  "original_calls": 0,
+  "native_calls": 0,
+  "benchmark_iterations": 0,
+  "profile_files_created": 0,
+  "fix": "Use 0o600 and check directory-setup exit before dependent commands."
+}

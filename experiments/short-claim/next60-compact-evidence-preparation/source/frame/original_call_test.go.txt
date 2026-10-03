@@ -1,0 +1,135 @@
+// SPDX-License-Identifier: Apache-2.0
+package frame
+
+import (
+	"encoding/json"
+	"testing"
+)
+
+func known(v bool) Bool { return Bool{A: true, K: true, V: v} }
+func nativeReturned(copyOK bool) OriginalCall {
+	return OriginalCall{A: true, Entered: known(true), Dispatched: known(true), Returned: known(true), Panicked: known(false), Copied: known(copyOK)}
+}
+func originalMethod(t *testing.T, body func() Facts) (Facts, *Writer) {
+	t.Helper()
+	w, _ := newFake(t)
+	var result Facts
+	if e := nested(t, w, 0, func() Facts {
+		v, e := w.Call(Method, 0, Readdir, 0, body)
+		if e != nil {
+			t.Fatal(e)
+		}
+		result = v
+		return Facts{}
+	}); e != nil {
+		t.Fatal(e)
+	}
+	return result, w
+}
+
+func TestNativeReturnAndOwnedCopyFailureStayDistinct(t *testing.T) {
+	for _, copyOK := range []bool{true, false} {
+		calls := 0
+		v, w := originalMethod(t, func() Facts { calls++; return Facts{Source: nativeReturned(copyOK)} })
+		if calls != 1 || !v.Normal.V || v.Panic.V || !v.Source.Returned.V || v.Source.Panicked.V || v.Source.Copied.V != copyOK || w.Status().Stopped {
+			t.Fatal(v, w.Status())
+		}
+	}
+}
+
+func TestNativePanicIsSeparateFromOwnedThunkReturn(t *testing.T) {
+	calls := 0
+	v, _ := originalMethod(t, func() Facts {
+		returned := false
+		original := func() { calls++; panic(nil) } // owned synthetic function only
+		func() {
+			defer func() {
+				if !returned {
+					_ = recover()
+				}
+			}()
+			original()
+			returned = true
+		}()
+		return Facts{Source: OriginalCall{A: true, Entered: known(true), Dispatched: known(true), Returned: known(returned), Panicked: known(!returned), Copied: known(false)}}
+	})
+	if calls != 1 || !v.Normal.V || v.Panic.V || !v.Source.Panicked.V || v.Source.Returned.V || v.Source.Copied.V {
+		t.Fatal(v)
+	}
+}
+
+func TestLostMarkerOnOwnedPanicRemainsUnavailable(t *testing.T) {
+	calls := 0
+	v, _ := originalMethod(t, func() Facts { calls++; panic("owned copy interruption") })
+	if calls != 1 || !v.Panic.V || v.Normal.V || v.Source != (OriginalCall{}) {
+		t.Fatal("original outcome fabricated", v)
+	}
+}
+
+func TestOriginalUnknownMarkersAndContradictions(t *testing.T) {
+	c := nativeReturned(false)
+	c.Panicked = Bool{A: true}
+	c.Copied = Bool{A: true}
+	if ValidateFacts(Facts{Source: c}) != nil {
+		t.Fatal("unknown markers rejected")
+	}
+	v, _ := originalMethod(t, func() Facts { return Facts{Source: c} })
+	if v.Source != c || v.Source.Panicked.K || v.Source.Copied.K {
+		t.Fatal("unknown marker inferred", v)
+	}
+	for _, mode := range []string{"both-returned-and-panicked", "neither-after-dispatch", "not-dispatched", "copy-without-return", "dirty-unavailable", "null-marker"} {
+		t.Run(mode, func(t *testing.T) {
+			x := nativeReturned(true)
+			switch mode {
+			case "both-returned-and-panicked":
+				x.Panicked = known(true)
+			case "neither-after-dispatch":
+				x.Returned = known(false)
+				x.Copied = known(false)
+			case "not-dispatched":
+				x.Dispatched = known(false)
+			case "copy-without-return":
+				x.Returned = known(false)
+				x.Panicked = known(true)
+			case "dirty-unavailable":
+				x.A = false
+			case "null-marker":
+				x.Copied = Bool{A: true, K: true, N: true}
+			}
+			if ValidateFacts(Facts{Source: x}) != ErrShape {
+				t.Fatal("source contradiction accepted", mode)
+			}
+		})
+	}
+}
+
+func TestOriginalChannelIsMethodOnlyAndWireVersionIsExplicit(t *testing.T) {
+	w, f := newFake(t)
+	if e := nested(t, w, 0, empty); e != nil {
+		t.Fatal(e)
+	}
+	v, e := DecodeFrame(f.lines[3])
+	if e != nil {
+		t.Fatal(e)
+	}
+	facts := *v.F
+	facts.Source = nativeReturned(true)
+	v.F = &facts
+	if _, e := CanonicalFrame(v); e != ErrShape {
+		t.Fatal("API marker escaped method boundary")
+	}
+	old := Frame{V: 1, Q: 1, K: Ready, D: 255, B: &w.pins}
+	b, e := json.Marshal(old)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if _, e := DecodeFrame(append(b, '\n')); e != ErrShape {
+		t.Fatal("wire1 silently accepted")
+	}
+	if _, e := EncodeAck(Ack{V: 1, Q: 1, H: fakePins().Freeze}); e != ErrAck {
+		t.Fatal("wire1 ACK accepted")
+	}
+	if Version != 2 {
+		t.Fatal("wire schema version")
+	}
+}

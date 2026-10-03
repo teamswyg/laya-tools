@@ -1,0 +1,22 @@
+{
+  "schema": "riido-owned-native-marker-initial-QA-v1",
+  "context_source": {
+    "bytes": 6407,
+    "sha256": "a5b51b65b0eb44eb2216bca0bea58832117f9f932c4c042d81c322e0b9ee8e73"
+  },
+  "race_default": {
+    "exit_code": 1,
+    "elapsed_seconds": 0.64
+  },
+  "race_panicnil_compat": {
+    "exit_code": 1,
+    "elapsed_seconds": 0.768
+  },
+  "vet_exit_code": 0,
+  "failed_control": "TestOpaqueErrorPresenceDoesNotFormat",
+  "cause": "Returned direct method Facts still carried method-only Source when the synthetic caller reused them as candidate facts. Frame schema rejected that non-method Source. No opaque error formatter executed.",
+  "fix": "Retain Source in AFTERMethod wire and ACK outcome, clear it in direct returned domain Facts before caller propagation.",
+  "original_calls": 0,
+  "native_calls": 0,
+  "model_calls": 0
+}

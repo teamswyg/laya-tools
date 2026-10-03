@@ -1,0 +1,94 @@
+{
+  "schema": "riido-native-marker-owned-binding-QA-v1",
+  "source": [
+    {
+      "name": "core/context.go",
+      "bytes": 6593,
+      "sha256": "99a0e8f3e1542d4d401c37bc9539ab05f6a451bd9f8e3a6c36d0faaced9591da"
+    },
+    {
+      "name": "core/duplicate.go",
+      "bytes": 6617,
+      "sha256": "230775036aaf03a7212eadf691f1cff27155d76baaf8aeecd04b88cc276074a6"
+    },
+    {
+      "name": "core/failure_test.go",
+      "bytes": 4999,
+      "sha256": "95ff11b004a3177ac24574e06bbb4f1fa0143fb1daa7c4be2b7c4e0aab3bad15"
+    },
+    {
+      "name": "core/fixtures.go",
+      "bytes": 3837,
+      "sha256": "1b7d63e78308e20e00ce5dea9d4aea796002717e6ae6d087b73844363cf74962"
+    },
+    {
+      "name": "core/original_binding_test.go",
+      "bytes": 4482,
+      "sha256": "425e161f9d5efe2278bda87e84cffa8c5382b64ee4eedc68b72983106c2f9b73"
+    },
+    {
+      "name": "core/result_budget_test.go",
+      "bytes": 493,
+      "sha256": "2afc58cd478cbf68c84cf7c6439e84fca367065417e51e8e81715c45e244bef8"
+    },
+    {
+      "name": "core/run.go",
+      "bytes": 3401,
+      "sha256": "37dc025e7ac53a2241e89f367e8ecd8c515291c65f5e4c9be1818e4e8cf2f211"
+    },
+    {
+      "name": "core/types.go",
+      "bytes": 5766,
+      "sha256": "5ee8450174f291f467c80bf57374fb9605b59f9f5dd4c41e72065ca9b9fca933"
+    },
+    {
+      "name": "core/union.go",
+      "bytes": 4488,
+      "sha256": "0c99ea5f16803e9078e5d5489ffd810249bd1ff397547813ba0f9b3d01ca08ef"
+    },
+    {
+      "name": "go.mod",
+      "bytes": 218,
+      "sha256": "dc837bd64a618f3d2cc1c009e77493b6e85b853134f6cc6efcc06a1b36420cc5"
+    }
+  ],
+  "race_default": {
+    "exit_code": 0,
+    "top_controls": 11,
+    "subcontrols": 5,
+    "elapsed_seconds": 1.775
+  },
+  "race_panicnil_compat": {
+    "exit_code": 0,
+    "top_controls": 11,
+    "subcontrols": 5,
+    "elapsed_seconds": 1.629
+  },
+  "vet_exit_code": 0,
+  "format_unformatted_files": 0,
+  "initial_failures_preserved": "INITIAL-BINDING-FAILURE.actual.public.v1.json and exact pre-scope-fix source",
+  "checks": [
+    "BEFORE ACK failure dispatches zero fake calls",
+    "AFTER ACK loss preserves attempted effect without claiming acknowledged outcome",
+    "Source markers classified before AFTERMethod",
+    "Native-shaped panic(nil) vs returned-native/owned-copy panic(nil) distinguishable",
+    "Owned callback interruption and missing return marker remain unknown",
+    "Invalid marker sequences fail closed",
+    "Method-only Source remains in wire but cannot leak into parent Facts",
+    "Opaque error formatting not called"
+  ],
+  "fixed_result_reserve": 65536,
+  "owned_padded_result_probe_bytes": 179946,
+  "original_calls": 0,
+  "native_calls": 0,
+  "model_calls": 0,
+  "new_golden_rows": 0,
+  "new_fits": 0,
+  "pending": [
+    "Independent source review",
+    "Actual native binder provenance/import/source/compiler closure",
+    "Lossless compact result correspondence for all Union reads and JSON map views",
+    "Wire2 durable receiver/controller actual OS/process lifecycle",
+    "Fresh original execution admission"
+  ]
+}
