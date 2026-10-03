@@ -1,5 +1,12 @@
 # laya-tools
 
+[작은 주장·힌트 모델의 개발 자료](docs/wiki/Next60-Development-KO.md)는 **공개23개 요청·67라벨**, 별도 검증 풀은 **27개 요청·79라벨**입니다. [INI 두 작업의 실제 관측·반례·채택](experiments/short-claim/next60-ini-two-actual-observation/README.ko.md)을 추가했습니다. 같은 원천의 문제를 한 그룹으로 묶고 남은 세 작업을 검증한 뒤, 적격30개부터 새 학습을 시작합니다. 이번 자료 확장에서는 새 학습·모델 추론0회이며 Codex 절감 효과는 아직 검증하지 않았습니다.
+
+[HF23 고정 버전](https://huggingface.co/datasets/JooYoon/riidolaya-shortclaim-next60-development/tree/next60-23-finite-v1)의 소유401파일과 viewer23행을 확인했습니다. [게시·PR119 CI 근거](experiments/short-claim/publication-proof-120/README.md)를 보세요. 단일 행씩 읽는 Go reader는 배열과 불변 값을 사용합니다. 27개 풀을 공개23행 파일과 혼동하지 않습니다.
+
+<details>
+<summary>이전 단계 기록 — 아래 수치와 “현재”는 각 단계 작성 당시 상태입니다</summary>
+
 [다음 개발 학습 안내](docs/wiki/Next60-Development-KO.md): [현재 유한 개발 자료](experiments/short-claim/next60-development-seven/README.ko.md)는 **요청 7개·라벨 20개**입니다. [네 작업의 실제 실행과 독립 검토](experiments/short-claim/next60-four-selector-actual-observation/README.ko.md)에서 입력 19개·관측 57개를 확인했습니다. 원본 검사 프로세스의 OS 최대 RSS는 약 7.89 MiB이며 모델 추론 메모리나 비용 절감 수치는 아닙니다. 기존 세 줄은 그대로 보존했습니다. [HF 7개 요청 고정 버전](https://huggingface.co/datasets/JooYoon/riidolaya-shortclaim-next60-development/tree/next60-7-finite-v1)의 112개 파일과 viewer 7행을 확인했습니다. [게시 기록](experiments/short-claim/publication-proof-116/HF-PUBLICATION.v3.json)을 보세요. 새 학습은 0회이며 [다음 의미 작업 10개의 구체화](experiments/short-claim/next60-catalog10-literal-correction/TRANSITION.ko.md)를 이어갑니다.
 
 다음 학습 라운드의 [개발용 유한 요청 2개를 적격화](experiments/short-claim/next60-native2-qualification/README.ko.md)했습니다. 기존 초안 ID 두 개의 후보 5개에 긍정 2개·부정 3개를 부여했고, 문장 모두 기존 입력 제한을 통과했습니다. 기존 79개 자료는 그대로이며 새 학습은 아직 0회입니다. 적격 자료를 30개·60개로 늘린 뒤 별도 학습 비교를 진행합니다.
@@ -13,6 +20,9 @@
 이전 [작은 학습 모델 두 방식](experiments/short-claim/second-ranking-fit-72/README.ko.md)도 효용 검사를 실패했습니다. [Go 특징 계산](experiments/short-claim/feature-prefix-74/README.ko.md)은 두 공개 예제에서 시간을 약20~24% 줄였지만 할당량은 같았습니다.
 
 [공개 함수 동작 검증](experiments/short-claim/native-observation-80/ACTUAL-RESULTS.ko.md)은 UUID Parse·Scan·Ordinal의24개 입력이 사전 기대값과 일치했습니다. 전체 프로그램 RSS17.27 MiB·wall1.21초이며 모델 추론이나24개 독립 요청은 아닙니다. [시점별 연구·실패 기록](RESEARCH-HISTORY.ko.md)과 [상세 문서](docs/README.md)에 측정 범위와 근거를 보존합니다.
+
+
+</details>
 
 **한국어** · [English](README.en.md) · [사용자 Wiki](https://github.com/teamswyg/laya-tools/wiki) · [문서 목록](docs/README.md)
 

@@ -1,0 +1,280 @@
+package compare
+
+import (
+	"bytes"
+	"encoding/json"
+	"errors"
+	d "riido.local/initwocomparison/internal/deleted"
+	q "riido.local/initwocomparison/internal/quoted"
+	fake "riido.local/initwocomparison/internal/testdelete"
+	"testing"
+)
+
+const toySHA = "1111111111111111111111111111111111111111111111111111111111111111"
+const zeroSHA = "0000000000000000000000000000000000000000000000000000000000000000"
+
+func qNil() q.ErrorView {
+	n := q.Text{Known: true, Null: true}
+	return q.ErrorView{Available: true, Known: true, Nil: true, Type: n, Text: n}
+}
+func qNoPanic() q.PanicView {
+	n := q.Text{Known: true, Null: true}
+	return q.PanicView{Known: true, Type: n, Text: n}
+}
+func saveQuoted() (q.Result, []byte, []byte) {
+	var j []byte
+	var c q.Counters
+	var recs [15]q.Record
+	seq := 0
+	last := zeroSHA
+	emit := func(i int, stage string, o q.Observation) {
+		seq++
+		e := q.Event{Sequence: seq, Ordinal: i, Fixture: i / 3, Candidate: i % 3, Stage: stage, Observation: o, Counters: c}
+		line := q.Marshal(q.Frame{Schema: "riido-ini-quoted-worker-journal-frame-v1", Sequence: seq, Previous: last, Event: e})
+		j = append(j, line...)
+		last = Digest(line)
+	}
+	for i := 0; i < 15; i++ {
+		o := q.Observation{Candidate: i % 3}
+		c.Reserved++
+		emit(i, "before_candidate", o)
+		c.Dispatched++
+		c.Returned++
+		o.CandidateReturnedKnown = true
+		o.CandidateReturned = true
+		o.CandidatePanic = qNoPanic()
+		o.CandidateError = qNil()
+		o.FileKnown = true
+		o.FileNil = true
+		emit(i, "after_load", o)
+		c.Completed++
+		emit(i, "after_candidate", o)
+		recs[i] = q.Record{Ordinal: i, Fixture: i / 3, Candidate: i % 3, Completed: true, Observation: o}
+	}
+	tr := q.Transport{Schema: "riido-ini-quoted-worker-transport-receipt-v1", RequestID: q.RequestID, FixtureSHA: q.FixtureSHA, WantsSHA: q.WantsSHA, PlanSHA: toySHA, Initialized: true, Frames: seq, Bytes: len(j), LastSequence: seq, LastSHA: last, Counters: c, Completed: 15, JournalClosed: true, FinalAck: q.FinalAck}
+	r := q.Result{Schema: "riido-ini-quoted-worker-saved-result-v1", State: "complete", WorkerKnown: true, Worker: &q.Report{Schema: q.WorkerSchema, Records: recs, Completed: 15, Counters: c, LastAcknowledgedEvent: seq}, Transport: tr}
+	rv := q.Reservation{Schema: "riido-ini-quoted-worker-reservation-v1", RequestID: q.RequestID, FixtureSHA: q.FixtureSHA, WantsSHA: q.WantsSHA, PlanSHA: toySHA, FixtureCarrier: "SOURCE-PLAN.v1.json", Journal: "journal.jsonl", Result: "results.json", MaxFrames: q.MaxFrames, MaxJournal: q.JournalCap, MaxFrame: q.MaxFrame, MaxResult: q.FinalCap}
+	return r, j, q.Marshal(rv)
+}
+func synthOutside[J, S any](family int, s *Saved, j J, summary S) {
+	prefix := "iniquoted/"
+	schema := "riido-iniquoted-outside-receipt-v1"
+	if family == 1 {
+		prefix = "inidelete/"
+		schema = "riido-inidelete-outside-receipt-v1"
+	}
+	names := [11]string{"worker", "controller", "execution-plan", "system-time", "root-source", "root-compiler", "root-rights", "root-resource", "fixtures", "wants", "config"}
+	a := outside[J, S]{Schema: schema, State: "complete", ConfigSHA: Digest([]byte("owned config")), BuildValid: true, EvidenceVerified: true, Journal: &j, JournalValid: true, Worker: &summary, StdoutMatch: true, BindingsMatch: true, Complete: true, StdoutBytes: len(s.Stdout), StderrBytes: len(s.Stderr), SourcesMatch: true, Controls: "Owned fake metadata, not measured source/resource permission."}
+	exit, n, rss, num := 0, 15, int64(8<<20), 0.1
+	a.Actual = &n
+	a.Process = process{StartAttempts: 1, Started: true, WaitAttempts: 1, WaitReturned: true, Reaped: true, ExitCode: &exit, Wall: 0.1}
+	a.Metrics = metrics{RSS: &rss, Real: &num, User: &num, System: &num, Valid: true, Scope: "owned synthetic metadata"}
+	for i, name := range names {
+		p := pinFact{prefix + name, 1, Digest([]byte("owned " + name)), true}
+		if i == 2 {
+			p.SHA = s.PlanSHA
+		}
+		if i >= 4 && i <= 7 {
+			s.RootEvidence[i-4] = EvidencePin{p.ID, p.Bytes, p.SHA}
+		}
+		a.Pins = append(a.Pins, p)
+	}
+	fp, wp, _ := familyPins(family)
+	a.Pins[8].Bytes = fp.Bytes
+	a.Pins[8].SHA = fp.SHA
+	a.Pins[9].Bytes = wp.Bytes
+	a.Pins[9].SHA = wp.SHA
+	a.Pins[10].SHA = a.ConfigSHA
+	a.Bindings = []pinFact{a.Pins[8], a.Pins[9]}
+	an := [5]string{"stdout.private.bin", "stderr-time.private.bin", "worker/journal.jsonl", "worker/results.json", "worker/reservation.json"}
+	data := [5][]byte{s.Stdout, s.Stderr, s.Journal, s.Result, s.Reservation}
+	for i, b := range data {
+		a.Artifacts = append(a.Artifacts, artifact{an[i], len(b), Digest(b), true})
+	}
+	raw, e := json.Marshal(a)
+	if e != nil {
+		panic("owned marshal")
+	}
+	s.Outside = raw
+	for i, b := range raws(*s) {
+		s.Pins[i] = Pin{len(b), Digest(b)}
+	}
+}
+func syntheticQuoted(t *testing.T) Saved {
+	t.Helper()
+	r, raw, res := saveQuoted()
+	j, e := q.ReadJournal(raw)
+	if e != nil {
+		t.Fatal(e)
+	}
+	s := Saved{PlanSHA: toySHA, Result: q.Marshal(r), Journal: raw, Reservation: res, Stdout: q.Marshal(r), Stderr: []byte("owned synthetic time metadata")}
+	synthOutside(0, &s, outsideJournal[q.Counters]{j.ValidFrames, j.ValidBytes, j.LastSequence, j.LastSHA, j.Counters, j.Terminal, j.Phase, j.Next, j.IncompleteTail}, q.Summarize(r))
+	return s
+}
+
+type fakeKey struct{}
+
+func (*fakeKey) Name() string  { return "v" }
+func (*fakeKey) Value() string { return "owned synthetic value" }
+
+type fakeSection struct {
+	name string
+	keys []fake.Key
+}
+
+func (s *fakeSection) Name() string { return s.name }
+func (s *fakeSection) KeyStrings() []string {
+	if len(s.keys) == 0 {
+		return nil
+	}
+	return []string{"v"}
+}
+func (s *fakeSection) Keys() ([]fake.Key, error) { return s.keys, nil }
+func (s *fakeSection) Same(o fake.Section) bool  { return s == o }
+
+type fakeSession struct {
+	sections []fake.Section
+	mode     string
+}
+
+func (s *fakeSession) BlockMode() bool { return true }
+func (s *fakeSession) SectionStrings() []string {
+	v := make([]string, len(s.sections))
+	for i, k := range s.sections {
+		v[i] = k.Name()
+	}
+	return v
+}
+func (s *fakeSession) Sections() ([]fake.Section, error) { return s.sections, nil }
+func (s *fakeSession) SectionsByName(name string) ([]fake.Section, error) {
+	var v []fake.Section
+	for _, x := range s.sections {
+		if x.Name() == name {
+			v = append(v, x)
+		}
+	}
+	return v, nil
+}
+func (s *fakeSession) Delete(c int, name string, index int) error {
+	if s.mode == "panic" {
+		panic(errors.New("owned synthetic panic"))
+	}
+	return nil
+}
+func syntheticDeleted(t *testing.T, mode string) Saved {
+	t.Helper()
+	var journal []byte
+	seq := 0
+	last := zeroSHA
+	report, e := fake.Run(func() (fake.Session, error) {
+		return &fakeSession{mode: mode, sections: []fake.Section{&fakeSection{name: "DEFAULT"}, &fakeSection{name: "owned", keys: []fake.Key{&fakeKey{}}}}}, nil
+	}, func(ev fake.Event) error {
+		var event d.Event
+		if json.Unmarshal(d.Marshal(ev), &event) != nil {
+			return errors.New("owned DTO")
+		}
+		seq++
+		line := d.Marshal(d.Frame{Schema: "riido-ini-delete-worker-journal-frame-v1", Sequence: seq, Previous: last, Event: event})
+		journal = append(journal, line...)
+		last = Digest(line)
+		return nil
+	})
+	if e != nil {
+		t.Fatal(e)
+	}
+	var w d.Report
+	if json.Unmarshal(d.Marshal(report), &w) != nil {
+		t.Fatal("DTO")
+	}
+	tr := d.Transport{Schema: "riido-ini-delete-worker-transport-receipt-v1", RequestID: d.RequestID, FixtureSHA: d.FixtureSHA, WantsSHA: d.WantsSHA, PlanSHA: toySHA, Initialized: true, Frames: seq, Bytes: len(journal), LastSequence: seq, LastSHA: last, Counters: w.Counters, Completed: 15, JournalClosed: true, FinalAck: d.FinalAck}
+	r := d.Result{Schema: "riido-ini-delete-worker-saved-result-v1", State: "complete", WorkerKnown: true, Worker: &w, Transport: tr}
+	rv := d.Reservation{Schema: "riido-ini-delete-worker-reservation-v1", RequestID: d.RequestID, FixtureSHA: d.FixtureSHA, WantsSHA: d.WantsSHA, PlanSHA: toySHA, FixtureCarrier: "FIXTURES.v1.json", Journal: "journal.jsonl", Result: "results.json", MaxFrames: d.MaxFrames, MaxJournal: d.JournalCap, MaxFrame: d.MaxFrame, MaxResult: d.FinalCap}
+	j, e := d.ReadJournal(journal)
+	if e != nil {
+		t.Fatal(e)
+	}
+	s := Saved{PlanSHA: toySHA, Result: d.Marshal(r), Journal: journal, Reservation: d.Marshal(rv), Stdout: d.Marshal(r), Stderr: []byte("owned synthetic time metadata")}
+	synthOutside(1, &s, outsideJournal[d.Counters]{j.ValidFrames, j.ValidBytes, j.LastSequence, j.LastSHA, j.Counters, j.Terminal, j.Phase, j.Next, j.IncompleteTail}, d.Summarize(r))
+	return s
+}
+func replaceOutside(t *testing.T, s *Saved, old, new string) {
+	t.Helper()
+	raw := bytes.Replace(s.Outside, []byte(old), []byte(new), 1)
+	if bytes.Equal(raw, s.Outside) {
+		t.Fatal("test target absent")
+	}
+	s.Outside = raw
+	s.Pins[5] = Pin{len(raw), Digest(raw)}
+}
+func TestQuotedFullAckAndFrozenOpaqueRoots(t *testing.T) {
+	s := syntheticQuoted(t)
+	if _, e := bindQuoted(s); e != nil {
+		t.Fatal(e)
+	}
+	cases := []struct {
+		name   string
+		mutate func(*Saved)
+	}{
+		{"reaped", func(s *Saved) {
+			replaceOutside(t, s, `"started_process_reaped":true`, `"started_process_reaped":false`)
+		}},
+		{"stdout", func(s *Saved) { s.Stdout = append(s.Stdout, ' '); s.Pins[3] = Pin{len(s.Stdout), Digest(s.Stdout)} }},
+		{"Root opaque", func(s *Saved) { s.RootEvidence[0].SHA = Digest([]byte("different declared Root receipt")) }},
+		{"LF chain", func(s *Saved) {
+			s.Journal = bytes.Replace(s.Journal, []byte(`"Stage"`), []byte(`"stage"`), 1)
+			s.Pins[2] = Pin{len(s.Journal), Digest(s.Journal)}
+		}},
+		{"missing known", func(s *Saved) {
+			s.Result = bytes.Replace(s.Result, []byte(`"CandidateReturnedKnown":true,`), nil, 1)
+			s.Pins[0] = Pin{len(s.Result), Digest(s.Result)}
+		}},
+	}
+	for _, x := range cases {
+		t.Run(x.name, func(t *testing.T) {
+			s := syntheticQuoted(t)
+			x.mutate(&s)
+			if _, e := bindQuoted(s); e == nil {
+				t.Fatal("incomplete evidence accepted")
+			}
+		})
+	}
+}
+func TestDeleteTransportNormalAndRecoveredCandidatePanic(t *testing.T) {
+	for _, mode := range []string{"normal", "panic"} {
+		t.Run(mode, func(t *testing.T) {
+			s := syntheticDeleted(t, mode)
+			r, e := bindDeleted(s)
+			if e != nil {
+				t.Fatal(e)
+			}
+			if mode == "panic" && r.Counters.CandidatePanicked != 15 {
+				t.Fatal("panic treated normal")
+			}
+			replaceOutside(t, &s, `"wait_returned":true`, `"wait_returned":false`)
+			if _, e := bindDeleted(s); e == nil {
+				t.Fatal("not reaped accepted")
+			}
+		})
+	}
+}
+func TestProtocolRejectsArrayOverflowAndTruncatedSavedPrefix(t *testing.T) {
+	r, j, _ := saveQuoted()
+	raw := q.Marshal(r)
+	pos := bytes.Index(raw, []byte(`"Records":[`))
+	if pos < 0 {
+		t.Fatal("test target")
+	}
+	addition := bytes.TrimSpace(q.Marshal(r.Worker.Records[0]))
+	raw = append(append(bytes.Clone(raw[:pos+len(`"Records":[`)]), append(addition, ',')...), raw[pos+len(`"Records":[`):]...)
+	if _, e := q.ReadResult(raw, toySHA); e == nil {
+		t.Fatal("array16 admitted")
+	}
+	cut := bytes.LastIndexByte(j[:len(j)-1], '\n') + 1
+	prefix, e := q.ReadJournal(j[:cut])
+	if e != nil {
+		t.Fatal(e)
+	}
+	if q.Complete(r, prefix) {
+		t.Fatal("saved prefix became Sync ACK")
+	}
+}

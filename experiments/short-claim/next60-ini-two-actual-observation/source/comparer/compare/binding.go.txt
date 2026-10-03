@@ -1,0 +1,250 @@
+package compare
+
+import (
+	"bytes"
+	"math"
+	"reflect"
+	d "riido.local/initwocomparison/internal/deleted"
+	q "riido.local/initwocomparison/internal/quoted"
+)
+
+type pinFact struct {
+	ID       string `json:"id"`
+	Bytes    int    `json:"bytes"`
+	SHA      string `json:"sha256"`
+	Verified bool   `json:"verified"`
+}
+type artifact struct {
+	Name  string `json:"name"`
+	Bytes int    `json:"bytes"`
+	SHA   string `json:"sha256"`
+	Valid bool   `json:"read_valid"`
+}
+type process struct {
+	StartAttempts int     `json:"start_attempts"`
+	Started       bool    `json:"start_succeeded"`
+	WaitAttempts  int     `json:"wait_attempts"`
+	WaitReturned  bool    `json:"wait_returned"`
+	Reaped        bool    `json:"started_process_reaped"`
+	ExitCode      *int    `json:"exit_code"`
+	Deadline      bool    `json:"deadline_exceeded"`
+	CaptureCap    bool    `json:"capture_cap_exceeded"`
+	Killed        bool    `json:"group_kill_attempted"`
+	KillSucceeded *bool   `json:"group_kill_succeeded"`
+	Wall          float64 `json:"controller_start_wait_wall_seconds"`
+}
+type metrics struct {
+	RSS    *int64   `json:"darwin_maximum_resident_set_size_bytes"`
+	Real   *float64 `json:"time_real_seconds"`
+	User   *float64 `json:"time_user_seconds"`
+	System *float64 `json:"time_system_seconds"`
+	Valid  bool     `json:"valid"`
+	Scope  string   `json:"scope"`
+}
+type outside[J, S any] struct {
+	Schema              string     `json:"schema"`
+	State               string     `json:"state"`
+	Failure             *string    `json:"failure_code"`
+	ConfigSHA           string     `json:"config_sha256"`
+	Pins                []pinFact  `json:"pins"`
+	BuildValid          bool       `json:"static_build_info_valid"`
+	EvidenceVerified    bool       `json:"external_root_evidence_hashes_verified"`
+	EvidenceInterpreted bool       `json:"external_root_evidence_conclusions_interpreted"`
+	Process             process    `json:"process"`
+	Metrics             metrics    `json:"metrics"`
+	Artifacts           []artifact `json:"artifacts"`
+	Journal             *J         `json:"saved_journal_prefix"`
+	JournalValid        bool       `json:"journal_fully_valid"`
+	Worker              *S         `json:"worker_result_structure"`
+	StdoutMatch         bool       `json:"worker_stdout_byte_matches_result"`
+	Bindings            []pinFact  `json:"plan_input_bindings"`
+	BindingsMatch       bool       `json:"post_wait_plan_input_bindings_still_match"`
+	Complete            bool       `json:"structural_completion"`
+	Actual              *int       `json:"actual_completed_observation_count"`
+	Unknown             bool       `json:"incomplete_actual_counts_unknown"`
+	Startup             *int       `json:"original_startup_calls"`
+	Inner               *int       `json:"original_nested_calls"`
+	StdoutBytes         int        `json:"capture_stdout_bytes"`
+	StderrBytes         int        `json:"capture_stderr_bytes"`
+	SourcesMatch        bool       `json:"post_wait_frozen_binary_and_receipt_pins_match"`
+	Controls            string     `json:"controls"`
+	HardRSS             bool       `json:"continuous_rss_hard_limit"`
+	CPUQuota            bool       `json:"cpu_quota_or_affinity"`
+	Comparisons         bool       `json:"Want_comparisons_performed"`
+	Labels              bool       `json:"labels_assigned"`
+	Roles               bool       `json:"roles_assigned"`
+	Weights             bool       `json:"weights_assigned"`
+	Ready               bool       `json:"training_ready"`
+	Models              int        `json:"model_calls"`
+	Fits                int        `json:"fit_calls"`
+	Retry               bool       `json:"automatic_retry"`
+}
+type outsideJournal[C any] struct {
+	Frames   int    `json:"physical_valid_frames"`
+	Bytes    int    `json:"physical_valid_bytes"`
+	Sequence int    `json:"physical_valid_last_sequence"`
+	SHA      string `json:"physical_valid_last_frame_sha256"`
+	Counters C      `json:"physical_valid_prefix_counters"`
+	Terminal int    `json:"physical_terminal_records"`
+	Phase    int    `json:"in_progress_phase"`
+	Next     int    `json:"next_ordinal"`
+	Tail     bool   `json:"incomplete_tail"`
+}
+
+func caps(family int) [6]int {
+	if family == 0 {
+		return [6]int{q.FinalCap, q.ReservationCap, q.JournalCap, 512 << 10, 64 << 10, OutsideCap}
+	}
+	return [6]int{d.FinalCap, d.ReservationCap, d.JournalCap, 512 << 10, 64 << 10, OutsideCap}
+}
+func raws(s Saved) [6][]byte {
+	return [6][]byte{s.Result, s.Reservation, s.Journal, s.Stdout, s.Stderr, s.Outside}
+}
+func savedPins(family int, s Saved) error {
+	if family < 0 || family > 1 || !q.SHA(s.PlanSHA) {
+		return ErrInput
+	}
+	limits := caps(family)
+	for i, raw := range raws(s) {
+		p := s.Pins[i]
+		if p.Bytes < 0 || p.Bytes > limits[i] || i != 4 && p.Bytes == 0 || len(raw) != p.Bytes || !q.SHA(p.SHA) || Digest(raw) != p.SHA {
+			return ErrInput
+		}
+	}
+	prefix := "iniquoted/"
+	if family == 1 {
+		prefix = "inidelete/"
+	}
+	names := [4]string{"root-source", "root-compiler", "root-rights", "root-resource"}
+	for i, p := range s.RootEvidence {
+		if p.ID != prefix+names[i] || p.Bytes < 1 || p.Bytes > InputCap || !q.SHA(p.SHA) {
+			return ErrInput
+		}
+	}
+	return nil
+}
+func goodNumber(v float64) bool { return !math.IsNaN(v) && !math.IsInf(v, 0) && v >= 0 }
+func validateOutside[J, S any](family int, s Saved, wantJ J, wantS S) error {
+	var a outside[J, S]
+	if strict(s.Outside, &a, OutsideCap) != nil {
+		return ErrTransport
+	}
+	prefix := "iniquoted/"
+	schema := "riido-iniquoted-outside-receipt-v1"
+	if family == 1 {
+		prefix = "inidelete/"
+		schema = "riido-inidelete-outside-receipt-v1"
+	}
+	if a.Schema != schema || a.State != "complete" || a.Failure != nil || !q.SHA(a.ConfigSHA) || !a.BuildValid || !a.EvidenceVerified || a.EvidenceInterpreted || !a.JournalValid || !a.StdoutMatch || !a.BindingsMatch || !a.SourcesMatch || !a.Complete || a.Actual == nil || *a.Actual != 15 || a.Unknown || a.Startup != nil || a.Inner != nil || a.HardRSS || a.CPUQuota || a.Comparisons || a.Labels || a.Roles || a.Weights || a.Ready || a.Models != 0 || a.Fits != 0 || a.Retry || a.StdoutBytes != len(s.Stdout) || a.StderrBytes != len(s.Stderr) {
+		return ErrTransport
+	}
+	p, m := a.Process, a.Metrics
+	if p.StartAttempts != 1 || !p.Started || p.WaitAttempts != 1 || !p.WaitReturned || !p.Reaped || p.ExitCode == nil || *p.ExitCode != 0 || p.Deadline || p.CaptureCap || !goodNumber(p.Wall) || p.Wall > 60 || p.Killed || p.KillSucceeded != nil || !m.Valid || m.RSS == nil || *m.RSS < 1 || *m.RSS > 256<<20 || m.Real == nil || m.User == nil || m.System == nil || !goodNumber(*m.Real) || !goodNumber(*m.User) || !goodNumber(*m.System) {
+		return ErrTransport
+	}
+	names := [11]string{"worker", "controller", "execution-plan", "system-time", "root-source", "root-compiler", "root-rights", "root-resource", "fixtures", "wants", "config"}
+	if len(a.Pins) != 11 {
+		return ErrTransport
+	}
+	for i, p := range a.Pins {
+		if p.ID != prefix+names[i] || p.Bytes < 1 || !q.SHA(p.SHA) || !p.Verified {
+			return ErrTransport
+		}
+		if i >= 4 && i <= 7 && s.RootEvidence[i-4] != (EvidencePin{p.ID, p.Bytes, p.SHA}) {
+			return ErrTransport
+		}
+	}
+	fp, wp, _ := familyPins(family)
+	if a.Pins[2].SHA != s.PlanSHA || a.Pins[8].Bytes != fp.Bytes || a.Pins[8].SHA != fp.SHA || a.Pins[9].Bytes != wp.Bytes || a.Pins[9].SHA != wp.SHA || a.Pins[10].SHA != a.ConfigSHA || len(a.Bindings) != 2 || a.Bindings[0] != a.Pins[8] || a.Bindings[1] != a.Pins[9] {
+		return ErrTransport
+	}
+	if a.Journal == nil || !reflect.DeepEqual(*a.Journal, wantJ) || a.Worker == nil || !reflect.DeepEqual(*a.Worker, wantS) {
+		return ErrTransport
+	}
+	anames := [5]string{"stdout.private.bin", "stderr-time.private.bin", "worker/journal.jsonl", "worker/results.json", "worker/reservation.json"}
+	data := [5][]byte{s.Stdout, s.Stderr, s.Journal, s.Result, s.Reservation}
+	if len(a.Artifacts) != 5 {
+		return ErrTransport
+	}
+	for i, p := range a.Artifacts {
+		if p.Name != anames[i] || p.Bytes != len(data[i]) || p.SHA != Digest(data[i]) || !p.Valid {
+			return ErrTransport
+		}
+	}
+	return nil
+}
+func bindQuoted(s Saved) (q.Report, error) {
+	if savedPins(0, s) != nil {
+		return q.Report{}, ErrInput
+	}
+	if q.ReadReservation(s.Reservation, s.PlanSHA) != nil {
+		return q.Report{}, ErrTransport
+	}
+	j, e := q.ReadJournal(s.Journal)
+	if e != nil {
+		return q.Report{}, ErrTransport
+	}
+	r, e := q.ReadResult(s.Result, s.PlanSHA)
+	if e != nil || !bytes.Equal(s.Result, s.Stdout) || !q.Complete(r, j) {
+		return q.Report{}, ErrTransport
+	}
+	oj := outsideJournal[q.Counters]{j.ValidFrames, j.ValidBytes, j.LastSequence, j.LastSHA, j.Counters, j.Terminal, j.Phase, j.Next, j.IncompleteTail}
+	if validateOutside(0, s, oj, q.Summarize(r)) != nil {
+		return q.Report{}, ErrTransport
+	}
+	return *r.Worker, nil
+}
+func bindDeleted(s Saved) (d.Report, error) {
+	if savedPins(1, s) != nil {
+		return d.Report{}, ErrInput
+	}
+	if d.ReadReservation(s.Reservation, s.PlanSHA) != nil {
+		return d.Report{}, ErrTransport
+	}
+	j, e := d.ReadJournal(s.Journal)
+	if e != nil {
+		return d.Report{}, ErrTransport
+	}
+	r, e := d.ReadResult(s.Result, s.PlanSHA)
+	if e != nil || !bytes.Equal(s.Result, s.Stdout) || !d.Complete(r, j) {
+		return d.Report{}, ErrTransport
+	}
+	oj := outsideJournal[d.Counters]{j.ValidFrames, j.ValidBytes, j.LastSequence, j.LastSHA, j.Counters, j.Terminal, j.Phase, j.Next, j.IncompleteTail}
+	if validateOutside(1, s, oj, d.Summarize(r)) != nil {
+		return d.Report{}, ErrTransport
+	}
+	return *r.Worker, nil
+}
+
+// Compare starts semantic work only after every document and saved transport
+// guard succeeds. Failure never converts an incomplete saved row into truth.
+func Compare(in Input) (Report, error) {
+	r := Report{Schema: "riido-ini-two-saved-finite-comparison-v1", State: "failed", Family: in.Family, Scope: "Input/transport failure: no semantic comparison and no qualification."}
+	ws, e := bindDocuments(in)
+	if e != nil {
+		return r, e
+	}
+	var qs [15]q.Record
+	var ds [15]d.Record
+	if in.Family == 0 {
+		w, err := bindQuoted(in.Saved)
+		if err != nil {
+			return r, err
+		}
+		qs = w.Records
+	} else {
+		w, err := bindDeleted(in.Saved)
+		if err != nil {
+			return r, err
+		}
+		ds = w.Records
+	}
+	r = compareRows(in.Family, ws, qs, ds)
+	r.FixturePin, r.WantPin, _ = familyPins(in.Family)
+	r.SavedPins = in.Saved.Pins
+	r.RootEvidence = in.Saved.RootEvidence
+	r.PlanSHA = in.Saved.PlanSHA
+	r.ValidatedSavedWorkers = 1
+	r.ComparisonStarted = true
+	return r, nil
+}

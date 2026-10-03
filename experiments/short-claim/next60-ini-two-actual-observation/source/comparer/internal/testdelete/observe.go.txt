@@ -1,0 +1,316 @@
+// Test-only owned callback producer; no original imports.
+package fakeworker
+
+// Each event contains only value arrays/scalars; no error interface, public
+// Section pointer, borrowed slice or mutable map escapes to a checkpoint.
+// Future durable writers must return nil only after the required Sync.
+func Observe(candidate int, in Input, factory Factory, fn Checkpoint) (o Observation, c Counters, err error) {
+	o.Candidate = candidate
+	if candidate < 0 || candidate > 2 || len(in.Name) > MaxTextBytes || factory == nil || fn == nil {
+		return o, c, ErrInput
+	}
+	checkpoint := func(stage string) error {
+		if c.Stopped {
+			return ErrCheckpoint
+		}
+		if e := emit(fn, Event{Stage: stage, Observation: o, Local: c}); e != nil {
+			c.Stopped = true
+			return ErrCheckpoint
+		}
+		return nil
+	}
+	c.FactoryReserved = 1
+	if checkpoint("before_constructor") != nil {
+		return o, c, ErrCheckpoint
+	}
+	c.FactoryDispatched = 1
+	var session Session
+	var e error
+	pan, p := capture(func() { session, e = factory() })
+	o.ConstructorReturnedKnown = true
+	o.ConstructorReturned = !pan
+	o.ConstructorPanic = panicView(pan, p)
+	if pan {
+		c.FactoryPanicked = 1
+	} else {
+		c.FactoryReturned = 1
+		o.ConstructorError = errorView(e)
+		o.FilePresentKnown = true
+		o.FilePresent = session != nil
+	}
+	if checkpoint("after_constructor") != nil {
+		return o, c, ErrCheckpoint
+	}
+	if pan || e != nil || session == nil {
+		c.Stopped = true
+		return o, c, ErrBinding
+	}
+	if err = snapshot(session, &o.Before, &o, &c, "before", checkpoint); err != nil {
+		return o, c, err
+	}
+	if !o.Before.Known {
+		c.Stopped = true
+		return o, c, ErrBinding
+	}
+	c.CandidateReserved = 1
+	if checkpoint("before_candidate") != nil {
+		return o, c, ErrCheckpoint
+	}
+	c.CandidateDispatched = 1
+	pan, p = capture(func() { e = session.Delete(candidate, in.Name, in.Index) })
+	o.CandidateReturnedKnown = true
+	o.CandidateReturned = !pan
+	o.CandidatePanic = panicView(pan, p)
+	if pan {
+		c.CandidatePanicked = 1
+	} else {
+		c.CandidateReturned = 1
+		o.CandidateError = errorView(e)
+	}
+	if checkpoint("after_candidate_return") != nil {
+		return o, c, ErrCheckpoint
+	}
+	// A candidate panic need not destroy the file. Snapshot availability is
+	// assessed independently; no panic is converted to a negative label.
+	if err = snapshot(session, &o.After, &o, &c, "after", checkpoint); err != nil {
+		return o, c, err
+	}
+	c.Completed = 1
+	if checkpoint("after_observation") != nil {
+		return o, c, ErrCheckpoint
+	}
+	return o, c, nil
+}
+
+func snapshot(s Session, out *Snapshot, o *Observation, c *Counters, prefix string, checkpoint func(string) error) error {
+	// Every public getter boundary is reserved and checkpointed before invoking
+	// it. Wrapper conversion errors are separate from original error channels.
+	call := func(stage string, fn func() error) (ok bool, err error) {
+		if c.AccessorReserved >= MaxAccessorCalls {
+			c.Stopped = true
+			return false, ErrBounds
+		}
+		c.AccessorReserved++
+		if checkpoint(prefix+"_before_"+stage) != nil {
+			return false, ErrCheckpoint
+		}
+		c.AccessorDispatched++
+		var e error
+		pan, p := capture(func() { e = fn() })
+		if pan {
+			c.AccessorPanicked++
+			out.AccessorPanic = panicView(true, p)
+		} else {
+			c.AccessorReturned++
+			if e != nil {
+				out.BindingError = errorView(e)
+			}
+		}
+		if checkpoint(prefix+"_after_"+stage) != nil {
+			return false, ErrCheckpoint
+		}
+		if pan || e != nil {
+			return false, nil
+		}
+		return true, nil
+	}
+	// BlockMode is a field read, not a Go API call or a lock mutation.
+	pan, p := capture(func() { out.BlockMode = s.BlockMode(); out.BlockModeKnown = true })
+	c.FieldReads++
+	if pan {
+		out.AccessorPanic = panicView(true, p)
+	}
+	if checkpoint(prefix+"_after_blockmode_field") != nil {
+		return ErrCheckpoint
+	}
+	if pan {
+		return nil
+	}
+	ok, e := call("section_strings", func() error {
+		v, x := copyStrings(s.SectionStrings(), MaxSections)
+		if x == nil {
+			out.Names = v
+		}
+		return x
+	})
+	if e != nil || !ok {
+		return e
+	}
+	var sections []Section
+	ok, e = call("sections", func() error {
+		var x error
+		sections, x = s.Sections()
+		if x != nil {
+			return x
+		}
+		if len(sections) > MaxSections {
+			return ErrBounds
+		}
+		out.SectionsKnown = true
+		out.SectionsNil = sections == nil
+		out.N = len(sections)
+		return nil
+	})
+	if e != nil || !ok {
+		return e
+	}
+	for i, sec := range sections {
+		v := &out.Sections[i]
+		v.Nil = sec == nil
+		if sec == nil {
+			out.BindingError = errorView(ErrBinding)
+			return nil
+		}
+		ok, e = call("section_name", func() error {
+			n := sec.Name()
+			if len(n) > MaxTextBytes {
+				return ErrBounds
+			}
+			v.Name = n
+			v.NameKnown = true
+			return nil
+		})
+		if e != nil || !ok {
+			return e
+		}
+		ok, e = call("key_strings", func() error {
+			n, x := copyStrings(sec.KeyStrings(), MaxKeys)
+			if x == nil {
+				v.KeyNames = n
+			}
+			return x
+		})
+		if e != nil || !ok {
+			return e
+		}
+		var keys []Key
+		ok, e = call("keys", func() error {
+			var x error
+			keys, x = sec.Keys()
+			if x != nil {
+				return x
+			}
+			if len(keys) > MaxKeys {
+				return ErrBounds
+			}
+			v.KeysKnown = true
+			v.KeysNil = keys == nil
+			v.KeyN = len(keys)
+			return nil
+		})
+		if e != nil || !ok {
+			return e
+		}
+		for j, k := range keys {
+			kv := &v.Keys[j]
+			kv.Nil = k == nil
+			if k == nil {
+				out.BindingError = errorView(ErrBinding)
+				return nil
+			}
+			ok, e = call("key_name", func() error {
+				n := k.Name()
+				if len(n) > MaxTextBytes {
+					return ErrBounds
+				}
+				kv.Name = n
+				kv.NameKnown = true
+				return nil
+			})
+			if e != nil || !ok {
+				return e
+			}
+			ok, e = call("key_value", func() error {
+				n := k.Value()
+				if len(n) > MaxTextBytes {
+					return ErrBounds
+				}
+				kv.Value = n
+				kv.ValueKnown = true
+				return nil
+			})
+			if e != nil || !ok {
+				return e
+			}
+		}
+	}
+	for i := 0; i < out.Names.N; i++ {
+		name := out.Names.Values[i]
+		seen := false
+		for j := 0; j < out.GroupN; j++ {
+			if out.Groups[j].Name == name {
+				seen = true
+			}
+		}
+		if seen {
+			continue
+		}
+		if out.GroupN >= MaxSections {
+			c.Stopped = true
+			return ErrBounds
+		}
+		g := &out.Groups[out.GroupN]
+		g.Name = name
+		var group []Section
+		ok, e = call("sections_by_name", func() error {
+			var x error
+			group, x = s.SectionsByName(name)
+			g.Error = errorView(x)
+			if x != nil {
+				return nil
+			}
+			if len(group) > MaxSections {
+				return ErrBounds
+			}
+			g.Known = true
+			g.Nil = group == nil
+			g.N = len(group)
+			return nil
+		})
+		if e != nil || !ok {
+			return e
+		}
+		if !g.Error.Nil {
+			return nil
+		}
+		for ordinal, member := range group {
+			if member == nil {
+				out.BindingError = errorView(ErrBinding)
+				return nil
+			}
+			found := -1
+			for pos, sec := range sections {
+				if sec.Same(member) {
+					if found != -1 {
+						out.BindingError = errorView(ErrBinding)
+						return nil
+					}
+					found = pos
+				}
+			}
+			if found < 0 || out.Sections[found].Name != name || out.Sections[found].OccurrenceKnown {
+				out.BindingError = errorView(ErrBinding)
+				return nil
+			}
+			g.PublicPositions[ordinal] = found
+			out.Sections[found].OccurrenceKnown = true
+			out.Sections[found].Occurrence = ordinal
+		}
+		out.GroupN++
+		if checkpoint(prefix+"_after_public_occurrence_mapping") != nil {
+			return ErrCheckpoint
+		}
+	}
+	if out.N != out.Names.N {
+		out.BindingError = errorView(ErrBinding)
+		return nil
+	}
+	for i := 0; i < out.N; i++ {
+		if out.Sections[i].Name != out.Names.Values[i] || !out.Sections[i].OccurrenceKnown {
+			out.BindingError = errorView(ErrBinding)
+			return nil
+		}
+	}
+	out.Known = true
+	return checkpoint(prefix + "_snapshot_complete")
+}

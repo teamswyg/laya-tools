@@ -1,0 +1,152 @@
+// Package compare evaluates frozen saved observations only. It has no upstream
+// imports, dispatch callbacks, model/feature operations or qualification power.
+package compare
+
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+)
+
+const InputCap = 1 << 20
+const OutsideCap = 128 << 10
+const OutputCap = 256 << 10
+const savedCount = 6
+
+var ErrInput = errors.New("ini_two_compare_input")
+var ErrTransport = errors.New("ini_two_compare_transport")
+var ErrOutput = errors.New("ini_two_compare_output")
+
+type Pin struct {
+	Bytes int    `json:"bytes"`
+	SHA   string `json:"sha256"`
+}
+type EvidencePin struct {
+	ID    string `json:"id"`
+	Bytes int    `json:"bytes"`
+	SHA   string `json:"sha256"`
+}
+type Saved struct {
+	PlanSHA                                               string
+	Pins                                                  [savedCount]Pin // result,reservation,journal,stdout,stderr,outside
+	RootEvidence                                          [4]EvidencePin  // source,compiler,rights,resource: opaque hash binding only
+	Result, Reservation, Journal, Stdout, Stderr, Outside []byte
+}
+type Input struct {
+	Family          int
+	Fixtures, Wants []byte
+	Saved           Saved
+}
+type State string
+
+const (
+	True    State = "satisfied"
+	False   State = "unsatisfied"
+	Unknown State = "unknown"
+)
+
+type Counts struct {
+	True    int `json:"satisfied"`
+	False   int `json:"unsatisfied"`
+	Unknown int `json:"unknown"`
+}
+
+func (c *Counts) add(s State) {
+	switch s {
+	case True:
+		c.True++
+	case False:
+		c.False++
+	default:
+		c.Unknown++
+	}
+}
+func Digest(raw []byte) string { h := sha256.Sum256(raw); return hex.EncodeToString(h[:]) }
+
+// Value preserves known-nil versus empty string/array and unavailable channels.
+// Only the matching typed field is nonnil. No opaque original error is formatted.
+type Value struct {
+	Known        bool      `json:"known"`
+	Null         bool      `json:"null"`
+	NonNullError bool      `json:"known_nonnull_error"`
+	Text         *string   `json:"text"`
+	Bool         *bool     `json:"boolean"`
+	Strings      *[]string `json:"strings"`
+	Integers     *[]int    `json:"integers"`
+}
+type Predicate struct {
+	Key   string          `json:"key"`
+	Want  json.RawMessage `json:"Want"`
+	Got   Value           `json:"Got"`
+	State State           `json:"state"`
+}
+type Row struct {
+	Ordinal                 int             `json:"ordinal"`
+	Fixture                 int             `json:"fixture"`
+	CaseID                  string          `json:"case_id"`
+	Candidate               int             `json:"candidate"`
+	State                   State           `json:"state"`
+	StoredErrorAvailability json.RawMessage `json:"stored_error_availability"`
+	Predicates              []Predicate     `json:"predicates"`
+	Counts                  Counts          `json:"predicate_counts"`
+}
+type Candidate struct {
+	Index                       int     `json:"index"`
+	State                       State   `json:"all_frozen_inputs_state"`
+	Counts                      Counts  `json:"observation_counts"`
+	KnownCounterexampleFixtures [5]bool `json:"known_counterexample_fixtures"`
+	UnknownPredicatePositions   int     `json:"unknown_predicate_positions"`
+}
+type Report struct {
+	Schema                string         `json:"schema"`
+	State                 string         `json:"state"`
+	Family                int            `json:"family"`
+	RequestID             string         `json:"request_id"`
+	Fixtures              int            `json:"frozen_fixtures"`
+	SavedObservations     int            `json:"saved_observations"`
+	Rows                  [15]Row        `json:"rows"`
+	Candidates            [3]Candidate   `json:"candidates"`
+	Observations          Counts         `json:"observation_counts"`
+	Predicates            Counts         `json:"predicate_counts"`
+	FixturePin            Pin            `json:"fixture_pin"`
+	WantPin               Pin            `json:"Want_pin"`
+	SavedPins             [6]Pin         `json:"saved_file_pins"`
+	RootEvidence          [4]EvidencePin `json:"opaque_Root_evidence_pins"`
+	PlanSHA               string         `json:"plan_sha256"`
+	ValidatedSavedWorkers int            `json:"validated_saved_workers"`
+	ComparisonStarted     bool           `json:"comparisons_started"`
+	InnerCalls            *int           `json:"inner_original_calls"`
+	StartupCalls          *int           `json:"original_startup_calls"`
+	OriginalCalls         int            `json:"original_calls"`
+	OracleCalls           int            `json:"oracle_calls"`
+	ModelCalls            int            `json:"model_calls"`
+	FitCalls              int            `json:"fit_calls"`
+	Labels                bool           `json:"labels_assigned"`
+	Roles                 bool           `json:"roles_assigned"`
+	Weights               bool           `json:"weights_assigned"`
+	Qualified             bool           `json:"qualified"`
+	Scope                 string         `json:"scope"`
+}
+
+func Code(e error) string {
+	if e == nil {
+		return ""
+	}
+	if errors.Is(e, ErrTransport) {
+		return "ini_two_compare_transport"
+	}
+	if errors.Is(e, ErrOutput) {
+		return "ini_two_compare_output"
+	}
+	return "ini_two_compare_input"
+}
+func combine(c Counts) State {
+	if c.False > 0 {
+		return False
+	}
+	if c.Unknown > 0 {
+		return Unknown
+	}
+	return True
+}

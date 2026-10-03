@@ -1,0 +1,134 @@
+{
+  "schema": "riido-ini-quoted-frozen-Want-selection-v1",
+  "state": "source_only",
+  "original_artifact_sha256": "51a9c50257166658b9f4e703685bcc2364fd899a49a5e422a802a47d1a9c9837",
+  "original_json_pointer": "/original_requests/1",
+  "request": {
+    "candidate_order_exact": [
+      {
+        "description": "readValue has different quote modes, otherwise searches inline #/; before trimming surrounding quotes; strict suffix rejection is not declared.",
+        "executable_prepared": false,
+        "id": "baseline-design",
+        "kind": "unmodified_baseline_or_declared_old_api_substitute",
+        "source_faithfulness": "reviewed_static_source"
+      },
+      {
+        "description": "Scan quote/escape state to a closing quote before recognizing trailing comments; preserve default loader when option is off.",
+        "executable_prepared": false,
+        "id": "reference-design",
+        "kind": "intended_correct_reference",
+        "source_faithfulness": "authored_planned_change_not_existing_implementation"
+      },
+      {
+        "description": "Cut at the first # or ; regardless of quote state.",
+        "executable_prepared": false,
+        "id": "wrong-seed-design",
+        "kind": "seeded_wrong_reference",
+        "source_faithfulness": "authored_negative_control_not_existing_implementation"
+      }
+    ],
+    "fixtures_exact": [
+      {
+        "Got": null,
+        "Want_authorship": "project-authored finite specification inferred from pinned source or new API intent; not native observation",
+        "actual_original_call": false,
+        "case_id": "next60-ini-quoted-comments-vector-01",
+        "input": "k=\"a#b;c\" # tail\n",
+        "want": {
+          "comment": "# tail",
+          "error": null,
+          "value": "a#b;c"
+        }
+      },
+      {
+        "Got": null,
+        "Want_authorship": "project-authored finite specification inferred from pinned source or new API intent; not native observation",
+        "actual_original_call": false,
+        "case_id": "next60-ini-quoted-comments-vector-02",
+        "input": "k=\"\" ; tail\n",
+        "want": {
+          "comment": "; tail",
+          "error": null,
+          "value": ""
+        }
+      },
+      {
+        "Got": null,
+        "Want_authorship": "project-authored finite specification inferred from pinned source or new API intent; not native observation",
+        "actual_original_call": false,
+        "case_id": "next60-ini-quoted-comments-vector-03",
+        "input": "k=\"a\\\"b\"\n",
+        "want": {
+          "error": null,
+          "value": "a\"b"
+        }
+      },
+      {
+        "Got": null,
+        "Want_authorship": "project-authored finite specification inferred from pinned source or new API intent; not native observation",
+        "actual_original_call": false,
+        "case_id": "next60-ini-quoted-comments-vector-04",
+        "input": "k=\"abc\n",
+        "want": {
+          "error_kind": "unclosed_quote"
+        }
+      },
+      {
+        "Got": null,
+        "Want_authorship": "project-authored finite specification inferred from pinned source or new API intent; not native observation",
+        "actual_original_call": false,
+        "case_id": "next60-ini-quoted-comments-vector-05",
+        "input": "k=\"abc\" garbage\n",
+        "want": {
+          "error_kind": "trailing_value"
+        }
+      }
+    ],
+    "id": "next60-ini-quoted-comments",
+    "original_ordinal": 2,
+    "primary120_catalog_id": "go53-ini-quoted-comment",
+    "qualified": false,
+    "reference": {
+      "artifact_id": "original20/drafts-v1",
+      "artifact_sha256": "c7bbf7bcc7912300fabdd6e671b0922df295299f00e5e7201df1ab5e824a2a9b",
+      "json_pointer": "/drafts/2"
+    },
+    "request_ascii_words": 21,
+    "request_bytes": 136,
+    "request_en": "Add a strict quoted-value mode where comment markers inside quotes are literal and trailing comments begin only after the closing quote.",
+    "revision": "e2db55b0e088fa4ee0c128aa4ade263cdc1d7f08",
+    "role": null,
+    "runtime_literal_ready": false,
+    "runtime_literal_status": "historical input/Want exact preserved; source closure and explicitly listed realization gaps pending",
+    "scope_exact": "Opt-in strict single-line double-quoted values; # and ; inside quotes are literal; trailing comment begins after the closing quote; reject non-comment suffix or unclosed quote. Backslash escapes quote/backslash only.",
+    "source_family": "upstream53-ini",
+    "source_only_realization_proposal": {
+      "baseline_api": "LoadSources/readValue",
+      "fixture_rules": [
+        "Explicit new strict option, default parser preserved. No whole parser signature substitution.",
+        "Original readValue double-quote branch returns before trailing comment parsing and can select multiline behavior; do not map source errors to new unclosed_quote predicates merely by similar message.",
+        "Comment projection must explicitly state marker preservation; full File/key closure required."
+      ],
+      "hold": [
+        "exact INI closure/notices absent",
+        "strict API implementation and source-defined error classifier not yet authored"
+      ],
+      "source_lines": [
+        "parser.go:236-315"
+      ],
+      "typed_channels": [
+        "File/key value",
+        "stored comment",
+        "error nil/type/text and owned classified predicate",
+        "returned normally/panic"
+      ]
+    },
+    "truth": null,
+    "weight": null
+  },
+  "actual_Got": null,
+  "truth": null,
+  "role": null,
+  "weight": null,
+  "qualified": false
+}

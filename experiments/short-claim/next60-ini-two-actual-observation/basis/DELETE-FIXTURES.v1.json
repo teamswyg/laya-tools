@@ -1,0 +1,177 @@
+{
+  "Got": null,
+  "actual_original_dispatches": 0,
+  "candidate_positions": 3,
+  "execution_ready": false,
+  "fixed_order": "fixture-major/candidate0,1,2",
+  "fixture_count": 5,
+  "proposed_dispatches": 15,
+  "request_original": {
+    "candidate_order_exact": [
+      {
+        "description": "DeleteSectionWithIndex loops occurrence/index arrays and returns nil when no requested occurrence matched; no initial negative/range guard.",
+        "executable_prepared": false,
+        "id": "baseline-design",
+        "kind": "unmodified_baseline_or_declared_old_api_substitute",
+        "source_faithfulness": "reviewed_static_source"
+      },
+      {
+        "description": "Count/validate the requested occurrence before mutation, then update list/map/index arrays consistently under the existing lock.",
+        "executable_prepared": false,
+        "id": "reference-design",
+        "kind": "intended_correct_reference",
+        "source_faithfulness": "authored_planned_change_not_existing_implementation"
+      },
+      {
+        "description": "Reject negative indexes but silently succeed for missing index, or update only the section map.",
+        "executable_prepared": false,
+        "id": "wrong-seed-design",
+        "kind": "seeded_wrong_reference",
+        "source_faithfulness": "authored_negative_control_not_existing_implementation"
+      }
+    ],
+    "fixtures_exact": [
+      {
+        "Got": null,
+        "Want_authorship": "project-authored finite specification inferred from pinned source or new API intent; not native observation",
+        "actual_original_call": false,
+        "case_id": "next60-ini-delete-index-vector-01",
+        "input": {
+          "index": -1,
+          "name": "x"
+        },
+        "want": {
+          "error_kind": "range",
+          "indexes_unchanged": true,
+          "sections": [
+            "x:A",
+            "x:B",
+            "y:C"
+          ]
+        }
+      },
+      {
+        "Got": null,
+        "Want_authorship": "project-authored finite specification inferred from pinned source or new API intent; not native observation",
+        "actual_original_call": false,
+        "case_id": "next60-ini-delete-index-vector-02",
+        "input": {
+          "index": 2,
+          "name": "x"
+        },
+        "want": {
+          "error_kind": "range",
+          "sections": [
+            "x:A",
+            "x:B",
+            "y:C"
+          ]
+        }
+      },
+      {
+        "Got": null,
+        "Want_authorship": "project-authored finite specification inferred from pinned source or new API intent; not native observation",
+        "actual_original_call": false,
+        "case_id": "next60-ini-delete-index-vector-03",
+        "input": {
+          "index": 0,
+          "name": "missing"
+        },
+        "want": {
+          "error_kind": "range",
+          "state_unchanged": true
+        }
+      },
+      {
+        "Got": null,
+        "Want_authorship": "project-authored finite specification inferred from pinned source or new API intent; not native observation",
+        "actual_original_call": false,
+        "case_id": "next60-ini-delete-index-vector-04",
+        "input": {
+          "index": 0,
+          "name": "x"
+        },
+        "want": {
+          "error": null,
+          "sections": [
+            "x:B",
+            "y:C"
+          ],
+          "x_indexes": [
+            0
+          ]
+        }
+      },
+      {
+        "Got": null,
+        "Want_authorship": "project-authored finite specification inferred from pinned source or new API intent; not native observation",
+        "actual_original_call": false,
+        "case_id": "next60-ini-delete-index-vector-05",
+        "input": {
+          "index": 1,
+          "name": "x"
+        },
+        "want": {
+          "error": null,
+          "sections": [
+            "x:A",
+            "y:C"
+          ],
+          "x_indexes": [
+            0
+          ]
+        }
+      }
+    ],
+    "id": "next60-ini-delete-index",
+    "original_ordinal": 3,
+    "primary120_catalog_id": "go53-ini-section-delete-index",
+    "qualified": false,
+    "reference": {
+      "artifact_id": "original20/drafts-v1",
+      "artifact_sha256": "c7bbf7bcc7912300fabdd6e671b0922df295299f00e5e7201df1ab5e824a2a9b",
+      "json_pointer": "/drafts/3"
+    },
+    "request_ascii_words": 20,
+    "request_bytes": 150,
+    "request_en": "Return a declared range error for negative or missing section indexes without changing section lists, while preserving valid duplicate-index deletion.",
+    "revision": "e2db55b0e088fa4ee0c128aa4ade263cdc1d7f08",
+    "role": null,
+    "runtime_literal_ready": false,
+    "runtime_literal_status": "historical input/Want exact preserved; source closure and explicitly listed realization gaps pending",
+    "scope_exact": "AllowNonUniqueSections=true, sections x:A, x:B, y:C. Negative or missing index returns declared RangeError with all names, indexes, key data and ordering unchanged.",
+    "source_family": "upstream53-ini",
+    "source_only_realization_proposal": {
+      "baseline_api": "File.DeleteSectionWithIndex",
+      "fixture_rules": [
+        "Fresh AllowNonUniqueSections file seeded x:A,x:B,y:C for every candidate.",
+        "Sections in old Want mean the user-named section projection; preserve and separately account for the implicit DEFAULT section. Full snapshots include that section and nilness.",
+        "Negative original index may alter indexes or panic. Recover as an observation; never coerce panic to false/negative."
+      ],
+      "hold": [
+        "exact INI closure/notices absent",
+        "actual public snapshot accessors and complete default-section realization pending"
+      ],
+      "source_lines": [
+        "file.go:240-289"
+      ],
+      "typed_channels": [
+        "returned error nil/type/classifier",
+        "owned before/after section/key/index snapshots",
+        "panic presence/type only"
+      ]
+    },
+    "truth": null,
+    "weight": null
+  },
+  "role": null,
+  "schema": "riido-ini-delete-fixtures-v1",
+  "source_reference": {
+    "artifact_id": "checkpoint30/remainder-literals-v1",
+    "bytes": 58256,
+    "json_pointer": "/original_requests/2",
+    "sha256": "51a9c50257166658b9f4e703685bcc2364fd899a49a5e422a802a47d1a9c9837"
+  },
+  "truth": null,
+  "weight": null
+}

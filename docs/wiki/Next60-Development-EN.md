@@ -1,25 +1,69 @@
-# Preparing the next small claim model
+# Development data for a small claim model
 
-The new development round has **seven requests and 20 candidate labels**: seven positive, 13 negative, each with unit weight. Seven existing draft IDs have been finitely qualified. No new fit has run; the actual 79-request corpus and previous inactive models remain unchanged.
+The current immutable public release has **23 distinct semantic requests and67 candidate labels**. Download [Hugging Face `next60-23-finite-v1`](https://huggingface.co/datasets/JooYoon/riidolaya-shortclaim-next60-development/tree/next60-23-finite-v1). The separately adopted development pool has **27 requests and79 labels**; its last four requests are not yet part of that23-row file.
 
-The latest [actual execution of four requests](https://github.com/teamswyg/laya-tools/tree/main/experiments/short-claim/next60-four-selector-actual-observation) covers comma syntax, key collisions, map snapshots and fractional bytes. One execution produced 19 inputs × three candidates = 57 observations. Independent review found 40 matches, 17 known mismatches and no unknowns. Candidate 1 satisfied every frozen input for each request. Neither inputs nor observations count as distinct requests.
+The target is a **claim or hint model** called repeatedly with very little CPU and memory. It supplies candidate hints; tests and verified evidence determine outcomes. We are expanding verified training material. These added data checks perform zero new training or model inference. LLM acceleration and Codex token savings remain unproven.
 
-The original-code validation process peaked at about 7.89 MiB OS RSS, with about 1.078 seconds including startup, input checks and durable writes. All 57 explicit candidate calls and 14 error-method calls returned; internal original-API and initialization calls were not measured. Model calls were zero. This is not GPU performance or demonstrated inference-cost savings.
+| Unit | Public immutable release | Separately adopted pool |
+|---|---:|---:|
+| Distinct semantic requests | 23 | 27 |
+| Candidate labels | 67:23 positive,44 negative | 79:27 positive,52 negative |
+| Frozen input variants | 113 | 132 |
+| All original observations | 335 | 392 |
+| Selected candidate observations | 331 | 388 |
+| New corpus Fits | 0 | 0 |
 
-See the [current seven-row subset and guide](https://github.com/teamswyg/laya-tools/tree/main/experiments/short-claim/next60-development-seven). Seven Go reader loads and four new input checks passed, preserving the previous three rows byte-for-byte. Only request/candidate text enters features; labels and provenance are read separately. The four additions share existing humanize, pflag and mapstructure training groups, adding no independent source families or protected evaluation data.
+Input variants and candidate executions are not independent requests. All public rows are `development_train`; selected weights are1. They reuse humanize group76, pflag/Cobra group77 and mapstructure group78. The source connections for the later Afero/retryablehttp/INI requests and existing helpers must be checked **before the next materialization**. We do not assign invented numeric groups or claim unseen-source generalization.
 
-[Direct-rounding observation](https://github.com/teamswyg/laya-tools/tree/main/experiments/short-claim/next60-ftoa-actual-observation) completed one real execution. Six inputs × three candidates are 18 observations and one distinct request. The precise candidate satisfies all six inputs; witnessed counterexamples support negative labels for the other candidates. Unavailable original error channels remain unknown. This request joins the existing humanize Ordinal training group 76, adding no independent source family or held-out evaluation.
+## Download and read
 
-Whole-child wall time was about 0.378 seconds and Darwin reported direct-child maximum RSS of about 5.55 MiB after exit. The 207,056-byte Go heap value is a snapshot. These describe the original-code validation tool, not small-model inference, GPU/whole-machine memory or demonstrated cost savings.
+Choose HF config `development` and split `train`. The actual file is `releases/next60-23-finite-v1/next60-development-twentythree/data/train.jsonl`. Root `data/train.jsonl` is the original two-request history.
 
-The [previous three-row subset](https://github.com/teamswyg/laya-tools/tree/main/experiments/short-claim/next60-development-three) retains its three reader loads and one input-check record. [PR112](https://github.com/teamswyg/laya-tools/pull/112) passed all four required checks and automatically merged the reader.
+```sh
+hf download JooYoon/riidolaya-shortclaim-next60-development \
+  --type dataset \
+  --revision 0d964a547708db596b13b0eae18d2c93dd3e3ac4 \
+  --include "releases/next60-23-finite-v1/next60-development-twentythree/data/train.jsonl" \
+  --local-dir ./next60-23
+```
 
-The [immutable three-request HF release](https://huggingface.co/datasets/JooYoon/riidolaya-shortclaim-next60-development/tree/next60-3-finite-v1) passed pinned download of all 71 files. Its viewer returned HTTP200 with three rows, all fields matching the pinned data; see the [publication record](https://github.com/teamswyg/laya-tools/blob/main/experiments/short-claim/publication-proof-114/HF-PUBLICATION.v2.json). The old two-request tag and its initial HTTP500/later successful viewer evidence remain preserved. Data publication is separate from model training and utility validation.
+The file is **31,493bytes**, SHA-256 `39edb1bb60e88d56cb2fec271b511a5ce09a0ff8bd33ce21d0dda7defb3ce362`. Its first28,800bytes preserve the prior21 rows exactly. See [the data guide and actual reader proof](https://github.com/teamswyg/laya-tools/tree/67319e639b52d302292a0abdbbd83149c1fb0d99/experiments/short-claim/next60-development-twentythree).
 
-The [immutable seven-request HF release](https://huggingface.co/datasets/JooYoon/riidolaya-shortclaim-next60-development/tree/next60-7-finite-v1) is published separately. After [PR115](https://github.com/teamswyg/laya-tools/pull/115) passed all four required checks and automatically merged, all 112 files were downloaded again and compared byte-for-byte. The viewer initially returned HTTP500 while preparing; later HTTP200 returned seven rows with every field matching. Previous two/three-request tags remain unchanged. The [publication record](https://github.com/teamswyg/laya-tools/blob/main/experiments/short-claim/publication-proof-116/HF-PUBLICATION.v3.json) separates publication from training and utility validation.
+[The Go reader](https://github.com/teamswyg/laya-tools/tree/67319e639b52d302292a0abdbbd83149c1fb0d99/pkg/shortclaimdata) reads one row at a time, bounded to16KiB and8 candidates. It owns fixed arrays and immutable strings without locks.
 
-The next [ten semantic request proposals](https://github.com/teamswyg/laya-tools/tree/main/experiments/short-claim/next60-catalog10-literal-correction) contain 46 literal input proposals and six inputs held for additional observation instrumentation. They are not actual observations or labels. Even qualifying all 20 existing drafts would leave ten distinct semantic requests needed for the new-round checkpoint of 30. Paraphrases do not become new requests.
+```go
+example, err := shortclaimdata.LoadDevelopmentRow(bytes.NewReader(line))
+if err != nil {
+    return err
+}
+input := example.Input()
+supervision := example.Supervision()
+```
 
-A separate fit comparison follows checkpoints of 30 and 60. Protected evaluation still targets 2,400 distinct requests per claimed domain. The 5% utility-improvement gate remains unchanged; a model stays inactive until actual comparison passes.
+Import `bytes` and `github.com/teamswyg/laya-tools/pkg/shortclaimdata`. Only **request and candidate text** enter model features. IDs, sources, groups, revisions and finite scope are provenance; labels and weights are supervision. The reader invokes no scoring or training. Array ownership is not a measured speed improvement.
 
-[Go reader guide](https://github.com/teamswyg/laya-tools/tree/main/pkg/shortclaimdata) · [First two training requests](Native2-Training-EN) · [First original observations](Native2-Observation-EN) · [한국어](Next60-Development-KO)
+## Actual verification
+
+[PR119](https://github.com/teamswyg/laya-tools/pull/119) passed [all four required CI jobs](https://github.com/teamswyg/laya-tools/actions/runs/37093356839) at exact head `9d4b0b5e39628a8d7a2bb50a3eb9f9b018ccd0ef`. GitHub Actions merged `67319e639b52d302292a0abdbbd83149c1fb0d99` with the same source tree. The two new Go checks reproduce saved finite comparisons, regenerate23 rows and verify actual project reader correspondence. Existing Laya native-inference CI is a separate step.
+
+At immutable HF commit [`0d964a547708db596b13b0eae18d2c93dd3e3ac4`](https://huggingface.co/datasets/JooYoon/riidolaya-shortclaim-next60-development/tree/0d964a547708db596b13b0eae18d2c93dd3e3ac4), we downloaded and verified all **401 owned files,2,989,766bytes**, including399 current manifest payload checksums. The402 remote files contain one additional HF-managed `.gitattributes`, unchanged from21. Use root `FILE-MANIFEST.v6.json` and `SHA256SUMS.v6`; historical inventories are checked at their historical tags. Previous2/3/7/16/21 tags did not move.
+
+The viewer returned HTTP200 with23 observed rows, identical order and every field, `truncated=false` and zero truncated cells. Its response has no commit or total-row-count field; current viewer correspondence is separate from pinned all-files proof. The first HTTP500 response is preserved and the subsequent actual200 response supplied the accepted rows. The first actual Go reader run also matched23 dispatches, returns and rows with46 durable before/after checkpoints.
+
+The two requests newly included in23 concern cumulative string-slice entry limits and validation retaining all errors. Ten inputs×three candidates produced30 actual observations:23 satisfied,7 unsatisfied and0 unknown aggregate outcomes. Detailed conditions were125 true,15 false and1 unknown. That error-code unknown is retained. Four earlier writer-baseline observations remain excluded from training selection. Unknown is not converted to negative.
+
+The two separately adopted requests concern `IOFS.Sub` name validation and byte-slice request-body snapshots. Their27 first observations yielded15 satisfied,12 unsatisfied and0 unknown aggregate outcomes; detailed conditions were57 true,16 false and2 unknown. Two Sub error-type unknowns are preserved alongside known contradictions. Each reference satisfied the frozen inputs and other candidates had known counterexamples, supporting separate Root finite-development adoption. This does not guarantee all paths or body types. Unmeasured original nested and startup calls remain null.
+
+## Next steps
+
+INI quoted values and section-deletion bounds also completed first actual observation, saved-result comparison and separate adoption over five fixed inputs each. Observation counts were9 satisfied/6 unsatisfied and10 satisfied/5 unsatisfied respectively, retaining two unknown predicates in each. State unavailable after an original getter panic remains unknown; public occurrence order is separate from private indexes. Neither concurrent atomicity nor exhaustive parser-option coverage is established. See the [detailed records](https://github.com/teamswyg/laya-tools/tree/research/next60-ini-two-qualified-and-hf23-120/experiments/short-claim/next60-ini-two-actual-observation).
+
+The remaining three requests concern total INI input-byte budgets, bounded file reads and exclusive file writes. Frozen inputs and expectations precede first native observation, saved-result comparison and separate adoption. Preparation alone does not increase the qualified count.
+
+Position bias remains substantial. Always choosing candidate index1 gives20/23≈87.0% per public request; always predicting negative gives44/67≈65.7% per label. The separate27-request pool gives24/27 and52/79 respectively. These denominators differ and neither control is model accuracy. Position permutations, lexical controls and connected-source separation are required before accepting improvement.
+
+**No new corpus Fit starts before30 qualified semantic requests.** The later60-request checkpoint, protected2,400 requests per claimed domain and5% utility guard against simple controls remain. Historical79-row data,3 corpus Fits,3 logical models and failed inactive models are unchanged. We activate a hint model only after evidence supports utility. Follow [issue19](https://github.com/teamswyg/laya-tools/issues/19).
+
+Own documentation, annotations and source use Apache-2.0; full upstream notices retain their original licenses. Public data exclude raw upstream bodies, weights, private inputs, credentials and raw journals. Unresolved historical join ancestry remains excluded; this is not blanket model-ancestry clearance.
+
+[First two requests' training data](Native2-Training-EN) · [First native observations](Native2-Observation-EN) · [한국어](Next60-Development-KO)

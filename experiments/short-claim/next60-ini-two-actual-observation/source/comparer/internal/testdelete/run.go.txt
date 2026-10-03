@@ -1,0 +1,50 @@
+// Test-only owned callback producer; no original imports.
+package fakeworker
+
+type Record struct {
+	Fixture, Candidate int
+	Observation        Observation
+	Counters           Counters
+}
+type Report struct {
+	Planned, Rows int
+	Records       [PlannedDispatches]Record
+	Counters      Counters
+	Stopped       bool
+}
+
+func add(a, b Counters) Counters {
+	return Counters{FactoryReserved: a.FactoryReserved + b.FactoryReserved, FactoryDispatched: a.FactoryDispatched + b.FactoryDispatched, FactoryReturned: a.FactoryReturned + b.FactoryReturned, FactoryPanicked: a.FactoryPanicked + b.FactoryPanicked,
+		CandidateReserved: a.CandidateReserved + b.CandidateReserved, CandidateDispatched: a.CandidateDispatched + b.CandidateDispatched, CandidateReturned: a.CandidateReturned + b.CandidateReturned, CandidatePanicked: a.CandidatePanicked + b.CandidatePanicked,
+		AccessorReserved: a.AccessorReserved + b.AccessorReserved, AccessorDispatched: a.AccessorDispatched + b.AccessorDispatched, AccessorReturned: a.AccessorReturned + b.AccessorReturned, AccessorPanicked: a.AccessorPanicked + b.AccessorPanicked,
+		FieldReads: a.FieldReads + b.FieldReads, Completed: a.Completed + b.Completed, Stopped: a.Stopped || b.Stopped}
+}
+func Run(factory Factory, fn Checkpoint) (r Report, err error) {
+	r.Planned = PlannedDispatches
+	if factory == nil || fn == nil {
+		return r, ErrInput
+	}
+	for f, in := range Inputs {
+		for candidate := 0; candidate < 3; candidate++ {
+			ordinal := f*3 + candidate
+			base := r.Counters
+			forward := func(e Event) error {
+				e.Ordinal = ordinal
+				e.Fixture = f
+				e.Candidate = candidate
+				e.Cumulative = add(base, e.Local)
+				return emit(fn, e)
+			}
+			o, c, x := Observe(candidate, in, factory, forward)
+			r.Records[r.Rows] = Record{Fixture: f, Candidate: candidate, Observation: o, Counters: c}
+			r.Rows++
+			r.Counters = add(r.Counters, c)
+			if x != nil {
+				r.Stopped = true
+				r.Counters.Stopped = true
+				return r, x
+			}
+		}
+	}
+	return r, nil
+}

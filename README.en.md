@@ -1,5 +1,12 @@
 # laya-tools
 
+[Development data for the small claim/hint model](docs/wiki/Next60-Development-EN.md) contains **23 published requests/67 labels**, with **27 requests/79 labels** in the separately qualified pool. [Actual observations, counterexamples and adoption for two INI tasks](experiments/short-claim/next60-ini-two-actual-observation/README.en.md) are recorded. We group related sources and validate the remaining three tasks before new training at30 qualified requests. New training/model inference for this expansion is zero; Codex savings remain unproven.
+
+[The immutable HF23 release](https://huggingface.co/datasets/JooYoon/riidolaya-shortclaim-next60-development/tree/next60-23-finite-v1) passed401-file and23-viewer-row verification. See [publication and PR119 CI evidence](experiments/short-claim/publication-proof-120/README.md). The Go reader uses bounded arrays and immutable values one row at a time. The27-request pool is separate from the published23-row file.
+
+<details>
+<summary>Earlier stage history — counts and “current” below refer to their recorded stages</summary>
+
 [Next development round](docs/wiki/Next60-Development-EN.md): the [current finite development subset](experiments/short-claim/next60-development-seven/README.en.md) has **seven requests and 20 labels**. [Actual execution and independent review of four requests](experiments/short-claim/next60-four-selector-actual-observation/README.en.md) covered 19 inputs and 57 observations. The original-code validation process peaked at about 7.89 MiB OS RSS; this is not model inference memory or demonstrated cost savings. The previous three rows remain byte-for-byte unchanged. The [immutable seven-request HF release](https://huggingface.co/datasets/JooYoon/riidolaya-shortclaim-next60-development/tree/next60-7-finite-v1) passed verification of 112 files and seven viewer rows; see the [publication record](experiments/short-claim/publication-proof-116/HF-PUBLICATION.v3.json). No new fit has run. Work continues on [literal preparation of ten further semantic requests](experiments/short-claim/next60-catalog10-literal-correction/TRANSITION.en.md).
 
 [Two finite development requests are qualified](experiments/short-claim/next60-native2-qualification/README.en.md) for the next training round. Five candidates from two existing draft IDs have two positive and three negative labels; every text passed the existing input limits. The old 79-request corpus is unchanged and no new fit has run. Qualified data will expand toward 30/60 before a separate fit comparison.
@@ -13,6 +20,9 @@ Recent [data-addition fit79](experiments/short-claim/data-effect-fit-79/README.e
 The [two earlier small learned models](experiments/short-claim/second-ranking-fit-72/README.en.md) also failed utility gates. [Go feature computation](experiments/short-claim/feature-prefix-74/README.en.md) was approximately20–24% faster on two public fixtures, with unchanged allocations.
 
 [Public function verification](experiments/short-claim/native-observation-80/ACTUAL-RESULTS.en.md) matched predeclared expectations on24 UUID Parse, Scan and Ordinal inputs. Whole-program RSS17.27 MiB/wall1.21s describe neither model inference nor24 independent requests. [Research and failure history](RESEARCH-HISTORY.en.md) and [detailed documentation](docs/README.md) retain the scope and evidence.
+
+
+</details>
 
 [한국어](README.md) · **English** · [User Wiki](https://github.com/teamswyg/laya-tools/wiki) · [Documentation](docs/README.md)
 

@@ -1,0 +1,197 @@
+// Test-only owned callback producer; no original imports.
+package fakeworker
+
+import (
+	"errors"
+	"reflect"
+)
+
+const MaxSections = 4
+const MaxKeys = 1
+const MaxTextBytes = 64
+const MaxAccessorCalls = 64
+const PlannedDispatches = 15
+
+var ErrInput = errors.New("ini_delete_input")
+var ErrBinding = errors.New("ini_delete_binding")
+var ErrBounds = errors.New("ini_delete_bounds")
+var ErrCheckpoint = errors.New("ini_delete_checkpoint")
+
+// RangeError is an owned new contract channel; not an original INI type.
+type RangeError struct{}
+
+func (*RangeError) Error() string { return "ini_delete_range" }
+
+type ErrorView struct {
+	Known, Nil, TypeKnown bool
+	Type                  string
+	RangeKnown, Range     bool
+}
+
+func errorView(e error) ErrorView {
+	v := ErrorView{Known: true, Nil: e == nil, RangeKnown: true}
+	if e != nil {
+		v.TypeKnown = true
+		v.Type = reflect.TypeOf(e).String()
+		_, v.Range = e.(*RangeError)
+	}
+	return v // No Error, String, Formatter or errors.Is dispatch.
+}
+
+type PanicView struct {
+	Known, Present, TypeKnown bool
+	Type                      string
+}
+
+func panicView(pan bool, p any) PanicView {
+	v := PanicView{Known: true, Present: pan}
+	if pan {
+		if t := reflect.TypeOf(p); t != nil {
+			v.TypeKnown = true
+			v.Type = t.String()
+		}
+	}
+	return v // Deliberately no panic text.
+}
+func capture(fn func()) (pan bool, p any) {
+	returned := false
+	defer func() {
+		if !returned {
+			pan = true
+			p = recover()
+		}
+	}()
+	fn()
+	returned = true
+	return false, nil
+}
+
+type Strings struct {
+	Known, Nil bool
+	N          int
+	Values     [MaxSections]string
+}
+
+func copyStrings(s []string, max int) (Strings, error) {
+	v := Strings{Known: true, Nil: s == nil, N: len(s)}
+	if len(s) > max || max > MaxSections {
+		return Strings{}, ErrBounds
+	}
+	for i, x := range s {
+		if len(x) > MaxTextBytes {
+			return Strings{}, ErrBounds
+		}
+		v.Values[i] = x
+	}
+	return v, nil
+}
+
+type Key interface {
+	Name() string
+	Value() string
+}
+type Section interface {
+	Name() string
+	KeyStrings() []string
+	Keys() ([]Key, error) // error is an owned bounded-conversion channel.
+	Same(Section) bool    // Public Section pointer identity, never private fields.
+}
+type Session interface {
+	BlockMode() bool // Owned read of the exported field; not an original method.
+	SectionStrings() []string
+	Sections() ([]Section, error) // error is an owned bounded-conversion channel.
+	SectionsByName(string) ([]Section, error)
+	Delete(candidate int, name string, index int) error
+}
+type Factory func() (Session, error)
+type KeyState struct {
+	Nil                   bool
+	NameKnown, ValueKnown bool
+	Name, Value           string
+}
+type SectionState struct {
+	Nil                  bool
+	NameKnown            bool
+	Name                 string
+	KeyNames             Strings
+	KeysKnown, KeysNil   bool
+	KeyN                 int
+	Keys                 [MaxKeys]KeyState
+	OccurrenceKnown      bool
+	Occurrence           int  // Derived from SectionsByName order and public pointer identity.
+	RawPrivateIndexKnown bool // Always false; no private sectionIndexes access.
+}
+type GroupState struct {
+	Name            string
+	Known, Nil      bool
+	N               int
+	PublicPositions [MaxSections]int
+	Error           ErrorView
+}
+type Snapshot struct {
+	Known                      bool
+	BlockModeKnown, BlockMode  bool
+	Names                      Strings
+	SectionsKnown, SectionsNil bool
+	N                          int
+	Sections                   [MaxSections]SectionState
+	GroupN                     int
+	Groups                     [MaxSections]GroupState
+	AccessorPanic              PanicView
+	BindingError               ErrorView
+}
+type Observation struct {
+	Candidate                                                                    int
+	ConstructorReturnedKnown, ConstructorReturned, FilePresentKnown, FilePresent bool
+	ConstructorError                                                             ErrorView
+	ConstructorPanic                                                             PanicView
+	Before, After                                                                Snapshot
+	CandidateReturnedKnown, CandidateReturned                                    bool
+	CandidateError                                                               ErrorView
+	CandidatePanic                                                               PanicView
+	InnerOriginalCalls, StartupCalls                                             *int
+	Truth, Role                                                                  *string
+	Weight                                                                       *float64
+}
+type Counters struct {
+	FactoryReserved, FactoryDispatched, FactoryReturned, FactoryPanicked         int
+	CandidateReserved, CandidateDispatched, CandidateReturned, CandidatePanicked int
+	AccessorReserved, AccessorDispatched, AccessorReturned, AccessorPanicked     int
+	FieldReads, Completed                                                        int
+	Stopped                                                                      bool
+}
+type Event struct {
+	Ordinal, Fixture, Candidate int
+	Stage                       string
+	Observation                 Observation
+	Local, Cumulative           Counters
+}
+type Checkpoint func(Event) error
+
+func emit(fn Checkpoint, e Event) (err error) {
+	if fn == nil {
+		return ErrCheckpoint
+	}
+	returned := false
+	defer func() {
+		if !returned {
+			_ = recover()
+			err = ErrCheckpoint
+		}
+	}()
+	err = fn(e)
+	returned = true
+	if err != nil {
+		return ErrCheckpoint
+	}
+	return nil
+}
+
+type Input struct {
+	Name  string
+	Index int
+}
+
+var Inputs = [5]Input{{"x", -1}, {"x", 2}, {"missing", 0}, {"x", 0}, {"x", 1}}
+
+const FixedSeed = "[x]\nv=A\n[x]\nv=B\n[y]\nv=C\n"

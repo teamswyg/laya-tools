@@ -1,0 +1,118 @@
+package compare
+
+import (
+	"bytes"
+	"encoding/json"
+	d "riido.local/initwocomparison/internal/deleted"
+	q "riido.local/initwocomparison/internal/quoted"
+	"strconv"
+)
+
+type wanted struct {
+	keys   []string
+	raw    []json.RawMessage
+	caseID string
+}
+type fixtureRow struct {
+	CaseID string          `json:"case_id"`
+	Input  json.RawMessage `json:"input"`
+	Want   json.RawMessage `json:"want"`
+	Got    json.RawMessage `json:"Got"`
+}
+
+func familyPins(f int) (Pin, Pin, string) {
+	if f == 0 {
+		return Pin{q.FixtureBytes, q.FixtureSHA}, Pin{q.WantsBytes, q.WantsSHA}, q.RequestID
+	}
+	if f == 1 {
+		return Pin{d.FixtureBytes, d.FixtureSHA}, Pin{d.WantsBytes, d.WantsSHA}, d.RequestID
+	}
+	return Pin{}, Pin{}, ""
+}
+func pinRaw(raw []byte, p Pin) bool { return len(raw) == p.Bytes && Digest(raw) == p.SHA }
+func bindDocuments(in Input) (ws [5]wanted, err error) {
+	fp, wp, id := familyPins(in.Family)
+	if id == "" || !pinRaw(in.Fixtures, fp) || !pinRaw(in.Wants, wp) {
+		return ws, ErrInput
+	}
+	var rows, fr []fixtureRow
+	if in.Family == 0 {
+		var w struct {
+			Request struct {
+				ID   string       `json:"id"`
+				Rows []fixtureRow `json:"fixtures_exact"`
+			} `json:"request"`
+		}
+		var f struct {
+			ID     string `json:"request_id"`
+			Inputs []struct {
+				ID      string          `json:"id"`
+				Ordinal int             `json:"ordinal"`
+				Input   json.RawMessage `json:"input"`
+				Want    json.RawMessage `json:"want"`
+			} `json:"inputs"`
+		}
+		if literal(in.Wants, &w) != nil || literal(in.Fixtures, &f) != nil || w.Request.ID != id || f.ID != id || len(f.Inputs) != 5 {
+			return ws, ErrInput
+		}
+		rows = w.Request.Rows
+		for i, x := range f.Inputs {
+			if x.Ordinal != i {
+				return ws, ErrInput
+			}
+			fr = append(fr, fixtureRow{CaseID: x.ID, Input: x.Input, Want: x.Want, Got: json.RawMessage("null")})
+		}
+	} else {
+		var w struct {
+			Rows []fixtureRow `json:"records"`
+		}
+		var f struct {
+			Request struct {
+				ID   string       `json:"id"`
+				Rows []fixtureRow `json:"fixtures_exact"`
+			} `json:"request_original"`
+		}
+		if literal(in.Wants, &w) != nil || literal(in.Fixtures, &f) != nil || f.Request.ID != id {
+			return ws, ErrInput
+		}
+		rows = w.Rows
+		fr = f.Request.Rows
+	}
+	if len(rows) != 5 || len(fr) != 5 {
+		return ws, ErrInput
+	}
+	for i, r := range rows {
+		caseID := id + "-vector-0" + strconv.Itoa(i+1)
+		if r.CaseID != caseID || fr[i].CaseID != caseID || !null(r.Got) || !null(fr[i].Got) || !equalJSON(r.Input, fr[i].Input) || !equalJSON(r.Want, fr[i].Want) {
+			return ws, ErrInput
+		}
+		keys := []string{"error_kind"}
+		if in.Family == 0 {
+			if i < 2 {
+				keys = []string{"comment", "error", "value"}
+			} else if i == 2 {
+				keys = []string{"error", "value"}
+			}
+		} else {
+			switch i {
+			case 0:
+				keys = []string{"error_kind", "indexes_unchanged", "sections"}
+			case 1:
+				keys = []string{"error_kind", "sections"}
+			case 2:
+				keys = []string{"error_kind", "state_unchanged"}
+			default:
+				keys = []string{"error", "sections", "x_indexes"}
+			}
+		}
+		vals, e := q.Object(r.Want, keys)
+		if e != nil {
+			return ws, ErrInput
+		}
+		ws[i] = wanted{keys: append([]string(nil), keys...), caseID: caseID, raw: make([]json.RawMessage, len(vals))}
+		for k, v := range vals {
+			ws[i].raw[k] = bytes.Clone(v)
+		}
+	}
+	return ws, nil
+}

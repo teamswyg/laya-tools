@@ -1,0 +1,139 @@
+package compare
+
+import (
+	"io"
+	"os"
+	"path/filepath"
+	q "riido.local/initwocomparison/internal/quoted"
+)
+
+const ConfigCap = 64 << 10
+
+type File struct {
+	Path  string `json:"path"`
+	Bytes int    `json:"bytes"`
+	SHA   string `json:"sha256"`
+}
+type Config struct {
+	Schema       string         `json:"schema"`
+	Family       int            `json:"family"`
+	Fixtures     File           `json:"fixtures"`
+	Wants        File           `json:"wants"`
+	PlanSHA      string         `json:"plan_sha256"`
+	RootEvidence [4]EvidencePin `json:"opaque_Root_evidence_pins"`
+	SavedFiles   [6]File        `json:"saved_files"`
+}
+
+func ReadPinned(f File, cap int, empty bool) ([]byte, error) {
+	if !filepath.IsAbs(f.Path) || filepath.Clean(f.Path) != f.Path || f.Bytes < 0 || !empty && f.Bytes == 0 || f.Bytes > cap || !q.SHA(f.SHA) {
+		return nil, ErrInput
+	}
+	st, e := os.Lstat(f.Path)
+	if e != nil || !st.Mode().IsRegular() || st.Size() != int64(f.Bytes) {
+		return nil, ErrInput
+	}
+	h, e := os.Open(f.Path)
+	if e != nil {
+		return nil, ErrInput
+	}
+	defer h.Close()
+	a, e := h.Stat()
+	if e != nil || !a.Mode().IsRegular() || !os.SameFile(st, a) || st.Size() != a.Size() || !st.ModTime().Equal(a.ModTime()) {
+		return nil, ErrInput
+	}
+	raw, e := io.ReadAll(io.LimitReader(h, int64(cap)+1))
+	b, se := h.Stat()
+	if e != nil || se != nil || len(raw) != f.Bytes || len(raw) > cap || !os.SameFile(a, b) || a.Size() != b.Size() || !a.ModTime().Equal(b.ModTime()) || Digest(raw) != f.SHA {
+		return nil, ErrInput
+	}
+	return raw, nil
+}
+func Load(raw []byte, sha string) (Input, error) {
+	var c Config
+	var in Input
+	if !q.SHA(sha) || Digest(raw) != sha || strict(raw, &c, ConfigCap) != nil || c.Schema != "riido-ini-two-saved-comparison-config-v1" || c.Family < 0 || c.Family > 1 || !q.SHA(c.PlanSHA) {
+		return in, ErrInput
+	}
+	fp, wp, _ := familyPins(c.Family)
+	if c.Fixtures.Bytes != fp.Bytes || c.Fixtures.SHA != fp.SHA || c.Wants.Bytes != wp.Bytes || c.Wants.SHA != wp.SHA {
+		return in, ErrInput
+	}
+	files := [8]File{c.Fixtures, c.Wants, c.SavedFiles[0], c.SavedFiles[1], c.SavedFiles[2], c.SavedFiles[3], c.SavedFiles[4], c.SavedFiles[5]}
+	var infos [8]os.FileInfo
+	for i, f := range files {
+		st, e := os.Lstat(f.Path)
+		if e != nil || !st.Mode().IsRegular() {
+			return in, ErrInput
+		}
+		for j := 0; j < i; j++ {
+			if f.Path == files[j].Path || os.SameFile(st, infos[j]) {
+				return in, ErrInput
+			}
+		}
+		infos[i] = st
+	}
+	in.Family = c.Family
+	in.Saved.PlanSHA = c.PlanSHA
+	in.Saved.RootEvidence = c.RootEvidence
+	var e error
+	if in.Fixtures, e = ReadPinned(c.Fixtures, InputCap, false); e != nil {
+		return Input{}, e
+	}
+	if in.Wants, e = ReadPinned(c.Wants, InputCap, false); e != nil {
+		return Input{}, e
+	}
+	destinations := [6]*[]byte{&in.Saved.Result, &in.Saved.Reservation, &in.Saved.Journal, &in.Saved.Stdout, &in.Saved.Stderr, &in.Saved.Outside}
+	limits := caps(in.Family)
+	for i, f := range c.SavedFiles {
+		if *destinations[i], e = ReadPinned(f, limits[i], i == 4); e != nil {
+			return Input{}, e
+		}
+		in.Saved.Pins[i] = Pin{f.Bytes, f.SHA}
+	}
+	if savedPins(in.Family, in.Saved) != nil {
+		return Input{}, ErrInput
+	}
+	return in, nil
+}
+
+// ReserveOutput is called before any load/comparison. It neither replaces an
+// existing file nor removes failed/partial output. Root owns stable physical
+// ancestors, case equivalence and source/output separation.
+func ReserveOutput(path string) (*os.File, error) {
+	if !filepath.IsAbs(path) || filepath.Clean(path) != path {
+		return nil, ErrOutput
+	}
+	p, e := os.Lstat(filepath.Dir(path))
+	if e != nil || !p.IsDir() || p.Mode()&os.ModeSymlink != 0 {
+		return nil, ErrOutput
+	}
+	f, e := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	if e != nil {
+		return nil, ErrOutput
+	}
+	return f, nil
+}
+func FinishOutput(f *os.File, raw []byte) error {
+	if f == nil || len(raw) < 1 || len(raw) > OutputCap {
+		if f != nil {
+			f.Close()
+		}
+		return ErrOutput
+	}
+	n, e := f.Write(raw)
+	s := f.Sync()
+	c := f.Close()
+	if e != nil || s != nil || c != nil || n != len(raw) {
+		return ErrOutput
+	}
+	h, e := os.Open(filepath.Dir(f.Name()))
+	if e != nil {
+		return ErrOutput
+	}
+	s = h.Sync()
+	c = h.Close()
+	if s != nil || c != nil {
+		return ErrOutput
+	}
+	return nil
+}

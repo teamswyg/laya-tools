@@ -1,0 +1,469 @@
+{
+  "schema": "riido-ini-quoted-source-adapter-plan-v1",
+  "state": "source_preparation",
+  "frozen": false,
+  "execution_ready": false,
+  "request_id": "next60-ini-quoted-comments",
+  "original_ordinal": 2,
+  "original_request_pointer": "/original_requests/1",
+  "primary120_catalog_id": "go53-ini-quoted-comment",
+  "source_family": "upstream53-ini",
+  "upstream_revision": "e2db55b0e088fa4ee0c128aa4ade263cdc1d7f08",
+  "request_en_exact": "Add a strict quoted-value mode where comment markers inside quotes are literal and trailing comments begin only after the closing quote.",
+  "candidate_order_exact": [
+    {
+      "description": "readValue has different quote modes, otherwise searches inline #/; before trimming surrounding quotes; strict suffix rejection is not declared.",
+      "executable_prepared": false,
+      "id": "baseline-design",
+      "kind": "unmodified_baseline_or_declared_old_api_substitute",
+      "source_faithfulness": "reviewed_static_source"
+    },
+    {
+      "description": "Scan quote/escape state to a closing quote before recognizing trailing comments; preserve default loader when option is off.",
+      "executable_prepared": false,
+      "id": "reference-design",
+      "kind": "intended_correct_reference",
+      "source_faithfulness": "authored_planned_change_not_existing_implementation"
+    },
+    {
+      "description": "Cut at the first # or ; regardless of quote state.",
+      "executable_prepared": false,
+      "id": "wrong-seed-design",
+      "kind": "seeded_wrong_reference",
+      "source_faithfulness": "authored_negative_control_not_existing_implementation"
+    }
+  ],
+  "input_Want_objects_unchanged": true,
+  "literal_plan_pin": {
+    "path": "basis/LITERAL-FIXTURE-PLAN.original.v1.json",
+    "bytes": 58256,
+    "sha256": "51a9c50257166658b9f4e703685bcc2364fd899a49a5e422a802a47d1a9c9837"
+  },
+  "Wants_pin": {
+    "path": "WANTS.v1.json",
+    "bytes": 5528,
+    "sha256": "67e7a2a7812e28325601ce233c00a86c476185bc275457fb1f8b3a9fcb0736c9"
+  },
+  "inputs": [
+    {
+      "ordinal": 0,
+      "id": "next60-ini-quoted-comments-vector-01",
+      "input": "k=\"a#b;c\" # tail\n",
+      "want": {
+        "comment": "# tail",
+        "error": null,
+        "value": "a#b;c"
+      },
+      "json_pointer": "/original_requests/1/fixtures_exact/0"
+    },
+    {
+      "ordinal": 1,
+      "id": "next60-ini-quoted-comments-vector-02",
+      "input": "k=\"\" ; tail\n",
+      "want": {
+        "comment": "; tail",
+        "error": null,
+        "value": ""
+      },
+      "json_pointer": "/original_requests/1/fixtures_exact/1"
+    },
+    {
+      "ordinal": 2,
+      "id": "next60-ini-quoted-comments-vector-03",
+      "input": "k=\"a\\\"b\"\n",
+      "want": {
+        "error": null,
+        "value": "a\"b"
+      },
+      "json_pointer": "/original_requests/1/fixtures_exact/2"
+    },
+    {
+      "ordinal": 3,
+      "id": "next60-ini-quoted-comments-vector-04",
+      "input": "k=\"abc\n",
+      "want": {
+        "error_kind": "unclosed_quote"
+      },
+      "json_pointer": "/original_requests/1/fixtures_exact/3"
+    },
+    {
+      "ordinal": 4,
+      "id": "next60-ini-quoted-comments-vector-05",
+      "input": "k=\"abc\" garbage\n",
+      "want": {
+        "error_kind": "trailing_value"
+      },
+      "json_pointer": "/original_requests/1/fixtures_exact/4"
+    }
+  ],
+  "schedule": [
+    {
+      "ordinal": 0,
+      "fixture_index": 0,
+      "candidate_index": 0,
+      "fixture_id": "next60-ini-quoted-comments-vector-01",
+      "candidate_id": "baseline-design"
+    },
+    {
+      "ordinal": 1,
+      "fixture_index": 0,
+      "candidate_index": 1,
+      "fixture_id": "next60-ini-quoted-comments-vector-01",
+      "candidate_id": "reference-design"
+    },
+    {
+      "ordinal": 2,
+      "fixture_index": 0,
+      "candidate_index": 2,
+      "fixture_id": "next60-ini-quoted-comments-vector-01",
+      "candidate_id": "wrong-seed-design"
+    },
+    {
+      "ordinal": 3,
+      "fixture_index": 1,
+      "candidate_index": 0,
+      "fixture_id": "next60-ini-quoted-comments-vector-02",
+      "candidate_id": "baseline-design"
+    },
+    {
+      "ordinal": 4,
+      "fixture_index": 1,
+      "candidate_index": 1,
+      "fixture_id": "next60-ini-quoted-comments-vector-02",
+      "candidate_id": "reference-design"
+    },
+    {
+      "ordinal": 5,
+      "fixture_index": 1,
+      "candidate_index": 2,
+      "fixture_id": "next60-ini-quoted-comments-vector-02",
+      "candidate_id": "wrong-seed-design"
+    },
+    {
+      "ordinal": 6,
+      "fixture_index": 2,
+      "candidate_index": 0,
+      "fixture_id": "next60-ini-quoted-comments-vector-03",
+      "candidate_id": "baseline-design"
+    },
+    {
+      "ordinal": 7,
+      "fixture_index": 2,
+      "candidate_index": 1,
+      "fixture_id": "next60-ini-quoted-comments-vector-03",
+      "candidate_id": "reference-design"
+    },
+    {
+      "ordinal": 8,
+      "fixture_index": 2,
+      "candidate_index": 2,
+      "fixture_id": "next60-ini-quoted-comments-vector-03",
+      "candidate_id": "wrong-seed-design"
+    },
+    {
+      "ordinal": 9,
+      "fixture_index": 3,
+      "candidate_index": 0,
+      "fixture_id": "next60-ini-quoted-comments-vector-04",
+      "candidate_id": "baseline-design"
+    },
+    {
+      "ordinal": 10,
+      "fixture_index": 3,
+      "candidate_index": 1,
+      "fixture_id": "next60-ini-quoted-comments-vector-04",
+      "candidate_id": "reference-design"
+    },
+    {
+      "ordinal": 11,
+      "fixture_index": 3,
+      "candidate_index": 2,
+      "fixture_id": "next60-ini-quoted-comments-vector-04",
+      "candidate_id": "wrong-seed-design"
+    },
+    {
+      "ordinal": 12,
+      "fixture_index": 4,
+      "candidate_index": 0,
+      "fixture_id": "next60-ini-quoted-comments-vector-05",
+      "candidate_id": "baseline-design"
+    },
+    {
+      "ordinal": 13,
+      "fixture_index": 4,
+      "candidate_index": 1,
+      "fixture_id": "next60-ini-quoted-comments-vector-05",
+      "candidate_id": "reference-design"
+    },
+    {
+      "ordinal": 14,
+      "fixture_index": 4,
+      "candidate_index": 2,
+      "fixture_id": "next60-ini-quoted-comments-vector-05",
+      "candidate_id": "wrong-seed-design"
+    }
+  ],
+  "counts": {
+    "existing_request_selectors": 1,
+    "finite_inputs": 5,
+    "candidates": 3,
+    "planned_observations": 15,
+    "new_parent_ids": 0,
+    "actual_observations": 0,
+    "labels": 0,
+    "qualified_requests": 0,
+    "roles": 0,
+    "weights": 0
+  },
+  "realization": {
+    "baseline": "Exact original non-test INI package, LoadSources(LoadOptions{}, []byte(raw fixture)).",
+    "reference": "Full original non-test package private fork; new opt-in LoadOptions.StrictQuotedValues propagated into parserOptions; strictquoted.Parse used only by readValue when true and the value starts with a double quote.",
+    "negative": "Frozen cut-at-first-marker design realized before parsing: cut raw single-line input at first #/; regardless of quote state, append LF, then call the same strict native fork. Frozen original input remains unchanged in provenance.",
+    "scope": "Opt-in single-line double quotes. Decode quote/backslash escapes; preserve other backslashes. After closing quote allow whitespace and marker-preserving #/; comment, otherwise ErrTrailingValue. Missing closing quote before line end yields ErrUnclosedQuote.",
+    "default": "False new option bypasses the inserted branch; original code statements and all unquoted paths retained. This is source-level evidence, not executed full-option/default equivalence.",
+    "option_interactions_outside_finite_scope": [
+      "triple/backtick/single quotes",
+      "multiline/continuation/Python mode",
+      "IgnoreInlineComment and PreserveSurroundedQuote combined with new strict mode",
+      "leading full-line comments and multiple data sources"
+    ],
+    "not_a_standalone_INI_replacement": true,
+    "comment_projection": "Original key.Comment, preserving the marker. No required comment assertion is added to vector03, whose Want omits comment.",
+    "error_kind": "Owned strict sentinel identity only; unclosed_quote/trailing_value are not fabricated original INI error types. Original/unexpected errors remain unclassified. No Error/String/Formatter/Is method is invoked.",
+    "panic": "Type/presence only; unavailable return/value/error channels remain unknown. Never infer false satisfaction from panic or unavailable getters."
+  },
+  "transport": {
+    "owned_module": "riido.local/iniquoted",
+    "original_package": "riido.local/iniquoted/internal/original",
+    "reference_package": "riido.local/iniquoted/internal/reference",
+    "own_module_boundary": "Maintaining wrapper owns module/go.mod. Both original upstream go.mod/go.sum are preserved byte-exact as upstream.*.txt, intentionally inactive. This is non-test package source selection, not the original whole module/test graph.",
+    "pure_entrypoint": "pure.Execute(pure.FixedFixtures(), native.Load, durableCheckpoint)",
+    "event": "Fixed value Event with full immutable Observation and cumulative Counters; no error interface, mutable map/slice or caller features in checkpoint.",
+    "event_maximum": 165,
+    "event_bound_scope": "11 possible events per fixture/candidate for all-success accessors; fewer with load/accessor errors or panic. Proposed static upper bound, not actual counts.",
+    "fsync_implementation_present": false,
+    "durability": "Mandatory callback must Sync before returning nil. LastAcknowledgedEvent advances only after callback success; failure/panic stops later methods/candidates. Physical surviving prefix alone is not Sync acknowledgment.",
+    "known_after_load": "Normal return/error presence/type, file nilness; error text unknown when non-nil. ErrorKind only if owned classifier supports it. Value/comment remain unknown until public accessor phases.",
+    "counters": "Candidate boundary is Native.Load (normal error returns count returned). GetSection/GetKey/Key.Value method boundaries and Key.Comment field reads are separate. BlockMode copied as exported scalar during Load. Completed observations may include recovered candidate or accessor panic.",
+    "planned_candidate_dispatches": 15,
+    "maximum_getter_method_dispatches": 45,
+    "maximum_comment_field_dispatches": 15,
+    "explicit_error_method_dispatches": 0,
+    "inner_original_and_startup_actual_counts": null,
+    "authority_channels": {
+      "truth": null,
+      "role": null,
+      "weight": null
+    },
+    "existing_extra2_or_Delete_worker_compatibility": "Not yet bound. Counts/steps/schema differ; do not reuse a hardcoded two-family/15-record or Delete frame budget without Root adaptation.",
+    "worker_CLI_writer_outside_present": false,
+    "accessor_error_scope": "CandidateError belongs to LoadSources/owned load boundary. AccessorError is the last GetSection/GetKey returned error. Value() and Comment field-read have no returned error channel; do not interpret the preceding accessor error as their return."
+  },
+  "source_assets": {
+    "exact_original_files": 13,
+    "exact_original_bytes": 104042,
+    "non_test_Go_files_per_package": 10,
+    "unchanged_original_headers": true,
+    "copied_runtime_packages": 2,
+    "only_modified_upstream_files": [
+      "ini.go",
+      "parser.go"
+    ],
+    "selection_rows": [
+      {
+        "staged_original": "module/internal/original/data_source.go",
+        "staged_reference": "module/internal/reference/data_source.go",
+        "bytes": 1943,
+        "sha256": "66d600aa4a9e709d92cf354e12bf88015b3edf5dcf1c9b1f8af29d8aaebdce48",
+        "repo": "go-ini/ini",
+        "revision": "e2db55b0e088fa4ee0c128aa4ade263cdc1d7f08",
+        "reference_final_bytes": 1943,
+        "reference_final_sha256": "66d600aa4a9e709d92cf354e12bf88015b3edf5dcf1c9b1f8af29d8aaebdce48",
+        "sha256_scope": "exact original source asset; reference final pin separately recorded"
+      },
+      {
+        "staged_original": "module/internal/original/deprecated.go",
+        "staged_reference": "module/internal/reference/deprecated.go",
+        "bytes": 791,
+        "sha256": "e8fa72eb3402d8262ee52d404a126722b2d06200d4897a44615ebbdaab590555",
+        "repo": "go-ini/ini",
+        "revision": "e2db55b0e088fa4ee0c128aa4ade263cdc1d7f08",
+        "reference_final_bytes": 791,
+        "reference_final_sha256": "e8fa72eb3402d8262ee52d404a126722b2d06200d4897a44615ebbdaab590555",
+        "sha256_scope": "exact original source asset; reference final pin separately recorded"
+      },
+      {
+        "staged_original": "module/internal/original/error.go",
+        "staged_reference": "module/internal/reference/error.go",
+        "bytes": 1497,
+        "sha256": "a48b6af96b95c51f93d2279fb033ca2ddf004af3c32f48919a46c3b6a7fbc501",
+        "repo": "go-ini/ini",
+        "revision": "e2db55b0e088fa4ee0c128aa4ade263cdc1d7f08",
+        "reference_final_bytes": 1497,
+        "reference_final_sha256": "a48b6af96b95c51f93d2279fb033ca2ddf004af3c32f48919a46c3b6a7fbc501",
+        "sha256_scope": "exact original source asset; reference final pin separately recorded"
+      },
+      {
+        "staged_original": "module/internal/original/file.go",
+        "staged_reference": "module/internal/reference/file.go",
+        "bytes": 13940,
+        "sha256": "8d9cedf1d2876f1bdee22b1d5f463b5402577aafe4958381a884f3d4b3ed56b5",
+        "repo": "go-ini/ini",
+        "revision": "e2db55b0e088fa4ee0c128aa4ade263cdc1d7f08",
+        "reference_final_bytes": 13940,
+        "reference_final_sha256": "8d9cedf1d2876f1bdee22b1d5f463b5402577aafe4958381a884f3d4b3ed56b5",
+        "sha256_scope": "exact original source asset; reference final pin separately recorded"
+      },
+      {
+        "staged_original": "module/internal/original/helper.go",
+        "staged_reference": "module/internal/reference/helper.go",
+        "bytes": 719,
+        "sha256": "2b82b0adea4943bb982cc6f6b90a159cf05e854118b689cd3d2bf21a2e1e8484",
+        "repo": "go-ini/ini",
+        "revision": "e2db55b0e088fa4ee0c128aa4ade263cdc1d7f08",
+        "reference_final_bytes": 719,
+        "reference_final_sha256": "2b82b0adea4943bb982cc6f6b90a159cf05e854118b689cd3d2bf21a2e1e8484",
+        "sha256_scope": "exact original source asset; reference final pin separately recorded"
+      },
+      {
+        "staged_original": "module/internal/original/ini.go",
+        "staged_reference": "module/internal/reference/ini.go",
+        "bytes": 8051,
+        "sha256": "b89ff2aaaecc5e16c403a0bfcf68c21611dcd58a9f8d23ee846055fb1d9426b9",
+        "repo": "go-ini/ini",
+        "revision": "e2db55b0e088fa4ee0c128aa4ade263cdc1d7f08",
+        "reference_final_bytes": 8206,
+        "reference_final_sha256": "b522fadc0b79306a086d29131daebe9cbdd431540a8381394d1eaef060e561d8",
+        "sha256_scope": "exact original source asset; reference final pin separately recorded"
+      },
+      {
+        "staged_original": "module/internal/original/key.go",
+        "staged_reference": "module/internal/reference/key.go",
+        "bytes": 24478,
+        "sha256": "a2935378dbfa3b84ca69f8714fad51f7fe008f5cbd4a562d64509912ee26e1ed",
+        "repo": "go-ini/ini",
+        "revision": "e2db55b0e088fa4ee0c128aa4ade263cdc1d7f08",
+        "reference_final_bytes": 24478,
+        "reference_final_sha256": "a2935378dbfa3b84ca69f8714fad51f7fe008f5cbd4a562d64509912ee26e1ed",
+        "sha256_scope": "exact original source asset; reference final pin separately recorded"
+      },
+      {
+        "staged_original": "module/internal/original/parser.go",
+        "staged_reference": "module/internal/reference/parser.go",
+        "bytes": 13322,
+        "sha256": "7de80a4cec63f8bb1715f371c2e452e5ac9b09d06041cb40cea56e9b330174c0",
+        "repo": "go-ini/ini",
+        "revision": "e2db55b0e088fa4ee0c128aa4ade263cdc1d7f08",
+        "reference_final_bytes": 13663,
+        "reference_final_sha256": "15fd1c20426c4cac74249f9935370a5af91f0def1d7cd5a5a9e1ae94e3573ff8",
+        "sha256_scope": "exact original source asset; reference final pin separately recorded"
+      },
+      {
+        "staged_original": "module/internal/original/section.go",
+        "staged_reference": "module/internal/reference/section.go",
+        "bytes": 6059,
+        "sha256": "c42dfde2164b9ae51685b59ad69b3b7655d2dcad9eef852a271a5dbcf8892704",
+        "repo": "go-ini/ini",
+        "revision": "e2db55b0e088fa4ee0c128aa4ade263cdc1d7f08",
+        "reference_final_bytes": 6059,
+        "reference_final_sha256": "c42dfde2164b9ae51685b59ad69b3b7655d2dcad9eef852a271a5dbcf8892704",
+        "sha256_scope": "exact original source asset; reference final pin separately recorded"
+      },
+      {
+        "staged_original": "module/internal/original/struct.go",
+        "staged_reference": "module/internal/reference/struct.go",
+        "bytes": 21215,
+        "sha256": "4999980995d92503921e5283a08b8a1f7a9d2ed2f6bcdb2d243b268f6c2465f0",
+        "repo": "go-ini/ini",
+        "revision": "e2db55b0e088fa4ee0c128aa4ade263cdc1d7f08",
+        "reference_final_bytes": 21215,
+        "reference_final_sha256": "4999980995d92503921e5283a08b8a1f7a9d2ed2f6bcdb2d243b268f6c2465f0",
+        "sha256_scope": "exact original source asset; reference final pin separately recorded"
+      },
+      {
+        "staged_original": "module/internal/original/LICENSE",
+        "staged_reference": "module/internal/reference/LICENSE",
+        "bytes": 10253,
+        "sha256": "f6918bd93ffe07f4b2c61b8287c32cb3122e08aed0be50f1c7d0eddc87877a8f",
+        "repo": "go-ini/ini",
+        "revision": "e2db55b0e088fa4ee0c128aa4ade263cdc1d7f08",
+        "reference_final_bytes": 10253,
+        "reference_final_sha256": "f6918bd93ffe07f4b2c61b8287c32cb3122e08aed0be50f1c7d0eddc87877a8f",
+        "sha256_scope": "exact original source asset; reference final pin separately recorded"
+      },
+      {
+        "staged_original": "module/internal/original/upstream.go.mod.txt",
+        "staged_reference": "module/internal/reference/upstream.go.mod.txt",
+        "bytes": 77,
+        "sha256": "bbaaff022cbbee98f0c099e7217d0bde01261a518980d118423ed656406a5abf",
+        "repo": "go-ini/ini",
+        "revision": "e2db55b0e088fa4ee0c128aa4ade263cdc1d7f08",
+        "reference_final_bytes": 77,
+        "reference_final_sha256": "bbaaff022cbbee98f0c099e7217d0bde01261a518980d118423ed656406a5abf",
+        "sha256_scope": "exact original source asset; reference final pin separately recorded"
+      },
+      {
+        "staged_original": "module/internal/original/upstream.go.sum.txt",
+        "staged_reference": "module/internal/reference/upstream.go.sum.txt",
+        "bytes": 1697,
+        "sha256": "3fbc08d51f1ddd57aa43c9220a4f8ccbd69294cefd54c7b27ba6e0da084b3b3c",
+        "repo": "go-ini/ini",
+        "revision": "e2db55b0e088fa4ee0c128aa4ade263cdc1d7f08",
+        "reference_final_bytes": 1697,
+        "reference_final_sha256": "3fbc08d51f1ddd57aa43c9220a4f8ccbd69294cefd54c7b27ba6e0da084b3b3c",
+        "sha256_scope": "exact original source asset; reference final pin separately recorded"
+      }
+    ],
+    "comparable_Go_BSD_notice": {
+      "path": "notices/Go1.27.1-LICENSE.comparable.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    }
+  },
+  "startup_source_only": {
+    "original_and_fork_each": [
+      "varPattern regexp.MustCompile",
+      "pythonMultiline regexp.MustCompile",
+      "os.Args-derived inTest",
+      "init Windows line break branch"
+    ],
+    "strict_helper_owned": [
+      "errors.New ErrUnclosedQuote",
+      "errors.New ErrTrailingValue"
+    ],
+    "actual": null,
+    "inventory_complete_or_instrumented": false
+  },
+  "literal_comparison_future": "Compare only frozen Wanted fields and availability. Nil error versus required error is observable; unclassified non-nil error kind stays unknown. Missing comment field is not invented. No candidate name/comment determines a label.",
+  "pending": [
+    "Nonauthor source/Want/ABI review",
+    "Root full GoList/compiler/stdlib and rights selection",
+    "Root owned worker CLI and acknowledged bounded writer/outside binding",
+    "Actual source gates/build/freeze/exclusive first observation",
+    "Separate semantic qualification and whole-source-family assignment"
+  ],
+  "Root_runtime_limits_unchanged": {
+    "input_bytes": 512,
+    "normalized_words": 32,
+    "candidates_per_parent": 8,
+    "CPU": 1,
+    "soft_heap_and_observed_RSS_bytes": 268435456,
+    "outside_wall_seconds": 60,
+    "automatic_retry": false
+  },
+  "model_metadata_never_features": [
+    "IDs",
+    "Want",
+    "Got",
+    "source family/revision",
+    "roles",
+    "provenance",
+    "error predicate audit metadata"
+  ],
+  "protected_read": 0,
+  "source_API": 0,
+  "original_compile_import_init": 0,
+  "model_Fit_Features_Project": 0,
+  "training_ready": false,
+  "qualified": false
+}

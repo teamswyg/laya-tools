@@ -1,0 +1,513 @@
+// Package protocol validates owned INI delete transport metadata only.
+// No original imports, execution, Want comparison or qualification authority.
+package protocol
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"unicode/utf8"
+)
+
+const FixtureSHA = "3f48aedb1726062b2efd2ffafaed02f0bf966a2ab21538a7bea2372327ebc4df"
+const WantsSHA = "0d7d41fffddc457a1e75b849771ae437c44539896ba601131b75e123b8a07bd0"
+const FixtureBytes = 6270
+const WantsBytes = 2797
+const JournalCap = 32 << 20
+const FinalCap = 256 << 10
+const ReservationCap = 4096
+const MaxFrame = 32 << 10
+const MaxFrames = 2175
+const CombinedCap = JournalCap + FinalCap + ReservationCap
+const PlannedDispatches = 15
+const MaxSections = 4
+const MaxKeys = 1
+const MaxTextBytes = 64
+const MaxAccessorCalls = 64
+const RequestID = "next60-ini-delete-index"
+const Module = "riido.local/inideletenative"
+const zeros = "0000000000000000000000000000000000000000000000000000000000000000"
+const FinalAck = "Only identical full stdout and reaped exit0 after result File.Sync/Close and output-directory Sync acknowledge final persistence; a surviving complete row alone leaves acknowledgment unknown."
+
+func digest(raw []byte) string { h := sha256.Sum256(raw); return hex.EncodeToString(h[:]) }
+
+type ErrorView struct {
+	Known, Nil, TypeKnown bool
+	Type                  string
+	RangeKnown, Range     bool
+}
+
+type PanicView struct {
+	Known, Present, TypeKnown bool
+	Type                      string
+}
+
+type Strings struct {
+	Known, Nil bool
+	N          int
+	Values     [MaxSections]string
+}
+
+type KeyState struct {
+	Nil                   bool
+	NameKnown, ValueKnown bool
+	Name, Value           string
+}
+type SectionState struct {
+	Nil                  bool
+	NameKnown            bool
+	Name                 string
+	KeyNames             Strings
+	KeysKnown, KeysNil   bool
+	KeyN                 int
+	Keys                 [MaxKeys]KeyState
+	OccurrenceKnown      bool
+	Occurrence           int  // Derived from SectionsByName order and public pointer identity.
+	RawPrivateIndexKnown bool // Always false; no private sectionIndexes access.
+}
+type GroupState struct {
+	Name            string
+	Known, Nil      bool
+	N               int
+	PublicPositions [MaxSections]int
+	Error           ErrorView
+}
+type Snapshot struct {
+	Known                      bool
+	BlockModeKnown, BlockMode  bool
+	Names                      Strings
+	SectionsKnown, SectionsNil bool
+	N                          int
+	Sections                   [MaxSections]SectionState
+	GroupN                     int
+	Groups                     [MaxSections]GroupState
+	AccessorPanic              PanicView
+	BindingError               ErrorView
+}
+type Observation struct {
+	Candidate                                                                    int
+	ConstructorReturnedKnown, ConstructorReturned, FilePresentKnown, FilePresent bool
+	ConstructorError                                                             ErrorView
+	ConstructorPanic                                                             PanicView
+	Before, After                                                                Snapshot
+	CandidateReturnedKnown, CandidateReturned                                    bool
+	CandidateError                                                               ErrorView
+	CandidatePanic                                                               PanicView
+	InnerOriginalCalls, StartupCalls                                             *int
+	Truth, Role                                                                  *string
+	Weight                                                                       *float64
+}
+type Counters struct {
+	FactoryReserved, FactoryDispatched, FactoryReturned, FactoryPanicked         int
+	CandidateReserved, CandidateDispatched, CandidateReturned, CandidatePanicked int
+	AccessorReserved, AccessorDispatched, AccessorReturned, AccessorPanicked     int
+	FieldReads, Completed                                                        int
+	Stopped                                                                      bool
+}
+type Event struct {
+	Ordinal, Fixture, Candidate int
+	Stage                       string
+	Observation                 Observation
+	Local, Cumulative           Counters
+}
+
+type Record struct {
+	Fixture, Candidate int
+	Observation        Observation
+	Counters           Counters
+}
+type Report struct {
+	Planned, Rows int
+	Records       [PlannedDispatches]Record
+	Counters      Counters
+	Stopped       bool
+}
+
+type Frame struct {
+	Schema   string `json:"schema"`
+	Sequence int    `json:"sequence"`
+	Previous string `json:"previous_sha256"`
+	Event    Event  `json:"event"`
+}
+type Reservation struct {
+	Schema         string `json:"schema"`
+	RequestID      string `json:"request_id"`
+	FixtureSHA     string `json:"fixture_sha256"`
+	WantsSHA       string `json:"wants_sha256"`
+	PlanSHA        string `json:"plan_sha256"`
+	FixtureCarrier string `json:"fixture_carrier"`
+	Journal        string `json:"journal_file"`
+	Result         string `json:"result_file"`
+	MaxFrames      int    `json:"max_frames"`
+	MaxJournal     int    `json:"max_journal_bytes"`
+	MaxFrame       int    `json:"max_frame_bytes"`
+	MaxResult      int    `json:"max_result_bytes"`
+	LabelsAssigned bool   `json:"labels_assigned"`
+	Qualified      bool   `json:"qualified"`
+	InnerCalls     *int   `json:"inner_original_calls"`
+	StartupCalls   *int   `json:"original_startup_calls"`
+}
+type Transport struct {
+	Schema         string   `json:"schema"`
+	RequestID      string   `json:"request_id"`
+	FixtureSHA     string   `json:"fixture_sha256"`
+	WantsSHA       string   `json:"wants_sha256"`
+	PlanSHA        string   `json:"plan_sha256"`
+	Initialized    bool     `json:"empty_files_and_directories_Sync_acknowledged"`
+	Frames         int      `json:"synced_frames"`
+	Bytes          int      `json:"synced_journal_bytes"`
+	LastSequence   int      `json:"last_synced_sequence"`
+	LastSHA        string   `json:"last_synced_frame_sha256"`
+	Counters       Counters `json:"last_synced_cumulative_counters"`
+	Completed      int      `json:"synced_terminal_records"`
+	Failure        string   `json:"failure_code"`
+	Stopped        bool     `json:"transport_stopped"`
+	JournalClosed  bool     `json:"journal_Close_acknowledged"`
+	InnerCalls     *int     `json:"inner_original_calls"`
+	StartupCalls   *int     `json:"original_startup_calls"`
+	ErrorTextCalls int      `json:"transport_Error_method_calls"`
+	LabelsAssigned bool     `json:"labels_assigned"`
+	Qualified      bool     `json:"qualified"`
+	Truth          *string  `json:"truth"`
+	Role           *string  `json:"role"`
+	Weight         *float64 `json:"weight"`
+	FinalAck       string   `json:"final_output_acknowledgment"`
+}
+
+type Result struct {
+	Schema         string    `json:"schema"`
+	State          string    `json:"state"`
+	Failure        string    `json:"failure_code"`
+	WorkerKnown    bool      `json:"worker_return_known"`
+	Worker         *Report   `json:"worker"`
+	Transport      Transport `json:"transport"`
+	LabelsAssigned bool      `json:"labels_assigned"`
+	Qualified      bool      `json:"qualified"`
+	InnerCalls     *int      `json:"inner_original_calls"`
+	StartupCalls   *int      `json:"original_startup_calls"`
+}
+
+// Physical prefixes expose values, never proof that a killed worker's Sync
+// returned. Actual completion requires final receipt/stdout/reaped exit0.
+type Journal struct {
+	ValidFrames    int        `json:"physical_valid_frames"`
+	ValidBytes     int        `json:"physical_valid_bytes"`
+	LastSequence   int        `json:"physical_valid_last_sequence"`
+	LastSHA        string     `json:"physical_valid_last_frame_sha256"`
+	Counters       Counters   `json:"physical_valid_prefix_counters"`
+	Terminal       int        `json:"physical_terminal_records"`
+	Phase          int        `json:"in_progress_phase"`
+	Next           int        `json:"next_ordinal"`
+	IncompleteTail bool       `json:"incomplete_tail"`
+	Records        [15]Record `json:"-"`
+	current        Observation
+	cursor         snapshotCursor
+	local, prior   Counters
+}
+type Summary struct {
+	Schema         string    `json:"schema"`
+	State          string    `json:"state"`
+	Failure        string    `json:"failure_code"`
+	WorkerKnown    bool      `json:"worker_return_known"`
+	WorkerCounters *Counters `json:"worker_counters"`
+	Transport      Transport `json:"transport"`
+	RecordSlots    int       `json:"record_slots"`
+	Planned        int       `json:"planned_records"`
+	LabelsAssigned bool      `json:"labels_assigned"`
+	Qualified      bool      `json:"qualified"`
+	InnerCalls     *int      `json:"inner_original_calls"`
+	StartupCalls   *int      `json:"original_startup_calls"`
+}
+
+func bounded(s string, max int) bool { return len(s) <= max && utf8.ValidString(s) }
+func validError(e ErrorView) bool {
+	if !e.Known {
+		return e == (ErrorView{})
+	}
+	if !bounded(e.Type, 128) || !e.RangeKnown {
+		return false
+	}
+	if e.Nil {
+		return !e.TypeKnown && e.Type == "" && !e.Range
+	}
+	return e.TypeKnown && e.Type != ""
+}
+func validPanic(p PanicView) bool {
+	if !p.Known {
+		return p == (PanicView{})
+	}
+	if !bounded(p.Type, 128) {
+		return false
+	}
+	if !p.Present {
+		return !p.TypeKnown && p.Type == ""
+	}
+	return p.TypeKnown && p.Type != "" || !p.TypeKnown && p.Type == ""
+}
+func validObservation(o Observation) bool {
+	return o.Truth == nil && o.Role == nil && o.Weight == nil && o.InnerOriginalCalls == nil && o.StartupCalls == nil && validError(o.ConstructorError) && validError(o.CandidateError) && validPanic(o.ConstructorPanic) && validPanic(o.CandidatePanic) && validSnapshot(o.Before) && validSnapshot(o.After)
+}
+func plus(a, b Counters) Counters {
+	return Counters{FactoryReserved: a.FactoryReserved + b.FactoryReserved, FactoryDispatched: a.FactoryDispatched + b.FactoryDispatched, FactoryReturned: a.FactoryReturned + b.FactoryReturned, FactoryPanicked: a.FactoryPanicked + b.FactoryPanicked, CandidateReserved: a.CandidateReserved + b.CandidateReserved, CandidateDispatched: a.CandidateDispatched + b.CandidateDispatched, CandidateReturned: a.CandidateReturned + b.CandidateReturned, CandidatePanicked: a.CandidatePanicked + b.CandidatePanicked, AccessorReserved: a.AccessorReserved + b.AccessorReserved, AccessorDispatched: a.AccessorDispatched + b.AccessorDispatched, AccessorReturned: a.AccessorReturned + b.AccessorReturned, AccessorPanicked: a.AccessorPanicked + b.AccessorPanicked, FieldReads: a.FieldReads + b.FieldReads, Completed: a.Completed + b.Completed, Stopped: a.Stopped || b.Stopped}
+}
+func constructorReady(o Observation) bool {
+	return o.ConstructorReturnedKnown && o.ConstructorReturned && o.ConstructorError.Known && o.ConstructorError.Nil && o.FilePresentKnown && o.FilePresent
+}
+func (j *Journal) validate(e Event) (phase, next int, cursor snapshotCursor, local, prior Counters, terminal Record, code string) {
+	phase, next, cursor, local, prior = j.Phase, j.Next, j.cursor, j.local, j.prior
+	if next >= 15 || e.Ordinal != next || e.Fixture != next/3 || e.Candidate != next%3 || e.Observation.Candidate != e.Candidate || !validObservation(e.Observation) {
+		code = "checkpoint_order"
+		return
+	}
+	o, t := e.Observation, j.current
+	switch e.Stage {
+	case "before_constructor":
+		if phase != 0 || o != (Observation{Candidate: e.Candidate}) {
+			code = "checkpoint_constructor_reserve"
+			break
+		}
+		local = Counters{FactoryReserved: 1}
+		phase = 1
+	case "after_constructor":
+		if phase != 1 || !o.ConstructorReturnedKnown || !o.ConstructorPanic.Known || o.ConstructorReturned == o.ConstructorPanic.Present {
+			code = "checkpoint_constructor"
+			break
+		}
+		t.ConstructorReturnedKnown = true
+		t.ConstructorReturned = o.ConstructorReturned
+		t.ConstructorPanic = o.ConstructorPanic
+		local.FactoryDispatched++
+		if o.ConstructorReturned {
+			if !o.ConstructorError.Known || !o.FilePresentKnown {
+				code = "checkpoint_constructor"
+				break
+			}
+			t.ConstructorError = o.ConstructorError
+			t.FilePresentKnown = true
+			t.FilePresent = o.FilePresent
+			local.FactoryReturned++
+		} else {
+			local.FactoryPanicked++
+		}
+		if o != t {
+			code = "checkpoint_prefix"
+			break
+		}
+		phase = 2
+		cursor = snapshotCursor{}
+	case "before_candidate":
+		if phase != 3 || !j.current.Before.Known || o != t {
+			code = "checkpoint_candidate_reserve"
+			break
+		}
+		local.CandidateReserved++
+		phase = 4
+	case "after_candidate_return":
+		if phase != 4 || !o.CandidateReturnedKnown || !o.CandidatePanic.Known || o.CandidateReturned == o.CandidatePanic.Present {
+			code = "checkpoint_candidate"
+			break
+		}
+		t.CandidateReturnedKnown = true
+		t.CandidateReturned = o.CandidateReturned
+		t.CandidatePanic = o.CandidatePanic
+		local.CandidateDispatched++
+		if o.CandidateReturned {
+			if !o.CandidateError.Known {
+				code = "checkpoint_candidate"
+				break
+			}
+			t.CandidateError = o.CandidateError
+			local.CandidateReturned++
+		} else {
+			local.CandidatePanicked++
+		}
+		if o != t {
+			code = "checkpoint_prefix"
+			break
+		}
+		phase = 5
+		cursor = snapshotCursor{}
+	case "after_observation":
+		if phase != 6 {
+			// Pure snapshot may stop after owned nil/identity guards without a
+			// snapshot_complete event. Only an explicit partial failure justifies it.
+			if phase != 5 || o.After.Known || !snapshotFailure(o.After) || !preservesSnapshot(j.current.After, o.After) {
+				code = "checkpoint_partial_terminal"
+				break
+			}
+			t.After = o.After
+		}
+		if o != t {
+			code = "checkpoint_terminal_prefix"
+			break
+		}
+		local.Completed++
+		terminal = Record{Fixture: e.Fixture, Candidate: e.Candidate, Observation: o, Counters: local}
+		phase = 0
+		next++
+	default:
+		prefix := "before"
+		if phase == 5 {
+			prefix = "after"
+		} else if phase != 2 || !constructorReady(j.current) {
+			code = "checkpoint_stage"
+			break
+		}
+		a, b := j.current.Before, o.Before
+		if prefix == "after" {
+			a, b = j.current.After, o.After
+		}
+		cursor, local, code = advanceSnapshot(cursor, prefix, e.Stage, a, b, local)
+		if code != "" {
+			break
+		}
+		if prefix == "before" {
+			t.Before = b
+		} else {
+			t.After = b
+		}
+		if o != t {
+			code = "checkpoint_prefix"
+			break
+		}
+		if cursor.stage == 20 {
+			if prefix == "before" {
+				phase = 3
+			} else {
+				phase = 6
+			}
+		}
+	}
+	if code == "" && (e.Local != local || e.Cumulative != plus(prior, local)) {
+		code = "checkpoint_counters"
+	}
+	if code == "" && e.Stage == "after_observation" {
+		prior = e.Cumulative
+		local = Counters{}
+	}
+	return
+}
+
+func (j *Journal) advance(e Event) error {
+	phase, next, cursor, local, prior, terminal, code := j.validate(e)
+	if code != "" {
+		return bad()
+	}
+	j.Phase, j.Next, j.cursor, j.local, j.prior = phase, next, cursor, local, prior
+	j.Counters = e.Cumulative
+	j.current = e.Observation
+	if terminal.Counters.Completed == 1 {
+		j.Records[e.Ordinal] = terminal
+		j.Terminal++
+		j.current = Observation{}
+	}
+	return nil
+}
+func ReadJournal(raw []byte) (j Journal, err error) {
+	j.LastSHA = zeros
+	if len(raw) > JournalCap {
+		return j, bad()
+	}
+	for len(raw) > 0 {
+		at := bytes.IndexByte(raw, '\n')
+		if at < 0 {
+			j.IncompleteTail = true
+			return j, bad()
+		}
+		line := raw[:at+1]
+		if len(line) > MaxFrame || j.ValidFrames >= MaxFrames {
+			j.IncompleteTail = true
+			return j, bad()
+		}
+		var f Frame
+		if decode(line, &f, MaxFrame) != nil || f.Schema != "riido-ini-delete-worker-journal-frame-v1" || f.Sequence != j.ValidFrames+1 || f.Previous != j.LastSHA || j.advance(f.Event) != nil {
+			j.IncompleteTail = true
+			return j, bad()
+		}
+		j.ValidFrames++
+		j.ValidBytes += len(line)
+		j.LastSequence = f.Sequence
+		j.LastSHA = digest(line)
+		raw = raw[len(line):]
+	}
+	return j, nil
+}
+func counterBounds(c Counters) bool {
+	boundary := func(res, dispatch, ret, pan, cap int) bool {
+		return res >= 0 && res <= cap && dispatch >= 0 && dispatch <= res && res-dispatch <= 1 && ret >= 0 && pan >= 0 && ret+pan == dispatch
+	}
+	return !c.Stopped && boundary(c.FactoryReserved, c.FactoryDispatched, c.FactoryReturned, c.FactoryPanicked, 15) && boundary(c.CandidateReserved, c.CandidateDispatched, c.CandidateReturned, c.CandidatePanicked, 15) && boundary(c.AccessorReserved, c.AccessorDispatched, c.AccessorReturned, c.AccessorPanicked, 15*MaxAccessorCalls) && c.Completed >= 0 && c.Completed <= c.CandidateDispatched && c.CandidateDispatched-c.Completed <= 1 && c.FactoryDispatched-c.Completed <= 1 && c.FieldReads >= 0 && c.FieldReads <= 30
+}
+func ReadResult(raw []byte, plan string) (r Result, err error) {
+	if !SHA(plan) || decode(raw, &r, FinalCap) != nil || r.Schema != "riido-ini-delete-worker-saved-result-v1" || (r.State != "complete" && r.State != "failed") || r.LabelsAssigned || r.Qualified || r.InnerCalls != nil || r.StartupCalls != nil {
+		return r, bad()
+	}
+	t := r.Transport
+	if t.Schema != "riido-ini-delete-worker-transport-receipt-v1" || t.RequestID != RequestID || t.FixtureSHA != FixtureSHA || t.WantsSHA != WantsSHA || t.PlanSHA != plan || !SHA(t.LastSHA) || t.Frames < 0 || t.Frames > MaxFrames || t.Bytes < 0 || t.Bytes > JournalCap || t.LastSequence != t.Frames || t.Completed < 0 || t.Completed > 15 || t.InnerCalls != nil || t.StartupCalls != nil || t.ErrorTextCalls != 0 || t.LabelsAssigned || t.Qualified || t.Truth != nil || t.Role != nil || t.Weight != nil || t.FinalAck != FinalAck || !counterBounds(t.Counters) || t.Counters.Completed != t.Completed {
+		return r, bad()
+	}
+	if t.Frames == 0 && (t.Bytes != 0 || t.LastSHA != zeros || t.Counters != (Counters{})) {
+		return r, bad()
+	}
+	if r.State == "failed" {
+		if r.Failure == "" || r.Worker != nil {
+			return r, bad()
+		}
+		return r, nil
+	}
+	if r.Failure != "" || !r.WorkerKnown || r.Worker == nil || !t.Initialized || !t.JournalClosed || t.Stopped || t.Failure != "" || t.Completed != 15 {
+		return r, bad()
+	}
+	w := r.Worker
+	if w.Planned != 15 || w.Rows != 15 || w.Stopped || w.Counters != t.Counters || w.Counters.Completed != 15 || w.Counters.FactoryReserved != 15 || w.Counters.FactoryDispatched != 15 || w.Counters.FactoryReturned != 15 || w.Counters.FactoryPanicked != 0 || w.Counters.CandidateReserved != 15 || w.Counters.CandidateDispatched != 15 {
+		return r, bad()
+	}
+	var total Counters
+	for i, rec := range w.Records {
+		o := rec.Observation
+		if rec.Fixture != i/3 || rec.Candidate != i%3 || o.Candidate != i%3 || !validObservation(o) || !constructorReady(o) || !o.ConstructorPanic.Known || o.ConstructorPanic.Present || !o.Before.Known || (!o.After.Known && !snapshotFailure(o.After)) || !o.CandidateReturnedKnown || !o.CandidatePanic.Known || o.CandidateReturned == o.CandidatePanic.Present || !counterBounds(rec.Counters) || rec.Counters.FactoryReserved != 1 || rec.Counters.FactoryDispatched != 1 || rec.Counters.FactoryReturned != 1 || rec.Counters.CandidateReserved != 1 || rec.Counters.CandidateDispatched != 1 || rec.Counters.Completed != 1 || rec.Counters.CandidateReturned != boolInt(o.CandidateReturned) || rec.Counters.CandidatePanicked != boolInt(o.CandidatePanic.Present) {
+			return r, bad()
+		}
+		total = plus(total, rec.Counters)
+	}
+	if total != w.Counters {
+		return r, bad()
+	}
+	return r, nil
+}
+func boolInt(v bool) int {
+	if v {
+		return 1
+	}
+	return 0
+}
+func ReadReservation(raw []byte, plan string) error {
+	var r Reservation
+	if !SHA(plan) || decode(raw, &r, ReservationCap) != nil {
+		return bad()
+	}
+	expected := Reservation{Schema: "riido-ini-delete-worker-reservation-v1", RequestID: RequestID, FixtureSHA: FixtureSHA, WantsSHA: WantsSHA, PlanSHA: plan, FixtureCarrier: "FIXTURES.v1.json", Journal: "journal.jsonl", Result: "results.json", MaxFrames: MaxFrames, MaxJournal: JournalCap, MaxFrame: MaxFrame, MaxResult: FinalCap}
+	if r != expected {
+		return bad()
+	}
+	return nil
+}
+func Complete(r Result, j Journal) bool {
+	if r.State != "complete" || r.Worker == nil || j.Phase != 0 || j.Next != 15 || j.Terminal != 15 || j.IncompleteTail {
+		return false
+	}
+	t := r.Transport
+	return t.Frames == j.ValidFrames && t.Bytes == j.ValidBytes && t.LastSequence == j.LastSequence && t.LastSHA == j.LastSHA && t.Counters == j.Counters && r.Worker.Records == j.Records
+}
+func Summarize(r Result) Summary {
+	s := Summary{Schema: r.Schema, State: r.State, Failure: r.Failure, WorkerKnown: r.WorkerKnown, Transport: r.Transport}
+	if r.Worker != nil {
+		c := r.Worker.Counters
+		s.WorkerCounters = &c
+		s.RecordSlots = len(r.Worker.Records)
+		s.Planned = r.Worker.Planned
+	}
+	return s
+}
+func Marshal(v any) []byte { raw, _ := json.Marshal(v); return append(raw, '\n') }
