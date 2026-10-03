@@ -13,8 +13,9 @@ bash scripts/verify-next60-mask-learning.sh
 
 The offline check uses newly owned synthetic inputs. It runs no original observer,
 Golden corpus reader, training, model download or publication. Sources stay as
-`.go.txt`; verification creates a disposable module. Separate source review and
-the real Reader adapter remain pending.
+`.go.txt`; verification creates a disposable module. An independent read-only
+review found no concrete logic blockers. Real Reader integration and semantic
+dataset adoption review remain pending.
 
 For `[true, false, false, false, unknown]`, only the first four candidates become
 learning or evaluation rows. Unknown candidates never become label-zero,
@@ -25,7 +26,9 @@ Validation retains four known answers with evaluation weight 1 even when all
 gradient flags are false. Tests call the existing Go `pairlearn.NLL` and
 `pairlearn.AUC` on these columns. Calibration candidates and ambiguous parents
 never enter learning or validation feature extraction; audit counts preserve them.
-An empty split is never passed to NLL by these controls.
+An empty split is never passed to NLL by these controls. Train-role
+EvaluationEligible changes audit counters only. Development/TrainingNLL rows
+follow GradientEligible; evaluation masks do not govern every NLL call.
 
 The structure accepts at most 60 parents with five or eight candidates each. This
 is a synthetic structural bound, not evidence of 60 actual semantic requests.
