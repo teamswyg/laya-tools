@@ -1,0 +1,364 @@
+// Copyright 2026 teamswyg. Licensed under the Apache License, Version 2.0.
+// Source proposal only; compiling or reading these pins is not launch authority.
+package main
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"debug/buildinfo"
+	"debug/macho"
+	"encoding/hex"
+	"encoding/json"
+	"io"
+	"os"
+	"path/filepath"
+	"runtime"
+	"strconv"
+	"syscall"
+)
+
+const (
+	aggregateCap       = 2 << 20
+	frameCap           = 65536 // final frame exception; ordinary event bound is4096.
+	stderrCap          = 64 << 10
+	metadataCap        = 64 << 10
+	evidenceCap        = 128 << 10
+	executableCap      = 8 << 20
+	plannedDispatches  = 33
+	plannedInputs      = 11
+	trackedMethodBound = 61
+	wireFrameBound     = 384
+	ordinaryFrameCap   = 4096
+)
+
+type Pin struct {
+	ID     string `json:"id"`
+	Path   string `json:"path"`
+	Bytes  int64  `json:"bytes"`
+	SHA256 string `json:"sha256"`
+}
+
+type Executable struct {
+	Pin     Pin    `json:"pin"`
+	Module  string `json:"module"`
+	Package string `json:"package"`
+}
+
+// Config is Root-owned. Evidence pins bind exact bytes; their authority and
+// meaning must be checked separately by Root before invocation.
+type Config struct {
+	Schema          string     `json:"schema"`
+	Worker          Executable `json:"worker"`
+	Controller      Executable `json:"controller"`
+	Time            Pin        `json:"time"`
+	Plan            Pin        `json:"plan"`
+	Captions        Pin        `json:"captions"`
+	Wants           Pin        `json:"wants"`
+	RootReceipts    []Pin      `json:"root_receipts"`
+	Output          string     `json:"output"`
+	DeadlineSeconds int        `json:"deadline_seconds"`
+}
+
+type failureCode string
+
+func (e failureCode) Error() string { return string(e) }
+func errCode(s string) error        { return failureCode(s) }
+func digest(b []byte) string        { v := sha256.Sum256(b); return hex.EncodeToString(v[:]) }
+func validHash(s string) bool {
+	if len(s) != 64 {
+		return false
+	}
+	for _, c := range s {
+		if !(c >= '0' && c <= '9' || c >= 'a' && c <= 'f') {
+			return false
+		}
+	}
+	return true
+}
+func canonicalPath(s string) bool {
+	if !filepath.IsAbs(s) || filepath.Clean(s) != s {
+		return false
+	}
+	for _, c := range s {
+		if c == 0 || c == '\n' || c == '\r' {
+			return false
+		}
+	}
+	return true
+}
+func readRegular(path string, cap int64) ([]byte, error) {
+	if !canonicalPath(path) || cap < 0 {
+		return nil, errCode("invalid_path_or_cap")
+	}
+	s, e := os.Lstat(path)
+	if e != nil {
+		return nil, errCode("input_stat_failed")
+	}
+	real, e := filepath.EvalSymlinks(path)
+	if e != nil || real != path || !s.Mode().IsRegular() || s.Size() > cap {
+		return nil, errCode("input_not_bounded_regular")
+	}
+	f, e := os.OpenFile(path, os.O_RDONLY|syscall.O_NOFOLLOW, 0)
+	if e != nil {
+		return nil, errCode("input_open_failed")
+	}
+	defer f.Close()
+	st, e := f.Stat()
+	if e != nil || !os.SameFile(s, st) || st.Size() != s.Size() {
+		return nil, errCode("input_identity_changed")
+	}
+	b, e := io.ReadAll(io.LimitReader(f, cap+1))
+	if e != nil || int64(len(b)) > cap {
+		return nil, errCode("input_read_failed_or_oversize")
+	}
+	after, e := os.Lstat(path)
+	if e != nil || !os.SameFile(s, after) || after.Size() != s.Size() || !after.ModTime().Equal(s.ModTime()) || int64(len(b)) != s.Size() {
+		return nil, errCode("input_changed_during_read")
+	}
+	return b, nil
+}
+func ownedOutputSize(path string, cap int64) (int64, error) {
+	if !canonicalPath(path) {
+		return 0, errCode("output_path_not_canonical")
+	}
+	real, e := filepath.EvalSymlinks(path)
+	if e != nil || real != path {
+		return 0, errCode("output_alias_or_stat_failed")
+	}
+	st, e := os.Lstat(path)
+	if e != nil || !st.Mode().IsRegular() || st.Mode().Perm() != 0o600 || st.Size() < 0 || st.Size() > cap {
+		return 0, errCode("output_not_bounded_private_regular")
+	}
+	native, ok := st.Sys().(*syscall.Stat_t)
+	if !ok || native.Nlink != 1 {
+		return 0, errCode("output_hardlink_or_identity_unknown")
+	}
+	return st.Size(), nil
+}
+func readOwnedOutput(path string, cap int64) ([]byte, error) {
+	n, e := ownedOutputSize(path, cap)
+	if e != nil {
+		return nil, e
+	}
+	b, e := readRegular(path, cap)
+	if e != nil {
+		return nil, e
+	}
+	after, e := ownedOutputSize(path, cap)
+	if e != nil || after != n || int64(len(b)) != n {
+		return nil, errCode("output_changed_during_read")
+	}
+	return b, nil
+}
+func checkPin(p Pin, cap int64) ([]byte, error) {
+	if p.ID == "" || p.Bytes <= 0 || p.Bytes > cap || !validHash(p.SHA256) {
+		return nil, errCode("invalid_pin")
+	}
+	b, e := readRegular(p.Path, cap)
+	if e != nil {
+		return nil, e
+	}
+	if int64(len(b)) != p.Bytes || digest(b) != p.SHA256 {
+		return nil, errCode("pin_mismatch")
+	}
+	return b, nil
+}
+func strictCanonical(b []byte, v any) error {
+	d := json.NewDecoder(bytes.NewReader(b))
+	d.DisallowUnknownFields()
+	if d.Decode(v) != nil {
+		return errCode("invalid_json")
+	}
+	var extra any
+	if d.Decode(&extra) != io.EOF {
+		return errCode("trailing_json")
+	}
+	canonical, e := json.Marshal(v)
+	if e != nil || !bytes.Equal(b, append(canonical, '\n')) {
+		return errCode("noncanonical_json")
+	}
+	return nil
+}
+func strictCompact(b []byte, v any) error {
+	raw := make([]byte, len(b)+1)
+	copy(raw, b)
+	raw[len(b)] = '\n'
+	return strictCanonical(raw, v)
+}
+func verifyExecutable(x Executable) error {
+	if x.Module == "" || x.Package == "" {
+		return errCode("missing_executable_identity")
+	}
+	if _, e := checkPin(x.Pin, executableCap); e != nil {
+		return e
+	}
+	m, e := macho.Open(x.Pin.Path)
+	if e != nil {
+		return errCode("not_macho")
+	}
+	defer m.Close()
+	if m.Cpu != macho.CpuArm64 || m.Type != macho.TypeExec {
+		return errCode("wrong_macho_target")
+	}
+	b, e := buildinfo.ReadFile(x.Pin.Path)
+	if e != nil || b.GoVersion != "go1.27.1" || b.Main.Path != x.Module || b.Path != x.Package {
+		return errCode("wrong_go_build_identity")
+	}
+	values := [5]string{"GOOS", "GOARCH", "CGO_ENABLED", "-trimpath", "-buildvcs"}
+	want := [5]string{"darwin", "arm64", "0", "true", "false"}
+	seen := [5]bool{}
+	for _, s := range b.Settings {
+		for i, k := range values {
+			if s.Key == k {
+				if seen[i] || s.Value != want[i] {
+					return errCode("wrong_go_build_setting")
+				}
+				seen[i] = true
+			}
+		}
+	}
+	// Go build info omits -buildvcs=false on some exact toolchains. Absence of
+	// VCS identity is required when the explicit setting is absent.
+	for i, v := range seen {
+		if !v && i != 4 {
+			return errCode("missing_go_build_setting")
+		}
+	}
+	for _, s := range b.Settings {
+		if s.Key == "vcs.revision" || s.Key == "vcs.modified" || s.Key == "vcs.time" {
+			return errCode("unexpected_vcs_build_identity")
+		}
+	}
+	return nil
+}
+func validateConfig(c Config) error {
+	if c.Schema != "riido-gjson-two-native-outside-config-v1" || runtime.GOOS != "darwin" || runtime.GOARCH != "arm64" || runtime.Version() != "go1.27.1" {
+		return errCode("wrong_config_or_runtime")
+	}
+	if c.DeadlineSeconds < 1 || c.DeadlineSeconds != 60 || len(c.RootReceipts) != 4 || !canonicalPath(c.Output) {
+		return errCode("invalid_config_limits")
+	}
+	if c.Worker.Module != "riido.local/next60gjson-two-nativeprep" || c.Worker.Package != "riido.local/next60gjson-two-nativeprep/cmd/observe" || c.Controller.Module != "riido.local/next60gjsontwooutside" || c.Controller.Package != "riido.local/next60gjsontwooutside" {
+		return errCode("wrong_module_boundary")
+	}
+	if c.Time.ID != "system_time" || c.Time.Path != "/usr/bin/time" {
+		return errCode("wrong_time_binding")
+	}
+	if c.Worker.Pin.ID != "worker" || c.Controller.Pin.ID != "controller" || c.Plan.ID != "source_plan" || c.Captions.ID != "captions_order" || c.Wants.ID != "frozen_wants" {
+		return errCode("wrong_named_pin")
+	}
+	if c.Captions.Bytes != 2935 || c.Captions.SHA256 != "a0cc56b4058d3b3d24325abbf863bd0ac3c26a578305cacf0b9fa962c24d8c5f" {
+		return errCode("wrong_frozen_captions")
+	}
+	fixed := [4]string{"root_source_manifest", "root_compiler", "root_source_review", "root_resource"}
+	all := []Pin{c.Worker.Pin, c.Controller.Pin, c.Time, c.Plan, c.Captions, c.Wants}
+	for i, p := range c.RootReceipts {
+		if p.ID != fixed[i] {
+			return errCode("root_evidence_order")
+		}
+		all = append(all, p)
+	}
+	for i, p := range all {
+		for _, q := range all[:i] {
+			if p.ID == q.ID || p.Path == q.Path {
+				return errCode("pin_alias")
+			}
+		}
+		if p.Path == c.Output || inside(p.Path, c.Output) || inside(c.Output, p.Path) || equalASCII(p.Path, c.Output) {
+			return errCode("input_output_overlap")
+		}
+	}
+	for _, p := range all {
+		cap := int64(evidenceCap)
+		if p.ID == "worker" || p.ID == "controller" || p.ID == "system_time" {
+			cap = executableCap
+		}
+		if _, e := checkPin(p, cap); e != nil {
+			return e
+		}
+	}
+	if e := verifyExecutable(c.Worker); e != nil {
+		return e
+	}
+	if e := verifyExecutable(c.Controller); e != nil {
+		return e
+	}
+	self, e := os.Executable()
+	if e != nil {
+		return errCode("self_path_unavailable")
+	}
+	self, e = filepath.EvalSymlinks(self)
+	if e != nil || self != c.Controller.Pin.Path {
+		return errCode("self_pin_not_this_executable")
+	}
+	return nil
+}
+func inside(p, root string) bool {
+	rel, e := filepath.Rel(root, p)
+	return e == nil && rel != "." && rel != ".." && !filepath.IsAbs(rel) && len(rel) >= 1 && rel[:min(3, len(rel))] != "../"
+}
+func requireAbsentOutput(p string) error {
+	if !canonicalPath(p) {
+		return errCode("invalid_output_path")
+	}
+	if _, e := os.Lstat(p); !os.IsNotExist(e) {
+		return errCode("output_exists_or_stat_failed")
+	}
+	parent := filepath.Dir(p)
+	real, e := filepath.EvalSymlinks(parent)
+	if e != nil || real != parent {
+		return errCode("output_parent_not_canonical")
+	}
+	s, e := os.Stat(parent)
+	if e != nil || !s.IsDir() {
+		return errCode("output_parent_not_directory")
+	}
+	entries, e := os.ReadDir(parent)
+	if e != nil {
+		return errCode("output_parent_read_failed")
+	}
+	base := filepath.Base(p)
+	for _, entry := range entries {
+		if equalASCII(entry.Name(), base) {
+			return errCode("output_case_alias_exists")
+		}
+	}
+	return nil
+}
+func equalASCII(a, b string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		x, y := a[i], b[i]
+		if x >= 'A' && x <= 'Z' {
+			x += 'a' - 'A'
+		}
+		if y >= 'A' && y <= 'Z' {
+			y += 'a' - 'A'
+		}
+		if x != y {
+			return false
+		}
+	}
+	return true
+}
+func syncDir(p string) error {
+	f, e := os.Open(p)
+	if e != nil {
+		return errCode("directory_open_failed")
+	}
+	e = f.Sync()
+	c := f.Close()
+	if e != nil || c != nil {
+		return errCode("directory_sync_failed")
+	}
+	return nil
+}
+func parsePositive(s string, max int) (int, error) {
+	n, e := strconv.Atoi(s)
+	if e != nil || n < 1 || n > max {
+		return 0, errCode("invalid_integer")
+	}
+	return n, nil
+}

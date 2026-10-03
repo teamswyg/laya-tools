@@ -1,0 +1,142 @@
+package twoliteral
+
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+)
+
+const ResultSchema = "riido-gjson-two-native-result-v1"
+
+func Observe(ops Ops, fixtures [Inputs]Fixture, wants [Inputs]WantRecord, cp Checkpoint, planSHA string) (result Result) {
+	s := Session{ops: ops, cp: cp, previous: ZeroSHA, planSHA: planSHA}
+	result = Result{Schema: ResultSchema, PlanSHA256: planSHA, State: "partial"}
+	defer func() {
+		if v := recover(); v != nil {
+			if _, ok := v.(stopSignal); !ok {
+				s.stopped = true
+				s.failure = "owned_observer_panic"
+			}
+		}
+		if s.row.RequestID != "" && s.row.Ordinal >= 0 && s.row.Ordinal < Rows {
+			result.Records[s.row.Ordinal] = cloneRow(s.row)
+		}
+		result.Counts = s.counts
+		result.LastACKSequence = s.seq
+		result.LastACKSHA256 = s.previous
+		if s.stopped {
+			result.State = "stopped"
+			result.Failure = s.failure
+		}
+	}()
+	if cp == nil || ops.ForEachLine == nil || ops.Valid == nil || ops.Parse == nil || ops.AppendJSONString == nil || len(planSHA) != 64 {
+		s.stop("ops_or_plan")
+	}
+	ready := Frame{Version: 2, Sequence: 1, Previous: ZeroSHA, Stage: Ready, Dispatch: -1, Request: -1, Fixture: -1, Display: -1, Internal: -1, DisableEscapeHTML: &ops.DisableEscapeHTML}
+	b, _ := json.Marshal(ready)
+	h := sha256.Sum256(append(b, '\n'))
+	readyErr, readyPanic := checkpoint(cp, ready)
+	if readyErr != nil || readyPanic {
+		s.stop("ready_ack")
+	}
+	s.seq = 1
+	s.previous = hex.EncodeToString(h[:])
+	if ops.DisableEscapeHTML {
+		s.stop("unexpected_global_setting")
+	}
+	d := 0
+	for fi := 0; fi < Inputs; fi++ {
+		for display := 0; display < 3; display++ {
+			f := fixtures[fi]
+			w := wants[fi]
+			internal := display
+			if f.Request == 0 {
+				internal = [3]int{0, 2, 1}[display]
+			} else {
+				internal = [3]int{1, 2, 0}[display]
+			}
+			s.row = Row{Ordinal: d, Request: f.Request, Fixture: f.Index, Display: display, Internal: internal,
+				RequestID: f.RequestID, FixtureID: f.ID, InputPointer: f.InputReference.Pointer, Input: f.Input, Want: w.Want}
+			s.counts.Row[0]++
+			s.emit(BeforeRow, 0, nil, nil, true)
+			s.counts.Row[1]++
+			var line LineInput
+			var input UTF8Input
+			if f.Request == 0 {
+				if json.Unmarshal(f.Input, &line) != nil || len(line.Text) > 128 {
+					s.stop("input_invalid")
+				}
+			} else {
+				if json.Unmarshal(f.Input, &input) != nil {
+					s.stop("input_invalid")
+				}
+			}
+			if f.Request == 0 {
+				s.primitiveMax = len(line.Text)
+			} else {
+				s.primitiveMax = 0
+			}
+			s.counts.Candidate[0]++
+			s.emit(BeforeCandidate, 0, nil, nil, true)
+			s.counts.Candidate[1]++
+			s.row.CandidateInvoked = true
+			normal := false
+			var recovered any
+			var lineOut LineOutcome
+			var appendOut AppendOutcome
+			func() {
+				defer func() {
+					if !normal {
+						recovered = recover()
+					}
+				}()
+				if f.Request == 0 {
+					lineOut = s.lines(line)
+				} else {
+					appendOut = s.utf8Append(input)
+				}
+				normal = true
+			}()
+			if !normal {
+				if _, ok := recovered.(stopSignal); ok {
+					result.Records[d] = cloneRow(s.row)
+					panic(recovered)
+				}
+				p := Panic{Known: true, Present: true, Scope: "owned_candidate"}
+				if source, ok := recovered.(sourcePanicSignal); ok {
+					p = source.evidence
+				} else {
+					p.Type, p.TypeKnown = typeName(recovered)
+				}
+				s.row.Got.NormalKnown = true
+				s.row.Got.Normal = false
+				s.row.Got.Panic = p
+				s.counts.Candidate[3]++
+			} else {
+				if f.Request == 0 {
+					s.lineReturn(lineOut)
+				} else {
+					s.appendReturn(appendOut)
+				}
+				s.row.Got.NormalKnown = true
+				s.row.Got.Normal = true
+				s.row.Got.Panic = Panic{Known: true}
+				s.counts.Candidate[2]++
+			}
+			s.emit(AfterCandidate, 0, nil, nil, true)
+			s.row.Done = true
+			s.counts.Row[2]++
+			s.emit(AfterRow, 0, nil, nil, true)
+			result.Records[d] = cloneRow(s.row)
+			result.Completed++
+			d++
+			if !normal {
+				s.stop("known_candidate_panic_suffix_unknown")
+			}
+		}
+	}
+	result.State = "complete"
+	return result
+}
+
+const ZeroSHA = "0000000000000000000000000000000000000000000000000000000000000000"

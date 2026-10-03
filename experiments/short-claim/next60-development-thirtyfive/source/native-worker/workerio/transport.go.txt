@@ -1,0 +1,101 @@
+// Owned exact rawline/ACK transport, adapted from prior native-three mechanism.
+package workerio
+
+import (
+	"bufio"
+	"encoding/json"
+	"io"
+	"riido.local/next60gjson-two-nativeprep/twoliteral"
+)
+
+type Transport struct {
+	in         *bufio.Reader
+	out        io.Writer
+	seq        uint32
+	previous   string
+	bytes      int64
+	stopped    bool
+	final      bool
+	lastCounts twoliteral.Counts
+	completed  int
+}
+
+func NewTransport(in io.Reader, out io.Writer) *Transport {
+	return &Transport{in: bufio.NewReaderSize(in, twoliteral.AckLineMax), out: out, previous: twoliteral.ZeroSHA}
+}
+func (t *Transport) Exchange(f twoliteral.Frame) error {
+	if t.stopped || t.final || f.Version != 2 || f.Sequence != t.seq+1 || f.Previous != t.previous || f.Sequence > twoliteral.FrameMax {
+		t.stopped = true
+		return twoliteral.ErrStopped
+	}
+	b, e := json.Marshal(f)
+	limit := twoliteral.EventLineMax
+	if f.Stage == twoliteral.Final {
+		limit = twoliteral.FinalLineMax
+	}
+	if e != nil || len(b)+1 > limit || t.bytes+int64(len(b)+1) > twoliteral.JournalMax {
+		t.stopped = true
+		return twoliteral.ErrStopped
+	}
+	b = append(b, '\n')
+	n, e := t.out.Write(b)
+	t.bytes += int64(n)
+	if e != nil || n != len(b) {
+		t.stopped = true
+		return twoliteral.ErrStopped
+	} // No retry of partial writes/calls.
+	line, e := t.in.ReadSlice('\n')
+	if e != nil || len(line) > twoliteral.AckLineMax {
+		t.stopped = true
+		return twoliteral.ErrStopped
+	}
+	var a twoliteral.Ack
+	if DecodeCanonical(line, &a) != nil || a.Version != 2 || a.Sequence != f.Sequence || a.SHA256 != SHA(b) {
+		t.stopped = true
+		return twoliteral.ErrStopped
+	}
+	t.seq = f.Sequence
+	t.previous = a.SHA256
+	t.lastCounts = f.Counts
+	if f.Stage == twoliteral.AfterRow && f.Row != nil && f.Row.Done && f.Row.Ordinal == t.completed {
+		t.completed++
+	}
+	if f.Stage == twoliteral.Final {
+		t.final = true
+	}
+	return nil
+}
+func CanonicalResult(r twoliteral.Result) ([]byte, error) {
+	b, e := json.Marshal(r)
+	if e != nil || len(b) > 60000 {
+		return nil, twoliteral.ErrBounds
+	}
+	return b, nil
+}
+func (t *Transport) Finish(r twoliteral.Result) error {
+	if t.stopped || t.final || r.Schema != twoliteral.ResultSchema || r.LastACKSequence != t.seq || r.LastACKSHA256 != t.previous || r.Counts != t.lastCounts || r.Completed != t.completed {
+		return twoliteral.ErrStopped
+	}
+	if r.State == "complete" && (r.Completed != twoliteral.Rows || r.Failure != "" || r.Counts.Row != [4]int{33, 33, 33, 0} || r.Counts.Candidate != [4]int{33, 33, 33, 0}) {
+		return twoliteral.ErrStopped
+	}
+	if r.State == "complete" {
+		if r.OriginalInitialization != nil || r.OriginalNested != nil || r.Labels != 0 || r.Qualified != 0 || r.NewParents != 0 || r.TrainingAuthorized {
+			return twoliteral.ErrStopped
+		}
+		if r.Counts.Original[0] != r.Counts.Original[1] || r.Counts.Original[1] != r.Counts.Original[2] || r.Counts.Original[3] != 0 || r.Counts.Callback[0] != r.Counts.Callback[1] || r.Counts.Callback[1] != r.Counts.Callback[2] || r.Counts.Callback[3] != 0 {
+			return twoliteral.ErrStopped
+		}
+		for i, row := range r.Records {
+			if row.Ordinal != i || !row.Done || !row.CandidateInvoked || row.Truth != nil || row.Role != nil || row.Weight != nil {
+				return twoliteral.ErrStopped
+			}
+		}
+	}
+	b, e := CanonicalResult(r)
+	if e != nil {
+		return e
+	}
+	return t.Exchange(twoliteral.Frame{Version: 2, Sequence: t.seq + 1, Previous: t.previous, Stage: twoliteral.Final, Dispatch: -1, Request: -1, Fixture: -1, Display: -1, Internal: -1, Counts: r.Counts, Result: b})
+}
+func (t *Transport) Prefix() (uint32, string) { return t.seq, t.previous }

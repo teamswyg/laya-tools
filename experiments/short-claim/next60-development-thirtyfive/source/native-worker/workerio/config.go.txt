@@ -1,0 +1,204 @@
+// Byte bindings are not semantic, rights, CI or execution authority.
+package workerio
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"io"
+	"os"
+	"path/filepath"
+	"riido.local/next60gjson-two-nativeprep/twoliteral"
+)
+
+const PlanSchema = "riido-gjson-two-native-plan-v1"
+
+type Pin struct {
+	ID     string `json:"id"`
+	Bytes  int64  `json:"bytes"`
+	SHA256 string `json:"sha256"`
+}
+type Ref struct {
+	Path string `json:"path"`
+	Pin  Pin    `json:"pin"`
+}
+type Plan struct {
+	Schema               string  `json:"schema"`
+	Frozen               bool    `json:"frozen"`
+	Literal              Ref     `json:"literal"`
+	Wants                Ref     `json:"wants"`
+	Captions             Ref     `json:"captions"`
+	RootWantFreeze       Ref     `json:"Root_want_freeze"`
+	SourceCorrection     Ref     `json:"source_correction"`
+	RootFamilyDecision   Ref     `json:"Root_family_decision"`
+	SourceManifest       Ref     `json:"source_manifest"`
+	RootCompilerReview   Ref     `json:"Root_compiler_review"`
+	RootSourceReview     Ref     `json:"Root_source_review"`
+	RootResourceReview   Ref     `json:"Root_resource_review"`
+	RootExecutionBinding Ref     `json:"Root_execution_binding"`
+	Worker               Pin     `json:"worker"`
+	Controller           Pin     `json:"controller"`
+	RequestOrder         []int   `json:"request_order"`
+	Mapping              [][]int `json:"display_to_internal"`
+	Fixtures             []int   `json:"fixture_counts"`
+	MethodMaximum        int     `json:"method_maximum"`
+	CallbackMaximum      int     `json:"callback_maximum"`
+	FrameMaximum         int     `json:"frame_maximum"`
+	OutputReserve        int     `json:"output_reserve_bytes"`
+}
+
+func SHA(b []byte) string { h := sha256.Sum256(b); return hex.EncodeToString(h[:]) }
+func validHash(s string) bool {
+	if len(s) != 64 {
+		return false
+	}
+	for _, c := range []byte(s) {
+		if !(c >= '0' && c <= '9' || c >= 'a' && c <= 'f') {
+			return false
+		}
+	}
+	return true
+}
+func validPin(p Pin) bool {
+	return p.ID != "" && len(p.ID) <= 128 && p.Bytes > 0 && p.Bytes <= 64<<20 && validHash(p.SHA256)
+}
+
+// Exact canonical one-LF JSON rejects duplicate/case aliases, unknown fields,
+// alternate ordering/whitespace/array arity and extra documents after reserialization.
+func DecodeCanonical(b []byte, out any) error {
+	d := json.NewDecoder(bytes.NewReader(b))
+	d.DisallowUnknownFields()
+	if d.Decode(out) != nil {
+		return twoliteral.ErrBounds
+	}
+	var extra any
+	if d.Decode(&extra) != io.EOF {
+		return twoliteral.ErrBounds
+	}
+	c, e := json.Marshal(out)
+	if e != nil || !bytes.Equal(b, append(c, '\n')) {
+		return twoliteral.ErrBounds
+	}
+	return nil
+}
+func noSymlink(path string) bool {
+	if !filepath.IsAbs(path) || filepath.Clean(path) != path {
+		return false
+	}
+	for p := path; ; p = filepath.Dir(p) {
+		st, e := os.Lstat(p)
+		if e != nil || st.Mode()&os.ModeSymlink != 0 {
+			return false
+		}
+		if p == "/" {
+			break
+		}
+	}
+	return true
+}
+func ReadRef(r Ref, cap int64) ([]byte, error) {
+	if !validPin(r.Pin) || r.Pin.Bytes > cap || !noSymlink(r.Path) {
+		return nil, twoliteral.ErrBounds
+	}
+	st, e := os.Lstat(r.Path)
+	if e != nil || !st.Mode().IsRegular() || st.Size() != r.Pin.Bytes {
+		return nil, twoliteral.ErrBounds
+	}
+	f, e := os.Open(r.Path)
+	if e != nil {
+		return nil, twoliteral.ErrBounds
+	}
+	defer f.Close()
+	open, e := f.Stat()
+	if e != nil || !os.SameFile(st, open) {
+		return nil, twoliteral.ErrBounds
+	}
+	b, e := io.ReadAll(io.LimitReader(f, cap+1))
+	if e != nil || int64(len(b)) != r.Pin.Bytes || SHA(b) != r.Pin.SHA256 {
+		return nil, twoliteral.ErrBounds
+	}
+	return b, nil
+}
+func CheckPlan(p Plan) error {
+	if p.Schema != PlanSchema || !p.Frozen || len(p.RequestOrder) != 2 || p.RequestOrder[0] != 21 || p.RequestOrder[1] != 22 ||
+		len(p.Mapping) != 2 || len(p.Mapping[0]) != 3 || len(p.Mapping[1]) != 3 || len(p.Fixtures) != 2 || p.Fixtures[0] != 5 || p.Fixtures[1] != 6 ||
+		p.MethodMaximum != 61 || p.CallbackMaximum != 33 || p.FrameMaximum != 384 || p.OutputReserve != 2097152 {
+		return twoliteral.ErrBounds
+	}
+	for q, m := range [2][3]int{{0, 2, 1}, {1, 2, 0}} {
+		for i, x := range m {
+			if p.Mapping[q][i] != x {
+				return twoliteral.ErrBounds
+			}
+		}
+	}
+	exact := []struct {
+		r Ref
+		b int64
+		h string
+	}{
+		{p.Literal, 6142, "bbaf3ad1856a66809ec51818a347b3bb46734d68a7e0bee2a36591879e7ef560"},
+		{p.Wants, 5714, "6cef54345a729233d4de7591b513227b0bcc8fe463d471e3ffd0e12215652236"},
+		{p.Captions, 2935, "a0cc56b4058d3b3d24325abbf863bd0ac3c26a578305cacf0b9fa962c24d8c5f"},
+		{p.RootWantFreeze, 6889, "87285c2c5efe2f5de7539c96934e36629a35cdcb432f45b11361462c09dd40c2"},
+		{p.SourceCorrection, 8510, "b5144e78100a9c4b235812c25bb13dc880fcb8ed4f4bbc2ccf85942ffbd8cf43"},
+		{p.RootFamilyDecision, 3089, "1677d33aeb32c18c809e9ea717f375d5086d5b371e68f09f48fd24ae2f254b7f"},
+	}
+	for _, x := range exact {
+		if !validPin(x.r.Pin) || x.r.Pin.Bytes != x.b || x.r.Pin.SHA256 != x.h {
+			return twoliteral.ErrBounds
+		}
+	}
+	for _, r := range []Ref{p.SourceManifest, p.RootCompilerReview, p.RootSourceReview, p.RootResourceReview, p.RootExecutionBinding} {
+		if !validPin(r.Pin) || r.Pin.Bytes > 128<<10 || !noSymlink(r.Path) {
+			return twoliteral.ErrBounds
+		}
+	}
+	if !validPin(p.Worker) || !validPin(p.Controller) {
+		return twoliteral.ErrBounds
+	}
+	return nil
+}
+func LoadPlan(path, sha string) (p Plan, fs [twoliteral.Inputs]twoliteral.Fixture, ws [twoliteral.Inputs]twoliteral.WantRecord, err error) {
+	if !validHash(sha) || !noSymlink(path) {
+		return p, fs, ws, twoliteral.ErrBounds
+	}
+	st, e := os.Lstat(path)
+	if e != nil || !st.Mode().IsRegular() || st.Size() > 65536 {
+		return p, fs, ws, twoliteral.ErrBounds
+	}
+	f, e := os.Open(path)
+	if e != nil {
+		return p, fs, ws, twoliteral.ErrBounds
+	}
+	b, e := io.ReadAll(io.LimitReader(f, 65537))
+	f.Close()
+	if e != nil || len(b) > 65536 || SHA(b) != sha || DecodeCanonical(b, &p) != nil || CheckPlan(p) != nil {
+		return p, fs, ws, twoliteral.ErrBounds
+	}
+	refs := []Ref{p.Literal, p.Wants, p.Captions, p.RootWantFreeze, p.SourceCorrection, p.RootFamilyDecision, p.SourceManifest, p.RootCompilerReview, p.RootSourceReview, p.RootResourceReview, p.RootExecutionBinding}
+	var literal, wants []byte
+	for i, r := range refs {
+		v, e := ReadRef(r, 128<<10)
+		if e != nil {
+			return p, fs, ws, e
+		}
+		if i == 0 {
+			literal = v
+		}
+		if i == 1 {
+			wants = v
+		}
+	}
+	fs, ws, err = twoliteral.Assets(literal, wants)
+	if err != nil {
+		return
+	}
+	exe, e := os.Executable()
+	if e != nil {
+		return p, fs, ws, twoliteral.ErrBounds
+	}
+	_, err = ReadRef(Ref{Path: exe, Pin: p.Worker}, 64<<20)
+	return
+}

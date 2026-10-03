@@ -1,0 +1,157 @@
+package twoliteral
+
+import (
+	"encoding/hex"
+	"strconv"
+	"strings"
+	"unicode/utf8"
+)
+
+func (s *Session) lines(in LineInput) LineOutcome {
+	g := &s.row.Got
+	delivered := 0
+	stop := func() bool {
+		if in.StopAfter != nil && delivered >= *in.StopAfter {
+			g.StopKnown = true
+			g.StopRequested = true
+			return false
+		}
+		return true
+	}
+	if s.row.Internal == 0 {
+		s.invoke(MethodForEachLine, func(f *Fact) {
+			s.ops.ForEachLine(in.Text, func(p Primitive) bool {
+				return s.callback(p, 0, false, func() bool {
+					idx, e := strconv.ParseInt(p.Index, 10, 64)
+					if e != nil || idx < 0 || idx > int64(len(in.Text)) || len(p.Raw) > len(in.Text)-int(idx) || in.Text[int(idx):int(idx)+len(p.Raw)] != p.Raw {
+						g.MappingStopped = true
+						return false
+					}
+					line := 1 + strings.Count(in.Text[:int(idx)], "\n")
+					at := g.CallbackN - 1
+					g.Callbacks[at].Line = line
+					g.Callbacks[at].LineKnown = true
+					g.MappedPrefix++
+					delivered++
+					return stop()
+				})
+			})
+			yes := true
+			f.PrimitiveKnown = true
+			f.CallbackReturnComplete = &yes
+		})
+		if !g.MappingStopped {
+			g.CallbackListCompleteKnown = true
+			g.CallbackListComplete = true
+			g.StopKnown = true
+		}
+		return LineOutcome{} // original signature has no error/line/terminal returns.
+	}
+	var segments [4]string
+	var physical [4]int
+	n := 0
+	for i, text := range strings.Split(in.Text, "\n") {
+		text = strings.Trim(text, " \t\r")
+		if text == "" {
+			continue
+		}
+		if n == len(segments) {
+			s.stop("segment_cap")
+		}
+		segments[n] = text
+		physical[n] = i + 1
+		n++
+	}
+	fail := func(line int) LineOutcome {
+		g.CallbackListCompleteKnown = true
+		g.CallbackListComplete = true
+		g.StopKnown = true
+		return LineOutcome{Err: ErrInvalidLine, ErrorAvailable: true, FailingLine: line, FailingLineAvailable: true, Terminal: "invalid_line", TerminalAvailable: true}
+	}
+	out := LineOutcome{ErrorAvailable: true, FailingLineAvailable: true, Terminal: "exhausted", TerminalAvailable: true}
+	if s.row.Internal == 2 {
+		for i := 0; i < n; i++ {
+			if !s.valid(segments[i]) {
+				return fail(physical[i])
+			}
+		}
+	}
+	for i := 0; i < n; i++ {
+		if s.row.Internal == 1 && !s.valid(segments[i]) {
+			return fail(physical[i])
+		}
+		p := s.parse(segments[i])
+		delivered++
+		if !s.callback(p, physical[i], true, func() bool { return stop() }) {
+			out.Terminal = "callback_stop"
+			break
+		}
+	}
+	g.CallbackListCompleteKnown = true
+	g.CallbackListComplete = true
+	g.MappedPrefix = g.CallbackN
+	g.StopKnown = true
+	return out
+}
+func (s *Session) utf8Append(in UTF8Input) AppendOutcome {
+	data, e := hex.DecodeString(in.Input)
+	if e != nil || len(data) > 128 || in.Destination != "5b" {
+		s.stop("input_invalid")
+	}
+	var backing [32]byte
+	for i := range backing {
+		backing[i] = 0xa5
+	}
+	backing[0] = 0x5b
+	g := &s.row.Got
+	g.BackingBeforeKnown = true
+	g.BackingBeforeHex = hex.EncodeToString(backing[:])
+	dst := backing[:1:32]
+	defer func() {
+		g.ActiveInputAfterKnown = true
+		g.BackingAfterKnown = true
+		g.ActiveInputAfterHex = hex.EncodeToString(dst)
+		g.BackingAfterHex = hex.EncodeToString(backing[:])
+	}()
+	out := AppendOutcome{Bytes: dst}
+	switch s.row.Internal {
+	case 0:
+		out.Bytes = s.appendString(dst, string(data), &backing)
+	case 1:
+		out.ErrorAvailable = true
+		if !utf8.ValidString(string(data)) {
+			out.Err = ErrInvalidUTF8
+		} else {
+			out.Bytes = s.appendString(dst, string(data), &backing)
+		}
+	case 2:
+		out.ErrorAvailable = true
+		out.Bytes = append(dst, '"')
+		if !utf8.ValidString(string(data)) {
+			out.Err = ErrInvalidUTF8
+		} else {
+			out.Bytes = s.appendString(out.Bytes[:1], string(data), &backing)
+		}
+	default:
+		s.stop("internal_candidate")
+	}
+	if len(out.Bytes) > 32 {
+		s.stop("returned_buffer_cap")
+	}
+	return out
+}
+func (s *Session) lineReturn(v LineOutcome) {
+	g := &s.row.Got
+	g.Error = ownError(v.Err, v.ErrorAvailable)
+	g.FailingLineKnown = v.FailingLineAvailable
+	g.FailingLine = v.FailingLine
+	g.TerminalKnown = v.TerminalAvailable
+	g.Terminal = v.Terminal
+}
+func (s *Session) appendReturn(v AppendOutcome) {
+	g := &s.row.Got
+	g.Error = ownError(v.Err, v.ErrorAvailable)
+	g.BufferKnown = true
+	g.ReturnedHex = hex.EncodeToString(v.Bytes)
+	g.ReturnedNil = v.Bytes == nil
+}

@@ -1,0 +1,521 @@
+{
+  "schema": "riido-Root-gjson-two-finite-qualification-v1",
+  "state": "Root_adopted_two_finite_requests_materialization_separate",
+  "authority": "Root reviewed pre-observation contracts and whole-source roles, selected original source/MIT notices, one completed observation, all 309 saved primitive judgments and independent saved semantic recomputation. Positives require all fixed conditions known satisfied. Known counterexamples support negatives while all unavailable predicates remain unknown. This is nonblind development adoption only.",
+  "basis": {
+    "Root_freeze": {
+      "bytes": 6889,
+      "sha256": "87285c2c5efe2f5de7539c96934e36629a35cdcb432f45b11361462c09dd40c2"
+    },
+    "saved_observation": {
+      "bytes": 41828,
+      "sha256": "2f6ecf1fd0c3332dbf02c77a4605df8f3c54619b0700af2d7f1d9480010fc7ef"
+    },
+    "saved_comparison": {
+      "bytes": 106426,
+      "sha256": "394017f724d59b6fd13f92e6ada53c20ccd9425f9a3d6b48ccb8dc8835ac87f4"
+    },
+    "independent_recompute": {
+      "bytes": 7429,
+      "sha256": "3420de71327e243e301da80c3425653e68dc4cc93f165cc60a81aa1bf556592a"
+    },
+    "source_rights_review": {
+      "bytes": 1746,
+      "sha256": "e8d664fc9eee46c440652617b2a860ec1088bcd2ee552aa0267187241286db65"
+    }
+  },
+  "pool_before": {
+    "requests": 33,
+    "candidate_labels": 96,
+    "positive_labels": 33,
+    "negative_labels": 63
+  },
+  "pool_after_if_materialized": {
+    "requests": 35,
+    "candidate_labels": 102,
+    "positive_labels": 35,
+    "negative_labels": 67
+  },
+  "requests": [
+    {
+      "stable_id": "source-next60-strict-json-lines-prefix",
+      "request": "Add strict JSON-lines iteration: require one complete value per nonblank line, return the failing line number, preserve earlier callbacks, and stop before later lines.",
+      "source_family": "tidwall-gjson",
+      "source_revision": "9378d3bb93e20854e1677e0e0248e1d71ae5712f",
+      "upstream_repository": "tidwall/gjson",
+      "whole_group": 83,
+      "role": "development_train",
+      "text_revision": "gjson-two-finite-v1",
+      "finite_scope": {
+        "input_count": 5,
+        "candidate_observations": 15,
+        "description": "Five fixed JSON-lines inputs: two complete values, leading blank physical lines, multiple values on one line, malformed suffix after an earlier callback, and callback stop before later values. Exact physical-line validation, prefix retention, failing-line and stop channels only; no arbitrary-input correctness guarantee.",
+        "all_input_guarantee": false,
+        "unseen_source_guarantee": false
+      },
+      "candidates": [
+        {
+          "source_candidate_position": 0,
+          "internal_implementation_position": 0,
+          "metadata_id": "original_ForEachLine",
+          "text": "Consumes successive JSON values, yields each parsed result, and honors callback stop without enforcing physical line validation.",
+          "label": false,
+          "sample_weight": 1,
+          "selected": true,
+          "row_ordinals": [
+            0,
+            3,
+            6,
+            9,
+            12
+          ],
+          "row_vector": [
+            "unknown",
+            "unknown",
+            "unsatisfied",
+            "unsatisfied",
+            "unknown"
+          ],
+          "known_counterexample_fixture_positions": [
+            2,
+            3
+          ],
+          "aggregate_unknown_fixture_positions": [
+            0,
+            1,
+            4
+          ],
+          "unknown_predicates_retained": [
+            {
+              "fixture": 0,
+              "ordinal": 0,
+              "key": "callbacks.length",
+              "reason": "callback_list_incomplete_or_unmapped"
+            },
+            {
+              "fixture": 0,
+              "ordinal": 0,
+              "key": "callbacks.1.line",
+              "reason": "physical_line_unavailable"
+            },
+            {
+              "fixture": 0,
+              "ordinal": 0,
+              "key": "callback_stop_requested",
+              "reason": "callback_stop_unavailable"
+            },
+            {
+              "fixture": 0,
+              "ordinal": 0,
+              "key": "error_nil",
+              "reason": "error_channel_unavailable"
+            },
+            {
+              "fixture": 0,
+              "ordinal": 0,
+              "key": "owned_error_identity",
+              "reason": "error_identity_unavailable"
+            },
+            {
+              "fixture": 0,
+              "ordinal": 0,
+              "key": "returned_failing_line",
+              "reason": "failing_line_channel_unavailable"
+            },
+            {
+              "fixture": 0,
+              "ordinal": 0,
+              "key": "returned_terminal_reason",
+              "reason": "terminal_channel_unavailable"
+            },
+            {
+              "fixture": 1,
+              "ordinal": 3,
+              "key": "error_nil",
+              "reason": "error_channel_unavailable"
+            },
+            {
+              "fixture": 1,
+              "ordinal": 3,
+              "key": "owned_error_identity",
+              "reason": "error_identity_unavailable"
+            },
+            {
+              "fixture": 1,
+              "ordinal": 3,
+              "key": "returned_failing_line",
+              "reason": "failing_line_channel_unavailable"
+            },
+            {
+              "fixture": 1,
+              "ordinal": 3,
+              "key": "returned_terminal_reason",
+              "reason": "terminal_channel_unavailable"
+            },
+            {
+              "fixture": 2,
+              "ordinal": 6,
+              "key": "callback_stop_requested",
+              "reason": "callback_stop_unavailable"
+            },
+            {
+              "fixture": 2,
+              "ordinal": 6,
+              "key": "error_nil",
+              "reason": "error_channel_unavailable"
+            },
+            {
+              "fixture": 2,
+              "ordinal": 6,
+              "key": "owned_error_identity",
+              "reason": "error_identity_unavailable"
+            },
+            {
+              "fixture": 2,
+              "ordinal": 6,
+              "key": "returned_failing_line",
+              "reason": "failing_line_channel_unavailable"
+            },
+            {
+              "fixture": 2,
+              "ordinal": 6,
+              "key": "returned_terminal_reason",
+              "reason": "terminal_channel_unavailable"
+            },
+            {
+              "fixture": 3,
+              "ordinal": 9,
+              "key": "error_nil",
+              "reason": "error_channel_unavailable"
+            },
+            {
+              "fixture": 3,
+              "ordinal": 9,
+              "key": "owned_error_identity",
+              "reason": "error_identity_unavailable"
+            },
+            {
+              "fixture": 3,
+              "ordinal": 9,
+              "key": "returned_failing_line",
+              "reason": "failing_line_channel_unavailable"
+            },
+            {
+              "fixture": 3,
+              "ordinal": 9,
+              "key": "returned_terminal_reason",
+              "reason": "terminal_channel_unavailable"
+            },
+            {
+              "fixture": 4,
+              "ordinal": 12,
+              "key": "error_nil",
+              "reason": "error_channel_unavailable"
+            },
+            {
+              "fixture": 4,
+              "ordinal": 12,
+              "key": "owned_error_identity",
+              "reason": "error_identity_unavailable"
+            },
+            {
+              "fixture": 4,
+              "ordinal": 12,
+              "key": "returned_failing_line",
+              "reason": "failing_line_channel_unavailable"
+            },
+            {
+              "fixture": 4,
+              "ordinal": 12,
+              "key": "returned_terminal_reason",
+              "reason": "terminal_channel_unavailable"
+            }
+          ]
+        },
+        {
+          "source_candidate_position": 1,
+          "internal_implementation_position": 2,
+          "metadata_id": "validate_all_before_callbacks",
+          "text": "Checks every nonblank physical line before yielding any result, then delivers results and honors callback stop.",
+          "label": false,
+          "sample_weight": 1,
+          "selected": true,
+          "row_ordinals": [
+            1,
+            4,
+            7,
+            10,
+            13
+          ],
+          "row_vector": [
+            "satisfied",
+            "satisfied",
+            "satisfied",
+            "unsatisfied",
+            "satisfied"
+          ],
+          "known_counterexample_fixture_positions": [
+            3
+          ],
+          "aggregate_unknown_fixture_positions": [],
+          "unknown_predicates_retained": []
+        },
+        {
+          "source_candidate_position": 2,
+          "internal_implementation_position": 1,
+          "metadata_id": "per_line_validate_then_callback",
+          "text": "Checks each nonblank physical line before yielding, returns the first invalid line, and preserves earlier callbacks and stop.",
+          "label": true,
+          "sample_weight": 1,
+          "selected": true,
+          "row_ordinals": [
+            2,
+            5,
+            8,
+            11,
+            14
+          ],
+          "row_vector": [
+            "satisfied",
+            "satisfied",
+            "satisfied",
+            "satisfied",
+            "satisfied"
+          ],
+          "known_counterexample_fixture_positions": [],
+          "aggregate_unknown_fixture_positions": [],
+          "unknown_predicates_retained": []
+        }
+      ],
+      "selected_candidate_positions": [
+        0,
+        1,
+        2
+      ],
+      "excluded_candidate_positions": []
+    },
+    {
+      "stable_id": "source-next60-reject-invalid-utf8-append",
+      "request": "Add strict UTF8 JSON-string append: reject malformed input before changing destination, retain existing escaping for valid input, and return an explicit encoding error.",
+      "source_family": "tidwall-gjson",
+      "source_revision": "9378d3bb93e20854e1677e0e0248e1d71ae5712f",
+      "upstream_repository": "tidwall/gjson",
+      "whole_group": 83,
+      "role": "development_train",
+      "text_revision": "gjson-two-finite-v1",
+      "finite_scope": {
+        "input_count": 6,
+        "candidate_observations": 18,
+        "description": "Six fixed UTF-8/JSON append inputs: valid ASCII, malformed single byte, overlong sequence, surrogate encoding, valid U+FFFD, and escaping. Exact returned destination, one-byte active prefix and full 32-byte owned backing retention under rejection; no arbitrary input or allocation guarantee.",
+        "all_input_guarantee": false,
+        "unseen_source_guarantee": false
+      },
+      "candidates": [
+        {
+          "source_candidate_position": 0,
+          "internal_implementation_position": 1,
+          "metadata_id": "preflight_utf8_before_write",
+          "text": "Checks UTF-8 before writing, rejects malformed input with an encoding error, and appends using existing escaping for valid input.",
+          "label": true,
+          "sample_weight": 1,
+          "selected": true,
+          "row_ordinals": [
+            15,
+            18,
+            21,
+            24,
+            27,
+            30
+          ],
+          "row_vector": [
+            "satisfied",
+            "satisfied",
+            "satisfied",
+            "satisfied",
+            "satisfied",
+            "satisfied"
+          ],
+          "known_counterexample_fixture_positions": [],
+          "aggregate_unknown_fixture_positions": [],
+          "unknown_predicates_retained": []
+        },
+        {
+          "source_candidate_position": 1,
+          "internal_implementation_position": 2,
+          "metadata_id": "quote_before_utf8_check",
+          "text": "Appends an opening quote before checking UTF-8, returns an encoding error for malformed input, and uses existing escaping otherwise.",
+          "label": false,
+          "sample_weight": 1,
+          "selected": true,
+          "row_ordinals": [
+            16,
+            19,
+            22,
+            25,
+            28,
+            31
+          ],
+          "row_vector": [
+            "satisfied",
+            "unsatisfied",
+            "unsatisfied",
+            "unsatisfied",
+            "satisfied",
+            "satisfied"
+          ],
+          "known_counterexample_fixture_positions": [
+            1,
+            2,
+            3
+          ],
+          "aggregate_unknown_fixture_positions": [],
+          "unknown_predicates_retained": []
+        },
+        {
+          "source_candidate_position": 2,
+          "internal_implementation_position": 0,
+          "metadata_id": "original_AppendJSONString",
+          "text": "Appends a quoted JSON string using existing escaping, replacing malformed UTF-8 bytes with U+FFFD while retaining the destination prefix.",
+          "label": false,
+          "sample_weight": 1,
+          "selected": true,
+          "row_ordinals": [
+            17,
+            20,
+            23,
+            26,
+            29,
+            32
+          ],
+          "row_vector": [
+            "unknown",
+            "unsatisfied",
+            "unsatisfied",
+            "unsatisfied",
+            "unknown",
+            "unknown"
+          ],
+          "known_counterexample_fixture_positions": [
+            1,
+            2,
+            3
+          ],
+          "aggregate_unknown_fixture_positions": [
+            0,
+            4,
+            5
+          ],
+          "unknown_predicates_retained": [
+            {
+              "fixture": 0,
+              "ordinal": 17,
+              "key": "error_nil",
+              "reason": "error_channel_unavailable"
+            },
+            {
+              "fixture": 0,
+              "ordinal": 17,
+              "key": "owned_error_identity",
+              "reason": "error_identity_unavailable"
+            },
+            {
+              "fixture": 1,
+              "ordinal": 20,
+              "key": "error_nil",
+              "reason": "error_channel_unavailable"
+            },
+            {
+              "fixture": 1,
+              "ordinal": 20,
+              "key": "owned_error_identity",
+              "reason": "error_identity_unavailable"
+            },
+            {
+              "fixture": 2,
+              "ordinal": 23,
+              "key": "error_nil",
+              "reason": "error_channel_unavailable"
+            },
+            {
+              "fixture": 2,
+              "ordinal": 23,
+              "key": "owned_error_identity",
+              "reason": "error_identity_unavailable"
+            },
+            {
+              "fixture": 3,
+              "ordinal": 26,
+              "key": "error_nil",
+              "reason": "error_channel_unavailable"
+            },
+            {
+              "fixture": 3,
+              "ordinal": 26,
+              "key": "owned_error_identity",
+              "reason": "error_identity_unavailable"
+            },
+            {
+              "fixture": 4,
+              "ordinal": 29,
+              "key": "error_nil",
+              "reason": "error_channel_unavailable"
+            },
+            {
+              "fixture": 4,
+              "ordinal": 29,
+              "key": "owned_error_identity",
+              "reason": "error_identity_unavailable"
+            },
+            {
+              "fixture": 5,
+              "ordinal": 32,
+              "key": "error_nil",
+              "reason": "error_channel_unavailable"
+            },
+            {
+              "fixture": 5,
+              "ordinal": 32,
+              "key": "owned_error_identity",
+              "reason": "error_identity_unavailable"
+            }
+          ]
+        }
+      ],
+      "selected_candidate_positions": [
+        0,
+        1,
+        2
+      ],
+      "excluded_candidate_positions": []
+    }
+  ],
+  "unknown_never_false": true,
+  "known_F_and_U_coexist_preserved": true,
+  "selected_retained_unknown_predicates": 36,
+  "whole_source_roles_preserved": true,
+  "new_family_assignments": 0,
+  "old33_data_immutable": true,
+  "new_qualified_requests": 2,
+  "new_labels_adopted": 6,
+  "new_original_reexecution": 0,
+  "new_materialized_data_rows": 0,
+  "new_Fit_or_model": 0,
+  "protected_evaluation": false,
+  "limits": [
+    "Same existing GJSON/Match/Pretty family group83, development_train; no new independent family or protected rows.",
+    "Strict policies add requirements beyond original library APIs. Known mismatches do not claim original ForEachLine callback stop or AppendJSONString behavior is a library bug.",
+    "Six candidate captions remain exactly frozen; their position and intended implementation conferred no truth.",
+    "Finite 11-input/33-candidate-observation evidence does not show model quality, GPU efficiency, actual verification work or cost savings.",
+    "The learning checkpoint remains preparation, not automatic Fit authorization. Historical Fits and failed models are unchanged."
+  ],
+  "successor": {
+    "previous_qualification": {
+      "bytes": 17021,
+      "sha256": "9ca793c9e6e07f69dde6a45b86653aa3979bc9b16eba3b9d2aaacdb1a3fd14dc"
+    },
+    "reason": "Scope prose correction before materialization: callback-stop fixture contains three valid later values, not malformed input.",
+    "input_Want_captions_orders_labels_roles_weights_unchanged": true,
+    "new_original_or_model_calls": 0,
+    "new_truth_or_label_adoptions": 0
+  }
+}

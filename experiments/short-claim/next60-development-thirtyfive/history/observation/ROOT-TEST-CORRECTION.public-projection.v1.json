@@ -1,0 +1,18 @@
+{
+  "schema": "riido-gjson-two-test-correction-v1",
+  "diagnosis": "On macOS the temporary directory may use an alias of its canonical directory. The synthetic fixture violated existing no-symlink admission before the intended pinned-Want tamper control.",
+  "before_test_sha256": "d156a0ee4108e14b14635f889e6c3336858abee6407a69f55b4342b03d2076ed",
+  "after_test_sha256": "70ed3ed7edcca9dc9a63d3ec01df65dfb05c16ab185f214ff520be8e4731e022",
+  "change": "Canonicalize only the synthetic proof directory with filepath.EvalSymlinks; fail if canonicalization fails.",
+  "production_guard_unchanged": true,
+  "source_preparation_unchanged": true,
+  "original_api_calls": 0,
+  "labels": 0,
+  "fits": 0,
+  "public_projection": {
+    "original_bytes": 685,
+    "original_sha256": "95ec6189b70c901d0c68d360df51b6f1f910abf4ef6bb3dc9f15fdcf539511d5",
+    "redacted_field": "diagnosis",
+    "reason": "local absolute temporary path aliases omitted; original retained privately"
+  }
+}

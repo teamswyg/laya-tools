@@ -1,0 +1,122 @@
+// Unexecuted stdlib/owned controls, no native package import.
+package workerio
+
+import (
+	"bytes"
+	"encoding/json"
+	"io"
+	"os"
+	"path/filepath"
+	"riido.local/next60gjson-two-nativeprep/twoliteral"
+	"testing"
+)
+
+type dynamicACK struct {
+	line []byte
+	bad  bool
+}
+
+func (a *dynamicACK) Write(b []byte) (int, error) {
+	a.line = append([]byte(nil), b...)
+	return len(b), nil
+}
+func (a *dynamicACK) Read(b []byte) (int, error) {
+	if len(a.line) == 0 {
+		return 0, io.EOF
+	}
+	var f twoliteral.Frame
+	json.Unmarshal(a.line, &f)
+	h := SHA(a.line)
+	if a.bad {
+		h = twoliteral.ZeroSHA
+	}
+	v, _ := json.Marshal(twoliteral.Ack{Version: 2, Sequence: f.Sequence, SHA256: h})
+	v = append(v, '\n')
+	a.line = nil
+	return copy(b, v), nil
+}
+func TestMissingOrWrongACKStops(t *testing.T) {
+	for _, missing := range []bool{true, false} {
+		a := &dynamicACK{bad: true}
+		var input io.Reader = a
+		if missing {
+			input = bytes.NewReader(nil)
+		}
+		tr := NewTransport(input, a)
+		f := twoliteral.Frame{Version: 2, Sequence: 1, Previous: twoliteral.ZeroSHA, Stage: twoliteral.Ready}
+		if tr.Exchange(f) == nil || tr.Exchange(f) == nil {
+			t.Fatal("ACK failure reusable")
+		}
+		s, _ := tr.Prefix()
+		if s != 0 {
+			t.Fatal("unacknowledged line promoted")
+		}
+	}
+}
+func TestFinalCannotForgeCompletedRows(t *testing.T) {
+	tr := NewTransport(bytes.NewReader(nil), io.Discard)
+	r := twoliteral.Result{Schema: twoliteral.ResultSchema, State: "complete", Completed: 33, LastACKSHA256: twoliteral.ZeroSHA, Counts: twoliteral.Counts{Row: [4]int{33, 33, 33, 0}, Candidate: [4]int{33, 33, 33, 0}}}
+	if tr.Finish(r) == nil {
+		t.Fatal("no row ACKs accepted")
+	}
+}
+func TestCanonicalACKRejectsCaseAliasAndDuplicate(t *testing.T) {
+	for _, s := range []string{`{"V":2,"s":1,"h":"x"}`, `{"v":2,"v":2,"s":1,"h":"x"}`} {
+		var a twoliteral.Ack
+		if DecodeCanonical([]byte(s+"\n"), &a) == nil {
+			t.Fatal("noncanonical ACK")
+		}
+	}
+}
+func syntheticPlan(t *testing.T) Plan {
+	dir, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal("canonical synthetic proof directory")
+	}
+	path := filepath.Join(dir, "owned-proof.json")
+	if os.WriteFile(path, []byte("x"), 0600) != nil {
+		t.Fatal("fake proof")
+	}
+	local := Ref{Path: path, Pin: Pin{ID: "synthetic-proof", Bytes: 1, SHA256: SHA([]byte("x"))}}
+	p := Plan{Schema: PlanSchema, Frozen: true, RequestOrder: []int{21, 22}, Mapping: [][]int{{0, 2, 1}, {1, 2, 0}}, Fixtures: []int{5, 6}, MethodMaximum: 61, CallbackMaximum: 33, FrameMaximum: 384, OutputReserve: 2097152,
+		SourceManifest: local, RootCompilerReview: local, RootSourceReview: local, RootResourceReview: local, RootExecutionBinding: local, Worker: local.Pin, Controller: local.Pin}
+	p.Literal = Ref{Pin: Pin{ID: "fixtures", Bytes: 6142, SHA256: "bbaf3ad1856a66809ec51818a347b3bb46734d68a7e0bee2a36591879e7ef560"}}
+	p.Wants = Ref{Pin: Pin{ID: "Wants", Bytes: 5714, SHA256: "6cef54345a729233d4de7591b513227b0bcc8fe463d471e3ffd0e12215652236"}}
+	p.Captions = Ref{Pin: Pin{ID: "captions", Bytes: 2935, SHA256: "a0cc56b4058d3b3d24325abbf863bd0ac3c26a578305cacf0b9fa962c24d8c5f"}}
+	p.RootWantFreeze = Ref{Pin: Pin{ID: "freeze", Bytes: 6889, SHA256: "87285c2c5efe2f5de7539c96934e36629a35cdcb432f45b11361462c09dd40c2"}}
+	p.SourceCorrection = Ref{Pin: Pin{ID: "correction", Bytes: 8510, SHA256: "b5144e78100a9c4b235812c25bb13dc880fcb8ed4f4bbc2ccf85942ffbd8cf43"}}
+	p.RootFamilyDecision = Ref{Pin: Pin{ID: "existing-role", Bytes: 3089, SHA256: "1677d33aeb32c18c809e9ea717f375d5086d5b371e68f09f48fd24ae2f254b7f"}}
+	return p
+}
+func TestPinnedWantTamperRejected(t *testing.T) {
+	p := syntheticPlan(t)
+	if CheckPlan(p) != nil {
+		t.Fatal("synthetic metadata base rejected")
+	}
+	p.Wants.Pin.SHA256 = twoliteral.ZeroSHA
+	if CheckPlan(p) == nil {
+		t.Fatal("changed Wants pin accepted")
+	}
+}
+func TestExclusivePersistencePreservesExisting(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "reservation.json")
+	if writeExclusive(p, []byte("first"), 16) != nil {
+		t.Fatal("initial write")
+	}
+	if writeExclusive(p, []byte("second"), 16) == nil {
+		t.Fatal("overwrite")
+	}
+	b, e := os.ReadFile(p)
+	if e != nil || string(b) != "first" {
+		t.Fatal("old bytes changed")
+	}
+}
+func TestFreshParentFailureBeforeNativeCallbacks(t *testing.T) {
+	dir := t.TempDir()
+	file := filepath.Join(dir, "not-directory")
+	os.WriteFile(file, []byte("x"), 0600)
+	if f, e := Open(filepath.Join(file, "attempt"), twoliteral.ZeroSHA, Plan{}); e == nil || f != nil {
+		t.Fatal("bad parent admitted")
+	}
+}

@@ -1,0 +1,118 @@
+// Unexecuted owned fake controls. No original import or equivalence claim.
+package twoliteral
+
+import (
+	"encoding/json"
+	"testing"
+)
+
+func fakeOps() Ops {
+	return Ops{
+		ForEachLine: func(s string, c func(Primitive) bool) {
+			if c(Primitive{Type: 2, Raw: "1", Index: "0"}) {
+				c(Primitive{Type: 2, Raw: "2", Index: "0"})
+			}
+		},
+		Valid: func(s string) bool { return s != "bad" }, Parse: func(s string) Primitive { return Primitive{Type: 2, Raw: s, Index: "0"} },
+		AppendJSONString: func(dst []byte, s string) []byte { return append(append(append(dst, '"'), []byte(s)...), '"') },
+	}
+}
+func rowFor(text string) Row {
+	b, _ := json.Marshal(LineInput{Text: text})
+	return Row{Request: 0, Input: b, Want: json.RawMessage(`{}`)}
+}
+func catch(f func()) (v any) { defer func() { v = recover() }(); f(); return }
+func TestMethodACKFailuresNeverRetry(t *testing.T) {
+	for _, stage := range []int{BeforeMethod, AfterMethod} {
+		t.Run(map[int]string{BeforeMethod: "before", AfterMethod: "after"}[stage], func(t *testing.T) {
+			calls := 0
+			ops := fakeOps()
+			ops.Valid = func(string) bool { calls++; return true }
+			s := Session{ops: ops, previous: ZeroSHA, cp: func(f Frame) error {
+				if f.Stage == stage {
+					return ErrStopped
+				}
+				return nil
+			}}
+			catch(func() { s.valid("1") })
+			catch(func() { s.valid("1") })
+			want := 0
+			if stage == AfterMethod {
+				want = 1
+			}
+			if calls != want || !s.stopped || s.counts.Original[3] != 0 {
+				t.Fatalf("raw=%d, counts=%v, stopped=%t", calls, s.counts, s.stopped)
+			}
+		})
+	}
+}
+func TestCallbackCheckpointPanicIsNotSourcePanic(t *testing.T) {
+	ops := fakeOps()
+	calls := 0
+	ops.ForEachLine = func(s string, c func(Primitive) bool) { calls++; c(Primitive{Type: 2, Raw: "1", Index: "0"}) }
+	s := Session{ops: ops, previous: ZeroSHA, row: rowFor("1"), primitiveMax: 1, cp: func(f Frame) error {
+		if f.Stage == BeforeCallback {
+			panic("owned fake callback storage failure")
+		}
+		return nil
+	}}
+	v := catch(func() { s.lines(LineInput{Text: "1"}) })
+	if _, ok := v.(stopSignal); !ok {
+		t.Fatal("not sticky checkpoint signal")
+	}
+	if calls != 1 || s.counts.Original != [4]int{1, 1, 0, 0} || s.row.Got.CallbackN != 1 || !s.row.Got.Callbacks[0].PrimitiveKnown {
+		t.Fatal("callback primitive/panic layer lost")
+	}
+}
+func TestNumericMappingRetainsPrimitiveAndStops(t *testing.T) {
+	s := Session{ops: fakeOps(), previous: ZeroSHA, row: rowFor("1 2\n3\n"), primitiveMax: 6, cp: func(Frame) error { return nil }}
+	s.lines(LineInput{Text: "1 2\n3\n"})
+	g := s.row.Got
+	if g.CallbackN != 2 || g.MappedPrefix != 1 || !g.MappingStopped || g.CallbackListCompleteKnown || g.Error.Available || g.FailingLineKnown || g.TerminalKnown {
+		t.Fatal("availability merged")
+	}
+	if g.Callbacks[1].Primitive.Raw != "2" || g.Callbacks[1].Primitive.Index != "0" || g.Callbacks[1].LineKnown || g.Callbacks[1].Continue {
+		t.Fatal("bad-span primitive lost")
+	}
+	if s.counts.Callback != [4]int{2, 2, 2, 0} {
+		t.Fatal("invented third callback")
+	}
+}
+func TestUTF8PreflightVersusQuoteFirst(t *testing.T) {
+	for _, internal := range []int{1, 2} {
+		s := Session{ops: fakeOps(), previous: ZeroSHA, row: Row{Request: 1, Internal: internal}, cp: func(Frame) error { return nil }}
+		out := s.utf8Append(UTF8Input{Destination: "5b", Input: "ff"})
+		s.appendReturn(out)
+		g := s.row.Got
+		if s.counts.Original != [4]int{} || !g.Error.OwnIdentityKnown || g.Error.OwnIdentity != "invalid_utf8" || !g.BackingAfterKnown {
+			t.Fatal("preflight/identity unavailable")
+		}
+		want := "5b"
+		if internal == 2 {
+			want = "5b22"
+		}
+		if g.ReturnedHex != want {
+			t.Fatal("wrong chosen branch")
+		}
+	}
+}
+func TestFactCheckpointCannotMutateReturnedPrimitive(t *testing.T) {
+	s := Session{ops: fakeOps(), previous: ZeroSHA, cp: func(f Frame) error {
+		if f.Fact != nil && f.Fact.Bool != nil {
+			*f.Fact.Bool = false
+		}
+		return nil
+	}}
+	if !s.valid("1") {
+		t.Fatal("callback retained mutable return pointer")
+	}
+}
+func TestUnsupportedReturnedPrimitiveIsOwnedStop(t *testing.T) {
+	ops := fakeOps()
+	ops.Parse = func(string) Primitive { return Primitive{Type: 2, Raw: "too long", Index: "0"} }
+	s := Session{ops: ops, previous: ZeroSHA, cp: func(Frame) error { return nil }}
+	v := catch(func() { s.parse("1") })
+	if _, ok := v.(stopSignal); !ok || s.counts.Original != [4]int{1, 1, 1, 0} {
+		t.Fatal("bound misreported as source panic")
+	}
+}

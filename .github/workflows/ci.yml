@@ -56,6 +56,10 @@ jobs:
         run: bash scripts/verify-next60-thirty.sh
       - name: Thirty-three-row data, full reader values and saved predicate reproduction (offline; no training)
         run: bash scripts/verify-next60-thirtythree.sh
+      - name: Thirty-five-row full data and saved GJSON reproduction (offline; no worker or training)
+        run: bash scripts/verify-next60-thirtyfive.sh
+      - name: Recoverable archive helper controls (owned temporary fixtures only)
+        run: bash experiments/short-claim/publication-proof-126/archive-source/verify.sh
       - name: Variable Go input controls and frozen nonlearned33 ranking reproduction (no training)
         env:
           RIIDOLAYA_BIAS_ACTUAL: ${{ runner.temp }}/riidolaya-bias-actual/actual.json

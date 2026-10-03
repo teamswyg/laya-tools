@@ -1,0 +1,62 @@
+{
+  "schema": "riido-hf33-directory-archive-marker-source-review-v1",
+  "status": "Root_v3_source_only_pass_retest_and_actual_admission_pending",
+  "reviewer": "peer125",
+  "scope": "non-author nonblind development source review; no protected or blind-evaluation proof",
+  "source": {
+    "id": "resource-HF33-directory-archive-Root-QA-v1",
+    "v3_pin_document": {
+      "bytes": 1737,
+      "sha256": "60f0941d5239d6cf44b5ff02bbf615f1c73967caa852923b4e0b1eb6a01cb499"
+    },
+    "module_files": 7,
+    "module_bytes": 50670
+  },
+  "prior_review": {
+    "id": "resource-HF33-directory-archive-independent-review125-v1",
+    "handoff": {
+      "bytes": 796,
+      "sha256": "a5f2acfe3e398bf0384ba4b7d04069469421ee4eaa74d5a159c6a55293f88b70"
+    },
+    "preserved": true
+  },
+  "v2_runtime_issue_basis": "Root reported owned fake QA failed before first delete; separate owned Mac APFS metadata probe reported root nlink4 to5 after adding a regular recovery marker. Reviewer did not execute or read runtime outcomes/probe files.",
+  "reviewed_patch": {
+    "source_lines": [
+      "module/contract.go:214",
+      "module/contract.go:229",
+      "module/contract.go:247",
+      "module/contract.go:290",
+      "module/contract.go:333",
+      "module/archive_test.go:329"
+    ],
+    "sameRootMeta": "Mode/device/inode remain exact. Before marker, nlink and mtime remain exact. With admitted marker, root mtime is ignored and nlink is exact old or old+1, with want.Nlink != maxUint64 required before addition.",
+    "marker_gate": "checkTree records only the one exact top-level markerName path, rejects nonregular/symlink/special mode entries, and requires marker presence before success whenever allowMarker=true. Unknown extra entries still reject. Same filesystem path cannot occur twice.",
+    "authorization_binding": "Production executeTarget still creates a fresh O_EXCL marker, then re-reads its SHA/size pin and COMMIT pin and rehashes archive before removeSelectedTree. checkTree presence does not independently certify marker content; the unchanged enclosing lifecycle supplies that binding.",
+    "preserved_guards": "All selected regular file and directory inventory checks stay exact; regular files keep nlink1, SHA/size/plain mode and selected inode/time checks. Root identity and no-symlink guards remain. The new exception applies only to the top root in marker mode.",
+    "toy_controls": "New pure metadata controls cover old/old+1 admission, pre-marker old+1 rejection, larger/decreasing link count rejection, inode replacement rejection and max overflow rejection. Owned fake checkTree rejects marker absence.",
+    "comparison_evidence": "Reverse removal of only declared contract edits reconstructs v2 contract bytes9139/SHA4b7be8ffc11a3a748103c89e0f6d2617ab882edd83e0f199ab7a113b1825cd1f. The first9084 test bytes exactly match v2 test SHA1389f471c094b92c98ff42b065a39eb8991c932f5ed636f4dc0e4cca6aefa4a6. Other five module file pins equal v2."
+  },
+  "verdict": {
+    "new_marker_patch_satisfied": true,
+    "remaining_source_blockers": 0,
+    "prior_three_fixes_preserved": true,
+    "runtime_pass_proven_by_this_review": false
+  },
+  "preserved_limits": "Archive/run/main and their COMMIT/restore/delete/ACK/partial-failure sequencing are byte-unchanged from reviewed v2. Shared output controls128KiB, restore1MiB, inflate2MiB, inputmetadata256KiB and Root census/admission requirements remain unchanged.",
+  "pending": "Root alone must rerun owned fake QA, pin actual executing helper/tool, charge every retained preparation/failure/review artifact in the current census, and admit actual encoded caps before real archive/restore/unlink. Author seal and prior reviews remain immutable.",
+  "execution_counts": {
+    "Go": 0,
+    "tests": 0,
+    "archive": 0,
+    "restore": 0,
+    "unlink": 0,
+    "network": 0,
+    "original_API_Reader_model_Fit": 0,
+    "shared_repository_writes": 0
+  },
+  "private_exclusions": [
+    "PINNING.private.v1.json"
+  ],
+  "review_total_cap_bytes": 8192
+}

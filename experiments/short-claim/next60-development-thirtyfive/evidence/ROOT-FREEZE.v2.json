@@ -1,0 +1,170 @@
+{
+  "schema": "riido-gjson-lines-utf8-Root-prospective-literal-freeze-v2",
+  "state": "literal_inputs_Wants_captions_roles_frozen_before_observation",
+  "observed_utc": "2026-10-03T09:38:44.204Z",
+  "Root_source_review": {
+    "inputs11_and_Wants11_read": true,
+    "caption6_and_display_map_read": true,
+    "peer_two_corrections_adopted": true,
+    "source_prediction_is_not_oracle": true
+  },
+  "basis": [
+    {
+      "artifact": "fixtures",
+      "bytes": 6142,
+      "sha256": "bbaf3ad1856a66809ec51818a347b3bb46734d68a7e0bee2a36591879e7ef560"
+    },
+    {
+      "artifact": "literal_Wants",
+      "bytes": 5714,
+      "sha256": "6cef54345a729233d4de7591b513227b0bcc8fe463d471e3ffd0e12215652236"
+    },
+    {
+      "artifact": "captions_order",
+      "bytes": 2935,
+      "sha256": "a0cc56b4058d3b3d24325abbf863bd0ac3c26a578305cacf0b9fa962c24d8c5f"
+    },
+    {
+      "artifact": "source_correction",
+      "bytes": 8510,
+      "sha256": "b5144e78100a9c4b235812c25bb13dc880fcb8ed4f4bbc2ccf85942ffbd8cf43"
+    },
+    {
+      "artifact": "peer_source_review",
+      "bytes": 10956,
+      "sha256": "0fd116f8043f473fa7e11e23cca3755c673315c786be70b078d2bcdce1ba78f4"
+    },
+    {
+      "artifact": "existing_family83_role",
+      "bytes": 3089,
+      "sha256": "1677d33aeb32c18c809e9ea717f375d5086d5b371e68f09f48fd24ae2f254b7f"
+    }
+  ],
+  "requests": [
+    {
+      "request_id": "source-next60-strict-json-lines-prefix",
+      "request_text": "Add strict JSON-lines iteration: require one complete value per nonblank line, return the failing line number, preserve earlier callbacks, and stop before later lines.",
+      "display_to_internal": [
+        0,
+        2,
+        1
+      ],
+      "captions": [
+        {
+          "display": 0,
+          "internal": 0,
+          "text": "Consumes successive JSON values, yields each parsed result, and honors callback stop without enforcing physical line validation."
+        },
+        {
+          "display": 1,
+          "internal": 2,
+          "text": "Checks every nonblank physical line before yielding any result, then delivers results and honors callback stop."
+        },
+        {
+          "display": 2,
+          "internal": 1,
+          "text": "Checks each nonblank physical line before yielding, returns the first invalid line, and preserves earlier callbacks and stop."
+        }
+      ],
+      "source_family": "tidwall-gjson",
+      "upstream_repository": "tidwall/gjson",
+      "source_revision": "9378d3bb93e20854e1677e0e0248e1d71ae5712f",
+      "whole_family_group": 83,
+      "role": "development_train",
+      "family_status": "same already frozen GJSON/Match/Pretty connected family; no new independent family",
+      "labels": null,
+      "weights": null
+    },
+    {
+      "request_id": "source-next60-reject-invalid-utf8-append",
+      "request_text": "Add strict UTF8 JSON-string append: reject malformed input before changing destination, retain existing escaping for valid input, and return an explicit encoding error.",
+      "display_to_internal": [
+        1,
+        2,
+        0
+      ],
+      "captions": [
+        {
+          "display": 0,
+          "internal": 1,
+          "text": "Checks UTF-8 before writing, rejects malformed input with an encoding error, and appends using existing escaping for valid input."
+        },
+        {
+          "display": 1,
+          "internal": 2,
+          "text": "Appends an opening quote before checking UTF-8, returns an encoding error for malformed input, and uses existing escaping otherwise."
+        },
+        {
+          "display": 2,
+          "internal": 0,
+          "text": "Appends a quoted JSON string using existing escaping, replacing malformed UTF-8 bytes with U+FFFD while retaining the destination prefix."
+        }
+      ],
+      "source_family": "tidwall-gjson",
+      "upstream_repository": "tidwall/gjson",
+      "source_revision": "9378d3bb93e20854e1677e0e0248e1d71ae5712f",
+      "whole_family_group": 83,
+      "role": "development_train",
+      "family_status": "same already frozen GJSON/Match/Pretty connected family; no new independent family",
+      "labels": null,
+      "weights": null
+    }
+  ],
+  "contracts": {
+    "physical_lines": "LF physical line position, ASCII space/tab/CR trim, skip blanks, complete value per nonblank line; retain callbacks preceding first invalid line and callback stop",
+    "UTF8": "exact original input bytes; reject malformed bytes before any destination/backing write; distinguish valid U+FFFD; default HTML escaping unchanged",
+    "baseline_availability": "B0/B2 numeric Index leaves source mapping unavailable; retain callback Raw/Type/Index and known mapped prefix, stop adapter; no fabricated third callback",
+    "known_panic": "known recovered panic mismatches normal-return/panic=false, preserving suffix unknown; malformed/unobserved metadata remains unknown",
+    "comparison": "same frozen Want for every candidate; any known mismatch retains unknown predicates, unknown-only cannot negative",
+    "no_original_bug_claim": "ForEachLine already honors false; requested strict wrapper contracts are separately specified"
+  },
+  "prospective_counts": {
+    "requests": 2,
+    "inputs": 11,
+    "candidates": 6,
+    "dispatches": 33,
+    "expected_direct_original_methods": 42,
+    "maximum_direct_original_methods": 61,
+    "expected_callback_invocations": 17,
+    "expected_fully_mapped_callbacks": 15,
+    "maximum_durable_frames": 384,
+    "initialization_calls": null,
+    "nested_original_calls": null,
+    "expected_durable_frames_source_diagnostic": 252
+  },
+  "new_labels": 0,
+  "new_qualification": 0,
+  "new_original_calls": 0,
+  "new_model_Fit_calls": 0,
+  "execution_ready": false,
+  "scope": "Root prospective contract/order/family freeze only; no binary/source/rights/resource execution admission or outcome-derived labels.",
+  "prior_freeze_pin": {
+    "artifact": "GJSON-TWO-LITERAL-FREEZE.actual.public.v1.json",
+    "bytes": 5790,
+    "sha256": "017f5d6922765f2727403368ca569d137077f40a63a766412d92dc186fed71d9"
+  },
+  "source_bound_correction": {
+    "old_cap": 256,
+    "preparer_first_bound318_rejected": true,
+    "fixture3_nonblank_segments": 3,
+    "max_callbacks": {
+      "baseline": 15,
+      "owned": 18,
+      "total": 33
+    },
+    "max_frames": {
+      "row_before_after": 66,
+      "candidate_before_after": 66,
+      "original_method_before_after": 122,
+      "callback_before_after": 66,
+      "ready_and_final": 2,
+      "total": 322
+    },
+    "new_hard_frame_cap": 384,
+    "methods_maximum61_unchanged": true,
+    "hard_stop_on_budget_or_ACK_failure": true,
+    "inputs_Wants_captions_roles_labels_unchanged": true,
+    "original_execution_repeated": false,
+    "reason": "Count every owned callback start/return checkpoint and all three physical nonblank segments of gjson-21-04; source estimates are diagnostic, never actual observations."
+  }
+}

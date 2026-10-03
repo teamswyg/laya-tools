@@ -1,0 +1,173 @@
+// Copyright 2026 teamswyg. Licensed under the Apache License, Version 2.0.
+package main
+
+import (
+	"context"
+	"io"
+	"os/exec"
+	"strconv"
+	"strings"
+	"syscall"
+	"time"
+)
+
+// stderrCapture has one writer: exec's stderr-copy goroutine. All reads happen
+// after Wait has joined copy goroutines. Journal/ACK writes use the controller
+// loop only; there is no shared writer, mutex or racing budget counter.
+type stderrCapture struct {
+	Data     [stderrCap]byte
+	Count    int
+	Overflow bool
+	Kill     func()
+}
+
+func (s *stderrCapture) Write(p []byte) (int, error) {
+	if len(p) > len(s.Data)-s.Count {
+		s.Overflow = true
+		if s.Kill != nil {
+			s.Kill()
+		}
+		return 0, errCode("stderr_cap_exceeded")
+	}
+	copy(s.Data[s.Count:], p)
+	s.Count += len(p)
+	return len(p), nil
+}
+
+type ProcessReceipt struct {
+	StartAttempts             int    `json:"start_attempts"`
+	Started                   bool   `json:"started"`
+	WaitAttempts              int    `json:"wait_attempts"`
+	Reaped                    *bool  `json:"reaped"`
+	ExitCode                  *int   `json:"exit_code"`
+	DeadlineExceeded          bool   `json:"deadline_exceeded"`
+	StderrOverflow            bool   `json:"stderr_overflow"`
+	WholeChildWallNanoseconds int64  `json:"whole_child_wall_nanoseconds"`
+	DarwinTimeMaxRSSBytes     *int64 `json:"darwin_time_max_rss_bytes"`
+	RSSCapExceeded            *bool  `json:"rss_cap_exceeded"`
+	InitCalls                 any    `json:"initialization_calls"`
+	NestedOriginalCalls       any    `json:"nested_original_calls"`
+	Scope                     string `json:"scope"`
+}
+
+type consumeStream func(io.Reader, io.Writer) error
+
+// runChild does one Start and one Wait. Failure never launches a replacement.
+// Process-group cleanup and joining are required even after frame/ACK failure.
+// Return contains static failure codes only, never formatted worker errors.
+func runChild(c Config, workerArgs []string, consume consumeStream) (ProcessReceipt, []byte, error) {
+	r := ProcessReceipt{Scope: "Whole collection child via pinned system time; not model inference performance. Heap is a soft Go limit; RSS is checked after Wait."}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(c.DeadlineSeconds)*time.Second)
+	defer cancel()
+	argv := append([]string{"-l", c.Worker.Pin.Path}, workerArgs...)
+	cmd := exec.CommandContext(ctx, c.Time.Path, argv...)
+	cmd.Env = []string{"PATH=/usr/bin:/bin", "LANG=C", "LC_ALL=C", "GOMAXPROCS=1", "GOMEMLIMIT=256MiB", "GOTOOLCHAIN=local", "GOPROXY=off", "GOSUMDB=off", "GOWORK=off", "GOENV=off", "GOFLAGS=", "GOEXPERIMENT=", "CGO_ENABLED=0"}
+	cmd.Dir = filepathParent(c.Output)
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	// Cancellation runs only after Start initializes Process. It does not read
+	// protocol counters. ESRCH is harmless; no second process is ever created.
+	cmd.Cancel = func() error {
+		if cmd.Process == nil {
+			return nil
+		}
+		if e := syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL); e != nil && e != syscall.ESRCH {
+			return errCode("group_kill_failed")
+		}
+		return nil
+	}
+	cmd.WaitDelay = 2 * time.Second
+	cap := &stderrCapture{Kill: cancel}
+	cmd.Stderr = cap
+	stdout, e := cmd.StdoutPipe()
+	if e != nil {
+		return r, nil, errCode("stdout_pipe_failed")
+	}
+	stdin, e := cmd.StdinPipe()
+	if e != nil {
+		stdout.Close()
+		return r, nil, errCode("stdin_pipe_failed")
+	}
+	r.StartAttempts = 1
+	start := time.Now()
+	e = cmd.Start()
+	if e != nil {
+		stdin.Close()
+		stdout.Close()
+		r.WaitAttempts = 1
+		_ = cmd.Wait()
+		r.WholeChildWallNanoseconds = time.Since(start).Nanoseconds()
+		// No ProcessState means actual startup/reaping/exit identity is unknown.
+		return r, nil, errCode("child_start_failed_no_retry")
+	}
+	r.Started = true
+	streamErr := consume(stdout, stdin)
+	if streamErr != nil {
+		cancel()
+	}
+	stdin.Close()
+	r.WaitAttempts = 1
+	waitErr := cmd.Wait()
+	r.WholeChildWallNanoseconds = time.Since(start).Nanoseconds()
+	r.DeadlineExceeded = ctx.Err() == context.DeadlineExceeded
+	r.StderrOverflow = cap.Overflow
+	if cmd.ProcessState != nil {
+		v := true
+		r.Reaped = &v
+		code := cmd.ProcessState.ExitCode()
+		r.ExitCode = &code
+	}
+	// Reading stderrCapture is safe only here, after joined Wait.
+	saved := append([]byte(nil), cap.Data[:cap.Count]...)
+	rss, known := timeRSS(saved)
+	if known {
+		r.DarwinTimeMaxRSSBytes = &rss
+		over := rss > 256<<20
+		r.RSSCapExceeded = &over
+	}
+	if r.DeadlineExceeded {
+		return r, saved, errCode("child_deadline_no_retry")
+	}
+	if cap.Overflow {
+		return r, saved, errCode("stderr_cap_exceeded")
+	}
+	if streamErr != nil {
+		return r, saved, streamErr
+	}
+	if waitErr != nil || r.Reaped == nil || r.ExitCode == nil || *r.ExitCode != 0 {
+		return r, saved, errCode("child_wait_or_exit_failed_no_retry")
+	}
+	if !known {
+		return r, saved, errCode("time_rss_unavailable")
+	}
+	if *r.RSSCapExceeded {
+		return r, saved, errCode("post_wait_rss_cap_exceeded")
+	}
+	return r, saved, nil
+}
+
+func filepathParent(p string) string {
+	i := strings.LastIndexByte(p, '/')
+	if i < 1 {
+		return "/"
+	}
+	return p[:i]
+}
+func timeRSS(b []byte) (int64, bool) {
+	var value int64
+	found := false
+	for _, line := range strings.Split(string(b), "\n") {
+		f := strings.Fields(line)
+		if len(f) == 5 && f[1] == "maximum" && f[2] == "resident" && f[3] == "set" && f[4] == "size" {
+			if found {
+				return 0, false
+			}
+			v, e := strconv.ParseInt(f[0], 10, 64)
+			if e != nil || v < 0 {
+				return 0, false
+			}
+			value = v
+			found = true
+		}
+	}
+	return value, found
+}
