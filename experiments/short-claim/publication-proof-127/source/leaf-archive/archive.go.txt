@@ -1,0 +1,171 @@
+//go:build darwin || linux
+
+package main
+
+import (
+	"bufio"
+	"compress/gzip"
+	"crypto/sha256"
+	"encoding/hex"
+	"io"
+	"os"
+	"path/filepath"
+)
+
+type limitedWriter struct {
+	w        io.Writer
+	limit, n int64
+	failed   bool
+}
+
+func (w *limitedWriter) Write(b []byte) (int, error) {
+	if w.failed || int64(len(b)) > w.limit-w.n {
+		w.failed = true
+		return 0, errCap
+	}
+	n, e := w.w.Write(b)
+	w.n += int64(n)
+	if e != nil || n != len(b) {
+		w.failed = true
+		if e == nil {
+			e = io.ErrShortWrite
+		}
+	}
+	return n, e
+}
+
+type limitedReader struct {
+	r    io.Reader
+	left int64
+}
+
+func (r *limitedReader) Read(b []byte) (int, error) {
+	if r.left == 0 {
+		var one [1]byte
+		n, e := r.r.Read(one[:])
+		if n != 0 {
+			return 0, errCap
+		}
+		return 0, e
+	}
+	if int64(len(b)) > r.left {
+		b = b[:r.left]
+	}
+	n, e := r.r.Read(b)
+	r.left -= int64(n)
+	return n, e
+}
+
+func pack(x leaf, path string, s *session) (filePin, error) {
+	if _, e := checkFile(x.Original, rawCap); e != nil {
+		return filePin{}, e
+	}
+	in, before, e := openRead(x.Original.Path)
+	if e != nil {
+		return filePin{}, e
+	}
+	defer in.Close()
+	if !same(before, x.Original.physical) || before.Size() != x.Original.Bytes {
+		return filePin{}, errChanged
+	}
+	if e := noSymlink(filepath.Dir(path)); e != nil {
+		return filePin{}, e
+	}
+	out, e := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if e != nil {
+		return filePin{}, e
+	}
+	// Failed partial output is preserved. No deferred gzip Close can append
+	// bytes after a sticky cap failure; successful Close is mandatory below.
+	defer out.Close()
+	gz := gzip.NewWriter(&limitedWriter{w: out, limit: x.GzipCap})
+	h := sha256.New()
+	n, e := io.Copy(gz, io.TeeReader(io.LimitReader(in, rawCap+1), h))
+	after, ae := in.Stat()
+	last, le := os.Lstat(x.Original.Path)
+	if e != nil || ae != nil || le != nil || n != x.Original.Bytes || !same(after, x.Original.physical) || !same(last, x.Original.physical) || hex.EncodeToString(h.Sum(nil)) != x.Original.SHA256 {
+		return filePin{}, errChanged
+	}
+	if e := gz.Close(); e != nil {
+		return filePin{}, e
+	}
+	if e := s.syncFile(out, "archive_file"); e != nil {
+		return filePin{}, e
+	}
+	if e := out.Close(); e != nil {
+		return filePin{}, e
+	}
+	if e := s.syncDir(filepath.Dir(path), "archive_parent"); e != nil {
+		return filePin{}, e
+	}
+	if _, e := checkFile(x.Original, rawCap); e != nil {
+		return filePin{}, e
+	}
+	return hashFile(path, x.GzipCap)
+}
+
+func restore(ap filePin, x leaf, s *session) (filePin, error) {
+	if _, e := checkFile(ap, gzipMax); e != nil {
+		return filePin{}, e
+	}
+	if e := noSymlink(filepath.Dir(x.RestorePath)); e != nil {
+		return filePin{}, e
+	}
+	in, _, e := openRead(ap.Path)
+	if e != nil {
+		return filePin{}, e
+	}
+	defer in.Close()
+	br := bufio.NewReaderSize(in, 4096)
+	gz, e := gzip.NewReader(br)
+	if e != nil {
+		return filePin{}, e
+	}
+	defer gz.Close()
+	gz.Multistream(false)
+	out, e := os.OpenFile(x.RestorePath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if e != nil {
+		return filePin{}, e
+	}
+	defer out.Close()
+	h := sha256.New()
+	// Copy must reach the genuine gzip EOF: exact size alone is insufficient.
+	// The extra-byte probe is internal, with at most the frozen raw size saved.
+	r := &limitedReader{r: gz, left: x.Original.Bytes}
+	n, e := io.Copy(io.MultiWriter(out, h), r)
+	if e != nil || n != x.Original.Bytes || hex.EncodeToString(h.Sum(nil)) != x.Original.SHA256 {
+		return filePin{}, errChanged
+	}
+	// gzip's full EOF verifies CRC and ISIZE. ByteReader + Multistream(false)
+	// lets us reject concatenated streams and every trailing compressed byte.
+	if _, e := br.ReadByte(); e != io.EOF {
+		return filePin{}, errContract
+	}
+	if e := gz.Close(); e != nil {
+		return filePin{}, e
+	}
+	m, e := permissions(x.Original.Mode)
+	if e != nil {
+		return filePin{}, e
+	}
+	if e := out.Chmod(m); e != nil {
+		return filePin{}, e
+	}
+	if e := s.syncFile(out, "restore_file"); e != nil {
+		return filePin{}, e
+	}
+	if e := out.Close(); e != nil {
+		return filePin{}, e
+	}
+	if e := s.syncDir(filepath.Dir(x.RestorePath), "restore_parent"); e != nil {
+		return filePin{}, e
+	}
+	rp, e := hashFile(x.RestorePath, rawCap)
+	if e != nil || rp.Bytes != x.Original.Bytes || rp.SHA256 != x.Original.SHA256 || rp.Mode != x.Original.Mode {
+		return filePin{}, errChanged
+	}
+	if _, e := checkFile(ap, gzipMax); e != nil {
+		return filePin{}, e
+	}
+	return rp, nil
+}

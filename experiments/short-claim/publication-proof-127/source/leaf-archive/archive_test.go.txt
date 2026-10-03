@@ -1,0 +1,345 @@
+//go:build darwin || linux
+
+package main
+
+import (
+	"bytes"
+	"compress/gzip"
+	"errors"
+	"os"
+	"path/filepath"
+	"testing"
+	"time"
+)
+
+// Source-only controls, not executed at this seal. Each test uses tiny owned
+// temp files, not the prospective Root records, models or original sources.
+func tiny(t *testing.T, data []byte) (leaf, *session) {
+	t.Helper()
+	root, e := filepath.EvalSymlinks(t.TempDir())
+	if e != nil {
+		t.Fatal(e)
+	}
+	path := filepath.Join(root, "owned-record.txt")
+	if e := os.WriteFile(path, data, 0600); e != nil {
+		t.Fatal(e)
+	}
+	p, e := hashFile(path, rawCap)
+	if e != nil {
+		t.Fatal(e)
+	}
+	out := filepath.Join(root, "new-output")
+	s := &session{out: out, cfg: config{Root: root, OutputDir: out},
+		r: result{Schema: "owned-fake", Records: []record{{ID: "fake", State: "not_started"}}}}
+	for name, dst := range map[string]*pin{"config": &s.binding, "selection": &s.cfg.Selection, "admission": &s.cfg.Admission, "prior": &s.cfg.PriorAccount} {
+		p := filepath.Join(root, name+".fake.json")
+		if e := os.WriteFile(p, []byte("{\"owned_fake\":true}\n"), 0600); e != nil {
+			t.Fatal(e)
+		}
+		got, e := hashFile(p, metaCap)
+		if e != nil {
+			t.Fatal(e)
+		}
+		*dst = got.pin
+	}
+	if e := s.claimOutput(); e != nil {
+		t.Fatal(e)
+	}
+	x := leaf{ID: "fake", Category: "completed_owned_record", Original: p, RestorePath: filepath.Join(root, "fresh-restore.tmp"), GzipCap: 4096}
+	return x, s
+}
+func TestActualRestoreAndEmptyFile(t *testing.T) {
+	for _, data := range [][]byte{nil, []byte("owned tiny data")} {
+		t.Run(string(data), func(t *testing.T) {
+			x, s := tiny(t, data)
+			ap, e := pack(x, filepath.Join(s.out, "archive.gz"), s)
+			if e != nil {
+				t.Fatal(e)
+			}
+			r, e := restore(ap, x, s)
+			if e != nil {
+				t.Fatal(e)
+			}
+			if r.Bytes != int64(len(data)) || r.SHA256 != x.Original.SHA256 || r.Mode != "0600" {
+				t.Fatal("physical restore mismatch")
+			}
+			if _, e := os.Lstat(x.Original.Path); e != nil {
+				t.Fatal("original removed before COMMIT")
+			}
+		})
+	}
+}
+func TestTruncatedCRCAndTrailingGzipRejected(t *testing.T) {
+	for _, kind := range []string{"truncated", "crc", "trailing", "second-member"} {
+		t.Run(kind, func(t *testing.T) {
+			x, s := tiny(t, []byte("abcdef"))
+			path := filepath.Join(s.out, "archive.gz")
+			ap, e := pack(x, path, s)
+			if e != nil {
+				t.Fatal(e)
+			}
+			b, e := os.ReadFile(path)
+			if e != nil {
+				t.Fatal(e)
+			}
+			switch kind {
+			case "truncated":
+				b = b[:len(b)-3]
+			case "crc":
+				b[len(b)-8] ^= 1
+			case "trailing":
+				b = append(b, 1)
+			case "second-member":
+				var more bytes.Buffer
+				z := gzip.NewWriter(&more)
+				if e := z.Close(); e != nil {
+					t.Fatal(e)
+				}
+				b = append(b, more.Bytes()...)
+			}
+			if e := os.WriteFile(path, b, 0600); e != nil {
+				t.Fatal(e)
+			}
+			ap, e = hashFile(path, gzipMax)
+			if e != nil {
+				t.Fatal(e)
+			}
+			if _, e := restore(ap, x, s); e == nil {
+				t.Fatal("invalid stream accepted")
+			}
+			if _, e := os.Lstat(x.Original.Path); e != nil {
+				t.Fatal("failed decode removed original")
+			}
+		})
+	}
+}
+func TestExclusiveOutputAndRestoreReuse(t *testing.T) {
+	x, s := tiny(t, []byte("x"))
+	if e := s.claimOutput(); e == nil {
+		t.Fatal("output reused")
+	}
+	ap, e := pack(x, filepath.Join(s.out, "archive.gz"), s)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if e := os.WriteFile(x.RestorePath, []byte("preserved"), 0600); e != nil {
+		t.Fatal(e)
+	}
+	if _, e := restore(ap, x, s); e == nil {
+		t.Fatal("restore overwritten")
+	}
+	got, e := os.ReadFile(x.RestorePath)
+	if e != nil || string(got) != "preserved" {
+		t.Fatal("existing file lost")
+	}
+}
+func TestSourceDriftAfterCommitStopsUnlink(t *testing.T) {
+	x, s := tiny(t, []byte("abc"))
+	s.fault = func(stage string) error {
+		if stage == "preunlink" {
+			return os.WriteFile(x.Original.Path, []byte("xyz"), 0600)
+		}
+		return nil
+	}
+	if e := step(s, x, 0, s.binding); e == nil {
+		t.Fatal("drift accepted")
+	}
+	r := s.r.Records[0]
+	if r.Commit == nil || r.OriginalUnlinkReturned || r.Cleanup != nil {
+		t.Fatal("invalid removal state")
+	}
+	if _, e := os.Lstat(x.Original.Path); e != nil {
+		t.Fatal("changed original removed")
+	}
+	if _, e := os.Lstat(x.RestorePath); e != nil {
+		t.Fatal("verified restore discarded")
+	}
+}
+func TestMtimeDriftRejectedWithSameBytes(t *testing.T) {
+	x, _ := tiny(t, []byte("abc"))
+	when := time.Unix(1, 0)
+	if e := os.Chtimes(x.Original.Path, when, when); e != nil {
+		t.Fatal(e)
+	}
+	if _, e := checkFile(x.Original, rawCap); e == nil {
+		t.Fatal("mtime change accepted")
+	}
+}
+func TestCommitSyncFailurePreventsUnlink(t *testing.T) {
+	x, s := tiny(t, []byte("abc"))
+	n := 0
+	injected := errors.New("owned sync fault")
+	s.fault = func(stage string) error {
+		if stage == "control_file" {
+			n++
+			if n == 2 {
+				return injected
+			}
+		}
+		return nil
+	}
+	// step writes one leaf reservation, then COMMIT. Its failed Sync may leave
+	// a full JSON file, but cannot authorize unlink or imply an acknowledged tail.
+	if e := step(s, x, 0, s.binding); !errors.Is(e, injected) {
+		t.Fatal(e)
+	}
+	if s.r.Records[0].OriginalUnlinkReturned || s.r.CompletedLeaves != 0 {
+		t.Fatal("unacknowledged COMMIT used")
+	}
+	if _, e := os.Lstat(x.Original.Path); e != nil {
+		t.Fatal("original removed")
+	}
+	if _, e := os.Lstat(x.RestorePath); e != nil {
+		t.Fatal("failed restore not preserved")
+	}
+}
+func TestPostUnlinkSyncFailurePreservesRecoverability(t *testing.T) {
+	x, s := tiny(t, []byte("abc"))
+	injected := errors.New("owned sync fault")
+	s.fault = func(stage string) error {
+		if stage == "original_parent" {
+			return injected
+		}
+		return nil
+	}
+	if e := step(s, x, 0, s.binding); !errors.Is(e, injected) {
+		t.Fatal(e)
+	}
+	r := s.r.Records[0]
+	if !r.OriginalUnlinkReturned || r.OriginalParentSyncReturned || r.Commit == nil || r.Cleanup != nil || s.r.Complete || s.r.ReclaimedLogicalBytesLowerBound != nil {
+		t.Fatal("partial unlink became complete")
+	}
+	if _, e := os.Lstat(x.Original.Path); !os.IsNotExist(e) {
+		t.Fatal("fake unlink did not occur")
+	}
+	if _, e := os.Lstat(x.RestorePath); e != nil {
+		t.Fatal("recovery file lost")
+	}
+	if _, e := checkFile(*r.Archive, gzipMax); e != nil {
+		t.Fatal("recovery archive lost")
+	}
+}
+func TestFailedFirstLeafStopsNext(t *testing.T) {
+	x, s := tiny(t, []byte("abc"))
+	y := x
+	y.ID = "second"
+	y.Original.Path = filepath.Join(s.cfg.Root, "second.txt")
+	if e := os.WriteFile(y.Original.Path, []byte("def"), 0600); e != nil {
+		t.Fatal(e)
+	}
+	p, e := hashFile(y.Original.Path, rawCap)
+	if e != nil {
+		t.Fatal(e)
+	}
+	y.Original = p
+	y.RestorePath = filepath.Join(s.cfg.Root, "second-restore.tmp")
+	s.r.Records = append(s.r.Records, record{ID: y.ID, State: "not_started"})
+	injected := errors.New("owned sync fault")
+	s.fault = func(stage string) error {
+		if stage == "original_parent" {
+			return injected
+		}
+		return nil
+	}
+	if e := process(s, selection{Files: []leaf{x, y}}, s.binding); !errors.Is(e, injected) {
+		t.Fatal(e)
+	}
+	if !s.r.Records[0].OriginalUnlinkReturned || s.r.Records[0].Cleanup != nil {
+		t.Fatal("fault not exercised")
+	}
+	if s.r.Records[1].State != "not_started" {
+		t.Fatal("next leaf dispatched")
+	}
+	if _, e := checkFile(y.Original, rawCap); e != nil {
+		t.Fatal("second source changed")
+	}
+	ap, _, _, rp := s.names(1)
+	for _, p := range []string{ap, rp, y.RestorePath} {
+		if _, e := os.Lstat(p); !os.IsNotExist(e) {
+			t.Fatal("later output exists")
+		}
+	}
+}
+func TestSymlinkHardlinkAndSpecialBitsRejected(t *testing.T) {
+	x, s := tiny(t, []byte("abc"))
+	alias := filepath.Join(s.cfg.Root, "alias")
+	if e := os.Symlink(x.Original.Path, alias); e != nil {
+		t.Fatal(e)
+	}
+	if _, e := hashFile(alias, rawCap); e == nil {
+		t.Fatal("symlink accepted")
+	}
+	if e := os.Remove(alias); e != nil {
+		t.Fatal(e)
+	}
+	if e := os.Link(x.Original.Path, alias); e != nil {
+		t.Fatal(e)
+	}
+	if _, e := hashFile(x.Original.Path, rawCap); e == nil {
+		t.Fatal("hardlink accepted")
+	}
+	if _, e := permissions("04600"); e == nil {
+		t.Fatal("special mode accepted")
+	}
+}
+func TestStrictJSONAndPeakAdmission(t *testing.T) {
+	type own struct {
+		N int `json:"n"`
+	}
+	for _, b := range []string{"{\"N\":1}\n", "{\"n\":1,\"n\":1}\n", "{\"n\":1,\"other\":0}\n"} {
+		var x own
+		if e := decode([]byte(b), &x); e == nil {
+			t.Fatal("alias or duplicate accepted")
+		}
+	}
+	x, _ := tiny(t, make([]byte, 16))
+	sel := []leaf{x}
+	base := globalCap - x.Original.Bytes - x.GzipCap - controlCap
+	if _, e := phasePeaks(base, sel); e != nil {
+		t.Fatal("exact cap rejected", e)
+	}
+	if _, e := phasePeaks(base+1, sel); e == nil {
+		t.Fatal("one byte overflow accepted")
+	}
+	large := x
+	large.Original.Bytes = rawCap
+	large.GzipCap = gzipMax
+	if _, e := phasePeaks(globalCap-1533444, []leaf{large}); e == nil {
+		t.Fatal("current maximum does not fit")
+	}
+}
+
+func TestBindingDriftAfterCommitStopsUnlink(t *testing.T) {
+	x, s := tiny(t, []byte("abc"))
+	s.fault = func(stage string) error {
+		if stage == "preunlink" {
+			return os.WriteFile(s.binding.Path, []byte("changed"), 0600)
+		}
+		return nil
+	}
+	if e := step(s, x, 0, s.binding); e == nil {
+		t.Fatal("binding drift accepted")
+	}
+	r := s.r.Records[0]
+	if r.Commit == nil || r.OriginalUnlinkReturned || r.Cleanup != nil {
+		t.Fatal("changed binding authorized unlink")
+	}
+	if _, e := checkFile(x.Original, rawCap); e != nil {
+		t.Fatal("original not preserved")
+	}
+}
+
+func TestArchiveCapPreservesOriginal(t *testing.T) {
+	x, s := tiny(t, []byte("abc"))
+	x.GzipCap = 1
+	p := filepath.Join(s.out, "capped.gz")
+	if _, e := pack(x, p, s); e == nil {
+		t.Fatal("one-byte archive cap accepted")
+	}
+	if _, e := checkFile(x.Original, rawCap); e != nil {
+		t.Fatal("original changed")
+	}
+	if fi, e := os.Lstat(p); e != nil || fi.Size() > 1 {
+		t.Fatal("failed output exceeds cap")
+	}
+}

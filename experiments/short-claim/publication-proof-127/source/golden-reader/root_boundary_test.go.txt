@@ -1,0 +1,82 @@
+package goldenreader
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"testing"
+)
+
+func TestMalformedPinnedAuthorityBeforeRow(t *testing.T) {
+	_, ab, p := freeze(synthetic("verified1", 5, 1, 0, false))
+	var original authority
+	if json.Unmarshal(ab, &original) != nil {
+		t.Fatal("fake setup")
+	}
+	for _, kind := range []string{"parent", "cohort", "binding"} {
+		t.Run(kind, func(t *testing.T) {
+			a := original
+			switch kind {
+			case "parent":
+				a.ParentState = "unrecognized"
+			case "cohort":
+				a.Cohort = "unrecognized"
+			case "binding":
+				a.ParentState = "ambiguous"
+			}
+			b, _ := json.Marshal(a)
+			pp := p
+			pp.AuthoritySHA256 = digest(b)
+			r := &observedReader{}
+			e, err := Load(r, bytes.NewReader(b), pp)
+			if err != ErrShape || r.reads != 0 || e != (Example{}) {
+				t.Fatal("invalid authority consumed row")
+			}
+		})
+	}
+}
+func TestConservativeZeroCohortUnknownPredicate(t *testing.T) {
+	w := synthetic("verified0", 5, 0, 0, false)
+	w.Candidates[0].Predicates = append(w.Candidates[0].Predicates, Predicate{Key: "missing_channel", State: "U"})
+	if _, e := load(w); e != ErrCohort {
+		t.Fatal("draft zero-cohort policy silently relaxed")
+	}
+}
+func TestHeldoutRolesKeepKnownLabelsWithoutGradient(t *testing.T) {
+	for _, role := range []string{"development_validation", "development_calibration"} {
+		w := synthetic("verified1", 5, 1, 0, false)
+		w.Role = role
+		if _, e := load(w); e != ErrMask {
+			t.Fatal("heldout role permitted gradient")
+		}
+		for i := 0; i < w.Count; i++ {
+			w.Candidates[i].Eligible = false
+			w.Candidates[i].SampleWeight = nil
+		}
+		e, err := load(w)
+		if err != nil {
+			t.Fatal(err)
+		}
+		s := e.Supervision()
+		for i := 0; i < w.Count; i++ {
+			if !s.LabelKnown[i] || s.Eligible[i] || s.Weights[i] != 0 {
+				t.Fatal("heldout label or gradient mask")
+			}
+		}
+	}
+}
+func TestPredicateBoundary64Then65(t *testing.T) {
+	w := synthetic("verified1", 5, 1, 0, false)
+	w.Candidates[0].Predicates = nil
+	for i := 0; i < 64; i++ {
+		w.Candidates[0].Predicates = append(w.Candidates[0].Predicates, Predicate{Key: fmt.Sprintf("finite_%02d", i), State: "T", Available: true, Known: true})
+	}
+	e, err := load(w)
+	if err != nil || e.Supervision().PredicateCounts[0] != 64 {
+		t.Fatal("64 predicate boundary")
+	}
+	w.Candidates[0].Predicates = append(w.Candidates[0].Predicates, Predicate{Key: "finite_64", State: "T", Available: true, Known: true})
+	if _, err := load(w); err != ErrBounds {
+		t.Fatal("65 predicate bound")
+	}
+}

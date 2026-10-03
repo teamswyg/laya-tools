@@ -1,0 +1,347 @@
+//go:build darwin || linux
+
+package main
+
+import (
+	"io"
+	"os"
+	"path/filepath"
+	"strconv"
+)
+
+type session struct {
+	out     string
+	used    int64
+	cfg     config
+	binding pin
+	r       result
+	// Source-only synthetic injection; production leaves this nil.
+	fault func(stage string) error
+}
+
+func (s *session) trip(stage string) error {
+	if s.fault != nil {
+		return s.fault(stage)
+	}
+	return nil
+}
+func (s *session) syncFile(f *os.File, stage string) error {
+	if e := s.trip(stage); e != nil {
+		return e
+	}
+	return f.Sync()
+}
+func (s *session) syncDir(p, stage string) error {
+	if e := s.trip(stage); e != nil {
+		return e
+	}
+	return syncDirectory(p)
+}
+func (s *session) writeControl(path string, v any) (pin, error) {
+	b, e := canonical(v)
+	if e != nil || len(b) > int(metaCap) || int64(len(b)) > controlCap-2048-s.used {
+		return pin{}, errCap
+	}
+	// Charge the full reservation even if a partial write subsequently fails.
+	s.used += int64(len(b))
+	if e := noSymlink(filepath.Dir(path)); e != nil {
+		return pin{}, e
+	}
+	f, e := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if e != nil {
+		return pin{}, e
+	}
+	n, we := f.Write(b)
+	if we == nil && n != len(b) {
+		we = io.ErrShortWrite
+	}
+	if we == nil {
+		we = s.syncFile(f, "control_file")
+	}
+	ce := f.Close()
+	if we != nil {
+		return pin{}, we
+	}
+	if ce != nil {
+		return pin{}, ce
+	}
+	if e := s.syncDir(filepath.Dir(path), "control_parent"); e != nil {
+		return pin{}, e
+	}
+	return pin{path, int64(len(b)), sha(b)}, nil
+}
+func (s *session) claimOutput() error {
+	if e := os.Mkdir(s.out, 0700); e != nil {
+		return e
+	}
+	return s.syncDir(filepath.Dir(s.out), "output_parent")
+}
+func (s *session) names(i int) (archive, commit, cleanup, reserve string) {
+	n := strconv.Itoa(i)
+	return filepath.Join(s.out, "ARCHIVE."+n+".gz"), filepath.Join(s.out, "COMMIT."+n+".json"), filepath.Join(s.out, "CLEANUP-ACK."+n+".json"), filepath.Join(s.out, "RESERVATION."+n+".json")
+}
+
+type recoveryCommit struct {
+	Schema                         string  `json:"schema"`
+	Index                          int     `json:"index"`
+	ID                             string  `json:"id"`
+	Config                         pin     `json:"config"`
+	Selection                      pin     `json:"selection"`
+	Admission                      pin     `json:"admission"`
+	PriorAccount                   pin     `json:"prior_account"`
+	Original                       filePin `json:"original"`
+	Archive                        filePin `json:"archive"`
+	Restored                       filePin `json:"restored"`
+	FullSingleGzipEOFCRCISIZE      bool    `json:"full_single_gzip_eof_crc_isize"`
+	ActualRestoreBytesSHAModeMatch bool    `json:"actual_restore_bytes_sha_mode_match"`
+	FileAndParentSyncReturned      bool    `json:"file_and_parent_sync_returned"`
+	BeforeOriginalUnlink           bool    `json:"before_original_unlink"`
+}
+
+func step(s *session, x leaf, i int, configPin pin) error {
+	apath, cpath, upath, rpath := s.names(i)
+	r := &s.r.Records[i]
+	r.State = "reserved"
+	if _, e := s.writeControl(rpath, struct {
+		Schema     string `json:"schema"`
+		Selection  pin    `json:"selection"`
+		Index      int    `json:"index"`
+		ID         string `json:"id"`
+		ArchiveCap int64  `json:"archive_cap_bytes"`
+		RestoreCap int64  `json:"restore_payload_bytes"`
+	}{"riido-leaf-reservation-v1", s.cfg.Selection, i, x.ID, x.GzipCap, x.Original.Bytes}); e != nil {
+		return e
+	}
+	archive, e := pack(x, apath, s)
+	if e != nil {
+		return e
+	}
+	r.Archive = &archive
+	restored, e := restore(archive, x, s)
+	if e != nil {
+		return e
+	}
+	r.Restored = &restored
+	c := recoveryCommit{"riido-leaf-recoverable-commit-v1", i, x.ID, configPin, s.cfg.Selection, s.cfg.Admission, s.cfg.PriorAccount, x.Original, archive, restored, true, true, true, true}
+	cp, e := s.writeControl(cpath, c)
+	if e != nil {
+		return e
+	}
+	r.Commit = &cp
+	r.State = "committed_preunlink"
+	if e := s.trip("preunlink"); e != nil {
+		return e
+	}
+	for _, p := range []pin{configPin, s.cfg.Selection, s.cfg.Admission, s.cfg.PriorAccount} {
+		if _, e := readPin(p); e != nil {
+			return e
+		}
+	}
+	if _, e := readPin(cp); e != nil {
+		return e
+	}
+	if _, e := checkFile(archive, gzipMax); e != nil {
+		return e
+	}
+	if _, e := checkFile(restored, rawCap); e != nil {
+		return e
+	}
+	if _, e := checkFile(x.Original, rawCap); e != nil {
+		return e
+	}
+	if e := noSymlink(x.Original.Path); e != nil {
+		return e
+	}
+	last, e := os.Lstat(x.Original.Path)
+	if e != nil || last.Size() != x.Original.Bytes || !same(last, x.Original.physical) {
+		return errChanged
+	}
+	if e := s.trip("original_unlink"); e != nil {
+		return e
+	}
+	if e := os.Remove(x.Original.Path); e != nil {
+		return e
+	}
+	r.OriginalUnlinkReturned = true
+	r.State = "unlinked_parent_sync_pending"
+	if e := s.syncDir(filepath.Dir(x.Original.Path), "original_parent"); e != nil {
+		return e
+	}
+	r.OriginalParentSyncReturned = true
+	r.State = "original_removed_restore_retained"
+	// Restoration must still be this exact verified inode and content before
+	// temporary cleanup. Never remove a replacement or use RemoveAll.
+	if _, e := checkFile(restored, rawCap); e != nil {
+		return e
+	}
+	if e := s.trip("restore_unlink"); e != nil {
+		return e
+	}
+	if e := os.Remove(restored.Path); e != nil {
+		return e
+	}
+	if e := s.syncDir(filepath.Dir(restored.Path), "cleanup_parent"); e != nil {
+		return e
+	}
+	if _, e := os.Lstat(x.Original.Path); !os.IsNotExist(e) {
+		return errChanged
+	}
+	if _, e := os.Lstat(restored.Path); !os.IsNotExist(e) {
+		return errChanged
+	}
+	r.RestoreCleanupSyncReturned = true
+	if _, e := checkFile(archive, gzipMax); e != nil {
+		return e
+	}
+	if _, e := readPin(cp); e != nil {
+		return e
+	}
+	up, e := s.writeControl(upath, struct {
+		Schema                      string  `json:"schema"`
+		Commit                      pin     `json:"commit"`
+		Archive                     filePin `json:"archive"`
+		OriginalRemovedParentSynced bool    `json:"original_removed_parent_synced"`
+		RestoreRemovedParentSynced  bool    `json:"restore_removed_parent_synced"`
+	}{"riido-leaf-cleanup-ack-v1", cp, archive, true, true})
+	if e != nil {
+		return e
+	}
+	r.Cleanup = &up
+	r.State = "cleanup_acknowledged"
+	s.r.CompletedLeaves++
+	return nil
+}
+func process(s *session, sel selection, configPin pin) error {
+	for i, x := range sel.Files {
+		// No implicit resumption. The first failure returns before the next leaf.
+		if _, e := readPin(configPin); e != nil {
+			return e
+		}
+		if _, e := readPin(s.cfg.Selection); e != nil {
+			return e
+		}
+		if _, e := readPin(s.cfg.Admission); e != nil {
+			return e
+		}
+		if e := step(s, x, i, configPin); e != nil {
+			return e
+		}
+	}
+	return nil
+}
+func run(path, hash string) (out result, runErr error) {
+	out = result{Schema: "riido-leaf-archive-result-v1"}
+	if !validSHA(hash) {
+		out.Failure = "config_pin"
+		return out, errContract
+	}
+	cf, e := hashFile(path, metaCap)
+	if e != nil || cf.SHA256 != hash {
+		out.Failure = "config_pin"
+		return out, errChanged
+	}
+	cb, e := readPin(cf.pin)
+	if e != nil {
+		out.Failure = "config_pin"
+		return out, e
+	}
+	var c config
+	if e := decode(cb, &c); e != nil {
+		out.Failure = "config_canonical"
+		return out, e
+	}
+	if !abs(c.Root) {
+		out.Failure = "root"
+		return out, errContract
+	}
+	sb, e := readPin(c.Selection)
+	if e != nil {
+		out.Failure = "selection_pin"
+		return out, e
+	}
+	var sel selection
+	if e := decode(sb, &sel); e != nil {
+		out.Failure = "selection_canonical"
+		return out, e
+	}
+	if e := validSelection(sel, c.Root); e != nil {
+		out.Failure = "selection_contract"
+		return out, e
+	}
+	ab, e := readPin(c.Admission)
+	if e != nil {
+		out.Failure = "admission_pin"
+		return out, e
+	}
+	var a admission
+	if e := decode(ab, &a); e != nil {
+		out.Failure = "admission_canonical"
+		return out, e
+	}
+	if e := checkAdmission(c, a, sel); e != nil {
+		out.Failure = "binding_or_peak"
+		return out, e
+	}
+	if e := checkPaths(c, a, sel, path); e != nil {
+		out.Failure = "paths"
+		return out, e
+	}
+	for _, x := range sel.Files {
+		if _, e := checkFile(x.Original, rawCap); e != nil {
+			out.Failure = "original_pin"
+			return out, e
+		}
+	}
+	s := &session{out: c.OutputDir, cfg: c, binding: cf.pin, r: out}
+	s.r.Records = make([]record, len(sel.Files))
+	for i, x := range sel.Files {
+		s.r.Records[i] = record{ID: x.ID, State: "not_started"}
+	}
+	if e := s.claimOutput(); e != nil {
+		out.Failure = "exclusive_output_parent"
+		return out, e
+	}
+	defer func() {
+		if runErr != nil {
+			s.r.Complete = false
+			s.r.ReclaimedLogicalBytesLowerBound = nil
+			s.r.Final = nil
+			if s.r.Failure == "" {
+				s.r.Failure = "stopped_preserve_partial"
+			}
+			// Best effort once. Failure to write this is not retried or cleaned.
+			s.writeControl(filepath.Join(s.out, "FAILURE.json"), s.r)
+		}
+		out = s.r
+	}()
+	peaks, _ := phasePeaks(a.CurrentRetainedBytes, sel.Files)
+	if _, e := s.writeControl(filepath.Join(s.out, "RESERVATION.json"), struct {
+		Schema     string  `json:"schema"`
+		Config     pin     `json:"config"`
+		Selection  pin     `json:"selection"`
+		Admission  pin     `json:"admission"`
+		Cap        int64   `json:"cap_bytes"`
+		Controls   int64   `json:"new_controls_bytes"`
+		PhasePeaks []int64 `json:"conservative_phase_peaks"`
+	}{"riido-leaf-exclusive-reservation-v1", cf.pin, c.Selection, c.Admission, globalCap, controlCap, peaks}); e != nil {
+		return out, e
+	}
+	if e := process(s, sel, cf.pin); e != nil {
+		return out, e
+	}
+	net := int64(-controlCap)
+	for i, x := range sel.Files {
+		if s.r.Records[i].Cleanup == nil || s.r.Records[i].Archive == nil {
+			return out, errContract
+		}
+		net += x.Original.Bytes - s.r.Records[i].Archive.Bytes
+	}
+	s.r.Complete = true
+	s.r.ReclaimedLogicalBytesLowerBound = &net
+	final, e := s.writeControl(filepath.Join(s.out, "FINAL.json"), s.r)
+	if e != nil {
+		return out, e
+	}
+	s.r.Final = &final
+	return s.r, nil
+}
