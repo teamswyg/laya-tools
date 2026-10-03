@@ -1,5 +1,7 @@
 # A small Go reader for public development rows
 
+Current finite development data has37 requests and108 labels in the [immutable HF37 release](https://huggingface.co/datasets/JooYoon/riidolaya-shortclaim-next60-development/tree/next60-37-finite-v1). The original reader API below is unchanged. See the separate [Cohort API](COHORT.en.md) for five/eight candidates, unknowns, ambiguity and usage masks. It performs no automatic qualification or training.
+
 `pkg/shortclaimdata` separates one public development request into model text, supervision and source bookkeeping. It simplifies future training code and reduces the chance of accidentally turning labels or source IDs into text features.
 
 - `Example.Input()` returns the existing `shortclaim.ValidatedInput`: checked and normalized request/candidate text. Candidate IDs remain bookkeeping.
@@ -26,7 +28,9 @@ Supply exactly one JSON object, at most 16 KiB, with 1–8 candidates. For JSONL
 
 The reader owns immutable strings and fixed arrays. Labels and weights occupy separate arrays, and accessors return value copies. Editing a returned array cannot change the original example. The reader retains no shared mutable maps/slices and uses no locks.
 
-## What has been checked
+## Historical reader validation
+
+The figures and publication statuses below describe those earlier checkpoints. Use the links above for finite37 and the separately versioned cohort input.
 
 Local race tests on Go 1.27.1 passed 46 test/subtest records with zero failures/skips; vet also passed. A separate source author reviewed the implementation and found no blocker. The [validation record](../../experiments/short-claim/publication-proof-111/READER-LOCAL-QA.v1.json) separates these local checks from the change's CI.
 

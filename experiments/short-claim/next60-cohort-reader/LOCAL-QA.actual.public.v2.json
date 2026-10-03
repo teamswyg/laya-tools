@@ -1,0 +1,291 @@
+{
+  "schema": "riido-cohort-reader-root-local-qa-v2",
+  "state": "local_checks_passed_CI_pending",
+  "toolchain": "Go1.27.1",
+  "platform": "darwin/arm64",
+  "scope": "Owned synthetic cohort API declarations and existing project tests; no new corpus observation, label, role allocation or trained research model. Existing repository tests may exercise synthetic Fit/model fixtures.",
+  "checks": [
+    {
+      "name": "affected_race",
+      "arguments": [
+        "test",
+        "-race",
+        "-count=1",
+        "-json",
+        "./pkg/shortclaimdata",
+        "./internal/claimfit"
+      ],
+      "compat_panicnil": false,
+      "exit_code": 0,
+      "elapsed_ms": 2079,
+      "stdout_bytes": 141406,
+      "stdout_sha256": "2f9c575bbff9aa68ad4d24461e4963f016832b943dda35dd41268a4b1269fe38",
+      "stderr_bytes": 0,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "top_level_passes": 36,
+      "subtest_passes": 114,
+      "skipped_tests": 0,
+      "package_passes": 2,
+      "failed_events": 0
+    },
+    {
+      "name": "affected_panicnil_compat",
+      "arguments": [
+        "test",
+        "-race",
+        "-count=1",
+        "-json",
+        "./pkg/shortclaimdata",
+        "./internal/claimfit"
+      ],
+      "compat_panicnil": true,
+      "exit_code": 0,
+      "elapsed_ms": 1566,
+      "stdout_bytes": 141412,
+      "stdout_sha256": "dd95dcd58b548d2187f7558c412b50f0feb06dee4fdea952a4f4596c4682af81",
+      "stderr_bytes": 0,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "top_level_passes": 36,
+      "subtest_passes": 114,
+      "skipped_tests": 0,
+      "package_passes": 2,
+      "failed_events": 0
+    },
+    {
+      "name": "cohort_benchmarks",
+      "arguments": [
+        "test",
+        "-run=^$",
+        "-bench=Benchmark(CohortRow|ProjectCohort)$",
+        "-benchmem",
+        "-benchtime=300ms",
+        "-count=3",
+        "./pkg/shortclaimdata",
+        "./internal/claimfit"
+      ],
+      "compat_panicnil": false,
+      "exit_code": 0,
+      "elapsed_ms": 6120,
+      "stdout_bytes": 1931,
+      "stdout_sha256": "80c1fd0dd5cf3c0d56cccc103199f4dff2e0b7a6eb23f5389da7edddbd9899f1",
+      "stderr_bytes": 0,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "benchmarks": [
+        {
+          "name": "BenchmarkCohortRow/candidates_5-14",
+          "iterations": 34653,
+          "ns_per_op": 8699,
+          "bytes_per_op": 11736,
+          "allocs_per_op": 215,
+          "MB_per_second": 169.68
+        },
+        {
+          "name": "BenchmarkCohortRow/candidates_5-14",
+          "iterations": 41259,
+          "ns_per_op": 8789,
+          "bytes_per_op": 11736,
+          "allocs_per_op": 215,
+          "MB_per_second": 167.94
+        },
+        {
+          "name": "BenchmarkCohortRow/candidates_5-14",
+          "iterations": 40905,
+          "ns_per_op": 8756,
+          "bytes_per_op": 11736,
+          "allocs_per_op": 215,
+          "MB_per_second": 168.57
+        },
+        {
+          "name": "BenchmarkCohortRow/candidates_8-14",
+          "iterations": 31166,
+          "ns_per_op": 11484,
+          "bytes_per_op": 15250,
+          "allocs_per_op": 291,
+          "MB_per_second": 166.4
+        },
+        {
+          "name": "BenchmarkCohortRow/candidates_8-14",
+          "iterations": 31336,
+          "ns_per_op": 11460,
+          "bytes_per_op": 15250,
+          "allocs_per_op": 291,
+          "MB_per_second": 166.75
+        },
+        {
+          "name": "BenchmarkCohortRow/candidates_8-14",
+          "iterations": 31482,
+          "ns_per_op": 11541,
+          "bytes_per_op": 15250,
+          "allocs_per_op": 291,
+          "MB_per_second": 165.58
+        },
+        {
+          "name": "BenchmarkProjectCohort/audit-only-zero-selected-14",
+          "iterations": 67014,
+          "ns_per_op": 5447,
+          "bytes_per_op": 0,
+          "allocs_per_op": 0,
+          "project_owned_payload_bytes": 0
+        },
+        {
+          "name": "BenchmarkProjectCohort/audit-only-zero-selected-14",
+          "iterations": 64351,
+          "ns_per_op": 5320,
+          "bytes_per_op": 0,
+          "allocs_per_op": 0,
+          "project_owned_payload_bytes": 0
+        },
+        {
+          "name": "BenchmarkProjectCohort/audit-only-zero-selected-14",
+          "iterations": 66340,
+          "ns_per_op": 5334,
+          "bytes_per_op": 0,
+          "allocs_per_op": 0,
+          "project_owned_payload_bytes": 0
+        },
+        {
+          "name": "BenchmarkProjectCohort/known-five-train-eight-validation-14",
+          "iterations": 4375,
+          "ns_per_op": 79694,
+          "bytes_per_op": 63768,
+          "allocs_per_op": 592,
+          "project_owned_payload_bytes": 13477
+        },
+        {
+          "name": "BenchmarkProjectCohort/known-five-train-eight-validation-14",
+          "iterations": 4508,
+          "ns_per_op": 79517,
+          "bytes_per_op": 63768,
+          "allocs_per_op": 592,
+          "project_owned_payload_bytes": 13477
+        },
+        {
+          "name": "BenchmarkProjectCohort/known-five-train-eight-validation-14",
+          "iterations": 4528,
+          "ns_per_op": 79073,
+          "bytes_per_op": 63768,
+          "allocs_per_op": 592,
+          "project_owned_payload_bytes": 13477
+        }
+      ]
+    },
+    {
+      "name": "repository_race",
+      "arguments": [
+        "test",
+        "-race",
+        "-timeout=20m",
+        "./..."
+      ],
+      "compat_panicnil": false,
+      "exit_code": 0,
+      "elapsed_ms": 1957,
+      "stdout_bytes": 7943,
+      "stdout_sha256": "f227e8b7d9cb8e61d690948be1e885dec043e1cd8c0a983c79732786e911f14c",
+      "stderr_bytes": 0,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "repository_vet",
+      "arguments": [
+        "vet",
+        "./..."
+      ],
+      "compat_panicnil": false,
+      "exit_code": 0,
+      "elapsed_ms": 367,
+      "stdout_bytes": 0,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_bytes": 0,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "sources": [
+    {
+      "path": "pkg/shortclaimdata/cohort.go",
+      "bytes": 10581,
+      "sha256": "f6eea93d4cf578c01acb0ce464f61ec5da06f57669907d1cec913da0a4a1257e"
+    },
+    {
+      "path": "pkg/shortclaimdata/cohort_test.go",
+      "bytes": 18878,
+      "sha256": "dc33d8ab3b3bc93eee9ebe59607cfcab323a4d895969b1c0861b8811e68b4e50"
+    },
+    {
+      "path": "internal/claimfit/cohort.go",
+      "bytes": 3960,
+      "sha256": "366340004307cfddd8bcdea15edf99856e955d184ad970f5e0eb2b39ef0c6545"
+    },
+    {
+      "path": "internal/claimfit/cohort_test.go",
+      "bytes": 17343,
+      "sha256": "d3dfe839dac661f9e9dec2306dffe61152b2d15c7986c643ecb9dfe95d7c665b"
+    },
+    {
+      "path": "pkg/shortclaimdata/COHORT.ko.md",
+      "bytes": 6584,
+      "sha256": "2b8a2be60788191a929b6c8ad0995174a5e78b9e120ae0614dbd2721928047a4"
+    },
+    {
+      "path": "pkg/shortclaimdata/COHORT.en.md",
+      "bytes": 5751,
+      "sha256": "1e07285d76f9e1e9a8140394e9f057ba22320dadc148c6fbe1e76d2dda3099c3"
+    }
+  ],
+  "sources_unchanged_during_checks": true,
+  "legacy_preserved": [
+    {
+      "path": "pkg/shortclaimdata/reader.go",
+      "bytes": 11642,
+      "sha256": "08fc06419acaf22a07249c736f5dfb0b3aa8c8468a9735936048ca5bbcb89bae",
+      "matches_prior_HEAD": true
+    },
+    {
+      "path": "pkg/shortclaimdata/reader_test.go",
+      "bytes": 16638,
+      "sha256": "d163c45f46d33849c6d835342ae1ff5b82336d1588cfa58d0114c2049fb9697b",
+      "matches_prior_HEAD": true
+    },
+    {
+      "path": "internal/claimfit/projection.go",
+      "bytes": 13216,
+      "sha256": "2e6dcc5e53d50ca315a59113c3493c8e08a2492979c5817b82563dd7e354e316",
+      "matches_prior_HEAD": true
+    },
+    {
+      "path": "experiments/short-claim/next60-development37-bias-audit/results.json",
+      "bytes": 23506,
+      "sha256": "a18ba835d609320aa1a7c953f555dfc844d3809f3b076c891687de9bfc6f5924",
+      "matches_prior_HEAD": true
+    },
+    {
+      "path": "experiments/short-claim/next60-development37-bias-audit/source/main.go.txt",
+      "bytes": 26445,
+      "sha256": "706a0842054a256883eda94a2eac7687b55a6c3f27938493184f2b07b771990b",
+      "matches_prior_HEAD": true
+    }
+  ],
+  "resource_before": {
+    "current_bytes": 536834119,
+    "remaining_bytes": 36793,
+    "within_cap": true
+  },
+  "resource_after": {
+    "current_bytes": 536834119,
+    "remaining_bytes": 36793,
+    "within_cap": true
+  },
+  "new_independent_corpus_parents": 0,
+  "new_corpus_labels": 0,
+  "new_corpus_training_runs": 0,
+  "new_corpus_model_inferences": 0,
+  "protected_evaluations": 0,
+  "opaque_bindings_are_semantic_proof": false,
+  "whole_work_gain_claim": false,
+  "limitations": [
+    "Benchmark timing and allocation are this Go API only, not native/GPU/RSS or end-to-end work savings.",
+    "Source/evidence/role hashes are opaque external bindings; no transitive graph or semantic evidence interpretation.",
+    "Only fully-known selected parents enter existing projection; calibration and zero-selected remain audit only.",
+    "CI, formatting and redacted secret scan are separate checks."
+  ]
+}
