@@ -1,0 +1,230 @@
+// Copyright 2026 teamswyg. SPDX-License-Identifier: Apache-2.0
+// Owned synthetic controls only; no actual37 data or original source execution.
+package main
+
+import (
+	"encoding/json"
+	"math"
+	"os"
+	"strings"
+	"testing"
+
+	"github.com/teamswyg/laya-tools/pkg/shortclaim"
+)
+
+func TestOversizedOutputPersistsFailureCounters(t *testing.T) {
+	r := newReport()
+	r.Scope = strings.Repeat("x", maxOutput)
+	r.Counts = counts{ReaderAttempts: 37, ReaderReturns: 37, ReaderMatches: 37, BaselinesAttempts: 247, BaselinesReturns: 247, ValidatedRankings: 988, ActiveScores: 2928, Primary: 37, Permuted: 210}
+	r.Failure = "synthetic_computation_failure"
+	r.AllCaseDigest = strings.Repeat("a", 64)
+	f, err := os.CreateTemp(t.TempDir(), "failed-report-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	name := f.Name()
+	if err = writeReport(f, name, r); errorCode(err) != "report_bound" {
+		t.Fatal("failure was replaced by success", err)
+	}
+	raw, err := os.ReadFile(name)
+	if err != nil || len(raw) == 0 || len(raw) > maxOutput {
+		t.Fatal("reserved output lost bounded counters", err)
+	}
+	var got struct {
+		State              string
+		Failure            string
+		ComputationFailure string `json:"computation_failure"`
+		Digest             string `json:"all_case_rank_matrix_sha256"`
+		DigestScope        string `json:"matrix_digest_scope"`
+		Counts             counts
+		FullReportKept     bool `json:"full_report_kept"`
+		TrainingReady      bool `json:"training_ready"`
+	}
+	if err = json.Unmarshal(raw, &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.State != "failed_partial_kept" || got.Failure != "report_bound" || got.ComputationFailure != r.Failure || got.Digest != r.AllCaseDigest || got.DigestScope != "complete247case_matrix" || got.Counts != r.Counts || got.FullReportKept || got.TrainingReady {
+		t.Fatal("incomplete output misreported or counters changed")
+	}
+}
+
+func fakeLoaded(t *testing.T) loaded {
+	t.Helper()
+	in, e := shortclaim.ValidateInput(shortclaim.Input{Schema: shortclaim.Schema, Request: "Retain the bounded value.", Provenance: "owned-synthetic-control", Candidates: []shortclaim.Candidate{{ID: "zeta", Text: "Retain the bounded value."}, {ID: "alpha", Text: "Return another value."}, {ID: "middle", Text: "Remove the value."}}})
+	if e != nil {
+		t.Fatal(e)
+	}
+	return loaded{Input: in.Prepared(), States: [3]uint8{stateF, stateT, stateF}, Costs: [3]uint64{1, 1, 1}}
+}
+
+func TestPermutationIdentityAndSupervisionTravelTogether(t *testing.T) {
+	original := fakeLoaded(t)
+	maps, k, e := permutations(3)
+	if e != nil || k != 6 {
+		t.Fatal(e)
+	}
+	var seen [6][3]uint8
+	for i := 0; i < k; i++ {
+		p, states, costs, e := permute(original, maps[i])
+		if e != nil {
+			t.Fatal(e)
+		}
+		if e = shortclaim.ValidatePrepared(p); e != nil {
+			t.Fatal(e)
+		}
+		for j := 0; j < 3; j++ {
+			selected := int(maps[i][j])
+			if p.Candidates[j] != original.Input.Candidates[selected] || states[j] != original.States[selected] || costs[j] != original.Costs[selected] {
+				t.Fatal("text/supervision misalignment")
+			}
+		}
+		for j := 0; j < i; j++ {
+			if seen[j] == maps[i] {
+				t.Fatal("duplicate permutation")
+			}
+		}
+		seen[i] = maps[i]
+	}
+	identity, states, _, e := permute(original, maps[0])
+	if e != nil || identity != original.Input || states != original.States {
+		t.Fatal("identity changed source")
+	}
+	p, states, costs, e := permute(original, [3]uint8{2, 0, 1})
+	if e != nil || p.Candidates[2].ID != "alpha" || states != ([3]uint8{stateF, stateF, stateT}) {
+		t.Fatal("expected selected positive not at display2")
+	}
+	v, e := visitOrder([3]uint8{0, 1, 2}, states, costs, 3)
+	if e != nil || v.Checks != 3 || v.Cost != 3 || !v.PositiveFound {
+		t.Fatal("selected-index label mistaken for display label")
+	}
+	if original.States != ([3]uint8{stateF, stateT, stateF}) || original.Input.Candidates[0].ID != "zeta" {
+		t.Fatal("source mutated")
+	}
+}
+
+func TestTwoCandidateIdentityAndPadding(t *testing.T) {
+	maps, k, e := permutations(2)
+	if e != nil || k != 2 || maps[0] != ([3]uint8{0, 1, 0}) || maps[1] != ([3]uint8{1, 0, 0}) {
+		t.Fatal("two candidate permutation set")
+	}
+	original := fakeLoaded(t)
+	original.Input.Count = 2
+	original.Input.Candidates[2] = shortclaim.PreparedCandidate{}
+	original.States[2] = 0
+	original.Costs[2] = 0
+	p, states, costs, e := permute(original, maps[1])
+	if e != nil {
+		t.Fatal(e)
+	}
+	if p.Candidates[0].ID != "alpha" || p.Candidates[2] != (shortclaim.PreparedCandidate{}) || states != ([3]uint8{stateT, stateF, 0}) || costs != ([3]uint64{1, 1, 0}) {
+		t.Fatal("two-candidate tail or labels corrupted")
+	}
+	if _, _, _, e = permute(original, [3]uint8{1, 0, 2}); e == nil {
+		t.Fatal("active unused map accepted")
+	}
+	if _, _, _, e = permute(original, [3]uint8{0, 0, 0}); e == nil {
+		t.Fatal("missing candidate accepted")
+	}
+}
+
+func TestRankingRejectsLocalScoreIndexMisalignment(t *testing.T) {
+	good := shortclaim.Ranking{Kind: shortclaim.BM25Kind, Count: 3, Order: [8]int{1, 0, 2}, Scores: [8]float64{0.2, 0.9, 0.1}}
+	order, _, e := checkRanking(good, shortclaim.BM25Kind, 3)
+	if e != nil || order != ([3]uint8{1, 0, 2}) {
+		t.Fatal(e)
+	}
+	// This seeded defect treats score rank as candidate index: finite/permutation
+	// checks alone would pass, but the actual score/order relation is wrong.
+	wrong := good
+	wrong.Order = [8]int{0, 1, 2}
+	if _, _, e = checkRanking(wrong, shortclaim.BM25Kind, 3); errorCode(e) != "ranking_score_order_alignment" {
+		t.Fatal("misaligned finite ranking accepted")
+	}
+	wrong = good
+	wrong.Scores[0] = math.NaN()
+	if _, _, e = checkRanking(wrong, shortclaim.BM25Kind, 3); e == nil {
+		t.Fatal("nonfinite score accepted")
+	}
+	wrong = good
+	wrong.Order[2] = 1
+	if _, _, e = checkRanking(wrong, shortclaim.BM25Kind, 3); e == nil {
+		t.Fatal("candidate dropped/duplicated")
+	}
+}
+
+func TestStableTieUsesCurrentDisplayRatherThanID(t *testing.T) {
+	r := shortclaim.Ranking{Kind: shortclaim.FixedOrderKind, Count: 3, Order: [8]int{0, 1, 2}}
+	order, ties, e := checkRanking(r, shortclaim.FixedOrderKind, 3)
+	if e != nil || ties != 3 {
+		t.Fatal(e)
+	}
+	in := fakeLoaded(t)
+	v, e := visitOrder(order, in.States, in.Costs, 3)
+	if e != nil || v.Checks != 2 {
+		t.Fatal("equal scores promoted alphabetically smallest ID")
+	}
+	r.Order = [8]int{1, 0, 2}
+	if _, _, e = checkRanking(r, shortclaim.FixedOrderKind, 3); e == nil {
+		t.Fatal("unstable display tie accepted")
+	}
+}
+
+func TestCounterexampleAndUnknownDoNotBecomeTheSameVerdict(t *testing.T) {
+	v, e := visitOrder([3]uint8{0, 1, 2}, [3]uint8{stateF, stateU, stateT}, [3]uint64{2, 5, 11}, 3)
+	if e != nil || v.Cost != 18 || v.Checks != 3 || v.UnknownSeen != 1 || !v.PositiveFound || !v.Resolved {
+		t.Fatal("unknown wrongly stopped verification or lost declared proxy cost")
+	}
+	unknown, e := visitOrder([3]uint8{0, 1, 0}, [3]uint8{stateU, stateF, 0}, [3]uint64{1, 1, 0}, 2)
+	if e != nil || unknown.PositiveFound || unknown.Resolved || unknown.UnknownSeen != 1 || unknown.Cost != 2 {
+		t.Fatal("unknown-only possibility treated as proved no-answer")
+	}
+	rejected, e := visitOrder([3]uint8{0, 1, 0}, [3]uint8{stateF, stateF, 0}, [3]uint64{1, 1, 0}, 2)
+	if e != nil || rejected.PositiveFound || !rejected.Resolved || rejected.Cost != 2 {
+		t.Fatal("known no-answer costs pruned")
+	}
+	// A candidate qualified F despite unknown predicates is supplied as stateF;
+	// no predicate-level U is read, relabelled, or executed by this evaluator.
+}
+
+func TestParentMacroAndSingleGlobalComparator(t *testing.T) {
+	// One two-candidate parent mean2 plus one three-candidate parent mean1.
+	// Their pooled10/8=1.25 must not replace equal-parent mean(2+1)/2=1.5.
+	two, e := macroSixths(4, 2)
+	if e != nil {
+		t.Fatal(e)
+	}
+	three, e := macroSixths(6, 6)
+	if e != nil || two+three != 18 {
+		t.Fatal("parent weighting changed")
+	}
+	if float64(two+three)/12 != 1.5 {
+		t.Fatal("macro denominator")
+	}
+	if _, e = macroSixths(4, 4); e == nil {
+		t.Fatal("new variant denominator accepted")
+	}
+	if globalBest([4]int{40, 39, 39, 42}) != 1 {
+		t.Fatal("global stable comparator tie moved")
+	}
+	// Separate globally fixed controls cost24 and24 across these parents. A
+	// posthoc per-parent selector would cost18 and is expressly not a baseline.
+	if globalBest([4]int{6 + 18, 12 + 12, 30, 30}) != 0 {
+		t.Fatal("per-parent oracle substituted as fixed control")
+	}
+}
+
+func TestReportBoundAndPinFailBeforeReaderRanking(t *testing.T) {
+	r := newReport()
+	r.Scope = strings.Repeat("x", maxOutput)
+	if _, e := boundedReport(r); errorCode(e) != "report_bound" {
+		t.Fatal("oversized report accepted")
+	}
+	calls := 0
+	r, e := runSaved([]byte("{}\n"), func(shortclaim.Prepared) ([4]shortclaim.Ranking, error) { calls++; return [4]shortclaim.Ranking{}, nil })
+	if errorCode(e) != "dataset_pin" || calls != 0 || r.Counts.ReaderAttempts != 0 || r.Counts.BaselinesAttempts != 0 || r.State != "failed_partial_kept" {
+		t.Fatal("pin failure entered evaluator")
+	}
+	if r.WholeWorkObserved || r.WholeWork5Claimed || r.TrainingReady || r.Model != 0 || r.Fit != 0 {
+		t.Fatal("proxy turned into utility/Fit authority")
+	}
+}

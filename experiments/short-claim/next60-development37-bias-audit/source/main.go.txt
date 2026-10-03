@@ -1,0 +1,716 @@
+// Copyright 2026 teamswyg. SPDX-License-Identifier: Apache-2.0
+// Maintainer-only saved supervision diagnostic; no source verifier or model.
+package main
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/binary"
+	"encoding/hex"
+	"encoding/json"
+	"hash"
+	"io"
+	"math"
+	"os"
+	"path/filepath"
+	"runtime"
+	"runtime/debug"
+	"syscall"
+
+	"github.com/teamswyg/laya-tools/pkg/shortclaim"
+	"github.com/teamswyg/laya-tools/pkg/shortclaimdata"
+)
+
+const dataBytes = 51442
+const dataSHA = "69b5d20606135f980cffa62adf0fd37e4333e778889c2fda28043ffe066ebcf0"
+const maxOutput = 32768
+const parentCount = 37
+const permutationCount = 210
+const caseCount = 247
+const rankCount = 988
+const scoreCount = 2928
+
+var kinds = [4]string{shortclaim.FixedOrderKind, shortclaim.BM25Kind, shortclaim.LexicalOrderedKind, shortclaim.NarrowRuleKind}
+var parentIDs = [parentCount]string{
+	"next60-pflag-native-ipnet", "next60-mapstructure-native-or", "next60-humanize-precise-ftoa",
+	"next60-humanize-strict-comma", "next60-mapstructure-key-collision", "next60-pflag-map-snapshot",
+	"next60-humanize-fractional-bytes", "next60-go53-pflag-annotation-ownership", "next60-go53-pflag-bounded-count",
+	"next60-go53-pflag-single-assignment", "next60-go53-pflag-sensitive-default", "next60-go53-pflag-deferred-function",
+	"next60-go53-pflag-text-error-value", "next60-go53-mapstructure-hooks-errors-is", "next60-go53-mapstructure-remain-conflict",
+	"next60-go53-mapstructure-tag-precedence", "next60-mapstructure-nil-config", "next60-cobra-error-writer",
+	"next60-cobra-required-annotation", "next60-cobra-context-preflight", "next60-humanize-bigbytes-precision",
+	"go53-pflag-bounded-string-slice", "go53-cobra-validator-all-errors", "next60-afero-sub-validation",
+	"go53-retryhttp-request-body-snapshot", "next60-ini-quoted-comments", "next60-ini-delete-index",
+	"next60-ini-byte-budget", "next60-afero-bounded-read", "next60-afero-exclusive-write",
+	"source-next60-fixed-width-complement", "source-next60-lossless-integer-channel", "source-next60-strict-binary-decode",
+	"source-next60-strict-json-lines-prefix", "source-next60-reject-invalid-utf8-append",
+	"go53-afero-union-pagination", "hyp52-gjson-duplicate-object-keys",
+}
+
+type failure string
+
+func (e failure) Error() string { return string(e) }
+func fail(s string) error       { return failure(s) }
+func errorCode(e error) string {
+	if v, ok := e.(failure); ok {
+		return string(v)
+	}
+	if e != nil {
+		return "saved37_failed"
+	}
+	return ""
+}
+func digest(b []byte) string { h := sha256.Sum256(b); return hex.EncodeToString(h[:]) }
+
+// T/F/U are evaluator states only. Rankers never receive them or weights.
+const (
+	stateT uint8 = 1
+	stateF uint8 = 2
+	stateU uint8 = 3
+)
+
+type visit struct {
+	Checks, UnknownSeen     int
+	Cost                    uint64
+	PositiveFound, Resolved bool
+}
+
+// Costs are caller-declared proxy units, not measurements. U never terminates
+// verification and never becomes F. A no-T result with any U is unresolved.
+func visitOrder(order [3]uint8, states [3]uint8, costs [3]uint64, n int) (visit, error) {
+	var out visit
+	var seen [3]bool
+	if n != 2 && n != 3 {
+		return out, fail("visit_count")
+	}
+	for j := 0; j < n; j++ {
+		x := int(order[j])
+		if x >= n || seen[x] || states[x] < stateT || states[x] > stateU || costs[x] == 0 {
+			return out, fail("visit_shape")
+		}
+		seen[x] = true
+	}
+	for j := n; j < 3; j++ {
+		if order[j] != 0 || states[j] != 0 || costs[j] != 0 {
+			return out, fail("visit_padding")
+		}
+	}
+	for j := 0; j < n; j++ {
+		x := int(order[j])
+		if out.Cost > ^uint64(0)-costs[x] {
+			return out, fail("visit_cost_overflow")
+		}
+		out.Cost += costs[x]
+		out.Checks++
+		if states[x] == stateU {
+			out.UnknownSeen++
+		}
+		if states[x] == stateT {
+			out.PositiveFound = true
+			out.Resolved = true
+			return out, nil
+		}
+	}
+	out.Resolved = out.UnknownSeen == 0
+	return out, nil
+}
+
+type counts struct {
+	ReaderAttempts    int `json:"reader_attempts"`
+	ReaderReturns     int `json:"reader_returns"`
+	ReaderMatches     int `json:"reader_matches"`
+	BaselinesAttempts int `json:"baselines_attempts"`
+	BaselinesReturns  int `json:"baselines_returns"`
+	ValidatedRankings int `json:"validated_rankings"`
+	ActiveScores      int `json:"validated_active_scores"`
+	Primary           int `json:"primary_cases"`
+	Permuted          int `json:"permutation_cases"`
+}
+
+// Compact field names bound the result. ids+y are bookkeeping, never features.
+// v is permutation visit SUM, with denominator k; it is not k new parents.
+type parent struct {
+	ID                      string        `json:"id"`
+	Group                   int           `json:"g"`
+	N                       int           `json:"n"`
+	IDs                     [3]string     `json:"ids"`
+	Labels                  [3]bool       `json:"y"`
+	Permutations            int           `json:"k"`
+	PrimaryOrder            [4][3]uint8   `json:"po"`
+	PrimaryScores           [4][3]float64 `json:"ps"`
+	PrimaryVisits           [4]int        `json:"pv"`
+	PrimaryTiePairs         [4]int        `json:"pt"`
+	PrimaryFallbacks        [4]int        `json:"pf"`
+	PermutationVisits       [4]int        `json:"v"`
+	PermutationTop1         [4]int        `json:"t1"`
+	PermutationTiePairs     [4]int        `json:"tp"`
+	PermutationTiedRankings [4]int        `json:"tr"`
+	PermutationFallbacks    [4]int        `json:"f"`
+	PairDenominator         int           `json:"pd"`
+}
+type aggregate struct {
+	Kind                    string  `json:"kind"`
+	PrimaryVisits           int     `json:"primary_unit_cost"`
+	PrimaryTop1             int     `json:"primary_top1"`
+	PrimaryTiePairs         int     `json:"primary_tie_pairs"`
+	PrimaryFallbacks        int     `json:"primary_fallbacks"`
+	PermutationVisits       int     `json:"pooled_permutation_unit_cost"`
+	PermutationTop1         int     `json:"pooled_permutation_top1"`
+	PermutationTiePairs     int     `json:"pooled_permutation_tie_pairs"`
+	PermutationTiedRankings int     `json:"pooled_permutation_tied_rankings"`
+	PermutationFallbacks    int     `json:"permutation_fallbacks"`
+	MacroCostSixths         int     `json:"parent_macro_cost_sum_sixths"`
+	MacroMeanCost           float64 `json:"parent_macro_mean_unit_cost"`
+	MacroTop1Sixths         int     `json:"parent_macro_top1_sum_sixths"`
+	BetterThanBest          int     `json:"parents_lower_cost_than_global_best"`
+	WorseThanBest           int     `json:"parents_higher_cost_than_global_best"`
+	TiedWithBest            int     `json:"parents_equal_cost_to_global_best"`
+}
+type report struct {
+	Schema                    string       `json:"schema"`
+	State                     string       `json:"state"`
+	Failure                   string       `json:"failure"`
+	DataBytes                 int          `json:"data_bytes"`
+	DataSHA                   string       `json:"data_sha256"`
+	Counts                    counts       `json:"counts"`
+	Kinds                     [4]string    `json:"control_columns"`
+	FieldMeaning              string       `json:"parent_field_meaning"`
+	Parents                   []parent     `json:"parents"`
+	Controls                  [4]aggregate `json:"controls"`
+	PositivePositions         [3]int       `json:"primary_positive_positions"`
+	KnownCandidateLabels      int          `json:"selected_known_candidate_labels"`
+	SelectedUnknownCandidates int          `json:"selected_unknown_candidates"`
+	OraclePrimary             int          `json:"oracle_primary_unit_cost_floor"`
+	OraclePermuted            int          `json:"oracle_permutation_unit_cost_floor"`
+	OracleMacroSixths         int          `json:"oracle_parent_macro_cost_sum_sixths"`
+	Best                      int          `json:"global_best_control_column"`
+	BestKind                  string       `json:"global_best_control"`
+	TiePolicy                 string       `json:"global_best_tie_policy"`
+	GainNumeratorSixths       int          `json:"proxy_oracle_gain_numerator_sixths"`
+	GainDenominatorSixths     int          `json:"proxy_oracle_gain_denominator_sixths"`
+	ProxyHeadroom5            bool         `json:"proxy_oracle_headroom_at_least_5_percent"`
+	WholeWorkObserved         bool         `json:"actual_whole_verification_work_observed"`
+	WholeWork5Claimed         bool         `json:"whole_work_5_percent_claimed"`
+	AllCaseDigest             string       `json:"all_case_rank_matrix_sha256"`
+	MatrixEncoding            string       `json:"matrix_digest_encoding"`
+	Scope                     string       `json:"scope"`
+	UnknownScope              string       `json:"unknown_scope"`
+	RuleScope                 string       `json:"rule_scope"`
+	Original                  int          `json:"original_replay_calls"`
+	Model                     int          `json:"model_calls"`
+	Fit                       int          `json:"Fit_calls"`
+	Protected                 int          `json:"protected_rows"`
+	NewParents                int          `json:"new_parent_requests"`
+	TrainingReady             bool         `json:"training_ready"`
+}
+type loaded struct {
+	Input  shortclaim.Prepared
+	States [3]uint8
+	Costs  [3]uint64
+	Parent parent
+}
+type rankingFunc func(shortclaim.Prepared) ([4]shortclaim.Ranking, error)
+
+func newReport() report {
+	return report{Schema: "saved37-nonlearned-paired-proxy-v1", State: "incomplete", DataBytes: dataBytes, DataSHA: dataSHA, Kinds: kinds, Best: -1,
+		FieldMeaning:   "id=parent; g=existing group; n=candidates; ids=selected metadata IDs; y=known labels; k=permutations; po/ps/pv=primary order/scores/visits; pt/pf=primary tie-pairs/fallback; v/t1/tp/tr/f=permutation visit/top1/tie-pairs/tied-rank/fallback sums; pd=permutation pair denominator. All orders index the supplied display; primary display equals selected indices.",
+		TiePolicy:      "One global minimum parent-macro unit cost; ties fixed_order,bm25,lexical_ordered,narrow_rule. No per-parent best-control selection.",
+		MatrixEncoding: "SHA256 over rows in parent order, primary then lexicographic permutations: little-endian u64 parent,primary(0/1),n,3 mapping values; then each control column u64 column,8 Order values,8 IEEE754 Scores bits,visited,cost,unknown,positive(0/1),resolved(0/1),fallback-byte-length; fallback UTF8 bytes. Scores remain display-indexed. Architecture score differences change this actual digest.",
+		Scope:          "Saved37 selected supervision only. Deterministic weighted verification-cost PROXY with cost1 per visited candidate, independent of label; stop at first known T. All candidates retained. 37 parents, not247 independent samples. No actual verifier execution, elapsed work, tokens, money, model/Fit or usefulness claim; the5% proxy headroom is necessary screening only and grants no Fit.",
+		UnknownScope:   "108 selected candidate aggregate labels are known; predicate-level U diagnostics and excluded unknown-only candidates remain in their original separate pinned evidence. A known F may coexist with U predicates. They are neither executable cost observations nor converted into negative labels by this diagnostic.",
+		RuleScope:      "Current37 prose does not use behavior-v1:. narrow_rule therefore falls back to BM25 on all37 primary cases/all247 calls; this is not an independent semantic rule improvement.",
+	}
+}
+func permutations(n int) ([6][3]uint8, int, error) {
+	if n == 2 {
+		return [6][3]uint8{{0, 1, 0}, {1, 0, 0}}, 2, nil
+	}
+	if n == 3 {
+		return [6][3]uint8{{0, 1, 2}, {0, 2, 1}, {1, 0, 2}, {1, 2, 0}, {2, 0, 1}, {2, 1, 0}}, 6, nil
+	}
+	return [6][3]uint8{}, 0, fail("permutation_count")
+}
+func permute(in loaded, mapping [3]uint8) (shortclaim.Prepared, [3]uint8, [3]uint64, error) {
+	p := in.Input
+	var states [3]uint8
+	var costs [3]uint64
+	var seen [3]bool
+	n := p.Count
+	if n != 2 && n != 3 {
+		return p, states, costs, fail("permutation_input")
+	}
+	for j := 0; j < n; j++ {
+		x := int(mapping[j])
+		if x >= n || seen[x] {
+			return p, states, costs, fail("permutation_mapping")
+		}
+		seen[x] = true
+		p.Candidates[j] = in.Input.Candidates[x]
+		states[j] = in.States[x]
+		costs[j] = in.Costs[x]
+	}
+	for j := n; j < 3; j++ {
+		if mapping[j] != 0 {
+			return p, states, costs, fail("permutation_padding")
+		}
+	}
+	return p, states, costs, nil
+}
+func checkRanking(r shortclaim.Ranking, kind string, n int) ([3]uint8, int, error) {
+	var out [3]uint8
+	var seen [3]bool
+	if r.Kind != kind || r.Count != n || (n != 2 && n != 3) {
+		return out, 0, fail("ranking_identity")
+	}
+	for j := 0; j < n; j++ {
+		x := r.Order[j]
+		if x < 0 || x >= n || seen[x] || math.IsNaN(r.Scores[j]) || math.IsInf(r.Scores[j], 0) {
+			return out, 0, fail("ranking_shape")
+		}
+		seen[x] = true
+		out[j] = uint8(x)
+		if j > 0 {
+			prev := r.Order[j-1]
+			if r.Scores[prev] < r.Scores[x] || r.Scores[prev] == r.Scores[x] && prev > x {
+				return out, 0, fail("ranking_score_order_alignment")
+			}
+		}
+	}
+	for j := n; j < shortclaim.MaxCandidates; j++ {
+		if r.Order[j] != 0 || r.Scores[j] != 0 {
+			return out, 0, fail("ranking_padding")
+		}
+	}
+	ties := 0
+	for i := 0; i < n; i++ {
+		for j := i + 1; j < n; j++ {
+			if r.Scores[i] == r.Scores[j] {
+				ties++
+			}
+		}
+	}
+	return out, ties, nil
+}
+func writeU64(h hash.Hash, x uint64) {
+	var b [8]byte
+	binary.LittleEndian.PutUint64(b[:], x)
+	_, _ = h.Write(b[:])
+}
+func matrixHeader(h hash.Hash, parent int, primary bool, n int, mapping [3]uint8) {
+	writeU64(h, uint64(parent))
+	flag := uint64(0)
+	if primary {
+		flag = 1
+	}
+	writeU64(h, flag)
+	writeU64(h, uint64(n))
+	for _, x := range mapping {
+		writeU64(h, uint64(x))
+	}
+}
+func matrixRank(h hash.Hash, column int, r shortclaim.Ranking, v visit) {
+	writeU64(h, uint64(column))
+	for _, x := range r.Order {
+		writeU64(h, uint64(x))
+	}
+	for _, x := range r.Scores {
+		writeU64(h, math.Float64bits(x))
+	}
+	writeU64(h, uint64(v.Checks))
+	writeU64(h, v.Cost)
+	writeU64(h, uint64(v.UnknownSeen))
+	positive, resolved := uint64(0), uint64(0)
+	if v.PositiveFound {
+		positive = 1
+	}
+	if v.Resolved {
+		resolved = 1
+	}
+	writeU64(h, positive)
+	writeU64(h, resolved)
+	writeU64(h, uint64(len(r.FallbackReason)))
+	_, _ = io.WriteString(h, r.FallbackReason)
+}
+func globalBest(values [4]int) int {
+	best := 0
+	for i := 1; i < 4; i++ {
+		if values[i] < values[best] {
+			best = i
+		}
+	}
+	return best
+}
+func macroSixths(sum, k int) (int, error) {
+	if (k != 2 && k != 6) || sum < k || sum > 3*k {
+		return 0, fail("macro_denominator")
+	}
+	return sum * (6 / k), nil
+}
+
+func runSaved(raw []byte, ranker rankingFunc) (out report, err error) {
+	out = newReport()
+	defer func() {
+		if recover() != nil {
+			out.State = "failed_partial_kept"
+			out.Failure = "saved37_panic"
+			err = fail(out.Failure)
+		} else if err != nil {
+			out.State = "failed_partial_kept"
+			out.Failure = errorCode(err)
+		}
+	}()
+	if ranker == nil || len(raw) != dataBytes || digest(raw) != dataSHA || raw[len(raw)-1] != '\n' {
+		return out, fail("dataset_pin")
+	}
+	var all [parentCount]loaded
+	offset, candidates, two, three, totalPerms := 0, 0, 0, 0, 0
+	for i := 0; i < parentCount; i++ {
+		if offset >= len(raw) {
+			return out, fail("dataset_rows")
+		}
+		length := bytes.IndexByte(raw[offset:], '\n')
+		if length < 1 || length > shortclaimdata.MaxRowBytes {
+			return out, fail("dataset_line")
+		}
+		line := raw[offset : offset+length]
+		offset += length + 1
+		out.Counts.ReaderAttempts++
+		ex, e := shortclaimdata.LoadDevelopmentRow(bytes.NewReader(line))
+		out.Counts.ReaderReturns++
+		if e != nil || !ex.Valid() {
+			return out, fail("dataset_reader")
+		}
+		p, s, m := ex.Input().Prepared(), ex.Supervision(), ex.Metadata()
+		if m.StableID != parentIDs[i] || m.Role != shortclaimdata.Role || m.FeaturePolicy != shortclaimdata.FeaturePolicy || m.WholeGroup < 76 || m.WholeGroup > 83 || s.Count != p.Count || (p.Count != 2 && p.Count != 3) {
+			return out, fail("dataset_identity_shape")
+		}
+		if len(p.Request) >= len(shortclaim.NarrowRulePrefix) && p.Request[:len(shortclaim.NarrowRulePrefix)] == shortclaim.NarrowRulePrefix {
+			return out, fail("unexpected_rule_request")
+		}
+		pp, k, e := permutations(p.Count)
+		if e != nil || pp[0][0] != 0 {
+			return out, fail("dataset_candidate_count")
+		}
+		_ = pp
+		r := loaded{Input: p, Parent: parent{ID: m.StableID, Group: m.WholeGroup, N: p.Count, Permutations: k, PairDenominator: k * p.Count * (p.Count - 1) / 2}}
+		hits := 0
+		for j := 0; j < shortclaim.MaxCandidates; j++ {
+			if j >= p.Count {
+				if p.Candidates[j] != (shortclaim.PreparedCandidate{}) || s.Labels[j] || s.Weights[j] != 0 {
+					return out, fail("dataset_unused")
+				}
+				continue
+			}
+			if s.Weights[j] != 1 {
+				return out, fail("dataset_unit_weight")
+			}
+			r.Parent.IDs[j] = p.Candidates[j].ID
+			r.Parent.Labels[j] = s.Labels[j]
+			r.Costs[j] = 1
+			r.States[j] = stateF
+			if s.Labels[j] {
+				hits++
+				r.States[j] = stateT
+				out.PositivePositions[j]++
+			}
+		}
+		if hits != 1 {
+			return out, fail("dataset_one_positive_scope")
+		}
+		if p.Count == 2 {
+			two++
+		} else {
+			three++
+		}
+		candidates += p.Count
+		totalPerms += k
+		all[i] = r
+		out.Counts.ReaderMatches++
+	}
+	if offset != len(raw) || candidates != 108 || two != 3 || three != 34 || totalPerms != permutationCount || out.PositivePositions != ([3]int{6, 28, 3}) {
+		return out, fail("dataset_matrix")
+	}
+	out.KnownCandidateLabels = candidates
+	matrix := sha256.New()
+	out.Parents = make([]parent, 0, parentCount)
+	for i, in := range all {
+		maps, k, e := permutations(in.Input.Count)
+		if e != nil {
+			return out, e
+		}
+		pp := in.Parent
+		for schedule := -1; schedule < k; schedule++ {
+			primary := schedule < 0
+			mapping := maps[0]
+			if !primary {
+				mapping = maps[schedule]
+			}
+			p, states, costs, e := permute(in, mapping)
+			if e != nil {
+				return out, e
+			}
+			out.Counts.BaselinesAttempts++
+			ranks, e := ranker(p)
+			out.Counts.BaselinesReturns++
+			if e != nil {
+				return out, fail("baselines_return")
+			}
+			if ranks[3].FallbackReason != "unsupported_rule_request" || ranks[3].Order != ranks[1].Order || ranks[3].Scores != ranks[1].Scores {
+				return out, fail("rule_bm25_fallback")
+			}
+			matrixHeader(matrix, i, primary, p.Count, mapping)
+			for column, rk := range ranks {
+				order, ties, e := checkRanking(rk, kinds[column], p.Count)
+				if e != nil {
+					return out, e
+				}
+				if column != 3 && rk.FallbackReason != "" {
+					return out, fail("unexpected_fallback")
+				}
+				v, e := visitOrder(order, states, costs, p.Count)
+				if e != nil {
+					return out, e
+				}
+				if !v.Resolved || !v.PositiveFound || v.UnknownSeen != 0 || v.Cost != uint64(v.Checks) {
+					return out, fail("selected_known_proxy_scope")
+				}
+				out.Counts.ValidatedRankings++
+				out.Counts.ActiveScores += p.Count
+				matrixRank(matrix, column, rk, v)
+				if primary {
+					pp.PrimaryOrder[column] = order
+					pp.PrimaryVisits[column] = v.Checks
+					pp.PrimaryTiePairs[column] = ties
+					for j := 0; j < p.Count; j++ {
+						pp.PrimaryScores[column][j] = rk.Scores[j]
+					}
+					if rk.FallbackReason != "" {
+						pp.PrimaryFallbacks[column]++
+					}
+				} else {
+					pp.PermutationVisits[column] += v.Checks
+					if v.Checks == 1 {
+						pp.PermutationTop1[column]++
+					}
+					pp.PermutationTiePairs[column] += ties
+					if ties > 0 {
+						pp.PermutationTiedRankings[column]++
+					}
+					if rk.FallbackReason != "" {
+						pp.PermutationFallbacks[column]++
+					}
+				}
+			}
+			if primary {
+				out.Counts.Primary++
+			} else {
+				out.Counts.Permuted++
+			}
+		}
+		out.Parents = append(out.Parents, pp)
+	}
+	if out.Counts != (counts{parentCount, parentCount, parentCount, caseCount, caseCount, rankCount, scoreCount, parentCount, permutationCount}) {
+		return out, fail("actual_matrix_counts")
+	}
+	var macro [4]int
+	for column, kind := range kinds {
+		a := aggregate{Kind: kind}
+		for _, pp := range out.Parents {
+			a.PrimaryVisits += pp.PrimaryVisits[column]
+			if pp.PrimaryVisits[column] == 1 {
+				a.PrimaryTop1++
+			}
+			a.PrimaryTiePairs += pp.PrimaryTiePairs[column]
+			a.PrimaryFallbacks += pp.PrimaryFallbacks[column]
+			a.PermutationVisits += pp.PermutationVisits[column]
+			a.PermutationTop1 += pp.PermutationTop1[column]
+			a.PermutationTiePairs += pp.PermutationTiePairs[column]
+			a.PermutationTiedRankings += pp.PermutationTiedRankings[column]
+			a.PermutationFallbacks += pp.PermutationFallbacks[column]
+			contribution, e := macroSixths(pp.PermutationVisits[column], pp.Permutations)
+			if e != nil {
+				return out, e
+			}
+			a.MacroCostSixths += contribution
+			a.MacroTop1Sixths += pp.PermutationTop1[column] * (6 / pp.Permutations)
+		}
+		a.MacroMeanCost = float64(a.MacroCostSixths) / float64(6*parentCount)
+		macro[column] = a.MacroCostSixths
+		out.Controls[column] = a
+	}
+	if out.Controls[0].PrimaryVisits != 71 || out.Controls[0].PermutationVisits != 417 || out.Controls[0].MacroCostSixths != 435 || out.Controls[3].PrimaryFallbacks != 37 || out.Controls[3].PermutationFallbacks != 210 {
+		return out, fail("fixed_rule_control_counts")
+	}
+	out.Best = globalBest(macro)
+	out.BestKind = kinds[out.Best]
+	for column := range kinds {
+		for _, pp := range out.Parents {
+			a, b := pp.PermutationVisits[column], pp.PermutationVisits[out.Best]
+			if a < b {
+				out.Controls[column].BetterThanBest++
+			} else if a > b {
+				out.Controls[column].WorseThanBest++
+			} else {
+				out.Controls[column].TiedWithBest++
+			}
+		}
+	}
+	out.OraclePrimary = parentCount
+	out.OraclePermuted = permutationCount
+	out.OracleMacroSixths = 6 * parentCount
+	out.GainDenominatorSixths = macro[out.Best]
+	out.GainNumeratorSixths = macro[out.Best] - out.OracleMacroSixths
+	if out.GainNumeratorSixths < 0 {
+		return out, fail("oracle_floor")
+	}
+	out.ProxyHeadroom5 = 100*out.GainNumeratorSixths >= 5*out.GainDenominatorSixths
+	out.AllCaseDigest = hex.EncodeToString(matrix.Sum(nil))
+	out.State = "complete_saved37_proxy_diagnostic"
+	return out, nil
+}
+
+func canonical(p string) bool {
+	return filepath.IsAbs(p) && filepath.Clean(p) == p && !bytes.ContainsAny([]byte(p), "\x00\r\n")
+}
+func syncDir(path string) error {
+	f, e := os.Open(path)
+	if e != nil {
+		return fail("directory_open")
+	}
+	e = f.Sync()
+	c := f.Close()
+	if e != nil || c != nil {
+		return fail("directory_sync_close")
+	}
+	return nil
+}
+func readPinned(path string) ([]byte, error) {
+	real, e := filepath.EvalSymlinks(path)
+	if e != nil || real != path {
+		return nil, fail("input_symlink")
+	}
+	before, e := os.Lstat(path)
+	if e != nil || !before.Mode().IsRegular() || before.Size() != dataBytes {
+		return nil, fail("input_size")
+	}
+	fd, e := syscall.Open(path, syscall.O_RDONLY|syscall.O_NOFOLLOW, 0)
+	if e != nil {
+		return nil, fail("input_open")
+	}
+	f := os.NewFile(uintptr(fd), path)
+	opened, e := f.Stat()
+	if e != nil || !os.SameFile(before, opened) {
+		_ = f.Close()
+		return nil, fail("input_identity")
+	}
+	raw, e := io.ReadAll(io.LimitReader(f, dataBytes+1))
+	closed := f.Close()
+	after, se := os.Lstat(path)
+	if e != nil || closed != nil || se != nil || !os.SameFile(before, after) || before.Size() != after.Size() || before.Mode() != after.Mode() || !before.ModTime().Equal(after.ModTime()) || len(raw) != dataBytes || digest(raw) != dataSHA {
+		return nil, fail("input_pin_changed")
+	}
+	return raw, nil
+}
+func boundedReport(r report) ([]byte, error) {
+	b, e := json.Marshal(r)
+	if e != nil || len(b)+1 > maxOutput {
+		return nil, fail("report_bound")
+	}
+	return append(b, '\n'), nil
+}
+func writeReport(f *os.File, path string, r report) error {
+	raw, e := boundedReport(r)
+	primaryError := e
+	if e != nil {
+		// A complete oversized report is still a failed output. Persist only
+		// bounded counters before returning that failure; never report success.
+		failureSummary := struct {
+			Schema             string `json:"schema"`
+			State              string `json:"state"`
+			Failure            string `json:"failure"`
+			ComputationFailure string `json:"computation_failure"`
+			Counts             counts `json:"counts"`
+			ComputedParents    int    `json:"parent_entries_computed"`
+			MatrixDigest       string `json:"all_case_rank_matrix_sha256"`
+			DigestScope        string `json:"matrix_digest_scope"`
+			FullReportKept     bool   `json:"full_report_kept"`
+			TrainingReady      bool   `json:"training_ready"`
+			WholeWorkClaim     bool   `json:"whole_work_5_percent_claimed"`
+			ModelCalls         int    `json:"model_calls"`
+			FitCalls           int    `json:"Fit_calls"`
+		}{Schema: "saved37-failed-output-summary-v1", State: "failed_partial_kept", Failure: errorCode(e), ComputationFailure: r.Failure, Counts: r.Counts, ComputedParents: len(r.Parents), MatrixDigest: r.AllCaseDigest, DigestScope: "unavailable", ModelCalls: r.Model, FitCalls: r.Fit}
+		if len(r.AllCaseDigest) == 64 && r.Counts.Primary == parentCount && r.Counts.Permuted == permutationCount && r.Counts.ValidatedRankings == rankCount {
+			failureSummary.DigestScope = "complete247case_matrix"
+		}
+		raw, e = json.Marshal(failureSummary)
+		if e != nil || len(raw)+1 > maxOutput {
+			return fail("failure_summary_bound")
+		}
+		raw = append(raw, '\n')
+	}
+	n, e := f.Write(raw)
+	if e != nil || n != len(raw) {
+		return fail("report_write")
+	}
+	if f.Sync() != nil {
+		return fail("report_sync")
+	}
+	if f.Close() != nil {
+		return fail("report_close")
+	}
+	if e = syncDir(filepath.Dir(path)); e != nil {
+		return e
+	}
+	return primaryError
+}
+func runCLI(args []string) error {
+	if len(args) != 4 || args[0] != "--data" || args[2] != "--out" || !canonical(args[1]) || !canonical(args[3]) || args[1] == args[3] {
+		return fail("arguments")
+	}
+	parent := filepath.Dir(args[3])
+	real, e := filepath.EvalSymlinks(parent)
+	if e != nil || real != parent {
+		return fail("output_parent")
+	}
+	// Reserve+sync BEFORE reading supervision or entering any Reader/ranker.
+	f, e := os.OpenFile(args[3], os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if e != nil {
+		return fail("output_fresh")
+	}
+	defer f.Close()
+	if f.Sync() != nil {
+		return fail("output_reservation_sync")
+	}
+	if e = syncDir(parent); e != nil {
+		return e
+	}
+	r := newReport()
+	raw, e := readPinned(args[1])
+	if e == nil {
+		r, e = runSaved(raw, shortclaim.Baselines)
+	}
+	if e != nil {
+		r.State = "failed_partial_kept"
+		r.Failure = errorCode(e)
+	}
+	if save := writeReport(f, args[3], r); save != nil {
+		return save
+	}
+	if e != nil {
+		return e
+	}
+	// A bounded scalar after close/directory Sync; Root post-close readback separate.
+	_, e = io.WriteString(os.Stdout, "saved37_proxy_complete_no_wholework_claim\n")
+	if e != nil {
+		return fail("completion_stdout")
+	}
+	return nil
+}
+func main() {
+	runtime.GOMAXPROCS(1)
+	debug.SetMemoryLimit(64 << 20)
+	if e := runCLI(os.Args[1:]); e != nil {
+		_, _ = io.WriteString(os.Stderr, errorCode(e)+"\n")
+		os.Exit(1)
+	}
+}

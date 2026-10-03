@@ -1,0 +1,68 @@
+// SPDX-License-Identifier: Apache-2.0
+package main
+
+import (
+	"encoding/json"
+	"fmt"
+	"math"
+	"os"
+	"reflect"
+	"testing"
+)
+
+// This test reads already saved reports. It calls no Reader, Baselines or model.
+func TestSavedActualReportMatchesFrozen(t *testing.T) {
+	a, f := os.Getenv("RIIDOLAYA_BIAS37_ACTUAL"), os.Getenv("RIIDOLAYA_BIAS37_FROZEN")
+	if a == "" && f == "" {
+		t.Skip("saved report comparison requires both paths")
+	}
+	if a == "" || f == "" {
+		t.Fatal("both saved report paths required")
+	}
+	load := func(path string) report {
+		t.Helper()
+		raw, err := os.ReadFile(path)
+		if err != nil || len(raw) > maxOutput {
+			t.Fatal("saved report read/bound", err)
+		}
+		var r report
+		if err = json.Unmarshal(raw, &r); err != nil {
+			t.Fatal(err)
+		}
+		return r
+	}
+	actual, frozen := load(a), load(f)
+	if len(actual.Parents) != parentCount || len(frozen.Parents) != parentCount || actual.State != "complete_saved37_proxy_diagnostic" {
+		t.Fatal("incomplete actual report")
+	}
+	actualDigest := actual.AllCaseDigest
+	if len(actualDigest) != 64 {
+		t.Fatal("missing actual matrix digest")
+	}
+	maxDelta := 0.0
+	for i := range actual.Parents {
+		for col := 0; col < 4; col++ {
+			for j := 0; j < 3; j++ {
+				x, y := actual.Parents[i].PrimaryScores[col][j], frozen.Parents[i].PrimaryScores[col][j]
+				if math.IsNaN(x) || math.IsInf(x, 0) || math.IsNaN(y) || math.IsInf(y, 0) {
+					t.Fatal("nonfinite actual score")
+				}
+				delta := math.Abs(x - y)
+				if delta > maxDelta {
+					maxDelta = delta
+				}
+				if delta > 1e-12+1e-12*math.Abs(y) {
+					t.Fatal("architecture score difference exceeds declared tolerance", i, col, j)
+				}
+				actual.Parents[i].PrimaryScores[col][j] = y
+			}
+		}
+	}
+	// Only scores and their binary matrix digest may differ. Actual source file
+	// remains unchanged; rank/cost/tie/label/denominator differences fail CI.
+	actual.AllCaseDigest = frozen.AllCaseDigest
+	if !reflect.DeepEqual(actual, frozen) {
+		t.Fatal("non-score fields differ from frozen report; preserve actual artifact")
+	}
+	fmt.Printf("saved37 actual scores preserved; max_delta=%.17g actual_matrix=%s\n", maxDelta, actualDigest)
+}
