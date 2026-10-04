@@ -111,6 +111,20 @@ jobs:
         env:
           RIIDOLAYA_BTREE_FRESH: ${{ runner.temp }}/riidolaya-btree-fresh/fresh.json
         run: bash scripts/verify-btree-utility.sh replay
+      - name: Raw symbol and relation preview against exposed saved labels (Go; no model or training)
+        env:
+          RIIDOLAYA_REPRESENTATION_CAPTURE: ${{ runner.temp }}/riidolaya-representation-first/first.json.gz
+        run: |
+          mkdir -p "$(dirname "$RIIDOLAYA_REPRESENTATION_CAPTURE")"
+          bash scripts/verify-text-representations.sh
+      - name: Preserve first representation preview responses
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: representations-${{ matrix.os }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/riidolaya-representation-first/*
+          if-no-files-found: warn
+          retention-days: 14
       - name: Preserve first Btree replay and platform differences
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
