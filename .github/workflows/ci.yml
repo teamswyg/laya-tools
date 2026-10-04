@@ -93,7 +93,7 @@ jobs:
       - name: Actual pinned Decimal conversion replay (offline Go CPU; one exposed parent, no model or training)
         run: go run ./experiments/short-claim/next-cohort-decimal-audit/replay
       - name: Saved Chi paired costs and complete call traces (offline Go; no new worker or model calls)
-        run: go run ./experiments/short-claim/next-cohort-chi-audit/cost-pilot/run -saved experiments/short-claim/next-cohort-chi-audit/cost-pilot/OBSERVATIONS.actual.public.v1.json.gz
+        run: bash scripts/verify-chi-saved-cost.sh
       - name: Saved Chi setup reuse costs (offline Go; no model calls or profiling)
         run: |
           (cd experiments/short-claim/next-cohort-chi-audit/setup-reuse && shasum -a 256 -c SHA256SUMS)
