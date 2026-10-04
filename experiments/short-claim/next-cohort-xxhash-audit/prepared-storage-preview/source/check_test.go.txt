@@ -1,0 +1,280 @@
+// SPDX-License-Identifier: Apache-2.0
+// Saved public receipts only; no model, Features, scorer or Fit invocation.
+package saved
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
+	"reflect"
+	"strings"
+	"testing"
+)
+
+const primarySHA = "4308ebccd647fb16dc2fccb80c03191347541b23dcaae5a990e0bd954ab4eb00"
+const inputSHA = "255faa3a65b51aa8f464d794f8cff05b31a25152f73e51b7e4133c3bb3698126"
+const modelSHA = "dff05140098845943ece87c3ab8a31a15564a4b170a59ab017ee393501158004"
+const modelRef = "JooYoon/riidolaya-shortclaim-data-effect-failed-79@5bef215895b69d3f2ef4b82bb3f1970279d67f46"
+const scopeSHA = "ffed2ff7f4c8126b44b5f4342229046b114df56c95d60635d0741324d6219efe"
+
+type window struct {
+	Round, Method, N                                     *int
+	Scope                                                string
+	DurationNS                                           *int64
+	TotalAlloc, Mallocs, HeapAllocBefore, HeapAllocAfter *uint64
+	HeapObjectsBefore, HeapObjectsAfter                  *uint64
+}
+type runtimeReceipt struct {
+	Scope                             string
+	Inactive, Qualified, Default, GPU *bool
+	Fit, NewLabels                    *int
+	BorrowedModelLenCap               []int
+	Samples                           []window
+}
+
+// Exact nested objects require even zero-valued fields and exact array lengths.
+// OwnerFixedBytes contains the header/offset/pointer breakdown, not its sum
+// plus those fields. Counts below are source-derived successful-run bindings.
+const fixed = `{
+"Methods":["fresh","aos","soa"],"IDs":["direct","reconstruct","legacy","roundtrip","digest"],
+"FeatureCounts":[1222,1311,944,934,1162],"CommonModelOwnedBytes":32792,
+"ReferenceDecodedSetupOnlyBytes":65536,"ModelNewCalls":1,"ReferenceDecodeCalls":1,"ReferenceRankCalls":1,
+"LogicalStorage":[
+{"Method":"fresh","AoSLenCap":[1311,1311],"IndexLenCap":[0,0],"ValueLenCap":[0,0],"DataLenBytes":20976,"DataCapBytes":20976,"SliceHeadersBytes":24,"OffsetArrayBytes":0,"PointerFieldsBytes":8,"OwnerFixedBytes":32,"InterfaceHandleBytes":16},
+{"Method":"aos","AoSLenCap":[5573,5573],"IndexLenCap":[0,0],"ValueLenCap":[0,0],"DataLenBytes":89168,"DataCapBytes":89168,"SliceHeadersBytes":24,"OffsetArrayBytes":24,"PointerFieldsBytes":0,"OwnerFixedBytes":48,"InterfaceHandleBytes":16},
+{"Method":"soa","AoSLenCap":[0,0],"IndexLenCap":[5573,5573],"ValueLenCap":[5573,5573],"DataLenBytes":55730,"DataCapBytes":55730,"SliceHeadersBytes":48,"OffsetArrayBytes":24,"PointerFieldsBytes":0,"OwnerFixedBytes":72,"InterfaceHandleBytes":16}],
+"InvocationCounts":{"Build":[[21,21],[21,21],[21,21]],"FiveScore":[[4397,4397],[4397,4397],[4397,4397]]},
+"SourceDerived":{"Features":[21985,105,105],"ViewScore":[21985,21985,0],"Coefficient":[0,0,24504481]}}
+`
+
+func hash(b []byte) string       { h := sha256.Sum256(b); return hex.EncodeToString(h[:]) }
+func integer(p *int, n int) bool { return p != nil && *p == n }
+func flag(p *bool, v bool) bool  { return p != nil && *p == v }
+func eqJSON(b json.RawMessage, want any) bool {
+	var a, w any
+	x, err := json.Marshal(want)
+	d := json.NewDecoder(bytes.NewReader(b))
+	d.UseNumber()
+	e := json.NewDecoder(bytes.NewReader(x))
+	e.UseNumber()
+	return err == nil && d.Decode(&a) == nil && e.Decode(&w) == nil && reflect.DeepEqual(a, w)
+}
+func primaryPin(b []byte) error {
+	if len(b) != 15267 || hash(b) != primarySHA {
+		return fmt.Errorf("primary digest")
+	}
+	return nil
+}
+
+// Allocation/heap values are typed unsigned observations with no threshold.
+// Fixed scores are independent anchors, not just cross-method agreement.
+func check(b, input []byte) error {
+	var r runtimeReceipt
+	var m map[string]json.RawMessage
+	if json.Unmarshal(b, &r) != nil || json.Unmarshal(b, &m) != nil || len(m) != 26 {
+		return fmt.Errorf("receipt shape")
+	}
+	if len(input) != 1105 || hash(input) != inputSHA || len(r.Scope) != 914 || hash([]byte(r.Scope)) != scopeSHA {
+		return fmt.Errorf("input/scope")
+	}
+	if !flag(r.Inactive, true) || !flag(r.Qualified, false) || !flag(r.Default, false) || !flag(r.GPU, false) || !integer(r.Fit, 0) || !integer(r.NewLabels, 0) {
+		return fmt.Errorf("status")
+	}
+	if len(r.BorrowedModelLenCap) != 2 || r.BorrowedModelLenCap[0] != 32792 || r.BorrowedModelLenCap[1] < 32792 {
+		return fmt.Errorf("borrowed capacity")
+	}
+	var want map[string]any
+	if err := json.Unmarshal([]byte(fixed), &want); err != nil {
+		return err
+	}
+	want["Schema"], want["InputSHA"], want["ModelSHA"], want["ModelRef"] = "riido-xxhash-prepared-storage-preview-v1", inputSHA, modelSHA, modelRef
+	order := []int{2, 3, 1, 4, 0}
+	bits := []string{"bfb4c09816d33ae4", "bfaccfbb961d81a2", "bf93c0762f2f11d6", "bfa5f9fba6bf9e32", "bfb06cc2319578c6"}
+	want["Order"], want["ScoreBits"] = [][]int{order, order, order}, [][]string{bits, bits, bits}
+	for k, v := range want {
+		if !eqJSON(m[k], v) {
+			return fmt.Errorf("fixed field: %s", k)
+		}
+	}
+	if len(r.Samples) != 60 {
+		return fmt.Errorf("window count")
+	}
+	k := 0
+	for round := 0; round < 4; round++ {
+		for phase, n := range []int{1024, 1, 2, 8, 64} {
+			for m := 0; m < 3; m++ {
+				method, name := m, "construct_repeat"
+				if round%2 == 1 {
+					method = 2 - m
+				}
+				if phase == 0 {
+					name = "reuse"
+				}
+				w := r.Samples[k]
+				k++
+				if !integer(w.Round, round) || !integer(w.Method, method) || !integer(w.N, n) || w.Scope != name || w.DurationNS == nil || *w.DurationNS <= 0 || w.TotalAlloc == nil || w.Mallocs == nil || w.HeapAllocBefore == nil || w.HeapAllocAfter == nil || w.HeapObjectsBefore == nil || w.HeapObjectsAfter == nil {
+					return fmt.Errorf("window transcript")
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func bundle(t *testing.T) string {
+	t.Helper()
+	d := os.Getenv("PREPARED_BUNDLE")
+	if d == "" {
+		t.Fatal("PREPARED_BUNDLE required")
+	}
+	return d
+}
+func read(t *testing.T, d, p string) []byte {
+	t.Helper()
+	b, err := os.ReadFile(filepath.Join(d, p))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return b
+}
+func saved(t *testing.T) ([]byte, []byte) {
+	d := bundle(t)
+	return read(t, d, "observations.actual.public.v1.json"), read(t, d, "input.json")
+}
+func TestPrimaryDigest(t *testing.T) {
+	b, _ := saved(t)
+	if err := primaryPin(b); err != nil {
+		t.Fatal(err)
+	}
+}
+func TestSavedSemantics(t *testing.T) {
+	b, in := saved(t)
+	if err := check(b, in); err != nil {
+		t.Fatal(err)
+	}
+	var r runtimeReceipt
+	if json.Unmarshal(b, &r) != nil || !reflect.DeepEqual(r.BorrowedModelLenCap, []int{32792, 40960}) {
+		t.Fatal("primary raw capacity")
+	}
+}
+func TestOptionalActual(t *testing.T) {
+	p := os.Getenv("ACTUAL_PREPARED_RESULT")
+	if p == "" {
+		t.Skip("saved-only")
+	}
+	b, err := os.ReadFile(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := check(b, read(t, bundle(t), "input.json")); err != nil {
+		t.Fatal(err)
+	}
+}
+func TestNegativeControls(t *testing.T) {
+	b, in := saved(t)
+	for _, key := range []string{"Inactive", "Qualified", "Default", "GPU", "Fit", "NewLabels"} {
+		t.Run("missing-"+key, func(t *testing.T) {
+			var m map[string]json.RawMessage
+			if err := json.Unmarshal(b, &m); err != nil {
+				t.Fatal(err)
+			}
+			delete(m, key)
+			x, _ := json.Marshal(m)
+			if check(x, in) == nil {
+				t.Fatal("missing status accepted")
+			}
+		})
+	}
+	for _, c := range []struct{ name, from, to string }{
+		{"derived", `"Features":[21985,105,105]`, `"Features":[21985,106,105]`},
+		{"double-owner", `"OwnerFixedBytes":48`, `"OwnerFixedBytes":72`},
+		{"coherent-bits", "bfb4c09816d33ae4", "c020000000000000"},
+		{"window", `"Scope":"reuse"`, `"Scope":"construct_repeat"`},
+		{"missing-zero", `"Round":0`, `"Round":null`},
+		{"attempt-success", `"Build":[[21,21]`, `"Build":[[22,21]`},
+		{"model-ref", modelRef, modelRef + "-changed"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			x := []byte(strings.ReplaceAll(string(b), c.from, c.to))
+			if reflect.DeepEqual(x, b) {
+				t.Fatal("control did not mutate fixture")
+			}
+			if check(x, in) == nil {
+				t.Fatal("semantic mutation accepted")
+			}
+		})
+	}
+}
+func TestRuntimeVariation(t *testing.T) {
+	b, in := saved(t)
+	var r runtimeReceipt
+	var m map[string]json.RawMessage
+	if json.Unmarshal(b, &r) != nil || json.Unmarshal(b, &m) != nil {
+		t.Fatal("fixture")
+	}
+	r.BorrowedModelLenCap[1] = 32792
+	for i := range r.Samples {
+		*r.Samples[i].DurationNS = int64(i + 1)
+		*r.Samples[i].TotalAlloc = uint64(i)
+	}
+	m["Samples"], _ = json.Marshal(r.Samples)
+	m["BorrowedModelLenCap"], _ = json.Marshal(r.BorrowedModelLenCap)
+	x, _ := json.Marshal(m)
+	if err := check(x, in); err != nil {
+		t.Fatal(err)
+	}
+	if primaryPin(x) == nil {
+		t.Fatal("rewritten primary accepted")
+	}
+	*r.Samples[0].DurationNS = 0
+	m["Samples"], _ = json.Marshal(r.Samples)
+	x, _ = json.Marshal(m)
+	if check(x, in) == nil {
+		t.Fatal("zero duration accepted")
+	}
+}
+
+type pin struct {
+	Path  string
+	Bytes int
+	SHA   string `json:"sha256"`
+}
+
+var libraries = []pin{
+	{"internal/hintlearn/learn.go", 10429, "d0c906d1283617d0778039ff8bc4c6fff6cb0af3a813c48df088424d78bebb71"},
+	{"internal/hintlearn/model.go", 3560, "f27e18883f073555775ff15de4f2e72d4fcff9bb1b49dfe7b11007779ec95aff"},
+	{"pkg/shortclaim/audit_provenance.go", 821, "67a4db28dcacfde4e7f4efac08153010e5a576eef50aad9179ac16671f7f251a"},
+	{"pkg/shortclaim/baseline.go", 14048, "c6003b785763fce004d89556f998811eb6098474908d9341906ca825aebc362a"},
+	{"pkg/shortclaim/input.go", 10755, "834d66e6a0c63095d25b02659a1ddd5c5b8a9eef185b7a2bab5e938974370a80"},
+	{"internal/lexicalhint/audit_provenance.go", 643, "06ee313c49a308a17ae45113eee867492ce81f0401f9b1a690665f4032ec4785"},
+	{"internal/lexicalhint/features.go", 4019, "20224bcab1ea2d6e5203a2efb7772adef0786eea67f43a003a5b2db896804557"},
+	{"pkg/hintweights/doc.go", 494, "0c51eb62f581a6967e2d2fdfa89477d9440e25c57bd097abccbf278c01f56dd8"},
+	{"pkg/hintweights/view.go", 6097, "673a2406da0493222545272e8c27a026ff15e4b9c4a4b8257334545b644e598c"},
+}
+
+func verify(t *testing.T, d string, p pin) {
+	b := read(t, d, p.Path)
+	if len(b) != p.Bytes || hash(b) != p.SHA {
+		t.Fatalf("source pin: %s", p.Path)
+	}
+}
+func TestFrozenSources(t *testing.T) {
+	d := bundle(t)
+	// Whole public freeze binds schema and metadata; file pins below independently
+	// bind actual source/input bytes. No reference-model file is opened.
+	if hash(read(t, d, "FREEZE.public.v1.json")) != "1049f3835818ee00b875284c78eab2c41e3e62a4d8f31d3ebda07913966c80a8" {
+		t.Fatal("freeze digest")
+	}
+	owned := pin{"source/main.go.txt", 16436, "0a87c738fef2b33fc5fa5cfc6ed7a6c73b5a59e0f5d0eb10bea9581bd9b229f6"}
+	in := pin{"input.json", 1105, inputSHA}
+	verify(t, d, owned)
+	verify(t, d, in)
+	repo := filepath.Clean(filepath.Join(d, "../../../.."))
+	for _, p := range libraries {
+		verify(t, repo, p)
+	}
+}

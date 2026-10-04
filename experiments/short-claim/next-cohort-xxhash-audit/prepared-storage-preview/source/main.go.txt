@@ -1,0 +1,508 @@
+// SPDX-License-Identifier: Apache-2.0
+// Opt-in, fixed-input research measurement. No training, qualification or activation.
+package main
+
+import (
+	"bytes"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"math"
+	"os"
+	"runtime"
+	"strconv"
+	"time"
+
+	"github.com/teamswyg/laya-tools/internal/hintlearn"
+	"github.com/teamswyg/laya-tools/pkg/hintweights"
+	"github.com/teamswyg/laya-tools/pkg/shortclaim"
+)
+
+const modelSHA = "dff05140098845943ece87c3ab8a31a15564a4b170a59ab017ee393501158004"
+const inputSHA = "255faa3a65b51aa8f464d794f8cff05b31a25152f73e51b7e4133c3bb3698126"
+const modelRef = "JooYoon/riidolaya-shortclaim-data-effect-failed-79@5bef215895b69d3f2ef4b82bb3f1970279d67f46"
+const totalFeatures = 5573
+const maxFeatures = 1311
+const warmRepeats = 1024
+
+func bad(s string) error { return errors.New(s) }
+
+func read(path string, limit int) ([]byte, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, bad("read unavailable")
+	}
+	b, err := io.ReadAll(io.LimitReader(f, int64(limit+1)))
+	closed := f.Close()
+	if err != nil || closed != nil || len(b) > limit {
+		return nil, bad("read bounds")
+	}
+	return b, nil
+}
+
+// Only raw request/caption text enters Features. IDs and source metadata do not.
+type input struct {
+	query   string
+	docs    [5]string
+	lengths [5]int
+}
+
+func loadInput(path string) (input, error) {
+	var out input
+	b, err := read(path, 8192)
+	if err != nil {
+		return out, err
+	}
+	if hintlearn.Hash(b) != inputSHA {
+		return out, bad("input pin")
+	}
+	v, err := shortclaim.LoadValidated(bytes.NewReader(b))
+	if err != nil {
+		return out, bad("input validation")
+	}
+	p := v.Prepared()
+	if p.Count != 5 {
+		return out, bad("candidate count")
+	}
+	ids := [5]string{"direct", "reconstruct", "legacy", "roundtrip", "digest"}
+	out.query, out.lengths = p.Request, [5]int{1222, 1311, 944, 934, 1162}
+	for i := range ids {
+		if p.Candidates[i].ID != ids[i] {
+			return input{}, bad("candidate identity")
+		}
+		out.docs[i] = p.Candidates[i].Text
+	}
+	return out, nil
+}
+
+// Preserve Features' existing sorted/aggregated sequence, including zero values
+// and its final index-0 feature. No additional aggregation or float conversion.
+func features(in *input, row int) ([]hintlearn.Feature, error) {
+	fs := hintlearn.Features(in.query, in.docs[row])
+	if len(fs) != in.lengths[row] {
+		return nil, bad("feature shape")
+	}
+	for _, f := range fs {
+		if f.Index < 0 || f.Index >= hintweights.Dimension || math.IsNaN(f.Value) || math.IsInf(f.Value, 0) {
+			return nil, bad("feature bounds")
+		}
+	}
+	return fs, nil
+}
+
+// Same fixed result tuple and checking cost for all measured methods.
+type result struct {
+	Scores [5]float64
+	Order  [5]uint8
+}
+
+func finish(scores [5]float64) (result, error) {
+	r := result{Scores: scores, Order: [5]uint8{0, 1, 2, 3, 4}}
+	wantBits := [5]uint64{0xbfb4c09816d33ae4, 0xbfaccfbb961d81a2, 0xbf93c0762f2f11d6, 0xbfa5f9fba6bf9e32, 0xbfb06cc2319578c6}
+	for i, s := range scores {
+		if math.Float64bits(s) != wantBits[i] {
+			return result{}, bad("score anchor")
+		}
+	}
+	for i := 1; i < len(r.Order); i++ {
+		for j := i; j > 0; j-- {
+			a, b := r.Order[j-1], r.Order[j]
+			if scores[a] > scores[b] || (scores[a] == scores[b] && a < b) {
+				break
+			}
+			r.Order[j-1], r.Order[j] = b, a
+		}
+	}
+	if r.Order != ([5]uint8{2, 3, 1, 4, 0}) {
+		return result{}, bad("order anchor")
+	}
+	return r, nil
+}
+
+// Decode and Rank exist only in this untimed anchor gate. The decoded table
+// does not escape this function and is not retained by any measured scorer.
+func reference(raw []byte, in *input) (result, error) {
+	w, err := hintlearn.Decode(raw)
+	if err != nil || len(w) != hintweights.Dimension {
+		return result{}, bad("reference decode")
+	}
+	o, s, err := hintlearn.Rank(w, in.query, in.docs[:])
+	if err != nil || len(o) != 5 || len(s) != 5 {
+		return result{}, bad("reference rank")
+	}
+	var scores [5]float64
+	copy(scores[:], s)
+	r, err := finish(scores)
+	if err != nil {
+		return result{}, err
+	}
+	for i, v := range o {
+		if v != int(r.Order[i]) {
+			return result{}, bad("reference order")
+		}
+	}
+	return r, nil
+}
+
+type storage struct {
+	Method                                                  string
+	AoSLenCap, IndexLenCap, ValueLenCap                     [2]int
+	DataLenBytes, DataCapBytes                              int
+	SliceHeadersBytes, OffsetArrayBytes, PointerFieldsBytes int
+	OwnerFixedBytes, InterfaceHandleBytes                   int
+}
+
+type scorer interface {
+	score(*hintweights.View) (result, error)
+	storage() storage
+}
+
+// A fresh invocation rebuilds features and copies into one reusable row buffer.
+// Input ownership is shared only as immutable text. Each scorer owns its buffer.
+type fresh struct {
+	in  *input
+	buf []hintweights.Feature
+}
+
+func (f *fresh) score(v *hintweights.View) (result, error) {
+	var scores [5]float64
+	for row := range scores {
+		fs, err := features(f.in, row)
+		if err != nil {
+			return result{}, err
+		}
+		if len(fs) > len(f.buf) {
+			return result{}, bad("fresh buffer")
+		}
+		for j, x := range fs {
+			f.buf[j] = hintweights.Feature{Index: x.Index, Value: x.Value}
+		}
+		scores[row], err = v.Score(f.buf[:len(fs)])
+		if err != nil {
+			return result{}, bad("fresh score")
+		}
+	}
+	return finish(scores)
+}
+
+func (f *fresh) storage() storage {
+	return storage{Method: "fresh", AoSLenCap: [2]int{len(f.buf), cap(f.buf)}, DataLenBytes: len(f.buf) * 16, DataCapBytes: cap(f.buf) * 16, SliceHeadersBytes: 24, PointerFieldsBytes: 8, OwnerFixedBytes: 32, InterfaceHandleBytes: 16}
+}
+
+// Flat backing arrays have cap==len. uint32 offsets also cover an 8*8192 future
+// boundary; uint16 offsets would overflow there. This experiment is fixed at 5.
+type aos struct {
+	offsets [6]uint32
+	data    []hintweights.Feature
+}
+
+func (a *aos) score(v *hintweights.View) (result, error) {
+	var scores [5]float64
+	for row := range scores {
+		var err error
+		scores[row], err = v.Score(a.data[a.offsets[row]:a.offsets[row+1]])
+		if err != nil {
+			return result{}, bad("aos score")
+		}
+	}
+	return finish(scores)
+}
+
+func (a *aos) storage() storage {
+	return storage{Method: "aos", AoSLenCap: [2]int{len(a.data), cap(a.data)}, DataLenBytes: len(a.data) * 16, DataCapBytes: cap(a.data) * 16, SliceHeadersBytes: 24, OffsetArrayBytes: 24, OwnerFixedBytes: 48, InterfaceHandleBytes: 16}
+}
+
+type soa struct {
+	offsets [6]uint32
+	indices []uint16
+	values  []float64
+}
+
+func (s *soa) score(v *hintweights.View) (result, error) {
+	var scores [5]float64
+	for row := range scores {
+		sum := 0.
+		for k := s.offsets[row]; k < s.offsets[row+1]; k++ {
+			w, err := v.Coefficient(int(s.indices[k]))
+			if err != nil {
+				return result{}, bad("soa coefficient")
+			}
+			// Deliberately retain each FP64 multiply/add and zero coefficient.
+			sum += w * s.values[k]
+		}
+		scores[row] = sum
+	}
+	return finish(scores)
+}
+
+func (s *soa) storage() storage {
+	return storage{Method: "soa", IndexLenCap: [2]int{len(s.indices), cap(s.indices)}, ValueLenCap: [2]int{len(s.values), cap(s.values)}, DataLenBytes: len(s.indices)*2 + len(s.values)*8, DataCapBytes: cap(s.indices)*2 + cap(s.values)*8, SliceHeadersBytes: 48, OffsetArrayBytes: 24, OwnerFixedBytes: 72, InterfaceHandleBytes: 16}
+}
+
+// Counts are per constructor and per complete five-score invocation. There is
+// no per-feature hot-loop instrumentation, and no attempted/returned panic ledger.
+type counters struct {
+	Build     [3][2]uint64
+	FiveScore [3][2]uint64
+}
+
+type runner struct {
+	in     input
+	view   *hintweights.View
+	counts counters
+	last   result
+}
+
+func (r *runner) build(method int) (scorer, error) {
+	r.counts.Build[method][0]++
+	var out scorer
+	switch method {
+	case 0:
+		out = &fresh{in: &r.in, buf: make([]hintweights.Feature, maxFeatures)}
+	case 1:
+		a := &aos{data: make([]hintweights.Feature, totalFeatures)}
+		for row := 0; row < 5; row++ {
+			fs, err := features(&r.in, row)
+			if err != nil {
+				return nil, err
+			}
+			start := int(a.offsets[row])
+			if start+len(fs) > len(a.data) {
+				return nil, bad("aos bounds")
+			}
+			for j, f := range fs {
+				a.data[start+j] = hintweights.Feature{Index: f.Index, Value: f.Value}
+			}
+			a.offsets[row+1] = uint32(start + len(fs))
+		}
+		if a.offsets[5] != totalFeatures {
+			return nil, bad("aos shape")
+		}
+		out = a
+	case 2:
+		s := &soa{indices: make([]uint16, totalFeatures), values: make([]float64, totalFeatures)}
+		for row := 0; row < 5; row++ {
+			fs, err := features(&r.in, row)
+			if err != nil {
+				return nil, err
+			}
+			start := int(s.offsets[row])
+			if start+len(fs) > len(s.indices) {
+				return nil, bad("soa bounds")
+			}
+			for j, f := range fs {
+				s.indices[start+j], s.values[start+j] = uint16(f.Index), f.Value
+			}
+			s.offsets[row+1] = uint32(start + len(fs))
+		}
+		if s.offsets[5] != totalFeatures {
+			return nil, bad("soa shape")
+		}
+		out = s
+	default:
+		return nil, bad("method")
+	}
+	r.counts.Build[method][1]++
+	return out, nil
+}
+
+func (r *runner) invoke(method int, state scorer) error {
+	r.counts.FiveScore[method][0]++
+	x, err := state.score(r.view)
+	if err != nil {
+		return err
+	}
+	r.last = x // Same caller-owned result tuple and sink for every method.
+	r.counts.FiveScore[method][1]++
+	return nil
+}
+
+type sample struct {
+	Round                               int
+	Scope                               string
+	Method                              int
+	N                                   int
+	DurationNS                          int64
+	TotalAlloc, Mallocs                 uint64
+	HeapAllocBefore, HeapAllocAfter     uint64
+	HeapObjectsBefore, HeapObjectsAfter uint64
+}
+
+// GC and snapshots are outside the timer. TotalAlloc counts interval allocation,
+// not retained storage. Heap snapshots include all common live process objects
+// and possible automatic collection; they are neither peak heap nor process RSS.
+func measure(r *runner, round, method, n int, reuse bool) (sample, error) {
+	var state scorer
+	var err error
+	scope := "construct_repeat"
+	if reuse {
+		scope = "reuse"
+		state, err = r.build(method) // Explicitly outside the reuse measurement.
+		if err != nil {
+			return sample{}, err
+		}
+	}
+	runtime.GC()
+	var before, after runtime.MemStats
+	runtime.ReadMemStats(&before)
+	started := time.Now()
+	if !reuse {
+		state, err = r.build(method)
+		if err != nil {
+			return sample{}, err
+		}
+	}
+	for i := 0; i < n; i++ {
+		if err = r.invoke(method, state); err != nil {
+			return sample{}, err
+		}
+	}
+	elapsed := time.Since(started).Nanoseconds()
+	runtime.ReadMemStats(&after)
+	runtime.KeepAlive(state)
+	return sample{Round: round, Scope: scope, Method: method, N: n, DurationNS: elapsed, TotalAlloc: after.TotalAlloc - before.TotalAlloc, Mallocs: after.Mallocs - before.Mallocs, HeapAllocBefore: before.HeapAlloc, HeapAllocAfter: after.HeapAlloc, HeapObjectsBefore: before.HeapObjects, HeapObjectsAfter: after.HeapObjects}, nil
+}
+
+type derived struct {
+	Features, ViewScore, Coefficient [3]uint64
+}
+
+type report struct {
+	Schema, Scope, InputSHA, ModelSHA, ModelRef             string
+	Inactive, Qualified, Default, GPU                       bool
+	Fit, NewLabels                                          int
+	Methods                                                 [3]string
+	IDs                                                     [5]string
+	Order                                                   [3][5]uint8
+	ScoreBits                                               [3][5]string
+	FeatureCounts                                           [5]int
+	CommonModelOwnedBytes                                   int
+	BorrowedModelLenCap                                     [2]int
+	ReferenceDecodedSetupOnlyBytes                          int
+	ModelNewCalls, ReferenceDecodeCalls, ReferenceRankCalls int
+	LogicalStorage                                          [3]storage
+	InvocationCounts                                        counters
+	SourceDerived                                           derived
+	Samples                                                 []sample
+}
+
+func run() error {
+	if len(os.Args) != 3 {
+		return bad("usage: prepared-preview input model")
+	}
+	// Header arithmetic and AoS stride below are explicitly for 64-bit Go.
+	if strconv.IntSize != 64 {
+		return bad("word size")
+	}
+	runtime.GOMAXPROCS(1)
+	in, err := loadInput(os.Args[1])
+	if err != nil {
+		return err
+	}
+	raw, err := read(os.Args[2], 32792)
+	if err != nil {
+		return err
+	}
+	if len(raw) != 32792 || hintlearn.Hash(raw) != modelSHA {
+		return bad("model pin")
+	}
+	anchor, err := reference(raw, &in)
+	if err != nil {
+		return err
+	}
+	view, err := hintweights.New(raw)
+	if err != nil || view.OwnedPayloadBytes() != 32792 {
+		return bad("model view")
+	}
+	r := runner{in: in, view: view}
+	var logical [3]storage
+	var gates [3]result
+	// No model or result quality is inferred from these finite identity gates.
+	for method := 0; method < 3; method++ {
+		state, err := r.build(method)
+		if err != nil {
+			return err
+		}
+		logical[method] = state.storage()
+		if err := r.invoke(method, state); err != nil {
+			return err
+		}
+		if r.last != anchor {
+			return bad("method parity")
+		}
+		gates[method] = r.last
+	}
+	// Reference's decoded table and transient gate features are no longer owned.
+	// Raw model bytes remain a common borrowed input through KeepAlive below.
+	rows := make([]sample, 0, 60)
+	for round := 0; round < 4; round++ {
+		for k := 0; k < 3; k++ {
+			method := k
+			if round%2 == 1 {
+				method = 2 - k
+			}
+			s, err := measure(&r, round, method, warmRepeats, true)
+			if err != nil {
+				return err
+			}
+			rows = append(rows, s)
+		}
+		for _, n := range [4]int{1, 2, 8, 64} {
+			for k := 0; k < 3; k++ {
+				method := k
+				if round%2 == 1 {
+					method = 2 - k
+				}
+				s, err := measure(&r, round, method, n, false)
+				if err != nil {
+					return err
+				}
+				rows = append(rows, s)
+			}
+		}
+	}
+	var nested derived
+	// Source-derived only after a completely successful run. Rank's internal
+	// setup calls are excluded; the old Rank source performs five Features/Score.
+	nested.Features[0] = r.counts.FiveScore[0][1] * 5
+	nested.Features[1], nested.Features[2] = r.counts.Build[1][1]*5, r.counts.Build[2][1]*5
+	nested.ViewScore[0], nested.ViewScore[1] = r.counts.FiveScore[0][1]*5, r.counts.FiveScore[1][1]*5
+	nested.Coefficient[2] = r.counts.FiveScore[2][1] * totalFeatures
+	out := report{Schema: "riido-xxhash-prepared-storage-preview-v1", Scope: "fixed input only; no generic replacement; one pinned View for all methods; Features unchanged; invocations include identical bit/order checking and aggregate counters; fresh copies to scratch then View.Score; AoS View.Score; SoA ordered Coefficient, intrinsic bounds overhead differs; reuse excludes preparation; construct_repeat includes one construction and N five-score uses; each method owns buffers, no shared cache/locks; successful setup counts and nested counts are source-derived; nested counts exclude setup Rank; no panic ledger; len/cap payload and 64-bit owner/header/interface arithmetic separate from measured heap/allocations; borrowed raw remains live, decoded reference released; common View Go container/allocator overhead, input/result/report containers and initial coexistence peak excluded from logical storage; heap snapshots are not peak/RSS; no quality, production or whole-work gain claim", InputSHA: inputSHA, ModelSHA: modelSHA, ModelRef: modelRef, Inactive: true, Methods: [3]string{"fresh", "aos", "soa"}, IDs: [5]string{"direct", "reconstruct", "legacy", "roundtrip", "digest"}, FeatureCounts: in.lengths, CommonModelOwnedBytes: view.OwnedPayloadBytes(), BorrowedModelLenCap: [2]int{len(raw), cap(raw)}, ReferenceDecodedSetupOnlyBytes: hintweights.Dimension * 8, ModelNewCalls: 1, ReferenceDecodeCalls: 1, ReferenceRankCalls: 1, LogicalStorage: logical, InvocationCounts: r.counts, SourceDerived: nested, Samples: rows}
+	for m, g := range gates {
+		out.Order[m] = g.Order
+		for i, s := range g.Scores {
+			out.ScoreBits[m][i] = fmt.Sprintf("%016x", math.Float64bits(s))
+		}
+	}
+	b, err := json.Marshal(out)
+	if err != nil || len(b)+1 > 32768 {
+		return bad("output bound")
+	}
+	runtime.KeepAlive(raw)
+	b = append(b, '\n')
+	n, err := os.Stdout.Write(b)
+	if err != nil || n != len(b) {
+		return bad("output write")
+	}
+	return nil
+}
+
+// Guard normal return rather than recover()!=nil, including panic(nil).
+func main() {
+	returned := false
+	defer func() {
+		if !returned {
+			recover()
+			fmt.Fprintln(os.Stderr, "prepared preview panic")
+			os.Exit(1)
+		}
+	}()
+	err := run()
+	returned = true
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+}
