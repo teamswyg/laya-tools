@@ -1,0 +1,130 @@
+{
+  "schema": "riido-decimal-literal-wants-v1",
+  "state": "proposed before any target execution; independent nonblind source-only review pending",
+  "request": "Reject a fractional decimal as non_integer before checking signed 64-bit bounds; return out_of_range for integral overflow; preserve the input coefficient and exponent.",
+  "parents": 1,
+  "role": null,
+  "qualified": false,
+  "learning_labels": 0,
+  "Fit": 0,
+  "new_independent_golden_parents": 0,
+  "owned_error_codes": [
+    "non_integer",
+    "out_of_range"
+  ],
+  "fixtures": [
+    {
+      "id": "fixture01-one",
+      "input": "1",
+      "Want": {
+        "parse_success": true,
+        "value_decimal_string": "1",
+        "owned_error": null,
+        "upstream_parse_error": false,
+        "coefficient_preserved": true,
+        "exponent_preserved": true,
+        "normal_return": true,
+        "panic": false
+      }
+    },
+    {
+      "id": "fixture02-fraction",
+      "input": "1.1",
+      "Want": {
+        "parse_success": true,
+        "value_decimal_string": null,
+        "owned_error": "non_integer",
+        "upstream_parse_error": false,
+        "coefficient_preserved": true,
+        "exponent_preserved": true,
+        "normal_return": true,
+        "panic": false
+      }
+    },
+    {
+      "id": "fixture03-max",
+      "input": "9223372036854775807",
+      "Want": {
+        "parse_success": true,
+        "value_decimal_string": "9223372036854775807",
+        "owned_error": null,
+        "upstream_parse_error": false,
+        "coefficient_preserved": true,
+        "exponent_preserved": true,
+        "normal_return": true,
+        "panic": false
+      }
+    },
+    {
+      "id": "fixture04-max-plus-one",
+      "input": "9223372036854775808",
+      "Want": {
+        "parse_success": true,
+        "value_decimal_string": null,
+        "owned_error": "out_of_range",
+        "upstream_parse_error": false,
+        "coefficient_preserved": true,
+        "exponent_preserved": true,
+        "normal_return": true,
+        "panic": false
+      }
+    },
+    {
+      "id": "fixture05-min-minus-one",
+      "input": "-9223372036854775809",
+      "Want": {
+        "parse_success": true,
+        "value_decimal_string": null,
+        "owned_error": "out_of_range",
+        "upstream_parse_error": false,
+        "coefficient_preserved": true,
+        "exponent_preserved": true,
+        "normal_return": true,
+        "panic": false
+      }
+    },
+    {
+      "id": "fixture06-fraction-and-overflow",
+      "input": "9223372036854775808.1",
+      "Want": {
+        "parse_success": true,
+        "value_decimal_string": null,
+        "owned_error": "non_integer",
+        "upstream_parse_error": false,
+        "coefficient_preserved": true,
+        "exponent_preserved": true,
+        "normal_return": true,
+        "panic": false
+      }
+    },
+    {
+      "id": "fixture07-integer-scaled",
+      "input": "1.00",
+      "Want": {
+        "parse_success": true,
+        "value_decimal_string": "1",
+        "owned_error": null,
+        "upstream_parse_error": false,
+        "coefficient_preserved": true,
+        "exponent_preserved": true,
+        "normal_return": true,
+        "panic": false
+      }
+    },
+    {
+      "id": "fixture08-negative-fraction",
+      "input": "-1.1",
+      "Want": {
+        "parse_success": true,
+        "value_decimal_string": null,
+        "owned_error": "non_integer",
+        "upstream_parse_error": false,
+        "coefficient_preserved": true,
+        "exponent_preserved": true,
+        "normal_return": true,
+        "panic": false
+      }
+    }
+  ],
+  "scope": "normative request-level Wants; owned wrapper error codes are not upstream decimal errors; literal Want declaration is not a learned label; semantic overlap with older integer conversion tasks remains unqualified"
+}
