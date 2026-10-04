@@ -8,7 +8,16 @@ and default routing policy remain unchanged. Rankings are unverified suggestions
 for verification order, never probabilities, verdicts or action authorization.
 Every candidate remains. Existing failed models are not activated by default.
 
-Current Prepare counts features first and reuses one constructor-local buffer.
+Current Prepare shares constructor-local raw token plans and ordered query hash
+prefixes between cardinality counting and feature generation.
+The [follow-up token-plan comparison](../../experiments/short-claim/next-cohort-chi-audit/constructor-token-plan/README.en.md)
+reduced cumulative allocation bytes by about12.9% and allocation counts by421
+against the merged scratch constructor. Paired time medians were about1–2.2%
+lower, with some slower pairs; general speed improvement remains unproved.
+Final owner storage and every feature/score bit remain unchanged, with no pool,
+global cache or lock added.
+
+The earlier constructor change counted features first and reused one local buffer.
 The [public Chi comparison](../../experiments/short-claim/next-cohort-chi-audit/constructor-scratch/README.en.md)
 saved about37% of cumulative Go allocation bytes in paid Prepare+Rank intervals,
 while median paired time ratios increased about7.5–7.7%. Allocation counts rose;

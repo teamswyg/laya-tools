@@ -1,0 +1,35 @@
+{
+  "schema": "riido-token-plan-repository-qa-v1",
+  "go": "go1.27.1 darwin/arm64",
+  "checks": [
+    {
+      "command": "go test -race ./...",
+      "exit_code": 0
+    },
+    {
+      "command": "go vet ./...",
+      "exit_code": 0
+    }
+  ],
+  "source": [
+    {
+      "path": "internal/hintlearn/features_tokenplan.go",
+      "bytes": 5221,
+      "sha256": "22e931e336e185b6175fadf54d86b54438a7302c4b37b682d8d5d6c5efa4167f"
+    },
+    {
+      "path": "internal/hintlearn/features_tokenplan_test.go",
+      "bytes": 9067,
+      "sha256": "da98111a148917a5a1ebd55d6bb742d3d03f6ae00f1d0d71ee3c145b60ff2317"
+    },
+    {
+      "path": "pkg/hintprepared/prepared.go",
+      "bytes": 6344,
+      "sha256": "f359d49f7d9aa50cc75e4c6c4b3e16d22e2df06e649e4f3320b6c5f9e517ee5b"
+    }
+  ],
+  "all_checks_passed": true,
+  "formatting_and_secrets_pending": true,
+  "complete_stdout_record_not_claimed": true,
+  "scope": "Actual repository checks. Existing synthetic/default fixture tests are not new learned-asset experiments or training advancement."
+}

@@ -1,0 +1,37 @@
+{
+  "schema": "riido-token-plan-concurrent-controls-v1",
+  "status": "pass",
+  "commands": [
+    "go test -race -count=1 ./internal/hintlearn ./pkg/hintprepared"
+  ],
+  "go": "go1.27.1 darwin/arm64",
+  "stdout": "ok github.com/teamswyg/laya-tools/internal/hintlearn 1.795s\nok github.com/teamswyg/laya-tools/pkg/hintprepared 2.836s\n",
+  "source": [
+    {
+      "path": "internal/hintlearn/features_tokenplan.go",
+      "bytes": 5221,
+      "sha256": "22e931e336e185b6175fadf54d86b54438a7302c4b37b682d8d5d6c5efa4167f"
+    },
+    {
+      "path": "internal/hintlearn/features_tokenplan_test.go",
+      "bytes": 9067,
+      "sha256": "da98111a148917a5a1ebd55d6bb742d3d03f6ae00f1d0d71ee3c145b60ff2317"
+    },
+    {
+      "path": "pkg/hintprepared/prepared.go",
+      "bytes": 6344,
+      "sha256": "f359d49f7d9aa50cc75e4c6c4b3e16d22e2df06e649e4f3320b6c5f9e517ee5b"
+    }
+  ],
+  "shared_control": {
+    "workers": 4,
+    "documents": 7,
+    "rotations": 3,
+    "rows": 84,
+    "local_scratch_per_worker": true,
+    "full_oracle_bits_and_read_only_snapshots": true
+  },
+  "first_initial_record_preserved": true,
+  "model_experiment": false,
+  "scope": "Source/race controls only; no learned performance, qualification, training or activation claim."
+}

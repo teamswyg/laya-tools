@@ -1,0 +1,129 @@
+{
+  "schema": "riido-token-plan-freeze-v1",
+  "state": "sealed after model-free controls/source review and before first measured scorer execution",
+  "source_pins": {
+    "bytes": 6192,
+    "sha256": "6acb06e5299c3eca708af774e83d3d51402bdaffb334221181c57729d9405f3b"
+  },
+  "private_controller": {
+    "bytes": 8355,
+    "sha256": "ccfb8cdf70bc1df0a7a29999f54c7853e3727553c2a5b8a6dce8f2a5530a2710"
+  },
+  "synthetic_controls": {
+    "bytes": 1671,
+    "sha256": "22b7a40ef219c1635147f22a89e5c92ba8974b148e5c18ccc20fd606e82a4daf"
+  },
+  "token_and_shared_controls": {
+    "bytes": 1246,
+    "sha256": "e0d7f7889147bff329e2210554032e970139dae4e69cf894a3319bac4ed5a8f7"
+  },
+  "generated_files": [
+    {
+      "path": "prepared.go",
+      "bytes": 6344,
+      "sha256": "f359d49f7d9aa50cc75e4c6c4b3e16d22e2df06e649e4f3320b6c5f9e517ee5b"
+    },
+    {
+      "path": "token_probe_test.go",
+      "bytes": 18757,
+      "sha256": "a9ebf8167ee50fc1debcb4497424aa9e73d84230da697424aac8acf8bf012f03"
+    },
+    {
+      "path": "token_saved_test.go",
+      "bytes": 19030,
+      "sha256": "eb7f4850f5c5b81b65b011f98f075d23f0e08666fcd6f182668790b5dfa28054"
+    },
+    {
+      "path": "INPUT.public.v3.json",
+      "bytes": 1417,
+      "sha256": "39e0aadbfe91c0b15ad3da257725de8d74c7a82c9d4222f73da8f937e72bf4c2"
+    },
+    {
+      "path": "go.mod",
+      "bytes": 231,
+      "sha256": "f47089b288925d61176acc2c0207fe1a48b265ff78534e0e0368445ad432cfc8"
+    },
+    {
+      "path": "go.sum",
+      "bytes": 511,
+      "sha256": "b89ba980a5c517f5e9e52a67448d2db01d4b6be95a4afb54d7739a610a872132"
+    }
+  ],
+  "input": {
+    "bytes": 1417,
+    "sha256": "39e0aadbfe91c0b15ad3da257725de8d74c7a82c9d4222f73da8f937e72bf4c2"
+  },
+  "model": {
+    "bytes": 32792,
+    "sha256": "dff05140098845943ece87c3ab8a31a15564a4b170a59ab017ee393501158004",
+    "ref": "JooYoon/riidolaya-shortclaim-data-effect-failed-79@5bef215895b69d3f2ef4b82bb3f1970279d67f46",
+    "kind": "inactive RIIDOH01 FP32 hashed-feature scorer; not Laya encoder"
+  },
+  "Go": "go1.27.1",
+  "CGO_actual": "0",
+  "CGO_race_controls": "1",
+  "GOMAXPROCS": 1,
+  "Go_GC_soft_target_bytes": 100663296,
+  "ns": [
+    1,
+    8
+  ],
+  "paired_blocks_each": 6,
+  "orders_even": [
+    "baseline_scratch",
+    "token_plan"
+  ],
+  "orders_odd": [
+    "token_plan",
+    "baseline_scratch"
+  ],
+  "intervals": 24,
+  "timed_expected": {
+    "Prepare": 24,
+    "Rank": 108
+  },
+  "untimed_expected": {
+    "input_read": 1,
+    "model_read": 1,
+    "LoadValidated": 1,
+    "ViewNew": 1,
+    "Prepare": 2,
+    "Rank": 2
+  },
+  "live_wrapper_expected": {
+    "attempted": 140,
+    "returned": 140,
+    "Prepare": 26,
+    "Rank": 110
+  },
+  "adoption_gate": {
+    "every_pair_new_allocation_lte_baseline": true,
+    "every_pair_minimum_Mallocs_decrease": 144,
+    "each_N_median_of_paired_elapsed_new_over_baseline_max": 1,
+    "full_feature_and_ranking_bits": true,
+    "unchanged_tight_retained_payload": true
+  },
+  "compiler_timeout_ms": 60000,
+  "live_timeout_ms": 20000,
+  "stdout_kill_trigger_bytes": {
+    "build": 32768,
+    "live": 16384,
+    "saved": 32768
+  },
+  "stderr_kill_trigger_bytes": 16384,
+  "observed_process_chunks_preserved_not_hard_capture_caps": true,
+  "report_acceptance_bound_bytes": 2097152,
+  "compressed_saved_bound_bytes": 131072,
+  "retained_headroom_preflight_estimate_bytes": 220000,
+  "estimate_not_worst_case_output_ceiling": true,
+  "each_retained_write_exact_bytes_fresh_census_guard": true,
+  "retained_cap_bytes": 536870912,
+  "cap_account_and_classes_unchanged": true,
+  "profiles": false,
+  "Fit": 0,
+  "new_labels": 0,
+  "new_roles": 0,
+  "protected_reads": 0,
+  "default_activation": false,
+  "scope": "One exposed development parent, 24 repeated cost intervals. Complete Prepare plus unchanged Rank are timed; label construction/GC/MemStats/full witness conversion are outside timing symmetrically. Go TotalAlloc/Mallocs and elapsed time are not peak/RSS/native/GPU/CPU utilization or learned quality. Plans are constructor-local, no new shared pool/cache/lock. Saved oracle later calls public Features without model calls, separate from live wrappers. First outcome retained even if adoption gates fail; no repeat to obtain pass."
+}
