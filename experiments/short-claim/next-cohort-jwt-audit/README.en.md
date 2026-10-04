@@ -19,7 +19,7 @@ These are finite five-input matches. They do not prove every time/issuer/subject
 
 ## Memory and time
 
-This was the first run on Apple M4 Pro, Go 1.27.1, with one CPU thread. Original observation peak OS RSS was **12,517,376B ≈ 11.94MiB**, with **23.689ms** lifetime child CPU. Time inside `main`, including input qualification, 160 trials and result preparation, was **9.607ms**. Start through process/pipe cleanup took **598.010ms**. Startup appears material for this small workload. These observations cover different scopes; their difference is not an isolated startup measurement.
+This was the first run on Apple M4 Pro, Go 1.27.1, with `GOMAXPROCS=1`. This provides one Go scheduler execution slot; it does not restrict the process to one OS thread. Original observation peak OS RSS was **12,517,376B ≈ 11.94MiB**, with **23.689ms** lifetime child CPU. Time inside `main`, including input qualification, 160 trials and result preparation, was **9.607ms**. Start through process/pipe cleanup took **598.010ms**. Startup appears material for this small workload. These observations cover different scopes; their difference is not an isolated startup measurement.
 
 RSS is neither Go heap nor model memory. This is Go CPU execution and measures no Laya inference, GPU use or agent token savings. `GOMEMLIMIT=64MiB` is a soft Go memory target; the 256MiB RSS gate is retrospective. Neither is a hard RSS guarantee. No profiles or dumps were taken while the private key was live.
 
