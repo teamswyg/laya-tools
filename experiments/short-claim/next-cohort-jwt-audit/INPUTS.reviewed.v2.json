@@ -1,0 +1,566 @@
+{
+  "schema": "riido-JWT-input-preparation-review-v2",
+  "status": "reviewed_preparation_only_not_execution_freeze",
+  "source_revision": "73c870b18e68b6e654b2b03f485aa3c9fab32cea",
+  "family": "prospective whole golang-jwt/jwt plus dgrijalva/jwt-go lineage; relationship and role authority pending Root",
+  "role": null,
+  "group_id": null,
+  "role_authority_adopted": false,
+  "proposed_future_role": "whole-family validation only if Root assigns it before observation; not independent final evaluation",
+  "common": {
+    "api": "NewParser(commonOptions..., candidateOption).ParseWithClaims",
+    "claims_type": "Fresh jwt.RegisteredClaims variable each direct trial, passed by &claims to ParseWithClaims; no cross-trial sharing.",
+    "options": [
+      "WithValidMethods([]string{\"RS256\"})",
+      "WithTimeFunc(fixed1700000000UTC)",
+      "WithStrictDecoding()"
+    ],
+    "clock_unix_seconds": 1700000000,
+    "header_json": "{\"alg\":\"RS256\",\"typ\":\"JWT\"}",
+    "key": "one fictional 2048-bit RSA public key, exponent 65537; bytes NOT prepared",
+    "keyfunc": "one local public-key return; no network, key sets, or HSM",
+    "fresh_claims_each_call": true,
+    "custom_claim_getters": false,
+    "time_precision_seconds": 1,
+    "signatures_prepared": false,
+    "cached_claims_ownership": "Deep-copy audience slice and every NumericDate pointer before each candidate; struct assignment alone is insufficient."
+  },
+  "candidate_order": "parser_option.go declaration order among these eight options, excluding common options; fixed before outcomes, not expected-positive balancing",
+  "candidates": [
+    {
+      "id": "option-leeway",
+      "option": "WithLeeway(2*time.Second)",
+      "caption": "Validate RS256 sessions with two seconds of tolerance for time comparisons.",
+      "source_line": 32,
+      "caption_origin": "authored faithful paraphrase of frozen parser_option.go plus common signed-session context; not an upstream quotation",
+      "source_url": "https://github.com/golang-jwt/jwt/blob/73c870b18e68b6e654b2b03f485aa3c9fab32cea/parser_option.go#L32",
+      "previous_source_line": 31,
+      "source_line_convention": "one_based_same_as_URL_anchor"
+    },
+    {
+      "id": "option-issued-at",
+      "option": "WithIssuedAt()",
+      "caption": "Validate RS256 sessions and check whether issued-at is in the future.",
+      "source_line": 47,
+      "caption_origin": "authored faithful paraphrase of frozen parser_option.go plus common signed-session context; not an upstream quotation",
+      "source_url": "https://github.com/golang-jwt/jwt/blob/73c870b18e68b6e654b2b03f485aa3c9fab32cea/parser_option.go#L47",
+      "previous_source_line": 46,
+      "source_line_convention": "one_based_same_as_URL_anchor"
+    },
+    {
+      "id": "option-exp-required",
+      "option": "WithExpirationRequired()",
+      "caption": "Validate RS256 sessions and require the expiration claim to be present.",
+      "source_line": 55,
+      "caption_origin": "authored faithful paraphrase of frozen parser_option.go plus common signed-session context; not an upstream quotation",
+      "source_url": "https://github.com/golang-jwt/jwt/blob/73c870b18e68b6e654b2b03f485aa3c9fab32cea/parser_option.go#L55",
+      "previous_source_line": 54,
+      "source_line_convention": "one_based_same_as_URL_anchor"
+    },
+    {
+      "id": "option-nbf-required",
+      "option": "WithNotBeforeRequired()",
+      "caption": "Validate RS256 sessions and require the not-before claim to be present.",
+      "source_line": 62,
+      "caption_origin": "authored faithful paraphrase of frozen parser_option.go plus common signed-session context; not an upstream quotation",
+      "source_url": "https://github.com/golang-jwt/jwt/blob/73c870b18e68b6e654b2b03f485aa3c9fab32cea/parser_option.go#L62",
+      "previous_source_line": 61,
+      "source_line_convention": "one_based_same_as_URL_anchor"
+    },
+    {
+      "id": "option-audience-any",
+      "option": "WithAudience(\"alpha\", \"beta\")",
+      "caption": "Validate RS256 sessions and require at least one expected audience, alpha or beta.",
+      "source_line": 69,
+      "caption_origin": "authored faithful paraphrase of frozen parser_option.go plus common signed-session context; not an upstream quotation",
+      "source_url": "https://github.com/golang-jwt/jwt/blob/73c870b18e68b6e654b2b03f485aa3c9fab32cea/parser_option.go#L69",
+      "previous_source_line": 68,
+      "source_line_convention": "one_based_same_as_URL_anchor"
+    },
+    {
+      "id": "option-audience-all",
+      "option": "WithAllAudiences(\"alpha\", \"beta\")",
+      "caption": "Validate RS256 sessions and require both expected audiences, alpha and beta.",
+      "source_line": 82,
+      "caption_origin": "authored faithful paraphrase of frozen parser_option.go plus common signed-session context; not an upstream quotation",
+      "source_url": "https://github.com/golang-jwt/jwt/blob/73c870b18e68b6e654b2b03f485aa3c9fab32cea/parser_option.go#L82",
+      "previous_source_line": 81,
+      "source_line_convention": "one_based_same_as_URL_anchor"
+    },
+    {
+      "id": "option-issuer",
+      "option": "WithIssuer(\"issuer-A\")",
+      "caption": "Validate RS256 sessions and require the expected issuer, issuer-A.",
+      "source_line": 98,
+      "caption_origin": "authored faithful paraphrase of frozen parser_option.go plus common signed-session context; not an upstream quotation",
+      "source_url": "https://github.com/golang-jwt/jwt/blob/73c870b18e68b6e654b2b03f485aa3c9fab32cea/parser_option.go#L98",
+      "previous_source_line": 97,
+      "source_line_convention": "one_based_same_as_URL_anchor"
+    },
+    {
+      "id": "option-subject",
+      "option": "WithSubject(\"user-A\")",
+      "caption": "Validate RS256 sessions and require the expected subject, user-A.",
+      "source_line": 111,
+      "caption_origin": "authored faithful paraphrase of frozen parser_option.go plus common signed-session context; not an upstream quotation",
+      "source_url": "https://github.com/golang-jwt/jwt/blob/73c870b18e68b6e654b2b03f485aa3c9fab32cea/parser_option.go#L111",
+      "previous_source_line": 110,
+      "source_line_convention": "one_based_same_as_URL_anchor"
+    }
+  ],
+  "requests": [
+    {
+      "id": "fiction-lantern",
+      "text": "In Lantern, accept valid signed sessions addressed to at least one of alpha and beta; reject missing or unrelated audiences.",
+      "fixtures": [
+        {
+          "id": "aud-alpha",
+          "claims": {
+            "aud": [
+              "alpha"
+            ],
+            "iss": "issuer-A",
+            "sub": "user-A",
+            "iat": 1699999980,
+            "nbf": 1699999980,
+            "exp": 1700000020
+          },
+          "want_accept": true,
+          "claims_json": "{\"aud\":[\"alpha\"],\"exp\":1700000020,\"iat\":1699999980,\"iss\":\"issuer-A\",\"nbf\":1699999980,\"sub\":\"user-A\"}",
+          "claims_json_bytes": 100,
+          "claims_sha256": "16f8a77e96006cac58231d3509b5651dcd9995c275631c0f800f6924255e254b"
+        },
+        {
+          "id": "aud-beta",
+          "claims": {
+            "aud": [
+              "beta"
+            ],
+            "iss": "issuer-A",
+            "sub": "user-A",
+            "iat": 1699999980,
+            "nbf": 1699999980,
+            "exp": 1700000020
+          },
+          "want_accept": true,
+          "claims_json": "{\"aud\":[\"beta\"],\"exp\":1700000020,\"iat\":1699999980,\"iss\":\"issuer-A\",\"nbf\":1699999980,\"sub\":\"user-A\"}",
+          "claims_json_bytes": 99,
+          "claims_sha256": "2e0a8b9b36b129a4ffcb85323c40dc57fb1463527176fff2a68fb3177731331c"
+        },
+        {
+          "id": "aud-both",
+          "claims": {
+            "aud": [
+              "alpha",
+              "beta"
+            ],
+            "iss": "issuer-A",
+            "sub": "user-A",
+            "iat": 1699999980,
+            "nbf": 1699999980,
+            "exp": 1700000020
+          },
+          "want_accept": true,
+          "claims_json": "{\"aud\":[\"alpha\",\"beta\"],\"exp\":1700000020,\"iat\":1699999980,\"iss\":\"issuer-A\",\"nbf\":1699999980,\"sub\":\"user-A\"}",
+          "claims_json_bytes": 107,
+          "claims_sha256": "8aa0f8ac1a2bb4c306aed7164064a9714d9361e4a2074b532d661fca8f4687fa"
+        },
+        {
+          "id": "aud-other",
+          "claims": {
+            "aud": [
+              "gamma"
+            ],
+            "iss": "issuer-A",
+            "sub": "user-A",
+            "iat": 1699999980,
+            "nbf": 1699999980,
+            "exp": 1700000020
+          },
+          "want_accept": false,
+          "claims_json": "{\"aud\":[\"gamma\"],\"exp\":1700000020,\"iat\":1699999980,\"iss\":\"issuer-A\",\"nbf\":1699999980,\"sub\":\"user-A\"}",
+          "claims_json_bytes": 100,
+          "claims_sha256": "665fe80b46bfc7a9dbff64dc8839001557695978f7035a76420ceeee1c039e2c"
+        },
+        {
+          "id": "aud-omitted",
+          "claims": {
+            "iss": "issuer-A",
+            "sub": "user-A",
+            "iat": 1699999980,
+            "nbf": 1699999980,
+            "exp": 1700000020
+          },
+          "want_accept": false,
+          "claims_json": "{\"exp\":1700000020,\"iat\":1699999980,\"iss\":\"issuer-A\",\"nbf\":1699999980,\"sub\":\"user-A\"}",
+          "claims_json_bytes": 84,
+          "claims_sha256": "e0e2e07e1bc15cb60ee280933e8eca6400a826ab2e1a1a6ea4015a7e30ea612f"
+        }
+      ],
+      "text_bytes": 124,
+      "ascii_whitespace_words": 20
+    },
+    {
+      "id": "fiction-harbor",
+      "text": "In Harbor, accept valid signed sessions only when both alpha and beta audiences are present; reject missing or partial audience sets.",
+      "fixtures": [
+        {
+          "id": "aud-alpha",
+          "claims": {
+            "aud": [
+              "alpha"
+            ],
+            "iss": "issuer-A",
+            "sub": "user-A",
+            "iat": 1699999980,
+            "nbf": 1699999980,
+            "exp": 1700000020
+          },
+          "want_accept": false,
+          "claims_json": "{\"aud\":[\"alpha\"],\"exp\":1700000020,\"iat\":1699999980,\"iss\":\"issuer-A\",\"nbf\":1699999980,\"sub\":\"user-A\"}",
+          "claims_json_bytes": 100,
+          "claims_sha256": "16f8a77e96006cac58231d3509b5651dcd9995c275631c0f800f6924255e254b"
+        },
+        {
+          "id": "aud-beta",
+          "claims": {
+            "aud": [
+              "beta"
+            ],
+            "iss": "issuer-A",
+            "sub": "user-A",
+            "iat": 1699999980,
+            "nbf": 1699999980,
+            "exp": 1700000020
+          },
+          "want_accept": false,
+          "claims_json": "{\"aud\":[\"beta\"],\"exp\":1700000020,\"iat\":1699999980,\"iss\":\"issuer-A\",\"nbf\":1699999980,\"sub\":\"user-A\"}",
+          "claims_json_bytes": 99,
+          "claims_sha256": "2e0a8b9b36b129a4ffcb85323c40dc57fb1463527176fff2a68fb3177731331c"
+        },
+        {
+          "id": "aud-both",
+          "claims": {
+            "aud": [
+              "alpha",
+              "beta"
+            ],
+            "iss": "issuer-A",
+            "sub": "user-A",
+            "iat": 1699999980,
+            "nbf": 1699999980,
+            "exp": 1700000020
+          },
+          "want_accept": true,
+          "claims_json": "{\"aud\":[\"alpha\",\"beta\"],\"exp\":1700000020,\"iat\":1699999980,\"iss\":\"issuer-A\",\"nbf\":1699999980,\"sub\":\"user-A\"}",
+          "claims_json_bytes": 107,
+          "claims_sha256": "8aa0f8ac1a2bb4c306aed7164064a9714d9361e4a2074b532d661fca8f4687fa"
+        },
+        {
+          "id": "aud-other",
+          "claims": {
+            "aud": [
+              "gamma"
+            ],
+            "iss": "issuer-A",
+            "sub": "user-A",
+            "iat": 1699999980,
+            "nbf": 1699999980,
+            "exp": 1700000020
+          },
+          "want_accept": false,
+          "claims_json": "{\"aud\":[\"gamma\"],\"exp\":1700000020,\"iat\":1699999980,\"iss\":\"issuer-A\",\"nbf\":1699999980,\"sub\":\"user-A\"}",
+          "claims_json_bytes": 100,
+          "claims_sha256": "665fe80b46bfc7a9dbff64dc8839001557695978f7035a76420ceeee1c039e2c"
+        },
+        {
+          "id": "aud-omitted",
+          "claims": {
+            "iss": "issuer-A",
+            "sub": "user-A",
+            "iat": 1699999980,
+            "nbf": 1699999980,
+            "exp": 1700000020
+          },
+          "want_accept": false,
+          "claims_json": "{\"exp\":1700000020,\"iat\":1699999980,\"iss\":\"issuer-A\",\"nbf\":1699999980,\"sub\":\"user-A\"}",
+          "claims_json_bytes": 84,
+          "claims_sha256": "e0e2e07e1bc15cb60ee280933e8eca6400a826ab2e1a1a6ea4015a7e30ea612f"
+        }
+      ],
+      "text_bytes": 133,
+      "ascii_whitespace_words": 21
+    },
+    {
+      "id": "fiction-moss",
+      "text": "In Moss, require expiration for signed sessions; accept future expiry even without not-before, and reject missing, past, or current expiry.",
+      "fixtures": [
+        {
+          "id": "exp-omitted",
+          "claims": {
+            "aud": [
+              "alpha",
+              "beta"
+            ],
+            "iss": "issuer-A",
+            "sub": "user-A",
+            "iat": 1699999980,
+            "nbf": 1699999980
+          },
+          "want_accept": false,
+          "claims_json": "{\"aud\":[\"alpha\",\"beta\"],\"iat\":1699999980,\"iss\":\"issuer-A\",\"nbf\":1699999980,\"sub\":\"user-A\"}",
+          "claims_json_bytes": 90,
+          "claims_sha256": "47a77101b36b0115e0a87b1fa7f75b99d21182ce813cb6e54fefe24b1a3d85dc"
+        },
+        {
+          "id": "exp-future",
+          "claims": {
+            "aud": [
+              "alpha",
+              "beta"
+            ],
+            "iss": "issuer-A",
+            "sub": "user-A",
+            "iat": 1699999980,
+            "nbf": 1699999980,
+            "exp": 1700000020
+          },
+          "want_accept": true,
+          "claims_json": "{\"aud\":[\"alpha\",\"beta\"],\"exp\":1700000020,\"iat\":1699999980,\"iss\":\"issuer-A\",\"nbf\":1699999980,\"sub\":\"user-A\"}",
+          "claims_json_bytes": 107,
+          "claims_sha256": "8aa0f8ac1a2bb4c306aed7164064a9714d9361e4a2074b532d661fca8f4687fa"
+        },
+        {
+          "id": "exp-past",
+          "claims": {
+            "aud": [
+              "alpha",
+              "beta"
+            ],
+            "iss": "issuer-A",
+            "sub": "user-A",
+            "iat": 1699999980,
+            "nbf": 1699999980,
+            "exp": 1699999990
+          },
+          "want_accept": false,
+          "claims_json": "{\"aud\":[\"alpha\",\"beta\"],\"exp\":1699999990,\"iat\":1699999980,\"iss\":\"issuer-A\",\"nbf\":1699999980,\"sub\":\"user-A\"}",
+          "claims_json_bytes": 107,
+          "claims_sha256": "dfd6c6ab8b5f2939853073db4b986776b415b7f61006a393b2154d9ed2be22d3"
+        },
+        {
+          "id": "exp-now",
+          "claims": {
+            "aud": [
+              "alpha",
+              "beta"
+            ],
+            "iss": "issuer-A",
+            "sub": "user-A",
+            "iat": 1699999980,
+            "nbf": 1699999980,
+            "exp": 1700000000
+          },
+          "want_accept": false,
+          "claims_json": "{\"aud\":[\"alpha\",\"beta\"],\"exp\":1700000000,\"iat\":1699999980,\"iss\":\"issuer-A\",\"nbf\":1699999980,\"sub\":\"user-A\"}",
+          "claims_json_bytes": 107,
+          "claims_sha256": "ab0b3b2ffe886451c20f7daf10f1700cc4926623b0888d89f825a5e169698acb"
+        },
+        {
+          "id": "exp-future-nbf-omitted",
+          "claims": {
+            "aud": [
+              "alpha",
+              "beta"
+            ],
+            "iss": "issuer-A",
+            "sub": "user-A",
+            "iat": 1699999980,
+            "exp": 1700000020
+          },
+          "want_accept": true,
+          "claims_json": "{\"aud\":[\"alpha\",\"beta\"],\"exp\":1700000020,\"iat\":1699999980,\"iss\":\"issuer-A\",\"sub\":\"user-A\"}",
+          "claims_json_bytes": 90,
+          "claims_sha256": "b6ea1118e326eb2d7ea8de3eae3b319bd070301a832f78f654e2e997b62e1ecb"
+        }
+      ],
+      "text_bytes": 139,
+      "ascii_whitespace_words": 20
+    },
+    {
+      "id": "fiction-cove",
+      "text": "In Cove, allow omitted not-before; accept signed sessions when expiry exceeds now minus two seconds and any present not-before is at most now plus two seconds.",
+      "fixtures": [
+        {
+          "id": "exp-one-second-past",
+          "claims": {
+            "aud": [
+              "alpha",
+              "beta"
+            ],
+            "iss": "issuer-A",
+            "sub": "user-A",
+            "iat": 1699999980,
+            "nbf": 1699999980,
+            "exp": 1699999999
+          },
+          "want_accept": true,
+          "claims_json": "{\"aud\":[\"alpha\",\"beta\"],\"exp\":1699999999,\"iat\":1699999980,\"iss\":\"issuer-A\",\"nbf\":1699999980,\"sub\":\"user-A\"}",
+          "claims_json_bytes": 107,
+          "claims_sha256": "68bef3dac81307b47a4ff5a104a631b394d66b16174e0948409a6c76c966e54f"
+        },
+        {
+          "id": "exp-two-seconds-past",
+          "claims": {
+            "aud": [
+              "alpha",
+              "beta"
+            ],
+            "iss": "issuer-A",
+            "sub": "user-A",
+            "iat": 1699999980,
+            "nbf": 1699999980,
+            "exp": 1699999998
+          },
+          "want_accept": false,
+          "claims_json": "{\"aud\":[\"alpha\",\"beta\"],\"exp\":1699999998,\"iat\":1699999980,\"iss\":\"issuer-A\",\"nbf\":1699999980,\"sub\":\"user-A\"}",
+          "claims_json_bytes": 107,
+          "claims_sha256": "5dfb4f5552d2ec1f05b27afc095d19529fcd53bf5f7208a66c44db151889109b"
+        },
+        {
+          "id": "nbf-two-seconds-future",
+          "claims": {
+            "aud": [
+              "alpha",
+              "beta"
+            ],
+            "iss": "issuer-A",
+            "sub": "user-A",
+            "iat": 1699999980,
+            "nbf": 1700000002,
+            "exp": 1700000020
+          },
+          "want_accept": true,
+          "claims_json": "{\"aud\":[\"alpha\",\"beta\"],\"exp\":1700000020,\"iat\":1699999980,\"iss\":\"issuer-A\",\"nbf\":1700000002,\"sub\":\"user-A\"}",
+          "claims_json_bytes": 107,
+          "claims_sha256": "28dcf7d130ad96d187a44ef048a4daac74c8d0927d20df6419fb990f0a86b96d"
+        },
+        {
+          "id": "nbf-three-seconds-future",
+          "claims": {
+            "aud": [
+              "alpha",
+              "beta"
+            ],
+            "iss": "issuer-A",
+            "sub": "user-A",
+            "iat": 1699999980,
+            "nbf": 1700000003,
+            "exp": 1700000020
+          },
+          "want_accept": false,
+          "claims_json": "{\"aud\":[\"alpha\",\"beta\"],\"exp\":1700000020,\"iat\":1699999980,\"iss\":\"issuer-A\",\"nbf\":1700000003,\"sub\":\"user-A\"}",
+          "claims_json_bytes": 107,
+          "claims_sha256": "c8711414a9bf6f80ab2b0c6fdc9de9b76bf5c08232f499dc127ebe0c17070c69"
+        },
+        {
+          "id": "nbf-omitted",
+          "claims": {
+            "aud": [
+              "alpha",
+              "beta"
+            ],
+            "iss": "issuer-A",
+            "sub": "user-A",
+            "iat": 1699999980,
+            "exp": 1700000020
+          },
+          "want_accept": true,
+          "claims_json": "{\"aud\":[\"alpha\",\"beta\"],\"exp\":1700000020,\"iat\":1699999980,\"iss\":\"issuer-A\",\"sub\":\"user-A\"}",
+          "claims_json_bytes": 90,
+          "claims_sha256": "b6ea1118e326eb2d7ea8de3eae3b319bd070301a832f78f654e2e997b62e1ecb"
+        }
+      ],
+      "text_bytes": 159,
+      "ascii_whitespace_words": 26
+    }
+  ],
+  "counts": {
+    "candidate_configurations": 8,
+    "fictional_requests": 4,
+    "fixture_positions": 20,
+    "distinct_literal_claims": 13,
+    "planned_original_candidate_fixture_calls": 160,
+    "actual_original_api": 0,
+    "actual_sign_or_key_generation": 0,
+    "model": 0,
+    "Fit": 0,
+    "labels": 0,
+    "roles": 0,
+    "protected_eval_reads": 0
+  },
+  "want_scope": "literal acceptance vector for each fictional request; no acceptable candidate indices or candidate truth labels assigned",
+  "got_to_record": [
+    "token_returned",
+    "token_valid",
+    "error_nil",
+    "error_classes_errorsIs",
+    "keyfunc_calls",
+    "panic_and_observer_trace",
+    "input_unchanged",
+    "source_function_call_counters"
+  ],
+  "acceptance_predicate": "token returned AND token.Valid AND error nil; each Got acceptance is compared with the literal per-fixture Want; reject-expected is not candidate-false by itself",
+  "unknown_policy": [
+    "missing/untrusted signature preparation, key decoding failure, unresolved adapter parity or unexpected panic leaves affected observations U",
+    "known-F and U traces retained; candidate aggregate may be F with unresolved U, never relabel U as F",
+    "known-none only if every candidate is known-F after literal comparison; many/all-positive remain representable",
+    "resource limit, cancellation or observer failure is U, not a synthesized candidate failure"
+  ],
+  "excluded": [
+    "real sessions or real-work prompts",
+    "private keys in artifacts",
+    "remote keys/real auth providers",
+    "non-RS256 algorithms",
+    "malformed claims/type coercion",
+    "fractional times/leap seconds",
+    "custom ClaimsValidator",
+    "security sufficiency beyond the finite fixtures",
+    "ranking or label thresholds chosen after observations"
+  ],
+  "pending_before_execution": [
+    "Root whole-family relationship and role decision",
+    "public-key and signature-only fixture preparation with separate counters and private-key disposal",
+    "independent literal Want and caption fidelity review",
+    "full compiler-selected closure and notice pins for Go1.27.1 darwin/arm64",
+    "owned observer parity/panic/limit synthetic controls",
+    "shared input/source/worker/compiler/order/output/CPU-memory budget freeze",
+    "strong cached and nonlearned control protocols pinned before source outcomes"
+  ],
+  "previous_input": {
+    "file": "INPUTS.draft.json",
+    "bytes": 20939,
+    "sha256": "1edde7ed9945af038d0060122b7503d882790e1142707396cf6e44e5d67e1cf7",
+    "preserved": true
+  },
+  "finite_scope_limitations": [
+    "20 fixture positions reuse13 distinct claims; not20 independent inputs or160 independent tasks.",
+    "iat/issuer/subject are constants; their presence does not test those policy boundaries.",
+    "Cove lacks missing-expiration fixture; finite5-fixture parity does not establish full policy presence semantics.",
+    "request_id+fixture position+candidate position form the observation key; fixture id alone is not unique.",
+    "Signer output mustdecode exactly to the frozen header_json and claims_json bytes."
+  ],
+  "cached_control_protocol": "Separately frozen lazy per-parent authentication cache, first-fixture-mismatch operational verification; full160 audit retainsallfacts and is a separate costscope.",
+  "independent_literal_review": {
+    "contract_only": true,
+    "all20_positions_agree": true,
+    "candidate_outcomes_seen": 0,
+    "codes": [
+      "TTTFF",
+      "FFTFF",
+      "FTFFT",
+      "TFTFT"
+    ],
+    "no_labels_created": true
+  }
+}
