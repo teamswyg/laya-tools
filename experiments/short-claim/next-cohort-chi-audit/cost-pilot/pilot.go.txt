@@ -1,0 +1,801 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 teamswyg contributors.
+// Research worker, compiled with a separately pinned observer copy whose main
+// alone is renamed. No saved verdict substitutes for observe during a pipeline.
+// Timings include trace collection; exclude GC/stat reads, encoding and process
+// startup. Go allocation is not RSS/GPU. Imports include trainer code, but Fit0.
+package main
+
+import (
+	"bytes"
+	"compress/gzip"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"flag"
+	"fmt"
+	"io"
+	"math"
+	"os"
+	"runtime"
+	"time"
+	"unicode/utf8"
+
+	"github.com/teamswyg/laya-tools/pkg/hintprepared"
+	"github.com/teamswyg/laya-tools/pkg/hintweights"
+	"github.com/teamswyg/laya-tools/pkg/shortclaim"
+)
+
+const pilotRouteSHA = "7c18bf602e1566ecbeef4708676691e5b3ee5d2ee4f9845e8938b33cd1620834"
+const pilotWantsSHA = "a79e528f4c217ee5c162056e05ad0586efda3002b8c3a9a01cadbf43feef508b"
+const pilotScoreSHA = "39e0aadbfe91c0b15ad3da257725de8d74c7a82c9d4222f73da8f937e72bf4c2"
+const pilotModelSHA = "dff05140098845943ece87c3ab8a31a15564a4b170a59ab017ee393501158004"
+const pilotModelRef = "JooYoon/riidolaya-shortclaim-data-effect-failed-79@5bef215895b69d3f2ef4b82bb3f1970279d67f46"
+
+var pilotModelSetupError = errors.New("model_setup_error")
+
+var pilotWilliams = [4][4]string{
+	{"bm25", "fixed", "model", "lexical"},
+	{"fixed", "lexical", "bm25", "model"},
+	{"lexical", "model", "fixed", "bm25"},
+	{"model", "bm25", "lexical", "fixed"},
+}
+
+type pilotWant struct {
+	Status       int    `json:"status"`
+	Route        int    `json:"route_handler_count"`
+	NotFound     int    `json:"not_found_count"`
+	Chi          string `json:"url_param_inside_handler"`
+	Path         string `json:"path_value_inside_handler"`
+	OriginalPath string `json:"original_Path_after"`
+	OriginalRaw  string `json:"original_RawPath_after"`
+	Normal       bool   `json:"normal_return"`
+	Panic        bool   `json:"panic"`
+	Errors       int    `json:"unescape_error_count"`
+}
+type pilotWants struct {
+	Schema   string `json:"schema"`
+	State    string `json:"state"`
+	Request  string `json:"request"`
+	Parents  int    `json:"parent_count"`
+	Family   string `json:"source_family"`
+	Fixtures []struct {
+		ID   string    `json:"id"`
+		Want pilotWant `json:"Want"`
+	} `json:"fixtures"`
+	Role   json.RawMessage `json:"role"`
+	Labels int             `json:"learning_labels"`
+	Fit    int             `json:"Fit"`
+}
+type pilotAPIEvent struct {
+	Category  string  `json:"category"`
+	Phase     string  `json:"phase"`
+	Method    string  `json:"method"`
+	Attempted bool    `json:"attempted"`
+	Returned  bool    `json:"returned"`
+	Error     bool    `json:"error"`
+	Panic     bool    `json:"panic"`
+	ErrorCode *string `json:"error_code"`
+	PanicType *string `json:"panic_type"`
+}
+type pilotAPICounts struct {
+	Attempted int `json:"attempted"`
+	Returned  int `json:"returned"`
+	Errors    int `json:"errors"`
+	Panics    int `json:"panics"`
+}
+type pilotCost struct {
+	ElapsedNS       int64  `json:"elapsed_ns"`
+	TotalAllocBytes uint64 `json:"total_alloc_bytes"`
+	Mallocs         uint64 `json:"mallocs"`
+}
+type pilotVerdict struct {
+	State    string   `json:"state"`
+	Channels []string `json:"channels"`
+}
+type pilotPreVerdict struct {
+	CandidateID string          `json:"candidate_id"`
+	State       string          `json:"state"`
+	Passed      int             `json:"passed"`
+	Checks      [9]pilotVerdict `json:"checks"`
+}
+type pilotRankSnapshot struct {
+	Kind           string    `json:"kind"`
+	Count          int       `json:"count"`
+	Order          [8]int    `json:"order"`
+	ScoreBits      [8]string `json:"score_bits"`
+	CurrentIDs     [5]string `json:"current_ids"`
+	OrderedIDs     [5]string `json:"ordered_ids"`
+	FallbackReason string    `json:"fallback_reason"`
+}
+type pilotCheck struct {
+	FixtureIndex int          `json:"fixture_index"`
+	FixtureID    string       `json:"fixture_id"`
+	Verdict      pilotVerdict `json:"verdict"`
+	Trial        trial        `json:"trial"`
+}
+type pilotVisit struct {
+	CandidateIndex      int          `json:"candidate_index"`
+	CandidateID         string       `json:"candidate_id"`
+	State               string       `json:"state"`
+	Checks              []pilotCheck `json:"checks"`
+	RemainingFixtureIDs []string     `json:"remaining_fixture_ids"`
+}
+type pilotPipeline struct {
+	PlannedPolicy               string              `json:"planned_policy"`
+	EffectivePolicy             string              `json:"effective_policy"`
+	Block                       int                 `json:"block"`
+	Position                    int                 `json:"position"`
+	State                       string              `json:"state"`
+	Ranking                     *shortclaim.Ranking `json:"ranking"`
+	RankSnapshot                *pilotRankSnapshot  `json:"rank_snapshot"`
+	FailedRanking               *pilotRankSnapshot  `json:"failed_ranking"`
+	FallbackReason              *string             `json:"fallback_reason"`
+	CandidateIDs                [5]string           `json:"candidate_ids"`
+	Visited                     [5]bool             `json:"visited"`
+	SelectedIndex               *int                `json:"selected_index"`
+	Visits                      []pilotVisit        `json:"visits"`
+	HintEvents                  []pilotAPIEvent     `json:"hint_events"`
+	HintCounts                  pilotAPICounts      `json:"hint_counts"`
+	IOCounts                    pilotAPICounts      `json:"io_counts"`
+	ChiCounts                   counts              `json:"chi_counts"`
+	OwnedVerificationMismatches int                 `json:"owned_verification_mismatches"`
+	UnavailableChecks           int                 `json:"unavailable_checks"`
+	ModelRankAttempts           int                 `json:"model_rank_attempts"`
+	ModelRankReturns            int                 `json:"model_rank_returns"`
+	Cost                        pilotCost           `json:"cost"`
+}
+type pilotWire struct {
+	Schema              string              `json:"schema"`
+	Mode                string              `json:"mode"`
+	Block               int                 `json:"block"`
+	Status              string              `json:"status"`
+	RouteSHA            string              `json:"route_sha256"`
+	WantsSHA            string              `json:"wants_sha256"`
+	ScoreSHA            string              `json:"score_sha256"`
+	ModelSHA            string              `json:"model_sha256"`
+	ModelRef            string              `json:"model_ref"`
+	Precheck            *report             `json:"precheck"`
+	PrecheckVerdicts    []pilotPreVerdict   `json:"precheck_verdicts"`
+	Anchor              []pilotRankSnapshot `json:"anchor"`
+	SetupCost           *pilotCost          `json:"setup_cost"`
+	SetupEvents         []pilotAPIEvent     `json:"setup_events"`
+	SetupHintCounts     pilotAPICounts      `json:"setup_hint_counts"`
+	SetupIOCounts       pilotAPICounts      `json:"setup_io_counts"`
+	Pipelines           []pilotPipeline     `json:"pipelines"`
+	ModelRankAttempts   int                 `json:"model_rank_attempts"`
+	ModelRankReturns    int                 `json:"model_rank_returns"`
+	Fit                 int                 `json:"fit"`
+	NewLabels           int                 `json:"new_labels"`
+	NewRoles            int                 `json:"new_roles"`
+	Qualified           bool                `json:"qualified"`
+	DefaultActivated    bool                `json:"default_activated"`
+	GPU                 bool                `json:"gpu"`
+	LayaEncoder         bool                `json:"laya_encoder"`
+	ProtectedEvaluation bool                `json:"protected_evaluation"`
+	Scope               string              `json:"scope"`
+}
+type pilotOptions struct {
+	mode, route, wants, score, model, policy string
+	block                                    int
+}
+type pilotReady struct {
+	routes   frozen
+	wants    pilotWants
+	valid    shortclaim.ValidatedInput
+	view     *hintweights.View
+	prepared *hintprepared.Prepared
+	ids      [5]string
+	modelErr error
+}
+
+// Counts cover explicit wrapper attempts, including panic(nil); never hidden
+// SDK/stdlib calls. API errors/panics and owned verdict mismatch are distinct.
+func pilotCall[T any](events *[]pilotAPIEvent, category, phase, method string, fn func() (T, error)) (out T, err error) {
+	i := len(*events)
+	*events = append(*events, pilotAPIEvent{Category: category, Phase: phase, Method: method, Attempted: true})
+	complete := false
+	defer func() {
+		if !complete {
+			p := recover()
+			kind := fmt.Sprintf("%T", p)
+			(*events)[i].Panic = true
+			(*events)[i].PanicType = &kind
+			err = errors.New("api_panic")
+		}
+	}()
+	out, err = fn()
+	complete = true
+	(*events)[i].Returned = true
+	if err != nil {
+		code := "returned_error"
+		(*events)[i].Error = true
+		(*events)[i].ErrorCode = &code
+	}
+	return
+}
+func pilotEventCounts(events []pilotAPIEvent, category string) (c pilotAPICounts, attempts, returns int) {
+	for _, e := range events {
+		if e.Category == category {
+			if e.Attempted {
+				c.Attempted++
+			}
+			if e.Returned {
+				c.Returned++
+			}
+			if e.Error {
+				c.Errors++
+			}
+			if e.Panic {
+				c.Panics++
+			}
+		}
+		if e.Method == "model_rank" {
+			if e.Attempted {
+				attempts++
+			}
+			if e.Returned {
+				returns++
+			}
+		}
+	}
+	return
+}
+func pilotMeasure(fn func()) pilotCost {
+	runtime.GC()
+	var before, after runtime.MemStats
+	runtime.ReadMemStats(&before)
+	start := time.Now()
+	fn()
+	elapsed := time.Since(start).Nanoseconds()
+	runtime.ReadMemStats(&after)
+	return pilotCost{elapsed, after.TotalAlloc - before.TotalAlloc, after.Mallocs - before.Mallocs}
+}
+func pilotDecode(raw []byte, out any) error {
+	if !utf8.Valid(raw) {
+		return errors.New("invalid_utf8")
+	}
+	d := json.NewDecoder(bytes.NewReader(raw))
+	d.DisallowUnknownFields()
+	if d.Decode(out) != nil {
+		return errors.New("invalid_json")
+	}
+	var extra any
+	if d.Decode(&extra) != io.EOF {
+		return errors.New("trailing_json")
+	}
+	return nil
+}
+func pilotRead(path string, n int, pin string) ([]byte, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, errors.New("input_read")
+	}
+	raw, err := io.ReadAll(io.LimitReader(f, int64(n)+1))
+	closeErr := f.Close()
+	if err != nil || closeErr != nil || len(raw) != n {
+		return nil, errors.New("input_bound")
+	}
+	s := sha256.Sum256(raw)
+	if hex.EncodeToString(s[:]) != pin {
+		return nil, errors.New("input_pin")
+	}
+	return raw, nil
+}
+func pilotLoad(o pilotOptions, phase string, events *[]pilotAPIEvent, model bool) (r pilotReady, err error) {
+	r.routes, err = pilotCall(events, "io", phase, "route_load", func() (frozen, error) {
+		f, s, e := load(o.route)
+		if e != nil || s != pilotRouteSHA {
+			return f, errors.New("route_pin")
+		}
+		return f, nil
+	})
+	if err != nil {
+		return
+	}
+	wr, err := pilotCall(events, "io", phase, "wants_read", func() ([]byte, error) { return pilotRead(o.wants, 4367, pilotWantsSHA) })
+	if err != nil {
+		return r, err
+	}
+	if pilotDecode(wr, &r.wants) != nil || r.wants.Schema != "riido-chi-route-literal-wants-v1" || r.wants.Parents != 1 || len(r.wants.Fixtures) != 9 || r.wants.Labels != 0 || r.wants.Fit != 0 || string(r.wants.Role) != "null" {
+		return r, errors.New("wants_authority")
+	}
+	for i, f := range r.routes.Fixtures {
+		if f.ID != r.wants.Fixtures[i].ID {
+			return r, errors.New("fixture_binding")
+		}
+	}
+	sr, err := pilotCall(events, "io", phase, "score_read", func() ([]byte, error) { return pilotRead(o.score, 1417, pilotScoreSHA) })
+	if err != nil {
+		return r, err
+	}
+	r.valid, err = pilotCall(events, "hint", phase, "load_validated", func() (shortclaim.ValidatedInput, error) { return shortclaim.LoadValidated(bytes.NewReader(sr)) })
+	if err != nil {
+		return
+	}
+	p := r.valid.Prepared()
+	if p.Count != 5 {
+		return r, errors.New("score_count")
+	}
+	for i := 0; i < 5; i++ {
+		r.ids[i] = p.Candidates[i].ID
+		if r.ids[i] != r.routes.Candidates[i].ID {
+			return r, errors.New("candidate_binding")
+		}
+	}
+	if !model {
+		return
+	}
+	raw, err := pilotCall(events, "io", phase, "model_read", func() ([]byte, error) { return pilotRead(o.model, 32792, pilotModelSHA) })
+	if err != nil {
+		return r, err
+	}
+	pilotModelSetup(&r, phase, events, func() (*hintweights.View, error) { return hintweights.New(raw) }, func() (*hintprepared.Prepared, error) { return hintprepared.Prepare(p) })
+	return
+}
+
+// Valid pinned input survives SDK preparation failure. File/pin failure above
+// remains terminal; no model-rank attempt is invented for incomplete preparation.
+func pilotModelSetup(r *pilotReady, phase string, events *[]pilotAPIEvent, newView func() (*hintweights.View, error), prepare func() (*hintprepared.Prepared, error)) {
+	var err error
+	r.view, err = pilotCall(events, "hint", phase, "view_new", newView)
+	if err != nil || r.view == nil {
+		r.modelErr = pilotModelSetupError
+		return
+	}
+	r.prepared, err = pilotCall(events, "hint", phase, "prepare", prepare)
+	if err != nil || r.prepared == nil {
+		r.modelErr = pilotModelSetupError
+	}
+}
+func pilotPresent(p *params) bool { return p != nil && p.Chi != nil && p.PathValue != nil }
+
+// Only the pinned observer's explicit call protocol is covered. Missing return,
+// value capture, API panic, empty/truncated/reordered/extra calls withhold a verdict.
+func pilotLedgerComplete(t trial, c candidate) bool {
+	i := 0
+	take := func(phase, api string, value, mayError bool) (event, bool) {
+		if i >= len(t.Ledger) {
+			return event{}, false
+		}
+		e := t.Ledger[i]
+		i++
+		return e, e.Phase == phase && e.API == api && e.Attempted && e.Returned && e.Panic == nil && (e.Value != nil) == value && (mayError || e.Error == nil)
+	}
+	need := func(phase, api string, value bool) bool { _, ok := take(phase, api, value, false); return ok }
+	if !need("setup", "http.NewRequest", true) || !need("setup", "chi.NewRouter", true) || !need("setup", "Mux.Get", false) || !need("setup", "Mux.NotFound", false) {
+		return false
+	}
+	if c.ID == "pre_path" && t.Gate {
+		e, ok := take("pre_match", "url.PathUnescape", true, true)
+		if !ok || e.Error != nil || !need("pre_match", "Request.Clone", true) {
+			return false
+		}
+	}
+	if !need("dispatch", "Mux.ServeHTTP", false) || !need("handler_before", "chi.RouteContext", true) || !need("handler_before", "chi.URLParam", true) || !need("handler_before", "Request.PathValue", true) {
+		return false
+	}
+	if len(t.Handlers) != 1 || t.Handlers[0] == nil {
+		return false
+	}
+	if t.Handlers[0].Kind == "route" && t.Gate && (c.ID == "post_path" || c.ID == "post_query" || c.ID == "twice_path") {
+		api := "url.PathUnescape"
+		if c.ID == "post_query" {
+			api = "url.QueryUnescape"
+		}
+		e, ok := take("post_match", api, true, true)
+		if !ok {
+			return false
+		}
+		if e.Error == nil && c.ID == "twice_path" {
+			e, ok = take("post_match", "url.PathUnescape", true, true)
+			if !ok {
+				return false
+			}
+		}
+		if e.Error == nil && !need("post_match", "Request.SetPathValue", false) {
+			return false
+		}
+	}
+	return need("handler_after", "chi.URLParam", true) && need("handler_after", "Request.PathValue", true) && need("handler_response", "ResponseWriter.WriteHeader", false) && i == len(t.Ledger)
+}
+func pilotClassify(t trial, f fixture, w pilotWant, c candidate) pilotVerdict {
+	v := pilotVerdict{State: "unavailable", Channels: []string{}}
+	if t.Panic != nil {
+		v.Channels = append(v.Channels, "panic_unavailable")
+	}
+	if t.ObserverError != nil {
+		v.Channels = append(v.Channels, "observer_error_unavailable")
+	}
+	if t.Status == nil || t.OriginalBefore == nil || t.OriginalAfter == nil || t.DispatchURL == nil || t.DispatchReturned == nil || len(t.Handlers) == 0 {
+		v.Channels = append(v.Channels, "capture_unavailable")
+	}
+	for _, h := range t.Handlers {
+		if h == nil || h.ContextPresent == nil || h.RoutePath == nil || !pilotPresent(h.Before) || !pilotPresent(h.After) {
+			v.Channels = append(v.Channels, "handler_unavailable")
+			break
+		}
+	}
+	if !pilotLedgerComplete(t, c) {
+		v.Channels = append(v.Channels, "ledger_unavailable")
+	}
+	if len(v.Channels) != 0 {
+		return v
+	}
+	v.State = "pass"
+	add := func(ok bool, name string) {
+		if !ok {
+			v.Channels = append(v.Channels, name)
+		}
+	}
+	h := t.Handlers[0]
+	add(t.FixtureID == f.ID && t.CandidateID == c.ID, "identity_invariant")
+	add(t.Gate == (*f.OptIn && *f.RawPath != ""), "gate_invariant")
+	add(t.OriginalBefore.Path == *f.Path && t.OriginalBefore.RawPath == *f.RawPath, "original_before_invariant")
+	add(len(t.Handlers) == 1 && t.RouteCalls+t.NotFoundCalls == 1 && ((h.Kind == "route" && t.RouteCalls == 1) || (h.Kind == "not_found" && t.NotFoundCalls == 1)), "handler_count_invariant")
+	add(*h.ContextPresent && *h.RoutePath == "" && h.Returned && *t.DispatchReturned, "live_return_invariant")
+	pre := c.ID == "pre_path" && t.Gate
+	raw := *f.RawPath
+	if pre {
+		raw = ""
+	}
+	add(t.RequestCloned == pre && t.URLCloned == pre && t.DispatchURL.Path == *f.Path && t.DispatchURL.RawPath == raw, "dispatch_invariant")
+	add(*t.Status == w.Status, "status")
+	add(t.RouteCalls == w.Route, "route_handler_count")
+	add(t.NotFoundCalls == w.NotFound, "not_found_count")
+	add(*h.After.Chi == w.Chi, "chi_url_param")
+	add(*h.After.PathValue == w.Path, "path_value")
+	add(t.OriginalAfter.Path == w.OriginalPath, "original_path")
+	add(t.OriginalAfter.RawPath == w.OriginalRaw, "original_raw")
+	add(t.NormalReturn == w.Normal, "normal_return")
+	add((t.Panic != nil) == w.Panic, "panic")
+	errorsSeen := 0
+	for _, e := range t.Ledger {
+		if e.Error != nil && (e.API == "url.PathUnescape" || e.API == "url.QueryUnescape") {
+			errorsSeen++
+		}
+	}
+	add(errorsSeen == w.Errors, "unescape_error_count")
+	if len(v.Channels) != 0 {
+		v.State = "mismatch"
+	}
+	return v
+}
+func pilotChiCounts(trials []trial) (c counts) {
+	for _, t := range trials {
+		c.Trials++
+		if t.NormalReturn {
+			c.NormalReturns++
+		}
+		if t.Panic != nil {
+			c.Panics++
+		}
+		for _, e := range t.Ledger {
+			if e.Attempted {
+				c.APIAttempted++
+			}
+			if e.Returned {
+				c.APIReturned++
+			}
+			if e.Error != nil {
+				c.APIErrors++
+			}
+			if e.Panic != nil {
+				c.APIPanics++
+			}
+		}
+	}
+	return
+}
+func pilotValidRank(r shortclaim.Ranking) bool {
+	if r.Count != 5 || r.Kind == "" {
+		return false
+	}
+	var seen [5]bool
+	for i := 0; i < 5; i++ {
+		x := r.Order[i]
+		if x < 0 || x >= 5 || seen[x] || math.IsNaN(r.Scores[i]) || math.IsInf(r.Scores[i], 0) {
+			return false
+		}
+		seen[x] = true
+		if i > 0 {
+			a := r.Order[i-1]
+			if r.Scores[a] < r.Scores[x] || (r.Scores[a] == r.Scores[x] && a > x) {
+				return false
+			}
+		}
+	}
+	for i := 5; i < 8; i++ {
+		if r.Order[i] != 0 || math.Float64bits(r.Scores[i]) != 0 {
+			return false
+		}
+	}
+	return true
+}
+func pilotSnap(r shortclaim.Ranking, ids [5]string) pilotRankSnapshot {
+	s := pilotRankSnapshot{Kind: r.Kind, Count: r.Count, Order: r.Order, CurrentIDs: ids, FallbackReason: r.FallbackReason}
+	for i := 0; i < 8; i++ {
+		s.ScoreBits[i] = fmt.Sprintf("%016x", math.Float64bits(r.Scores[i]))
+	}
+	for i := 0; i < 5 && i < r.Count; i++ {
+		x := r.Order[i]
+		if x >= 0 && x < 5 {
+			s.OrderedIDs[i] = ids[x]
+		}
+	}
+	return s
+}
+func pilotKind(policy string) string {
+	switch policy {
+	case "bm25":
+		return shortclaim.BM25Kind
+	case "fixed":
+		return shortclaim.FixedOrderKind
+	case "lexical":
+		return shortclaim.LexicalOrderedKind
+	}
+	return ""
+}
+func pilotRank(r pilotReady, policy, phase string, events *[]pilotAPIEvent) (shortclaim.Ranking, error) {
+	if policy == "model" {
+		if r.modelErr != nil {
+			return shortclaim.Ranking{}, pilotModelSetupError
+		}
+		return pilotCall(events, "hint", phase, "model_rank", func() (shortclaim.Ranking, error) { return r.prepared.Rank(r.valid, r.view) })
+	}
+	return pilotCall(events, "hint", phase, "baseline_rank", func() (shortclaim.Ranking, error) { return r.valid.Rank(pilotKind(policy)) })
+}
+
+// The callback boundary is independently controllable without running Chi/models.
+func pilotSafeVerify(fn func(int, int) trial, c, f int) (out trial, panicType *string) {
+	complete := false
+	defer func() {
+		if !complete {
+			p := recover()
+			s := fmt.Sprintf("%T", p)
+			panicType = &s
+		}
+	}()
+	out = fn(c, f)
+	complete = true
+	return
+}
+func pilotEngine(r pilotReady, p *pilotPipeline, rankFn, fallbackFn func() (shortclaim.Ranking, error), verify func(int, int) trial) {
+	p.State = "unresolved"
+	p.CandidateIDs = r.ids
+	p.EffectivePolicy = p.PlannedPolicy
+	ranking, err := rankFn()
+	if err != nil || !pilotValidRank(ranking) {
+		failed := pilotSnap(ranking, r.ids)
+		p.FailedRanking = &failed
+		reason := "rank_error"
+		if err == nil {
+			reason = "invalid_ranking"
+		}
+		if errors.Is(err, pilotModelSetupError) {
+			reason = "model_setup_error"
+		}
+		p.FallbackReason = &reason
+		p.EffectivePolicy = "bm25"
+		ranking, err = fallbackFn()
+		if err != nil || !pilotValidRank(ranking) {
+			return
+		}
+	}
+	p.Ranking = &ranking
+	s := pilotSnap(ranking, r.ids)
+	p.RankSnapshot = &s
+	unavailable := false
+	for pos := 0; pos < 5; pos++ {
+		index := ranking.Order[pos]
+		p.Visited[index] = true
+		visit := pilotVisit{CandidateIndex: index, CandidateID: r.ids[index], State: "verified", Checks: []pilotCheck{}, RemainingFixtureIDs: []string{}}
+		for fi := 0; fi < 9; fi++ {
+			t, panicType := pilotSafeVerify(verify, index, fi)
+			verdict := pilotVerdict{State: "unavailable", Channels: []string{"callback_panic"}}
+			if panicType == nil {
+				verdict = pilotClassify(t, r.routes.Fixtures[fi], r.wants.Fixtures[fi].Want, r.routes.Candidates[index])
+			} else {
+				t.Panic = &panicState{Type: *panicType, Value: "callback panic (value withheld)"}
+			}
+			visit.Checks = append(visit.Checks, pilotCheck{fi, r.routes.Fixtures[fi].ID, verdict, t})
+			if verdict.State != "pass" {
+				visit.State = verdict.State
+				for rest := fi + 1; rest < 9; rest++ {
+					visit.RemainingFixtureIDs = append(visit.RemainingFixtureIDs, r.routes.Fixtures[rest].ID)
+				}
+				if verdict.State == "unavailable" {
+					unavailable = true
+				}
+				break
+			}
+		}
+		p.Visits = append(p.Visits, visit)
+		if visit.State == "verified" {
+			selected := index
+			p.SelectedIndex = &selected
+			p.State = "verified"
+			return
+		}
+	}
+	if !unavailable {
+		p.State = "exhausted_mismatches"
+	}
+}
+func pilotFinalize(p *pilotPipeline) {
+	var ts []trial
+	for _, v := range p.Visits {
+		for _, c := range v.Checks {
+			ts = append(ts, c.Trial)
+			if c.Verdict.State == "mismatch" {
+				p.OwnedVerificationMismatches++
+			}
+			if c.Verdict.State == "unavailable" {
+				p.UnavailableChecks++
+			}
+		}
+	}
+	p.ChiCounts = pilotChiCounts(ts)
+	p.HintCounts, p.ModelRankAttempts, p.ModelRankReturns = pilotEventCounts(p.HintEvents, "hint")
+	p.IOCounts, _, _ = pilotEventCounts(p.HintEvents, "io")
+}
+func pilotPipelineRun(o pilotOptions, ready *pilotReady, policy string, position int) pilotPipeline {
+	p := pilotPipeline{PlannedPolicy: policy, Block: o.block, Position: position, State: "setup_unavailable", EffectivePolicy: policy}
+	p.Cost = pilotMeasure(func() {
+		var r pilotReady
+		var err error
+		if ready != nil {
+			r = *ready
+		} else {
+			r, err = pilotLoad(o, "cold_setup", &p.HintEvents, policy == "model")
+		}
+		p.CandidateIDs = r.ids
+		if err != nil {
+			return
+		}
+		pilotEngine(r, &p, func() (shortclaim.Ranking, error) { return pilotRank(r, policy, "rank", &p.HintEvents) }, func() (shortclaim.Ranking, error) {
+			return pilotCall(&p.HintEvents, "hint", "fallback", "bm25_fallback", func() (shortclaim.Ranking, error) { return r.valid.Rank(shortclaim.BM25Kind) })
+		}, func(ci, fi int) trial { return observe(r.routes.Fixtures[fi], r.routes.Candidates[ci]) })
+	})
+	pilotFinalize(&p)
+	return p
+}
+func pilotPrecheck(r pilotReady) (*report, []pilotPreVerdict) {
+	x := &report{Schema: "riido-chi-route-observation-v1", Status: "development_protocol_audit", InputSHA256: pilotRouteSHA, Parents: 1, Candidates: r.routes.Candidates}
+	verdicts := make([]pilotPreVerdict, 5)
+	for i := 0; i < 5; i++ {
+		verdicts[i] = pilotPreVerdict{CandidateID: r.ids[i], State: "verified"}
+	}
+	for fi, f := range r.routes.Fixtures {
+		for ci, c := range r.routes.Candidates {
+			t := observe(f, c)
+			x.Trials = append(x.Trials, t)
+			v := pilotClassify(t, f, r.wants.Fixtures[fi].Want, c)
+			verdicts[ci].Checks[fi] = v
+			if v.State == "pass" {
+				verdicts[ci].Passed++
+			} else if v.State == "unavailable" {
+				verdicts[ci].State = "unavailable"
+			} else if verdicts[ci].State != "unavailable" {
+				verdicts[ci].State = "mismatch"
+			}
+		}
+	}
+	x.Counts = pilotChiCounts(x.Trials)
+	return x, verdicts
+}
+func pilotRun() error {
+	fs := flag.NewFlagSet("chi-cost-pilot", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	var o pilotOptions
+	fs.StringVar(&o.mode, "mode", "", "precheck/anchor/cold/warm")
+	fs.StringVar(&o.route, "route", "", "fixed route input")
+	fs.StringVar(&o.wants, "wants", "", "fixed literal Wants")
+	fs.StringVar(&o.score, "score", "", "fixed validated v3 input")
+	fs.StringVar(&o.model, "model", "", "existing inactive model")
+	fs.IntVar(&o.block, "block", 0, "Williams block 0..3")
+	fs.StringVar(&o.policy, "policy", "", "cold policy")
+	if fs.Parse(os.Args[1:]) != nil || fs.NArg() != 0 || o.block < 0 || o.block > 3 || o.route == "" || o.wants == "" || o.score == "" {
+		return errors.New("invalid arguments")
+	}
+	w := pilotWire{Schema: "riido-chi-paired-cost-worker-v1", Mode: o.mode, Block: o.block, Status: "completed", RouteSHA: pilotRouteSHA, WantsSHA: pilotWantsSHA, ScoreSHA: pilotScoreSHA, ModelSHA: pilotModelSHA, ModelRef: pilotModelRef, Scope: "one exposed development parent; explicit wrappers only; no cache of verdicts/scores; allocation not RSS/GPU; timings include trace collection, exclude GC/stat reads, encoding and process startup"}
+	switch o.mode {
+	case "precheck", "anchor", "warm":
+		var r pilotReady
+		var err error
+		setup := pilotMeasure(func() { r, err = pilotLoad(o, "setup", &w.SetupEvents, o.mode != "precheck") })
+		w.SetupCost = &setup
+		if err != nil {
+			w.Status = "setup_unavailable"
+			break
+		}
+		if o.mode == "precheck" {
+			w.Precheck, w.PrecheckVerdicts = pilotPrecheck(r)
+		}
+		if o.mode == "anchor" {
+			ranking, e := pilotRank(r, "model", "anchor", &w.SetupEvents)
+			if e != nil || !pilotValidRank(ranking) {
+				w.Status = "anchor_unavailable"
+				break
+			}
+			w.Anchor = append(w.Anchor, pilotSnap(ranking, r.ids))
+			baselines, e := pilotCall(&w.SetupEvents, "hint", "anchor", "baselines_anchor", func() ([4]shortclaim.Ranking, error) { return shortclaim.Baselines(r.valid.Prepared()) })
+			if e != nil {
+				w.Status = "anchor_unavailable"
+				break
+			}
+			for _, b := range baselines {
+				if !pilotValidRank(b) {
+					w.Status = "anchor_unavailable"
+					break
+				}
+				w.Anchor = append(w.Anchor, pilotSnap(b, r.ids))
+			}
+		}
+		if o.mode == "warm" {
+			for pos, policy := range pilotWilliams[o.block] {
+				w.Pipelines = append(w.Pipelines, pilotPipelineRun(o, &r, policy, pos))
+			}
+		}
+	case "cold":
+		pos := -1
+		for i, p := range pilotWilliams[o.block] {
+			if p == o.policy {
+				pos = i
+			}
+		}
+		if pos < 0 {
+			return errors.New("invalid policy")
+		}
+		w.Pipelines = append(w.Pipelines, pilotPipelineRun(o, nil, o.policy, pos))
+	default:
+		return errors.New("invalid mode")
+	}
+	w.SetupHintCounts, w.ModelRankAttempts, w.ModelRankReturns = pilotEventCounts(w.SetupEvents, "hint")
+	w.SetupIOCounts, _, _ = pilotEventCounts(w.SetupEvents, "io")
+	for _, p := range w.Pipelines {
+		w.ModelRankAttempts += p.ModelRankAttempts
+		w.ModelRankReturns += p.ModelRankReturns
+	}
+	raw, err := json.Marshal(w)
+	if err != nil {
+		return errors.New("output encode")
+	}
+	if len(raw) > 2<<20 {
+		return errors.New("decoded output bound")
+	}
+	var compressed bytes.Buffer
+	z := gzip.NewWriter(&compressed)
+	if _, err = z.Write(raw); err != nil {
+		return errors.New("output encode")
+	}
+	if z.Close() != nil {
+		return errors.New("output encode")
+	}
+	if compressed.Len() > 262144 {
+		return errors.New("compressed output bound")
+	}
+	if _, err = io.Copy(os.Stdout, &compressed); err != nil {
+		return errors.New("output write")
+	}
+	return nil
+}
+func pilotGuarded() (err error) {
+	complete := false
+	defer func() {
+		if !complete {
+			_ = recover()
+			err = errors.New("worker internal failure")
+		}
+	}()
+	err = pilotRun()
+	complete = true
+	return
+}
+func main() {
+	if pilotGuarded() != nil {
+		fmt.Fprintln(os.Stderr, "chi cost pilot failed")
+		os.Exit(1)
+	}
+}

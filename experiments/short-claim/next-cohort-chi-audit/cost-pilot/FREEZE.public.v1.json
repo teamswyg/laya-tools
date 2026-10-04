@@ -1,0 +1,66 @@
+{
+  "schema": "riido-chi-cost-freeze-v1",
+  "state": "sealed_before_first_pilot_build_or_model_execution",
+  "source_pins": {
+    "bytes": 2654,
+    "sha256": "a1cf2e6c24957dd85ed28cad418c2564286f2d0a6b73ca01e3388112f7110560"
+  },
+  "parents": 1,
+  "labels": 0,
+  "roles": 0,
+  "Fit": 0,
+  "protected_reads": 0,
+  "default_activation": false,
+  "gpu_execution": false,
+  "laya_encoder_execution": false,
+  "model": {
+    "bytes": 32792,
+    "sha256": "dff05140098845943ece87c3ab8a31a15564a4b170a59ab017ee393501158004",
+    "reference": "JooYoon/riidolaya-shortclaim-data-effect-failed-79@5bef215895b69d3f2ef4b82bb3f1970279d67f46"
+  },
+  "go_version": "go1.27.1",
+  "CGO_ENABLED": "0",
+  "GOMAXPROCS": "2",
+  "GOMEMLIMIT": "96MiB",
+  "build_timeout_seconds": 60,
+  "worker_timeout_seconds": 20,
+  "stdout_cap_bytes": 262144,
+  "stderr_cap_bytes": 8192,
+  "raw_cap_bytes": 2097152,
+  "bundle_cap_bytes": 8388608,
+  "cold_workers": 16,
+  "warm_workers": 4,
+  "pipelines": 32,
+  "orders": [
+    [
+      "bm25",
+      "fixed",
+      "model",
+      "lexical"
+    ],
+    [
+      "fixed",
+      "lexical",
+      "bm25",
+      "model"
+    ],
+    [
+      "lexical",
+      "model",
+      "fixed",
+      "bm25"
+    ],
+    [
+      "model",
+      "bm25",
+      "lexical",
+      "fixed"
+    ]
+  ],
+  "precheck_before_timed": true,
+  "anchor_before_timed": true,
+  "recompute_trials": true,
+  "warm_setup_separate": true,
+  "cold_lifetime": "one_fresh_worker_per_pipeline",
+  "warm_lifetime": "one_fresh_worker_per_block"
+}

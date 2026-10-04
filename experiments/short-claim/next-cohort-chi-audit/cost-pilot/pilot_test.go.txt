@@ -1,0 +1,297 @@
+// SPDX-License-Identifier: Apache-2.0
+// Callback controls; Chi/model/Golden0.
+package main
+
+import (
+	"errors"
+	"math"
+	"testing"
+
+	"github.com/teamswyg/laya-tools/pkg/hintprepared"
+	"github.com/teamswyg/laya-tools/pkg/hintweights"
+	"github.com/teamswyg/laya-tools/pkg/shortclaim"
+)
+
+func pilotFakeReady() pilotReady {
+	var r pilotReady
+	path, raw, opt := "/owned", "", false
+	for i := 0; i < 9; i++ {
+		id := fixtureIDs[i]
+		r.routes.Fixtures = append(r.routes.Fixtures, fixture{ID: id, Path: &path, RawPath: &raw, OptIn: &opt})
+		r.wants.Fixtures = append(r.wants.Fixtures, struct {
+			ID   string    `json:"id"`
+			Want pilotWant `json:"Want"`
+		}{id, pilotWant{Status: 200, Route: 1, Chi: "ok", Path: "ok", OriginalPath: path, OriginalRaw: raw, Normal: true}})
+	}
+	for i, id := range candidateIDs {
+		r.ids[i] = id
+		r.routes.Candidates = append(r.routes.Candidates, candidate{ID: id, Caption: "owned"})
+	}
+	return r
+}
+func pilotFakeTrial(r pilotReady, ci, fi int) trial {
+	f := r.routes.Fixtures[fi]
+	code := 200
+	yes := true
+	empty := ""
+	value := "ok"
+	u := urlState{Path: *f.Path, RawPath: *f.RawPath}
+	p := params{Chi: &value, PathValue: &value}
+	var ledger []event
+	for _, pair := range [][2]string{{"setup", "http.NewRequest"}, {"setup", "chi.NewRouter"}, {"setup", "Mux.Get"}, {"setup", "Mux.NotFound"}, {"dispatch", "Mux.ServeHTTP"}, {"handler_before", "chi.RouteContext"}, {"handler_before", "chi.URLParam"}, {"handler_before", "Request.PathValue"}, {"handler_after", "chi.URLParam"}, {"handler_after", "Request.PathValue"}, {"handler_response", "ResponseWriter.WriteHeader"}} {
+		e := event{Phase: pair[0], API: pair[1], Attempted: true, Returned: true}
+		if len(ledger) == 0 || len(ledger) == 1 || len(ledger) >= 5 && len(ledger) <= 9 {
+			e.Value = &value
+		}
+		ledger = append(ledger, e)
+	}
+	return trial{FixtureID: f.ID, CandidateID: r.ids[ci], OriginalBefore: &u, OriginalAfter: &u, DispatchURL: &u, Status: &code, RouteCalls: 1, NormalReturn: true, DispatchReturned: &yes, Handlers: []*handlerState{{Kind: "route", ContextPresent: &yes, RoutePath: &empty, Before: &p, After: &p, Returned: true}}, Ledger: ledger}
+}
+func pilotFakeRank() shortclaim.Ranking {
+	return shortclaim.Ranking{Kind: "owned_fake", Count: 5, Order: [8]int{0, 1, 2, 3, 4}}
+}
+func pilotFakeRun(r pilotReady, verify func(int, int) trial) pilotPipeline {
+	p := pilotPipeline{PlannedPolicy: "fixed"}
+	pilotEngine(r, &p, func() (shortclaim.Ranking, error) { return pilotFakeRank(), nil }, func() (shortclaim.Ranking, error) { return shortclaim.Ranking{}, errors.New("unexpected fallback") }, verify)
+	pilotFinalize(&p)
+	return p
+}
+func TestPilotFirstMismatchAndNoPruning(t *testing.T) {
+	r := pilotFakeReady()
+	p := pilotFakeRun(r, func(c, f int) trial {
+		x := pilotFakeTrial(r, c, f)
+		if c == 0 {
+			code := 404
+			x.Status = &code
+		}
+		return x
+	})
+	if p.State != "verified" || p.SelectedIndex == nil || *p.SelectedIndex != 1 || len(p.Visits) != 2 || len(p.Visits[0].Checks) != 1 || len(p.Visits[0].RemainingFixtureIDs) != 8 || len(p.Visits[1].Checks) != 9 || p.OwnedVerificationMismatches != 1 || p.ChiCounts.Trials != 10 {
+		t.Fatal("first mismatch/verification boundary")
+	}
+	if p.Ranking.Count != 5 || p.CandidateIDs != r.ids || p.Visited != [5]bool{true, true, false, false, false} {
+		t.Fatal("candidate pruning")
+	}
+}
+func TestPilotUnavailableContinues(t *testing.T) {
+	r := pilotFakeReady()
+	p := pilotFakeRun(r, func(c, f int) trial {
+		x := pilotFakeTrial(r, c, f)
+		if c == 0 {
+			x.Handlers[0].ContextPresent = nil
+		}
+		return x
+	})
+	if p.State != "verified" || p.SelectedIndex == nil || *p.SelectedIndex != 1 || p.UnavailableChecks != 1 || p.Visits[0].State != "unavailable" || len(p.Visits[0].Checks) != 1 || len(p.Visits[0].RemainingFixtureIDs) != 8 {
+		t.Fatal("unavailable halted verification")
+	}
+}
+func TestPilotUnresolvedAndExhausted(t *testing.T) {
+	for _, unknown := range []bool{false, true} {
+		r := pilotFakeReady()
+		p := pilotFakeRun(r, func(c, f int) trial {
+			x := pilotFakeTrial(r, c, f)
+			code := 404
+			x.Status = &code
+			if unknown && c == 0 {
+				x.Status = nil
+			}
+			return x
+		})
+		want := "exhausted_mismatches"
+		if unknown {
+			want = "unresolved"
+		}
+		if p.State != want || p.SelectedIndex != nil || len(p.Visits) != 5 || p.Visited != [5]bool{true, true, true, true, true} || p.ChiCounts.Trials != 5 {
+			t.Fatal("no-pass state/count")
+		}
+	}
+}
+func TestPilotNineChecksAreNotNinePasses(t *testing.T) {
+	r := pilotFakeReady()
+	p := pilotFakeRun(r, func(c, f int) trial {
+		x := pilotFakeTrial(r, c, f)
+		if c == 0 && f == 8 {
+			x.Handlers[0].After = nil
+		}
+		if c > 0 {
+			code := 404
+			x.Status = &code
+		}
+		return x
+	})
+	if p.State != "unresolved" || p.SelectedIndex != nil || len(p.Visits[0].Checks) != 9 || len(p.Visits[0].RemainingFixtureIDs) != 0 || p.Visits[0].State != "unavailable" {
+		t.Fatal("partial capture passed")
+	}
+}
+func TestPilotInvalidRankingAndFallback(t *testing.T) {
+	cases := []struct {
+		name   string
+		mutate func(*shortclaim.Ranking)
+		err    bool
+	}{
+		{"zero", func(r *shortclaim.Ranking) { r.Count = 0 }, false},
+		{"duplicate", func(r *shortclaim.Ranking) { r.Order[1] = 0 }, false},
+		{"nan", func(r *shortclaim.Ranking) { r.Scores[0] = math.NaN() }, false},
+		{"inactive_minus_zero", func(r *shortclaim.Ranking) { r.Scores[7] = math.Copysign(0, -1) }, false},
+		{"unstable_tie", func(r *shortclaim.Ranking) { r.Order[0], r.Order[1] = 1, 0 }, false},
+		{"returned_error", func(r *shortclaim.Ranking) {}, true},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			r := pilotFakeReady()
+			p := pilotPipeline{PlannedPolicy: "model"}
+			fallbacks := 0
+			pilotEngine(r, &p, func() (shortclaim.Ranking, error) {
+				x := pilotFakeRank()
+				c.mutate(&x)
+				if c.err {
+					return x, errors.New("owned fake")
+				}
+				return x, nil
+			}, func() (shortclaim.Ranking, error) { fallbacks++; return pilotFakeRank(), nil }, func(ci, fi int) trial { return pilotFakeTrial(r, ci, fi) })
+			want := "invalid_ranking"
+			if c.err {
+				want = "rank_error"
+			}
+			if fallbacks != 1 || p.State != "verified" || p.FallbackReason == nil || *p.FallbackReason != want || p.FailedRanking == nil || p.EffectivePolicy != "bm25" || p.Ranking == nil || p.Ranking.Count != 5 {
+				t.Fatal("invalid rank/fallback boundary")
+			}
+		})
+	}
+}
+func TestPilotFallbackFailureNoVerification(t *testing.T) {
+	r := pilotFakeReady()
+	p := pilotPipeline{PlannedPolicy: "model"}
+	visits := 0
+	pilotEngine(r, &p, func() (shortclaim.Ranking, error) { return shortclaim.Ranking{}, errors.New("owned") }, func() (shortclaim.Ranking, error) { return shortclaim.Ranking{}, errors.New("owned") }, func(ci, fi int) trial { visits++; return pilotFakeTrial(r, ci, fi) })
+	if visits != 0 || p.State != "unresolved" || p.Ranking != nil || p.Visited != [5]bool{} || p.CandidateIDs != r.ids {
+		t.Fatal("failed fallback verified")
+	}
+}
+func TestPilotTypedKnownAndUnavailableChannels(t *testing.T) {
+	r := pilotFakeReady()
+	f := r.routes.Fixtures[0]
+	w := r.wants.Fixtures[0].Want
+	c := r.routes.Candidates[0]
+	cases := []struct {
+		name   string
+		mutate func(*trial)
+		state  string
+	}{
+		{"normal", func(x *trial) { x.NormalReturn = false }, "mismatch"},
+		{"plus_param", func(x *trial) { v := "wrong"; x.Handlers[0].After.Chi = &v }, "mismatch"},
+		{"original_url", func(x *trial) { u := *x.OriginalAfter; u.RawPath = "wrong"; x.OriginalAfter = &u }, "mismatch"},
+		{"context_false", func(x *trial) { v := false; x.Handlers[0].ContextPresent = &v }, "mismatch"},
+		{"context_nil", func(x *trial) { x.Handlers[0].ContextPresent = nil }, "unavailable"},
+		{"param_nil", func(x *trial) { x.Handlers[0].After.PathValue = nil }, "unavailable"},
+		{"panic", func(x *trial) { x.Panic = &panicState{Type: "owned fake"} }, "unavailable"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			x := pilotFakeTrial(r, 0, 0)
+			tc.mutate(&x)
+			got := pilotClassify(x, f, w, c)
+			if got.State != tc.state || len(got.Channels) == 0 {
+				t.Fatal("known/unknown confusion")
+			}
+		})
+	}
+}
+func TestPilotPanicNilAttempts(t *testing.T) {
+	var events []pilotAPIEvent
+	_, err := pilotCall(&events, "hint", "owned_fake", "model_rank", func() (int, error) { panic(nil) })
+	counts, attempts, returns := pilotEventCounts(events, "hint")
+	if err == nil || len(events) != 1 || !events[0].Panic || events[0].PanicType == nil || events[0].Returned || counts != (pilotAPICounts{Attempted: 1, Panics: 1}) || attempts != 1 || returns != 0 {
+		t.Fatal("panic(nil) returned")
+	}
+}
+func TestPilotIncompleteLedgerWithholdsVerdict(t *testing.T) {
+	r := pilotFakeReady()
+	cases := []func(*trial){
+		func(x *trial) { x.Ledger = nil },
+		func(x *trial) { x.Ledger = x.Ledger[:len(x.Ledger)-1] },
+		func(x *trial) { x.Ledger[0], x.Ledger[1] = x.Ledger[1], x.Ledger[0] },
+		func(x *trial) { x.Ledger[4].Returned = false; x.NormalReturn = false },
+		func(x *trial) { x.Ledger[4].Attempted = false },
+		func(x *trial) { x.Ledger[6].Value = nil },
+		func(x *trial) { x.Ledger[4].Panic = &panicState{Type: "owned"} },
+		func(x *trial) { x.Ledger = append(x.Ledger, x.Ledger[0]) },
+	}
+	for i, mutate := range cases {
+		x := pilotFakeTrial(r, 0, 0)
+		mutate(&x)
+		v := pilotClassify(x, r.routes.Fixtures[0], r.wants.Fixtures[0].Want, r.routes.Candidates[0])
+		if v.State != "unavailable" {
+			t.Fatalf("incomplete ledger %d became %s", i, v.State)
+		}
+	}
+}
+func TestPilotPreparationFailureFallsBackWithoutModelRank(t *testing.T) {
+	for _, failPrepare := range []bool{false, true} {
+		r := pilotFakeReady()
+		p := pilotPipeline{PlannedPolicy: "model", Cost: pilotCost{17, 23, 3}}
+		prepares := 0
+		pilotModelSetup(&r, "owned_setup", &p.HintEvents, func() (*hintweights.View, error) {
+			if !failPrepare {
+				return nil, errors.New("owned")
+			}
+			return &hintweights.View{}, nil
+		}, func() (*hintprepared.Prepared, error) { prepares++; return nil, errors.New("owned") })
+		fallbacks := 0
+		pilotEngine(r, &p, func() (shortclaim.Ranking, error) { return pilotRank(r, "model", "rank", &p.HintEvents) }, func() (shortclaim.Ranking, error) {
+			fallbacks++
+			return pilotCall(&p.HintEvents, "hint", "fallback", "bm25_fallback", func() (shortclaim.Ranking, error) { return pilotFakeRank(), nil })
+		}, func(ci, fi int) trial { return pilotFakeTrial(r, ci, fi) })
+		pilotFinalize(&p)
+		wantCalls := 2
+		if failPrepare {
+			wantCalls = 3
+		}
+		if p.State != "verified" || p.FallbackReason == nil || *p.FallbackReason != "model_setup_error" || fallbacks != 1 || p.ModelRankAttempts != 0 || p.ModelRankReturns != 0 || p.HintCounts != (pilotAPICounts{Attempted: wantCalls, Returned: wantCalls, Errors: 1}) || p.Cost != (pilotCost{17, 23, 3}) {
+			t.Fatal("preparation fallback/count/cost")
+		}
+		if prepares != 0 && !failPrepare || prepares != 1 && failPrepare {
+			t.Fatal("unexpected prepare")
+		}
+	}
+}
+func TestPilotWilliamsBalance(t *testing.T) {
+	policies := [4]string{"bm25", "fixed", "lexical", "model"}
+	index := func(s string) int {
+		for i, p := range policies {
+			if s == p {
+				return i
+			}
+		}
+		return -1
+	}
+	var positions [4][4]int
+	var predecessor [4][4]int
+	for _, row := range pilotWilliams {
+		for pos, p := range row {
+			i := index(p)
+			if i < 0 {
+				t.Fatal("unknown policy")
+			}
+			positions[i][pos]++
+			if pos > 0 {
+				predecessor[index(row[pos-1])][i]++
+			}
+		}
+	}
+	for i := 0; i < 4; i++ {
+		for j := 0; j < 4; j++ {
+			if positions[i][j] != 1 {
+				t.Fatal("position imbalance")
+			}
+			want := 1
+			if i == j {
+				want = 0
+			}
+			if predecessor[i][j] != want {
+				t.Fatal("predecessor imbalance")
+			}
+		}
+	}
+}

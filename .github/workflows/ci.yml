@@ -92,6 +92,8 @@ jobs:
         run: go run ./experiments/short-claim/next-cohort-chi-audit/replay
       - name: Actual pinned Decimal conversion replay (offline Go CPU; one exposed parent, no model or training)
         run: go run ./experiments/short-claim/next-cohort-decimal-audit/replay
+      - name: Saved Chi paired costs and complete call traces (offline Go; no new worker or model calls)
+        run: go run ./experiments/short-claim/next-cohort-chi-audit/cost-pilot/run -saved experiments/short-claim/next-cohort-chi-audit/cost-pilot/OBSERVATIONS.actual.public.v1.json.gz
       - name: Preserve actual nonlearned37 scores and matrix
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
