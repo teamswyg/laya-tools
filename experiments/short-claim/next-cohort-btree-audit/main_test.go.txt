@@ -1,0 +1,174 @@
+// SPDX-License-Identifier: Apache-2.0
+package main
+
+import (
+	"encoding/json"
+	"os"
+	"reflect"
+	"testing"
+
+	"github.com/teamswyg/laya-tools/pkg/shortclaim"
+)
+
+func TestFakeFullPipelineKeepsCounterexamplesAndUnknown(t *testing.T) {
+	d := dataset{Requests: []request{{ID: "synthetic-parent", Text: "return item", Fixtures: []fixture{{Want: []int{1}, WantCallbacks: 1}, {Want: []int{1}, WantCallbacks: 1}}}}}
+	for i := range d.Candidates {
+		d.Candidates[i] = shortclaim.Candidate{ID: string(rune('a' + i)), Text: "keep item"}
+	}
+	var calls [8]int
+	fake := func(i int) iterate {
+		return func(_ fixture, cb func(int) bool) {
+			calls[i]++
+			if (i == 0 && calls[i] == 2) || (i == 1 && calls[i] == 1) || (i == 2 && calls[i] == 2) {
+				panic("synthetic only")
+			}
+			if i < 2 {
+				cb(2)
+			} else {
+				cb(1)
+			}
+		}
+	}
+	o, e := evaluate(d, fake)
+	if e != nil || len(o.Rows) != 1 || len(o.Observations) != 16 || o.OriginalCalls != 16 || o.Returned != 13 || o.Fixtures != 2 || o.ModelCalls != 0 || o.Fit != 0 {
+		t.Fatal("fake pipeline ledger")
+	}
+	if o.Rows[0].Truth != [8]string{"F", "F", "U", "T", "T", "T", "T", "T"} || o.Rows[0].Class != "unknown_containing" {
+		t.Fatal("F plus U aggregation")
+	}
+	for i, n := range calls {
+		if n != 2 {
+			t.Fatal("fake dispatch count")
+		}
+		for f := 0; f < 2; f++ {
+			v := o.Observations[f*8+i]
+			if v.Parent != 0 || v.Fixture != f || v.Candidate != i {
+				t.Fatal("observation indices")
+			}
+		}
+	}
+	if !o.Observations[8].Got.Panicked || !o.Observations[1].Got.Panicked || !o.Observations[10].Got.Panicked || o.Rows[0].Checks != [4]int{} {
+		t.Fatal("U erased or cost admitted")
+	}
+}
+
+// Synthetic dispatch only. No test invokes native or an upstream tree API.
+func TestObserverControls(t *testing.T) {
+	f := fixture{StopAfter: 2, Want: []int{3, 7}, WantCallbacks: 2, WantStopped: true}
+	called := 0
+	g := observe(f, func(_ fixture, cb func(int) bool) {
+		called++
+		for _, v := range []int{3, 7, 9} {
+			if !cb(v) {
+				break
+			}
+		}
+	})
+	if called != 1 || g.Callbacks != 2 || g.Values[0] != 3 || g.Values[1] != 7 || state(f, g) != "T" {
+		t.Fatal("callback limit/ordering")
+	}
+	wrong := observe(f, func(_ fixture, cb func(int) bool) {
+		for _, v := range []int{3, 7, 9} {
+			cb(v)
+		}
+	})
+	if state(f, wrong) != "F" || wrong.Callbacks != 3 {
+		t.Fatal("ignored false accepted")
+	}
+	p := observe(f, func(_ fixture, _ func(int) bool) { panic("private control payload") })
+	if state(f, p) != "U" || p.Returned || !p.Panicked {
+		t.Fatal("panic erased")
+	}
+	empty := fixture{Keys: []int{}, Want: []int{}}
+	if state(empty, observe(empty, func(_ fixture, _ func(int) bool) {})) != "T" {
+		t.Fatal("empty iterator")
+	}
+	fakezero := fixture{Want: []int{0}, WantCallbacks: 1}
+	if state(fakezero, observe(fakezero, func(_ fixture, cb func(int) bool) { cb(0) })) != "T" {
+		t.Fatal("zero key vs unused slot")
+	}
+}
+
+func TestFrozenLiteralAndClassControls(t *testing.T) {
+	b, e := os.ReadFile("INPUTS.public.v1.json")
+	if e != nil {
+		t.Fatal("fixture read")
+	}
+	d, e := load(b)
+	if e != nil {
+		t.Fatal("frozen fixture")
+	}
+	// Independent literal spot checks for inclusion, exclusion, reversed order,
+	// early termination and the explicit [] wire value.
+	wants := [][]int{{0, 2, 4}, {7, 4, 2}, {0, 2}, {}, {2, 4, 7}, {4, 2, 0}}
+	indices := []int{0, 1, 8, 9, 10, 11}
+	for k, i := range indices {
+		if !reflect.DeepEqual(d.Requests[i].Fixtures[0].Want, wants[k]) {
+			t.Fatal("literal boundary")
+		}
+	}
+	corrupt := append([]byte(nil), b...)
+	corrupt[len(corrupt)/2] ^= 1
+	if _, e = load(corrupt); e == nil {
+		t.Fatal("mutated input accepted")
+	}
+	truth := [8]string{"T", "F", "F", "F", "F", "F", "F", "F"}
+	if classify(truth) != "known_one" {
+		t.Fatal("one")
+	}
+	truth[1] = "T"
+	if classify(truth) != "known_many" {
+		t.Fatal("many")
+	}
+	truth[7] = "U"
+	if classify(truth) != "unknown_containing" {
+		t.Fatal("unknown")
+	}
+	for i := range truth {
+		truth[i] = "F"
+	}
+	if classify(truth) != "known_none" {
+		t.Fatal("none")
+	}
+	for i := range truth {
+		truth[i] = "T"
+	}
+	if classify(truth) != "known_all" {
+		t.Fatal("all")
+	}
+	var f fixture
+	if json.Unmarshal([]byte(`{"keys":[],"Want":[]}`), &f) != nil || f.Keys == nil || f.Want == nil {
+		t.Fatal("empty arrays collapsed")
+	}
+}
+
+func TestCostAndUnknownControls(t *testing.T) {
+	r := row{Class: "known_many", Truth: [8]string{"F", "T", "F", "T", "F", "F", "F", "F"}, VerificationNS: [8]int64{2, 9, 3, 4, 5, 6, 7, 8}}
+	for c := range r.Rankings {
+		r.Rankings[c].Count = 8
+		for i := 0; i < 8; i++ {
+			r.Rankings[c].Order[i] = i
+		}
+	}
+	costs(&r)
+	if r.OracleChecks != 1 || r.OracleNS != 4 || r.Checks != [4]int{2, 2, 2, 2} || r.VerificationWorkNS != [4]int64{11, 11, 11, 11} {
+		t.Fatal("multi-answer costs")
+	}
+	r.Class = "unknown_containing"
+	r.Checks = [4]int{}
+	r.OracleChecks = 0
+	r.OracleNS = 0
+	costs(&r)
+	if r.Checks != [4]int{} || r.OracleChecks != 0 || r.OracleNS != 0 {
+		t.Fatal("unknown cost admission")
+	}
+	r.Class = "known_none"
+	for i := range r.Truth {
+		r.Truth[i] = "F"
+	}
+	r.VerificationWorkNS = [4]int64{}
+	costs(&r)
+	if r.OracleChecks != 8 || r.OracleNS != 44 || r.Checks != [4]int{8, 8, 8, 8} {
+		t.Fatal("no answer shortcut")
+	}
+}

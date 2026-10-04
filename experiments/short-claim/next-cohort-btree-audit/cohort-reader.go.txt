@@ -1,0 +1,151 @@
+// SPDX-License-Identifier: Apache-2.0
+// Maintainer-only actual Reader/Project correspondence. No Fit or model load.
+package main
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"io"
+	"os"
+
+	"github.com/teamswyg/laya-tools/internal/claimfit"
+	"github.com/teamswyg/laya-tools/pkg/shortclaimdata"
+)
+
+type bindingRow struct {
+	Metadata shortclaimdata.CohortMetadata `json:"metadata"`
+	Row      string                        `json:"row_sha256"`
+	Source   string                        `json:"source_sha256"`
+	Evidence string                        `json:"evidence_sha256"`
+	Mask     string                        `json:"mask_policy_sha256"`
+	Roles    string                        `json:"roles_groups_sha256"`
+}
+type bindings struct {
+	Schema string `json:"schema"`
+	Data   struct {
+		Bytes int    `json:"bytes"`
+		SHA   string `json:"sha256"`
+	} `json:"data"`
+	Rows []bindingRow `json:"rows"`
+}
+
+func pin(s string) (out [32]byte, e error) {
+	b, e := hex.DecodeString(s)
+	if e != nil || len(b) != 32 {
+		return out, errors.New("digest")
+	}
+	copy(out[:], b)
+	return
+}
+func bounded(p string, n int) ([]byte, error) {
+	f, e := os.Open(p)
+	if e != nil {
+		return nil, errors.New("read")
+	}
+	b, e := io.ReadAll(io.LimitReader(f, int64(n)+1))
+	c := f.Close()
+	if e != nil || c != nil || len(b) > n {
+		return nil, errors.New("bound")
+	}
+	return b, nil
+}
+func runReader(data, manifest string) error {
+	b, e := bounded(data, 65536)
+	if e != nil {
+		return e
+	}
+	m, e := bounded(manifest, 32768)
+	if e != nil {
+		return e
+	}
+	var v bindings
+	decoder := json.NewDecoder(bytes.NewReader(m))
+	decoder.DisallowUnknownFields()
+	if decoder.Decode(&v) != nil || decoder.Decode(new(any)) != io.EOF || v.Schema != "riido-btree149-row-bindings-v1" || len(v.Rows) != 12 || v.Data.Bytes != len(b) {
+		return errors.New("manifest")
+	}
+	h := sha256.Sum256(b)
+	if hex.EncodeToString(h[:]) != v.Data.SHA {
+		return errors.New("data pin")
+	}
+	lines := bytes.Split(b, []byte{'\n'})
+	if len(lines) != 13 || len(lines[12]) != 0 {
+		return errors.New("rows")
+	}
+	rows := make([]shortclaimdata.CohortExample, 12)
+	positive, negative := 0, 0
+	var classes [4]int
+	for i, r := range v.Rows {
+		binding := shortclaimdata.CohortBinding{Metadata: r.Metadata}
+		pairs := []struct {
+			src string
+			dst *[32]byte
+		}{{r.Row, &binding.RowSHA256}, {r.Source, &binding.SourceSHA256}, {r.Evidence, &binding.EvidenceSHA256}, {r.Mask, &binding.MaskPolicySHA256}, {r.Roles, &binding.RolesGroupsSHA256}}
+		for _, p := range pairs {
+			*p.dst, e = pin(p.src)
+			if e != nil {
+				return e
+			}
+		}
+		rows[i], e = shortclaimdata.LoadCohortRow(bytes.NewReader(lines[i]), binding)
+		if e != nil || !rows[i].Valid() {
+			return errors.New("Reader")
+		}
+		m, s := rows[i].Metadata(), rows[i].Supervision()
+		if m.Role != "development_train" || m.WholeGroup != 84 || m.SourceFamily != "google-btree-gollrb" || s.Count != 8 || s.Ambiguous {
+			return errors.New("metadata")
+		}
+		for c := 0; c < 8; c++ {
+			if !s.LabelKnown[c] || s.LossWeights[c] != 1 || s.EvaluationEligible[c] {
+				return errors.New("masks")
+			}
+			if s.Labels[c] {
+				positive++
+			} else {
+				negative++
+			}
+		}
+		switch rows[i].Class() {
+		case "known_one":
+			classes[0]++
+		case "known_many":
+			classes[1]++
+		case "known_all":
+			classes[2]++
+		case "known_none":
+			classes[3]++
+		default:
+			return errors.New("class")
+		}
+	}
+	if positive != 18 || negative != 78 || classes != [4]int{8, 1, 1, 2} {
+		return errors.New("labels")
+	}
+	projected, e := claimfit.ProjectCohort(rows)
+	if e != nil || projected.Count != 12 || projected.SelectedCount != 12 {
+		return errors.New("ProjectCohort")
+	}
+	return json.NewEncoder(os.Stdout).Encode(struct {
+		Schema        string `json:"schema"`
+		ReaderRows    int    `json:"actual_Reader_rows"`
+		ProjectCalls  int    `json:"actual_ProjectCohort_calls"`
+		Selected      int    `json:"selected_parents"`
+		Labels        int    `json:"known_labels"`
+		Positive      int    `json:"positive"`
+		Negative      int    `json:"negative"`
+		Classes       [4]int `json:"one_many_all_none"`
+		Models        int    `json:"model_calls"`
+		Fit           int    `json:"Fit_calls"`
+		TrainingReady bool   `json:"training_ready"`
+		Scope         string `json:"scope"`
+	}{"riido-btree149-Reader-Project-correspondence-v1", 12, 1, 12, 96, 18, 78, classes, 0, 0, false, "Actual nullable Reader and text-only sparse Project; no trained model, Fit, quality or cost measurement. Metadata/opaque pins enforce structural bindings, not rights or semantic qualification."})
+}
+func main() {
+	if len(os.Args) != 3 || runReader(os.Args[1], os.Args[2]) != nil {
+		os.Stderr.WriteString("cohort reader failed\n")
+		os.Exit(1)
+	}
+}

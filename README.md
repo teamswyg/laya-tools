@@ -1,5 +1,7 @@
 # laya-tools
 
+[다음 튜닝용 B-tree 유한 자료](experiments/short-claim/next-cohort-btree-audit/README.ko.md)를 **12개 요청·96라벨**로 별도 준비했습니다. 원본 Go API272회와 실제8후보 Reader/Project를 검증했습니다. 단순 기준54~59회 대비 최소26회라는 개선 여지를 찾았지만, 한 개발 가족이며 모델 효과나 LLM 절감을 입증한 것은 아닙니다. [다음 표현 비교 계획](experiments/short-claim/next-cohort-btree-audit/NEXT-ABLATION-PLAN.ko.md)에 문체 편향·약8µs의 추가 계산 여유·독립 평가 조건을 기록했습니다. 새 학습·가중치·GPU 실행은0입니다.
+
 현재 유한 개발 자료는 **37개 요청·108라벨**이며 [HF37 고정 버전](https://huggingface.co/datasets/JooYoon/riidolaya-shortclaim-next60-development/tree/next60-37-finite-v1)에 게시했습니다. [학습 없는 후보 순서 비교](experiments/short-claim/next60-development37-bias-audit/README.ko.md)에서는 어휘 비교가 첫 정답29/37로 가장 좋았지만, 정답 위치 편향과 환경별 동점 차이가 있어 모델 효과·실제 Codex 절감의 증거로 사용하지 않습니다.
 
 다음 5/8후보 자료를 위한 [미확인·모호함 보존 Go 입력](pkg/shortclaimdata/COHORT.ko.md)을 추가했습니다. U를 false로 바꾸지 않고 모호한 요청의 알려진 T/F도 보존합니다. 감사 전용 요청까지 먼저 역할 누수를 검사하고, 완전 known·사용 행이 있는 부모만 기존 변환기에 연결합니다.
