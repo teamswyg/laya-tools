@@ -1,0 +1,169 @@
+{
+  "schema": "riido-prepared-api-repository-freeze-v3",
+  "state": "FROZEN_BEFORE_FIRST_REPOSITORY_SDK_TEST_AND_ACTUAL_NUMERIC_BENCHMARK",
+  "parent": "23b3e5d45a1b1152be8a5aca65ff12c87bd7973b",
+  "public_API_materialized": true,
+  "owned_source": [
+    {
+      "path": "pkg/hintprepared/prepared.go",
+      "bytes": 5434,
+      "sha256": "c00bc5424c3014fd32aa7f3e707cb32c25a223b2ab05eb03b6e617924fc834a5"
+    },
+    {
+      "path": "pkg/hintprepared/prepared_test.go",
+      "bytes": 15080,
+      "sha256": "f97664eac7e8309671076eab7c54c02491ab5892e8843ab5e2e7b36998096413"
+    },
+    {
+      "path": "pkg/hintprepared/benchmark_test.go",
+      "bytes": 6957,
+      "sha256": "f7da0456c0fb30a9b9ca020e354b3b94b5551efdee5473d58e4d1b3e3f34b9ab"
+    }
+  ],
+  "old_library_pins": [
+    {
+      "path": "internal/hintlearn/learn.go",
+      "bytes": 10429,
+      "sha256": "d0c906d1283617d0778039ff8bc4c6fff6cb0af3a813c48df088424d78bebb71"
+    },
+    {
+      "path": "internal/hintlearn/model.go",
+      "bytes": 3560,
+      "sha256": "f27e18883f073555775ff15de4f2e72d4fcff9bb1b49dfe7b11007779ec95aff"
+    },
+    {
+      "path": "pkg/shortclaim/audit_provenance.go",
+      "bytes": 821,
+      "sha256": "67a4db28dcacfde4e7f4efac08153010e5a576eef50aad9179ac16671f7f251a"
+    },
+    {
+      "path": "pkg/shortclaim/baseline.go",
+      "bytes": 14048,
+      "sha256": "c6003b785763fce004d89556f998811eb6098474908d9341906ca825aebc362a"
+    },
+    {
+      "path": "pkg/shortclaim/input.go",
+      "bytes": 10755,
+      "sha256": "834d66e6a0c63095d25b02659a1ddd5c5b8a9eef185b7a2bab5e938974370a80"
+    },
+    {
+      "path": "internal/lexicalhint/audit_provenance.go",
+      "bytes": 643,
+      "sha256": "06ee313c49a308a17ae45113eee867492ce81f0401f9b1a690665f4032ec4785"
+    },
+    {
+      "path": "internal/lexicalhint/features.go",
+      "bytes": 4019,
+      "sha256": "20224bcab1ea2d6e5203a2efb7772adef0786eea67f43a003a5b2db896804557"
+    },
+    {
+      "path": "pkg/hintweights/doc.go",
+      "bytes": 494,
+      "sha256": "0c51eb62f581a6967e2d2fdfa89477d9440e25c57bd097abccbf278c01f56dd8"
+    },
+    {
+      "path": "pkg/hintweights/view.go",
+      "bytes": 6097,
+      "sha256": "673a2406da0493222545272e8c27a026ff15e4b9c4a4b8257334545b644e598c"
+    }
+  ],
+  "root_edits": "gofmt only; author corrected original-error propagation before sealing",
+  "test_plan": {
+    "fresh_race_count": 1,
+    "CGO_ENABLED": "1",
+    "GOMAXPROCS": "4",
+    "go_timeout": "30s",
+    "vet": true,
+    "planned_top_level_groups": 6,
+    "command": [
+      "test",
+      "-race",
+      "-count=1",
+      "-timeout=30s",
+      "-v",
+      "./pkg/hintprepared"
+    ]
+  },
+  "bench_plan": {
+    "run_tests": false,
+    "CGO_ENABLED": "0",
+    "GOMAXPROCS": "1",
+    "benchtime": "100ms",
+    "count": 3,
+    "candidate_counts": [
+      1,
+      5,
+      8
+    ],
+    "leaves": 15,
+    "methods": [
+      "constructor",
+      "reference_full_rank",
+      "prepared_warm_rank",
+      "validated_bm25",
+      "validated_lexical_ordered"
+    ],
+    "expected_numeric_rows": 45,
+    "timing_or_allocation_threshold": false,
+    "selector": "^BenchmarkPreparedAPI",
+    "required_function_names": [
+      "BenchmarkPreparedAPIConstruct",
+      "BenchmarkPreparedAPIReferenceFullRank",
+      "BenchmarkPreparedAPIWarmRank",
+      "BenchmarkPreparedAPIBM25",
+      "BenchmarkPreparedAPILexicalOrdered"
+    ],
+    "repair": "command selector only; prior exit0 zero-row run is failure, all source/models/input/budgets/row count and acceptance criteria unchanged",
+    "command": [
+      "test",
+      "-run",
+      "^$",
+      "-bench",
+      "^BenchmarkPreparedAPI",
+      "-benchtime=100ms",
+      "-count=3",
+      "-timeout=30s",
+      "-benchmem",
+      "./pkg/hintprepared"
+    ]
+  },
+  "outside_bounds": {
+    "each_timeout_ms": 60000,
+    "stdout_cap": 16384,
+    "stderr_cap": 8192,
+    "executor_identity": "inline-unpinned",
+    "retained_binary": false,
+    "full_API_attempt_ledger": false
+  },
+  "environment": {
+    "Go": "1.27.1 darwin/arm64",
+    "GOTOOLCHAIN": "local",
+    "GOPROXY": "off",
+    "GOSUMDB": "off",
+    "GOWORK": "off",
+    "GOMEMLIMIT": "256MiB",
+    "GODEBUG": ""
+  },
+  "build_scope": "Actual repository module github.com/teamswyg/laya-tools, Go1.27.1 darwin/arm64, selected pkg/hintprepared; no isolated local-parent replacement. Prior staging6tests/18subcases andvet passed, first wrong-selector benchmark0rows retained; no equivalence of staging and repository optimization is assumed.",
+  "scope": {
+    "numeric_models": "deterministic in-memory FP32 and test-owned other formats",
+    "learned_assets": 0,
+    "download": 0,
+    "roles": 0,
+    "labels": 0,
+    "research_Fit": 0,
+    "protected": 0,
+    "activation": false,
+    "no_new_independent_Golden": true,
+    "model_quality_or_schema_or_license_qualification": false,
+    "opaque_product_validation": true,
+    "no_shared_mutable_scratch": true,
+    "logical_bounds_not_peak_or_RSS": true,
+    "performance_comparison_includes_different_validation_feature_and_representation_work": true
+  },
+  "previous_freeze": {
+    "bytes": 4734,
+    "sha256": "710daaa53519d6dff13caf17cdc0d97dbebeb7bb0ed1c926af061c50cae33a27",
+    "state": "selector repair v2 remained unexecuted in staging; actual corrected timing moves to repository graph"
+  }
+}

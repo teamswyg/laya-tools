@@ -1,0 +1,183 @@
+{
+  "schema": "riido-prepared-api-repository-readback-v1",
+  "actual_repository_graph": true,
+  "freeze_sha256": "b9728d273bdada11a1be85102adf1307bfd3d821e77263a5cc5ed6845df35528",
+  "source_unchanged": true,
+  "tests_passed": [
+    "TestPrepareRequiresPublicValidation",
+    "TestReferenceBitsFeatureOrderAndTightStorage",
+    "TestExactMismatchAndMetadataOnlyChanges",
+    "TestTieCurrentPositionsAndViewRecomputation",
+    "TestFixedZeroErrors",
+    "TestConcurrentReadonlyOwnerAndValueOutputs"
+  ],
+  "named_input_subcases_passed": [
+    "TestPrepareRequiresPublicValidation/zero_count",
+    "TestPrepareRequiresPublicValidation/nine_count",
+    "TestPrepareRequiresPublicValidation/request_normalization",
+    "TestPrepareRequiresPublicValidation/text_normalization",
+    "TestPrepareRequiresPublicValidation/inactive_id",
+    "TestPrepareRequiresPublicValidation/inactive_text",
+    "TestPrepareRequiresPublicValidation/inactive_normalization",
+    "TestPrepareRequiresPublicValidation/empty_request",
+    "TestPrepareRequiresPublicValidation/empty_text",
+    "TestPrepareRequiresPublicValidation/schema",
+    "TestPrepareRequiresPublicValidation/id_ascii",
+    "TestPrepareRequiresPublicValidation/empty_id",
+    "TestPrepareRequiresPublicValidation/id_65",
+    "TestPrepareRequiresPublicValidation/provenance",
+    "TestPrepareRequiresPublicValidation/raw_513",
+    "TestPrepareRequiresPublicValidation/text_513",
+    "TestPrepareRequiresPublicValidation/request_words_33",
+    "TestPrepareRequiresPublicValidation/text_words_33"
+  ],
+  "fresh_race_count1": true,
+  "vet_passed": true,
+  "benchmark_rows": 45,
+  "benchmark_groups": 15,
+  "groups": [
+    {
+      "method": "Construct",
+      "candidates": 1,
+      "repeats": 3,
+      "median_ns_per_op": 8857,
+      "median_bytes_per_op": 8200,
+      "median_allocs_per_op": 40
+    },
+    {
+      "method": "Construct",
+      "candidates": 5,
+      "repeats": 3,
+      "median_ns_per_op": 38279,
+      "median_bytes_per_op": 32152,
+      "median_allocs_per_op": 153
+    },
+    {
+      "method": "Construct",
+      "candidates": 8,
+      "repeats": 3,
+      "median_ns_per_op": 60050,
+      "median_bytes_per_op": 50040,
+      "median_allocs_per_op": 237
+    },
+    {
+      "method": "ReferenceFullRank",
+      "candidates": 1,
+      "repeats": 3,
+      "median_ns_per_op": 10115,
+      "median_bytes_per_op": 4624,
+      "median_allocs_per_op": 28
+    },
+    {
+      "method": "ReferenceFullRank",
+      "candidates": 5,
+      "repeats": 3,
+      "median_ns_per_op": 37918,
+      "median_bytes_per_op": 19856,
+      "median_allocs_per_op": 117
+    },
+    {
+      "method": "ReferenceFullRank",
+      "candidates": 8,
+      "repeats": 3,
+      "median_ns_per_op": 58700,
+      "median_bytes_per_op": 30664,
+      "median_allocs_per_op": 182
+    },
+    {
+      "method": "WarmRank",
+      "candidates": 1,
+      "repeats": 3,
+      "median_ns_per_op": 153.6,
+      "median_bytes_per_op": 0,
+      "median_allocs_per_op": 0
+    },
+    {
+      "method": "WarmRank",
+      "candidates": 5,
+      "repeats": 3,
+      "median_ns_per_op": 540.9,
+      "median_bytes_per_op": 0,
+      "median_allocs_per_op": 0
+    },
+    {
+      "method": "WarmRank",
+      "candidates": 8,
+      "repeats": 3,
+      "median_ns_per_op": 831.4,
+      "median_bytes_per_op": 0,
+      "median_allocs_per_op": 0
+    },
+    {
+      "method": "BM25",
+      "candidates": 1,
+      "repeats": 3,
+      "median_ns_per_op": 784.2,
+      "median_bytes_per_op": 0,
+      "median_allocs_per_op": 0
+    },
+    {
+      "method": "BM25",
+      "candidates": 5,
+      "repeats": 3,
+      "median_ns_per_op": 1269,
+      "median_bytes_per_op": 0,
+      "median_allocs_per_op": 0
+    },
+    {
+      "method": "BM25",
+      "candidates": 8,
+      "repeats": 3,
+      "median_ns_per_op": 1652,
+      "median_bytes_per_op": 0,
+      "median_allocs_per_op": 0
+    },
+    {
+      "method": "LexicalOrdered",
+      "candidates": 1,
+      "repeats": 3,
+      "median_ns_per_op": 814.4,
+      "median_bytes_per_op": 0,
+      "median_allocs_per_op": 0
+    },
+    {
+      "method": "LexicalOrdered",
+      "candidates": 5,
+      "repeats": 3,
+      "median_ns_per_op": 1425,
+      "median_bytes_per_op": 0,
+      "median_allocs_per_op": 0
+    },
+    {
+      "method": "LexicalOrdered",
+      "candidates": 8,
+      "repeats": 3,
+      "median_ns_per_op": 1884,
+      "median_bytes_per_op": 0,
+      "median_allocs_per_op": 0
+    }
+  ],
+  "benchmark_stdout_bytes": 5188,
+  "benchmark_stdout_sha256": "382dfd21765cb39c5ba8be352ad3b6f869fcbac29bf5f888023082ab4b0e22dc",
+  "benchmark_lossless_gzip_bytes": 695,
+  "benchmark_lossless_gzip_sha256": "3a0742f5cdd7cf5d213cec0936204ff989ddf3dd30f16542cb06a9e9ba86cf20",
+  "all_raw_bytes_roundtrip_verified": true,
+  "benchmark_settings": {
+    "Go": "1.27.1 darwin/arm64",
+    "CGO_ENABLED": 0,
+    "GOMAXPROCS": 1,
+    "benchtime": "100ms",
+    "count": 3
+  },
+  "statistical_scope": "three in-process repeated microbenchmarks per group; no confidence/generalization/independent task count",
+  "memory_scope": "Go allocated bytes/allocations per operation; shared fixture representations retained; not live/peak/RSS/native/GPU or cold construction amortization",
+  "comparison_scope": "Prepare includes validation/cloning/features; reference repeats validation/features and converts dynamic result; warm uses existing opaque validation and flat features/View; baselines compute other unlearned scores. Not isolated layout/intrinsic/cache/SIMD attribution.",
+  "first_empty_selector_failure_preserved": true,
+  "learned_assets": 0,
+  "roles": 0,
+  "labels": 0,
+  "Fit": 0,
+  "protected": 0,
+  "activation": false,
+  "semantic_quality_or_whole_task_savings": false
+}
