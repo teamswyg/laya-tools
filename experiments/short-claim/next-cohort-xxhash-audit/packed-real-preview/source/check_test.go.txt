@@ -1,0 +1,396 @@
+// SPDX-License-Identifier: Apache-2.0
+// Public saved-data checks only: no model, Decode, Rank or raw profile reads.
+package saved
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"reflect"
+	"testing"
+)
+
+const (
+	primaryBytes = 4557
+	primarySHA   = "ad346132a953fa352780f11ba6490aaf1ea998571e09f5d8a5d9932496af34cb"
+	inputSHA     = "255faa3a65b51aa8f464d794f8cff05b31a25152f73e51b7e4133c3bb3698126"
+	modelSHA     = "dff05140098845943ece87c3ab8a31a15564a4b170a59ab017ee393501158004"
+	modelRef     = "JooYoon/riidolaya-shortclaim-data-effect-failed-79@5bef215895b69d3f2ef4b82bb3f1970279d67f46"
+	freezeV1SHA  = "e1547a509426df481f7b260a6411b4f48bd9ae60faaf57663ffa5e07cfd2717b"
+	wantScope    = "methods Decode/reference,Coefficient,Score-copy; load uses Decode/New; prepared includes copy; full Rank reference validates, packed fixed input only; payload decoded,owned(includes24Bmodelheader),scratch(len*16); excludes borrowedraw,Go containerheaders,common preparedfeatures,heap/RSS; calls Decode,New,Rank,referenceScore,Coefficient,ViewScore attempted/success; Rank nested Features/Score source-derived; no panic ledger; instrumentation included; no quality/speed/whole-work claim"
+)
+
+type window struct {
+	Round, Scope, Method, N *int
+	DurationNS              *int64
+	TotalAlloc, Mallocs     *uint64
+}
+
+type result struct {
+	Schema, InputSHA, ModelSHA, ModelRef, Scope string
+	Inactive, Qualified, Default, GPU           *bool
+	Fit                                         *int
+	IDs                                         []string
+	Order                                       [][]int
+	ScoreBits                                   [][]string
+	FeatureCounts, PayloadBytes                 []int
+	Calls                                       [][]uint64
+	RankInternalSourceDerived                   []uint64
+	Samples                                     []window
+}
+
+func hash(b []byte) string {
+	h := sha256.Sum256(b)
+	return hex.EncodeToString(h[:])
+}
+
+func decode(raw []byte, dst any) error {
+	d := json.NewDecoder(bytes.NewReader(raw))
+	d.DisallowUnknownFields()
+	if err := d.Decode(dst); err != nil {
+		return err
+	}
+	if d.Decode(new(any)) != io.EOF {
+		return fmt.Errorf("trailing JSON")
+	}
+	return nil
+}
+
+// This digest authenticates the retained primary bytes separately from the
+// semantic gate. Runtime replay metrics are deliberately not compared to it.
+func primaryPin(raw []byte) error {
+	if len(raw) != primaryBytes || hash(raw) != primarySHA {
+		return fmt.Errorf("saved primary digest")
+	}
+	return nil
+}
+
+func check(raw, input []byte) error {
+	var r result
+	if err := decode(raw, &r); err != nil {
+		return fmt.Errorf("result JSON: %w", err)
+	}
+	if len(input) != 1105 || hash(input) != inputSHA || r.InputSHA != inputSHA || r.ModelSHA != modelSHA || r.ModelRef != modelRef ||
+		r.Schema != "riido-xxhash-packed-real-preview-v1" || r.Scope != wantScope {
+		return fmt.Errorf("metadata/pins/scope")
+	}
+	if r.Inactive == nil || !*r.Inactive || r.Fit == nil || *r.Fit != 0 {
+		return fmt.Errorf("missing/inactive/Fit status")
+	}
+	for _, p := range []*bool{r.Qualified, r.Default, r.GPU} {
+		if p == nil || *p {
+			return fmt.Errorf("missing/active status")
+		}
+	}
+	if !reflect.DeepEqual(r.IDs, []string{"direct", "reconstruct", "legacy", "roundtrip", "digest"}) || len(r.Order) != 3 || len(r.ScoreBits) != 3 {
+		return fmt.Errorf("candidate/method width")
+	}
+	// Independently retained original-index bits from the failed reference.
+	// Parity alone would allow all three methods to change coherently.
+	bits := []string{"bfb4c09816d33ae4", "bfaccfbb961d81a2", "bf93c0762f2f11d6", "bfa5f9fba6bf9e32", "bfb06cc2319578c6"}
+	for m := 0; m < 3; m++ {
+		if !reflect.DeepEqual(r.Order[m], []int{2, 3, 1, 4, 0}) || !reflect.DeepEqual(r.ScoreBits[m], bits) {
+			return fmt.Errorf("reference bits/order changed")
+		}
+	}
+	if !reflect.DeepEqual(r.FeatureCounts, []int{1222, 1311, 944, 934, 1162}) || !reflect.DeepEqual(r.PayloadBytes, []int{65536, 32792, 20976}) {
+		return fmt.Errorf("feature/payload columns")
+	}
+	wantCalls := [][]uint64{{257, 257}, {257, 257}, {513, 513}, {20480, 20480}, {25685957, 25685957}, {23045, 23045}}
+	if !reflect.DeepEqual(r.Calls, wantCalls) || !reflect.DeepEqual(r.RankInternalSourceDerived, []uint64{2565, 2565}) {
+		return fmt.Errorf("explicit/derived call columns")
+	}
+	// Logical scratch is max(feature count)*16; Coefficient calls count each
+	// feature, while Rank's inner calls remain source-derived bookkeeping.
+	sum, max := 0, 0
+	for _, n := range r.FeatureCounts {
+		sum += n
+		if n > max {
+			max = n
+		}
+	}
+	if r.PayloadBytes[2] != max*16 || r.Calls[4][0] != uint64(sum)*4609 || r.RankInternalSourceDerived[0] != r.Calls[2][1]*5 {
+		return fmt.Errorf("derived arithmetic")
+	}
+	if len(r.Samples) != 32 {
+		return fmt.Errorf("window count")
+	}
+	at := 0
+	for round := 0; round < 4; round++ {
+		for scope, n := range []int{64, 1024, 128} {
+			methods := 3
+			if scope == 0 {
+				methods = 2
+			}
+			for k := 0; k < methods; k++ {
+				method := k
+				if round%2 == 1 {
+					method = methods - 1 - k
+				}
+				s := r.Samples[at]
+				at++
+				if s.Round == nil || s.Scope == nil || s.Method == nil || s.N == nil || s.DurationNS == nil || s.TotalAlloc == nil || s.Mallocs == nil ||
+					*s.Round != round || *s.Scope != scope || *s.Method != method || *s.N != n || *s.DurationNS <= 0 {
+					return fmt.Errorf("window identity/presence/duration")
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func bundle(t *testing.T) string {
+	t.Helper()
+	d := os.Getenv("PACKED_BUNDLE")
+	if d == "" {
+		t.Fatal("PACKED_BUNDLE required")
+	}
+	return d
+}
+
+func readPublic(t *testing.T, dir, name string) []byte {
+	t.Helper()
+	b, err := os.ReadFile(filepath.Join(dir, name))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return b
+}
+
+func saved(t *testing.T) ([]byte, []byte) {
+	t.Helper()
+	d := bundle(t)
+	return readPublic(t, d, "observations.actual.public.v1.json"), readPublic(t, d, "input.json")
+}
+
+func TestSavedPrimaryDigest(t *testing.T) {
+	raw, _ := saved(t)
+	if err := primaryPin(raw); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestSavedPackedSemanticGate(t *testing.T) {
+	raw, input := saved(t)
+	if err := check(raw, input); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// A caller may provide a newly produced JSON result. This reads only that
+// result and public input; it opens no model and invokes no runtime scorer.
+func TestOptionalActualPackedResult(t *testing.T) {
+	p := os.Getenv("ACTUAL_PACKED_RESULT")
+	if p == "" {
+		t.Skip("no optional replay result supplied")
+	}
+	raw, err := os.ReadFile(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	input := readPublic(t, bundle(t), "input.json")
+	if err := check(raw, input); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func parsed(t *testing.T, raw []byte) result {
+	t.Helper()
+	var r result
+	if err := decode(raw, &r); err != nil {
+		t.Fatal(err)
+	}
+	return r
+}
+
+func encoded(t *testing.T, v any) []byte {
+	t.Helper()
+	b, err := json.Marshal(v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return b
+}
+
+func TestSemanticRejectsMissingRequiredStatuses(t *testing.T) {
+	raw, input := saved(t)
+	for _, field := range []string{"Inactive", "Qualified", "Default", "GPU", "Fit"} {
+		t.Run(field, func(t *testing.T) {
+			var m map[string]json.RawMessage
+			if err := json.Unmarshal(raw, &m); err != nil {
+				t.Fatal(err)
+			}
+			delete(m, field)
+			if check(encoded(t, m), input) == nil {
+				t.Fatal("accepted missing status without digest gate")
+			}
+		})
+	}
+}
+
+func TestSemanticRejectsChangedColumns(t *testing.T) {
+	raw, input := saved(t)
+	controls := []struct {
+		name   string
+		change func(*result)
+	}{
+		{"call-mismatch", func(r *result) { r.Calls[2][0]++ }},
+		{"wrong-window", func(r *result) { *r.Samples[0].Method = 1 }},
+		{"missing-zero-observation", func(r *result) { r.Samples[0].Round = nil }},
+		{"coherent-scorebits", func(r *result) {
+			for m := range r.ScoreBits {
+				// -8 stays last; parity and the same bad order both remain.
+				r.ScoreBits[m][0] = "c020000000000000"
+			}
+		}},
+		{"model-ref", func(r *result) { r.ModelRef = "different-inactive-reference" }},
+		{"schema", func(r *result) { r.Schema = "different-schema" }},
+		{"inferred-count-scope", func(r *result) { r.Scope = "all inner calls instrumented" }},
+		{"feature-count", func(r *result) { r.FeatureCounts[0]++ }},
+		{"payload", func(r *result) { r.PayloadBytes[2]-- }},
+		{"derived-calls", func(r *result) { r.RankInternalSourceDerived[0]++ }},
+	}
+	for _, c := range controls {
+		t.Run(c.name, func(t *testing.T) {
+			r := parsed(t, raw)
+			c.change(&r)
+			if check(encoded(t, r), input) == nil {
+				t.Fatal("accepted semantic mutation without digest gate")
+			}
+		})
+	}
+}
+
+func TestReplayMetricsMayVaryButPrimaryBytesRemainBound(t *testing.T) {
+	raw, input := saved(t)
+	r := parsed(t, raw)
+	for i := range r.Samples {
+		*r.Samples[i].DurationNS = int64(i + 1)
+		*r.Samples[i].TotalAlloc = uint64(i + 1)
+		*r.Samples[i].Mallocs = uint64(i + 1)
+	}
+	changed := encoded(t, r)
+	if err := check(changed, input); err != nil {
+		t.Fatal("runtime metrics should vary without a timing threshold:", err)
+	}
+	if primaryPin(changed) == nil {
+		t.Fatal("accepted rewritten retained primary bytes")
+	}
+	*r.Samples[0].DurationNS = 0
+	if check(encoded(t, r), input) == nil {
+		t.Fatal("accepted unobserved/nonpositive duration")
+	}
+}
+
+type pin struct {
+	Path  string
+	Bytes int
+	SHA   string `json:"sha256"`
+}
+
+var libraryPins = []pin{
+	{"internal/hintlearn/learn.go", 10429, "d0c906d1283617d0778039ff8bc4c6fff6cb0af3a813c48df088424d78bebb71"},
+	{"internal/hintlearn/model.go", 3560, "f27e18883f073555775ff15de4f2e72d4fcff9bb1b49dfe7b11007779ec95aff"},
+	{"pkg/shortclaim/audit_provenance.go", 821, "67a4db28dcacfde4e7f4efac08153010e5a576eef50aad9179ac16671f7f251a"},
+	{"pkg/shortclaim/baseline.go", 14048, "c6003b785763fce004d89556f998811eb6098474908d9341906ca825aebc362a"},
+	{"pkg/shortclaim/input.go", 10755, "834d66e6a0c63095d25b02659a1ddd5c5b8a9eef185b7a2bab5e938974370a80"},
+	{"internal/lexicalhint/audit_provenance.go", 643, "06ee313c49a308a17ae45113eee867492ce81f0401f9b1a690665f4032ec4785"},
+	{"internal/lexicalhint/features.go", 4019, "20224bcab1ea2d6e5203a2efb7772adef0786eea67f43a003a5b2db896804557"},
+	{"pkg/hintweights/doc.go", 494, "0c51eb62f581a6967e2d2fdfa89477d9440e25c57bd097abccbf278c01f56dd8"},
+	{"pkg/hintweights/view.go", 6097, "673a2406da0493222545272e8c27a026ff15e4b9c4a4b8257334545b644e598c"},
+}
+
+func verifyPin(t *testing.T, base string, p pin) {
+	t.Helper()
+	b := readPublic(t, base, p.Path)
+	if len(b) != p.Bytes || hash(b) != p.SHA {
+		t.Fatal("frozen file drift:", p.Path)
+	}
+}
+
+func TestFrozenSources(t *testing.T) {
+	d := bundle(t)
+	var v1 struct {
+		Schema, State string
+		Owned         pin `json:"owned_source"`
+		Input         pin
+		Sources       []pin `json:"source_pins"`
+		Model         struct {
+			Bytes int
+			SHA   string `json:"sha256"`
+			Ref   string
+		} `json:"reference_model"`
+	}
+	rawV1 := readPublic(t, d, "FREEZE.public.v1.json")
+	if json.Unmarshal(rawV1, &v1) != nil || hash(rawV1) != freezeV1SHA || v1.Schema != "riido-xxhash-packed-real-preview-freeze-v1" ||
+		v1.State != "FROZEN_BEFORE_FIRST_PACKED_REAL_MODEL_EXECUTION" || !reflect.DeepEqual(v1.Sources, libraryPins) || v1.Model.Bytes != 32792 || v1.Model.SHA != modelSHA || v1.Model.Ref != modelRef {
+		t.Fatal("v1 freeze identity")
+	}
+	input := pin{"input.json", 1105, inputSHA}
+	ownedV1 := pin{"source/main.go.txt", 8146, "4187133fd9ec081f2e727384c12c5b2bc093c42b1cfc937f057b869167b074d6"}
+	if v1.Input != input || v1.Owned != ownedV1 {
+		t.Fatal("v1 input/owned bindings")
+	}
+	verifyPin(t, d, input)
+	verifyPin(t, d, ownedV1)
+	var v2 struct {
+		Schema, State string
+		Prior         string `json:"prior_freeze_sha256"`
+		Owned         pin    `json:"owned_source"`
+	}
+	if json.Unmarshal(readPublic(t, d, "FREEZE.public.v2.json"), &v2) != nil || v2.Schema != "riido-xxhash-packed-real-preview-freeze-v2" ||
+		v2.State != v1.State || v2.Prior != freezeV1SHA || v2.Prior != hash(rawV1) ||
+		v2.Owned != (pin{"source/main.v2.go.txt", 8214, "864e975be4a2a0428e02208c4b0b330304e6dc03c4a802a291a935b0d5358ebb"}) {
+		t.Fatal("v2 freeze identity/bindings")
+	}
+	verifyPin(t, d, v2.Owned)
+	repo := filepath.Clean(filepath.Join(d, "../../../.."))
+	for _, p := range libraryPins {
+		verifyPin(t, repo, p)
+	}
+}
+
+// Metadata pairing only. CI does not open raw profiles or run a pprof parser;
+// the parser-exit flag below remains a historical public receipt assertion.
+func TestSavedProfileReceiptPairing(t *testing.T) {
+	d := bundle(t)
+	var r struct {
+		Schema     string
+		Parser     *bool  `json:"Go_pprof_parser_exit0_both"`
+		Equal      *bool  `json:"score_bits_orders_and_call_counts_equal_unprofiled"`
+		Primary    string `json:"primary_unprofiled_observation_sha256"`
+		Uploaded   *bool  `json:"private_raw_profiles_uploaded"`
+		GPU        *bool
+		Fit        *int
+		Posthoc    *bool `json:"post_hoc_one_parent"`
+		Activation *bool
+	}
+	if json.Unmarshal(readPublic(t, d, "PROFILE-READBACK.actual.public.v1.json"), &r) != nil || r.Schema != "riido-packed-real-profile-readback-v1" || r.Primary != primarySHA ||
+		r.Parser == nil || !*r.Parser || r.Equal == nil || !*r.Equal || r.Posthoc == nil || !*r.Posthoc || r.Fit == nil || *r.Fit != 0 {
+		t.Fatal("profile receipt pairing")
+	}
+	for _, p := range []*bool{r.Uploaded, r.GPU, r.Activation} {
+		if p == nil || *p {
+			t.Fatal("profile receipt scope/status")
+		}
+	}
+	var f struct {
+		Schema     string
+		Source     pin
+		Unprofiled string `json:"unprofiled_source_sha256"`
+		Private    *bool  `json:"profiles_private_only"`
+		Fit        *int
+		Activation *bool
+	}
+	if json.Unmarshal(readPublic(t, d, "PROFILE-FREEZE.public.v1.json"), &f) != nil || f.Schema != "riido-packed-real-private-profiles-freeze-v1" ||
+		f.Unprofiled != "864e975be4a2a0428e02208c4b0b330304e6dc03c4a802a291a935b0d5358ebb" || f.Private == nil || !*f.Private || f.Fit == nil || *f.Fit != 0 || f.Activation == nil || *f.Activation ||
+		f.Source != (pin{"source/profile.main.go.txt", 9173, "668b62ccacd79d71d8b4695d4935acd4292c331d013522ac77456426307dcd0a"}) {
+		t.Fatal("profile source pairing")
+	}
+	verifyPin(t, d, f.Source)
+}

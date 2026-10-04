@@ -1,0 +1,27 @@
+{
+  "schema": "riido-short-behavior-claim-v1",
+  "request": "Import bounded xxhash states atomically; require coherent short lanes and zero unused tail, and preserve receiver and input on rejection.",
+  "candidates": [
+    {
+      "id": "direct",
+      "text": "Check exact wire size, magic, total up to32, canonical unused tail and coherent short lanes before staged import."
+    },
+    {
+      "id": "reconstruct",
+      "text": "For short states reconstruct from seed and used payload, compare every serialized byte; boundary32 uses structural import, larger totals reject."
+    },
+    {
+      "id": "legacy",
+      "text": "Import using the original size and magic validation into a temporary object, then commit."
+    },
+    {
+      "id": "roundtrip",
+      "text": "Import into a temporary object and accept only when reserialization equals every input byte."
+    },
+    {
+      "id": "digest",
+      "text": "For short states compare imported and reconstructed digest values and commit the imported object; longer states use legacy import."
+    }
+  ],
+  "provenance": "xxhash-posthoc-preview-v1"
+}

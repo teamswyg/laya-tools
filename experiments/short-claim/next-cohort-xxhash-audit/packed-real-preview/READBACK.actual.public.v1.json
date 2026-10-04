@@ -1,0 +1,203 @@
+{
+  "schema": "riido-packed-real-preview-readback-v1",
+  "observations_bytes": 4557,
+  "observations_sha256": "ad346132a953fa352780f11ba6490aaf1ea998571e09f5d8a5d9932496af34cb",
+  "all15_score_bits_and_three_orders_equal_prior": true,
+  "legacy_first_bad_recommendation_preserved": true,
+  "finite_samples32": true,
+  "explicit_calls_attempted_returned": [
+    257,
+    257,
+    513,
+    20480,
+    25685957,
+    23045
+  ],
+  "counts_order": [
+    "Decode",
+    "New",
+    "Rank",
+    "referenceScore",
+    "Coefficient",
+    "ViewScore"
+  ],
+  "Rank_inner_source_derived": [
+    2565,
+    2565
+  ],
+  "FeatureCounts": [
+    1222,
+    1311,
+    944,
+    934,
+    1162
+  ],
+  "logical_payload": {
+    "decoded_coefficients": 65536,
+    "owned_View_including_model_header": 32792,
+    "conversion_scratch": 20976,
+    "Coefficient_only_model_payload_difference": 32744,
+    "Score_copy_model_plus_scratch_difference": 11768
+  },
+  "summary": [
+    {
+      "scope": "load",
+      "method": "reference",
+      "N_each": 64,
+      "rounds": 4,
+      "ns_per_operation_median": 9244.46875,
+      "allocation_bytes_per_operation": [
+        65536,
+        65536,
+        65536,
+        65536
+      ],
+      "allocations_per_operation": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "scope": "load",
+      "method": "packed_Coefficient",
+      "N_each": 64,
+      "rounds": 4,
+      "ns_per_operation_median": 5197.9140625,
+      "allocation_bytes_per_operation": [
+        41024,
+        41024,
+        41024,
+        41024
+      ],
+      "allocations_per_operation": [
+        2,
+        2,
+        2,
+        2
+      ]
+    },
+    {
+      "scope": "prepared_five_scores",
+      "method": "reference",
+      "N_each": 1024,
+      "rounds": 4,
+      "ns_per_operation_median": 4237.95556640625,
+      "allocation_bytes_per_operation": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "allocations_per_operation": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "scope": "prepared_five_scores",
+      "method": "packed_Coefficient",
+      "N_each": 1024,
+      "rounds": 4,
+      "ns_per_operation_median": 18233.1748046875,
+      "allocation_bytes_per_operation": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "allocations_per_operation": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "scope": "prepared_five_scores",
+      "method": "packed_Score_copy",
+      "N_each": 1024,
+      "rounds": 4,
+      "ns_per_operation_median": 6784.85107421875,
+      "allocation_bytes_per_operation": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "allocations_per_operation": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "scope": "full_five_rank",
+      "method": "reference",
+      "N_each": 128,
+      "rounds": 4,
+      "ns_per_operation_median": 447641.6015625,
+      "allocation_bytes_per_operation": [
+        130616.375,
+        130616.25,
+        130616.25,
+        130616.25
+      ],
+      "allocations_per_operation": [
+        253,
+        253,
+        253,
+        253
+      ]
+    },
+    {
+      "scope": "full_five_rank",
+      "method": "packed_Coefficient",
+      "N_each": 128,
+      "rounds": 4,
+      "ns_per_operation_median": 456202.1484375,
+      "allocation_bytes_per_operation": [
+        127704.625,
+        127704.25,
+        127704.375,
+        127704.25
+      ],
+      "allocations_per_operation": [
+        239,
+        239,
+        239,
+        239
+      ]
+    },
+    {
+      "scope": "full_five_rank",
+      "method": "packed_Score_copy",
+      "N_each": 128,
+      "rounds": 4,
+      "ns_per_operation_median": 445234.86328125,
+      "allocation_bytes_per_operation": [
+        127704.5,
+        127704.375,
+        127704.25,
+        127704.375
+      ],
+      "allocations_per_operation": [
+        239,
+        239,
+        239,
+        239
+      ]
+    }
+  ],
+  "memory_scope": "Go cumulative allocations for these fixed instrumented intervals, not peak/live heap/RSS/native/GPU; raw model buffer and both representations coexist. Persistent conversion scratch excluded from measured windows but included above.",
+  "timing_scope": "Micro observations, asymmetric per-feature/per-score instrumentation and repeated reference validation; not intrinsic performance, generic input equivalence, production or whole-task savings.",
+  "post_hoc": true,
+  "independent_parents": 1,
+  "Fit": 0,
+  "new_labels": 0,
+  "activation": false
+}

@@ -1,0 +1,206 @@
+{
+  "schema": "riido-packed-real-profile-readback-v1",
+  "Go_pprof_parser_exit0_both": true,
+  "score_bits_orders_and_call_counts_equal_unprofiled": true,
+  "primary_unprofiled_observation_sha256": "ad346132a953fa352780f11ba6490aaf1ea998571e09f5d8a5d9932496af34cb",
+  "private_profiles": [
+    {
+      "name": "cpu.private.pprof",
+      "bytes": 3337,
+      "sha256": "b00bdc569c868a23f76e9bd00efc90456addb979b223f08de06afa2fb284721d"
+    },
+    {
+      "name": "allocs.private.pprof",
+      "bytes": 2103,
+      "sha256": "077a92ab0015f13f2fd51cf99c5569d78d7f38233bc7b2be0421776934d15fd8"
+    }
+  ],
+  "CPU": {
+    "duration_reported": "1s",
+    "total_samples_reported": "740ms",
+    "nodes": [
+      {
+        "function": "runtime.kevent",
+        "flat_reported": "290ms",
+        "flat_percent": 39.19,
+        "cumulative_reported": "290ms",
+        "cumulative_percent": 39.19
+      },
+      {
+        "function": "runtime.madvise",
+        "flat_reported": "140ms",
+        "flat_percent": 18.92,
+        "cumulative_reported": "140ms",
+        "cumulative_percent": 18.92
+      },
+      {
+        "function": "runtime.typedmemmove",
+        "flat_reported": "70ms",
+        "flat_percent": 9.46,
+        "cumulative_reported": "80ms",
+        "cumulative_percent": 10.81
+      },
+      {
+        "function": "github.com/teamswyg/laya-tools/internal/hintlearn.Features.func1",
+        "flat_reported": "30ms",
+        "flat_percent": 4.05,
+        "cumulative_reported": "30ms",
+        "cumulative_percent": 4.05
+      },
+      {
+        "function": "github.com/teamswyg/laya-tools/pkg/hintweights.(*View).coefficient",
+        "flat_reported": "30ms",
+        "flat_percent": 4.05,
+        "cumulative_reported": "30ms",
+        "cumulative_percent": 4.05
+      },
+      {
+        "function": "main.(*engine).score",
+        "flat_reported": "30ms",
+        "flat_percent": 4.05,
+        "cumulative_reported": "80ms",
+        "cumulative_percent": 10.81
+      },
+      {
+        "function": "sort.insertionSort_func",
+        "flat_reported": "30ms",
+        "flat_percent": 4.05,
+        "cumulative_reported": "80ms",
+        "cumulative_percent": 10.81
+      },
+      {
+        "function": "sort.partition_func",
+        "flat_reported": "20ms",
+        "flat_percent": 2.7,
+        "cumulative_reported": "80ms",
+        "cumulative_percent": 10.81
+      },
+      {
+        "function": "github.com/teamswyg/laya-tools/internal/hintlearn.Features",
+        "flat_reported": "10ms",
+        "flat_percent": 1.35,
+        "cumulative_reported": "210ms",
+        "cumulative_percent": 28.38
+      },
+      {
+        "function": "github.com/teamswyg/laya-tools/internal/hintlearn.Score (inline)",
+        "flat_reported": "10ms",
+        "flat_percent": 1.35,
+        "cumulative_reported": "10ms",
+        "cumulative_percent": 1.35
+      },
+      {
+        "function": "github.com/teamswyg/laya-tools/internal/hintlearn.hashFrom (inline)",
+        "flat_reported": "10ms",
+        "flat_percent": 1.35,
+        "cumulative_reported": "10ms",
+        "cumulative_percent": 1.35
+      },
+      {
+        "function": "internal/runtime/atomic.(*UnsafePointer).Load (inline)",
+        "flat_reported": "10ms",
+        "flat_percent": 1.35,
+        "cumulative_reported": "10ms",
+        "cumulative_percent": 1.35
+      }
+    ],
+    "interpretation": "Short process profile includes forced between-window GC, MemStats, runtime scheduling and pprof machinery; kevent/madvise dominate samples. No clean intrinsic scorer CPU or production inference claim."
+  },
+  "allocation": {
+    "sample_index": "alloc_space",
+    "sample_rate_bytes": 524288,
+    "total_reported": "222.23MB",
+    "nodes": [
+      {
+        "function": "github.com/teamswyg/laya-tools/internal/hintlearn.Features",
+        "flat_reported": "166.04MB",
+        "flat_percent": 74.72,
+        "cumulative_reported": "189.05MB",
+        "cumulative_percent": 85.07
+      },
+      {
+        "function": "github.com/teamswyg/laya-tools/internal/hintlearn.Decode",
+        "flat_reported": "15.96MB",
+        "flat_percent": 7.18,
+        "cumulative_reported": "15.96MB",
+        "cumulative_percent": 7.18
+      },
+      {
+        "function": "github.com/teamswyg/laya-tools/internal/hintlearn.terms (inline)",
+        "flat_reported": "15.51MB",
+        "flat_percent": 6.98,
+        "cumulative_reported": "15.51MB",
+        "cumulative_percent": 6.98
+      },
+      {
+        "function": "github.com/teamswyg/laya-tools/pkg/hintweights.New",
+        "flat_reported": "12.99MB",
+        "flat_percent": 5.85,
+        "cumulative_reported": "12.99MB",
+        "cumulative_percent": 5.85
+      },
+      {
+        "function": "strings.FieldsFunc",
+        "flat_reported": "7MB",
+        "flat_percent": 3.15,
+        "cumulative_reported": "7MB",
+        "cumulative_percent": 3.15
+      },
+      {
+        "function": "internal/bytealg.MakeNoZero",
+        "flat_reported": "2.50MB",
+        "flat_percent": 1.13,
+        "cumulative_reported": "2.50MB",
+        "cumulative_percent": 1.13
+      },
+      {
+        "function": "runtime/pprof.StartCPUProfile",
+        "flat_reported": "1.72MB",
+        "flat_percent": 0.77,
+        "cumulative_reported": "1.72MB",
+        "cumulative_percent": 0.77
+      },
+      {
+        "function": "main.(*engine).rank",
+        "flat_reported": "0.50MB",
+        "flat_percent": 0.23,
+        "cumulative_reported": "191.04MB",
+        "cumulative_percent": 85.97
+      },
+      {
+        "function": "github.com/teamswyg/laya-tools/internal/hintlearn.Rank",
+        "flat_reported": "0",
+        "flat_percent": 0,
+        "cumulative_reported": "62.65MB",
+        "cumulative_percent": 28.19
+      },
+      {
+        "function": "github.com/teamswyg/laya-tools/internal/hintlearn.words",
+        "flat_reported": "0",
+        "flat_percent": 0,
+        "cumulative_reported": "9.50MB",
+        "cumulative_percent": 4.28
+      },
+      {
+        "function": "main.(*engine).one",
+        "flat_reported": "0",
+        "flat_percent": 0,
+        "cumulative_reported": "219.48MB",
+        "cumulative_percent": 98.77
+      },
+      {
+        "function": "main.decode",
+        "flat_reported": "0",
+        "flat_percent": 0,
+        "cumulative_reported": "15.96MB",
+        "cumulative_percent": 7.18
+      }
+    ],
+    "interpretation": "Cumulative sampled Go allocation estimate includes startup Decode/View/preparation/gates, all32windows, CPUprofiling and file writing. Features cum85.07% points to preparation as next allocation target, not exact peak/live/RSS or per-method bytes."
+  },
+  "private_raw_profiles_uploaded": false,
+  "GPU": false,
+  "Fit": 0,
+  "post_hoc_one_parent": true,
+  "activation": false
+}
