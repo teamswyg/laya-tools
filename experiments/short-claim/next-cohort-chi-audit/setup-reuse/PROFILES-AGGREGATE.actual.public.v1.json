@@ -1,0 +1,79 @@
+{
+  "schema": "riido-setup-go-profile-aggregate-v1",
+  "profiles": [
+    {
+      "label": "cpu-prepare",
+      "Kind": "cpu",
+      "Phase": "prepare",
+      "Iterations": 128,
+      "PrepareCalls": 129,
+      "RankCalls": 129,
+      "Parity": true,
+      "AllocationIncludesSetup": false,
+      "Scope": "Private profiling with parity guards; not unprofiled timing, quality, verification savings, RSS/GPU, training or activation. Prepare phase includes Rank. Alloc profile includes process setup; no baseline subtraction.",
+      "private_profile": {
+        "bytes": 3045,
+        "sha256": "e8029d8bd8d84f1606f991de7c5c9acc580c96ad06c1d9e0780cc1932d62125e",
+        "published": false
+      },
+      "top": "Type: cpu\nDuration: 307.09ms, Total samples = 130ms (42.33%)\nShowing nodes accounting for 130ms, 100% of 130ms total\nShowing top 12 nodes out of 58\n      flat  flat%   sum%        cum   cum%\n      60ms 46.15% 46.15%       60ms 46.15%  runtime.kevent\n      20ms 15.38% 61.54%       20ms 15.38%  internal/runtime/atomic.(*UnsafePointer).Load (inline)\n      10ms  7.69% 69.23%       10ms  7.69%  internal/runtime/atomic.(*UnsafePointer).StoreNoWB (inline)\n      10ms  7.69% 76.92%       10ms  7.69%  runtime.(*spanInlineMarkBits).init\n      10ms  7.69% 84.62%       20ms 15.38%  runtime.(*spanSet).push\n      10ms  7.69% 92.31%       10ms  7.69%  runtime.execute\n      10ms  7.69%   100%       10ms  7.69%  sort.partition_func\n         0     0%   100%       50ms 38.46%  github.com/teamswyg/laya-tools/internal/hintlearn.Features\n         0     0%   100%       10ms  7.69%  github.com/teamswyg/laya-tools/internal/hintlearn.terms (inline)\n         0     0%   100%       30ms 23.08%  github.com/teamswyg/laya-tools/internal/hintlearn.words\n         0     0%   100%       10ms  7.69%  github.com/teamswyg/laya-tools/internal/lexicalhint.NormalizeText\n         0     0%   100%       10ms  7.69%  github.com/teamswyg/laya-tools/internal/lexicalhint.tokens\n"
+    },
+    {
+      "label": "cpu-rank",
+      "Kind": "cpu",
+      "Phase": "rank",
+      "Iterations": 262144,
+      "PrepareCalls": 1,
+      "RankCalls": 262145,
+      "Parity": true,
+      "AllocationIncludesSetup": false,
+      "Scope": "Private profiling with parity guards; not unprofiled timing, quality, verification savings, RSS/GPU, training or activation. Prepare phase includes Rank. Alloc profile includes process setup; no baseline subtraction.",
+      "private_profile": {
+        "bytes": 1280,
+        "sha256": "8cdc7d5bd3496351fe5cd558fbc62ed41ea6f4c96339191aa379fc359a8389b7",
+        "published": false
+      },
+      "top": "Type: cpu\nDuration: 2.43s, Total samples = 2190ms (90.05%)\nShowing nodes accounting for 2180ms, 99.54% of 2190ms total\nDropped 7 nodes (cum <= 10.95ms)\n      flat  flat%   sum%        cum   cum%\n     930ms 42.47% 42.47%     2190ms   100%  github.com/teamswyg/laya-tools/pkg/hintweights.(*View).Score\n     720ms 32.88% 75.34%      720ms 32.88%  math.Float32frombits (inline)\n     500ms 22.83% 98.17%      510ms 23.29%  encoding/binary.littleEndian.Uint32 (inline)\n      30ms  1.37% 99.54%       30ms  1.37%  runtime.asyncPreempt\n         0     0% 99.54%     2190ms   100%  github.com/teamswyg/laya-tools/pkg/hintprepared.(*Prepared).Rank\n         0     0% 99.54%     2190ms   100%  main.main\n         0     0% 99.54%     2190ms   100%  main.run\n         0     0% 99.54%     2190ms   100%  runtime.main\n"
+    },
+    {
+      "label": "alloc-prepare",
+      "Kind": "alloc",
+      "Phase": "prepare",
+      "Iterations": 128,
+      "PrepareCalls": 129,
+      "RankCalls": 129,
+      "Parity": true,
+      "AllocationIncludesSetup": true,
+      "Scope": "Private profiling with parity guards; not unprofiled timing, quality, verification savings, RSS/GPU, training or activation. Prepare phase includes Rank. Alloc profile includes process setup; no baseline subtraction.",
+      "private_profile": {
+        "bytes": 6625,
+        "sha256": "b5196328c78e8fbdb9b29d49d68c8edb5f9ef21dac7e8edec3eb4d0531d62a23",
+        "published": false
+      },
+      "top": "Type: alloc_space\nShowing nodes accounting for 54.69MB, 99.44% of 55MB total\nDropped 58 nodes (cum <= 0.27MB)\nShowing top 12 nodes out of 19\n      flat  flat%   sum%        cum   cum%\n   29.24MB 53.17% 53.17%    32.18MB 58.51%  github.com/teamswyg/laya-tools/internal/hintlearn.Features\n   21.19MB 38.53% 91.70%    54.85MB 99.73%  github.com/teamswyg/laya-tools/pkg/hintprepared.Prepare\n    2.17MB  3.94% 95.65%     2.17MB  3.94%  github.com/teamswyg/laya-tools/internal/hintlearn.terms (inline)\n    0.52MB  0.94% 96.58%     1.23MB  2.24%  github.com/teamswyg/laya-tools/internal/lexicalhint.tokens\n    0.52MB  0.94% 97.52%     0.52MB  0.94%  strings.FieldsFunc\n    0.37MB  0.67% 98.19%     0.37MB  0.67%  unicode/utf8.AppendRune (inline)\n    0.34MB  0.62% 98.82%     0.34MB  0.62%  internal/bytealg.MakeNoZero\n    0.34MB  0.62% 99.44%     0.34MB  0.62%  strings.Fields\n         0     0% 99.44%     0.73MB  1.33%  github.com/teamswyg/laya-tools/internal/hintlearn.words\n         0     0% 99.44%     1.36MB  2.47%  github.com/teamswyg/laya-tools/internal/lexicalhint.NormalizeText\n         0     0% 99.44%     1.36MB  2.47%  github.com/teamswyg/laya-tools/pkg/shortclaim.Validate\n         0     0% 99.44%     1.35MB  2.46%  github.com/teamswyg/laya-tools/pkg/shortclaim.ValidatePrepared\n"
+    },
+    {
+      "label": "alloc-rank",
+      "Kind": "alloc",
+      "Phase": "rank",
+      "Iterations": 262144,
+      "PrepareCalls": 1,
+      "RankCalls": 262145,
+      "Parity": true,
+      "AllocationIncludesSetup": true,
+      "Scope": "Private profiling with parity guards; not unprofiled timing, quality, verification savings, RSS/GPU, training or activation. Prepare phase includes Rank. Alloc profile includes process setup; no baseline subtraction.",
+      "private_profile": {
+        "bytes": 5931,
+        "sha256": "8dc46b76a108e4413419bae20db4fc1c0af0bd4d0fb3c7ff5f98a425e220b4d0",
+        "published": false
+      },
+      "top": "Type: alloc_space\nShowing nodes accounting for 578.68kB, 98.70% of 586.30kB total\nDropped 52 nodes (cum <= 2.93kB)\nShowing top 12 nodes out of 25\n      flat  flat%   sum%        cum   cum%\n  232.12kB 39.59% 39.59%   255.45kB 43.57%  github.com/teamswyg/laya-tools/internal/hintlearn.Features\n  168.22kB 28.69% 68.28%   435.40kB 74.26%  github.com/teamswyg/laya-tools/pkg/hintprepared.Prepare\n   93.25kB 15.90% 84.19%    93.25kB 15.90%  io.ReadAll\n   40.06kB  6.83% 91.02%    40.06kB  6.83%  github.com/teamswyg/laya-tools/pkg/hintweights.New\n   17.22kB  2.94% 93.96%    17.22kB  2.94%  github.com/teamswyg/laya-tools/internal/hintlearn.terms (inline)\n    8.12kB  1.39% 95.34%    19.41kB  3.31%  github.com/teamswyg/laya-tools/internal/lexicalhint.tokens\n    5.81kB  0.99% 96.33%     5.81kB  0.99%  unicode/utf8.AppendRune (inline)\n    5.38kB  0.92% 97.25%     5.38kB  0.92%  strings.Fields\n    4.09kB   0.7% 97.95%     4.09kB   0.7%  strings.FieldsFunc\n    3.73kB  0.64% 98.59%     3.73kB  0.64%  internal/bytealg.MakeNoZero\n    0.42kB 0.072% 98.66%     3.69kB  0.63%  encoding/json.(*Decoder).Token\n    0.25kB 0.043% 98.70%    18.72kB  3.19%  github.com/teamswyg/laya-tools/pkg/shortclaim.Load\n"
+    }
+  ],
+  "calls": {
+    "Prepare": 260,
+    "modelRank": 524548
+  },
+  "scope": "Four profiling processes separate from72 timing intervals. CPU sampler100Hz; preparation has only130ms samples, including60ms runtime.kevent, insufficient for precise CPU attribution. Rank has2190ms samples. Allocation values printed by pprof are rounded cumulative alloc_space including process setup, not peak memory/retained heap/RSS/GPU; no subtraction. Loop parity guards and prepare-phase Rank included. Raw profiles and compiled binaries not published.",
+  "next": "Measure lower temporary Features/Prepare allocation under exact feature/score/error parity; evaluate optional decode/SoA separately with retained-size/setup tradeoffs. No change adopted from sampled top alone."
+}

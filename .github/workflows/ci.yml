@@ -94,6 +94,13 @@ jobs:
         run: go run ./experiments/short-claim/next-cohort-decimal-audit/replay
       - name: Saved Chi paired costs and complete call traces (offline Go; no new worker or model calls)
         run: go run ./experiments/short-claim/next-cohort-chi-audit/cost-pilot/run -saved experiments/short-claim/next-cohort-chi-audit/cost-pilot/OBSERVATIONS.actual.public.v1.json.gz
+      - name: Saved Chi setup reuse costs (offline Go; no model calls or profiling)
+        run: |
+          (cd experiments/short-claim/next-cohort-chi-audit/setup-reuse && shasum -a 256 -c SHA256SUMS)
+          evidence=$(mktemp)
+          trap 'rm -f "$evidence"' EXIT
+          gzip -dc experiments/short-claim/next-cohort-chi-audit/setup-reuse/OBSERVATIONS.actual.public.v1.json.gz > "$evidence"
+          go run ./experiments/short-claim/next-cohort-chi-audit/setup-reuse -saved "$evidence"
       - name: Preserve actual nonlearned37 scores and matrix
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

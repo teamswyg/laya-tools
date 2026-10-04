@@ -79,3 +79,5 @@ GOMAXPROCS와 Go heap의 soft target을 제한했습니다. GOMEMLIMIT는 RSS나
 [모델 본체의 고정 HF revision](https://huggingface.co/JooYoon/riidolaya-shortclaim-data-effect-failed-79/tree/5bef215895b69d3f2ef4b82bb3f1970279d67f46)을 참조하며 모델 본체·비공개 locator·프로파일·원시 실행 journal은 GitHub에 포함하지 않습니다. [PACKET](PACKET.public.v1.json), 두 실행 freeze와 SHA256SUMS가 공개 파일과 지문을 연결합니다. Freeze의 “실행 전/pending”은 당시 상태이고 실제 완료는 EXECUTION/COMPARISON에 기록합니다.
 
 압축을 푼 증거의 비밀정보 검사에서는 공개 Go 파일명 `dir_plan9.go`가 오탐으로 걸렸습니다. 정확한 파일명과 고정 입력을 확인한 뒤 그 검사에만 한정한 임시 설정으로 다시 검사했습니다. 저장소의 검사 규칙은 그대로 유지했고 민감정보는 발견되지 않았습니다. [첫 검사](replay/SCAN-DECOMPRESSED-FIRST-FAILURE.actual.public.v1.json)와 [판정·재검사](replay/SCAN-DECOMPRESSED-DISPOSITION.actual.public.v1.json)를 보존합니다.
+
+같은 입력의 [준비 재사용 비용과 별도 Go 프로파일](setup-reuse/README.ko.md)을 측정했습니다. N=8에서 준비 재사용은 재생성보다7.2~7.6배 빨랐지만 BM25가 더 빠르고 모델은 비활성입니다.
