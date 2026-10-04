@@ -1,0 +1,278 @@
+// SPDX-License-Identifier: Apache-2.0
+// Inactive post-hoc observer; no training or authority.
+package main
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"math"
+	"os"
+
+	"github.com/teamswyg/laya-tools/internal/hintlearn"
+	"github.com/teamswyg/laya-tools/pkg/hintprepared"
+	"github.com/teamswyg/laya-tools/pkg/hintweights"
+	"github.com/teamswyg/laya-tools/pkg/shortclaim"
+)
+
+const modelBytes = 32792
+const modelSHA = "dff05140098845943ece87c3ab8a31a15564a4b170a59ab017ee393501158004"
+const modelRef = "JooYoon/riidolaya-shortclaim-data-effect-failed-79@5bef215895b69d3f2ef4b82bb3f1970279d67f46"
+
+// Private locator only. Never serialize this structure or decoder/I/O errors.
+type asset struct {
+	Path   string
+	Bytes  int
+	SHA256 string
+}
+type ranking struct {
+	Kind       string     `json:"kind"`
+	Count      int        `json:"count"`
+	Order      [5]int     `json:"order"`
+	OrderedIDs [5]string  `json:"ordered_ids"`
+	Scores     [5]float64 `json:"scores"`
+	ScoreBits  [5]string  `json:"score_bits"`
+	Fallback   string     `json:"fallback,omitempty"`
+}
+type counts struct {
+	LoadValidated int `json:"load_validated"`
+	Decode        int `json:"decode"`
+	ViewNew       int `json:"view_new"`
+	Prepare       int `json:"prepare"`
+	ReferenceRank int `json:"reference_rank"`
+	PreparedRank  int `json:"prepared_rank"`
+	Baselines     int `json:"baselines"`
+}
+type output struct {
+	Schema                 string     `json:"schema"`
+	Posthoc                bool       `json:"post_hoc"`
+	Qualified              bool       `json:"qualification_performed"`
+	DefaultActive          bool       `json:"default_activation"`
+	Production             bool       `json:"production_ready"`
+	GPU                    bool       `json:"gpu_execution"`
+	Protected              bool       `json:"protected_evaluation"`
+	Fit                    int        `json:"fit"`
+	NewLabels              int        `json:"new_labels"`
+	NewRoles               int        `json:"new_roles"`
+	InputSHA               string     `json:"input_sha256"`
+	CandidateIDs           [5]string  `json:"candidate_ids"`
+	ModelSHA               string     `json:"model_sha256"`
+	ModelBytes             int        `json:"model_bytes"`
+	ModelRef               string     `json:"model_ref"`
+	ModelStorage           string     `json:"model_storage"`
+	Reference              ranking    `json:"reference"`
+	Prepared               ranking    `json:"prepared"`
+	Baselines              [4]ranking `json:"baselines"`
+	ExactScoreBitsAndOrder bool       `json:"exact_score_bits_and_order"`
+	SuccessfulCalls        counts     `json:"successful_explicit_calls"`
+	CountsScope            string     `json:"counts_scope"`
+	Scope                  string     `json:"scope"`
+}
+
+func read(path string, limit int) ([]byte, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, errors.New("input unavailable")
+	}
+	b, err := io.ReadAll(io.LimitReader(f, int64(limit)+1))
+	closeErr := f.Close()
+	if err != nil || closeErr != nil || len(b) > limit {
+		return nil, errors.New("input read/bound failure")
+	}
+	return b, nil
+}
+func hash(b []byte) string {
+	digest := sha256.Sum256(b)
+	return hex.EncodeToString(digest[:])
+}
+func loadAsset(data []byte) (asset, error) {
+	var a asset
+	d := json.NewDecoder(bytes.NewReader(data))
+	d.DisallowUnknownFields()
+	if d.Decode(&a) != nil {
+		return a, errors.New("asset JSON invalid")
+	}
+	var extra any
+	if d.Decode(&extra) != io.EOF || a.Path == "" || a.Bytes != modelBytes || a.SHA256 != modelSHA {
+		return a, errors.New("asset reference mismatch")
+	}
+	return a, nil
+}
+
+// All candidates, finite scores and descending current-index ties; no pruning.
+func snapshot(kind string, order []int, scores []float64, fallback string, ids [5]string) (ranking, error) {
+	var out ranking
+	if len(order) != 5 || len(scores) != 5 || kind == "" {
+		return out, errors.New("ranking shape")
+	}
+	var seen [5]bool
+	for k, i := range order {
+		if i < 0 || i >= 5 || seen[i] {
+			return ranking{}, errors.New("ranking permutation")
+		}
+		seen[i] = true
+		out.Order[k], out.OrderedIDs[k] = i, ids[i]
+	}
+	for i, s := range scores {
+		if math.IsNaN(s) || math.IsInf(s, 0) {
+			return ranking{}, errors.New("ranking nonfinite")
+		}
+		out.Scores[i], out.ScoreBits[i] = s, fmt.Sprintf("%016x", math.Float64bits(s))
+	}
+	for k := 1; k < 5; k++ {
+		a, b := order[k-1], order[k]
+		if scores[a] < scores[b] || (scores[a] == scores[b] && a > b) {
+			return ranking{}, errors.New("ranking order/tie mismatch")
+		}
+	}
+	out.Kind, out.Count, out.Fallback = kind, 5, fallback
+	return out, nil
+}
+func fixedSnapshot(r shortclaim.Ranking, ids [5]string) (ranking, error) {
+	if r.Count != 5 {
+		return ranking{}, errors.New("ranking width")
+	}
+	for i := r.Count; i < shortclaim.MaxCandidates; i++ {
+		if r.Order[i] != 0 || math.Float64bits(r.Scores[i]) != 0 {
+			return ranking{}, errors.New("ranking inactive slots")
+		}
+	}
+	return snapshot(r.Kind, r.Order[:5], r.Scores[:5], r.FallbackReason, ids)
+}
+
+func run() error {
+	if len(os.Args) != 3 {
+		return errors.New("two input arguments required")
+	}
+	raw, err := read(os.Args[1], shortclaim.MaxJSONBytes)
+	if err != nil {
+		return err
+	}
+	valid, err := shortclaim.LoadValidated(bytes.NewReader(raw))
+	if err != nil {
+		return errors.New("shortclaim validation failed")
+	}
+	p := valid.Prepared()
+	if p.Count != 5 {
+		return errors.New("five candidates required")
+	}
+	o := output{
+		Schema: "riido-chi-prepared-sdk-posthoc-v1", Posthoc: true,
+		InputSHA: hash(raw), ModelSHA: modelSHA, ModelBytes: modelBytes,
+		ModelRef: modelRef, ModelStorage: "RIIDOH01_fp32",
+		CountsScope: "successful explicit calls; one Baselines call yields four controls; excludes hidden calls",
+		Scope:       "inactive failed79 hint; not truth/probability/qualified; feature schema and rights require external proof; no Laya encoder/GPU or timing/memory/RSS measurement",
+	}
+	o.SuccessfulCalls.LoadValidated++
+	var docs [5]string
+	for i := 0; i < 5; i++ {
+		o.CandidateIDs[i], docs[i] = p.Candidates[i].ID, p.Candidates[i].Text
+	}
+	aRaw, err := read(os.Args[2], 2048)
+	if err != nil {
+		return err
+	}
+	a, err := loadAsset(aRaw)
+	if err != nil {
+		return err
+	}
+	model, err := read(a.Path, modelBytes)
+	if err != nil {
+		return err
+	}
+	if len(model) != modelBytes || hash(model) != modelSHA || model[12] != 0 {
+		return errors.New("model pin or FP32 format mismatch")
+	}
+	w, err := hintlearn.Decode(model)
+	if err != nil {
+		return errors.New("model Decode failed")
+	}
+	o.SuccessfulCalls.Decode++
+	if len(w) != hintweights.Dimension {
+		return errors.New("decoded model dimension")
+	}
+	for _, v := range w {
+		if math.IsNaN(v) || math.IsInf(v, 0) {
+			return errors.New("decoded coefficient nonfinite")
+		}
+	}
+	view, err := hintweights.New(model)
+	if err != nil || view == nil {
+		return errors.New("model View failed")
+	}
+	o.SuccessfulCalls.ViewNew++
+	owner, err := hintprepared.Prepare(p)
+	if err != nil || owner == nil {
+		return errors.New("Prepare failed")
+	}
+	o.SuccessfulCalls.Prepare++
+	order, scores, err := hintlearn.Rank(w, p.Request, docs[:])
+	if err != nil {
+		return errors.New("reference Rank failed")
+	}
+	o.SuccessfulCalls.ReferenceRank++
+	o.Reference, err = snapshot("inactive_fp32_reference", order, scores, "", o.CandidateIDs)
+	if err != nil {
+		return err
+	}
+	prepared, err := owner.Rank(valid, view)
+	if err != nil {
+		return errors.New("prepared Rank failed")
+	}
+	o.SuccessfulCalls.PreparedRank++
+	o.Prepared, err = fixedSnapshot(prepared, o.CandidateIDs)
+	if err != nil {
+		return err
+	}
+	if o.Prepared.Kind != hintprepared.Kind || o.Prepared.Fallback != "" ||
+		o.Reference.Order != o.Prepared.Order || o.Reference.OrderedIDs != o.Prepared.OrderedIDs ||
+		o.Reference.ScoreBits != o.Prepared.ScoreBits {
+		return errors.New("reference/prepared exact parity failed")
+	}
+	o.ExactScoreBitsAndOrder = true
+	controls, err := shortclaim.Baselines(p)
+	if err != nil {
+		return errors.New("Baselines failed")
+	}
+	o.SuccessfulCalls.Baselines++
+	for i, c := range controls {
+		o.Baselines[i], err = fixedSnapshot(c, o.CandidateIDs)
+		if err != nil {
+			return err
+		}
+	}
+	data, err := json.Marshal(o)
+	if err != nil || len(data)+1 > 16384 {
+		return errors.New("report encoding/bound failure")
+	}
+	data = append(data, '\n')
+	n, err := os.Stdout.Write(data)
+	if err != nil || n != len(data) {
+		return errors.New("report output incomplete")
+	}
+	return nil
+}
+
+// Panic-safe, including panic(nil); no failed-call ledger or private locator.
+func guardedRun() (err error) {
+	returned := false
+	defer func() {
+		if !returned {
+			_ = recover()
+			err = errors.New("preview panic")
+		}
+	}()
+	err = run()
+	returned = true
+	return err
+}
+func main() {
+	if err := guardedRun(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+}

@@ -1,0 +1,421 @@
+// SPDX-License-Identifier: Apache-2.0
+// Finite public protocol replay only; no model, training or semantic labels.
+package main
+
+import (
+	"bytes"
+	"compress/gzip"
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"flag"
+	"fmt"
+	"io"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"reflect"
+	"strings"
+	"time"
+	"unicode/utf8"
+)
+
+type pin struct {
+	name string
+	size int
+	sha  string
+	dest string
+}
+
+var pins = [...]pin{
+	{"source/chi/chain.go.txt", 1517, "8c22d7bbc23f4b4d46ded5ef721a9c3a173031fa2c2c9a7b48c46c2b07e8bd80", "chi/chain.go"},
+	{"source/chi/chi.go.txt", 4812, "47c70ececcbb9d71f973eda3cbadad0a46c8cc2261b285f7049b5261f337d678", "chi/chi.go"},
+	{"source/chi/context.go.txt", 5788, "b19edcca252e2fe74e82802c4c7ce1a1c0855728f9ede1288f0224283dfc7e53", "chi/context.go"},
+	{"source/chi/mux.go.txt", 17308, "cc44c2d620e6306b16d6d80f5f6c70f02b5814b357a4f5823372818f355ae67d", "chi/mux.go"},
+	{"source/chi/tree.go.txt", 22069, "f4b12b63b662fb8e36658172b36b35705cfb24eefae0665635f4fbd52e64fb79", "chi/tree.go"},
+	{"source/chi/go.mod.txt", 149, "7eb620f0fce870d93eaba87bf6f8c36284db786108030ca229a5016461797090", "chi/go.mod"},
+	{"source/chi/LICENSE.txt", 1123, "a2d51b7515acfaff2f7a88688650f2fc4fd99561383e72bba2305e3db59a1647", "chi/LICENSE"},
+	{"source/ARMON-NOTICE.txt", 1079, "831892cd31b9eef0311bb1de9014527ef5d3592eed7add1f9f829510d2065e62", "chi/ARMON-NOTICE"},
+	{"route/observer.gofmt.go.txt", 12999, "1cfdc8d9e693f02e27ef03623b5ae5b7b66cc3f8c0a4ddc52bc85c006924ec4a", "main.go"},
+	{"route/INPUT.proposed.public.v1.json", 2658, "7c18bf602e1566ecbeef4708676691e5b3ee5d2ee4f9845e8938b33cd1620834", "input.json"},
+	{"route/WANTS.public.v1.json", 4367, "a79e528f4c217ee5c162056e05ad0586efda3002b8c3a9a01cadbf43feef508b", ""},
+	{"route/OBSERVATIONS.actual.public.v1.json.gz", 2575, "4a439111e5848974b85efe5eb706b23b2238233df088815e679e9be3c4f21dde", ""},
+	{"route/HARNESS.go.mod.public.v1.txt", 133, "f0e8fa63df6716ef6a1f33c3b0b1ce6720cb032975776f01d325a3de3a82590f", "go.mod"},
+}
+
+type candidate struct {
+	ID      string `json:"id"`
+	Caption string `json:"caption"`
+}
+type fixture struct {
+	ID   string `json:"id"`
+	Path string `json:"path"`
+	Raw  string `json:"raw_path"`
+	Opt  bool   `json:"opt_in"`
+}
+type input struct {
+	Schema     string      `json:"schema"`
+	Fixtures   []fixture   `json:"fixtures"`
+	Candidates []candidate `json:"candidates"`
+}
+type urlState struct {
+	Path string `json:"path"`
+	Raw  string `json:"raw_path"`
+}
+type panicState struct {
+	Type  string `json:"type"`
+	Value string `json:"value"`
+}
+type event struct {
+	Phase     string      `json:"phase"`
+	API       string      `json:"api"`
+	Attempted bool        `json:"attempted"`
+	Returned  bool        `json:"returned"`
+	Value     *string     `json:"value,omitempty"`
+	Error     *string     `json:"error,omitempty"`
+	Panic     *panicState `json:"panic,omitempty"`
+}
+type params struct {
+	Chi  *string `json:"chi_url_param"`
+	Path *string `json:"request_path_value"`
+}
+type handler struct {
+	Kind      string  `json:"kind"`
+	Context   *bool   `json:"context_present"`
+	RoutePath *string `json:"route_path"`
+	Before    *params `json:"params_before"`
+	After     *params `json:"params_after"`
+	Returned  bool    `json:"returned"`
+}
+type trial struct {
+	Fixture          string      `json:"fixture_id"`
+	Candidate        string      `json:"candidate_id"`
+	Gate             bool        `json:"gate"`
+	Before           *urlState   `json:"original_url_before"`
+	After            *urlState   `json:"original_url_after"`
+	Dispatch         *urlState   `json:"dispatch_url"`
+	RequestCloned    bool        `json:"request_cloned"`
+	URLCloned        bool        `json:"url_cloned"`
+	Status           *int        `json:"status"`
+	Route            int         `json:"route_handler_calls"`
+	NotFound         int         `json:"not_found_handler_calls"`
+	Handlers         []*handler  `json:"handlers"`
+	DispatchReturned *bool       `json:"dispatch_returned"`
+	Normal           bool        `json:"normal_return"`
+	Panic            *panicState `json:"panic"`
+	ObserverError    *string     `json:"observer_error"`
+	Ledger           []event     `json:"public_api_calls"`
+}
+type counts struct {
+	Trials    int `json:"trials"`
+	Normal    int `json:"normal_returns"`
+	Panics    int `json:"panics"`
+	Attempted int `json:"api_attempted"`
+	Returned  int `json:"api_returned"`
+	Errors    int `json:"api_errors"`
+	APIPanics int `json:"api_panics"`
+}
+type report struct {
+	Schema     string      `json:"schema"`
+	Status     string      `json:"status"`
+	SHA        string      `json:"input_sha256"`
+	Parents    int         `json:"parents"`
+	Candidates []candidate `json:"candidates"`
+	Qualified  bool        `json:"qualified"`
+	Default    bool        `json:"default_active"`
+	Models     int         `json:"model_calls"`
+	Fits       int         `json:"fits"`
+	Counts     counts      `json:"counts"`
+	Trials     []trial     `json:"trials"`
+}
+type want struct {
+	Status       int    `json:"status"`
+	Route        int    `json:"route_handler_count"`
+	NotFound     int    `json:"not_found_count"`
+	Chi          string `json:"url_param_inside_handler"`
+	Path         string `json:"path_value_inside_handler"`
+	OriginalPath string `json:"original_Path_after"`
+	OriginalRaw  string `json:"original_RawPath_after"`
+	Normal       bool   `json:"normal_return"`
+	Panic        bool   `json:"panic"`
+	Errors       int    `json:"unescape_error_count"`
+}
+type wants struct {
+	Schema   string `json:"schema"`
+	State    string `json:"state"`
+	Request  string `json:"request"`
+	Parents  int    `json:"parent_count"`
+	Family   string `json:"source_family"`
+	Fixtures []struct {
+		ID   string `json:"id"`
+		Want want   `json:"Want"`
+	} `json:"fixtures"`
+	Role   json.RawMessage `json:"role"`
+	Labels int             `json:"learning_labels"`
+	Fits   int             `json:"Fit"`
+}
+
+func sha(b []byte) string { x := sha256.Sum256(b); return hex.EncodeToString(x[:]) }
+func read(path string, limit int) ([]byte, error) {
+	f, e := os.Open(path)
+	if e != nil {
+		return nil, errors.New("packet unavailable")
+	}
+	b, e := io.ReadAll(io.LimitReader(f, int64(limit)+1))
+	c := f.Close()
+	if e != nil || c != nil || len(b) > limit {
+		return nil, errors.New("packet read/bound failure")
+	}
+	return b, nil
+}
+func decode(b []byte, v any) error {
+	if !utf8.Valid(b) {
+		return errors.New("invalid UTF8")
+	}
+	d := json.NewDecoder(bytes.NewReader(b))
+	d.DisallowUnknownFields()
+	if d.Decode(v) != nil {
+		return errors.New("invalid JSON shape")
+	}
+	var x any
+	if d.Decode(&x) != io.EOF {
+		return errors.New("JSON trailing value")
+	}
+	return nil
+}
+func unpack(b []byte) ([]byte, error) {
+	r := bytes.NewReader(b)
+	z, e := gzip.NewReader(r)
+	if e != nil {
+		return nil, errors.New("gzip header failure")
+	}
+	z.Multistream(false)
+	raw, e := io.ReadAll(io.LimitReader(z, 262145))
+	c := z.Close()
+	if e != nil || c != nil || len(raw) > 262144 || r.Len() != 0 {
+		return nil, errors.New("gzip CRC/EOF/bound failure")
+	}
+	return raw, nil
+}
+func present(p *params) bool { return p != nil && p.Chi != nil && p.Path != nil }
+func validate(r report, in input, w wants) error {
+	if r.Schema != "riido-chi-route-observation-v1" || r.Status != "development_protocol_audit" || r.SHA != pins[9].sha || r.Parents != 1 || r.Qualified || r.Default || r.Models != 0 || r.Fits != 0 || len(r.Trials) != 45 || !reflect.DeepEqual(r.Candidates, in.Candidates) {
+		return errors.New("report authority mismatch")
+	}
+	var c counts
+	var passed [5]int
+	for k, t := range r.Trials {
+		i, j := k/5, k%5
+		f := in.Fixtures[i]
+		v := w.Fixtures[i].Want
+		h := (*handler)(nil)
+		if t.Fixture != f.ID || t.Candidate != in.Candidates[j].ID || t.Gate != (f.Opt && f.Raw != "") || len(t.Handlers) != 1 || t.DispatchReturned == nil || !*t.DispatchReturned || !t.Normal || t.Panic != nil || t.ObserverError != nil || t.Status == nil || t.Before == nil || t.After == nil || t.Dispatch == nil {
+			return errors.New("trial shape/return mismatch")
+		}
+		h = t.Handlers[0]
+		if h == nil || h.Context == nil || !*h.Context || h.RoutePath == nil || *h.RoutePath != "" || !h.Returned || !present(h.Before) || !present(h.After) || t.Route+t.NotFound != 1 || (h.Kind != "route" && h.Kind != "not_found") || (h.Kind == "route") != (t.Route == 1) || t.Before.Path != f.Path || t.Before.Raw != f.Raw {
+			return errors.New("live handler/URL mismatch")
+		}
+		c.Trials++
+		if t.Normal {
+			c.Normal++
+		}
+		if t.Panic != nil {
+			c.Panics++
+		}
+		escapeErrors := 0
+		for _, e := range t.Ledger {
+			if e.Attempted {
+				c.Attempted++
+			}
+			if e.Returned {
+				c.Returned++
+			}
+			if e.Error != nil {
+				c.Errors++
+				if e.API == "url.PathUnescape" || e.API == "url.QueryUnescape" {
+					escapeErrors++
+				}
+			}
+			if e.Panic != nil {
+				c.APIPanics++
+			}
+		}
+		if *t.Status == v.Status && t.Route == v.Route && t.NotFound == v.NotFound && *h.After.Chi == v.Chi && *h.After.Path == v.Path && t.After.Path == v.OriginalPath && t.After.Raw == v.OriginalRaw && t.Normal == v.Normal && (t.Panic != nil) == v.Panic && escapeErrors == v.Errors {
+			passed[j]++
+		}
+	}
+	if c != (counts{45, 45, 0, 533, 533, 0, 0}) || c != r.Counts || passed != [5]int{9, 8, 8, 8, 6} {
+		return errors.New("counts/literal-Want matrix mismatch")
+	}
+	return nil
+}
+
+type bounded struct {
+	buf bytes.Buffer
+	max int
+}
+
+func (b *bounded) Write(p []byte) (int, error) {
+	if len(p) > b.max-b.buf.Len() {
+		return 0, errors.New("command output bound")
+	}
+	return b.buf.Write(p)
+}
+func (b *bounded) Bytes() []byte { return b.buf.Bytes() }
+func environment(tmp string) []string {
+	values := []string{"CGO_ENABLED=0", "GOPROXY=off", "GOSUMDB=off", "GOTOOLCHAIN=local", "GOMAXPROCS=2", "GOMEMLIMIT=96MiB", "GOWORK=off", "GOENV=off", "GOFLAGS=", "TMPDIR=" + filepath.Join(tmp, "build-temp")}
+	var out []string
+	for _, e := range os.Environ() {
+		keep := true
+		for _, v := range values {
+			key := v[:strings.IndexByte(v, '=')+1]
+			if strings.HasPrefix(e, key) {
+				keep = false
+				break
+			}
+		}
+		if keep {
+			out = append(out, e)
+		}
+	}
+	return append(out, values...)
+}
+func command(exe string, args []string, dir string, seconds, outMax int) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(seconds)*time.Second)
+	defer cancel()
+	c := exec.CommandContext(ctx, exe, args...)
+	c.Dir = dir
+	c.Env = environment(dir)
+	c.WaitDelay = time.Second
+	out := &bounded{max: outMax}
+	stderr := &bounded{max: 8192}
+	c.Stdout = out
+	c.Stderr = stderr
+	if c.Run() != nil || ctx.Err() != nil {
+		return nil, errors.New("command failed/timeout/output bound")
+	}
+	return out.Bytes(), nil
+}
+func run() (err error) {
+	flags := flag.NewFlagSet("chi-replay", flag.ContinueOnError)
+	flags.SetOutput(io.Discard)
+	root := flags.String("root", "experiments/short-claim/next-cohort-chi-audit", "public packet root")
+	goExe := flags.String("go", "go", "local Go executable")
+	if flags.Parse(os.Args[1:]) != nil || flags.NArg() != 0 {
+		return errors.New("invalid argument")
+	}
+	tool, e := exec.LookPath(*goExe)
+	if e != nil {
+		return errors.New("Go unavailable")
+	}
+	tool, e = filepath.Abs(tool)
+	if e != nil {
+		return errors.New("Go locator invalid")
+	}
+	var data [len(pins)][]byte
+	for i, p := range pins {
+		data[i], err = read(filepath.Join(*root, p.name), p.size)
+		if err != nil {
+			return err
+		}
+		if len(data[i]) != p.size || sha(data[i]) != p.sha {
+			return errors.New("packet pin mismatch")
+		}
+	}
+	var in input
+	var w wants
+	if decode(data[9], &in) != nil || decode(data[10], &w) != nil || len(in.Fixtures) != 9 || len(in.Candidates) != 5 || len(w.Fixtures) != 9 || in.Schema != "riido-chi-route-frozen-v1" || w.Schema != "riido-chi-route-literal-wants-v1" || w.Parents != 1 || w.Labels != 0 || w.Fits != 0 || string(w.Role) != "null" {
+		return errors.New("frozen authority mismatch")
+	}
+	for i, f := range in.Fixtures {
+		if f.ID != w.Fixtures[i].ID {
+			return errors.New("fixture identity mismatch")
+		}
+	}
+	raw, err := unpack(data[11])
+	if err != nil {
+		return err
+	}
+	if len(raw) != 80431 || sha(raw) != "8b7600df77c31787af3efe929166126f8c4c06422ef7d894b687e1a19dec71f1" {
+		return errors.New("saved raw pin mismatch")
+	}
+	var saved report
+	if decode(raw, &saved) != nil || validate(saved, in, w) != nil {
+		return errors.New("saved report invalid")
+	}
+	tmp, err := os.MkdirTemp("", "riido-chi-replay-")
+	if err != nil {
+		return errors.New("temporary directory failed")
+	}
+	complete := false
+	defer func() {
+		if os.RemoveAll(tmp) != nil && err == nil {
+			err = errors.New("temporary cleanup failed")
+		}
+		if complete && err == nil {
+			if _, e := fmt.Fprintln(os.Stdout, "Chi replay passed: parent=1 trials=45 explicit_calls=533 passes=9/8/8/8/6 Fit=0 model=0"); e != nil {
+				err = errors.New("summary output failed")
+			}
+		}
+	}()
+	if os.Mkdir(filepath.Join(tmp, "chi"), 0700) != nil {
+		return errors.New("temporary Chi directory failed")
+	}
+	if os.Mkdir(filepath.Join(tmp, "build-temp"), 0700) != nil {
+		return errors.New("temporary build directory failed")
+	}
+	for i, p := range pins {
+		if p.dest != "" {
+			if os.WriteFile(filepath.Join(tmp, p.dest), data[i], 0600) != nil {
+				return errors.New("temporary source copy failed")
+			}
+		}
+	}
+	version, err := command(tool, []string{"version"}, tmp, 5, 8192)
+	if err != nil {
+		return errors.New("version stage failed/timeout/output bound")
+	}
+	fields := strings.Fields(string(version))
+	if len(fields) != 4 || fields[0] != "go" || fields[1] != "version" || fields[2] != "go1.27.1" {
+		return errors.New("Go 1.27.1 required")
+	}
+	worker := filepath.Join(tmp, "worker")
+	if _, err = command(tool, []string{"build", "-p=1", "-trimpath", "-buildvcs=false", "-o", worker, "."}, tmp, 60, 65536); err != nil {
+		return errors.New("build stage failed/timeout/output bound")
+	}
+	output, err := command(worker, []string{filepath.Join(tmp, "input.json")}, tmp, 20, 65536)
+	if err != nil {
+		return errors.New("worker stage failed/timeout/output bound")
+	}
+	raw, err = unpack(output)
+	if err != nil {
+		return err
+	}
+	var actual report
+	if decode(raw, &actual) != nil || validate(actual, in, w) != nil || !reflect.DeepEqual(saved, actual) {
+		return errors.New("complete typed replay mismatch")
+	}
+	complete = true
+	return nil
+}
+func guardedRun() (err error) {
+	returned := false
+	defer func() {
+		if !returned {
+			_ = recover()
+			err = errors.New("replay panic")
+		}
+	}()
+	err = run()
+	returned = true
+	return err
+}
+func main() {
+	if err := guardedRun(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+}

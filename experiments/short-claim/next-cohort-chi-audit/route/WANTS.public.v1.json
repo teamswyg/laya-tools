@@ -1,0 +1,147 @@
+{
+  "schema": "riido-chi-route-literal-wants-v1",
+  "state": "Root-authored literal Wants frozen before observer execution; separately reviewed nonblind from source",
+  "request": "Match raw route first, then decode id once with PathUnescape only when opted in and RawPath exists; preserve literal plus and original URL, and update both parameter APIs.",
+  "parent_count": 1,
+  "source_family": "go-chi/chi<-armon/go-radix; predecessor/copy extent unresolved",
+  "fixtures": [
+    {
+      "id": "fixture01-encoded-separator",
+      "Want": {
+        "status": 200,
+        "route_handler_count": 1,
+        "not_found_count": 0,
+        "url_param_inside_handler": "a/b",
+        "path_value_inside_handler": "a/b",
+        "original_Path_after": "/u/a/b",
+        "original_RawPath_after": "/u/a%2Fb",
+        "normal_return": true,
+        "panic": false,
+        "unescape_error_count": 0
+      }
+    },
+    {
+      "id": "fixture02-nested-percent",
+      "Want": {
+        "status": 200,
+        "route_handler_count": 1,
+        "not_found_count": 0,
+        "url_param_inside_handler": "a%2Fb",
+        "path_value_inside_handler": "a%2Fb",
+        "original_Path_after": "/u/a%2Fb",
+        "original_RawPath_after": "/u/a%252Fb",
+        "normal_return": true,
+        "panic": false,
+        "unescape_error_count": 0
+      }
+    },
+    {
+      "id": "fixture03-literal-plus",
+      "Want": {
+        "status": 200,
+        "route_handler_count": 1,
+        "not_found_count": 0,
+        "url_param_inside_handler": "a+b",
+        "path_value_inside_handler": "a+b",
+        "original_Path_after": "/u/a+b",
+        "original_RawPath_after": "/u/a+b",
+        "normal_return": true,
+        "panic": false,
+        "unescape_error_count": 0
+      }
+    },
+    {
+      "id": "fixture04-encoded-space",
+      "Want": {
+        "status": 200,
+        "route_handler_count": 1,
+        "not_found_count": 0,
+        "url_param_inside_handler": "a b",
+        "path_value_inside_handler": "a b",
+        "original_Path_after": "/u/a b",
+        "original_RawPath_after": "/u/a%20b",
+        "normal_return": true,
+        "panic": false,
+        "unescape_error_count": 0
+      }
+    },
+    {
+      "id": "fixture05-opt-out",
+      "Want": {
+        "status": 200,
+        "route_handler_count": 1,
+        "not_found_count": 0,
+        "url_param_inside_handler": "a%2Fb",
+        "path_value_inside_handler": "a%2Fb",
+        "original_Path_after": "/u/a/b",
+        "original_RawPath_after": "/u/a%2Fb",
+        "normal_return": true,
+        "panic": false,
+        "unescape_error_count": 0
+      }
+    },
+    {
+      "id": "fixture06-plain-no-raw",
+      "Want": {
+        "status": 200,
+        "route_handler_count": 1,
+        "not_found_count": 0,
+        "url_param_inside_handler": "alice",
+        "path_value_inside_handler": "alice",
+        "original_Path_after": "/u/alice",
+        "original_RawPath_after": "",
+        "normal_return": true,
+        "panic": false,
+        "unescape_error_count": 0
+      }
+    },
+    {
+      "id": "fixture07-literal-percent-no-raw",
+      "Want": {
+        "status": 200,
+        "route_handler_count": 1,
+        "not_found_count": 0,
+        "url_param_inside_handler": "a%2Fb",
+        "path_value_inside_handler": "a%2Fb",
+        "original_Path_after": "/u/a%2Fb",
+        "original_RawPath_after": "",
+        "normal_return": true,
+        "panic": false,
+        "unescape_error_count": 0
+      }
+    },
+    {
+      "id": "fixture08-extra-segment-no-raw",
+      "Want": {
+        "status": 404,
+        "route_handler_count": 0,
+        "not_found_count": 1,
+        "url_param_inside_handler": "",
+        "path_value_inside_handler": "",
+        "original_Path_after": "/u/a/b",
+        "original_RawPath_after": "",
+        "normal_return": true,
+        "panic": false,
+        "unescape_error_count": 0
+      }
+    },
+    {
+      "id": "fixture09-unmatched-raw",
+      "Want": {
+        "status": 404,
+        "route_handler_count": 0,
+        "not_found_count": 1,
+        "url_param_inside_handler": "",
+        "path_value_inside_handler": "",
+        "original_Path_after": "/x/a/b",
+        "original_RawPath_after": "/x/a%2Fb",
+        "normal_return": true,
+        "panic": false,
+        "unescape_error_count": 0
+      }
+    }
+  ],
+  "role": null,
+  "learning_labels": 0,
+  "Fit": 0
+}

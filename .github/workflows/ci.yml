@@ -88,6 +88,8 @@ jobs:
         run: bash experiments/short-claim/next-cohort-xxhash-audit/prepared-storage-preview/verify.sh
       - name: Prepared input and buffer contracts (synthetic numeric weights; no learned model or training)
         run: bash experiments/short-claim/next-cohort-xxhash-audit/prepared-contract-preview/verify.sh
+      - name: Actual pinned Chi route replay (offline Go CPU; one parent, no model or training)
+        run: go run ./experiments/short-claim/next-cohort-chi-audit/replay
       - name: Preserve actual nonlearned37 scores and matrix
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

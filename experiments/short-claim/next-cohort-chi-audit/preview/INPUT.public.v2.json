@@ -1,0 +1,27 @@
+{
+  "schema": "riido-short-behavior-claim-v1",
+  "request": "Match raw route first, then decode id once with PathUnescape only when opted in and RawPath exists; preserve literal plus and original URL, and update both parameter APIs.",
+  "candidates": [
+    {
+      "id": "post_path",
+      "text": "Match raw route first. If opted in and RawPath exists, PathUnescape matched id once; update both parameter APIs. Otherwise preserve parameters. Preserve original URL."
+    },
+    {
+      "id": "post_query",
+      "text": "Match raw route first. If opted in and RawPath exists, QueryUnescape matched id once; update both parameter APIs. Otherwise preserve parameters. Preserve original URL."
+    },
+    {
+      "id": "pre_path",
+      "text": "If opted in and RawPath exists, clone request and URL. PathUnescape whole RawPath once, clear RawPath, then route. Keep captured parameters. Preserve original URL."
+    },
+    {
+      "id": "twice_path",
+      "text": "Match raw route first. If opted in and RawPath exists, PathUnescape matched id twice; update both parameter APIs. Otherwise preserve parameters. Preserve original URL."
+    },
+    {
+      "id": "unchanged",
+      "text": "Match RawPath when present, otherwise Path. Never decode captured id, even if opted in. Keep both parameter APIs and original URL unchanged."
+    }
+  ],
+  "provenance": "chi-posthoc-inactive-fp32-audit-v1"
+}

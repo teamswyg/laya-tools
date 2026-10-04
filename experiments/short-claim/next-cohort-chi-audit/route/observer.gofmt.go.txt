@@ -1,0 +1,426 @@
+// SPDX-License-Identifier: Apache-2.0
+// Development observer; no labels/Fits. Root freezes inputs and Wants.
+package main
+
+import (
+	"bytes"
+	"compress/gzip"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"net/http"
+	"net/url"
+	"os"
+	"unicode/utf8"
+
+	"github.com/go-chi/chi/v5"
+)
+
+const maxInput = 32768
+
+type fixture struct {
+	ID      string  `json:"id"`
+	Path    *string `json:"path"`
+	RawPath *string `json:"raw_path"`
+	OptIn   *bool   `json:"opt_in"`
+}
+type candidate struct {
+	ID      string `json:"id"`
+	Caption string `json:"caption"`
+}
+type frozen struct {
+	Schema     string      `json:"schema"`
+	Fixtures   []fixture   `json:"fixtures"`
+	Candidates []candidate `json:"candidates"`
+}
+type urlState struct {
+	Path    string `json:"path"`
+	RawPath string `json:"raw_path"`
+}
+type panicState struct {
+	Type  string `json:"type"`
+	Value string `json:"value"`
+}
+type event struct {
+	Phase     string      `json:"phase"`
+	API       string      `json:"api"`
+	Attempted bool        `json:"attempted"`
+	Returned  bool        `json:"returned"`
+	Value     *string     `json:"value,omitempty"`
+	Error     *string     `json:"error,omitempty"`
+	Panic     *panicState `json:"panic,omitempty"`
+}
+type params struct {
+	Chi       *string `json:"chi_url_param"`
+	PathValue *string `json:"request_path_value"`
+}
+type handlerState struct {
+	Kind           string  `json:"kind"`
+	ContextPresent *bool   `json:"context_present"`
+	RoutePath      *string `json:"route_path"`
+	Before         *params `json:"params_before"`
+	After          *params `json:"params_after"`
+	Returned       bool    `json:"returned"`
+}
+type trial struct {
+	FixtureID        string          `json:"fixture_id"`
+	CandidateID      string          `json:"candidate_id"`
+	Gate             bool            `json:"gate"`
+	OriginalBefore   *urlState       `json:"original_url_before"`
+	OriginalAfter    *urlState       `json:"original_url_after"`
+	DispatchURL      *urlState       `json:"dispatch_url"`
+	RequestCloned    bool            `json:"request_cloned"`
+	URLCloned        bool            `json:"url_cloned"`
+	Status           *int            `json:"status"`
+	RouteCalls       int             `json:"route_handler_calls"`
+	NotFoundCalls    int             `json:"not_found_handler_calls"`
+	Handlers         []*handlerState `json:"handlers"`
+	DispatchReturned *bool           `json:"dispatch_returned"`
+	NormalReturn     bool            `json:"normal_return"`
+	Panic            *panicState     `json:"panic"`
+	ObserverError    *string         `json:"observer_error"`
+	Ledger           []event         `json:"public_api_calls"`
+}
+type counts struct {
+	Trials        int `json:"trials"`
+	NormalReturns int `json:"normal_returns"`
+	Panics        int `json:"panics"`
+	APIAttempted  int `json:"api_attempted"`
+	APIReturned   int `json:"api_returned"`
+	APIErrors     int `json:"api_errors"`
+	APIPanics     int `json:"api_panics"`
+}
+type report struct {
+	Schema        string      `json:"schema"`
+	Status        string      `json:"status"`
+	InputSHA256   string      `json:"input_sha256"`
+	Parents       int         `json:"parents"`
+	Candidates    []candidate `json:"candidates"`
+	Qualified     bool        `json:"qualified"`
+	DefaultActive bool        `json:"default_active"`
+	ModelCalls    int         `json:"model_calls"`
+	Fits          int         `json:"fits"`
+	Counts        counts      `json:"counts"`
+	Trials        []trial     `json:"trials"`
+}
+
+var fixtureIDs = [9]string{
+	"fixture01-encoded-separator", "fixture02-nested-percent",
+	"fixture03-literal-plus", "fixture04-encoded-space", "fixture05-opt-out",
+	"fixture06-plain-no-raw", "fixture07-literal-percent-no-raw",
+	"fixture08-extra-segment-no-raw", "fixture09-unmatched-raw",
+}
+var paths = [9]string{"/u/a/b", "/u/a%2Fb", "/u/a+b", "/u/a b", "/u/a/b", "/u/alice", "/u/a%2Fb", "/u/a/b", "/x/a/b"}
+var rawPaths = [9]string{"/u/a%2Fb", "/u/a%252Fb", "/u/a+b", "/u/a%20b", "/u/a%2Fb", "", "", "", "/x/a%2Fb"}
+var candidateIDs = [5]string{"post_path", "post_query", "pre_path", "twice_path", "unchanged"}
+
+func load(path string) (f frozen, digest string, err error) {
+	file, e := os.Open(path)
+	if e != nil {
+		return f, "", errors.New("input unavailable")
+	}
+	data, e := io.ReadAll(io.LimitReader(file, maxInput+1))
+	closeErr := file.Close()
+	if e != nil || closeErr != nil || len(data) > maxInput || !utf8.Valid(data) {
+		return f, "", errors.New("input unreadable/large")
+	}
+	d := json.NewDecoder(bytes.NewReader(data))
+	d.DisallowUnknownFields()
+	if d.Decode(&f) != nil {
+		return f, "", errors.New("input JSON invalid")
+	}
+	var extra any
+	if d.Decode(&extra) != io.EOF {
+		return f, "", errors.New("trailing JSON")
+	}
+	if f.Schema != "riido-chi-route-frozen-v1" || len(f.Fixtures) != 9 || len(f.Candidates) != 5 {
+		return f, "", errors.New("schema/count mismatch")
+	}
+	for i, x := range f.Fixtures {
+		if x.ID != fixtureIDs[i] || x.Path == nil || x.RawPath == nil || x.OptIn == nil ||
+			*x.Path != paths[i] || *x.RawPath != rawPaths[i] || *x.OptIn != (i != 4) {
+			return f, "", errors.New("fixture mismatch")
+		}
+	}
+	for i, x := range f.Candidates {
+		if x.ID != candidateIDs[i] || len(x.Caption) == 0 || len(x.Caption) > 2048 {
+			return f, "", errors.New("candidate mismatch")
+		}
+	}
+	h := sha256.Sum256(data)
+	return f, hex.EncodeToString(h[:]), nil
+}
+
+func panicValue(v any) *panicState {
+	return &panicState{Type: fmt.Sprintf("%T", v), Value: fmt.Sprint(v)}
+}
+func stringValue(v string) string { return v }
+func pointerValue[T any](v *T) string {
+	if v == nil {
+		return "nil"
+	}
+	return "non_nil"
+}
+
+// Explicit calls only, not hidden calls/field writes. Guard panic(nil).
+func call[T any](t *trial, phase, api string, fn func() (T, error), show func(T) string) (v T, err error) {
+	i := len(t.Ledger)
+	t.Ledger = append(t.Ledger, event{Phase: phase, API: api, Attempted: true})
+	done := false
+	defer func() {
+		if !done {
+			p := recover()
+			t.Ledger[i].Panic = panicValue(p)
+			panic(p)
+		}
+	}()
+	v, err = fn()
+	t.Ledger[i].Returned = true
+	if show != nil {
+		value := show(v)
+		t.Ledger[i].Value = &value
+	}
+	if err != nil {
+		value := err.Error()
+		t.Ledger[i].Error = &value
+	}
+	done = true
+	return v, err
+}
+func voidCall(t *trial, phase, api string, fn func()) {
+	_, _ = call(t, phase, api, func() (struct{}, error) { fn(); return struct{}{}, nil }, nil)
+}
+func snapshot(r *http.Request) *urlState {
+	if r == nil || r.URL == nil {
+		return nil
+	}
+	return &urlState{Path: r.URL.Path, RawPath: r.URL.RawPath}
+}
+
+type response struct {
+	header http.Header
+	status *int
+}
+
+func (w *response) Header() http.Header { return w.header }
+func (w *response) WriteHeader(code int) {
+	if w.status == nil {
+		c := code
+		w.status = &c
+	}
+}
+func (w *response) Write(p []byte) (int, error) {
+	if w.status == nil {
+		w.WriteHeader(http.StatusOK)
+	}
+	return len(p), nil
+}
+func readParams(t *trial, phase string, r *http.Request, p *params) {
+	v, _ := call(t, phase, "chi.URLParam", func() (string, error) { return chi.URLParam(r, "id"), nil }, stringValue)
+	p.Chi = &v
+	v2, _ := call(t, phase, "Request.PathValue", func() (string, error) { return r.PathValue("id"), nil }, stringValue)
+	p.PathValue = &v2
+}
+func unescape(t *trial, phase, api, value string) (string, error) {
+	return call(t, phase, api, func() (string, error) {
+		if api == "url.QueryUnescape" {
+			return url.QueryUnescape(value)
+		}
+		return url.PathUnescape(value)
+	}, stringValue)
+}
+
+func commitParam(t *trial, r *http.Request, ctx *chi.Context, value string) {
+	if ctx != nil {
+		for i := len(ctx.URLParams.Keys) - 1; i >= 0; i-- {
+			if ctx.URLParams.Keys[i] != "id" {
+				continue
+			}
+			if i >= len(ctx.URLParams.Values) {
+				break
+			}
+			ctx.URLParams.Values[i] = value
+			voidCall(t, "post_match", "Request.SetPathValue", func() { r.SetPathValue("id", value) })
+			return
+		}
+	}
+	err := "matched id context unavailable"
+	t.ObserverError = &err
+}
+
+func handle(t *trial, candidateID string, matched bool, w http.ResponseWriter, r *http.Request) {
+	kind := "not_found"
+	if matched {
+		t.RouteCalls++
+		kind = "route"
+	} else {
+		t.NotFoundCalls++
+	}
+	h := &handlerState{Kind: kind, Before: &params{}}
+	t.Handlers = append(t.Handlers, h)
+	ctx, _ := call(t, "handler_before", "chi.RouteContext", func() (*chi.Context, error) { return chi.RouteContext(r.Context()), nil }, pointerValue[chi.Context])
+	present := ctx != nil
+	h.ContextPresent = &present
+	if ctx != nil {
+		path := ctx.RoutePath
+		h.RoutePath = &path
+	}
+	readParams(t, "handler_before", r, h.Before)
+	code := http.StatusNotFound
+	if matched {
+		code = http.StatusOK
+		if t.Gate && (candidateID == "post_path" || candidateID == "post_query" || candidateID == "twice_path") {
+			api := "url.PathUnescape"
+			if candidateID == "post_query" {
+				api = "url.QueryUnescape"
+			}
+			value, err := unescape(t, "post_match", api, *h.Before.Chi)
+			if err == nil && candidateID == "twice_path" {
+				value, err = unescape(t, "post_match", "url.PathUnescape", value)
+			}
+			if err != nil {
+				code = http.StatusBadRequest
+			} else {
+				commitParam(t, r, ctx, value)
+			}
+		}
+	}
+	h.After = &params{}
+	readParams(t, "handler_after", r, h.After)
+	voidCall(t, "handler_response", "ResponseWriter.WriteHeader", func() { w.WriteHeader(code) })
+	h.Returned = true
+}
+
+func observe(f fixture, c candidate) (t trial) {
+	t.FixtureID, t.CandidateID = f.ID, c.ID
+	t.Gate = *f.OptIn && *f.RawPath != ""
+	var original *http.Request
+	w := &response{header: make(http.Header)}
+	done := false
+	defer func() {
+		if !done {
+			t.Panic = panicValue(recover())
+		}
+		t.OriginalAfter = snapshot(original)
+		t.Status = w.status
+	}()
+	original, err := call(&t, "setup", "http.NewRequest", func() (*http.Request, error) { return http.NewRequest(http.MethodGet, "http://example.invalid/", nil) }, pointerValue[http.Request])
+	if err != nil || original == nil {
+		e := "request setup unavailable"
+		t.ObserverError = &e
+		done = true
+		return t
+	}
+	original.URL.Path, original.URL.RawPath = *f.Path, *f.RawPath
+	t.OriginalBefore = snapshot(original)
+	mux, _ := call(&t, "setup", "chi.NewRouter", func() (*chi.Mux, error) { return chi.NewRouter(), nil }, pointerValue[chi.Mux])
+	if mux == nil {
+		e := "router setup unavailable"
+		t.ObserverError = &e
+		done = true
+		return t
+	}
+	voidCall(&t, "setup", "Mux.Get", func() {
+		mux.Get("/u/{id}", func(w http.ResponseWriter, r *http.Request) { handle(&t, c.ID, true, w, r) })
+	})
+	voidCall(&t, "setup", "Mux.NotFound", func() {
+		mux.NotFound(func(w http.ResponseWriter, r *http.Request) { handle(&t, c.ID, false, w, r) })
+	})
+	selected := original
+	if c.ID == "pre_path" && t.Gate {
+		decoded, e := unescape(&t, "pre_match", "url.PathUnescape", *f.RawPath)
+		if e != nil {
+			voidCall(&t, "pre_match_response", "ResponseWriter.WriteHeader", func() { w.WriteHeader(http.StatusBadRequest) })
+			t.NormalReturn = true
+			done = true
+			return t
+		}
+		selected, _ = call(&t, "pre_match", "Request.Clone", func() (*http.Request, error) { return original.Clone(original.Context()), nil }, pointerValue[http.Request])
+		if selected == nil {
+			e := "request clone unavailable"
+			t.ObserverError = &e
+			done = true
+			return t
+		}
+		t.RequestCloned = selected != original
+		copyURL := *selected.URL
+		selected.URL = &copyURL
+		t.URLCloned = selected.URL != original.URL
+		selected.URL.Path, selected.URL.RawPath = decoded, ""
+	}
+	t.DispatchURL = snapshot(selected)
+	voidCall(&t, "dispatch", "Mux.ServeHTTP", func() { mux.ServeHTTP(w, selected) })
+	returned := true
+	t.DispatchReturned = &returned
+	t.NormalReturn = true
+	done = true
+	return t
+}
+
+func run() error {
+	if len(os.Args) != 2 {
+		return errors.New("one input argument required")
+	}
+	f, digest, err := load(os.Args[1])
+	if err != nil {
+		return err
+	}
+	r := report{
+		Schema: "riido-chi-route-observation-v1", Status: "development_protocol_audit",
+		InputSHA256: digest, Parents: 1, Candidates: f.Candidates,
+		Trials: make([]trial, 0, 45),
+	}
+	for _, x := range f.Fixtures {
+		for _, c := range f.Candidates {
+			t := observe(x, c)
+			r.Trials = append(r.Trials, t)
+			r.Counts.Trials++
+			if t.NormalReturn {
+				r.Counts.NormalReturns++
+			}
+			if t.Panic != nil {
+				r.Counts.Panics++
+			}
+			for _, e := range t.Ledger {
+				if e.Attempted {
+					r.Counts.APIAttempted++
+				}
+				if e.Returned {
+					r.Counts.APIReturned++
+				}
+				if e.Error != nil {
+					r.Counts.APIErrors++
+				}
+				if e.Panic != nil {
+					r.Counts.APIPanics++
+				}
+			}
+		}
+	}
+	data, err := json.Marshal(r)
+	if err != nil {
+		return errors.New("report encoding failed")
+	}
+	var compressed bytes.Buffer
+	z := gzip.NewWriter(&compressed)
+	if _, err = z.Write(data); err != nil {
+		return errors.New("report gzip write failed")
+	}
+	if z.Close() != nil {
+		return errors.New("report gzip close failed")
+	}
+	n, err := os.Stdout.Write(compressed.Bytes())
+	if err != nil || n != compressed.Len() {
+		return errors.New("report output incomplete")
+	}
+	return nil
+}
+func main() {
+	if err := run(); err != nil {
+		fmt.Fprintln(os.Stderr, "chi observer:", err)
+		os.Exit(1)
+	}
+}

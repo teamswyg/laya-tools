@@ -1,0 +1,81 @@
+{
+  "schema": "riido-chi-route-frozen-v1",
+  "fixtures": [
+    {
+      "id": "fixture01-encoded-separator",
+      "path": "/u/a/b",
+      "raw_path": "/u/a%2Fb",
+      "opt_in": true
+    },
+    {
+      "id": "fixture02-nested-percent",
+      "path": "/u/a%2Fb",
+      "raw_path": "/u/a%252Fb",
+      "opt_in": true
+    },
+    {
+      "id": "fixture03-literal-plus",
+      "path": "/u/a+b",
+      "raw_path": "/u/a+b",
+      "opt_in": true
+    },
+    {
+      "id": "fixture04-encoded-space",
+      "path": "/u/a b",
+      "raw_path": "/u/a%20b",
+      "opt_in": true
+    },
+    {
+      "id": "fixture05-opt-out",
+      "path": "/u/a/b",
+      "raw_path": "/u/a%2Fb",
+      "opt_in": false
+    },
+    {
+      "id": "fixture06-plain-no-raw",
+      "path": "/u/alice",
+      "raw_path": "",
+      "opt_in": true
+    },
+    {
+      "id": "fixture07-literal-percent-no-raw",
+      "path": "/u/a%2Fb",
+      "raw_path": "",
+      "opt_in": true
+    },
+    {
+      "id": "fixture08-extra-segment-no-raw",
+      "path": "/u/a/b",
+      "raw_path": "",
+      "opt_in": true
+    },
+    {
+      "id": "fixture09-unmatched-raw",
+      "path": "/x/a/b",
+      "raw_path": "/x/a%2Fb",
+      "opt_in": true
+    }
+  ],
+  "candidates": [
+    {
+      "id": "post_path",
+      "caption": "Match raw route first. When opted in and original RawPath exists, decode matched id once using PathUnescape and update both chi.URLParam and Request.PathValue. Otherwise preserve both values. Keep original URL Path/RawPath unchanged."
+    },
+    {
+      "id": "post_query",
+      "caption": "Match raw route first. When opted in and original RawPath exists, decode matched id once using QueryUnescape and update both chi.URLParam and Request.PathValue. Otherwise preserve both values. Keep original URL Path/RawPath unchanged."
+    },
+    {
+      "id": "pre_path",
+      "caption": "When opted in and original RawPath exists, clone request and URL, PathUnescape whole RawPath once, clear RawPath, then route decoded Path; keep matched parameters unchanged. Otherwise match raw route first. Keep original URL Path/RawPath unchanged."
+    },
+    {
+      "id": "twice_path",
+      "caption": "Match raw route first. When opted in and original RawPath exists, decode matched id twice using PathUnescape and update both chi.URLParam and Request.PathValue. Otherwise preserve both values. Keep original URL Path/RawPath unchanged."
+    },
+    {
+      "id": "unchanged",
+      "caption": "Match raw route first when RawPath exists, otherwise Path. Keep both chi.URLParam and Request.PathValue as captured without decoding, even if opted in. Keep original URL Path/RawPath unchanged."
+    }
+  ]
+}
