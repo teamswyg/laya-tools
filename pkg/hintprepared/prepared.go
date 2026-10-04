@@ -4,7 +4,7 @@
 // activates no model, certifies no claim and authorizes no action.
 //
 // The internal/hintlearn dependency includes training code at package/build
-// level. This API calls only Features and exposes no Fit/Encode/Decode operation.
+// level. This API calls only feature helpers and exposes no Fit/Encode/Decode.
 // A View's wire format/dimension does not prove feature-schema compatibility,
 // quality, source clearance or license qualification; callers must establish
 // those separately. Scores are not probabilities.
@@ -47,8 +47,9 @@ type Prepared struct {
 
 // Prepare first revalidates every exported Prepared field, including normalized
 // forms, provenance, ASCII identifiers and unused slots, preserving its fixed
-// public diagnostics. Features then uses raw
-// text with its existing tokenization, hash, duplicate accumulation and order.
+// public diagnostics. A cardinality prepass uses raw text and repeats token/hash
+// work, then one constructor-local scratch generates the original feature order.
+// Both passes are preparation cost; no shared pool/cache/lock is introduced.
 // There is no caller budget. Validated byte/count bounds and <=8192 features per
 // row bound retained data; temporary construction is not a peak-memory limit.
 // Logical retained data is tight feature backing + cloned text byte lengths;
@@ -58,12 +59,27 @@ func Prepare(p shortclaim.Prepared) (*Prepared, error) {
 	if err := shortclaim.ValidatePrepared(p); err != nil {
 		return nil, err
 	}
-	var rows [shortclaim.MaxCandidates][]hintlearn.Feature
+	var counts [shortclaim.MaxCandidates]int
 	var offsets [shortclaim.MaxCandidates + 1]uint32
-	total := 0
+	total, maxCrossSlots := 0, 0
 	for i := 0; i < p.Count; i++ {
-		fs := hintlearn.Features(p.Request, p.Candidates[i].Text)
-		if len(fs) > hintweights.Dimension {
+		count, slots, err := hintlearn.FeatureCardinality(p.Request, p.Candidates[i].Text)
+		if err != nil || count < 0 || count > hintweights.Dimension {
+			return nil, ErrFeature
+		}
+		counts[i] = count
+		total += count
+		maxCrossSlots = max(maxCrossSlots, slots)
+		offsets[i+1] = uint32(total) // 8*8192 can be 65536; never uint16 offsets.
+	}
+	scratch, err := hintlearn.NewFeatureScratch(maxCrossSlots)
+	if err != nil {
+		return nil, ErrFeature
+	}
+	features := make([]hintweights.Feature, total)
+	for i := 0; i < p.Count; i++ {
+		fs, err := scratch.Features(p.Request, p.Candidates[i].Text)
+		if err != nil || len(fs) != counts[i] || len(fs) > hintweights.Dimension {
 			return nil, ErrFeature
 		}
 		for _, f := range fs {
@@ -71,16 +87,13 @@ func Prepare(p shortclaim.Prepared) (*Prepared, error) {
 				return nil, ErrFeature
 			}
 		}
-		rows[i] = fs
-		total += len(fs)
-		offsets[i+1] = uint32(total) // 8*8192 can be 65536; never uint16 offsets.
+		for j, f := range fs {
+			features[int(offsets[i])+j] = hintweights.Feature{Index: f.Index, Value: f.Value}
+		}
 	}
-	out := &Prepared{request: strings.Clone(p.Request), offsets: offsets, count: p.Count, features: make([]hintweights.Feature, total)}
+	out := &Prepared{request: strings.Clone(p.Request), offsets: offsets, count: p.Count, features: features}
 	for i := 0; i < p.Count; i++ {
 		out.texts[i] = strings.Clone(p.Candidates[i].Text)
-		for j, f := range rows[i] {
-			out.features[int(offsets[i])+j] = hintweights.Feature{Index: f.Index, Value: f.Value}
-		}
 	}
 	out.ready = true
 	return out, nil

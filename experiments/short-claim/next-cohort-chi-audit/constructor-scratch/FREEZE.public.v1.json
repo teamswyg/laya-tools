@@ -1,0 +1,92 @@
+{
+  "schema": "riido-constructor-scratch-freeze-v1",
+  "state": "sealed after synthetic controls and source review, before first actual asset read/measured model rank",
+  "source_pins": {
+    "bytes": 4191,
+    "sha256": "c6d7ed0e6f549c65bcce3d2ebc5b430f98bb83a4230b360c8efa1b227522e8f0"
+  },
+  "private_controller": {
+    "bytes": 6459,
+    "sha256": "3bd52820d7fcb301446d17f9c350f26a437d7be55cf975bce2033126e74b1686"
+  },
+  "input": {
+    "bytes": 1417,
+    "sha256": "39e0aadbfe91c0b15ad3da257725de8d74c7a82c9d4222f73da8f937e72bf4c2"
+  },
+  "model": {
+    "bytes": 32792,
+    "sha256": "dff05140098845943ece87c3ab8a31a15564a4b170a59ab017ee393501158004",
+    "ref": "JooYoon/riidolaya-shortclaim-data-effect-failed-79@5bef215895b69d3f2ef4b82bb3f1970279d67f46",
+    "kind": "inactive RIIDOH01 FP32 hashed-feature scorer; not Laya encoder"
+  },
+  "Go": "go1.27.1",
+  "CGO_actual": "0",
+  "CGO_race_controls": "1",
+  "GOMAXPROCS": 1,
+  "Go_GC_soft_target_bytes": 100663296,
+  "ns": [
+    1,
+    8
+  ],
+  "paired_blocks_each": 6,
+  "orders_even": [
+    "legacy",
+    "scratch"
+  ],
+  "orders_odd": [
+    "scratch",
+    "legacy"
+  ],
+  "intervals": 24,
+  "timed_expected": {
+    "Prepare": 24,
+    "Rank": 108
+  },
+  "untimed_expected": {
+    "input_read": 1,
+    "model_read": 1,
+    "LoadValidated": 1,
+    "ViewNew": 1,
+    "Prepare": 2,
+    "Rank": 2
+  },
+  "live_wrapper_expected": {
+    "attempted": 140,
+    "returned": 140,
+    "Prepare": 26,
+    "Rank": 110
+  },
+  "adoption_gate": {
+    "every_paired_new_allocation_ratio_max": 0.8,
+    "per_N_median_paired_new_time_ratio_max": 1.25,
+    "full_parity": true,
+    "unchanged_tight_retained_payload": true
+  },
+  "compiler_timeout_ms": 60000,
+  "live_timeout_ms": 20000,
+  "stdout_kill_trigger_bytes": {"build": 32768, "live": 16384, "saved": 32768},
+  "stderr_kill_trigger_bytes": 16384,
+  "observed_process_chunks_preserved_not_hard_capture_caps": true,
+  "report_acceptance_bound_bytes": 2097152,
+  "compressed_saved_bound_bytes": 131072,
+  "retained_headroom_preflight_bytes": 150000,
+  "retained_cap_bytes": 536870912,
+  "cap_and_account_unchanged": true,
+  "profiles": false,
+  "Fit": 0,
+  "new_labels": 0,
+  "new_roles": 0,
+  "protected_reads": 0,
+  "default_activation": false,
+  "source_estimates_before_execution": {
+    "helper_positive_delta_budget": 7000,
+    "synthetic_tests_budget": 9000,
+    "probe_initial_estimate": 14500,
+    "probe_revised_estimate": 18500,
+    "probe_actual": 18195,
+    "saved_checker_initial_estimate": 12000,
+    "saved_checker_revised_estimate": 22000,
+    "saved_checker_actual": 18373
+  },
+  "scope": "One exposed parent, repeated cost samples. Common raw/validated input, model/View, both untimed anchor owners and feature witnesses stay alive across every interval. Entire Prepare including prepass and N unchanged Rank calls are paid; GC/MemStats and fixed-trace conversion/parity are outside elapsed time. Go TotalAlloc/Mallocs are not peak heap, RSS or native/GPU memory. Saved checker later performs model-free public input/Features oracle calls, separate from these live wrapper totals. No new independent Golden tasks, semantic verifier trial, Fit, training, qualification or activation."
+}

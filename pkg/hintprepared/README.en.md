@@ -8,6 +8,13 @@ and default routing policy remain unchanged. Rankings are unverified suggestions
 for verification order, never probabilities, verdicts or action authorization.
 Every candidate remains. Existing failed models are not activated by default.
 
+Current Prepare counts features first and reuses one constructor-local buffer.
+The [public Chi comparison](../../experiments/short-claim/next-cohort-chi-audit/constructor-scratch/README.en.md)
+saved about37% of cumulative Go allocation bytes in paid Prepare+Rank intervals,
+while median paired time ratios increased about7.5–7.7%. Allocation counts rose;
+final owner storage is unchanged. This passed prewritten memory-first gates and
+does not improve speed or model accuracy.
+
 The usage fragment belongs inside a function with the three packages imported.
 `rawWeights` is an explicitly loaded RIIDOH01/8192 research weight asset, not the
 original Laya ONNX model. Format/dimension validity does not establish feature
@@ -37,7 +44,9 @@ There is no shared result buffer, cache or lock. Editing returned input/result
 copies cannot modify owners. Features still has a build dependency on the same
 internal Go package as training code, but no training function is called at runtime.
 
-Observed medians in the actual repository: Go1.27.1/darwin-arm64, CGO0,
+The table below preserves a historical synthetic experiment using Prepare before
+the scratch change. These are not current-constructor performance figures.
+Observed medians then: Go1.27.1/darwin-arm64, CGO0,
 GOMAXPROCS1, 100ms × three repeats per item. Public synthetic texts and numeric
 FP32 weights separate construction from reuse. All 45 raw rows are stored losslessly.
 
