@@ -1,0 +1,57 @@
+{
+  "schema": "riido-chi-shortclaim-caption-preflight-v1",
+  "state": "SOURCE_ONLY_REPAIR_BEFORE_ANY_MODEL_RUN",
+  "old_input": {
+    "name": "INPUT.public.v1.json",
+    "bytes": 1730,
+    "sha256": "2769f60aa5e99b4a64afc30d4de605e3a65e9a0cbf12527952cd152e7de71ddc",
+    "source_derived_normalized_candidate_words": [
+      40,
+      40,
+      41,
+      40,
+      34
+    ],
+    "actual_execution": false,
+    "preserved": true
+  },
+  "reason": "Actual existing normalizer splits punctuation and camel identifiers; original verbose captions exceed32 normalized words. No truncation or silent replacement.",
+  "new_input": {
+    "name": "INPUT.public.v2.json",
+    "bytes": 1391,
+    "sha256": "355ebc0cead9b9a5745f655eedc2bd355eae73df881f674cc0259c8f7c9080ba",
+    "source_derived_request_words": 31,
+    "candidates": [
+      {
+        "id": "post_path",
+        "normalized": "match raw route first if opted in and raw path exists path unescape matched id once update both parameter ap is otherwise preserve parameters preserve original url",
+        "normalized_words": 27
+      },
+      {
+        "id": "post_query",
+        "normalized": "match raw route first if opted in and raw path exists query unescape matched id once update both parameter ap is otherwise preserve parameters preserve original url",
+        "normalized_words": 27
+      },
+      {
+        "id": "pre_path",
+        "normalized": "if opted in and raw path exists clone request and url path unescape whole raw path once clear raw path then route keep captured parameters preserve original url",
+        "normalized_words": 28
+      },
+      {
+        "id": "twice_path",
+        "normalized": "match raw route first if opted in and raw path exists path unescape matched id twice update both parameter ap is otherwise preserve parameters preserve original url",
+        "normalized_words": 27
+      },
+      {
+        "id": "unchanged",
+        "normalized": "match raw path when present otherwise path never decode captured id even if opted in keep both parameter ap is and original url unchanged",
+        "normalized_words": 24
+      }
+    ]
+  },
+  "counter_scope": "Root JS manual ASCII translation of pinned lexical normalizer, not actual Go product validation; independent source-only review pending.",
+  "mechanism_sources_and_literal_Wants_unchanged": true,
+  "model_calls": 0,
+  "Fit": 0,
+  "learning_labels": 0
+}

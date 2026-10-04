@@ -1,0 +1,184 @@
+{
+  "schema": "riido-chi-route-first-observation-freeze-v1",
+  "state": "SEALED_BEFORE_BUILD_AND_FIRST_SOURCE_API_OBSERVATION",
+  "upstream": {
+    "repo": "go-chi/chi",
+    "revision": "167e1e3bd039d060696b99c8da4e876ae04f42c1",
+    "license": "MIT",
+    "selected_sources": [
+      {
+        "name": "chain.go",
+        "bytes": 1517,
+        "sha256": "8c22d7bbc23f4b4d46ded5ef721a9c3a173031fa2c2c9a7b48c46c2b07e8bd80"
+      },
+      {
+        "name": "chi.go",
+        "bytes": 4812,
+        "sha256": "47c70ececcbb9d71f973eda3cbadad0a46c8cc2261b285f7049b5261f337d678"
+      },
+      {
+        "name": "context.go",
+        "bytes": 5788,
+        "sha256": "b19edcca252e2fe74e82802c4c7ce1a1c0855728f9ede1288f0224283dfc7e53"
+      },
+      {
+        "name": "mux.go",
+        "bytes": 17308,
+        "sha256": "cc44c2d620e6306b16d6d80f5f6c70f02b5814b357a4f5823372818f355ae67d"
+      },
+      {
+        "name": "tree.go",
+        "bytes": 22069,
+        "sha256": "f4b12b63b662fb8e36658172b36b35705cfb24eefae0665635f4fbd52e64fb79"
+      },
+      {
+        "name": "go.mod",
+        "bytes": 149,
+        "sha256": "7eb620f0fce870d93eaba87bf6f8c36284db786108030ca229a5016461797090"
+      },
+      {
+        "name": "LICENSE",
+        "bytes": 1123,
+        "sha256": "a2d51b7515acfaff2f7a88688650f2fc4fd99561383e72bba2305e3db59a1647"
+      }
+    ],
+    "Armon_notice": {
+      "name": "ARMON-NOTICE.original.txt",
+      "bytes": 1079,
+      "sha256": "831892cd31b9eef0311bb1de9014527ef5d3592eed7add1f9f829510d2065e62",
+      "repo": "armon/go-radix",
+      "revision": "1a2de0c21c94309923825da3df33a4381872c795",
+      "revision_role": "notice comparator, not asserted Chi predecessor",
+      "license": "MIT"
+    },
+    "derivation_edge": "tree.go header acknowledges Armon Dadgar radix",
+    "actual_predecessor_revision": null,
+    "copied_extent": null
+  },
+  "owned_source": {
+    "name": "observer.gofmt.go.txt",
+    "bytes": 12999,
+    "sha256": "1cfdc8d9e693f02e27ef03623b5ae5b7b66cc3f8c0a4ddc52bc85c006924ec4a",
+    "license": "Apache-2.0",
+    "draft_pin": {
+      "name": "observer.go.txt",
+      "bytes": 12278,
+      "sha256": "25be20a29d947a90e1f1fd41a3d3f44c9ea0c0ba5a43f76459547158772ab5b0"
+    }
+  },
+  "input": {
+    "name": "INPUT.proposed.public.v1.json",
+    "bytes": 2658,
+    "sha256": "7c18bf602e1566ecbeef4708676691e5b3ee5d2ee4f9845e8938b33cd1620834"
+  },
+  "harness": {
+    "name": "HARNESS.go.mod.public.v1.txt",
+    "bytes": 133,
+    "sha256": "f0e8fa63df6716ef6a1f33c3b0b1ce6720cb032975776f01d325a3de3a82590f"
+  },
+  "Wants": {
+    "name": "WANTS.public.v1.json",
+    "bytes": 4367,
+    "sha256": "a79e528f4c217ee5c162056e05ad0586efda3002b8c3a9a01cadbf43feef508b"
+  },
+  "compiler_selection": {
+    "name": "COMPILER-SELECTION.actual.private.v1.json.gz",
+    "bytes": 72374,
+    "sha256": "c5efaacdd0737647678f8e6790a4bfe43e19d353cc7049a1cd751ef9949e3c53",
+    "Go": "go version go1.27.1 darwin/arm64",
+    "packages": 200,
+    "selected_files": 1206,
+    "Chi_GoFiles": [
+      "chain.go",
+      "chi.go",
+      "context.go",
+      "mux.go",
+      "tree.go"
+    ],
+    "tool": {
+      "bytes": 16071392,
+      "sha256": "132b69336a1f809932a8a20b0201dbbb980e86e3a323ae32e893639d83d71598"
+    },
+    "scope": "selected source inventory before linked build; no observer has run"
+  },
+  "independent_review": {
+    "literal_Wants": "9 reviewed against pinned Chi and local stdlib; explicit200404/freshrequest required",
+    "body_and_caption": "5 formatted mechanisms and captures reviewed; supplied source/input hashes confirmed",
+    "status": "nonblind source-only; no material bug found in bounded contract",
+    "no_observer_or_model_runs_during_review": true
+  },
+  "order": [
+    "post_path",
+    "post_query",
+    "pre_path",
+    "twice_path",
+    "unchanged"
+  ],
+  "counts": {
+    "parents": 1,
+    "fixtures": 9,
+    "candidates": 5,
+    "planned_trials": 45,
+    "new_independent_golden_parents": 0
+  },
+  "scope": {
+    "route": "GET /u/{id}",
+    "fresh_request_and_router": true,
+    "RoutePath_override": "empty",
+    "preservation": [
+      "original URL.Path",
+      "original URL.RawPath"
+    ],
+    "API_ledger": "explicitly wrapped calls only; not hidden calls or field writes",
+    "excludes": [
+      "malformed escapes",
+      "regex",
+      "mounts",
+      "RoutePath overrides",
+      "network",
+      "concurrency",
+      "whole request/URL hidden state"
+    ]
+  },
+  "execution_plan": {
+    "build": {
+      "Go": "go1.27.1 darwin/arm64",
+      "CGO_ENABLED": "0",
+      "GOMAXPROCS": "2",
+      "GOMEMLIMIT": "96MiB soft Go heap target, not RSS cap",
+      "argv": [
+        "build",
+        "-p=1",
+        "-buildvcs=false",
+        "-trimpath",
+        "-o",
+        "owned temporary executable",
+        "."
+      ],
+      "timeout_ms": 60000
+    },
+    "worker": {
+      "GOMAXPROCS": "1",
+      "GOMEMLIMIT": "64MiB soft Go heap target, not RSS cap",
+      "timeout_ms": 20000,
+      "stdout_compressed_cap_bytes": 65536,
+      "stderr_cap_bytes": 8192,
+      "decoded_json_in_memory_cap_bytes": 262144,
+      "output_codec": "full gzip JSON; CRC/full EOF checked",
+      "resource_wrapper": "Darwin /usr/bin/time -lp; one process including startup/encoding, no GPU measurement"
+    },
+    "prospective_retained_reservation_bytes": 240000,
+    "temporary_policy": "Only ordinary owned compiler sources/build artifacts are temporary and removed; existing classification unchanged. All retained metadata/observations/public copies charged."
+  },
+  "admission": {
+    "qualified": false,
+    "whole_group": null,
+    "role": null,
+    "learning_labels": 0,
+    "Fit": 0,
+    "model_calls": 0,
+    "default_activation": false,
+    "protected_final_reads": 0
+  },
+  "prior_rights_record": "Historical missing Armon notice is supplemented by the exact full notice above; no mutation of old source/gaps record."
+}
