@@ -6,6 +6,8 @@ This experiment tests how similar code descriptions can hide a consequential dif
 
 **Result: Go API calculation parity passed, but the existing model's recommendation quality was inadequate.** It placed the candidate passing all checks fifth; BM25 placed it first. The previously failed model stays inactive. No fitting, new model publication or default-policy change occurred.
 
+The latest [constructor scratch comparison](constructor-scratch/README.en.md) preserves every feature and ranking while saving about37% of cumulative Go allocation bytes; median paired time ratios increased about7.5–7.7%. Allocation counts and final logical storage are reported separately. The model's correct-candidate rank remains fifth.
+
 ## The problem
 
 Consider receiving the name `a%2Fb` through `GET /u/{id}`. Decoding the whole path first produces `/u/a/b`, adding a routing segment. Matching first and decoding only the captured name preserves a single name, `a/b`.

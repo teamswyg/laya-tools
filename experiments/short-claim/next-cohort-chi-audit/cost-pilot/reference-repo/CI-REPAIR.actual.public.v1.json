@@ -1,0 +1,50 @@
+{
+  "schema": "riido-chi-historical-source-ci-repair-v1",
+  "all_passed": true,
+  "first_failed_run": 37204834556,
+  "first_failed_source": "935f2298fb1b7c6633aa5617fb3a391bc8cd38f1",
+  "failure": "packet_binding_failure: old Prepare source pin differs from current runtime",
+  "verifier_source_unchanged": true,
+  "historical_source_files": 11,
+  "positive_summary": "parent=1 pipelines=32",
+  "negative_controls": [
+    {
+      "name": "same-length-legacy-byte",
+      "expected": "packet_binding_failure",
+      "passed": true
+    },
+    {
+      "name": "current-prepared-substitution",
+      "expected": "packet_binding_failure",
+      "passed": true
+    },
+    {
+      "name": "missing-LICENSE",
+      "expected": "packet_binding_failure",
+      "passed": true
+    },
+    {
+      "name": "other-selected-source-byte",
+      "expected": "packet_binding_failure",
+      "passed": true
+    }
+  ],
+  "wrapper_temporary_directory_observed_empty": true,
+  "source_files": [
+    {
+      "name": "scripts/verify-chi-saved-cost.sh",
+      "bytes": 1647,
+      "sha256": "6177418de178283b04298b9e68a087257b6e3b352904505a08eeec42b769233f"
+    },
+    {
+      "name": "experiments/short-claim/next-cohort-chi-audit/cost-pilot/reference-repo/prepared.go.txt",
+      "bytes": 5434,
+      "sha256": "c00bc5424c3014fd32aa7f3e707cb32c25a223b2ab05eb03b6e617924fc834a5"
+    }
+  ],
+  "new_worker_calls": 0,
+  "new_learned_model_calls": 0,
+  "new_cost_samples": 0,
+  "measurement_packet_unchanged": true,
+  "scope": "Saved-only verification of original source bytes and complete prior traces. Historical source witness is read, not compiled or executed. Frozen pins, observations and thresholds are unchanged."
+}
