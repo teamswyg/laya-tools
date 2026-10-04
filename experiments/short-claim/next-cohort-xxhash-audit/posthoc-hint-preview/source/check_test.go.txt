@@ -1,0 +1,238 @@
+// SPDX-License-Identifier: Apache-2.0
+// Saved-data checks only: no model reads, Decode, Rank or original xxhash calls.
+package saved
+
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"math"
+	"os"
+	"path/filepath"
+	"reflect"
+	"testing"
+)
+
+type ranking struct {
+	Kind, Fallback string
+	Order          []int
+	Scores         []float64
+	Bits           []string `json:"score_bits"`
+}
+type observation struct {
+	Schema       string
+	Ref          string `json:"model_ref"`
+	Scope        string `json:"counts_scope"`
+	Coefficients int    `json:"decoded_coefficients"`
+	Posthoc      *bool  `json:"post_hoc"`
+	Qualified    *bool  `json:"qualification_performed"`
+	Default      *bool  `json:"default_activation"`
+	Production   *bool  `json:"production_ready"`
+	GPU          *bool  `json:"GPU_execution"`
+	Fit          *int
+	Labels       *int     `json:"new_learning_labels"`
+	Decode       *int     `json:"decode_calls"`
+	Rank         *int     `json:"model_rank_calls"`
+	Scorings     *int     `json:"candidate_scorings"`
+	ModelBytes   int      `json:"model_file_bytes"`
+	Payload      int      `json:"decoded_coefficient_payload_bytes"`
+	SHA          string   `json:"model_sha256"`
+	InputSHA     string   `json:"input_sha256"`
+	IDs          []string `json:"candidate_ids"`
+	Baselines    []ranking
+	Learned      ranking
+}
+
+func check(raw, input []byte) error {
+	var o observation
+	if json.Unmarshal(raw, &o) != nil {
+		return fmt.Errorf("JSON")
+	}
+	if o.Schema != "riido-xxhash-posthoc-hint-preview-v1" || o.Ref != "JooYoon/riidolaya-shortclaim-data-effect-failed-79@5bef215895b69d3f2ef4b82bb3f1970279d67f46" || o.Scope == "" || o.Coefficients != 8192 {
+		return fmt.Errorf("observation metadata")
+	}
+	if o.Posthoc == nil || !*o.Posthoc {
+		return fmt.Errorf("posthoc")
+	}
+	for _, p := range []*bool{o.Qualified, o.Default, o.Production, o.GPU} {
+		if p == nil || *p {
+			return fmt.Errorf("missing/active status")
+		}
+	}
+	for _, p := range []*int{o.Fit, o.Labels} {
+		if p == nil || *p != 0 {
+			return fmt.Errorf("learning")
+		}
+	}
+	if o.Decode == nil || *o.Decode != 1 || o.Rank == nil || *o.Rank != 1 || o.Scorings == nil || *o.Scorings != 5 {
+		return fmt.Errorf("success counts")
+	}
+	h := sha256.Sum256(input)
+	if o.InputSHA != hex.EncodeToString(h[:]) || o.SHA != "dff05140098845943ece87c3ab8a31a15564a4b170a59ab017ee393501158004" || o.ModelBytes != 32792 || o.Payload != 65536 {
+		return fmt.Errorf("pins/payload")
+	}
+	if !reflect.DeepEqual(o.IDs, []string{"direct", "reconstruct", "legacy", "roundtrip", "digest"}) || len(o.Baselines) != 4 {
+		return fmt.Errorf("candidates")
+	}
+	for _, r := range append(o.Baselines, o.Learned) {
+		if len(r.Order) != 5 || len(r.Scores) != 5 || len(r.Bits) != 5 {
+			return fmt.Errorf("width")
+		}
+		var seen [5]bool
+		for _, i := range r.Order {
+			if i < 0 || i >= 5 || seen[i] {
+				return fmt.Errorf("permutation")
+			}
+			seen[i] = true
+		}
+		for i, v := range r.Scores {
+			if math.IsNaN(v) || math.IsInf(v, 0) || fmt.Sprintf("%016x", math.Float64bits(v)) != r.Bits[i] {
+				return fmt.Errorf("score bits")
+			}
+		}
+		for i := 1; i < 5; i++ {
+			a, b := r.Order[i-1], r.Order[i]
+			if r.Scores[a] < r.Scores[b] || (r.Scores[a] == r.Scores[b] && a > b) {
+				return fmt.Errorf("stable order")
+			}
+		}
+	}
+	kinds := []string{"fixed_order", "bm25", "lexical_ordered", "narrow_rule"}
+	wantOrders := [][]int{{0, 1, 2, 3, 4}, {0, 4, 3, 1, 2}, {0, 1, 4, 3, 2}, {0, 4, 3, 1, 2}}
+	for i, r := range o.Baselines {
+		if r.Kind != kinds[i] || !reflect.DeepEqual(r.Order, wantOrders[i]) {
+			return fmt.Errorf("baseline regression")
+		}
+	}
+	if o.Baselines[3].Fallback != "unsupported_rule_request" || !reflect.DeepEqual(o.Baselines[3].Scores, o.Baselines[1].Scores) || o.Learned.Kind != "inactive_fp32_reference" || !reflect.DeepEqual(o.Learned.Order, []int{2, 3, 1, 4, 0}) {
+		return fmt.Errorf("counterexample/fallback")
+	}
+	return nil
+}
+func saved(t *testing.T) ([]byte, []byte) {
+	t.Helper()
+	d := os.Getenv("HINT_BUNDLE")
+	if d == "" {
+		t.Fatal("bundle required")
+	}
+	a, e := os.ReadFile(filepath.Join(d, "observations.actual.public.v1.json"))
+	if e != nil {
+		t.Fatal(e)
+	}
+	b, e := os.ReadFile(filepath.Join(d, "input.json"))
+	if e != nil {
+		t.Fatal(e)
+	}
+	return a, b
+}
+func TestActualSavedCounterexample(t *testing.T) {
+	a, b := saved(t)
+	if e := actualPin(a); e != nil {
+		t.Fatal(e)
+	}
+	if e := check(a, b); e != nil {
+		t.Fatal(e)
+	}
+}
+func actualPin(raw []byte) error {
+	h := sha256.Sum256(raw)
+	if len(raw) != 2147 || hex.EncodeToString(h[:]) != "0ee5a8cbda8daa3a0d4db6536869d468d4815f6a82892545aa2408ae6e86de94" {
+		return fmt.Errorf("actual output pin")
+	}
+	return nil
+}
+func TestRejectCoherentScoreRewrite(t *testing.T) {
+	a, b := saved(t)
+	var m map[string]json.RawMessage
+	json.Unmarshal(a, &m)
+	var r map[string]json.RawMessage
+	json.Unmarshal(m["learned"], &r)
+	scores := []float64{-5, -3, -1, -2, -4}
+	bits := make([]string, 5)
+	for i, v := range scores {
+		bits[i] = fmt.Sprintf("%016x", math.Float64bits(v))
+	}
+	r["scores"], _ = json.Marshal(scores)
+	r["score_bits"], _ = json.Marshal(bits)
+	m["learned"], _ = json.Marshal(r)
+	raw, _ := json.Marshal(m)
+	if check(raw, b) != nil {
+		t.Fatal("fixture must retain shape/order so byte pin is necessary")
+	}
+	if actualPin(raw) == nil {
+		t.Fatal("accepted rewritten actual scores")
+	}
+}
+func TestFrozenSources(t *testing.T) {
+	d := os.Getenv("HINT_BUNDLE")
+	var f struct {
+		Input struct {
+			Path  string
+			Bytes int
+			SHA   string `json:"sha256"`
+		} `json:"input_binding"`
+		Owned struct {
+			Path  string
+			Bytes int
+			SHA   string `json:"sha256"`
+		} `json:"owned_source"`
+		Sources []struct {
+			Path  string
+			Bytes int
+			SHA   string `json:"sha256"`
+		} `json:"source_pins"`
+	}
+	b, e := os.ReadFile(filepath.Join(d, "FREEZE.public.v1.json"))
+	if e != nil || json.Unmarshal(b, &f) != nil {
+		t.Fatal("freeze")
+	}
+	verify := func(base, p string, n int, want string) {
+		t.Helper()
+		b, e := os.ReadFile(filepath.Join(base, p))
+		if e != nil {
+			t.Fatal(e)
+		}
+		h := sha256.Sum256(b)
+		if len(b) != n || hex.EncodeToString(h[:]) != want {
+			t.Fatal("frozen source drift:", p)
+		}
+	}
+	verify(d, f.Input.Path, f.Input.Bytes, f.Input.SHA)
+	verify(d, f.Owned.Path, f.Owned.Bytes, f.Owned.SHA)
+	repo := filepath.Clean(filepath.Join(d, "../../../.."))
+	if len(f.Sources) != 7 {
+		t.Fatal("library closure width")
+	}
+	for _, p := range f.Sources {
+		verify(repo, p.Path, p.Bytes, p.SHA)
+	}
+}
+func TestRejectMissingObservationAndMutation(t *testing.T) {
+	a, b := saved(t)
+	for _, field := range []string{"GPU_execution", "qualification_performed", "decode_calls"} {
+		t.Run("missing_"+field, func(t *testing.T) {
+			var m map[string]json.RawMessage
+			if json.Unmarshal(a, &m) != nil {
+				t.Fatal("JSON")
+			}
+			delete(m, field)
+			raw, e := json.Marshal(m)
+			if e != nil || check(raw, b) == nil {
+				t.Fatal("accepted missing evidence")
+			}
+		})
+	}
+	t.Run("score_bits", func(t *testing.T) {
+		var m map[string]json.RawMessage
+		json.Unmarshal(a, &m)
+		var r map[string]json.RawMessage
+		json.Unmarshal(m["learned"], &r)
+		delete(r, "score_bits")
+		m["learned"], _ = json.Marshal(r)
+		raw, _ := json.Marshal(m)
+		if check(raw, b) == nil {
+			t.Fatal("accepted missing score bits")
+		}
+	})
+}
