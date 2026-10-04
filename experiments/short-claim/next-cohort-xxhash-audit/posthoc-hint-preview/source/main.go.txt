@@ -1,0 +1,167 @@
+// SPDX-License-Identifier: Apache-2.0
+// Post-hoc reference pilot, not a trained/qualified/default-enabled model.
+package main
+
+import (
+	"bytes"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"github.com/teamswyg/laya-tools/internal/hintlearn"
+	"github.com/teamswyg/laya-tools/pkg/shortclaim"
+	"io"
+	"math"
+	"os"
+)
+
+const expected = "dff05140098845943ece87c3ab8a31a15564a4b170a59ab017ee393501158004"
+
+type Asset struct {
+	Path   string
+	Bytes  int
+	SHA256 string
+}
+type Ranking struct {
+	Kind      string    `json:"kind"`
+	Order     []int     `json:"order"`
+	Scores    []float64 `json:"scores"`
+	ScoreBits []string  `json:"score_bits"`
+	Fallback  string    `json:"fallback,omitempty"`
+}
+type Output struct {
+	Schema             string     `json:"schema"`
+	Posthoc            bool       `json:"post_hoc"`
+	Qualified          bool       `json:"qualification_performed"`
+	DefaultEnabled     bool       `json:"default_activation"`
+	Production         bool       `json:"production_ready"`
+	InputSHA           string     `json:"input_sha256"`
+	IDs                []string   `json:"candidate_ids"`
+	Baselines          [4]Ranking `json:"baselines"`
+	Learned            Ranking    `json:"learned"`
+	ModelSHA           string     `json:"model_sha256"`
+	ModelBytes         int        `json:"model_file_bytes"`
+	Coefficients       int        `json:"decoded_coefficients"`
+	CoefficientPayload int        `json:"decoded_coefficient_payload_bytes"`
+	ModelRef           string     `json:"model_ref"`
+	DecodeCalls        int        `json:"decode_calls"`
+	RankCalls          int        `json:"model_rank_calls"`
+	CountsScope        string     `json:"counts_scope"`
+	CandidateScorings  int        `json:"candidate_scorings"`
+	Fit                int        `json:"Fit"`
+	NewLabels          int        `json:"new_learning_labels"`
+	GPU                bool       `json:"GPU_execution"`
+}
+
+func read(p string, max int) ([]byte, error) {
+	f, e := os.Open(p)
+	if e != nil {
+		return nil, errors.New("input unavailable")
+	}
+	b, e := io.ReadAll(io.LimitReader(f, int64(max+1)))
+	c := f.Close()
+	if e != nil || c != nil || len(b) > max {
+		return nil, errors.New("input bounds/read")
+	}
+	return b, nil
+}
+func ranking(kind string, order []int, scores []float64, fallback string) (Ranking, error) {
+	r := Ranking{Kind: kind, Order: append([]int(nil), order...), Scores: append([]float64(nil), scores...), Fallback: fallback}
+	if len(order) != 5 || len(scores) != 5 {
+		return r, errors.New("ranking width")
+	}
+	var seen [5]bool
+	for _, i := range order {
+		if i < 0 || i >= 5 || seen[i] {
+			return r, errors.New("ranking permutation")
+		}
+		seen[i] = true
+	}
+	for _, v := range scores {
+		if math.IsNaN(v) || math.IsInf(v, 0) {
+			return r, errors.New("score nonfinite")
+		}
+		r.ScoreBits = append(r.ScoreBits, fmt.Sprintf("%016x", math.Float64bits(v)))
+	}
+	return r, nil
+}
+func run() error {
+	if len(os.Args) != 3 {
+		return errors.New("usage: hint-preview input asset")
+	}
+	raw, e := read(os.Args[1], 8192)
+	if e != nil {
+		return e
+	}
+	valid, e := shortclaim.LoadValidated(bytes.NewReader(raw))
+	if e != nil {
+		return errors.New("shortclaim validation")
+	}
+	p := valid.Prepared()
+	if p.Count != 5 {
+		return errors.New("candidate width")
+	}
+	var a Asset
+	b, e := read(os.Args[2], 2048)
+	if e != nil {
+		return e
+	}
+	if json.Unmarshal(b, &a) != nil || a.Bytes != 32792 || a.SHA256 != expected {
+		return errors.New("asset reference")
+	}
+	model, e := read(a.Path, 32792)
+	if e != nil {
+		return e
+	}
+	if len(model) != 32792 || hintlearn.Hash(model) != expected {
+		return errors.New("model pin")
+	}
+	w, e := hintlearn.Decode(model)
+	if e != nil {
+		return errors.New("model decode")
+	}
+	if len(w) != 8192 {
+		return errors.New("model width")
+	}
+	o := Output{Schema: "riido-xxhash-posthoc-hint-preview-v1", Posthoc: true, InputSHA: hintlearn.Hash(raw), ModelSHA: expected, ModelBytes: len(model), Coefficients: len(w), CoefficientPayload: len(w) * 8, ModelRef: "JooYoon/riidolaya-shortclaim-data-effect-failed-79@5bef215895b69d3f2ef4b82bb3f1970279d67f46", DecodeCalls: 1, CountsScope: "successful Decode and Rank explicit calls; five feature/score operations derived from pinned Rank source, not per-call instrumentation"}
+	controls, e := shortclaim.Baselines(valid.Prepared())
+	if e != nil {
+		return errors.New("baseline")
+	}
+	for i, c := range controls {
+		o.Baselines[i], e = ranking(c.Kind, c.Order[:c.Count], c.Scores[:c.Count], c.FallbackReason)
+		if e != nil {
+			return e
+		}
+	}
+	docs := make([]string, 5)
+	for i, c := range p.Candidates[:p.Count] {
+		docs[i] = c.Text
+		o.IDs = append(o.IDs, c.ID)
+	}
+	order, scores, e := hintlearn.Rank(w, p.Request, docs)
+	if e != nil {
+		return errors.New("model Rank")
+	}
+	o.RankCalls = 1
+	o.CandidateScorings = 5
+	o.Learned, e = ranking("inactive_fp32_reference", order, scores, "")
+	if e != nil {
+		return e
+	}
+	out, e := json.Marshal(o)
+	if e != nil || len(out) > 8192 {
+		return errors.New("output bound")
+	}
+	out = append(out, '\n')
+	n, e := os.Stdout.Write(out)
+	if e != nil || n != len(out) {
+		return errors.New("output write")
+	}
+	return nil
+}
+func main() {
+	if e := run(); e != nil {
+		fmt.Fprintln(os.Stderr, e)
+		os.Exit(1)
+	}
+}

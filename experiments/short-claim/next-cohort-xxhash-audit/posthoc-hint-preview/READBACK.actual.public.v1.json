@@ -1,0 +1,69 @@
+{
+  "schema": "riido-xxhash-posthoc-hint-readback-v1",
+  "observation_bytes": 2147,
+  "observation_sha256": "0ee5a8cbda8daa3a0d4db6536869d468d4815f6a82892545aa2408ae6e86de94",
+  "exact_score_float64_bits": true,
+  "ranking_permutations_and_stable_score_order": true,
+  "reference_model_only": true,
+  "model_top": "legacy",
+  "model_order": [
+    "legacy",
+    "roundtrip",
+    "reconstruct",
+    "digest",
+    "direct"
+  ],
+  "controls": [
+    {
+      "kind": "fixed_order",
+      "order": [
+        "direct",
+        "reconstruct",
+        "legacy",
+        "roundtrip",
+        "digest"
+      ],
+      "fallback": null
+    },
+    {
+      "kind": "bm25",
+      "order": [
+        "direct",
+        "digest",
+        "roundtrip",
+        "reconstruct",
+        "legacy"
+      ],
+      "fallback": null
+    },
+    {
+      "kind": "lexical_ordered",
+      "order": [
+        "direct",
+        "reconstruct",
+        "digest",
+        "roundtrip",
+        "legacy"
+      ],
+      "fallback": null
+    },
+    {
+      "kind": "narrow_rule",
+      "order": [
+        "direct",
+        "digest",
+        "roundtrip",
+        "reconstruct",
+        "legacy"
+      ],
+      "fallback": "unsupported_rule_request"
+    }
+  ],
+  "post_hoc_one_parent": true,
+  "new_learning_labels": 0,
+  "Fit": 0,
+  "activation": false,
+  "interpretation": "Learned reference ranks legacy above both full-contract candidates; this is one nonblind post-hoc counterexample, not independent heldout or general accuracy. Preserve model inactive. No change to 75-trial model0 primary audit.",
+  "memory_scope": "32792B model file; 65536B decoded float64 coefficient payload by type arithmetic; process/native/GPU memory and performance not measured.",
+  "source_comment_clarification": "not a trained model means pilot performs no new training; selected failed79 reference is previously trained."
+}

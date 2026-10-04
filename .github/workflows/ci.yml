@@ -80,6 +80,8 @@ jobs:
         run: bash scripts/verify-next60-bias37.sh
       - name: Bounded xxhash next-cohort audit (offline Go CPU; one parent, no training)
         run: bash experiments/short-claim/next-cohort-xxhash-audit/verify.sh
+      - name: Saved xxhash hint counterexample (offline Go; no model read or training)
+        run: bash experiments/short-claim/next-cohort-xxhash-audit/posthoc-hint-preview/verify.sh
       - name: Preserve actual nonlearned37 scores and matrix
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
