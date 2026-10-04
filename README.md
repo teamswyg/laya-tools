@@ -29,6 +29,8 @@
 
 [HF30 고정 버전](https://huggingface.co/datasets/JooYoon/riidolaya-shortclaim-next60-development/tree/next60-30-finite-v1)은 소유558파일·viewer30행의 값과 순서를 확인했습니다. [PR121 CI와 게시 근거](experiments/short-claim/publication-proof-122/README.ko.md), [다음 원천22개 제안·보류](experiments/short-claim/next60-new-source-preview/README.ko.md)를 보존합니다.
 
+[JWT 원본 판정과 비용 검증](experiments/short-claim/next-cohort-jwt-audit/README.md): 가상 요청 4개·입력 위치 20개·후보 8개에 원본 API를 실제 160회 호출했습니다. 후보 일치 4·불일치 28·미확인 0, 프로세스 최대 RSS 약 11.94MiB입니다. 전체 JWT 계보를 노출된 개발 검증으로 묶고 학습에는 바로 넣지 않습니다. 다음 단계는 안전한 인증·파싱 캐시를 넣은 뒤에도 후보 순서 최적화의 이득이 남는지 실제 비용으로 비교하는 것입니다.
+
 [다음 개발 학습 안내](docs/wiki/Next60-Development-KO.md): [현재 유한 개발 자료](experiments/short-claim/next60-development-seven/README.ko.md)는 **요청 7개·라벨 20개**입니다. [네 작업의 실제 실행과 독립 검토](experiments/short-claim/next60-four-selector-actual-observation/README.ko.md)에서 입력 19개·관측 57개를 확인했습니다. 원본 검사 프로세스의 OS 최대 RSS는 약 7.89 MiB이며 모델 추론 메모리나 비용 절감 수치는 아닙니다. 기존 세 줄은 그대로 보존했습니다. [HF 7개 요청 고정 버전](https://huggingface.co/datasets/JooYoon/riidolaya-shortclaim-next60-development/tree/next60-7-finite-v1)의 112개 파일과 viewer 7행을 확인했습니다. [게시 기록](experiments/short-claim/publication-proof-116/HF-PUBLICATION.v3.json)을 보세요. 새 학습은 0회이며 [다음 의미 작업 10개의 구체화](experiments/short-claim/next60-catalog10-literal-correction/TRANSITION.ko.md)를 이어갑니다.
 
 다음 학습 라운드의 [개발용 유한 요청 2개를 적격화](experiments/short-claim/next60-native2-qualification/README.ko.md)했습니다. 기존 초안 ID 두 개의 후보 5개에 긍정 2개·부정 3개를 부여했고, 문장 모두 기존 입력 제한을 통과했습니다. 기존 79개 자료는 그대로이며 새 학습은 아직 0회입니다. 적격 자료를 30개·60개로 늘린 뒤 별도 학습 비교를 진행합니다.

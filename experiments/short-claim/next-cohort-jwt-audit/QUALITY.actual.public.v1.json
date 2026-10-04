@@ -1,0 +1,77 @@
+{
+  "schema": "riido-jwt-native-public-local-quality-v1",
+  "Go": "go1.27.1",
+  "checks": [
+    {
+      "stage": "race",
+      "status": 0,
+      "signal": null,
+      "error_code": null,
+      "stdout_bytes": 8801,
+      "stderr_bytes": 0,
+      "stdout_sha256": "951697410a1d0bb162fc95a0848889e34ea179d0dcbc725c12d1e9bc382ac62b",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "full_private_first_record_sha256": "4d8757f97425198aa769215dd4a9cafbe6a2f4c84fea7ff4708a3fcae610212f"
+    },
+    {
+      "stage": "vet",
+      "status": 0,
+      "signal": null,
+      "error_code": null,
+      "stdout_bytes": 0,
+      "stderr_bytes": 0,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "full_private_first_record_sha256": "87264c0e96cc2687aa30c1f48bcca8622f31638bba55c782a8bfbb97a538395e"
+    },
+    {
+      "stage": "boundaries",
+      "status": 0,
+      "signal": null,
+      "error_code": null,
+      "stdout_bytes": 49805,
+      "stderr_bytes": 0,
+      "stdout_sha256": "de9ce63558273956da3461d7e2e758679a4ace490b419b5b96419be478b4558a",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "full_private_first_record_sha256": "6ac1cc76d37994a2271f5354a7fd277ceb3f3b2c6a293746e4adddbcfd207192"
+    },
+    {
+      "stage": "secrets",
+      "status": 0,
+      "signal": null,
+      "error_code": null,
+      "stdout_bytes": 0,
+      "stderr_bytes": 81,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "3547587204b51cd53a7be077b273439c9fa9dd20d194096f98af583df017d8f0",
+      "full_private_first_record_sha256": "60b2846feded92e35af1a896d266badefbac11bbce6972fe6c405d4218f864ce"
+    }
+  ],
+  "source_changes_after_first_replay": [
+    "Fresh arbitrarystatus/errorclass output normalized to controlled enums",
+    "Missing/null error channel and missing verifiedtoken remain unknown",
+    "Require presence of false-valued imported-init flags",
+    "Compare recognized normalized cause sets in fresh replay; timings excluded"
+  ],
+  "earlier_failure": {
+    "stage": "Go tool module metadata lookup",
+    "GOPROXY": "off",
+    "scanner_started": false,
+    "result": "fullfirstfailure retained; pinned scanner rerun with public checksum verification enabled"
+  },
+  "scanner_exceptions": "Exactly thirteen fictional JWT values and their token/API-output SHA256 in two named artifact files. No broad token/path allowlist.",
+  "scope": "Local complete repository race/vet plus separate observer/runner synthetic race controls and redacted scanner passed. Saved replay has no original JWT/model/Fit calls; existing repository unit training-kernel controls are not new model fitting evidence. CI results will be recorded separately.",
+  "whitespace_check": {
+    "owned_source_status": 0,
+    "immutable_upstream_exceptions": [
+      "LICENSE original extra final blank line",
+      "README.md original line17 trailing space"
+    ],
+    "upstream_original_bytes_preserved": true,
+    "source_pin_manifest": "UPSTREAM-SOURCE.v1.json",
+    "first_staged_check_status": null,
+    "scope": "Initial staged full check reported inherited upstream whitespace; owned changes pass with immutable testdata excluded. No upstream byte normalization or check bypass.",
+    "first_staged_check_reported_upstream_warnings": true,
+    "initial_shell_did_not_capture_separate_check_exit": true
+  }
+}
