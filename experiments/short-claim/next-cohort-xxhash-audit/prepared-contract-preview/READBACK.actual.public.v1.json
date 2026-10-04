@@ -1,0 +1,57 @@
+{
+  "schema": "riido-prepared-contract-readback-v1",
+  "execution_sha256": "ad564c006cb321f620fcacc203a0c38d97d8e17df3a18618a5f248f001bd01f8",
+  "stdout_bytes": 1916,
+  "stdout_sha256": "47705e9073f0833e49a4f9e59486fec5fd968c8050b7332e557d1bfa4eba19a9",
+  "stderr_bytes": 0,
+  "all_seven_named_top_level_tests_passed": [
+    "TestOwnedInputFeatureAndScoreContract",
+    "TestExactContentInvalidationAndCurrentIDs",
+    "TestStableTiesPermutationsAndNewView",
+    "TestReuseShrinkGrowthAndFailurePreservation",
+    "TestPreflightAndTightLogicalBudget",
+    "TestFeatureBoundsDuplicatesAndUint32Boundary",
+    "TestConcurrentSeparateBuffersAndAliasNegativeSetup"
+  ],
+  "named_input_subcases_passed": [
+    "TestOwnedInputFeatureAndScoreContract/one",
+    "TestOwnedInputFeatureAndScoreContract/five",
+    "TestOwnedInputFeatureAndScoreContract/eight",
+    "TestOwnedInputFeatureAndScoreContract/id64",
+    "TestOwnedInputFeatureAndScoreContract/empty",
+    "TestOwnedInputFeatureAndScoreContract/punctuation",
+    "TestOwnedInputFeatureAndScoreContract/max_bytes",
+    "TestOwnedInputFeatureAndScoreContract/max_words"
+  ],
+  "fresh_race_test_count1": true,
+  "launcher_vet_completed": true,
+  "source_pinned_before_compile": true,
+  "read_only_peer_checked_final_source": true,
+  "peer_executed": false,
+  "source_pins_unchanged": 9,
+  "repository_QA": {
+    "CGO_ENABLED": "1",
+    "race_exit_code": 0,
+    "all_repository_test_results_cached": true,
+    "vet_exit_code": 0
+  },
+  "limitations": [
+    "private research validator differs from existing product validation",
+    "constructors own immutable internal fields; no hardened forged-owner boundary",
+    "caller must provide separate concurrent output buffers",
+    "logical budget excludes model/caller buffers/temporaries and is not peak memory",
+    "exact synthetic API attempt counts unknown; no full panic ledger",
+    "numeric models are not learned Laya or semantic/Golden evidence"
+  ],
+  "pre_execution_corrections": [
+    "Root initially called final index0 a constant bias; source review identified variable overlap and corrected wording before freeze",
+    "mutable author source was read during arity/mode edits; all final calls and three modes checked before freeze",
+    "an exploratory read used nonexistent pkg/shortclaim/prepared.go; correct definitions were read in input.go, with no compilation/model effects"
+  ],
+  "roles": 0,
+  "new_labels": 0,
+  "training_campaign_Fit": 0,
+  "protected_evaluation": 0,
+  "default_activation": false,
+  "semantic_quality_gain_unproven": true
+}

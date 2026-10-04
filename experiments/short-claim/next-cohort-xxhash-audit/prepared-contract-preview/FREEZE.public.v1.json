@@ -1,0 +1,139 @@
+{
+  "schema": "riido-prepared-contract-freeze-v1",
+  "state": "FROZEN_BEFORE_FIRST_CONTRACT_COMPILATION_AND_SYNTHETIC_MODEL_EXECUTION",
+  "base_commit": "84f2c174a55040cecdaf3388c9825725c02ee578",
+  "owned_source": {
+    "path": "source/contract_test.go.txt",
+    "bytes": 28035,
+    "sha256": "3549f41b30932c9c1a8226869aff3a62328956fc74250dbf6a922ff982a9d415"
+  },
+  "owned_support": [
+    {
+      "path": "source/go.mod.template",
+      "bytes": 129,
+      "sha256": "5ed6345e237147f1c0f3901cab37472805d75c9b1c9d5988f06eb7f8b49b470e"
+    },
+    {
+      "path": "verify.sh",
+      "bytes": 1043,
+      "sha256": "6fdda461c52cef6ec48326999177978c509d3a009ec6d7ac3273322786ccfa2d"
+    },
+    {
+      "path": "SCOPE.md",
+      "bytes": 2355,
+      "sha256": "0c4d3f9725324e29b626a43939e5262ca6f345fb1a3c7f15a924fa4b3b4fc348"
+    },
+    {
+      "path": "SOURCE-SHA256SUMS",
+      "bytes": 857,
+      "sha256": "e9d3d7df5942a79bf9b3865ab48e2fc9a57a2e0194fc2aaccb4439acb0c51e21"
+    }
+  ],
+  "source_pins": [
+    {
+      "path": "internal/hintlearn/learn.go",
+      "bytes": 10429,
+      "sha256": "d0c906d1283617d0778039ff8bc4c6fff6cb0af3a813c48df088424d78bebb71"
+    },
+    {
+      "path": "internal/hintlearn/model.go",
+      "bytes": 3560,
+      "sha256": "f27e18883f073555775ff15de4f2e72d4fcff9bb1b49dfe7b11007779ec95aff"
+    },
+    {
+      "path": "pkg/shortclaim/audit_provenance.go",
+      "bytes": 821,
+      "sha256": "67a4db28dcacfde4e7f4efac08153010e5a576eef50aad9179ac16671f7f251a"
+    },
+    {
+      "path": "pkg/shortclaim/baseline.go",
+      "bytes": 14048,
+      "sha256": "c6003b785763fce004d89556f998811eb6098474908d9341906ca825aebc362a"
+    },
+    {
+      "path": "pkg/shortclaim/input.go",
+      "bytes": 10755,
+      "sha256": "834d66e6a0c63095d25b02659a1ddd5c5b8a9eef185b7a2bab5e938974370a80"
+    },
+    {
+      "path": "internal/lexicalhint/audit_provenance.go",
+      "bytes": 643,
+      "sha256": "06ee313c49a308a17ae45113eee867492ce81f0401f9b1a690665f4032ec4785"
+    },
+    {
+      "path": "internal/lexicalhint/features.go",
+      "bytes": 4019,
+      "sha256": "20224bcab1ea2d6e5203a2efb7772adef0786eea67f43a003a5b2db896804557"
+    },
+    {
+      "path": "pkg/hintweights/doc.go",
+      "bytes": 494,
+      "sha256": "0c51eb62f581a6967e2d2fdfa89477d9440e25c57bd097abccbf278c01f56dd8"
+    },
+    {
+      "path": "pkg/hintweights/view.go",
+      "bytes": 6097,
+      "sha256": "673a2406da0493222545272e8c27a026ff15e4b9c4a4b8257334545b644e598c"
+    }
+  ],
+  "authored_source": {
+    "bytes": 26092,
+    "sha256": "c2ade58fff3c4fd420a5e6cbb4b56b74afb4e44b3a4f0f9460a376b71f9c3301",
+    "root_changes": "gofmt only before freeze"
+  },
+  "planned_top_level_tests": 7,
+  "numeric_weight_formats": [
+    "fp32",
+    "int8",
+    "ternary_ptq"
+  ],
+  "weights": "owned deterministic numbers in memory; no learned asset or retained hbin",
+  "contracts": [
+    "1/5/8 candidates and text/ID bounds",
+    "exact feature and score bits/order in AoS and SoA",
+    "raw input invalidation and current IDs",
+    "all-zero ties and literal overlap +/-2 model score/order reversal",
+    "output grow/shrink, inactive tail clear, errors preserve caller buffer",
+    "tight logical budget and uint32 offset65536",
+    "distinct-buffer concurrent readers; setup-only alias negatives"
+  ],
+  "environment": {
+    "Go": "1.27.1",
+    "GOTOOLCHAIN": "local",
+    "GOPROXY": "off",
+    "GOSUMDB": "off",
+    "GOWORK": "off",
+    "CGO_ENABLED": "1",
+    "GOMAXPROCS": "4",
+    "GOMEMLIMIT": "256MiB",
+    "GODEBUG": ""
+  },
+  "launcher": "verify.sh: checksums then temporary module go test -race -count=1 -timeout=30s -v and go vet",
+  "outside_bounds": {
+    "timeout_ms": 60000,
+    "stdout_cap": 16384,
+    "stderr_cap": 8192,
+    "executor_identity": "inline-unpinned",
+    "retained_binary": false,
+    "full_API_attempt_ledger": false
+  },
+  "scope": {
+    "research_only": true,
+    "new_public_API": false,
+    "existing_library_files_changed": 0,
+    "private_empty_text_validation_not_product_contract": true,
+    "concurrent_buffers_must_be_disjoint": true,
+    "runtime_alias_protection": false,
+    "logical_budget_not_peak_RSS": true,
+    "synthetic_cases_not_independent_Golden": true,
+    "learned_model_reads": 0,
+    "download": 0,
+    "roles": 0,
+    "labels": 0,
+    "Fit": 0,
+    "protected_evaluation": 0,
+    "default_activation": false,
+    "source_ancestry_qualified": false,
+    "quality_or_whole_task_savings": false
+  }
+}
