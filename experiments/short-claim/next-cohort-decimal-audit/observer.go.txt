@@ -1,0 +1,378 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 teamswyg contributors.
+// Original observer. Ledger excludes pre-main initializers and hidden calls.
+// Standard JSON decoding makes no duplicate/case-fold/surrogate strictness claim.
+// No truth, Want, role, training or quality is inferred.
+package main
+
+import (
+	"bytes"
+	"compress/gzip"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"os"
+	"strconv"
+	"unicode/utf8"
+
+	"github.com/shopspring/decimal"
+)
+
+const inputLimit = 16 << 10
+const gzipLimit = 64 << 10
+
+var errInput = errors.New("input invalid")
+
+type Fixture struct {
+	ID    string `json:"id"`
+	Value string `json:"value"`
+}
+type Candidate struct {
+	ID      string `json:"id"`
+	Caption string `json:"caption"`
+}
+type Input struct {
+	Schema     string      `json:"schema"`
+	Fixtures   []Fixture   `json:"fixtures"`
+	Candidates []Candidate `json:"candidates"`
+}
+
+var fixtureIDs = [8]string{
+	"fixture01-one", "fixture02-fraction", "fixture03-max",
+	"fixture04-max-plus-one", "fixture05-min-minus-one",
+	"fixture06-fraction-and-overflow", "fixture07-integer-scaled",
+	"fixture08-negative-fraction",
+}
+var fixtureValues = [8]string{
+	"1", "1.1", "9223372036854775807", "9223372036854775808",
+	"-9223372036854775809", "9223372036854775808.1", "1.00", "-1.1",
+}
+var candidateIDs = [4]string{
+	"strict_fraction_first", "strict_range_first", "truncate_checked", "intpart_unchecked",
+}
+
+type Call struct {
+	Phase     string  `json:"phase"`
+	Method    string  `json:"method"`
+	Attempted bool    `json:"attempted"`
+	Returned  bool    `json:"returned"`
+	Error     bool    `json:"error"`
+	Panic     bool    `json:"panic"`
+	ErrorType *string `json:"error_type"`
+	PanicType *string `json:"panic_type"`
+	Boolean   *bool   `json:"boolean"`
+	Integer   *string `json:"integer"`
+	Text      *string `json:"text"`
+}
+type Snapshot struct {
+	Coefficient *string `json:"coefficient"`
+	Exponent    *int32  `json:"exponent"`
+}
+type CandidateResult struct {
+	Code  string  `json:"code"`
+	Value *string `json:"value"`
+}
+type Trial struct {
+	FixtureID                 string           `json:"fixture_id"`
+	CandidateID               string           `json:"candidate_id"`
+	Status                    string           `json:"status"`
+	ReturnedNormally          bool             `json:"returned_normally"`
+	CandidateReturnedNormally bool             `json:"candidate_returned_normally"`
+	UpstreamParseError        bool             `json:"upstream_parse_error"`
+	UpstreamParseErrorType    *string          `json:"upstream_parse_error_type"`
+	PanicPhase                *string          `json:"panic_phase"`
+	PanicType                 *string          `json:"panic_type"`
+	Result                    *CandidateResult `json:"result"`
+	Before                    *Snapshot        `json:"before"`
+	After                     *Snapshot        `json:"after"`
+	CoefficientPreserved      *bool            `json:"coefficient_preserved"`
+	ExponentPreserved         *bool            `json:"exponent_preserved"`
+	Calls                     []Call           `json:"calls"`
+}
+type Counts struct {
+	Fixtures               int `json:"fixtures"`
+	Candidates             int `json:"candidates"`
+	Trials                 int `json:"trials"`
+	NormalTrialReturns     int `json:"normal_trial_returns"`
+	NormalCandidateReturns int `json:"normal_candidate_returns"`
+	UpstreamParseErrors    int `json:"upstream_parse_errors"`
+	OwnedCandidateErrors   int `json:"owned_candidate_errors"`
+	TrialPanics            int `json:"trial_panics"`
+	APIAttempted           int `json:"api_attempted"`
+	APIReturned            int `json:"api_returned"`
+	APIErrors              int `json:"api_errors"`
+	APIPanics              int `json:"api_panics"`
+}
+type Report struct {
+	Schema                        string    `json:"schema"`
+	Status                        string    `json:"status"`
+	InputSHA256                   string    `json:"input_sha256"`
+	Input                         Input     `json:"input"`
+	Counts                        Counts    `json:"counts"`
+	Trials                        [32]Trial `json:"trials"`
+	LedgerScope                   string    `json:"ledger_scope"`
+	PreMainAndHiddenCallsIncluded bool      `json:"pre_main_and_hidden_calls_included"`
+	ModelCalls                    int       `json:"model_calls"`
+	FitCalls                      int       `json:"fit_calls"`
+	Qualified                     bool      `json:"qualified"`
+	RoleAssigned                  bool      `json:"role_assigned"`
+	DefaultActivated              bool      `json:"default_activated"`
+	GPU                           bool      `json:"gpu"`
+}
+
+func typeName(v any) string {
+	if v == nil {
+		return "nil"
+	}
+	return fmt.Sprintf("%T", v)
+}
+
+// The completion flag detects panic(nil); API panics abort their trial.
+func call[T any](t *Trial, phase, method string, fn func() (T, error)) (value T, err error) {
+	i := len(t.Calls)
+	t.Calls = append(t.Calls, Call{Phase: phase, Method: method, Attempted: true})
+	complete := false
+	defer func() {
+		if !complete {
+			p := recover()
+			t.Calls[i].Panic = true
+			kind := typeName(p)
+			t.Calls[i].PanicType = &kind
+			panic(p)
+		}
+	}()
+	value, err = fn()
+	complete = true
+	e := &t.Calls[i]
+	e.Returned = true
+	e.Error = err != nil
+	if err != nil {
+		kind := typeName(err)
+		e.ErrorType = &kind
+	}
+	switch v := any(value).(type) {
+	case bool:
+		e.Boolean = &v
+	case int64:
+		s := strconv.FormatInt(v, 10)
+		e.Integer = &s
+	case int32:
+		s := strconv.FormatInt(int64(v), 10)
+		e.Integer = &s
+	case string:
+		e.Text = &v
+	}
+	return
+}
+func valueCall[T any](t *Trial, phase, method string, fn func() T) T {
+	v, _ := call(t, phase, method, func() (T, error) { return fn(), nil })
+	return v
+}
+func snapshot(t *Trial, phase string, d decimal.Decimal, s *Snapshot) {
+	coefficient := valueCall(t, phase, "decimal.Decimal.Coefficient", d.Coefficient)
+	text := valueCall(t, phase, "big.Int.String", coefficient.String)
+	s.Coefficient = &text
+	exp := valueCall(t, phase, "decimal.Decimal.Exponent", d.Exponent)
+	s.Exponent = &exp
+}
+func success(v int64) CandidateResult {
+	s := strconv.FormatInt(v, 10)
+	return CandidateResult{Code: "success", Value: &s}
+}
+func ownedError(code string) CandidateResult { return CandidateResult{Code: code} }
+func convert(t *Trial, id string, d decimal.Decimal) CandidateResult {
+	const phase = "candidate"
+	if id == "intpart_unchecked" {
+		return success(valueCall(t, phase, "decimal.Decimal.IntPart", d.IntPart))
+	}
+	if id == "strict_fraction_first" {
+		if !valueCall(t, phase, "decimal.Decimal.IsInteger", d.IsInteger) {
+			return ownedError("non_integer")
+		}
+	}
+	integer := valueCall(t, phase, "decimal.Decimal.BigInt", d.BigInt)
+	if !valueCall(t, phase, "big.Int.IsInt64", integer.IsInt64) {
+		return ownedError("out_of_range")
+	}
+	if id == "strict_range_first" {
+		if !valueCall(t, phase, "decimal.Decimal.IsInteger", d.IsInteger) {
+			return ownedError("non_integer")
+		}
+	}
+	return success(valueCall(t, phase, "big.Int.Int64", integer.Int64))
+}
+func observe(f Fixture, c Candidate) (t Trial) {
+	t.FixtureID, t.CandidateID = f.ID, c.ID
+	t.Status = "not_completed"
+	phase := "setup"
+	complete := false
+	defer func() {
+		if !complete {
+			p := recover()
+			kind, where := typeName(p), phase
+			t.Status = "panic"
+			t.PanicType, t.PanicPhase = &kind, &where
+		}
+	}()
+	d, err := call(&t, phase, "decimal.NewFromString", func() (decimal.Decimal, error) {
+		return decimal.NewFromString(f.Value)
+	})
+	if err != nil {
+		kind := typeName(err)
+		t.Status, t.UpstreamParseError = "upstream_parse_error", true
+		t.UpstreamParseErrorType = &kind
+		t.ReturnedNormally, complete = true, true
+		return
+	}
+	phase = "before"
+	t.Before = &Snapshot{}
+	snapshot(&t, phase, d, t.Before)
+	phase = "candidate"
+	r := convert(&t, c.ID, d)
+	t.Result, t.CandidateReturnedNormally = &r, true
+	phase = "after"
+	t.After = &Snapshot{}
+	snapshot(&t, phase, d, t.After)
+	coefficientOK := *t.Before.Coefficient == *t.After.Coefficient
+	exponentOK := *t.Before.Exponent == *t.After.Exponent
+	t.CoefficientPreserved, t.ExponentPreserved = &coefficientOK, &exponentOK
+	t.Status, t.ReturnedNormally, complete = "observed", true, true
+	return
+}
+
+func load(path string) (Input, []byte, error) {
+	var in Input
+	f, err := os.Open(path)
+	if err != nil {
+		return in, nil, errors.New("input read failed")
+	}
+	raw, err := io.ReadAll(io.LimitReader(f, inputLimit+1))
+	closeErr := f.Close()
+	if err != nil || closeErr != nil {
+		return in, nil, errors.New("input read failed")
+	}
+	if len(raw) > inputLimit || !utf8.Valid(raw) {
+		return in, nil, errInput
+	}
+	d := json.NewDecoder(bytes.NewReader(raw))
+	d.DisallowUnknownFields()
+	if d.Decode(&in) != nil {
+		return in, nil, errInput
+	}
+	var extra any
+	if d.Decode(&extra) != io.EOF {
+		return in, nil, errInput
+	}
+	if in.Schema != "riido-decimal-frozen-v1" || len(in.Fixtures) != 8 || len(in.Candidates) != 4 {
+		return in, nil, errInput
+	}
+	for i, f := range in.Fixtures {
+		if f.ID != fixtureIDs[i] || f.Value != fixtureValues[i] {
+			return in, nil, errInput
+		}
+	}
+	for i, c := range in.Candidates {
+		if c.ID != candidateIDs[i] || len(c.Caption) == 0 || len(c.Caption) > 1024 || !utf8.ValidString(c.Caption) {
+			return in, nil, errInput
+		}
+	}
+	return in, raw, nil
+}
+func count(trials *[32]Trial) Counts {
+	c := Counts{Fixtures: 8, Candidates: 4, Trials: len(trials)}
+	for _, t := range trials {
+		if t.ReturnedNormally {
+			c.NormalTrialReturns++
+		}
+		if t.CandidateReturnedNormally {
+			c.NormalCandidateReturns++
+		}
+		if t.UpstreamParseError {
+			c.UpstreamParseErrors++
+		}
+		if t.PanicType != nil {
+			c.TrialPanics++
+		}
+		if t.Result != nil && t.Result.Code != "success" {
+			c.OwnedCandidateErrors++
+		}
+		for _, e := range t.Calls {
+			if e.Attempted {
+				c.APIAttempted++
+			}
+			if e.Returned {
+				c.APIReturned++
+			}
+			if e.Error {
+				c.APIErrors++
+			}
+			if e.Panic {
+				c.APIPanics++
+			}
+		}
+	}
+	return c
+}
+func run() error {
+	if len(os.Args) != 2 {
+		return errors.New("one input argument required")
+	}
+	in, raw, err := load(os.Args[1])
+	if err != nil {
+		return err
+	}
+	sha := sha256.Sum256(raw)
+	r := Report{
+		Schema: "riido-decimal-actual-development-audit-v1", Status: "observed_development_audit",
+		InputSHA256: hex.EncodeToString(sha[:]), Input: in,
+		LedgerScope: "explicit_wrapped_decimal_and_bigint_calls_only",
+	}
+	n := 0
+	for _, f := range in.Fixtures {
+		for _, c := range in.Candidates {
+			r.Trials[n] = observe(f, c)
+			n++
+		}
+	}
+	r.Counts = count(&r.Trials)
+	encoded, err := json.Marshal(r)
+	if err != nil {
+		return errors.New("report encoding failed")
+	}
+	var compressed bytes.Buffer
+	g := gzip.NewWriter(&compressed)
+	if _, err = g.Write(encoded); err != nil {
+		return errors.New("report encoding failed")
+	}
+	if err = g.Close(); err != nil {
+		return errors.New("report encoding failed")
+	}
+	if compressed.Len() > gzipLimit {
+		return errors.New("compressed report bound")
+	}
+	if _, err = io.Copy(os.Stdout, &compressed); err != nil {
+		return errors.New("output failed")
+	}
+	return nil
+}
+func guardedRun() (err error) {
+	complete := false
+	defer func() {
+		if !complete {
+			_ = recover()
+			err = errors.New("observer internal failure")
+		}
+	}()
+	err = run()
+	complete = true
+	return
+}
+func main() {
+	if err := guardedRun(); err != nil {
+		fmt.Fprintln(os.Stderr, err.Error())
+		os.Exit(1)
+	}
+}

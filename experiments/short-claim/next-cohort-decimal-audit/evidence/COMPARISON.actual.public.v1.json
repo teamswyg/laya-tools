@@ -1,0 +1,247 @@
+{
+  "schema": "riido-decimal-literal-want-comparison-v1",
+  "input_sha256": "ea30987c3824e9db81990d758b33ca025a4cfc96bdc4c3d7ff28562057143008",
+  "Wants_sha256": "c8b6f855ea811e3c00d648a0929bf03835dd9062c7c8c34924158228209fd64e",
+  "observation_sha256": "a73966172f65417a697e07fb5e1d75dfc7410116fd325a889ceea8c8b1c7154f",
+  "raw_bytes": 74491,
+  "raw_sha256": "3a45b8bcd54b44f6ae352781455d18d9861eae9cf63a3f1c5536288be6f8b49c",
+  "full_readback_verified": true,
+  "counts": {
+    "fixtures": 8,
+    "candidates": 4,
+    "trials": 32,
+    "normal_trial_returns": 32,
+    "normal_candidate_returns": 32,
+    "upstream_parse_errors": 0,
+    "owned_candidate_errors": 13,
+    "trial_panics": 0,
+    "api_attempted": 298,
+    "api_returned": 298,
+    "api_errors": 0,
+    "api_panics": 0
+  },
+  "results": [
+    {
+      "id": "strict_fraction_first",
+      "passed": 8,
+      "total": 8,
+      "rows": [
+        {
+          "fixture_id": "fixture01-one",
+          "pass": true,
+          "mismatch_channels": []
+        },
+        {
+          "fixture_id": "fixture02-fraction",
+          "pass": true,
+          "mismatch_channels": []
+        },
+        {
+          "fixture_id": "fixture03-max",
+          "pass": true,
+          "mismatch_channels": []
+        },
+        {
+          "fixture_id": "fixture04-max-plus-one",
+          "pass": true,
+          "mismatch_channels": []
+        },
+        {
+          "fixture_id": "fixture05-min-minus-one",
+          "pass": true,
+          "mismatch_channels": []
+        },
+        {
+          "fixture_id": "fixture06-fraction-and-overflow",
+          "pass": true,
+          "mismatch_channels": []
+        },
+        {
+          "fixture_id": "fixture07-integer-scaled",
+          "pass": true,
+          "mismatch_channels": []
+        },
+        {
+          "fixture_id": "fixture08-negative-fraction",
+          "pass": true,
+          "mismatch_channels": []
+        }
+      ]
+    },
+    {
+      "id": "strict_range_first",
+      "passed": 7,
+      "total": 8,
+      "rows": [
+        {
+          "fixture_id": "fixture01-one",
+          "pass": true,
+          "mismatch_channels": []
+        },
+        {
+          "fixture_id": "fixture02-fraction",
+          "pass": true,
+          "mismatch_channels": []
+        },
+        {
+          "fixture_id": "fixture03-max",
+          "pass": true,
+          "mismatch_channels": []
+        },
+        {
+          "fixture_id": "fixture04-max-plus-one",
+          "pass": true,
+          "mismatch_channels": []
+        },
+        {
+          "fixture_id": "fixture05-min-minus-one",
+          "pass": true,
+          "mismatch_channels": []
+        },
+        {
+          "fixture_id": "fixture06-fraction-and-overflow",
+          "pass": false,
+          "mismatch_channels": [
+            "result_code"
+          ]
+        },
+        {
+          "fixture_id": "fixture07-integer-scaled",
+          "pass": true,
+          "mismatch_channels": []
+        },
+        {
+          "fixture_id": "fixture08-negative-fraction",
+          "pass": true,
+          "mismatch_channels": []
+        }
+      ]
+    },
+    {
+      "id": "truncate_checked",
+      "passed": 5,
+      "total": 8,
+      "rows": [
+        {
+          "fixture_id": "fixture01-one",
+          "pass": true,
+          "mismatch_channels": []
+        },
+        {
+          "fixture_id": "fixture02-fraction",
+          "pass": false,
+          "mismatch_channels": [
+            "result_value",
+            "result_code"
+          ]
+        },
+        {
+          "fixture_id": "fixture03-max",
+          "pass": true,
+          "mismatch_channels": []
+        },
+        {
+          "fixture_id": "fixture04-max-plus-one",
+          "pass": true,
+          "mismatch_channels": []
+        },
+        {
+          "fixture_id": "fixture05-min-minus-one",
+          "pass": true,
+          "mismatch_channels": []
+        },
+        {
+          "fixture_id": "fixture06-fraction-and-overflow",
+          "pass": false,
+          "mismatch_channels": [
+            "result_code"
+          ]
+        },
+        {
+          "fixture_id": "fixture07-integer-scaled",
+          "pass": true,
+          "mismatch_channels": []
+        },
+        {
+          "fixture_id": "fixture08-negative-fraction",
+          "pass": false,
+          "mismatch_channels": [
+            "result_value",
+            "result_code"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "intpart_unchecked",
+      "passed": 3,
+      "total": 8,
+      "rows": [
+        {
+          "fixture_id": "fixture01-one",
+          "pass": true,
+          "mismatch_channels": []
+        },
+        {
+          "fixture_id": "fixture02-fraction",
+          "pass": false,
+          "mismatch_channels": [
+            "result_value",
+            "result_code"
+          ]
+        },
+        {
+          "fixture_id": "fixture03-max",
+          "pass": true,
+          "mismatch_channels": []
+        },
+        {
+          "fixture_id": "fixture04-max-plus-one",
+          "pass": false,
+          "mismatch_channels": [
+            "result_value",
+            "result_code"
+          ]
+        },
+        {
+          "fixture_id": "fixture05-min-minus-one",
+          "pass": false,
+          "mismatch_channels": [
+            "result_value",
+            "result_code"
+          ]
+        },
+        {
+          "fixture_id": "fixture06-fraction-and-overflow",
+          "pass": false,
+          "mismatch_channels": [
+            "result_value",
+            "result_code"
+          ]
+        },
+        {
+          "fixture_id": "fixture07-integer-scaled",
+          "pass": true,
+          "mismatch_channels": []
+        },
+        {
+          "fixture_id": "fixture08-negative-fraction",
+          "pass": false,
+          "mismatch_channels": [
+            "result_value",
+            "result_code"
+          ]
+        }
+      ]
+    }
+  ],
+  "parent_count": 1,
+  "independent_golden_parents": 0,
+  "role": null,
+  "qualified": false,
+  "learning_labels": 0,
+  "Fit": 0,
+  "default_activation": false,
+  "protected_final_reads": 0,
+  "scope": "finite exposed development audit; static predictions are not admission or generalization"
+}

@@ -1,0 +1,55 @@
+{
+  "schema": "riido-decimal-frozen-v1",
+  "fixtures": [
+    {
+      "id": "fixture01-one",
+      "value": "1"
+    },
+    {
+      "id": "fixture02-fraction",
+      "value": "1.1"
+    },
+    {
+      "id": "fixture03-max",
+      "value": "9223372036854775807"
+    },
+    {
+      "id": "fixture04-max-plus-one",
+      "value": "9223372036854775808"
+    },
+    {
+      "id": "fixture05-min-minus-one",
+      "value": "-9223372036854775809"
+    },
+    {
+      "id": "fixture06-fraction-and-overflow",
+      "value": "9223372036854775808.1"
+    },
+    {
+      "id": "fixture07-integer-scaled",
+      "value": "1.00"
+    },
+    {
+      "id": "fixture08-negative-fraction",
+      "value": "-1.1"
+    }
+  ],
+  "candidates": [
+    {
+      "id": "strict_fraction_first",
+      "caption": "Reject noninteger first; use BigInt and IsInt64 to reject integral overflow; return Int64 otherwise. Preserve coefficient and exponent."
+    },
+    {
+      "id": "strict_range_first",
+      "caption": "Use BigInt and IsInt64 to reject overflow first; then reject noninteger; return Int64 otherwise. Preserve coefficient and exponent."
+    },
+    {
+      "id": "truncate_checked",
+      "caption": "Use BigInt and IsInt64 to reject overflow; return truncated Int64 otherwise. Preserve coefficient and exponent."
+    },
+    {
+      "id": "intpart_unchecked",
+      "caption": "Return IntPart directly without checking fractional input or range. Preserve coefficient and exponent."
+    }
+  ]
+}
