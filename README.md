@@ -1,5 +1,7 @@
 # laya-tools
 
+[작은 힌트 표현 진단](experiments/short-claim/text-representation-preview/README.ko.md)을 추가했습니다. 학습 없는 관계 정렬이 이미 본 B-tree 한 가족에서 모의 확인54→26회였고, 반복 문장8후보의 원문 파싱은 약2.9µs·Go 할당0회였습니다. 기호 보존은 정보 손실을 줄이지만 기존 해시보다 느렸습니다. [Go JSON 미리보기 사용법](cmd/riido-hintpreview/README.ko.md)으로 직접 시험할 수 있습니다. 일반화·실제 속도·Codex 절감은 미검증이며 새 학습·모델 가중치는0입니다.
+
 [다음 튜닝용 B-tree 유한 자료](experiments/short-claim/next-cohort-btree-audit/README.ko.md)를 **12개 요청·96라벨**로 별도 준비했습니다. 원본 Go API272회와 실제8후보 Reader/Project를 검증했습니다. 단순 기준54~59회 대비 최소26회라는 개선 여지를 찾았지만, 한 개발 가족이며 모델 효과나 LLM 절감을 입증한 것은 아닙니다. [다음 표현 비교 계획](experiments/short-claim/next-cohort-btree-audit/NEXT-ABLATION-PLAN.ko.md)에 문체 편향·약8µs의 추가 계산 여유·독립 평가 조건을 기록했습니다. 새 학습·가중치·GPU 실행은0입니다.
 
 현재 유한 개발 자료는 **37개 요청·108라벨**이며 [HF37 고정 버전](https://huggingface.co/datasets/JooYoon/riidolaya-shortclaim-next60-development/tree/next60-37-finite-v1)에 게시했습니다. [학습 없는 후보 순서 비교](experiments/short-claim/next60-development37-bias-audit/README.ko.md)에서는 어휘 비교가 첫 정답29/37로 가장 좋았지만, 정답 위치 편향과 환경별 동점 차이가 있어 모델 효과·실제 Codex 절감의 증거로 사용하지 않습니다.
