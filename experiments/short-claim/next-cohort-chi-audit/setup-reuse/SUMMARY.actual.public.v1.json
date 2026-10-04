@@ -1,0 +1,435 @@
+{
+  "schema": "riido-setup-summary-v1",
+  "state": "completed",
+  "parents": 1,
+  "intervals": 72,
+  "raw": {
+    "bytes": 187744,
+    "sha256": "9351c86f67fecbf951b0be4376de56eb2f7c067efd42b6de2fd141761f797354",
+    "gzip_bytes": 3407,
+    "gzip_sha256": "3d3f82c0bcc8ec4a4df9b8ef612a2545a77d7e3af7aa01bb89f0abc279fc03a0",
+    "complete_byte_readback": true
+  },
+  "stages": [
+    {
+      "name": "input_read",
+      "state": "completed",
+      "event": {
+        "api": "input_read",
+        "attempted": true,
+        "returned": true,
+        "error": false,
+        "panic": false,
+        "error_code": "",
+        "panic_type": ""
+      },
+      "cost": {
+        "elapsed_ns": 123958,
+        "total_alloc_bytes": 3648,
+        "mallocs": 11
+      }
+    },
+    {
+      "name": "model_read",
+      "state": "completed",
+      "event": {
+        "api": "model_read",
+        "attempted": true,
+        "returned": true,
+        "error": false,
+        "panic": false,
+        "error_code": "",
+        "panic_type": ""
+      },
+      "cost": {
+        "elapsed_ns": 158584,
+        "total_alloc_bytes": 89296,
+        "mallocs": 21
+      }
+    },
+    {
+      "name": "load_validated",
+      "state": "completed",
+      "event": {
+        "api": "load_validated",
+        "attempted": true,
+        "returned": true,
+        "error": false,
+        "panic": false,
+        "error_code": "",
+        "panic_type": ""
+      },
+      "cost": {
+        "elapsed_ns": 228250,
+        "total_alloc_bytes": 19216,
+        "mallocs": 135
+      }
+    },
+    {
+      "name": "view_new",
+      "state": "completed",
+      "event": {
+        "api": "view_new",
+        "attempted": true,
+        "returned": true,
+        "error": false,
+        "panic": false,
+        "error_code": "",
+        "panic_type": ""
+      },
+      "cost": {
+        "elapsed_ns": 22083,
+        "total_alloc_bytes": 41024,
+        "mallocs": 2
+      }
+    },
+    {
+      "name": "prepare",
+      "state": "completed",
+      "event": {
+        "api": "prepare",
+        "attempted": true,
+        "returned": true,
+        "error": false,
+        "panic": false,
+        "error_code": "",
+        "panic_type": ""
+      },
+      "cost": {
+        "elapsed_ns": 2872125,
+        "total_alloc_bytes": 445848,
+        "mallocs": 374
+      }
+    },
+    {
+      "name": "model_anchor",
+      "state": "completed",
+      "event": {
+        "api": "model_rank",
+        "attempted": true,
+        "returned": true,
+        "error": false,
+        "panic": false,
+        "error_code": "",
+        "panic_type": ""
+      },
+      "cost": {
+        "elapsed_ns": 22917,
+        "total_alloc_bytes": 0,
+        "mallocs": 0
+      }
+    },
+    {
+      "name": "bm25_anchor",
+      "state": "completed",
+      "event": {
+        "api": "bm25_rank",
+        "attempted": true,
+        "returned": true,
+        "error": false,
+        "panic": false,
+        "error_code": "",
+        "panic_type": ""
+      },
+      "cost": {
+        "elapsed_ns": 57541,
+        "total_alloc_bytes": 0,
+        "mallocs": 0
+      }
+    }
+  ],
+  "main_calls": {
+    "Prepare": 114,
+    "modelRank": 180,
+    "bm25Rank": 90
+  },
+  "including_stages": {
+    "attempted": 391,
+    "returned": 391,
+    "errors": 0,
+    "panics": 0,
+    "prepare_attempts": 115,
+    "rank_attempts": 272,
+    "modelRank": 181,
+    "bm25Rank": 91
+  },
+  "own_anchor_parity": true,
+  "model_inactive": true,
+  "fit": 0,
+  "new_labels": 0,
+  "new_roles": 0,
+  "protected_reads": 0,
+  "gpu": false,
+  "ns": [
+    {
+      "n": 1,
+      "methods": [
+        {
+          "method": "reuse",
+          "observations": 6,
+          "elapsed_ns": {
+            "min": 1398875,
+            "median": 1845229.5,
+            "max": 2700750
+          },
+          "total_alloc_bytes": {
+            "min": 445848,
+            "median": 445848,
+            "max": 445848
+          },
+          "mallocs": {
+            "min": 374,
+            "median": 374,
+            "max": 374
+          }
+        },
+        {
+          "method": "rebuild",
+          "observations": 6,
+          "elapsed_ns": {
+            "min": 1650750,
+            "median": 2059000,
+            "max": 2275709
+          },
+          "total_alloc_bytes": {
+            "min": 445848,
+            "median": 445848,
+            "max": 445848
+          },
+          "mallocs": {
+            "min": 374,
+            "median": 374,
+            "max": 374
+          }
+        },
+        {
+          "method": "bm25",
+          "observations": 6,
+          "elapsed_ns": {
+            "min": 11208,
+            "median": 15583.5,
+            "max": 23625
+          },
+          "total_alloc_bytes": {
+            "min": 0,
+            "median": 0,
+            "max": 0
+          },
+          "mallocs": {
+            "min": 0,
+            "median": 0,
+            "max": 0
+          }
+        }
+      ],
+      "paired_rebuild_over_reuse": {
+        "min": 0.842621123761918,
+        "median": 1.0212247741659062,
+        "max": 1.5810619247609687
+      }
+    },
+    {
+      "n": 2,
+      "methods": [
+        {
+          "method": "reuse",
+          "observations": 6,
+          "elapsed_ns": {
+            "min": 1238416,
+            "median": 1369792,
+            "max": 1668166
+          },
+          "total_alloc_bytes": {
+            "min": 445848,
+            "median": 445848,
+            "max": 445848
+          },
+          "mallocs": {
+            "min": 374,
+            "median": 374,
+            "max": 374
+          }
+        },
+        {
+          "method": "rebuild",
+          "observations": 6,
+          "elapsed_ns": {
+            "min": 2553291,
+            "median": 2804646,
+            "max": 3112667
+          },
+          "total_alloc_bytes": {
+            "min": 891696,
+            "median": 891696,
+            "max": 891696
+          },
+          "mallocs": {
+            "min": 748,
+            "median": 748,
+            "max": 748
+          }
+        },
+        {
+          "method": "bm25",
+          "observations": 6,
+          "elapsed_ns": {
+            "min": 14250,
+            "median": 15417,
+            "max": 16666
+          },
+          "total_alloc_bytes": {
+            "min": 0,
+            "median": 0,
+            "max": 0
+          },
+          "mallocs": {
+            "min": 0,
+            "median": 0,
+            "max": 0
+          }
+        }
+      ],
+      "paired_rebuild_over_reuse": {
+        "min": 1.8659216169134247,
+        "median": 2.014638475090121,
+        "max": 2.101830649344551
+      }
+    },
+    {
+      "n": 4,
+      "methods": [
+        {
+          "method": "reuse",
+          "observations": 6,
+          "elapsed_ns": {
+            "min": 1109041,
+            "median": 1140125.5,
+            "max": 1263417
+          },
+          "total_alloc_bytes": {
+            "min": 445848,
+            "median": 445848,
+            "max": 445848
+          },
+          "mallocs": {
+            "min": 374,
+            "median": 374,
+            "max": 374
+          }
+        },
+        {
+          "method": "rebuild",
+          "observations": 6,
+          "elapsed_ns": {
+            "min": 4337292,
+            "median": 4525021,
+            "max": 4945166
+          },
+          "total_alloc_bytes": {
+            "min": 1783392,
+            "median": 1783392,
+            "max": 1783392
+          },
+          "mallocs": {
+            "min": 1496,
+            "median": 1496,
+            "max": 1496
+          }
+        },
+        {
+          "method": "bm25",
+          "observations": 6,
+          "elapsed_ns": {
+            "min": 23250,
+            "median": 24438,
+            "max": 26000
+          },
+          "total_alloc_bytes": {
+            "min": 0,
+            "median": 0,
+            "max": 0
+          },
+          "mallocs": {
+            "min": 0,
+            "median": 0,
+            "max": 0
+          }
+        }
+      ],
+      "paired_rebuild_over_reuse": {
+        "min": 3.8517950929062725,
+        "median": 3.9365807564863253,
+        "max": 4.008718343145114
+      }
+    },
+    {
+      "n": 8,
+      "methods": [
+        {
+          "method": "reuse",
+          "observations": 6,
+          "elapsed_ns": {
+            "min": 1045834,
+            "median": 1099041.5,
+            "max": 1147042
+          },
+          "total_alloc_bytes": {
+            "min": 445848,
+            "median": 445848,
+            "max": 445848
+          },
+          "mallocs": {
+            "min": 374,
+            "median": 374,
+            "max": 374
+          }
+        },
+        {
+          "method": "rebuild",
+          "observations": 6,
+          "elapsed_ns": {
+            "min": 7900333,
+            "median": 8157896,
+            "max": 8280708
+          },
+          "total_alloc_bytes": {
+            "min": 3566784,
+            "median": 3566784,
+            "max": 3566784
+          },
+          "mallocs": {
+            "min": 2992,
+            "median": 2992,
+            "max": 2992
+          }
+        },
+        {
+          "method": "bm25",
+          "observations": 6,
+          "elapsed_ns": {
+            "min": 42708,
+            "median": 43417,
+            "max": 56834
+          },
+          "total_alloc_bytes": {
+            "min": 0,
+            "median": 0,
+            "max": 0
+          },
+          "mallocs": {
+            "min": 0,
+            "median": 0,
+            "max": 0
+          }
+        }
+      ],
+      "paired_rebuild_over_reuse": {
+        "min": 7.219184650605645,
+        "median": 7.429274542483803,
+        "max": 7.577855072463768
+      }
+    }
+  ],
+  "decision": "Same-input Prepared reuse reduced repeated setup costs on this exposed development parent. BM25 still had lower paid scorer cost for N<=8. Reuse is available to explicit callers; this does not repair learned ordering quality or activate the model. No break-even beyond measured N, quality generalization, LLM token savings, GPU or native memory claim.",
+  "scope": "Six ordered observations per method/N on one parent; GC and ReadMemStats outside timed intervals; wrapper trace capture inside, conversion/parity/JSON outside. Common raw input/model, ValidatedInput and owned View coexist for all methods; Prepare diagnostic not added twice. TotalAlloc is cumulative allocated Go bytes, not retained heap/RSS. Timings from one local process; timing drift across scheduled observations, especially N1. Single stage anchors are diagnostics, not population estimates."
+}

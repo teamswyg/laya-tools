@@ -1,0 +1,105 @@
+{
+  "schema": "riido-setup-reuse-freeze-v1",
+  "state": "sealed before first new live worker/model/profile execution; fake source controls passed",
+  "source_pins": {
+    "bytes": 3189,
+    "sha256": "e812cfb497f69c57361806ab83e1fffc9e4828664207f503c044030fb4c4d1fa"
+  },
+  "private_controller": {
+    "bytes": 5974,
+    "sha256": "bd2169d0023166cc0508f13327a49422876800e0992732adb2fd747a804b9a59"
+  },
+  "input": {
+    "bytes": 1417,
+    "sha256": "39e0aadbfe91c0b15ad3da257725de8d74c7a82c9d4222f73da8f937e72bf4c2"
+  },
+  "model": {
+    "bytes": 32792,
+    "sha256": "dff05140098845943ece87c3ab8a31a15564a4b170a59ab017ee393501158004",
+    "reference": "JooYoon/riidolaya-shortclaim-data-effect-failed-79@5bef215895b69d3f2ef4b82bb3f1970279d67f46",
+    "format": "RIIDOH01 FP32 hashed-feature scorer; inactive; not Laya encoder"
+  },
+  "go_version": "go1.27.1",
+  "CGO_ENABLED": "0",
+  "GOMAXPROCS": 1,
+  "Go_GC_soft_target_bytes": 100663296,
+  "ns": [
+    1,
+    2,
+    4,
+    8
+  ],
+  "orders": [
+    [
+      "reuse",
+      "rebuild",
+      "bm25"
+    ],
+    [
+      "reuse",
+      "bm25",
+      "rebuild"
+    ],
+    [
+      "rebuild",
+      "reuse",
+      "bm25"
+    ],
+    [
+      "rebuild",
+      "bm25",
+      "reuse"
+    ],
+    [
+      "bm25",
+      "reuse",
+      "rebuild"
+    ],
+    [
+      "bm25",
+      "rebuild",
+      "reuse"
+    ]
+  ],
+  "intervals": 72,
+  "parents": 1,
+  "main_expected": {
+    "Prepare": 114,
+    "modelRank": 180,
+    "bm25Rank": 90
+  },
+  "stage_expected": {
+    "input_read": 1,
+    "model_read": 1,
+    "LoadValidated": 1,
+    "ViewNew": 1,
+    "Prepare": 1,
+    "modelRank": 1,
+    "bm25Rank": 1
+  },
+  "profiles": {
+    "separate_processes": 4,
+    "kinds": [
+      "cpu",
+      "alloc"
+    ],
+    "prepare_iterations": 128,
+    "rank_iterations": 262144,
+    "profile_file_max_bytes": 32768,
+    "parity_guards_inside_loops": true,
+    "prepare_phase_includes_Rank": true,
+    "alloc_includes_process_setup": true
+  },
+  "build_timeout_ms": 60000,
+  "live_timeout_ms": 20000,
+  "stdout_max_bytes": 262144,
+  "stderr_max_bytes": 8192,
+  "retained_cap_bytes": 536870912,
+  "cap_unchanged": true,
+  "fit": 0,
+  "new_labels": 0,
+  "new_roles": 0,
+  "protected_reads": 0,
+  "activation": false,
+  "scope": "Same raw input, validated input and borrowed model/View live in all intervals, including BM25; diagnostic Prepare not reused or counted twice. This is scorer cost, not cold first-use, verifier utility, independent Golden parents, GPU/MPS or Laya encoder. Source author estimate24KB->28KB before formatting; gofmt expanded worker/tests to31,463B; pre-run estimate now33KB. Actual retained bytes charged without exclusions."
+}

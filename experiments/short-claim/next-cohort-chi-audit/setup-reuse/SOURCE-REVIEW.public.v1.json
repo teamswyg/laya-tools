@@ -1,0 +1,27 @@
+{
+  "schema": "riido-setup-source-review-v1",
+  "mode": "independent source-only; no code/model execution by peer",
+  "main_sha256": "9988981215bfc0fa8abd5baf8604aa6d38c678a5fc0463d50acd8e4b2c355617",
+  "profile_sha256": "f1b259e2a6a1385043718f342d9f4c7a645c0d39769db899ccbc94bf82a99534",
+  "findings": [
+    {
+      "issue": "Profiler propagated stdout encoder diagnostic",
+      "fixed": "fixed profile_stdout before execution"
+    },
+    {
+      "issue": "Deferred StopCPUProfile could run after failed StartCPUProfile",
+      "fixed": "cpuStarted ownership guard before execution"
+    }
+  ],
+  "remaining_material_blocker": false,
+  "scope": "Source review does not establish scorer utility, rights/family admission or independent Golden cases.",
+  "packet_review": {
+    "mode": "independent read-only",
+    "manifest_entries_checked": 16,
+    "numeric_and_scope_consistency": true,
+    "missing_manifest_found_during_generation_then_present_and_all_hashes_verified": true,
+    "english_causality": "changed show run-order drift to may reflect run-order drift",
+    "raw_profiles_private": true,
+    "scope": "No runs; source/quality admission remains separate."
+  }
+}
