@@ -1,0 +1,844 @@
+// SPDX-License-Identifier: Apache-2.0
+// Owned numeric/synthetic controls, not independent Golden/semantic examples,
+// training, source qualification, canonical JSON, timings or whole-RSS proof.
+// Research only; existing APIs unchanged. No files/network/HF assets.
+package preparedcontractpreview
+
+import (
+	"errors"
+	"fmt"
+	"math"
+	"reflect"
+	"runtime"
+	"sort"
+	"strings"
+	"sync"
+	"testing"
+	"unicode"
+	"unicode/utf8"
+	"unsafe"
+
+	"github.com/teamswyg/laya-tools/internal/hintlearn"
+	"github.com/teamswyg/laya-tools/pkg/hintweights"
+)
+
+const (
+	maxCandidates   = 8
+	maxTextBytes    = 512
+	maxWords        = 32
+	maxIDBytes      = 64
+	maxLogicalBytes = 1 << 20
+)
+
+var (
+	errInput   = errors.New("contract_input")
+	errBudget  = errors.New("contract_logical_budget")
+	errFeature = errors.New("contract_feature")
+	errOwner   = errors.New("contract_owner")
+	errStale   = errors.New("contract_stale")
+	errView    = errors.New("contract_view")
+	errResult  = errors.New("contract_result_capacity")
+	errScore   = errors.New("contract_nonfinite_score")
+)
+
+type layout uint8
+
+const (
+	aosLayout layout = iota
+	soaLayout
+)
+
+type candidate struct{ ID, Text string }
+type request struct {
+	Query      string
+	Candidates []candidate
+}
+type buffers struct {
+	IDs    []string
+	Scores []float64
+	Order  []int
+}
+type producer func(string, string) []hintlearn.Feature
+
+// Research bounds, not shortclaim normalization or legacy Rank's scope.
+// Empty texts allowed; Features unchanged. String lengths are logical bytes,
+// not physical allocation or substring retention measurements.
+func validText(s string) bool {
+	return len(s) <= maxTextBytes && utf8.ValidString(s) && len(strings.FieldsFunc(strings.ToLower(s), func(r rune) bool {
+		return !unicode.IsLetter(r) && !unicode.IsDigit(r)
+	})) <= maxWords
+}
+
+func validate(in request) error {
+	if len(in.Candidates) < 1 || len(in.Candidates) > maxCandidates || !validText(in.Query) {
+		return errInput
+	}
+	for i, c := range in.Candidates {
+		if c.ID == "" || len(c.ID) > maxIDBytes || !utf8.ValidString(c.ID) || !validText(c.Text) {
+			return errInput
+		}
+		for j := 0; j < i; j++ {
+			if c.ID == in.Candidates[j].ID {
+				return errInput
+			}
+		}
+	}
+	return nil
+}
+
+// Owner size includes all headers, fixed arrays and padding once, even inactive
+// layout headers. unsafe.Sizeof supplies arithmetic, never memory aliasing.
+type preparedOwner struct {
+	kind    layout
+	count   int
+	ready   bool
+	query   string
+	texts   [maxCandidates]string
+	offsets [maxCandidates + 1]uint32
+	aos     []hintweights.Feature
+	indices []uint16
+	values  []float64
+}
+
+type ledger struct {
+	OwnerFixed, RetainedText, DataLen, DataCap, Total int
+	// Subparts included in OwnerFixed, never added twice.
+	SliceHeadersWithinOwner, StringHeadersWithinOwner, OffsetsWithinOwner int
+}
+
+func (p *preparedOwner) bytes() ledger {
+	l := ledger{OwnerFixed: int(unsafe.Sizeof(preparedOwner{})), SliceHeadersWithinOwner: 3 * int(unsafe.Sizeof([]int(nil))), StringHeadersWithinOwner: (maxCandidates + 1) * int(unsafe.Sizeof("")), OffsetsWithinOwner: int(unsafe.Sizeof(p.offsets))}
+	l.RetainedText = len(p.query)
+	for i := 0; i < p.count; i++ {
+		l.RetainedText += len(p.texts[i])
+	}
+	stride := int(unsafe.Sizeof(hintweights.Feature{}))
+	l.DataLen = len(p.aos)*stride + len(p.indices)*2 + len(p.values)*8
+	l.DataCap = cap(p.aos)*stride + cap(p.indices)*2 + cap(p.values)*8
+	l.Total = l.OwnerFixed + l.RetainedText + l.DataCap
+	return l
+}
+
+func prepare(in request, kind layout, budget int) (*preparedOwner, error) {
+	return prepareWith(in, kind, budget, hintlearn.Features)
+}
+
+// Private injection. Minimum budget precedes Features; exact check follows
+// temporaries, NOT a peak bound. Cloned text counted; rounding, temporaries,
+// model, caller inputs/results and interface handles excluded. No cache/locks.
+func prepareWith(in request, kind layout, budget int, generate producer) (*preparedOwner, error) {
+	if kind != aosLayout && kind != soaLayout {
+		return nil, errOwner
+	}
+	if budget <= 0 || budget > maxLogicalBytes {
+		return nil, errBudget
+	}
+	if err := validate(in); err != nil {
+		return nil, err
+	}
+	minimum := int(unsafe.Sizeof(preparedOwner{})) + len(in.Query)
+	for _, c := range in.Candidates {
+		minimum += len(c.Text)
+	}
+	if minimum > budget {
+		return nil, errBudget
+	}
+	if generate == nil {
+		return nil, errFeature
+	}
+	var rows [maxCandidates][]hintlearn.Feature
+	var offsets [maxCandidates + 1]uint32
+	total := 0
+	for i, c := range in.Candidates {
+		fs := generate(in.Query, c.Text)
+		if len(fs) > hintweights.Dimension {
+			return nil, errFeature
+		}
+		for _, f := range fs {
+			if f.Index < 0 || f.Index >= hintweights.Dimension || math.IsNaN(f.Value) || math.IsInf(f.Value, 0) {
+				return nil, errFeature
+			}
+		}
+		rows[i] = fs
+		total += len(fs)
+		offsets[i+1] = uint32(total) // Up to 8*8192 == 65536; uint16 is insufficient.
+	}
+	dataBytes := total * 10
+	if kind == aosLayout {
+		dataBytes = total * int(unsafe.Sizeof(hintweights.Feature{}))
+	}
+	if minimum+dataBytes > budget {
+		return nil, errBudget
+	}
+	p := &preparedOwner{kind: kind, count: len(in.Candidates), query: strings.Clone(in.Query), offsets: offsets}
+	for i, c := range in.Candidates {
+		p.texts[i] = strings.Clone(c.Text)
+	}
+	if kind == aosLayout {
+		p.aos = make([]hintweights.Feature, total)
+		for i := 0; i < p.count; i++ {
+			for j, f := range rows[i] {
+				p.aos[int(offsets[i])+j] = hintweights.Feature{Index: f.Index, Value: f.Value}
+			}
+		}
+	} else {
+		p.indices, p.values = make([]uint16, total), make([]float64, total)
+		for i := 0; i < p.count; i++ {
+			for j, f := range rows[i] {
+				k := int(offsets[i]) + j
+				p.indices[k], p.values[k] = uint16(f.Index), f.Value
+			}
+		}
+	}
+	p.ready = true
+	return p, nil
+}
+
+// Exact query/count/text sequence binds features; IDs use current input.
+func (p *preparedOwner) matches(in request) bool {
+	if p == nil || !p.ready || p.count != len(in.Candidates) || p.query != in.Query {
+		return false
+	}
+	for i, c := range in.Candidates {
+		if p.texts[i] != c.Text {
+			return false
+		}
+	}
+	return true
+}
+
+func (p *preparedOwner) score(in request, v *hintweights.View) (buffers, error) {
+	return p.scoreInto(in, v, buffers{})
+}
+
+// Reuse overwrites aliases; score() is independent. Concurrent calls REQUIRE
+// separate buffers: no runtime alias registry/detection or score cache.
+// Errors precede changes; capacity<=8 bounds tail clearing.
+func (p *preparedOwner) scoreInto(in request, v *hintweights.View, dst buffers) (buffers, error) {
+	if p == nil || !p.ready || p.count < 1 || p.count > maxCandidates {
+		return buffers{}, errOwner
+	}
+	if err := validate(in); err != nil {
+		return buffers{}, err
+	}
+	if !p.matches(in) {
+		return buffers{}, errStale
+	}
+	if _, err := v.Coefficient(0); err != nil {
+		return buffers{}, errView
+	}
+	if cap(dst.IDs) > maxCandidates || cap(dst.Scores) > maxCandidates || cap(dst.Order) > maxCandidates {
+		return buffers{}, errResult
+	}
+	var scores [maxCandidates]float64
+	var order [maxCandidates]int
+	for i := 0; i < p.count; i++ {
+		if p.kind == aosLayout {
+			s, err := v.Score(p.aos[p.offsets[i]:p.offsets[i+1]])
+			if err != nil {
+				return buffers{}, errFeature
+			}
+			scores[i] = s
+		} else {
+			s := 0.
+			for k := p.offsets[i]; k < p.offsets[i+1]; k++ {
+				w, err := v.Coefficient(int(p.indices[k]))
+				if err != nil {
+					return buffers{}, errFeature
+				}
+				s += w * p.values[k] // Preserve ordered duplicates, FP64 values and zero products.
+			}
+			scores[i] = s
+		}
+		if math.IsNaN(scores[i]) || math.IsInf(scores[i], 0) {
+			return buffers{}, errScore
+		}
+		order[i] = i
+	}
+	for i := 1; i < p.count; i++ {
+		for j := i; j > 0; j-- {
+			a, b := order[j-1], order[j]
+			if scores[a] > scores[b] || (scores[a] == scores[b] && a < b) {
+				break
+			}
+			order[j-1], order[j] = b, a
+		}
+	}
+	out := dst
+	if cap(out.IDs) < p.count {
+		out.IDs = make([]string, p.count)
+	}
+	if cap(out.Scores) < p.count {
+		out.Scores = make([]float64, p.count)
+	}
+	if cap(out.Order) < p.count {
+		out.Order = make([]int, p.count)
+	}
+	clear(out.IDs[:cap(out.IDs)])
+	clear(out.Scores[:cap(out.Scores)])
+	clear(out.Order[:cap(out.Order)])
+	out.IDs, out.Scores, out.Order = out.IDs[:p.count], out.Scores[:p.count], out.Order[:p.count]
+	for i, c := range in.Candidates {
+		out.IDs[i], out.Scores[i], out.Order[i] = c.ID, scores[i], order[i]
+	}
+	return out, nil
+}
+
+func ownedInput(n int) request {
+	docs := [8]string{"alpha alpha β", "한글 오류 반환", "!!!", "", "Foo_bar keeps item", "beta; ALPHA!!!", "repeat repeat repeat", "zeta delta"}
+	in := request{Query: "alpha β 한글 alpha", Candidates: make([]candidate, n)}
+	for i := range in.Candidates {
+		in.Candidates[i] = candidate{ID: fmt.Sprintf("slot%d", i), Text: docs[i%len(docs)]}
+	}
+	return in
+}
+
+func copyInput(in request) request {
+	return request{Query: in.Query, Candidates: append([]candidate(nil), in.Candidates...)}
+}
+
+// Owned numbers only; Decode supplies stored precision, not training.
+func numericModel(t *testing.T, mode string, zero bool) (*hintweights.View, []float64) {
+	t.Helper()
+	w := make([]float64, hintweights.Dimension)
+	if !zero {
+		for i := range w {
+			switch mode {
+			case "fp32":
+				w[i] = float64(i%7-3) * .125
+			case "int8":
+				w[i] = float64(i%255-127) * .125
+			case "ternary_ptq":
+				if i%3 != 0 {
+					w[i] = .5
+					if i%2 == 0 {
+						w[i] = -.5
+					}
+				}
+			default:
+				t.Fatal("unknown owned numeric mode")
+			}
+		}
+	}
+	return storedModel(t, w, mode)
+}
+
+func storedModel(t *testing.T, w []float64, mode string) (*hintweights.View, []float64) {
+	t.Helper()
+	b, err := hintlearn.Encode(w, mode)
+	if err != nil {
+		t.Fatal(err)
+	}
+	v, err := hintweights.New(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	decoded, err := hintlearn.Decode(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return v, decoded
+}
+
+func mustPrepare(t *testing.T, in request, kind layout) *preparedOwner {
+	t.Helper()
+	p, err := prepare(in, kind, maxLogicalBytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return p
+}
+
+func referenceResult(in request, w []float64) buffers {
+	r := buffers{IDs: make([]string, len(in.Candidates)), Scores: make([]float64, len(in.Candidates)), Order: make([]int, len(in.Candidates))}
+	for i, c := range in.Candidates {
+		r.IDs[i], r.Order[i] = c.ID, i
+		r.Scores[i] = hintlearn.Score(w, hintlearn.Features(in.Query, c.Text))
+	}
+	sort.Slice(r.Order, func(i, j int) bool {
+		a, b := r.Order[i], r.Order[j]
+		if r.Scores[a] == r.Scores[b] {
+			return a < b
+		}
+		return r.Scores[a] > r.Scores[b]
+	})
+	return r
+}
+
+func equalBuffers(a, b buffers) bool {
+	if !reflect.DeepEqual(a.IDs, b.IDs) || !reflect.DeepEqual(a.Order, b.Order) || len(a.Scores) != len(b.Scores) {
+		return false
+	}
+	for i, x := range a.Scores {
+		if math.Float64bits(x) != math.Float64bits(b.Scores[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+func cloneBuffers(b buffers) buffers {
+	return buffers{IDs: append([]string(nil), b.IDs...), Scores: append([]float64(nil), b.Scores...), Order: append([]int(nil), b.Order...)}
+}
+
+func dirtyBuffers(n int) buffers {
+	b := buffers{IDs: make([]string, n), Scores: make([]float64, n), Order: make([]int, n)}
+	for i := range b.IDs {
+		b.IDs[i], b.Scores[i], b.Order[i] = "dirty", 91.25, 99
+	}
+	return b
+}
+
+func zeroBuffers(b buffers) bool { return b.IDs == nil && b.Scores == nil && b.Order == nil }
+
+func rowCopy(p *preparedOwner, i int) []hintlearn.Feature {
+	fs := make([]hintlearn.Feature, int(p.offsets[i+1]-p.offsets[i]))
+	for j := range fs {
+		k := int(p.offsets[i]) + j
+		if p.kind == aosLayout {
+			fs[j] = hintlearn.Feature{Index: p.aos[k].Index, Value: p.aos[k].Value}
+		} else {
+			fs[j] = hintlearn.Feature{Index: int(p.indices[k]), Value: p.values[k]}
+		}
+	}
+	return fs
+}
+
+func assertFeatures(t *testing.T, got, want []hintlearn.Feature) {
+	t.Helper()
+	if len(got) != len(want) {
+		t.Fatal("feature length")
+	}
+	for i, f := range want {
+		if got[i].Index != f.Index || math.Float64bits(got[i].Value) != math.Float64bits(f.Value) {
+			t.Fatalf("feature index/value/order at %d", i)
+		}
+	}
+}
+
+func TestOwnedInputFeatureAndScoreContract(t *testing.T) {
+	cases := []struct {
+		name string
+		in   request
+	}{
+		{"one", ownedInput(1)}, {"five", ownedInput(5)}, {"eight", ownedInput(8)},
+		{"id64", request{Query: "alpha", Candidates: []candidate{{ID: strings.Repeat("i", maxIDBytes), Text: "alpha"}}}},
+		{"empty", request{Candidates: []candidate{{ID: "empty"}}}},
+		{"punctuation", request{Query: "!!!🙂", Candidates: []candidate{{ID: "punct", Text: "...?!"}}}},
+		{"max_bytes", request{Query: strings.Repeat("x", maxTextBytes), Candidates: []candidate{{ID: "max", Text: strings.Repeat("y", maxTextBytes)}}}},
+		{"max_words", request{Query: strings.Repeat("a ", maxWords-1) + "a", Candidates: []candidate{{ID: "words", Text: strings.Repeat("β ", maxWords-1) + "β"}}}},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			for _, kind := range [2]layout{aosLayout, soaLayout} {
+				p := mustPrepare(t, c.in, kind)
+				if cap(p.aos) != len(p.aos) || cap(p.indices) != len(p.indices) || cap(p.values) != len(p.values) {
+					t.Fatal("excess backing capacity")
+				}
+				if p.offsets[0] != 0 {
+					t.Fatal("offset origin")
+				}
+				for i, candidate := range c.in.Candidates {
+					want := hintlearn.Features(c.in.Query, candidate.Text)
+					assertFeatures(t, rowCopy(p, i), want)
+					if len(want) > 0 && want[len(want)-1].Index != 0 {
+						t.Fatal("final overlap feature at index0")
+					}
+				}
+				l := p.bytes()
+				if l.DataLen != l.DataCap || l.Total != l.OwnerFixed+l.RetainedText+l.DataCap || l.Total > maxLogicalBytes {
+					t.Fatal("storage accounting")
+				}
+				for _, mode := range [3]string{"fp32", "int8", "ternary_ptq"} {
+					v, w := numericModel(t, mode, false)
+					got, err := p.score(c.in, v)
+					if err != nil || !equalBuffers(got, referenceResult(c.in, w)) {
+						t.Fatal("score bits/IDs/order", mode, err)
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestExactContentInvalidationAndCurrentIDs(t *testing.T) {
+	for _, kind := range [2]layout{aosLayout, soaLayout} {
+		in := ownedInput(5)
+		p := mustPrepare(t, in, kind)
+		v, w := numericModel(t, "fp32", false)
+		var before [maxCandidates][]hintlearn.Feature
+		for i := range in.Candidates {
+			before[i] = rowCopy(p, i)
+		}
+		edits := [6]request{copyInput(in), copyInput(in), copyInput(in), copyInput(in), copyInput(in), copyInput(in)}
+		edits[0].Query = strings.ToUpper(in.Query) // Even equal normalized words are a new exact input.
+		edits[1].Candidates[0].Text += " revised"
+		edits[2].Candidates[0], edits[2].Candidates[1] = edits[2].Candidates[1], edits[2].Candidates[0]
+		edits[3].Candidates = edits[3].Candidates[:4]
+		edits[4].Query += " "
+		edits[5].Query += "!!!"
+		for _, current := range edits {
+			dst := dirtyBuffers(8)
+			kept := cloneBuffers(dst)
+			got, err := p.scoreInto(current, v, dst)
+			if p.matches(current) || err != errStale || !zeroBuffers(got) || !equalBuffers(dst, kept) {
+				t.Fatal("stale owner accepted or dirty result changed")
+			}
+		}
+		current := copyInput(in)
+		for i := range current.Candidates {
+			current.Candidates[i].ID = fmt.Sprintf("new%d", 5-i)
+		}
+		got, err := p.score(current, v)
+		if !p.matches(current) || err != nil || !equalBuffers(got, referenceResult(current, w)) {
+			t.Fatal("ID-only edit or current mapping")
+		}
+		for i := range in.Candidates {
+			assertFeatures(t, rowCopy(p, i), before[i])
+		}
+		// Changing caller slice entries never mutates the owner's cloned text.
+		in.Query = "changed"
+		in.Candidates[0].Text = "changed"
+		if p.query == in.Query || p.texts[0] == in.Candidates[0].Text || p.matches(in) {
+			t.Fatal("mutable caller input leaked")
+		}
+	}
+}
+
+func TestStableTiesPermutationsAndNewView(t *testing.T) {
+	for _, kind := range [2]layout{aosLayout, soaLayout} {
+		in := ownedInput(8)
+		p := mustPrepare(t, in, kind)
+		zero, _ := numericModel(t, "fp32", true)
+		old, err := p.score(in, zero)
+		if err != nil {
+			t.Fatal(err)
+		}
+		kept := cloneBuffers(old)
+		for i := range old.Order {
+			if old.Order[i] != i || old.IDs[i] != in.Candidates[i].ID || math.Float64bits(old.Scores[i]) != 0 {
+				t.Fatal("zero-model tie order")
+			}
+		}
+		perm := copyInput(in)
+		order := [8]int{7, 2, 0, 5, 1, 6, 4, 3}
+		for i, j := range order {
+			perm.Candidates[i] = in.Candidates[j]
+			perm.Candidates[i].ID = fmt.Sprintf("id%d", 8-i)
+		}
+		if p.matches(perm) {
+			t.Fatal("text permutation failed to invalidate")
+		}
+		other := mustPrepare(t, perm, kind)
+		r, err := other.score(perm, zero)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for i := range r.Order {
+			if r.Order[i] != i || r.IDs[i] != perm.Candidates[i].ID {
+				t.Fatal("tie sorted by stale ID")
+			}
+		}
+		change := request{Query: "alpha", Candidates: []candidate{{ID: "z", Text: "alpha"}, {ID: "a", Text: "beta"}}}
+		qchange := mustPrepare(t, change, kind)
+		// Literal overlap Wants [1,0] force +2/-2 score AND order reversal.
+		for i := 0; i < 2; i++ {
+			fs := rowCopy(qchange, i)
+			want := float64(1 - i)
+			if len(fs) == 0 || fs[len(fs)-1].Index != 0 || fs[len(fs)-1].Value != want {
+				t.Fatal("literal overlap feature")
+			}
+		}
+		var previous buffers
+		for _, coefficient := range [2]float64{2, -2} {
+			w := make([]float64, hintweights.Dimension)
+			w[0] = coefficient
+			view, _ := storedModel(t, w, "fp32")
+			x, err := qchange.score(change, view)
+			wantOrder := []int{0, 1}
+			if coefficient < 0 {
+				wantOrder = []int{1, 0}
+			}
+			if err != nil || math.Float64bits(x.Scores[0]) != math.Float64bits(coefficient) || math.Float64bits(x.Scores[1]) != 0 || !reflect.DeepEqual(x.Order, wantOrder) {
+				t.Fatal("View score/order recomputation")
+			}
+			if coefficient > 0 {
+				previous = x
+			} else if previous.Scores[0] != 2 || previous.Order[0] != 0 {
+				t.Fatal("previous result mutated")
+			}
+		}
+		if !equalBuffers(old, kept) {
+			t.Fatal("independent previous result changed")
+		}
+		// Identical text rows may change IDs/order metadata without feature changes.
+		same := ownedInput(5)
+		for i := range same.Candidates {
+			same.Candidates[i].Text = "same text"
+		}
+		q := mustPrepare(t, same, kind)
+		renamed := copyInput(same)
+		renamed.Candidates[0].ID, renamed.Candidates[4].ID = renamed.Candidates[4].ID, renamed.Candidates[0].ID
+		x, err := q.score(renamed, zero)
+		if !q.matches(renamed) || err != nil || x.IDs[0] != renamed.Candidates[0].ID || x.Order[0] != 0 {
+			t.Fatal("equal text metadata mapping")
+		}
+	}
+}
+
+func TestReuseShrinkGrowthAndFailurePreservation(t *testing.T) {
+	v, w := numericModel(t, "fp32", false)
+	for _, kind := range [2]layout{aosLayout, soaLayout} {
+		dst := dirtyBuffers(8)
+		ip, sp, op := &dst.IDs[0], &dst.Scores[0], &dst.Order[0]
+		dst.IDs, dst.Scores, dst.Order = dst.IDs[:1], dst.Scores[:0], dst.Order[:2]
+		for _, n := range [5]int{8, 1, 5, 1, 8} {
+			in := ownedInput(n)
+			p := mustPrepare(t, in, kind)
+			out, err := p.scoreInto(in, v, dst)
+			if err != nil || !equalBuffers(out, referenceResult(in, w)) {
+				t.Fatal("reused result", err)
+			}
+			if &out.IDs[0] != ip || &out.Scores[0] != sp || &out.Order[0] != op {
+				t.Fatal("lost sufficient caller capacity")
+			}
+			for i := n; i < 8; i++ {
+				if out.IDs[:8][i] != "" || out.Scores[:8][i] != 0 || out.Order[:8][i] != 0 {
+					t.Fatal("dirty unused tail")
+				}
+			}
+			dst = out
+		}
+		in := ownedInput(5)
+		p := mustPrepare(t, in, kind)
+		invalid := copyInput(in)
+		invalid.Candidates[1].ID = invalid.Candidates[0].ID
+		calls := []struct {
+			p    *preparedOwner
+			in   request
+			v    *hintweights.View
+			want error
+		}{
+			{p, invalid, v, errInput}, {nil, in, v, errOwner}, {&preparedOwner{}, in, v, errOwner}, {p, in, nil, errView}, {p, in, &hintweights.View{}, errView},
+		}
+		for _, c := range calls {
+			dirty := dirtyBuffers(8)
+			before := cloneBuffers(dirty)
+			got, err := c.p.scoreInto(c.in, c.v, dirty)
+			if err != c.want || !zeroBuffers(got) || !equalBuffers(dirty, before) {
+				t.Fatal("error overwrote result", err)
+			}
+		}
+		large := dirtyBuffers(9)
+		before := cloneBuffers(large)
+		out, err := p.scoreInto(in, v, large)
+		if err != errResult || !zeroBuffers(out) || !equalBuffers(large, before) {
+			t.Fatal("unbounded result capacity")
+		}
+		// Each missing component may grow without clearing another component early.
+		small := buffers{IDs: make([]string, 1), Scores: make([]float64, 2), Order: make([]int, 0)}
+		grown, err := p.scoreInto(in, v, small)
+		if err != nil || !equalBuffers(grown, referenceResult(in, w)) {
+			t.Fatal("component growth")
+		}
+	}
+}
+
+func TestPreflightAndTightLogicalBudget(t *testing.T) {
+	base := ownedInput(1)
+	invalid := []request{copyInput(base), copyInput(base), copyInput(base), copyInput(base), copyInput(base), copyInput(base), copyInput(base), ownedInput(9), {Query: "x"}}
+	invalid[0].Query = strings.Repeat("x", maxTextBytes+1)
+	invalid[1].Candidates[0].Text = strings.Repeat("x", maxTextBytes+1)
+	invalid[2].Query = string([]byte{0xff})
+	invalid[3].Candidates[0].Text = string([]byte{0xff})
+	invalid[4].Query = strings.Repeat("a ", maxWords) + "a"
+	invalid[5].Candidates[0].ID = ""
+	invalid[6].Candidates[0].ID = strings.Repeat("i", maxIDBytes+1)
+	invalid = append(invalid, ownedInput(2))
+	invalid[len(invalid)-1].Candidates[1].ID = invalid[len(invalid)-1].Candidates[0].ID
+	invalid = append(invalid, copyInput(base))
+	invalid[len(invalid)-1].Candidates[0].ID = string([]byte{0xff})
+	invalid = append(invalid, copyInput(base))
+	invalid[len(invalid)-1].Candidates[0].Text = strings.Repeat("a ", maxWords) + "a"
+	for _, in := range invalid {
+		count := 0
+		p, err := prepareWith(in, aosLayout, maxLogicalBytes, func(q, d string) []hintlearn.Feature { count++; return hintlearn.Features(q, d) })
+		if err != errInput || p != nil || count != 0 {
+			t.Fatal("preflight invoked Features", err, count)
+		}
+	}
+	for _, budget := range [4]int{-1, 0, maxLogicalBytes + 1, 1} {
+		count := 0
+		p, err := prepareWith(base, aosLayout, budget, func(q, d string) []hintlearn.Feature { count++; return hintlearn.Features(q, d) })
+		if err != errBudget || p != nil || count != 0 {
+			t.Fatal("invalid/minimum budget preflight")
+		}
+	}
+	if p, err := prepareWith(base, layout(9), maxLogicalBytes, nil); p != nil || err != errOwner {
+		t.Fatal("unknown layout")
+	}
+	if p, err := prepareWith(base, aosLayout, maxLogicalBytes, nil); p != nil || err != errFeature {
+		t.Fatal("nil producer")
+	}
+	for _, kind := range [2]layout{aosLayout, soaLayout} {
+		in := ownedInput(5)
+		p := mustPrepare(t, in, kind)
+		l := p.bytes()
+		if l.OwnerFixed != int(unsafe.Sizeof(preparedOwner{})) || l.Total != l.OwnerFixed+l.RetainedText+l.DataCap {
+			t.Fatal("owner counted twice or omitted")
+		}
+		wantText := len(in.Query)
+		for _, c := range in.Candidates {
+			wantText += len(c.Text)
+		}
+		if l.RetainedText != wantText || l.SliceHeadersWithinOwner != 3*int(unsafe.Sizeof([]int(nil))) || l.OffsetsWithinOwner != 9*4 {
+			t.Fatal("text/header/offset accounting")
+		}
+		at, err := prepare(in, kind, l.Total)
+		if err != nil || at.bytes().Total != l.Total {
+			t.Fatal("exact budget rejected")
+		}
+		count := 0
+		rejected, err := prepareWith(in, kind, l.Total-1, func(q, d string) []hintlearn.Feature { count++; return hintlearn.Features(q, d) })
+		if err != errBudget || rejected != nil || count != len(in.Candidates) {
+			t.Fatal("feature-sized post-construction budget scope")
+		}
+		if cap(p.aos) != len(p.aos) || cap(p.indices) != len(p.indices) || cap(p.values) != len(p.values) {
+			t.Fatal("capacity exceeds budgeted length")
+		}
+	}
+}
+
+func TestFeatureBoundsDuplicatesAndUint32Boundary(t *testing.T) {
+	in := ownedInput(1)
+	badRows := [][]hintlearn.Feature{{{Index: -1, Value: 1}}, {{Index: hintweights.Dimension, Value: 1}}, {{Index: 0, Value: math.NaN()}}, {{Index: 0, Value: math.Inf(1)}}, make([]hintlearn.Feature, hintweights.Dimension+1)}
+	for _, kind := range [2]layout{aosLayout, soaLayout} {
+		for _, fs := range badRows {
+			p, err := prepareWith(in, kind, maxLogicalBytes, func(string, string) []hintlearn.Feature { return fs })
+			if p != nil || err != errFeature {
+				t.Fatal("invalid feature accepted")
+			}
+		}
+		fs := []hintlearn.Feature{{Index: 8191, Value: 1e100}, {Index: 0, Value: .5}, {Index: 8191, Value: -1e100}, {Index: 8191, Value: .25}, {Index: 0, Value: math.Copysign(0, -1)}}
+		p, err := prepareWith(in, kind, maxLogicalBytes, func(string, string) []hintlearn.Feature { return fs })
+		if err != nil {
+			t.Fatal(err)
+		}
+		assertFeatures(t, rowCopy(p, 0), fs)
+		v, w := numericModel(t, "fp32", false)
+		got, err := p.score(in, v)
+		if err != nil || math.Float64bits(got.Scores[0]) != math.Float64bits(hintlearn.Score(w, fs)) {
+			t.Fatal("duplicate accumulation reordered")
+		}
+		// Overflow is detected before result mutation, even with finite features.
+		huge := []hintlearn.Feature{{Index: 0, Value: 1e308}}
+		x, err := prepareWith(in, kind, maxLogicalBytes, func(string, string) []hintlearn.Feature { return huge })
+		if err != nil {
+			t.Fatal(err)
+		}
+		weights := make([]float64, hintweights.Dimension)
+		weights[0] = 2
+		view, _ := storedModel(t, weights, "fp32")
+		dst := dirtyBuffers(8)
+		before := cloneBuffers(dst)
+		out, err := x.scoreInto(in, view, dst)
+		if err != errScore || !zeroBuffers(out) || !equalBuffers(dst, before) {
+			t.Fatal("nonfinite result overwrote old buffer")
+		}
+	}
+	// Owned structural counterexample, not output claimed from normal Features.
+	wide := make([]hintlearn.Feature, hintweights.Dimension)
+	for i := range wide {
+		wide[i] = hintlearn.Feature{Index: i, Value: 0}
+	}
+	full := ownedInput(8)
+	p, err := prepareWith(full, soaLayout, maxLogicalBytes, func(string, string) []hintlearn.Feature { return wide })
+	if err != nil || p.offsets[8] != 65536 || len(p.indices) != 65536 || len(p.values) != 65536 {
+		t.Fatal("uint32 full-boundary offsets", err)
+	}
+	zero, _ := numericModel(t, "fp32", true)
+	r, err := p.score(full, zero)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := range r.Order {
+		if r.Order[i] != i || r.Scores[i] != 0 {
+			t.Fatal("boundary rows lost")
+		}
+	}
+}
+
+// SETUP ONLY, not API alias protection. Compare capacity address ranges without
+// dereference/casts; KeepAlive retains slices. Never race the rejected aliases.
+func overlaps[T any](a, b []T) bool {
+	if cap(a) == 0 || cap(b) == 0 {
+		return false
+	}
+	x, y := uintptr(unsafe.Pointer(&a[:cap(a)][0])), uintptr(unsafe.Pointer(&b[:cap(b)][0]))
+	width := unsafe.Sizeof(*new(T))
+	match := x < y+uintptr(cap(b))*width && y < x+uintptr(cap(a))*width
+	runtime.KeepAlive(a)
+	runtime.KeepAlive(b)
+	return match
+}
+
+func independent(a, b buffers) bool {
+	return !overlaps(a.IDs, b.IDs) && !overlaps(a.Scores, b.Scores) && !overlaps(a.Order, b.Order)
+}
+
+func TestConcurrentSeparateBuffersAndAliasNegativeSetup(t *testing.T) {
+	first, second := dirtyBuffers(8), dirtyBuffers(8)
+	if !independent(first, second) {
+		t.Fatal("separate buffers reported alias")
+	}
+	aliases := [3]buffers{second, second, second}
+	aliases[0].IDs = first.IDs[1:4]
+	aliases[1].Scores = first.Scores[2:5]
+	aliases[2].Order = first.Order[3:6]
+	for _, bad := range aliases {
+		if independent(first, bad) {
+			t.Fatal("partial overlap missed before concurrency")
+		}
+	}
+	// Deliberately DO NOT run concurrent calls using any aliased buffers.
+	for _, kind := range [2]layout{aosLayout, soaLayout} {
+		in := ownedInput(8)
+		p := mustPrepare(t, in, kind)
+		v, w := numericModel(t, "fp32", false)
+		want := referenceResult(in, w)
+		var work [8]buffers
+		for i := range work {
+			work[i] = dirtyBuffers(8)
+			for j := 0; j < i; j++ {
+				if !independent(work[i], work[j]) {
+					t.Fatal("worker alias")
+				}
+			}
+		}
+		failures := make(chan string, len(work))
+		var wg sync.WaitGroup
+		for i := range work {
+			wg.Add(1)
+			go func(i int) {
+				defer wg.Done()
+				dst := work[i]
+				for j := 0; j < 16; j++ {
+					got, err := p.scoreInto(in, v, dst)
+					if err != nil || !equalBuffers(got, want) {
+						failures <- "concurrent bits/identity"
+						return
+					}
+					dst = got
+				}
+			}(i)
+		}
+		wg.Wait()
+		close(failures)
+		for failure := range failures {
+			t.Fatal(failure)
+		}
+		for i, c := range in.Candidates {
+			assertFeatures(t, rowCopy(p, i), hintlearn.Features(in.Query, c.Text))
+		}
+	}
+}
