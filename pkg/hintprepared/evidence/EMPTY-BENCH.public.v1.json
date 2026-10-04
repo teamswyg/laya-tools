@@ -1,0 +1,50 @@
+{
+  "schema": "riido-prepared-api-stage-outside-execution-v1",
+  "phase": "bench",
+  "freeze_sha256": "1294747e7399eda11d586c38c1f85d5733bf1398842312c54292bcac7618df4e",
+  "module": "github.com/teamswyg/laya-tools/pkg/hintprepared",
+  "isolated_local_parent_replace": true,
+  "public_API_materialized": false,
+  "executor_identity": "inline-unpinned",
+  "timeout_ms": 60000,
+  "stdout_cap": 16384,
+  "stderr_cap": 8192,
+  "steps": [
+    {
+      "args": [
+        "test",
+        "-run",
+        "^$",
+        "-bench",
+        "BenchmarkPreparedSDKCosts",
+        "-benchtime=100ms",
+        "-count=3",
+        "-timeout=30s",
+        "-benchmem",
+        "./..."
+      ],
+      "exit_code": 0,
+      "signal": null
+    }
+  ],
+  "abort_reason": null,
+  "launch_error": null,
+  "elapsed_ms_compile_and_checks_inclusive": 733,
+  "stdout_observed_bytes": 65,
+  "stderr_observed_bytes": 0,
+  "stdout_retained_bytes": 65,
+  "stderr_retained_bytes": 0,
+  "stdout_sha256": "ba01e5120d23278531b2fa8ff8fcda8e0e4c02f6788e172d69224de372bd60ea",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "environment": {
+    "CGO_ENABLED": "0",
+    "GOMAXPROCS": "1"
+  },
+  "semantic_readback_pending": true,
+  "API_attempt_counts": "unknown, not instrumented",
+  "learned_assets": 0,
+  "Fit": 0,
+  "protected": 0,
+  "activation": false,
+  "retained_binary": false
+}

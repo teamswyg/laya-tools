@@ -1,0 +1,52 @@
+{
+  "schema": "riido-prepared-api-stage-readback-v1",
+  "tests_passed": [
+    "TestPrepareRequiresPublicValidation",
+    "TestReferenceBitsFeatureOrderAndTightStorage",
+    "TestExactMismatchAndMetadataOnlyChanges",
+    "TestTieCurrentPositionsAndViewRecomputation",
+    "TestFixedZeroErrors",
+    "TestConcurrentReadonlyOwnerAndValueOutputs"
+  ],
+  "named_subcases_passed": [
+    "TestPrepareRequiresPublicValidation/zero_count",
+    "TestPrepareRequiresPublicValidation/nine_count",
+    "TestPrepareRequiresPublicValidation/request_normalization",
+    "TestPrepareRequiresPublicValidation/text_normalization",
+    "TestPrepareRequiresPublicValidation/inactive_id",
+    "TestPrepareRequiresPublicValidation/inactive_text",
+    "TestPrepareRequiresPublicValidation/inactive_normalization",
+    "TestPrepareRequiresPublicValidation/empty_request",
+    "TestPrepareRequiresPublicValidation/empty_text",
+    "TestPrepareRequiresPublicValidation/schema",
+    "TestPrepareRequiresPublicValidation/id_ascii",
+    "TestPrepareRequiresPublicValidation/empty_id",
+    "TestPrepareRequiresPublicValidation/id_65",
+    "TestPrepareRequiresPublicValidation/provenance",
+    "TestPrepareRequiresPublicValidation/raw_513",
+    "TestPrepareRequiresPublicValidation/text_513",
+    "TestPrepareRequiresPublicValidation/request_words_33",
+    "TestPrepareRequiresPublicValidation/text_words_33"
+  ],
+  "test_stdout_bytes": 3015,
+  "test_stdout_sha256": "fa3b853b5426ba3e94c6a2501090256baa21d50ac073b1f6911282b09a5072e6",
+  "race_count1": true,
+  "vet_passed": true,
+  "isolated_stage_only": true,
+  "public_API_materialized": false,
+  "first_benchmark": {
+    "Go_exit_code": 0,
+    "selector": "BenchmarkPreparedSDKCosts",
+    "matched_numeric_rows": 0,
+    "expected_numeric_rows": 45,
+    "semantic_success": false,
+    "reason": "Root assumed a nonexistent umbrella benchmark name; exact source declares five BenchmarkPreparedAPI prefixes.",
+    "stdout_bytes": 65,
+    "stdout_sha256": "ba01e5120d23278531b2fa8ff8fcda8e0e4c02f6788e172d69224de372bd60ea",
+    "corrective_action": "freeze selector-only v2 before actual timing; preserve all original receipts and stdout; do not change source/weights/data/criteria"
+  },
+  "learned_assets": 0,
+  "Fit": 0,
+  "protected": 0,
+  "activation": false
+}
