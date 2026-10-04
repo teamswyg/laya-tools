@@ -1,0 +1,329 @@
+// SPDX-License-Identifier: Apache-2.0
+// Inactive, fixed-input post-hoc measurement; no training or qualification.
+package main
+
+import (
+	"bytes"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"github.com/teamswyg/laya-tools/internal/hintlearn"
+	"github.com/teamswyg/laya-tools/pkg/hintweights"
+	"github.com/teamswyg/laya-tools/pkg/shortclaim"
+	"io"
+	"math"
+	"os"
+	"runtime"
+	"sort"
+	"time"
+)
+
+const modelSHA = "dff05140098845943ece87c3ab8a31a15564a4b170a59ab017ee393501158004"
+const inputSHA = "255faa3a65b51aa8f464d794f8cff05b31a25152f73e51b7e4133c3bb3698126"
+
+var calls [6][2]uint64 // attempted, normally returned successfully; no panic ledger
+var sinkW []float64
+var sinkV *hintweights.View
+var sinkOrder []int
+var sinkScores []float64
+var sinkSum float64
+
+func bad(s string) error { return errors.New(s) }
+func read(p string, n int) ([]byte, error) {
+	f, e := os.Open(p)
+	if e != nil {
+		return nil, bad("read")
+	}
+	b, e := io.ReadAll(io.LimitReader(f, int64(n+1)))
+	c := f.Close()
+	if e != nil || c != nil || len(b) > n {
+		return nil, bad("read bound")
+	}
+	return b, nil
+}
+func decode(b []byte) ([]float64, error) {
+	calls[0][0]++
+	w, e := hintlearn.Decode(b)
+	if e == nil {
+		calls[0][1]++
+	}
+	return w, e
+}
+func packed(b []byte) (*hintweights.View, error) {
+	calls[1][0]++
+	v, e := hintweights.New(b)
+	if e == nil {
+		calls[1][1]++
+	}
+	return v, e
+}
+
+type engine struct {
+	raw     []byte
+	w       []float64
+	v       *hintweights.View
+	p       shortclaim.Prepared
+	docs    []string
+	fs      [5][]hintlearn.Feature
+	scratch []hintweights.Feature
+}
+
+func (a *engine) score(m int, fs []hintlearn.Feature) (float64, error) {
+	if m == 0 {
+		calls[3][0]++
+		s := hintlearn.Score(a.w, fs)
+		calls[3][1]++
+		return s, nil
+	}
+	if m == 1 {
+		s := 0.
+		for _, f := range fs {
+			calls[4][0]++
+			w, e := a.v.Coefficient(f.Index)
+			if e != nil {
+				return 0, bad("coefficient")
+			}
+			calls[4][1]++
+			s += w * f.Value
+		}
+		return s, nil
+	}
+	if len(fs) > len(a.scratch) {
+		return 0, bad("scratch bound")
+	}
+	for i, f := range fs {
+		a.scratch[i] = hintweights.Feature{Index: f.Index, Value: f.Value}
+	}
+	calls[5][0]++
+	s, e := a.v.Score(a.scratch[:len(fs)])
+	if e == nil {
+		calls[5][1]++
+	}
+	return s, e
+}
+func ordered(s []float64) []int {
+	o := make([]int, 5)
+	for i := range o {
+		o[i] = i
+	}
+	sort.Slice(o, func(i, j int) bool {
+		x, y := o[i], o[j]
+		if s[x] == s[y] {
+			return x < y
+		}
+		return s[x] > s[y]
+	})
+	return o
+}
+func (a *engine) rank(m int) ([]int, []float64, error) {
+	if m == 0 {
+		calls[2][0]++
+		o, s, e := hintlearn.Rank(a.w, a.p.Request, a.docs)
+		if e == nil {
+			calls[2][1]++
+		}
+		return o, s, e
+	}
+	s := make([]float64, 5)
+	for i, d := range a.docs {
+		var e error
+		s[i], e = a.score(m, hintlearn.Features(a.p.Request, d))
+		if e != nil {
+			return nil, nil, e
+		}
+	}
+	return ordered(s), s, nil
+}
+func (a *engine) one(scope, m int) error {
+	var e error
+	switch scope {
+	case 0:
+		if m == 0 {
+			sinkW, e = decode(a.raw)
+		} else {
+			sinkV, e = packed(a.raw)
+		}
+	case 1:
+		for _, fs := range a.fs {
+			sinkSum, e = a.score(m, fs)
+			if e != nil {
+				return bad("score")
+			}
+		}
+	case 2:
+		sinkOrder, sinkScores, e = a.rank(m)
+	}
+	if e != nil {
+		return bad("measurement")
+	}
+	return nil
+}
+
+type sample struct {
+	Round, Scope, Method, N int
+	DurationNS              int64
+	TotalAlloc, Mallocs     uint64
+}
+
+func measure(a *engine, r, scope, m, n int) (sample, error) {
+	runtime.GC()
+	var before, after runtime.MemStats
+	runtime.ReadMemStats(&before)
+	t := time.Now()
+	for i := 0; i < n; i++ {
+		if e := a.one(scope, m); e != nil {
+			return sample{}, e
+		}
+	}
+	elapsed := time.Since(t).Nanoseconds()
+	runtime.ReadMemStats(&after)
+	return sample{r, scope, m, n, elapsed, after.TotalAlloc - before.TotalAlloc, after.Mallocs - before.Mallocs}, nil
+}
+func run() error {
+	if len(os.Args) != 3 {
+		return bad("usage: preview input asset")
+	}
+	runtime.GOMAXPROCS(1)
+	raw, e := read(os.Args[1], 8192)
+	if e != nil {
+		return e
+	}
+	if hintlearn.Hash(raw) != inputSHA {
+		return bad("input pin")
+	}
+	v, e := shortclaim.LoadValidated(bytes.NewReader(raw))
+	if e != nil {
+		return bad("input validation")
+	}
+	p := v.Prepared()
+	if p.Count != 5 {
+		return bad("width")
+	}
+	var asset struct {
+		Path   string
+		Bytes  int
+		SHA256 string
+	}
+	b, e := read(os.Args[2], 2048)
+	if e != nil {
+		return e
+	}
+	d := json.NewDecoder(bytes.NewReader(b))
+	d.DisallowUnknownFields()
+	if d.Decode(&asset) != nil || d.Decode(new(any)) != io.EOF || asset.Bytes != 32792 || asset.SHA256 != modelSHA {
+		return bad("asset reference")
+	}
+	b, e = read(asset.Path, 32792)
+	if e != nil {
+		return e
+	}
+	if len(b) != 32792 || hintlearn.Hash(b) != modelSHA {
+		return bad("model pin")
+	}
+	a := engine{raw: b, p: p, docs: make([]string, 5)}
+	a.w, e = decode(b)
+	if e != nil {
+		return bad("decode")
+	}
+	a.v, e = packed(b)
+	if e != nil {
+		return bad("packed")
+	}
+	ids := [5]string{"direct", "reconstruct", "legacy", "roundtrip", "digest"}
+	max := 0
+	var lengths [5]int
+	for i := 0; i < 5; i++ {
+		if p.Candidates[i].ID != ids[i] {
+			return bad("identity")
+		}
+		a.docs[i] = p.Candidates[i].Text
+		a.fs[i] = hintlearn.Features(p.Request, a.docs[i])
+		lengths[i] = len(a.fs[i])
+		if lengths[i] > max {
+			max = lengths[i]
+		}
+	}
+	a.scratch = make([]hintweights.Feature, max)
+	var orders [3][]int
+	var bits [3][5]string
+	var reference []float64
+	for m := 0; m < 3; m++ {
+		o, s, e := a.rank(m)
+		if e != nil || len(o) != 5 || len(s) != 5 {
+			return bad("gate rank")
+		}
+		orders[m] = o
+		if m == 0 {
+			reference = s
+		}
+		for i, x := range s {
+			if math.IsNaN(x) || math.IsInf(x, 0) {
+				return bad("gate finite")
+			}
+			bits[m][i] = fmt.Sprintf("%016x", math.Float64bits(x))
+			if math.Float64bits(x) != math.Float64bits(reference[i]) || o[i] != orders[0][i] {
+				return bad("gate parity")
+			}
+		}
+	}
+	rows := make([]sample, 0, 32)
+	ns := [3]int{64, 1024, 128}
+	for r := 0; r < 4; r++ {
+		for scope := 0; scope < 3; scope++ {
+			count := 3
+			if scope == 0 {
+				count = 2
+			}
+			for k := 0; k < count; k++ {
+				m := k
+				if r%2 == 1 {
+					m = count - 1 - k
+				}
+				s, e := measure(&a, r, scope, m, ns[scope])
+				if e != nil {
+					return e
+				}
+				rows = append(rows, s)
+			}
+		}
+	}
+	out := struct {
+		Schema, InputSHA, ModelSHA, ModelRef, Scope string
+		Inactive, Qualified, Default, GPU           bool
+		Fit                                         int
+		IDs                                         [5]string
+		Order                                       [3][]int
+		ScoreBits                                   [3][5]string
+		FeatureCounts                               [5]int
+		PayloadBytes                                [3]int
+		Calls                                       [6][2]uint64
+		RankInternalSourceDerived                   [2]uint64
+		Samples                                     []sample
+	}{Schema: "riido-xxhash-packed-real-preview-v1", InputSHA: inputSHA, ModelSHA: modelSHA, ModelRef: "JooYoon/riidolaya-shortclaim-data-effect-failed-79@5bef215895b69d3f2ef4b82bb3f1970279d67f46", Inactive: true, Scope: "methods Decode/reference,Coefficient,Score-copy; load uses Decode/New; prepared includes copy; full Rank reference validates, packed fixed input only; payload decoded,owned,scratch(len*16), excludes raw/headers/heap/RSS; calls Decode,New,Rank,referenceScore,Coefficient,ViewScore attempted/success; Rank nested Features/Score source-derived; no panic ledger; instrumentation included; no quality/speed/whole-work claim", IDs: ids, Order: orders, ScoreBits: bits, FeatureCounts: lengths, PayloadBytes: [3]int{len(a.w) * 8, a.v.OwnedPayloadBytes(), len(a.scratch) * 16}, Calls: calls, RankInternalSourceDerived: [2]uint64{calls[2][1] * 5, calls[2][1] * 5}, Samples: rows}
+	b, e = json.Marshal(out)
+	if e != nil || len(b)+1 > 8192 {
+		return bad("output bound")
+	}
+	b = append(b, '\n')
+	n, e := os.Stdout.Write(b)
+	if e != nil || n != len(b) {
+		return bad("output write")
+	}
+	return nil
+}
+func main() {
+	returned := false
+	defer func() {
+		if !returned {
+			recover()
+			fmt.Fprintln(os.Stderr, "preview panic")
+			os.Exit(1)
+		}
+	}()
+	e := run()
+	returned = true
+	if e != nil {
+		fmt.Fprintln(os.Stderr, e)
+		os.Exit(1)
+	}
+}

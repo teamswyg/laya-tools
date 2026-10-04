@@ -1,0 +1,23 @@
+{
+  "schema": "riido-packed-real-private-profiles-freeze-v1",
+  "state": "FROZEN_BEFORE_PROFILE_REPLAY",
+  "source": {
+    "path": "source/profile.main.go.txt",
+    "bytes": 9173,
+    "sha256": "668b62ccacd79d71d8b4695d4935acd4292c331d013522ac77456426307dcd0a"
+  },
+  "unprofiled_source_sha256": "864e975be4a2a0428e02208c4b0b330304e6dc03c4a802a291a935b0d5358ebb",
+  "input_model_and9library_pins": "same as unprofiled freezes v1/v2; rechecked by outside launcher",
+  "bench_schedule": "same32 instrumented windows, profiling overhead included; do not substitute this run for unprofiled metrics",
+  "bounded_profile_outputs_each": 65536,
+  "profile_scope": "CPU sampled Go process stacks and sampled alloc_space; MemProfileRate512KiB; not exact per-function allocation tally, processRSS/native/GPU or production performance",
+  "stdout_cap": 8192,
+  "stderr_cap": 8192,
+  "timeout_ms": 45000,
+  "soft_Go_heap": "256MiB",
+  "profiles_private_only": true,
+  "one_parent_repetition": true,
+  "Fit": 0,
+  "activation": false,
+  "preparation_failures": "first CLI workdir did not yet exist; next source preparation assumed unnecessary go.sum, already-created source/module retained and vetpassed; no model calls in either preparation"
+}
