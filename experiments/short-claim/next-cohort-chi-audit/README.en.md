@@ -1,6 +1,6 @@
 # Chi routing order and a small claim model
 
-[한국어](README.ko.md) · [Optional Go API](../../../../pkg/hintprepared/README.en.md) · [CI](https://github.com/teamswyg/laya-tools/actions/workflows/ci.yml)
+[한국어](README.ko.md) · [Optional Go API](../../../pkg/hintprepared/README.en.md) · [CI](https://github.com/teamswyg/laya-tools/actions/workflows/ci.yml)
 
 This experiment tests how similar code descriptions can hide a consequential difference in operation order. A small model proposes the order of candidate checks; the actual contract checks make the final judgment. Scores are not probabilities.
 
@@ -30,7 +30,7 @@ Local CPU execution used Go1.27.1 and pinned Chi sources. Each trial created a f
 
 All 45 trials returned normally. All 533 explicitly wrapped API calls returned, with no errors or panics. The ledger excludes hidden calls and field writes. Complete observation JSON is 80,431 B, stored as 2,575 B gzip; CRC, full EOF decode, full JSON and recomputed counts were checked. See [raw observations](route/OBSERVATIONS.actual.public.v1.json.gz) and [literal-Want comparison](route/COMPARISON.actual.public.v1.json).
 
-A separate run read the existing inactive FP32 claim model once and compared the reference calculation with the [Prepared API](../../../../pkg/hintprepared/README.en.md). All five score bits and order indices matched exactly, and actual product input validation passed. These are existing hashed-feature claim weights. No Laya encoder, MPS/GPU execution or training occurred here.
+A separate run read the existing inactive FP32 claim model once and compared the reference calculation with the [Prepared API](../../../pkg/hintprepared/README.en.md). All five score bits and order indices matched exactly, and actual product input validation passed. These are existing hashed-feature claim weights. No Laya encoder, MPS/GPU execution or training occurred here.
 
 | Ordering method | First candidate | Rank of the 9/9 candidate |
 |---|---|---:|

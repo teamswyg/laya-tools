@@ -1,6 +1,6 @@
 # Chi 라우팅 순서와 작은 주장 모델 검증
 
-[English](README.en.md) · [선택형 Go API](../../../../pkg/hintprepared/README.ko.md) · [CI](https://github.com/teamswyg/laya-tools/actions/workflows/ci.yml)
+[English](README.en.md) · [선택형 Go API](../../../pkg/hintprepared/README.ko.md) · [CI](https://github.com/teamswyg/laya-tools/actions/workflows/ci.yml)
 
 이 실험은 설명이 비슷한 코드도 처리 순서 때문에 다른 결과를 낼 수 있다는 점을 검증합니다. 작은 모델은 후보의 검사 순서를 제안하고, 실제 계약 검사가 최종 판단을 담당하는 구성을 목표로 합니다. 점수는 확률이 아닙니다.
 
@@ -32,7 +32,7 @@ Go1.27.1에서 고정된 Chi 소스와 원본 구현 5종을 로컬 CPU로 실�
 
 45회 실행이 모두 정상 반환했습니다. 명시적으로 감싼 API 호출 533회가 모두 반환했고 오류·패닉은 없었습니다. 이 호출 수는 숨은 라이브러리 호출이나 필드 쓰기를 포함하지 않습니다. 전체 관측 JSON 80,431B를 2,575B gzip으로 보존했고 CRC·끝까지 디코딩·전체 JSON·호출 수를 검증했습니다. [원본 관측](route/OBSERVATIONS.actual.public.v1.json.gz)과 [기대값 비교](route/COMPARISON.actual.public.v1.json)를 제공합니다.
 
-별도로 기존 비활성 FP32 주장 모델을 한 번 읽어, 기존 계산과 새 [Prepared API](../../../../pkg/hintprepared/README.ko.md)를 비교했습니다. 모든 후보의 점수 비트와 순서가 정확히 같았습니다. 제품 입력 검증도 실제 실행에서 통과했습니다. 모델은 Laya 인코더가 아니라 기존 해시 특징 기반 소형 주장 가중치입니다. 이 단계에서 Laya/MPS/GPU 실행이나 학습은 하지 않았습니다.
+별도로 기존 비활성 FP32 주장 모델을 한 번 읽어, 기존 계산과 새 [Prepared API](../../../pkg/hintprepared/README.ko.md)를 비교했습니다. 모든 후보의 점수 비트와 순서가 정확히 같았습니다. 제품 입력 검증도 실제 실행에서 통과했습니다. 모델은 Laya 인코더가 아니라 기존 해시 특징 기반 소형 주장 가중치입니다. 이 단계에서 Laya/MPS/GPU 실행이나 학습은 하지 않았습니다.
 
 | 순서 제안 방식 | 첫 후보 | 9/9 후보의 순위 |
 |---|---|---:|
