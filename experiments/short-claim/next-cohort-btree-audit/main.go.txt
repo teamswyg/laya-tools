@@ -1,0 +1,314 @@
+// SPDX-License-Identifier: Apache-2.0
+// Original development observer. Source APIs are called only by the explicit
+// actual command, after the external source/input/budget freeze and controls.
+package main
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"os"
+	"slices"
+	"time"
+
+	"github.com/google/btree"
+	"github.com/teamswyg/laya-tools/pkg/shortclaim"
+)
+
+const inputSHA = "@INPUT_SHA@"
+const upstreamSHA = "b142f61abc330e951155eb476dbda696849808b26fa97005c1609daedcc1e48f"
+
+type fixture struct {
+	Keys          []int `json:"keys"`
+	Lower         int   `json:"lower"`
+	Upper         int   `json:"upper"`
+	StopAfter     int   `json:"stop_after"`
+	Want          []int `json:"Want"`
+	WantCallbacks int   `json:"Want_callbacks"`
+	WantStopped   bool  `json:"Want_stopped"`
+}
+type request struct {
+	ID       string    `json:"id"`
+	Text     string    `json:"text"`
+	Fixtures []fixture `json:"fixtures"`
+}
+type dataset struct {
+	Schema     string                  `json:"schema"`
+	Candidates [8]shortclaim.Candidate `json:"candidates"`
+	Requests   []request               `json:"requests"`
+}
+type got struct {
+	Values    [8]int `json:"values"`
+	Count     int    `json:"count"`
+	Callbacks int    `json:"callbacks"`
+	Stopped   bool   `json:"last_callback_returned_false"`
+	Returned  bool   `json:"returned"`
+	Panicked  bool   `json:"panicked"`
+}
+type observation struct {
+	Parent    int   `json:"parent"`
+	Fixture   int   `json:"fixture"`
+	Candidate int   `json:"candidate"`
+	Got       got   `json:"Got"`
+	ElapsedNS int64 `json:"elapsed_ns"`
+}
+type row struct {
+	ID                 string                `json:"id"`
+	Truth              [8]string             `json:"finite_states"`
+	Class              string                `json:"finite_class"`
+	Rankings           [4]shortclaim.Ranking `json:"nonlearned_rankings"`
+	RankingNS          int64                 `json:"prepare_and_four_controls_ns"`
+	VerificationNS     [8]int64              `json:"all_fixture_verification_ns"`
+	Checks             [4]int                `json:"counterfactual_checks"`
+	VerificationWorkNS [4]int64              `json:"counterfactual_verification_work_ns"`
+	OracleChecks       int                   `json:"oracle_checks"`
+	OracleNS           int64                 `json:"optimistic_oracle_verification_ns"`
+}
+type report struct {
+	Schema        string        `json:"schema"`
+	InputSHA      string        `json:"input_sha256"`
+	UpstreamSHA   string        `json:"selected_generic_source_sha256"`
+	Parents       int           `json:"development_parents"`
+	Families      int           `json:"connected_families"`
+	Fixtures      int           `json:"fixtures"`
+	OriginalCalls int           `json:"original_candidate_calls"`
+	Returned      int           `json:"candidate_returns"`
+	ModelCalls    int           `json:"model_calls"`
+	Fit           int           `json:"Fit_calls"`
+	TrainingReady bool          `json:"training_ready"`
+	Qualified     bool          `json:"qualification_performed"`
+	Rows          []row         `json:"rows"`
+	Observations  []observation `json:"observations"`
+	Scope         string        `json:"scope"`
+}
+
+type iterate func(fixture, func(int) bool)
+
+// No upstream function, text, ranking, role or expected state enters this
+// callback observer. Panics preserve U; their payload is never serialized.
+func observe(f fixture, run iterate) (out got) {
+	defer func() {
+		if recover() != nil {
+			out.Panicked = true
+			out.Returned = false
+		}
+	}()
+	run(f, func(v int) bool {
+		out.Callbacks++
+		if out.Count < len(out.Values) {
+			out.Values[out.Count] = v
+			out.Count++
+		}
+		keep := f.StopAfter == 0 || out.Callbacks < f.StopAfter
+		out.Stopped = !keep
+		return keep
+	})
+	out.Returned = true
+	return
+}
+
+func state(f fixture, g got) string {
+	if !g.Returned || g.Panicked || g.Count < 0 || g.Count > len(g.Values) {
+		return "U"
+	}
+	if g.Callbacks != f.WantCallbacks || g.Count != len(f.Want) || g.Stopped != f.WantStopped || !slices.Equal(g.Values[:g.Count], f.Want) {
+		return "F"
+	}
+	return "T"
+}
+
+// Source methods and the argument binding are fixed in upstream declaration
+// order. Every trial builds its own tree; no mutable shared tree or cache.
+func native(index int) iterate {
+	return func(f fixture, cb func(int) bool) {
+		t := btree.NewG[int](2, func(a, b int) bool { return a < b })
+		for _, k := range f.Keys {
+			t.ReplaceOrInsert(k)
+		}
+		switch index {
+		case 0:
+			t.AscendRange(f.Lower, f.Upper, cb)
+		case 1:
+			t.AscendLessThan(f.Upper, cb)
+		case 2:
+			t.AscendGreaterOrEqual(f.Lower, cb)
+		case 3:
+			t.Ascend(cb)
+		case 4:
+			t.DescendRange(f.Upper, f.Lower, cb)
+		case 5:
+			t.DescendLessOrEqual(f.Upper, cb)
+		case 6:
+			t.DescendGreaterThan(f.Lower, cb)
+		case 7:
+			t.Descend(cb)
+		default:
+			panic("invalid candidate")
+		}
+	}
+}
+
+func classify(truth [8]string) string {
+	n := 0
+	for _, s := range truth {
+		if s == "U" {
+			return "unknown_containing"
+		}
+		if s == "T" {
+			n++
+		}
+	}
+	switch n {
+	case 0:
+		return "known_none"
+	case 1:
+		return "known_one"
+	case 8:
+		return "known_all"
+	default:
+		return "known_many"
+	}
+}
+
+// Optimistic screen: all controls retain all eight candidates. Unknown parents
+// are excluded, never relabeled F. No-answer exhausts all eight. This is a
+// counterfactual replay of measured Go verifier calls, not LLM savings.
+func costs(r *row) {
+	if r.Class == "unknown_containing" {
+		return
+	}
+	r.OracleNS = 0
+	r.OracleChecks = 8
+	for i, s := range r.Truth {
+		if s == "T" {
+			if r.OracleChecks == 8 || r.VerificationNS[i] < r.OracleNS {
+				r.OracleNS = r.VerificationNS[i]
+			}
+			r.OracleChecks = 1
+		}
+	}
+	if r.OracleChecks == 8 {
+		for _, ns := range r.VerificationNS {
+			r.OracleNS += ns
+		}
+	}
+	for c, ranking := range r.Rankings {
+		for k := 0; k < ranking.Count; k++ {
+			i := ranking.Order[k]
+			r.Checks[c]++
+			r.VerificationWorkNS[c] += r.VerificationNS[i]
+			if r.Truth[i] == "T" {
+				break
+			}
+		}
+	}
+}
+
+func evaluate(d dataset, dispatch func(int) iterate) (report, error) {
+	o := report{Schema: "riido-btree-development-utility-screen-v1", InputSHA: inputSHA, UpstreamSHA: upstreamSHA, Parents: len(d.Requests), Families: 1,
+		Scope: "One prospectively assigned development_train family; literal finite contracts and complete direct API trials. Counterfactual Go verification counts/work, single timing sample with instrumentation and order bias; no trained hint, independent evaluation, measured agent/LLM savings or activation. Prepare plus four controls measured together; not per-method production latency. Qualification and training admission are separate."}
+	for p, q := range d.Requests {
+		r := row{ID: q.ID}
+		for i := range r.Truth {
+			r.Truth[i] = "T"
+		}
+		start := time.Now()
+		in, e := shortclaim.Validate(shortclaim.Input{Schema: shortclaim.Schema, Request: q.Text, Candidates: d.Candidates[:], Provenance: "public-btree-development149"})
+		if e != nil {
+			return o, errors.New("text_contract")
+		}
+		r.Rankings, e = shortclaim.Baselines(in)
+		r.RankingNS = time.Since(start).Nanoseconds()
+		if e != nil {
+			return o, errors.New("baseline")
+		}
+		for fi, f := range q.Fixtures {
+			o.Fixtures++
+			for i := range d.Candidates {
+				o.OriginalCalls++
+				begin := time.Now()
+				g := observe(f, dispatch(i))
+				label := state(f, g)
+				ns := time.Since(begin).Nanoseconds()
+				if g.Returned {
+					o.Returned++
+				}
+				// A known counterexample is F even if another fixture is U;
+				// every U remains in the full observation trace. T requires all T.
+				if label == "F" || (label == "U" && r.Truth[i] != "F") {
+					r.Truth[i] = label
+				}
+				r.VerificationNS[i] += ns
+				o.Observations = append(o.Observations, observation{p, fi, i, g, ns})
+			}
+		}
+		r.Class = classify(r.Truth)
+		costs(&r)
+		o.Rows = append(o.Rows, r)
+	}
+	return o, nil
+}
+
+func load(raw []byte) (dataset, error) {
+	var d dataset
+	h := sha256.Sum256(raw)
+	if len(raw) > 32768 || hex.EncodeToString(h[:]) != inputSHA {
+		return d, errors.New("input_pin")
+	}
+	x := json.NewDecoder(bytes.NewReader(raw))
+	x.DisallowUnknownFields()
+	if x.Decode(&d) != nil || x.Decode(new(any)) != io.EOF || d.Schema != "riido-btree-prospective-inputs-v1" || len(d.Requests) != 12 {
+		return d, errors.New("input_schema")
+	}
+	fixtures := 0
+	for _, q := range d.Requests {
+		if q.ID == "" || len(q.Fixtures) < 1 || len(q.Fixtures) > 3 {
+			return d, errors.New("fixture_shape")
+		}
+		for _, f := range q.Fixtures {
+			fixtures++
+			if f.Keys == nil || f.Want == nil || len(f.Keys) > 7 || len(f.Want) > 7 || f.WantCallbacks != len(f.Want) || f.StopAfter < 0 || f.StopAfter > 2 || !slices.IsSorted(f.Keys) {
+				return d, errors.New("fixture_bounds")
+			}
+		}
+	}
+	if fixtures != 34 {
+		return d, errors.New("fixture_count")
+	}
+	return d, nil
+}
+
+func main() {
+	if len(os.Args) != 3 || os.Args[1] != "actual" {
+		fmt.Fprintln(os.Stderr, "btree audit: actual INPUT required")
+		os.Exit(2)
+	}
+	f, e := os.Open(os.Args[2])
+	if e != nil {
+		fmt.Fprintln(os.Stderr, "input unavailable")
+		os.Exit(1)
+	}
+	b, e := io.ReadAll(io.LimitReader(f, 32769))
+	closeErr := f.Close()
+	if e != nil || closeErr != nil {
+		fmt.Fprintln(os.Stderr, "input read failed")
+		os.Exit(1)
+	}
+	d, e := load(b)
+	if e != nil {
+		fmt.Fprintln(os.Stderr, "frozen input rejected")
+		os.Exit(1)
+	}
+	o, e := evaluate(d, native)
+	if e != nil {
+		fmt.Fprintln(os.Stderr, "development audit failed")
+		os.Exit(1)
+	}
+	if e = json.NewEncoder(os.Stdout).Encode(o); e != nil {
+		os.Exit(1)
+	}
+}

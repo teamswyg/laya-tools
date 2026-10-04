@@ -1,0 +1,807 @@
+{
+  "schema": "riido-btree-prospective-inputs-v1",
+  "candidates": [
+    {
+      "id": "AscendRange",
+      "text": "AscendRange calls the iterator for every value in the tree within the range [greaterOrEqual, lessThan), until iterator returns false."
+    },
+    {
+      "id": "AscendLessThan",
+      "text": "AscendLessThan calls the iterator for every value in the tree within the range [first, pivot), until iterator returns false."
+    },
+    {
+      "id": "AscendGreaterOrEqual",
+      "text": "AscendGreaterOrEqual calls the iterator for every value in the tree within the range [pivot, last], until iterator returns false."
+    },
+    {
+      "id": "Ascend",
+      "text": "Ascend calls the iterator for every value in the tree within the range [first, last], until iterator returns false."
+    },
+    {
+      "id": "DescendRange",
+      "text": "DescendRange calls the iterator for every value in the tree within the range [lessOrEqual, greaterThan), until iterator returns false."
+    },
+    {
+      "id": "DescendLessOrEqual",
+      "text": "DescendLessOrEqual calls the iterator for every value in the tree within the range [pivot, first], until iterator returns false."
+    },
+    {
+      "id": "DescendGreaterThan",
+      "text": "DescendGreaterThan calls the iterator for every value in the tree within the range [last, pivot), until iterator returns false."
+    },
+    {
+      "id": "Descend",
+      "text": "Descend calls the iterator for every value in the tree within the range [last, first], until iterator returns false."
+    }
+  ],
+  "requests": [
+    {
+      "id": "btree149-asc-half-open",
+      "text": "Return keys in increasing order, keeping x >= lower and x < upper.",
+      "fixtures": [
+        {
+          "keys": [
+            -3,
+            -1,
+            0,
+            2,
+            4,
+            7,
+            9
+          ],
+          "lower": 0,
+          "upper": 7,
+          "stop_after": 0,
+          "Want": [
+            0,
+            2,
+            4
+          ],
+          "Want_callbacks": 3,
+          "Want_stopped": false
+        },
+        {
+          "keys": [
+            -4,
+            0,
+            1,
+            3,
+            6,
+            8
+          ],
+          "lower": 1,
+          "upper": 6,
+          "stop_after": 0,
+          "Want": [
+            1,
+            3
+          ],
+          "Want_callbacks": 2,
+          "Want_stopped": false
+        },
+        {
+          "keys": [
+            0,
+            2,
+            5,
+            6,
+            10
+          ],
+          "lower": 2,
+          "upper": 10,
+          "stop_after": 0,
+          "Want": [
+            2,
+            5,
+            6
+          ],
+          "Want_callbacks": 3,
+          "Want_stopped": false
+        }
+      ]
+    },
+    {
+      "id": "btree149-desc-half-open",
+      "text": "Return keys in decreasing order, keeping x <= upper and x > lower.",
+      "fixtures": [
+        {
+          "keys": [
+            -3,
+            -1,
+            0,
+            2,
+            4,
+            7,
+            9
+          ],
+          "lower": 0,
+          "upper": 7,
+          "stop_after": 0,
+          "Want": [
+            7,
+            4,
+            2
+          ],
+          "Want_callbacks": 3,
+          "Want_stopped": false
+        },
+        {
+          "keys": [
+            -4,
+            0,
+            1,
+            3,
+            6,
+            8
+          ],
+          "lower": 1,
+          "upper": 6,
+          "stop_after": 0,
+          "Want": [
+            6,
+            3
+          ],
+          "Want_callbacks": 2,
+          "Want_stopped": false
+        },
+        {
+          "keys": [
+            0,
+            2,
+            5,
+            6,
+            10
+          ],
+          "lower": 2,
+          "upper": 10,
+          "stop_after": 0,
+          "Want": [
+            10,
+            6,
+            5
+          ],
+          "Want_callbacks": 3,
+          "Want_stopped": false
+        }
+      ]
+    },
+    {
+      "id": "btree149-asc-less",
+      "text": "Return keys in increasing order, keeping x < upper.",
+      "fixtures": [
+        {
+          "keys": [
+            -3,
+            -1,
+            0,
+            2,
+            4,
+            7,
+            9
+          ],
+          "lower": 0,
+          "upper": 7,
+          "stop_after": 0,
+          "Want": [
+            -3,
+            -1,
+            0,
+            2,
+            4
+          ],
+          "Want_callbacks": 5,
+          "Want_stopped": false
+        },
+        {
+          "keys": [
+            -4,
+            0,
+            1,
+            3,
+            6,
+            8
+          ],
+          "lower": 1,
+          "upper": 6,
+          "stop_after": 0,
+          "Want": [
+            -4,
+            0,
+            1,
+            3
+          ],
+          "Want_callbacks": 4,
+          "Want_stopped": false
+        },
+        {
+          "keys": [
+            0,
+            2,
+            5,
+            6,
+            10
+          ],
+          "lower": 2,
+          "upper": 10,
+          "stop_after": 0,
+          "Want": [
+            0,
+            2,
+            5,
+            6
+          ],
+          "Want_callbacks": 4,
+          "Want_stopped": false
+        }
+      ]
+    },
+    {
+      "id": "btree149-asc-ge",
+      "text": "Return keys in increasing order, keeping x >= lower.",
+      "fixtures": [
+        {
+          "keys": [
+            -3,
+            -1,
+            0,
+            2,
+            4,
+            7,
+            9
+          ],
+          "lower": 0,
+          "upper": 7,
+          "stop_after": 0,
+          "Want": [
+            0,
+            2,
+            4,
+            7,
+            9
+          ],
+          "Want_callbacks": 5,
+          "Want_stopped": false
+        },
+        {
+          "keys": [
+            -4,
+            0,
+            1,
+            3,
+            6,
+            8
+          ],
+          "lower": 1,
+          "upper": 6,
+          "stop_after": 0,
+          "Want": [
+            1,
+            3,
+            6,
+            8
+          ],
+          "Want_callbacks": 4,
+          "Want_stopped": false
+        },
+        {
+          "keys": [
+            0,
+            2,
+            5,
+            6,
+            10
+          ],
+          "lower": 2,
+          "upper": 10,
+          "stop_after": 0,
+          "Want": [
+            2,
+            5,
+            6,
+            10
+          ],
+          "Want_callbacks": 4,
+          "Want_stopped": false
+        }
+      ]
+    },
+    {
+      "id": "btree149-asc-all",
+      "text": "Return all keys in increasing order.",
+      "fixtures": [
+        {
+          "keys": [
+            -3,
+            -1,
+            0,
+            2,
+            4,
+            7,
+            9
+          ],
+          "lower": 0,
+          "upper": 7,
+          "stop_after": 0,
+          "Want": [
+            -3,
+            -1,
+            0,
+            2,
+            4,
+            7,
+            9
+          ],
+          "Want_callbacks": 7,
+          "Want_stopped": false
+        },
+        {
+          "keys": [
+            -4,
+            0,
+            1,
+            3,
+            6,
+            8
+          ],
+          "lower": 1,
+          "upper": 6,
+          "stop_after": 0,
+          "Want": [
+            -4,
+            0,
+            1,
+            3,
+            6,
+            8
+          ],
+          "Want_callbacks": 6,
+          "Want_stopped": false
+        },
+        {
+          "keys": [
+            0,
+            2,
+            5,
+            6,
+            10
+          ],
+          "lower": 2,
+          "upper": 10,
+          "stop_after": 0,
+          "Want": [
+            0,
+            2,
+            5,
+            6,
+            10
+          ],
+          "Want_callbacks": 5,
+          "Want_stopped": false
+        }
+      ]
+    },
+    {
+      "id": "btree149-desc-le",
+      "text": "Return keys in decreasing order, keeping x <= upper.",
+      "fixtures": [
+        {
+          "keys": [
+            -3,
+            -1,
+            0,
+            2,
+            4,
+            7,
+            9
+          ],
+          "lower": 0,
+          "upper": 7,
+          "stop_after": 0,
+          "Want": [
+            7,
+            4,
+            2,
+            0,
+            -1,
+            -3
+          ],
+          "Want_callbacks": 6,
+          "Want_stopped": false
+        },
+        {
+          "keys": [
+            -4,
+            0,
+            1,
+            3,
+            6,
+            8
+          ],
+          "lower": 1,
+          "upper": 6,
+          "stop_after": 0,
+          "Want": [
+            6,
+            3,
+            1,
+            0,
+            -4
+          ],
+          "Want_callbacks": 5,
+          "Want_stopped": false
+        },
+        {
+          "keys": [
+            0,
+            2,
+            5,
+            6,
+            10
+          ],
+          "lower": 2,
+          "upper": 10,
+          "stop_after": 0,
+          "Want": [
+            10,
+            6,
+            5,
+            2,
+            0
+          ],
+          "Want_callbacks": 5,
+          "Want_stopped": false
+        }
+      ]
+    },
+    {
+      "id": "btree149-desc-greater",
+      "text": "Return keys in decreasing order, keeping x > lower.",
+      "fixtures": [
+        {
+          "keys": [
+            -3,
+            -1,
+            0,
+            2,
+            4,
+            7,
+            9
+          ],
+          "lower": 0,
+          "upper": 7,
+          "stop_after": 0,
+          "Want": [
+            9,
+            7,
+            4,
+            2
+          ],
+          "Want_callbacks": 4,
+          "Want_stopped": false
+        },
+        {
+          "keys": [
+            -4,
+            0,
+            1,
+            3,
+            6,
+            8
+          ],
+          "lower": 1,
+          "upper": 6,
+          "stop_after": 0,
+          "Want": [
+            8,
+            6,
+            3
+          ],
+          "Want_callbacks": 3,
+          "Want_stopped": false
+        },
+        {
+          "keys": [
+            0,
+            2,
+            5,
+            6,
+            10
+          ],
+          "lower": 2,
+          "upper": 10,
+          "stop_after": 0,
+          "Want": [
+            10,
+            6,
+            5
+          ],
+          "Want_callbacks": 3,
+          "Want_stopped": false
+        }
+      ]
+    },
+    {
+      "id": "btree149-desc-all",
+      "text": "Return all keys in decreasing order.",
+      "fixtures": [
+        {
+          "keys": [
+            -3,
+            -1,
+            0,
+            2,
+            4,
+            7,
+            9
+          ],
+          "lower": 0,
+          "upper": 7,
+          "stop_after": 0,
+          "Want": [
+            9,
+            7,
+            4,
+            2,
+            0,
+            -1,
+            -3
+          ],
+          "Want_callbacks": 7,
+          "Want_stopped": false
+        },
+        {
+          "keys": [
+            -4,
+            0,
+            1,
+            3,
+            6,
+            8
+          ],
+          "lower": 1,
+          "upper": 6,
+          "stop_after": 0,
+          "Want": [
+            8,
+            6,
+            3,
+            1,
+            0,
+            -4
+          ],
+          "Want_callbacks": 6,
+          "Want_stopped": false
+        },
+        {
+          "keys": [
+            0,
+            2,
+            5,
+            6,
+            10
+          ],
+          "lower": 2,
+          "upper": 10,
+          "stop_after": 0,
+          "Want": [
+            10,
+            6,
+            5,
+            2,
+            0
+          ],
+          "Want_callbacks": 5,
+          "Want_stopped": false
+        }
+      ]
+    },
+    {
+      "id": "btree149-asc-stop-two",
+      "text": "Return the first two qualifying keys in increasing order, keeping x >= lower and x < upper; stop the callback after two.",
+      "fixtures": [
+        {
+          "keys": [
+            -3,
+            -1,
+            0,
+            2,
+            4,
+            7,
+            9
+          ],
+          "lower": 0,
+          "upper": 7,
+          "stop_after": 2,
+          "Want": [
+            0,
+            2
+          ],
+          "Want_callbacks": 2,
+          "Want_stopped": true
+        },
+        {
+          "keys": [
+            -4,
+            0,
+            1,
+            3,
+            6,
+            8
+          ],
+          "lower": 1,
+          "upper": 6,
+          "stop_after": 2,
+          "Want": [
+            1,
+            3
+          ],
+          "Want_callbacks": 2,
+          "Want_stopped": true
+        },
+        {
+          "keys": [
+            0,
+            2,
+            5,
+            6,
+            10
+          ],
+          "lower": 2,
+          "upper": 10,
+          "stop_after": 2,
+          "Want": [
+            2,
+            5
+          ],
+          "Want_callbacks": 2,
+          "Want_stopped": true
+        }
+      ]
+    },
+    {
+      "id": "btree149-empty",
+      "text": "For an empty tree, return no keys and never call the callback.",
+      "fixtures": [
+        {
+          "keys": [],
+          "lower": 0,
+          "upper": 7,
+          "stop_after": 0,
+          "Want": [],
+          "Want_callbacks": 0,
+          "Want_stopped": false
+        }
+      ]
+    },
+    {
+      "id": "btree149-asc-open-closed",
+      "text": "Return keys in increasing order with x > lower and x <= upper.",
+      "fixtures": [
+        {
+          "keys": [
+            -3,
+            -1,
+            0,
+            2,
+            4,
+            7,
+            9
+          ],
+          "lower": 0,
+          "upper": 7,
+          "stop_after": 0,
+          "Want": [
+            2,
+            4,
+            7
+          ],
+          "Want_callbacks": 3,
+          "Want_stopped": false
+        },
+        {
+          "keys": [
+            -4,
+            0,
+            1,
+            3,
+            6,
+            8
+          ],
+          "lower": 1,
+          "upper": 6,
+          "stop_after": 0,
+          "Want": [
+            3,
+            6
+          ],
+          "Want_callbacks": 2,
+          "Want_stopped": false
+        },
+        {
+          "keys": [
+            0,
+            2,
+            5,
+            6,
+            10
+          ],
+          "lower": 2,
+          "upper": 10,
+          "stop_after": 0,
+          "Want": [
+            5,
+            6,
+            10
+          ],
+          "Want_callbacks": 3,
+          "Want_stopped": false
+        }
+      ]
+    },
+    {
+      "id": "btree149-desc-closed-open",
+      "text": "Return keys in decreasing order with x >= lower and x < upper.",
+      "fixtures": [
+        {
+          "keys": [
+            -3,
+            -1,
+            0,
+            2,
+            4,
+            7,
+            9
+          ],
+          "lower": 0,
+          "upper": 7,
+          "stop_after": 0,
+          "Want": [
+            4,
+            2,
+            0
+          ],
+          "Want_callbacks": 3,
+          "Want_stopped": false
+        },
+        {
+          "keys": [
+            -4,
+            0,
+            1,
+            3,
+            6,
+            8
+          ],
+          "lower": 1,
+          "upper": 6,
+          "stop_after": 0,
+          "Want": [
+            3,
+            1
+          ],
+          "Want_callbacks": 2,
+          "Want_stopped": false
+        },
+        {
+          "keys": [
+            0,
+            2,
+            5,
+            6,
+            10
+          ],
+          "lower": 2,
+          "upper": 10,
+          "stop_after": 0,
+          "Want": [
+            6,
+            5,
+            2
+          ],
+          "Want_callbacks": 3,
+          "Want_stopped": false
+        }
+      ]
+    }
+  ]
+}

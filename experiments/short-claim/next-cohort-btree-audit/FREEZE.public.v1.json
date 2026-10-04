@@ -1,0 +1,120 @@
+{
+  "schema": "riido-btree149-first-original-freeze-v1",
+  "state": "SEALED_AFTER_SOURCE_REVIEW_AND_SYNTHETIC_CONTROLS_BEFORE_ORIGINAL",
+  "time": "2026-10-04T16:34:45.791Z",
+  "Go": "1.27.1",
+  "role": "development_train",
+  "whole_group": 84,
+  "whole_families": 1,
+  "parents": 12,
+  "fixtures": 34,
+  "candidates_per_parent": 8,
+  "planned_original_candidate_calls": 272,
+  "model_calls": 0,
+  "Fit_calls": 0,
+  "new_weights": 0,
+  "protected_reads": 0,
+  "source_inputs_and_controls": [
+    {
+      "path": "COMPILER-CLOSURE.public.v1.json",
+      "bytes": 4159,
+      "sha256": "ec3d5b13602c5c179de60efe6a7ddf76d884cb1752d404db36f960d89b460d8d"
+    },
+    {
+      "path": "GENERATED-SOURCE.public.v1.json",
+      "bytes": 1687,
+      "sha256": "a9716330fe83b02d7b19476217115e896436350acd2593c46a5fab7a7626a990"
+    },
+    {
+      "path": "INDEPENDENT-PREVIEW.public.v1.json",
+      "bytes": 1407,
+      "sha256": "c6d0a8b42565fe02ad68cd0c330b846026f892955283e29eb3bc0d726bf689c0"
+    },
+    {
+      "path": "INPUTS.public.v1.json",
+      "bytes": 15766,
+      "sha256": "1612003555b5a0293092d6667fa1afc1cd7620bc54ef048ea3fc7834cd776ecb"
+    },
+    {
+      "path": "LICENSE.upstream.txt",
+      "bytes": 11358,
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "path": "ROLE-PREFREEZE.public.v1.json",
+      "bytes": 3237,
+      "sha256": "ce7b5da3bc3037b700a4edb966277f6bbdc74ddaa87c046e10f5535f85e128d0"
+    },
+    {
+      "path": "SOURCE-PINS.public.v1.json",
+      "bytes": 2171,
+      "sha256": "50ab0b14435e7df18ce0f176d716d8b70e584bbf8b3250699a67bd338accb953"
+    },
+    {
+      "path": "SYNTHETIC-CONTROLS.actual.public.v1.json",
+      "bytes": 1050,
+      "sha256": "ce8edaad40e1f83c24fe78d9573586c061ca75561900ec7366f6a2f5528a041c"
+    },
+    {
+      "path": "compiler-closure.mjs",
+      "bytes": 2288,
+      "sha256": "4b412d9af031d5986253eebab7b64a66516b03c454e3361cb32c5a2ea6a0d2e4"
+    },
+    {
+      "path": "derive-source.mjs",
+      "bytes": 3666,
+      "sha256": "31ff7b5cfe298f509edf10b815f95ccf04b5fb651c58ca53285191ba4e487fd4"
+    },
+    {
+      "path": "main.go.txt",
+      "bytes": 9444,
+      "sha256": "bb6197b408cf5e2c9dad219eed1a8705da806fa3c76c49610d0e0d81af874b71"
+    },
+    {
+      "path": "main_test.go.txt",
+      "bytes": 5148,
+      "sha256": "e4c1fb905b6a00c0fe853e2f938f5c22db26a7fd2e858f7d395731679818eaf7"
+    },
+    {
+      "path": "upstream-source.json.gz",
+      "bytes": 15303,
+      "sha256": "fdad76f8b45756764efa02e2ec788a1fa2380a0ed6740402e9fc1e4b0f37a7da"
+    }
+  ],
+  "constructor": {
+    "type": "btree.BTreeG[int]",
+    "degree": 2,
+    "ordering": "a < b",
+    "insertion": "frozen ascending keys, unique keys only",
+    "candidate_local_fresh_tree": true
+  },
+  "counter_policy": "One explicit wrapper/iterator trial per fixture/candidate; constructor/inserts/internal calls are not separately counted.",
+  "truth_policy": "All complete mandatory Wants satisfied gives T; any known counterexample gives F while other U observations remain in the trace; otherwise U. Unexpected panic is U pending cause review. Unknown parents excluded from cost, no-answer only eight known F. Labels/Reader/Project/training admission remain separate.",
+  "candidate_text_policy": "Exact upstream generic API doc comments, source declaration order, unchanged after scores",
+  "source_license": "Full selected Apache-2.0 notice retained; source-family API lineage includes GoLLRB; no blanket ancestry or training-rights certification",
+  "budgets": {
+    "actual_attempts": 1,
+    "wall_seconds": 30,
+    "stdout_raw_bytes": 131072,
+    "stderr_raw_bytes": 8192,
+    "stored_gzip_bytes": 12288,
+    "retained_regular_file_cap_bytes": 536870912,
+    "fixed_account_sha256": "b77768b44d0598c6ea5a03a660aa781147ecf3ee464a23a950f64e5ae33f0897"
+  },
+  "metrics": {
+    "first_acceptable_check_counts": true,
+    "all_candidate_finite_class": true,
+    "per_candidate_first_tree_build_iteration_callback_literal_compare_ns": true,
+    "prepare_and_four_baselines_together_ns": true,
+    "optimistic_known_positive_min_verification_ns": true,
+    "unit_headroom_gate": 0.05,
+    "no_production_speed_gate": true
+  },
+  "limitations": [
+    "One development family, not independent validation or2400 Golden evaluation",
+    "Single instrumented timing sample in fixed candidate order; no causal speedup claim",
+    "No-answer/all-positive cases stratified; no forced predicted labels",
+    "Counterfactual Go work is not measured agent/LLM token savings",
+    "First actual failure preserved; no rerun for improved metrics or modified Wants"
+  ]
+}

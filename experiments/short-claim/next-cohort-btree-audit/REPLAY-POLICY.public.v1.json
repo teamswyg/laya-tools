@@ -1,0 +1,25 @@
+{
+  "schema": "riido-btree149-replay-portability-policy-v1",
+  "timing": "After first frozen Mac native observation, before first CI replay. This policy does not change first source/input/freezes, truth, metrics or routing thresholds.",
+  "absolute_score_tolerance": 1e-12,
+  "relative_score_tolerance": 1e-12,
+  "epsilon": "1e-12 + 1e-12 * abs(saved_reference_score)",
+  "well_separated": "Preserve exact pair order if saved score gap exceeds the sum of both saved epsilons.",
+  "exact": [
+    "272 Got including callbacks, stop and unused slots",
+    "12 finite state vectors",
+    "ranking kind/count/fallback metadata",
+    "full candidate permutations, exact stable sort from each platform own scores",
+    "own costs/oracles/counts recomputed from complete own trace"
+  ],
+  "near_ties": "Keep actual float scores and actual exact stable order. Report changed orders/checks. Never epsilon-sort, coerce or replace first saved metrics.",
+  "artifacts": "Keep first bounded stdout/stderr/status before acceptance in runner.temp; upload always on each OS. Runtime timeout/output bounds unchanged.",
+  "precedent": {
+    "path": "experiments/short-claim/next60-development37-bias-audit/source/public_frozen_test.go.txt",
+    "sha256": "eef022c71140f1c78f010dfc8677b6670bc1fac8e720e4b7b6f8f5663e758b25",
+    "lines": "338-393"
+  },
+  "model_calls": 0,
+  "Fit_calls": 0,
+  "actual_speed_or_LLM_savings_claim": false
+}

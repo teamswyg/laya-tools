@@ -1,5 +1,7 @@
 # laya-tools
 
+The separate [B-tree finite tuning corpus](experiments/short-claim/next-cohort-btree-audit/README.en.md) adds **12 requests and 96 labels**, verified by 272 original Go API trials and the actual eight-candidate Reader/Project. Controls need 54–59 checks versus an optimistic minimum of 26. This is one development family and a headroom screen, not learned-model benefit or LLM savings. The [next representation comparison plan](experiments/short-claim/next-cohort-btree-audit/NEXT-ABLATION-PLAN.en.md) records wording bias, roughly 8µs of additional hint allowance and independent evaluation requirements. New Fits, weights and GPU execution remain zero.
+
 The current qualified finite development data contains **37 requests and108 labels**, published as the [immutable HF37 release](https://huggingface.co/datasets/JooYoon/riidolaya-shortclaim-next60-development/tree/next60-37-finite-v1). The [nonlearned ordering diagnostic](experiments/short-claim/next60-development37-bias-audit/README.en.md) favored lexical ordering at29/37 first choices, but position bias and platform-specific ties prevent interpreting this as learned-model benefit or actual Codex savings.
 
 An [unknown/ambiguity-preserving Go input API](pkg/shortclaimdata/COHORT.en.md) now prepares for the next five/eight-candidate cohort. U never becomes false, and ambiguity retains known T/F facts. Every row, including audit-only rows, is checked for declared role leakage before complete known parents with eligible rows enter the existing projection.
