@@ -2,7 +2,9 @@
 
 현재 유한 개발 자료는 **37개 요청·108라벨**이며 [HF37 고정 버전](https://huggingface.co/datasets/JooYoon/riidolaya-shortclaim-next60-development/tree/next60-37-finite-v1)에 게시했습니다. [학습 없는 후보 순서 비교](experiments/short-claim/next60-development37-bias-audit/README.ko.md)에서는 어휘 비교가 첫 정답29/37로 가장 좋았지만, 정답 위치 편향과 환경별 동점 차이가 있어 모델 효과·실제 Codex 절감의 증거로 사용하지 않습니다.
 
-다음 5/8후보 자료를 위한 [미확인·모호함 보존 Go 입력](pkg/shortclaimdata/COHORT.ko.md)을 추가했습니다. U를 false로 바꾸지 않고 모호한 요청의 알려진 T/F도 보존합니다. 감사 전용 요청까지 먼저 역할 누수를 검사하고, 완전 known·사용 행이 있는 부모만 기존 변환기에 연결합니다. 새 코호트 관측·라벨·학습과 보호2,400개 평가는 아직 진행 전입니다.
+다음 5/8후보 자료를 위한 [미확인·모호함 보존 Go 입력](pkg/shortclaimdata/COHORT.ko.md)을 추가했습니다. U를 false로 바꾸지 않고 모호한 요청의 알려진 T/F도 보존합니다. 감사 전용 요청까지 먼저 역할 누수를 검사하고, 완전 known·사용 행이 있는 부모만 기존 변환기에 연결합니다.
+
+[다음 xxhash 부모의 실제 감사](experiments/short-claim/next-cohort-xxhash-audit/README.ko.md)에서 입력15개×후보5개를 비교했습니다. 직접 검사·전체 상태 재구성은15/15, 해시값 비교는7/15였습니다. 관측75회는 독립 사례75개가 아니며 계보 자격은 미해결이어서 학습에 넣지 않습니다. 새 코호트 학습·라벨과 보호2,400개 평가는 아직 진행 전입니다.
 
 ## 이전 체크포인트 기록
 

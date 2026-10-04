@@ -1,0 +1,82 @@
+{
+  "schema": "riido-xxhash-local-QA-v1",
+  "Go": "go1.27.1",
+  "platform": "darwin/arm64",
+  "source_v2_sha256": "363ef51287669d8dd30d3465684a0fc51f5055459171d3a6f79983f40298712c",
+  "verification_tests_sha256": "4ac053d062c6df6cf0a6b539d1f8eecd7455fd96867b273aa94299912577a55c",
+  "manifest_before_QA_sha256": "dc20de77f8d083719c870046e5297b6c3a6a0a92576f62e3c955f88ee8b1407c",
+  "manifest_entries_before_QA": 19,
+  "local_checks": {
+    "repository_race": {
+      "command": "go test -race -timeout=20m ./...",
+      "exit0": true,
+      "existing_package_results_cached": true
+    },
+    "repository_vet": {
+      "command": "go vet ./...",
+      "exit0": true
+    },
+    "owned_tracked_Go_format": {
+      "exit0": true,
+      "immutable_testdata_excluded": true
+    },
+    "isolated_saved_controls": {
+      "command": "go test -tags=purego -count=1 ./...",
+      "exit0": true,
+      "top_tests": 3,
+      "negative_subtests": 15,
+      "original_worker_calls": 0
+    },
+    "isolated_vet": {
+      "exit0": true
+    },
+    "full_offline_reproduction": {
+      "command": "bash experiments/short-claim/next-cohort-xxhash-audit/verify.sh",
+      "exit0": true,
+      "whole_gzip_bytes_equal": true,
+      "additional_duplicate_trials": 75,
+      "new_parent_requests": 0
+    }
+  },
+  "review": {
+    "source_only_observer_blockers_found": 0,
+    "independent_static_API_schedule": 587,
+    "actual_primary_API_calls": 587,
+    "initial_checker_gaps_found": [
+      "deleted event with adjusted totals",
+      "missing false panic flags defaulting to false"
+    ],
+    "repairs": [
+      "fixed expected total/method/candidate-phase schedule and added deletion control",
+      "required raw JSON presence of zero/false observations and five missing-field controls"
+    ],
+    "reviewers_did_not_execute_code": true
+  },
+  "qualification": {
+    "new_roles": 0,
+    "learning_labels": 0,
+    "Fit": 0,
+    "model_calls": 0,
+    "source_family_closure_pending": true,
+    "existing37_unmodified": true
+  },
+  "publication": {
+    "CI": "pending; local success is not CI success",
+    "secret_scan": "pending before push"
+  },
+  "resource": {
+    "cap_bytes": 536870912,
+    "current_before_QA_bytes": 536769699,
+    "remaining_before_QA_bytes": 101213,
+    "prior_archive_records": 20,
+    "prior_missing_paths": 1834,
+    "new_cap_or_exclusions": false
+  },
+  "limits": [
+    "CPU only; no GPU trace",
+    "no inference RAM or whole-task benefit measured",
+    "public serialization and digest preservation only",
+    "per-call arguments and receiver identity not logged",
+    "no generic strict JSON or blind study claim"
+  ]
+}

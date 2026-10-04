@@ -1,0 +1,266 @@
+// SPDX-License-Identifier: Apache-2.0
+package main
+
+import (
+	"bytes"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"os"
+	"testing"
+)
+
+// Checks saved observations only. No candidate, xxhash API, model or Fit calls.
+func checkSaved(r Report, f Frozen, raw []byte) error {
+	bad := func() error { return fmt.Errorf("saved audit inconsistency") }
+	if r.Schema != "riido-xxhash-actual-development-audit-v1" || r.Status != "actual_development_audit_unqualified" || r.FrozenSHA != shaHex(raw) || r.OldReceiverHex != f.OldReceiverHex || r.QualificationPerformed || r.FitCalls != 0 || r.ModelCalls != 0 || len(r.Trials) != 75 || len(r.Fixtures) != 15 || len(r.Candidates) != 5 {
+		return bad()
+	}
+	var passes [5]int
+	var methods [5]int
+	var candidateCalls [5]int
+	var observed Counts
+	observed.FixtureEntries, observed.CandidateEntries = 15, 5
+	observed.ExpectedTrials, observed.TrialEntries = 75, 75
+	for i, fixture := range f.Fixtures {
+		input, err := hex.DecodeString(fixture.InputHex)
+		if err != nil || fixture.WantSuccess == nil {
+			return bad()
+		}
+		view := r.Fixtures[i]
+		if view.ID != fixture.ID || view.InputSHA != shaHex(input) || view.WantSuccess != *fixture.WantSuccess || view.Reason != fixture.Reason {
+			return bad()
+		}
+		for j, candidate := range f.Candidates {
+			if r.Candidates[j] != candidate {
+				return bad()
+			}
+			t := r.Trials[i*5+j]
+			if t.FixtureID != fixture.ID || t.CandidateID != candidate.ID || t.WantSuccess != *fixture.WantSuccess || t.InputSHA != shaHex(input) || !t.SetupOK || !t.CandidateAttempted || !t.CandidateReturned || t.CandidatePanic || t.Failure != "" || !t.InputEqual || t.CandidateError == nil || t.BeforeHex == nil || t.AfterHex == nil || t.BeforeSum == nil || t.AfterSum == nil || t.OldMatches == nil || !*t.OldMatches || t.BytesEqual == nil || t.SumEqual == nil || t.AfterInputEqual == nil {
+				return bad()
+			}
+			if *t.BeforeHex != f.OldReceiverHex || *t.BytesEqual != (*t.BeforeHex == *t.AfterHex) || *t.SumEqual != (*t.BeforeSum == *t.AfterSum) || *t.AfterInputEqual != (*t.AfterHex == fixture.InputHex) {
+				return bad()
+			}
+			for _, s := range []string{*t.BeforeSum, *t.AfterSum} {
+				b, e := hex.DecodeString(s)
+				if e != nil || len(b) != 8 || hex.EncodeToString(b) != s {
+					return bad()
+				}
+			}
+			state, e := hex.DecodeString(*t.AfterHex)
+			if e != nil || len(state) != 76 {
+				return bad()
+			}
+			if *t.CandidateError {
+				observed.CandidateErrors++
+				if !*t.BytesEqual || !*t.SumEqual || t.CandidateErrorText == "" {
+					return bad()
+				}
+			} else if t.CandidateErrorText != "" {
+				return bad()
+			}
+			if (*fixture.WantSuccess && !*t.CandidateError && *t.AfterInputEqual) || (!*fixture.WantSuccess && *t.CandidateError && *t.BytesEqual && *t.SumEqual) {
+				passes[j]++
+			}
+			observed.SetupCompleted++
+			observed.CandidateAttempted++
+			observed.CandidateReturned++
+			if len(t.Calls) < 6 {
+				return bad()
+			}
+			for k, event := range t.Calls {
+				if !event.Attempted || !event.Returned || event.Panicked {
+					return bad()
+				}
+				observed.CallAttempted++
+				observed.CallReturned++
+				if event.Phase == "candidate" {
+					candidateCalls[j]++
+				}
+				if event.ErrorPresent != nil && *event.ErrorPresent {
+					observed.CallErrors++
+				}
+				if (event.ErrorPresent != nil && *event.ErrorPresent) != (event.ErrorText != "") {
+					return bad()
+				}
+				switch event.Method {
+				case "new":
+					methods[0]++
+					if event.NilResult == nil || *event.NilResult {
+						return bad()
+					}
+				case "write":
+					methods[1]++
+					if event.ErrorPresent == nil || event.WriteN == nil {
+						return bad()
+					}
+				case "unmarshal":
+					methods[2]++
+					if event.ErrorPresent == nil {
+						return bad()
+					}
+				case "marshal":
+					methods[3]++
+					if event.ErrorPresent == nil || *event.ErrorPresent || event.NilResult == nil || *event.NilResult || event.BytesLen == nil || *event.BytesLen != 76 {
+						return bad()
+					}
+				case "sum":
+					methods[4]++
+					b, e := hex.DecodeString(event.SumHex)
+					if e != nil || len(b) != 8 {
+						return bad()
+					}
+				default:
+					return bad()
+				}
+				if k == 0 && (event.Phase != "setup" || event.Method != "new" || event.NilResult == nil || *event.NilResult) {
+					return bad()
+				}
+				if k == 1 && (event.Phase != "setup" || event.Method != "write" || event.WriteN == nil || *event.WriteN != 3 || event.ErrorPresent == nil || *event.ErrorPresent) {
+					return bad()
+				}
+				if k == 2 && (event.Phase != "before" || event.Method != "marshal") {
+					return bad()
+				}
+				if k == 3 && (event.Phase != "before" || event.Method != "sum" || event.SumHex != *t.BeforeSum) {
+					return bad()
+				}
+				if k >= 4 && k < len(t.Calls)-2 && event.Phase != "candidate" {
+					return bad()
+				}
+				if k == len(t.Calls)-2 && (event.Phase != "after" || event.Method != "marshal") {
+					return bad()
+				}
+				if k == len(t.Calls)-1 && (event.Phase != "after" || event.Method != "sum" || event.SumHex != *t.AfterSum) {
+					return bad()
+				}
+			}
+		}
+	}
+	if passes != [5]int{15, 15, 7, 10, 7} || observed != r.Counts || observed.CallAttempted != 587 || observed.CallReturned != 587 || observed.CallErrors != 9 || methods != [5]int{93, 93, 60, 173, 168} || candidateCalls != [5]int{4, 40, 15, 27, 51} {
+		return bad()
+	}
+	return nil
+}
+
+// Required zero/false facts must be present; ordinary bool decoding alone loses this distinction.
+func decodeSaved(b []byte) (Report, error) {
+	var p struct {
+		Qualified *bool `json:"qualification_performed"`
+		Fit       *int  `json:"fit_calls"`
+		Model     *int  `json:"model_calls"`
+		Counts    struct {
+			CandidatePanics *int `json:"candidate_panics"`
+			TrialFailures   *int `json:"trial_failures"`
+			CallPanics      *int `json:"call_panics"`
+		} `json:"counts"`
+		Trials []struct {
+			Want      *bool `json:"want"`
+			Setup     *bool `json:"setup_ok"`
+			Attempted *bool `json:"ca"`
+			Returned  *bool `json:"cr"`
+			Panic     *bool `json:"cx"`
+			Input     *bool `json:"input_equal"`
+			Calls     []struct {
+				Attempted *bool `json:"a"`
+				Returned  *bool `json:"r"`
+				Panic     *bool `json:"x"`
+			} `json:"calls"`
+		} `json:"trials"`
+	}
+	bad := fmt.Errorf("missing observed status")
+	if json.Unmarshal(b, &p) != nil || p.Qualified == nil || p.Fit == nil || p.Model == nil || p.Counts.CandidatePanics == nil || p.Counts.TrialFailures == nil || p.Counts.CallPanics == nil {
+		return Report{}, bad
+	}
+	for _, t := range p.Trials {
+		if t.Want == nil || t.Setup == nil || t.Attempted == nil || t.Returned == nil || t.Panic == nil || t.Input == nil {
+			return Report{}, bad
+		}
+		for _, c := range t.Calls {
+			if c.Attempted == nil || c.Returned == nil || c.Panic == nil {
+				return Report{}, bad
+			}
+		}
+	}
+	var r Report
+	if err := json.Unmarshal(b, &r); err != nil {
+		return Report{}, err
+	}
+	return r, nil
+}
+
+func savedFixture(t *testing.T) (Report, Frozen, []byte) {
+	t.Helper()
+	f, _, _, raw, err := readFrozen("frozen.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := os.ReadFile("observations.actual.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	r, err := decodeSaved(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return r, f, raw
+}
+
+func TestSavedAudit(t *testing.T) {
+	r, f, raw := savedFixture(t)
+	if err := checkSaved(r, f, raw); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestSavedAuditControls(t *testing.T) {
+	controls := []struct {
+		name   string
+		change func(*Report)
+	}{
+		{"changed-Want", func(r *Report) { r.Trials[0].WantSuccess = !r.Trials[0].WantSuccess }},
+		{"wrong-input", func(r *Report) {
+			r.Trials[0].InputSHA = "0000000000000000000000000000000000000000000000000000000000000000"
+		}},
+		{"missing-status", func(r *Report) { r.Trials[0].CandidateError = nil }},
+		{"fabricated-preservation", func(r *Report) { r.Trials[0].BytesEqual = boolValue(!*r.Trials[0].BytesEqual) }},
+		{"missing-trial", func(r *Report) { r.Trials = r.Trials[:74] }},
+		{"wrong-call-total", func(r *Report) { r.Counts.CallReturned++ }},
+		{"suppressed-call", func(r *Report) { r.Trials[0].Calls[0].Returned = false }},
+		{"deleted-call-adjusted-total", func(r *Report) {
+			r.Trials[0].Calls = append(r.Trials[0].Calls[:4], r.Trials[0].Calls[5:]...)
+			r.Counts.CallAttempted--
+			r.Counts.CallReturned--
+		}},
+		{"false-qualified", func(r *Report) { r.QualificationPerformed = true }},
+		{"model-call", func(r *Report) { r.ModelCalls = 1 }},
+	}
+	for _, c := range controls {
+		t.Run(c.name, func(t *testing.T) {
+			r, f, raw := savedFixture(t)
+			c.change(&r)
+			if checkSaved(r, f, raw) == nil {
+				t.Fatal("accepted altered observation")
+			}
+		})
+	}
+}
+
+func TestRequiredFalseObservationControls(t *testing.T) {
+	b, err := os.ReadFile("observations.actual.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{`"cx":false,`, `"x":false,`, `"cr":true,`, `"candidate_panics":0,`, `"qualification_performed":false,`} {
+		t.Run(key, func(t *testing.T) {
+			altered := bytes.Replace(b, []byte(key), nil, 1)
+			if bytes.Equal(altered, b) {
+				t.Fatal("control field absent")
+			}
+			if _, err := decodeSaved(altered); err == nil {
+				t.Fatal("accepted missing observation")
+			}
+		})
+	}
+}

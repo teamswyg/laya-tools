@@ -1,0 +1,37 @@
+{
+  "schema": "riido-xxhash-cohort-execution-freeze-v2",
+  "state": "ROOT_FROZEN_BEFORE_V2_AUDIT_RUN",
+  "prior_freeze_sha256": "a8318bac5b1a3d0477af0ae2a3dfa27e7d01026baf44113fac18280da92e0aa7",
+  "prior_failure": "INITIAL-OUTPUT-BOUND-FAILURE.actual.public.v1.json",
+  "prior_source_pin": {
+    "path": "source/main.go.txt",
+    "bytes": 16915,
+    "sha256": "88969465bc5e1d47ecac26eacaaa1fff2eed35cff709f27eeddd6b57f47b7dc4"
+  },
+  "replacement_observer": {
+    "path": "source/main.v2.go.txt",
+    "bytes": 17399,
+    "sha256": "363ef51287669d8dd30d3465684a0fc51f5055459171d3a6f79983f40298712c"
+  },
+  "unchanged_candidate_region_sha256": "cb8363d0359c378bc264bd6c8a52bb616587a339764b814559d0fdcab8ba8236",
+  "candidate_regions_byte_exact": true,
+  "unchanged_frozen_input_sha256": "d879b37d30380c8150e159ec2a545c666c3b33dc2019e419e1db0ee7e1e59c27",
+  "all_other_source_captions_Wants_closure_roles_qualification": "Inherited unchanged from v1 freeze",
+  "execution": {
+    "command": [
+      "go",
+      "run",
+      "-tags=purego",
+      "../next-cohort-xxhash-actual-v2/main.go",
+      "frozen.json"
+    ],
+    "timeout_ms": 45000,
+    "stdout_gzip_cap_bytes": 65536,
+    "decoded_JSON_cap_bytes": 262144,
+    "stderr_cap_bytes": 8192,
+    "retained_worker_binary": false
+  },
+  "output": "Full JSON plus LF in deterministic gzip; stored full decode required, no truncation or dropped fields.",
+  "executor_identity": "inline-unpinned; reproducible observer source is separately pinned",
+  "performance_or_GPU_claim": false
+}
