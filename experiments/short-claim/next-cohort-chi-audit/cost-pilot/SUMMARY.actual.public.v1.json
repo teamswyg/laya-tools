@@ -1,0 +1,854 @@
+{
+  "schema": "riido-chi-cost-derived-summary-v1",
+  "observations": {
+    "bytes": 59907,
+    "sha256": "49867d5cf8400c4012a1d572ca4bc9ba88693787ad74540bf49fce0bb843a84b"
+  },
+  "parents": 1,
+  "paired_comparisons": 8,
+  "pipelines": 32,
+  "qualified_parents": 0,
+  "labels": 0,
+  "roles": 0,
+  "Fit": 0,
+  "default_activation": false,
+  "protected_reads": 0,
+  "gpu_execution": false,
+  "laya_encoder_execution": false,
+  "model_rank_attempts": 9,
+  "model_rank_returns": 9,
+  "actual_chi_trials_including_precheck": 389,
+  "actual_explicit_chi_calls_including_precheck": 4685,
+  "all32_selected_post_path": true,
+  "all32_fallback_and_unavailable_zero": true,
+  "model_policy_kept_original_rank5": true,
+  "precheck": {
+    "trials": 45,
+    "explicit_chi_calls": 533,
+    "normal_returns": 45,
+    "verdicts": [
+      {
+        "candidate_id": "post_path",
+        "state": "verified",
+        "passed": 9
+      },
+      {
+        "candidate_id": "post_query",
+        "state": "mismatch",
+        "passed": 8
+      },
+      {
+        "candidate_id": "pre_path",
+        "state": "mismatch",
+        "passed": 8
+      },
+      {
+        "candidate_id": "twice_path",
+        "state": "mismatch",
+        "passed": 8
+      },
+      {
+        "candidate_id": "unchanged",
+        "state": "mismatch",
+        "passed": 6
+      }
+    ]
+  },
+  "anchor": {
+    "model_rank_attempts": 1,
+    "model_rank_returns": 1,
+    "exact_existing_score_bits_and_orders": true
+  },
+  "worker_controls": {
+    "passed_root_tests": 11,
+    "stdout_sha256": "b8facc4a28dd6e2c6ef97290e3bfd4a16098f2655eba06a19517a75975e6d729"
+  },
+  "explicit_wrapper_counts": {
+    "io/route_load": {
+      "attempted": 22,
+      "returned": 22,
+      "errors": 0,
+      "panics": 0
+    },
+    "io/wants_read": {
+      "attempted": 22,
+      "returned": 22,
+      "errors": 0,
+      "panics": 0
+    },
+    "io/score_read": {
+      "attempted": 22,
+      "returned": 22,
+      "errors": 0,
+      "panics": 0
+    },
+    "hint/load_validated": {
+      "attempted": 22,
+      "returned": 22,
+      "errors": 0,
+      "panics": 0
+    },
+    "io/model_read": {
+      "attempted": 9,
+      "returned": 9,
+      "errors": 0,
+      "panics": 0
+    },
+    "hint/view_new": {
+      "attempted": 9,
+      "returned": 9,
+      "errors": 0,
+      "panics": 0
+    },
+    "hint/prepare": {
+      "attempted": 9,
+      "returned": 9,
+      "errors": 0,
+      "panics": 0
+    },
+    "hint/model_rank": {
+      "attempted": 9,
+      "returned": 9,
+      "errors": 0,
+      "panics": 0
+    },
+    "hint/baselines_anchor": {
+      "attempted": 1,
+      "returned": 1,
+      "errors": 0,
+      "panics": 0
+    },
+    "hint/baseline_rank": {
+      "attempted": 24,
+      "returned": 24,
+      "errors": 0,
+      "panics": 0
+    }
+  },
+  "groups": [
+    {
+      "mode": "cold",
+      "policy": "bm25",
+      "observations": 4,
+      "visited_candidates": 1,
+      "fixture_checks": 9,
+      "explicit_chi_API_calls": 107,
+      "pipeline_elapsed_ns": {
+        "n": 4,
+        "min": 234625,
+        "median": 262646,
+        "max": 385209,
+        "mean": 286281.5
+      },
+      "Go_allocation_bytes": {
+        "n": 4,
+        "min": 189976,
+        "median": 190056,
+        "max": 190136,
+        "mean": 190056
+      },
+      "Go_mallocs": {
+        "n": 4,
+        "min": 1271,
+        "median": 1271.5,
+        "max": 1272,
+        "mean": 1271.5
+      },
+      "external_process_elapsed_ns": {
+        "n": 4,
+        "min": 4040667,
+        "median": 4433208.5,
+        "max": 8077916,
+        "mean": 5246250
+      }
+    },
+    {
+      "mode": "cold",
+      "policy": "fixed",
+      "observations": 4,
+      "visited_candidates": 1,
+      "fixture_checks": 9,
+      "explicit_chi_API_calls": 107,
+      "pipeline_elapsed_ns": {
+        "n": 4,
+        "min": 234250,
+        "median": 261812.5,
+        "max": 313333,
+        "mean": 267802
+      },
+      "Go_allocation_bytes": {
+        "n": 4,
+        "min": 190104,
+        "median": 190264,
+        "max": 190264,
+        "mean": 190224
+      },
+      "Go_mallocs": {
+        "n": 4,
+        "min": 1267,
+        "median": 1268,
+        "max": 1268,
+        "mean": 1267.75
+      },
+      "external_process_elapsed_ns": {
+        "n": 4,
+        "min": 4287541,
+        "median": 4762271,
+        "max": 5963458,
+        "mean": 4943885.25
+      }
+    },
+    {
+      "mode": "cold",
+      "policy": "lexical",
+      "observations": 4,
+      "visited_candidates": 1,
+      "fixture_checks": 9,
+      "explicit_chi_API_calls": 107,
+      "pipeline_elapsed_ns": {
+        "n": 4,
+        "min": 245708,
+        "median": 263729,
+        "max": 291000,
+        "mean": 266041.5
+      },
+      "Go_allocation_bytes": {
+        "n": 4,
+        "min": 190136,
+        "median": 190376,
+        "max": 190616,
+        "mean": 190376
+      },
+      "Go_mallocs": {
+        "n": 4,
+        "min": 1272,
+        "median": 1273.5,
+        "max": 1275,
+        "mean": 1273.5
+      },
+      "external_process_elapsed_ns": {
+        "n": 4,
+        "min": 4058500,
+        "median": 4635937.5,
+        "max": 5313792,
+        "mean": 4661041.75
+      }
+    },
+    {
+      "mode": "cold",
+      "policy": "model",
+      "observations": 4,
+      "visited_candidates": 5,
+      "fixture_checks": 16,
+      "explicit_chi_API_calls": 198,
+      "pipeline_elapsed_ns": {
+        "n": 4,
+        "min": 1459250,
+        "median": 1606500,
+        "max": 1965125,
+        "mean": 1659343.75
+      },
+      "Go_allocation_bytes": {
+        "n": 4,
+        "min": 816104,
+        "median": 816424,
+        "max": 816424,
+        "mean": 816344
+      },
+      "Go_mallocs": {
+        "n": 4,
+        "min": 2182,
+        "median": 2184,
+        "max": 2184,
+        "mean": 2183.5
+      },
+      "external_process_elapsed_ns": {
+        "n": 4,
+        "min": 5448084,
+        "median": 5876375,
+        "max": 7179291,
+        "mean": 6095031.25
+      }
+    },
+    {
+      "mode": "warm",
+      "policy": "bm25",
+      "observations": 4,
+      "visited_candidates": 1,
+      "fixture_checks": 9,
+      "explicit_chi_API_calls": 107,
+      "pipeline_elapsed_ns": {
+        "n": 4,
+        "min": 41666,
+        "median": 53520.5,
+        "max": 67334,
+        "mean": 54010.25
+      },
+      "Go_allocation_bytes": {
+        "n": 4,
+        "min": 64752,
+        "median": 64752,
+        "max": 64768,
+        "mean": 64756
+      },
+      "Go_mallocs": {
+        "n": 4,
+        "min": 619,
+        "median": 619,
+        "max": 620,
+        "mean": 619.25
+      },
+      "external_process_elapsed_ns": null
+    },
+    {
+      "mode": "warm",
+      "policy": "fixed",
+      "observations": 4,
+      "visited_candidates": 1,
+      "fixture_checks": 9,
+      "explicit_chi_API_calls": 107,
+      "pipeline_elapsed_ns": {
+        "n": 4,
+        "min": 25709,
+        "median": 35896,
+        "max": 49709,
+        "mean": 36802.5
+      },
+      "Go_allocation_bytes": {
+        "n": 4,
+        "min": 64528,
+        "median": 64720,
+        "max": 64720,
+        "mean": 64672
+      },
+      "Go_mallocs": {
+        "n": 4,
+        "min": 612,
+        "median": 614,
+        "max": 614,
+        "mean": 613.5
+      },
+      "external_process_elapsed_ns": null
+    },
+    {
+      "mode": "warm",
+      "policy": "lexical",
+      "observations": 4,
+      "visited_candidates": 1,
+      "fixture_checks": 9,
+      "explicit_chi_API_calls": 107,
+      "pipeline_elapsed_ns": {
+        "n": 4,
+        "min": 45292,
+        "median": 56167,
+        "max": 62167,
+        "mean": 54948.25
+      },
+      "Go_allocation_bytes": {
+        "n": 4,
+        "min": 64560,
+        "median": 64568,
+        "max": 64752,
+        "mean": 64612
+      },
+      "Go_mallocs": {
+        "n": 4,
+        "min": 617,
+        "median": 617.5,
+        "max": 619,
+        "mean": 617.75
+      },
+      "external_process_elapsed_ns": null
+    },
+    {
+      "mode": "warm",
+      "policy": "model",
+      "observations": 4,
+      "visited_candidates": 5,
+      "fixture_checks": 16,
+      "explicit_chi_API_calls": 198,
+      "pipeline_elapsed_ns": {
+        "n": 4,
+        "min": 50583,
+        "median": 64438,
+        "max": 74208,
+        "mean": 63416.75
+      },
+      "Go_allocation_bytes": {
+        "n": 4,
+        "min": 114376,
+        "median": 114392,
+        "max": 114568,
+        "mean": 114432
+      },
+      "Go_mallocs": {
+        "n": 4,
+        "min": 1130,
+        "median": 1131,
+        "max": 1132,
+        "mean": 1131
+      },
+      "external_process_elapsed_ns": null
+    }
+  ],
+  "warm_blocks": [
+    {
+      "block": 0,
+      "setup": {
+        "elapsed_ns": 1601500,
+        "total_alloc_bytes": 701640,
+        "mallocs": 1052
+      },
+      "external_process_elapsed_ns": 7264833
+    },
+    {
+      "block": 1,
+      "setup": {
+        "elapsed_ns": 1450584,
+        "total_alloc_bytes": 701960,
+        "mallocs": 1054
+      },
+      "external_process_elapsed_ns": 6984500
+    },
+    {
+      "block": 2,
+      "setup": {
+        "elapsed_ns": 1409625,
+        "total_alloc_bytes": 701800,
+        "mallocs": 1053
+      },
+      "external_process_elapsed_ns": 6626708
+    },
+    {
+      "block": 3,
+      "setup": {
+        "elapsed_ns": 1374125,
+        "total_alloc_bytes": 701800,
+        "mallocs": 1053
+      },
+      "external_process_elapsed_ns": 6580917
+    }
+  ],
+  "pairs": [
+    {
+      "mode": "cold",
+      "block": 0,
+      "model_to_bm25_pipeline_time_ratio": 5.101451419878559,
+      "model_to_bm25_allocation_ratio": 4.297511264580789,
+      "model_to_bm25_process_time_ratio": 0.8887553423432479
+    },
+    {
+      "mode": "cold",
+      "block": 1,
+      "model_to_bm25_pipeline_time_ratio": 5.719875500222321,
+      "model_to_bm25_allocation_ratio": 4.295826841285215,
+      "model_to_bm25_process_time_ratio": 1.2687423447635393
+    },
+    {
+      "mode": "cold",
+      "block": 2,
+      "model_to_bm25_pipeline_time_ratio": 6.573369865706668,
+      "model_to_bm25_allocation_ratio": 4.2938948962847645,
+      "model_to_bm25_process_time_ratio": 1.39109467817933
+    },
+    {
+      "mode": "cold",
+      "block": 3,
+      "model_to_bm25_pipeline_time_ratio": 6.219499200852424,
+      "model_to_bm25_allocation_ratio": 4.2938948962847645,
+      "model_to_bm25_process_time_ratio": 1.3483130384166773
+    },
+    {
+      "mode": "warm",
+      "block": 0,
+      "model_to_bm25_pipeline_time_ratio": 0.751225235393709,
+      "model_to_bm25_allocation_ratio": 1.766370150728935,
+      "model_to_bm25_process_time_ratio": null
+    },
+    {
+      "mode": "warm",
+      "block": 1,
+      "model_to_bm25_pipeline_time_ratio": 1.6817677053824363,
+      "model_to_bm25_allocation_ratio": 1.7666172473437114,
+      "model_to_bm25_process_time_ratio": null
+    },
+    {
+      "mode": "warm",
+      "block": 2,
+      "model_to_bm25_pipeline_time_ratio": 1.6340421446743147,
+      "model_to_bm25_allocation_ratio": 1.7666172473437114,
+      "model_to_bm25_process_time_ratio": null
+    },
+    {
+      "mode": "warm",
+      "block": 3,
+      "model_to_bm25_pipeline_time_ratio": 0.966240701888232,
+      "model_to_bm25_allocation_ratio": 1.7688982213438735,
+      "model_to_bm25_process_time_ratio": null
+    }
+  ],
+  "row_columns": [
+    "mode",
+    "block",
+    "position",
+    "policy",
+    "pipeline_elapsed_ns",
+    "Go_allocation_bytes",
+    "Go_mallocs",
+    "cold_external_process_elapsed_ns_or_null"
+  ],
+  "rows": [
+    [
+      "cold",
+      0,
+      0,
+      "bm25",
+      385209,
+      189976,
+      1271,
+      8077916
+    ],
+    [
+      "cold",
+      0,
+      1,
+      "fixed",
+      313333,
+      190264,
+      1268,
+      5963458
+    ],
+    [
+      "cold",
+      0,
+      2,
+      "model",
+      1965125,
+      816424,
+      2184,
+      7179291
+    ],
+    [
+      "cold",
+      0,
+      3,
+      "lexical",
+      291000,
+      190136,
+      1272,
+      5313792
+    ],
+    [
+      "cold",
+      1,
+      0,
+      "fixed",
+      262500,
+      190104,
+      1267,
+      5075667
+    ],
+    [
+      "cold",
+      1,
+      1,
+      "lexical",
+      274667,
+      190616,
+      1275,
+      4920625
+    ],
+    [
+      "cold",
+      1,
+      2,
+      "bm25",
+      281125,
+      189976,
+      1271,
+      4750833
+    ],
+    [
+      "cold",
+      1,
+      3,
+      "model",
+      1608000,
+      816104,
+      2182,
+      6027583
+    ],
+    [
+      "cold",
+      2,
+      0,
+      "lexical",
+      252791,
+      190456,
+      1274,
+      4351250
+    ],
+    [
+      "cold",
+      2,
+      1,
+      "model",
+      1605000,
+      816424,
+      2184,
+      5725167
+    ],
+    [
+      "cold",
+      2,
+      2,
+      "fixed",
+      234250,
+      190264,
+      1268,
+      4287541
+    ],
+    [
+      "cold",
+      2,
+      3,
+      "bm25",
+      244167,
+      190136,
+      1272,
+      4115584
+    ],
+    [
+      "cold",
+      3,
+      0,
+      "model",
+      1459250,
+      816424,
+      2184,
+      5448084
+    ],
+    [
+      "cold",
+      3,
+      1,
+      "bm25",
+      234625,
+      190136,
+      1272,
+      4040667
+    ],
+    [
+      "cold",
+      3,
+      2,
+      "lexical",
+      245708,
+      190296,
+      1273,
+      4058500
+    ],
+    [
+      "cold",
+      3,
+      3,
+      "fixed",
+      261125,
+      190264,
+      1268,
+      4448875
+    ],
+    [
+      "warm",
+      0,
+      0,
+      "bm25",
+      67334,
+      64752,
+      619,
+      null
+    ],
+    [
+      "warm",
+      0,
+      1,
+      "fixed",
+      25709,
+      64720,
+      614,
+      null
+    ],
+    [
+      "warm",
+      0,
+      2,
+      "model",
+      50583,
+      114376,
+      1130,
+      null
+    ],
+    [
+      "warm",
+      0,
+      3,
+      "lexical",
+      45292,
+      64560,
+      617,
+      null
+    ],
+    [
+      "warm",
+      1,
+      0,
+      "fixed",
+      49709,
+      64720,
+      614,
+      null
+    ],
+    [
+      "warm",
+      1,
+      1,
+      "lexical",
+      52125,
+      64576,
+      618,
+      null
+    ],
+    [
+      "warm",
+      1,
+      2,
+      "bm25",
+      44125,
+      64752,
+      619,
+      null
+    ],
+    [
+      "warm",
+      1,
+      3,
+      "model",
+      74208,
+      114392,
+      1131,
+      null
+    ],
+    [
+      "warm",
+      2,
+      0,
+      "lexical",
+      62167,
+      64752,
+      619,
+      null
+    ],
+    [
+      "warm",
+      2,
+      1,
+      "model",
+      68084,
+      114392,
+      1131,
+      null
+    ],
+    [
+      "warm",
+      2,
+      2,
+      "fixed",
+      37792,
+      64720,
+      614,
+      null
+    ],
+    [
+      "warm",
+      2,
+      3,
+      "bm25",
+      41666,
+      64752,
+      619,
+      null
+    ],
+    [
+      "warm",
+      3,
+      0,
+      "model",
+      60792,
+      114568,
+      1132,
+      null
+    ],
+    [
+      "warm",
+      3,
+      1,
+      "bm25",
+      62916,
+      64768,
+      620,
+      null
+    ],
+    [
+      "warm",
+      3,
+      2,
+      "lexical",
+      60209,
+      64560,
+      617,
+      null
+    ],
+    [
+      "warm",
+      3,
+      3,
+      "fixed",
+      34000,
+      64528,
+      612,
+      null
+    ]
+  ],
+  "model_visit_prefix": [
+    {
+      "id": "pre_path",
+      "checks": 1,
+      "API": 13
+    },
+    {
+      "id": "unchanged",
+      "checks": 1,
+      "API": 11
+    },
+    {
+      "id": "post_query",
+      "checks": 3,
+      "API": 39
+    },
+    {
+      "id": "twice_path",
+      "checks": 2,
+      "API": 28
+    },
+    {
+      "id": "post_path",
+      "checks": 9,
+      "API": 107
+    }
+  ],
+  "source_forecast_correction": "158 was an internal mistaken forecast using guessed fixture IDs; it omitted40 calls. The actual full indexed trial sum is198. No observer/input/Want/source correction or target rerun.",
+  "decision": "Keep the existing model inactive. Model order visits5 candidates/16 fixtures/198 explicit Chi calls; BM25 visits1/9/107. Preparation reuse reduces repeated setup within its measured boundary but does not fix this ordering.",
+  "scope": "Derived from the actual sealed bundle, not a target rerun. Eight within-block paired observations on one exposed parent, not independent quality samples. Warm process wall belongs to all four policies plus setup, not a per-policy time. Go allocation is not RSS/GPU memory. Timings include trace collection and vary; no statistical generalization, training admission, Golden2400, production or Codex savings claim. Each warm block ranks the model once among four different policies; repeated-same-model preparation amortization was not measured.",
+  "warm_repeated_same_model_calls_measured": false,
+  "warm_interval_is_prepaid_setup": true
+}
