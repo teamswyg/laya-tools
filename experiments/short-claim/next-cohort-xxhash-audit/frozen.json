@@ -1,0 +1,118 @@
+{
+  "schema": "riido-xxhash-short-state-frozen-v1",
+  "old_receiver_hex": "78786806e9b5c0adee27ea6062ebd4273daeb2c213000000000000008c35147a4e86c86103000000000000006f6c640000000000000000000000000000000000000000000000000000000000",
+  "fixtures": [
+    {
+      "id": "fixture01-short-empty-seed7",
+      "input_hex": "78786806ddb5c0adee27ea6056ebd4273daeb2c207000000000000008035147a4e86c86100000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "want_success": true,
+      "reason": "none"
+    },
+    {
+      "id": "fixture02-short31-seed7",
+      "input_hex": "78786806ddb5c0adee27ea6056ebd4273daeb2c207000000000000008035147a4e86c8611f000000000000006161616161616161616161616161616161616161616161616161616161616100",
+      "want_success": true,
+      "reason": "none"
+    },
+    {
+      "id": "fixture03-boundary32-arbitrary-lanes",
+      "input_hex": "78786806010000000000000002000000000000000300000000000000040000000000000020000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "want_success": true,
+      "reason": "structural-only boundary32"
+    },
+    {
+      "id": "fixture04-malformed-magic",
+      "input_hex": "79786806ddb5c0adee27ea6056ebd4273daeb2c207000000000000008035147a4e86c86101000000000000006100000000000000000000000000000000000000000000000000000000000000",
+      "want_success": false,
+      "reason": "bad magic"
+    },
+    {
+      "id": "fixture05-malformed-length75",
+      "input_hex": "78786806ddb5c0adee27ea6056ebd4273daeb2c207000000000000008035147a4e86c861010000000000000061000000000000000000000000000000000000000000000000000000000000",
+      "want_success": false,
+      "reason": "bad exact size"
+    },
+    {
+      "id": "fixture06-unused-tail-byte31",
+      "input_hex": "78786806ddb5c0adee27ea6056ebd4273daeb2c207000000000000008035147a4e86c86101000000000000006100000000000000000000000000000000000000000000000000000000000001",
+      "want_success": false,
+      "reason": "nonzero unused tail"
+    },
+    {
+      "id": "fixture07-short-v1-only-xor1",
+      "input_hex": "78786806dcb5c0adee27ea6056ebd4273daeb2c207000000000000008035147a4e86c86101000000000000006100000000000000000000000000000000000000000000000000000000000000",
+      "want_success": false,
+      "reason": "incoherent short v1"
+    },
+    {
+      "id": "fixture08-total33-canonical-tail",
+      "input_hex": "78786806010000000000000002000000000000000300000000000000040000000000000021000000000000006100000000000000000000000000000000000000000000000000000000000000",
+      "want_success": false,
+      "reason": "total exceeds32"
+    },
+    {
+      "id": "fixture09-boundary32-dirty-tail",
+      "input_hex": "78786806010000000000000002000000000000000300000000000000040000000000000020000000000000000100000000000000000000000000000000000000000000000000000000000000",
+      "want_success": false,
+      "reason": "unused tail nonzero"
+    },
+    {
+      "id": "fixture10-short-v2-only-xor1",
+      "input_hex": "78786806ddb5c0adee27ea6057ebd4273daeb2c207000000000000008035147a4e86c86101000000000000006100000000000000000000000000000000000000000000000000000000000000",
+      "want_success": false,
+      "reason": "incoherent short lane relations"
+    },
+    {
+      "id": "fixture11-short-v3-only-xor1",
+      "input_hex": "78786806ddb5c0adee27ea6056ebd4273daeb2c206000000000000008035147a4e86c86101000000000000006100000000000000000000000000000000000000000000000000000000000000",
+      "want_success": false,
+      "reason": "incoherent short lane relations"
+    },
+    {
+      "id": "fixture12-short-v4-only-xor1",
+      "input_hex": "78786806ddb5c0adee27ea6056ebd4273daeb2c207000000000000008135147a4e86c86101000000000000006100000000000000000000000000000000000000000000000000000000000000",
+      "want_success": false,
+      "reason": "incoherent short lane relations"
+    },
+    {
+      "id": "fixture13-short1-seed19",
+      "input_hex": "78786806e9b5c0adee27ea6062ebd4273daeb2c213000000000000008c35147a4e86c86101000000000000006100000000000000000000000000000000000000000000000000000000000000",
+      "want_success": true,
+      "reason": "none"
+    },
+    {
+      "id": "fixture14-malformed-length77",
+      "input_hex": "78786806ddb5c0adee27ea6056ebd4273daeb2c207000000000000008035147a4e86c8610100000000000000610000000000000000000000000000000000000000000000000000000000000000",
+      "want_success": false,
+      "reason": "bad exact size"
+    },
+    {
+      "id": "fixture15-unused-tail-byte1",
+      "input_hex": "78786806ddb5c0adee27ea6056ebd4273daeb2c207000000000000008035147a4e86c86101000000000000006101000000000000000000000000000000000000000000000000000000000000",
+      "want_success": false,
+      "reason": "unused tail nonzero"
+    }
+  ],
+  "candidates": [
+    {
+      "id": "direct",
+      "caption": "Check exact wire size, magic, total up to32, canonical unused tail and coherent short lanes before staged import."
+    },
+    {
+      "id": "reconstruct",
+      "caption": "For short states reconstruct from seed and used payload, compare every serialized byte; boundary32 uses structural import, larger totals reject."
+    },
+    {
+      "id": "legacy",
+      "caption": "Import using the original size and magic validation into a temporary object, then commit."
+    },
+    {
+      "id": "roundtrip",
+      "caption": "Import into a temporary object and accept only when reserialization equals every input byte."
+    },
+    {
+      "id": "digest",
+      "caption": "For short states compare imported and reconstructed digest values and commit the imported object; longer states use legacy import."
+    }
+  ]
+}

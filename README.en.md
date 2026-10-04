@@ -2,7 +2,9 @@
 
 The current qualified finite development data contains **37 requests and108 labels**, published as the [immutable HF37 release](https://huggingface.co/datasets/JooYoon/riidolaya-shortclaim-next60-development/tree/next60-37-finite-v1). The [nonlearned ordering diagnostic](experiments/short-claim/next60-development37-bias-audit/README.en.md) favored lexical ordering at29/37 first choices, but position bias and platform-specific ties prevent interpreting this as learned-model benefit or actual Codex savings.
 
-An [unknown/ambiguity-preserving Go input API](pkg/shortclaimdata/COHORT.en.md) now prepares for the next five/eight-candidate cohort. U never becomes false, and ambiguity retains known T/F facts. Every row, including audit-only rows, is checked for declared role leakage before complete known parents with eligible rows enter the existing projection. New cohort observations, labels, training and protected2,400 evaluation remain pending.
+An [unknown/ambiguity-preserving Go input API](pkg/shortclaimdata/COHORT.en.md) now prepares for the next five/eight-candidate cohort. U never becomes false, and ambiguity retains known T/F facts. Every row, including audit-only rows, is checked for declared role leakage before complete known parents with eligible rows enter the existing projection.
+
+The [actual audit of the next xxhash parent](experiments/short-claim/next-cohort-xxhash-audit/README.en.md) compared15 inputs × five candidates. Direct checks and full-state reconstruction matched15/15; digest comparison matched7/15. These75 trials are not75 independent examples, and unresolved lineage keeps this parent out of training. New cohort labels, training and protected2,400 evaluation remain pending.
 
 ## Earlier checkpoints
 

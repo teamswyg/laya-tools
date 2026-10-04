@@ -1,0 +1,187 @@
+{
+  "schema": "riido-xxhash-cohort-execution-freeze-v1",
+  "state": "ROOT_FROZEN_BEFORE_FIRST_AUDIT_RUN",
+  "parent_requests": 1,
+  "request": "Import bounded xxhash states atomically; require coherent short lanes and zero unused tail, and preserve receiver and input on rejection.",
+  "fixture_cases": 15,
+  "candidate_mechanisms": 5,
+  "scheduled_trials": 75,
+  "pins": [
+    {
+      "path": "frozen.json",
+      "bytes": 5579,
+      "sha256": "d879b37d30380c8150e159ec2a545c666c3b33dc2019e419e1db0ee7e1e59c27"
+    },
+    {
+      "path": "source/main.go.txt",
+      "bytes": 16915,
+      "sha256": "88969465bc5e1d47ecac26eacaaa1fff2eed35cff709f27eeddd6b57f47b7dc4"
+    },
+    {
+      "path": "source/go.mod.template",
+      "bytes": 138,
+      "sha256": "b7310ffc58756948682f8544c6be8ae75c05973621db9d9ce2d27e901e4b4987"
+    },
+    {
+      "path": "source/xxhash/go.mod.template",
+      "bytes": 45,
+      "sha256": "a090f8eaaf59cc2adf163299ebefe797e1dca3f6add2c8e88a6a3b90ba538b02"
+    },
+    {
+      "path": "source/xxhash/xxhash.go.txt",
+      "bytes": 5646,
+      "sha256": "ced3c8e453e927a399ed3bc9c310ff7a2e3f9c33999d33cc8983d6d4334e4cf7"
+    },
+    {
+      "path": "source/xxhash/xxhash_other.go.txt",
+      "bytes": 1619,
+      "sha256": "850a8d36bac7866042fa96965223a61ade436973280fb4ce537058b05ceaea17"
+    },
+    {
+      "path": "source/xxhash/xxhash_unsafe.go.txt",
+      "bytes": 2095,
+      "sha256": "b164ad04d24b0d1f5fbde666ae3806f4f33a23044359f63162aed343bcc97eb3"
+    },
+    {
+      "path": "source/xxhash/LICENSE.txt",
+      "bytes": 1068,
+      "sha256": "f566a9f97bacdaf00d9f21dd991e81dc11201c4e016c86b470799429a1c9a79c"
+    }
+  ],
+  "candidate_body_binding": "Whole observer source SHA plus fixed implementation ID; no separate per-function digest claim.",
+  "captions": [
+    {
+      "id": "direct",
+      "caption_sha256": "4809b06450cdf69c9025b92c9c40cf3eb8c2328bbad09334b8282a725e05993a"
+    },
+    {
+      "id": "reconstruct",
+      "caption_sha256": "e6d52b66bdcd2eb3a4f2424c089989a7dbf6c7dbb9f03626d4e183dc289befb7"
+    },
+    {
+      "id": "legacy",
+      "caption_sha256": "bacbf1a5a68c1f38a0ade13882cc93c963095a5079006e2c5f2ebe7a9bf8a565"
+    },
+    {
+      "id": "roundtrip",
+      "caption_sha256": "e2868b8c780c0bba4ab887401b77e82771b11ed681560376ce12648d5f3512a6"
+    },
+    {
+      "id": "digest",
+      "caption_sha256": "e71be43bd776f72076be4688caf031b39f24fa4065f0b0db4aa3ad73017feba9"
+    }
+  ],
+  "fixture_order": [
+    "fixture01-short-empty-seed7",
+    "fixture02-short31-seed7",
+    "fixture03-boundary32-arbitrary-lanes",
+    "fixture04-malformed-magic",
+    "fixture05-malformed-length75",
+    "fixture06-unused-tail-byte31",
+    "fixture07-short-v1-only-xor1",
+    "fixture08-total33-canonical-tail",
+    "fixture09-boundary32-dirty-tail",
+    "fixture10-short-v2-only-xor1",
+    "fixture11-short-v3-only-xor1",
+    "fixture12-short-v4-only-xor1",
+    "fixture13-short1-seed19",
+    "fixture14-malformed-length77",
+    "fixture15-unused-tail-byte1"
+  ],
+  "candidate_order": [
+    "direct",
+    "reconstruct",
+    "legacy",
+    "roundtrip",
+    "digest"
+  ],
+  "upstream": {
+    "repo": "cespare/xxhash",
+    "revision": "ab37246c889f9db16b606fda1c232d659df9271d",
+    "license": "MIT",
+    "exact_notice_retained": true
+  },
+  "reviews": {
+    "independent_Want_source_read": true,
+    "root_contract_arithmetic_readback": true,
+    "independent_observer_source_read": true,
+    "source_read_only_no_execution": true,
+    "nonblind": true,
+    "observer_source_blockers_found": 0
+  },
+  "build": {
+    "go_version": "go1.27.1",
+    "go_tool_sha256": "132b69336a1f809932a8a20b0201dbbb980e86e3a323ae32e893639d83d71598",
+    "GOOS": "darwin",
+    "GOARCH": "arm64",
+    "CGO_ENABLED": "0",
+    "tags": [
+      "purego"
+    ],
+    "selected_upstream_GoFiles": [
+      "xxhash.go",
+      "xxhash_other.go",
+      "xxhash_unsafe.go"
+    ],
+    "SFiles": [],
+    "CgoFiles": [],
+    "actual_package_listing_verified": true,
+    "metadata_queries_failed_before_correct_listing": 2
+  },
+  "execution": {
+    "command": [
+      "go",
+      "run",
+      "-tags=purego",
+      ".",
+      "frozen.json"
+    ],
+    "timeout_ms": 45000,
+    "stdout_cap_bytes": 98304,
+    "stderr_cap_bytes": 8192,
+    "explicit_public_api_attempt_cap": 1200,
+    "retained_worker_binary": false,
+    "ordinary_compiler_go_run_scratch_prior_policy_unchanged": true
+  },
+  "observation_scope": {
+    "phases": [
+      "setup",
+      "before",
+      "candidate",
+      "after"
+    ],
+    "public_API_only": true,
+    "API_internal_calls_counted": false,
+    "per_call_arguments_and_receiver_identity_logged": false,
+    "full_hidden_receiver_memory_observed": false,
+    "rejection_checks": [
+      "normal return",
+      "error present",
+      "public serialized state preserved",
+      "Sum64 preserved",
+      "input unchanged"
+    ],
+    "success_checks": [
+      "normal return",
+      "error absent",
+      "serialized state equals input",
+      "input unchanged"
+    ],
+    "numeric_success_digest_Want": false,
+    "boundary32_structural_only": true,
+    "raw_frozen_SHA_admission_required": true,
+    "JSON_loader": "encoding/json unknown-field and EOF checks; no duplicate-key/casefold strictness claim"
+  },
+  "training": {
+    "status": "audit-only unqualified",
+    "family_closure": "unresolved old79/37 helper/fork connections",
+    "assigned_roles": 0,
+    "learning_labels": 0,
+    "learning_weights": 0,
+    "Fit": 0,
+    "model_calls": 0
+  },
+  "resource_account_sha256": "e6df696f468968b424516c2cab36ecce30aa81568058f73f545f96154487717a",
+  "resource_cap_bytes": 536870912,
+  "new_exclusions_or_cap_reset": false
+}
