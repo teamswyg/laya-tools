@@ -105,6 +105,8 @@ jobs:
         run: |
           (cd experiments/short-claim/next-cohort-chi-audit/constructor-scratch && shasum -a 256 -c SHA256SUMS)
           go test ./pkg/hintprepared -run '^TestConstructorSaved$' -count=1 -v -constructor-saved "$GITHUB_WORKSPACE/experiments/short-claim/next-cohort-chi-audit/constructor-scratch/OBSERVATIONS.actual.public.v1.json.gz"
+      - name: Saved shared-token costs and synthetic source controls (Go; no model or new measurement)
+        run: bash scripts/verify-chi-token-plan.sh
       - name: Preserve actual nonlearned37 scores and matrix
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

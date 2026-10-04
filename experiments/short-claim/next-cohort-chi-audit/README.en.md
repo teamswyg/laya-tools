@@ -6,7 +6,9 @@ This experiment tests how similar code descriptions can hide a consequential dif
 
 **Result: Go API calculation parity passed, but the existing model's recommendation quality was inadequate.** It placed the candidate passing all checks fifth; BM25 placed it first. The previously failed model stays inactive. No fitting, new model publication or default-policy change occurred.
 
-The latest [constructor scratch comparison](constructor-scratch/README.en.md) preserves every feature and ranking while saving about37% of cumulative Go allocation bytes; median paired time ratios increased about7.5–7.7%. Allocation counts and final logical storage are reported separately. The model's correct-candidate rank remains fifth.
+The latest [shared token-plan comparison](constructor-token-plan/README.en.md) reduced allocation bytes by about12.9% and allocation counts by421 against the merged scratch constructor. Paired time medians were about1–2.2% lower, with3 slower pairs; general speed improvement remains unproved. Raw token plans and ordered query prefixes are shared inside construction and are not retained in the final owner.
+
+The earlier [constructor scratch comparison](constructor-scratch/README.en.md) preserves every feature and ranking while saving about37% of cumulative Go allocation bytes; median paired time ratios increased about7.5–7.7%. Allocation counts and final logical storage are reported separately. The model's correct-candidate rank remains fifth.
 
 ## The problem
 

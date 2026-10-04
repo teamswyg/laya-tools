@@ -47,9 +47,9 @@ type Prepared struct {
 
 // Prepare first revalidates every exported Prepared field, including normalized
 // forms, provenance, ASCII identifiers and unused slots, preserving its fixed
-// public diagnostics. Constructor-local raw text plans and query prefixes are
-// shared by the prepass and scratch. Both passes still pay cross hashing.
-// Planning is preparation cost; no shared pool/cache/lock is introduced.
+// public diagnostics. A cardinality prepass uses raw text and repeats token/hash
+// work, then one constructor-local scratch generates the original feature order.
+// Both passes are preparation cost; no shared pool/cache/lock is introduced.
 // There is no caller budget. Validated byte/count bounds and <=8192 features per
 // row bound retained data; temporary construction is not a peak-memory limit.
 // Logical retained data is tight feature backing + cloned text byte lengths;
@@ -59,25 +59,11 @@ func Prepare(p shortclaim.Prepared) (*Prepared, error) {
 	if err := shortclaim.ValidatePrepared(p); err != nil {
 		return nil, err
 	}
-	var texts [shortclaim.MaxCandidates + 1]hintlearn.FeatureText
-	var err error
-	texts[0], err = hintlearn.PrepareFeatureText(p.Request)
-	if err != nil {
-		return nil, ErrFeature
-	}
-	query, err := hintlearn.PrepareFeatureQuery(texts[0])
-	if err != nil {
-		return nil, ErrFeature
-	}
 	var counts [shortclaim.MaxCandidates]int
 	var offsets [shortclaim.MaxCandidates + 1]uint32
 	total, maxCrossSlots := 0, 0
 	for i := 0; i < p.Count; i++ {
-		texts[i+1], err = hintlearn.PrepareFeatureText(p.Candidates[i].Text)
-		if err != nil {
-			return nil, ErrFeature
-		}
-		count, slots, err := hintlearn.FeatureCardinalityPrepared(query, texts[i+1])
+		count, slots, err := hintlearn.FeatureCardinality(p.Request, p.Candidates[i].Text)
 		if err != nil || count < 0 || count > hintweights.Dimension {
 			return nil, ErrFeature
 		}
@@ -92,7 +78,7 @@ func Prepare(p shortclaim.Prepared) (*Prepared, error) {
 	}
 	features := make([]hintweights.Feature, total)
 	for i := 0; i < p.Count; i++ {
-		fs, err := scratch.FeaturesPrepared(query, texts[i+1])
+		fs, err := scratch.Features(p.Request, p.Candidates[i].Text)
 		if err != nil || len(fs) != counts[i] || len(fs) > hintweights.Dimension {
 			return nil, ErrFeature
 		}
