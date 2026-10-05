@@ -1,0 +1,71 @@
+{
+  "schema": "riido-jwt-cost-local-quality-public-v1",
+  "Go": "go1.27.1",
+  "checks": [
+    {
+      "stage": "format",
+      "status": 0,
+      "signal": null,
+      "error_code": null,
+      "stdout_bytes": 0,
+      "stderr_bytes": 0,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "full_private_first_record_sha256": "36096cdaca2702906f1845ee9e12227b0618b75c36afe3c9f806c0c56083b0f0"
+    },
+    {
+      "stage": "replay",
+      "status": 0,
+      "signal": null,
+      "error_code": null,
+      "stdout_bytes": 1100,
+      "stderr_bytes": 0,
+      "stdout_sha256": "34d2abfa6fce9c1a514358da39dbf3df473a300fd35db5a7434b8c87bd903323",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "full_private_first_record_sha256": "de615e0d4b867358ec0918b81d2c69c67b78d23204e59475a66afc743907483a"
+    },
+    {
+      "stage": "race",
+      "status": 0,
+      "signal": null,
+      "error_code": null,
+      "stdout_bytes": 8919,
+      "stderr_bytes": 0,
+      "stdout_sha256": "acada55f6f58e84c6fa1959addfbf6488887b6bd521bf33783aedf39f7fa589d",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "full_private_first_record_sha256": "55c8c695d4aec1e8a820463c63f2aa6f1abdd7670b15c275f7c25c1b024dc733"
+    },
+    {
+      "stage": "vet",
+      "status": 0,
+      "signal": null,
+      "error_code": null,
+      "stdout_bytes": 0,
+      "stderr_bytes": 0,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "full_private_first_record_sha256": "11063a9d2b5e0dda96450bc2354773d79a5b1cde923b42fa219ed980f054be20"
+    },
+    {
+      "stage": "boundaries",
+      "status": 0,
+      "signal": null,
+      "error_code": null,
+      "stdout_bytes": 2323,
+      "stderr_bytes": 0,
+      "stdout_sha256": "c6022e2baf21ca69f7e76826b817e7cbb22d5d0953df4a636e411c4ff5507652",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "full_private_first_record_sha256": "0abeded5cc16f9c76cb1a2d53072a4443d6059fa8456e493ac883ce43bf0a18f"
+    }
+  ],
+  "earlier_saved_checker_failure": {
+    "status": 1,
+    "code": "unknown_parent_timing",
+    "first_record_preserved": true,
+    "finding": "14 original measured rank durations are0ns. The savedchecker incorrectly required positive rank time. Required/non-null/nonnegative rank and positive total/phase-sum guards remain intact.",
+    "fix": "Allow observed0ns rank, with both-mode zero/negative/null/missing regression tests.",
+    "original_API_retries": 0,
+    "native_observations_changed": false
+  },
+  "scope": "Complete root race/vet and separate synthetic ownership/error/deadline race controls passed; source formatting and savedreplay passed. Root unit tests may run existing synthetic/model-kernel controls; these are not new training evidence. This is neither CI passage nor new original worker execution. Scanner is a separate prepush gate and CI step."
+}

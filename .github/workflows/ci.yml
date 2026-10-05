@@ -119,6 +119,8 @@ jobs:
           bash scripts/verify-text-representations.sh
       - name: Saved first JWT observations and synthetic boundary controls (offline Go; no new native API or training)
         run: bash scripts/verify-jwt-native-audit.sh
+      - name: Saved JWT cache costs and synthetic ownership controls (no new native observation or training)
+        run: bash scripts/verify-jwt-cost-preview.sh
       - name: Preserve first representation preview responses
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
