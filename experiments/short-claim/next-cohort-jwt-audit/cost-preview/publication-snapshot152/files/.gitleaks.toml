@@ -1,0 +1,109 @@
+[extend]
+useDefault = true
+
+[[rules]]
+id = "generic-api-key"
+
+[[rules.allowlists]]
+description = "Public tokenizer artifact SHA-256 values, not API tokens"
+condition = "AND"
+paths = ['''(^|/)internal/assets/manifest\.json$''']
+regexTarget = "line"
+regexes = ['''^\s*"tokenizer\.json": "[a-f0-9]{64}",?\s*$''']
+
+[[rules.allowlists]]
+description = "Pinned public Model2Vec tokenizer checksum in reference/result metadata"
+condition = "AND"
+paths = ['''(^|/)experiments/static-embedding/(reference|results-04)\.json$''']
+regexTarget = "line"
+regexes = ['''^\s*"(tokenizer_sha256|TokenizerSHA256)": "e67e803f624fb4d67dea1c730d06e1067e1b14d830e2c2202569e3ef0f70bb50",?\s*$''']
+
+[[rules.allowlists]]
+description = "Exact already-public Laya tokenizer SHA-256 in bounded relevance probe"
+condition = "AND"
+paths = ['''(^|/)cmd/riido-layaprobe/main\.go$''']
+regexTarget = "secret"
+regexes = ['''^6c8aaa9a542084f2457eab775d4eeb51f92a70c0fd9de28d5edb0ddec3c08d30$''']
+
+[[rules.allowlists]]
+description = "Exact public Laya tokenizer checksum in parity asset pins"
+condition = "AND"
+paths = ['''(^|/)experiments/laya-parity/assets-18\.json$''']
+regexTarget = "secret"
+regexes = ['''^6c8aaa9a542084f2457eab775d4eeb51f92a70c0fd9de28d5edb0ddec3c08d30$''']
+
+# This exact public checksum is already pinned in internal/assets/manifest.json.
+# Preserve existing rules and allowlists; only this field/value in plan 50 matches.
+[[rules.allowlists]]
+description = "Exact public base tokenizer SHA-256 in plan 50"
+condition = "AND"
+paths = ['''^experiments/task-outcomes/plan-50\.json$''']
+regexTarget = "line"
+regexes = ['''^\s*"tokenizer_sha256":\s*"6c8aaa9a542084f2457eab775d4eeb51f92a70c0fd9de28d5edb0ddec3c08d30"\s*,?\s*$''']
+
+[[rules.allowlists]]
+description = "Exact public base tokenizer file checksum in plan 51"
+condition = "AND"
+paths = ['''^experiments/task-outcomes/plan-51\.json$''']
+regexTarget = "line"
+regexes = ['''^\s*"tokenizer\.json":\s*"6c8aaa9a542084f2457eab775d4eeb51f92a70c0fd9de28d5edb0ddec3c08d30"\s*,?\s*$''']
+
+[[rules.allowlists]]
+description = "Exact public source Git revision for the versioned event-envelope task"
+condition = "AND"
+paths = ['''^internal/taskverify/definition_event_keys_v1\.go$''']
+regexTarget = "line"
+regexes = ['''^\s*const eventKeyBoundsRevision = "ee72334166e2962b0821d5198a50fdd13f92ab29"\s*$''']
+
+[[rules.allowlists]]
+description = "Authored invalid-key-boundary case labels, not credentials"
+condition = "AND"
+paths = ['''^internal/taskverify/definition_event_keys_v1_test\.go$''']
+regexTarget = "secret"
+regexes = ['''^key127-strict$''']
+
+[[rules.allowlists]]
+description = "Exact already-public event-envelope TaskSpec SHA in immutable regression vector"
+condition = "AND"
+paths = ['''^internal/taskverify/upstream_v2_test\.go$''']
+regexTarget = "secret"
+regexes = ['''^169cedefd41d3a5ba05d11bbb4685761a0dde6adf07401b846b77bf5a84c27db$''']
+
+# Exact fictional JWT151 artifacts generated locally; no private key or live tokens.
+[[rules.allowlists]]
+description = "Exact public fictional token and API-response SHA values from the first JWT audit"
+condition = "AND"
+paths = ['''^experiments/short-claim/next-cohort-jwt-audit/(SIGNER-STDOUT|EXECUTION)\.actual\.public\.v1\.json$''']
+regexTarget = "secret"
+regexes = ['''^f3c25c252daabc0ed3515e8afba731dc6c6f104c1d1f7a7ef41983e66cdcc029$''', '''^2826bab19f3f90d30b5a19d1e236cf689b8fd6adaf165b9217d258db45f01e16$''', '''^5bfdd6ca0e565089e71544ac079044092c2169d3858db61fbfeb89f4e65b5dec$''', '''^f73d57c2638d913cab1177ee2ec3bc94daa531b130cce892bc792b1c7077c50b$''', '''^27650071d73e23cf15e27e569c524d6d4caf67fcab14ff71007d1ce6a31f3fe3$''', '''^6cc1f801b364f3b5181b0258aea3807fa3eb539e24e96ebf2f744a8ff329d3b2$''', '''^e3ff474d522e4bfcd72dda76237166a7a4264d879774b9ed9de6646706909940$''', '''^f5222d08e4971bfc967f99bf6f13b3447abad31dd27f0bcfdfee98cf2ea0d527$''', '''^0b3dcac82a0a2b73ee85c78cfa23f80e48cc87c6aa789c5fc2762a13c1f4b9cc$''', '''^80964dec65c2e418f523b3ca43ad37b20b064f7695bb61861b67a9bf563badb6$''', '''^c61e194d229b642c04b21f528c92a610f3b84bd0fb2b9a1dcff3466478d78438$''', '''^b7323c9535c3981074d1d4bed18720056fa577af57c8394d6a4266a52f9d96e2$''', '''^2fbba1261108acecb2b327d5f0bf01bacba3787df8939aa5c5ca6c84af5ec484$''', '''^a2248311eaf03e0b83160fe3edef04fc727adcb6d944e0eb34962056fac3bb28$''', '''^b46d887b7f8e720a575cf307fabb11a3021b6259fa03b71b55c4655760d88b6f$''']
+
+# SHA-256 of the fictional public SPKI DER key already published in
+# SIGNER-STDOUT.actual.public.v1.json; this value is not a credential.
+[[rules.allowlists]]
+description = "Exact public fictional JWT key checksum in the saved cost replay"
+condition = "AND"
+paths = ['''^experiments/short-claim/next-cohort-jwt-audit/cost-replay/main\.go$''']
+regexTarget = "line"
+regexes = ['''^\s*const keySHA = "6c6ef54b2b0fa9af5bb3db8b8280a132371a3733adb5068e8ed40efabbc8c92d"\s*$''']
+
+[[rules]]
+id = "jwt"
+
+[[rules.allowlists]]
+description = "Only the exact thirteen public JWT151 tokens signed for fictional fixed-clock fixtures"
+condition = "AND"
+paths = ['''^experiments/short-claim/next-cohort-jwt-audit/(SIGNER-STDOUT|OBSERVER-INPUT)\.actual\.public\.v1\.json$''']
+regexTarget = "secret"
+regexes = ['''^eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9\.eyJhdWQiOlsiYWxwaGEiXSwiZXhwIjoxNzAwMDAwMDIwLCJpYXQiOjE2OTk5OTk5ODAsImlzcyI6Imlzc3Vlci1BIiwibmJmIjoxNjk5OTk5OTgwLCJzdWIiOiJ1c2VyLUEifQ\.IboBy4dfK78uoJhAQIgISsjyZtHt8OQto4KgdNl3jsfQ9bGckqanabJNTE1KslNAHXqi-u7IB46vtWlnXSjTAbB_m0exlFzmPXWKxdZZAcA6XZJ7_6CbUrT6r3kcxC6geW7b7fViLcopbiSgt_DfpIA7Zt_rCf1dXyHPY9ZF8luATZZBZ12xTKHBuDpaFhVlEqMOO2NOIYjzfWONh1ccLrslobzScJDgL2gwVOg1CyTpe5E6O--W_1GLnyRUJsDhoqL0KkgddVLEAV214thXK4iL2TTaUgp6fSQkagYb5P2EBpDUgarIRAuR5adRxQsDw6gcsiuuWv6VuDstood3-A$''',
+'''^eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9\.eyJhdWQiOlsiYmV0YSJdLCJleHAiOjE3MDAwMDAwMjAsImlhdCI6MTY5OTk5OTk4MCwiaXNzIjoiaXNzdWVyLUEiLCJuYmYiOjE2OTk5OTk5ODAsInN1YiI6InVzZXItQSJ9\.pjQxSBRAuNt0Mxn5NE9fwIahScB1giPXTzxnBu37Fueu0omhmaKMsDj3d9VOtuJEKxf4cM2NkVocKl1nLqH3Cz_00wbJUCGegZngF6_C_Bo01mxso6SnVFdsnZlqarG9f7oAjFnyOK2h-vtk_OBjyr4OPY7xwAj0lFfdQ5n0YhVkx5-FtEtERagJtIuzWU7CzjRmfAJ3evKJbGIKjXwhkhaeB6XgyyMrpzEjAV-Z9p4vFhb4kwjdwCpBlH4ZlYyaM5XTjp2IQltrcTiIx1x_CQfmTYXRlDjk7V827xD6nYm6gQMsiqZfuEJsBi6FYp9DEvLaiiaShRO0hKvZMeXB7A$''',
+'''^eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9\.eyJhdWQiOlsiYWxwaGEiLCJiZXRhIl0sImV4cCI6MTcwMDAwMDAyMCwiaWF0IjoxNjk5OTk5OTgwLCJpc3MiOiJpc3N1ZXItQSIsIm5iZiI6MTY5OTk5OTk4MCwic3ViIjoidXNlci1BIn0\.Wwj-IZEyQ1Nh0BCE6mPnEx7hX0byGnSEGYoXHQm0EMOoScAHDhDR8-KLGpvmyj8sKl7gIGfI-C57E0iSVQBxL2VV0ehz3ZZ-q-z1j-R_Zz8NOqOh5OCfnY5svntFv5a44kQHXynDXXbFVZXHVEtFwDaPBN5MYhOhSMFcuKKSauDEA_V3EpSfzHCriD65vJ0cb1wFM9JbIjt7hl1oFLAn7hsDdbmcaOjgUWs9Mfv6Ao9FMCSFhgnsLMnoFrLi8QjLUwf9mPhOJlRSeGx8GZwUGEJXCTJPWyFwe7isfJBpHjB2GLbpFz_f67p9x-0YYKnIeRYkTUfYE6bpgdpWSU-7ug$''',
+'''^eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9\.eyJhdWQiOlsiZ2FtbWEiXSwiZXhwIjoxNzAwMDAwMDIwLCJpYXQiOjE2OTk5OTk5ODAsImlzcyI6Imlzc3Vlci1BIiwibmJmIjoxNjk5OTk5OTgwLCJzdWIiOiJ1c2VyLUEifQ\.QlYV4IHkwEVtQl3x0ROMEkp7AGYWj2zEDgBrlfTFLHFVl7GUQHuUie5B-QLsQvGG2cA39DZbIqYcT_Qla8NO6tpTmq_UAwpUOEh22KKo5aAzLrgnR0STQ8rYu-M1gYl54yzOpeFJAg86rG4HzsAEkF94QPVjKVBMfXr4dCCJkpC61Xfhn6YIZZhZVm6-LHkylZhbp-hSq8ryTtn3ftWY5w3TVQcLxAm7lJG5-2bvrPDLFLXYKND3u5GRKT5hUjUXykNlJdEbF2xF5TsZCQXkzW3dk3UweGqtqeJGqa_8AiwltvW1KWSJ0nKHnJedWiUJTyvnIrTaegRWUqHfVPk1Yw$''',
+'''^eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9\.eyJleHAiOjE3MDAwMDAwMjAsImlhdCI6MTY5OTk5OTk4MCwiaXNzIjoiaXNzdWVyLUEiLCJuYmYiOjE2OTk5OTk5ODAsInN1YiI6InVzZXItQSJ9\.hnxKMrDGhuXbcCAJAMjNyE6sfroEf2aYaD43jgF1pGxr7N27dWheR6FuyKo10DrdaZEchmXbtsufRicyohTPhS4ITSzvCHIENGJF5H1QJjrhOuboC2l_maqex3yVJhUtcuOfn8ZlWBDYzxD8smgp64NY0fqXoCJW1V8sjmrqj0JFKHFhtnE1UDq--0QqyIAMzVFhOlB1BS4_KXRyJSOGZvjPavCRG3ExTaXGc-VCGrOWckdYKkgMOQkggRRDVO48pyeIijIzI3QZRY11FAI06vzXFKjYPKQqkZVoYl2GoqS0YGSoDUtzB2cNIDLrqjnH7t8g10BeSdkvtQF1Qh6X3w$''',
+'''^eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9\.eyJhdWQiOlsiYWxwaGEiLCJiZXRhIl0sImlhdCI6MTY5OTk5OTk4MCwiaXNzIjoiaXNzdWVyLUEiLCJuYmYiOjE2OTk5OTk5ODAsInN1YiI6InVzZXItQSJ9\.iuH_TI36VBE4u7uMc9oTf6im3nFrBppX6UQXi4rLUzai8R2dsoqMNbFz8AgGyxlZtmq6nPaqkFCocAocj9WOLXEwauF8NOdrUgUprWf7WO-YKNfwkSIn8dwZB2hO3gUPFD__-Hsv2qzvsZ616mOjpf42xwdu8ChnYPq9yHQteQ1qGP8wuwpXuhPeRTz4yqjYaIl3KHbWW3fdF4jbxETZhBya1ODTHSOBGOpnw_Yg47qG01r6c2QTigCg76WEzNlIli_Fv7lKAUkkh54S3NLbezctvs3vdpJ4KU8h_E-V6kcWUCDF-qsPGiVktRqZxQWggEVfkSJjy29EUQvrWYRwKA$''',
+'''^eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9\.eyJhdWQiOlsiYWxwaGEiLCJiZXRhIl0sImV4cCI6MTY5OTk5OTk5MCwiaWF0IjoxNjk5OTk5OTgwLCJpc3MiOiJpc3N1ZXItQSIsIm5iZiI6MTY5OTk5OTk4MCwic3ViIjoidXNlci1BIn0\.cyD6_Gt0NP4zCzJ3Gvl8OFuaFgdRj-jNJT5nWcB2KS2Lvoip5S2QFLz9egUYg-smUR26KOR6UZlcmldLJ8eTMaOKkjuxn5qxLGqqTHlywYIjub-L5DF6FJMJuh59D8xA57i1sFTHOha9gruYO3w_yaAsNRSUCeId5HfzZdzofj0uaYd7SnpbY_l4aMRcgMZIfBIoZ6PJjT2TLYr7NTHWjBSY3Zfwr6GK7iMF-9TjnUPMFL6YOA1aq_uDAD7I2deNen6Mh3qq89FGOZoGxdWbmy2mabpizHIdy_uzqy2U8O8m5DPkSDioa-gJ54ky55N_gVCJtki3Mm7U043CtRkeyw$''',
+'''^eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9\.eyJhdWQiOlsiYWxwaGEiLCJiZXRhIl0sImV4cCI6MTcwMDAwMDAwMCwiaWF0IjoxNjk5OTk5OTgwLCJpc3MiOiJpc3N1ZXItQSIsIm5iZiI6MTY5OTk5OTk4MCwic3ViIjoidXNlci1BIn0\.EDr5x0QjKqG5YaVwklVOu5vmk2X2eflaRc0RIG-Waw5iG-tuqywjjmZPMvqTVdrkfVeMTHeIAKl19yS02nyDz5Z3jJQ454VA-qbN5xBHmA7FkvS3lNgXtG5XObqajrlEnyZgSGN2y2dUkkK7f6auM1Nv5VEqn1ojqHBzR_QcgatDg6wj0KiWKeYkXDowVAeFPCvKq0PWt8k75GS5jEcnrCK33ZCosJjpNEIIuI9yBxcElM-wQ1f2jlr-mCJevfS_0QW0Z-pe9seJGJJuij6E3hQCU3Biy13GvaD-pv7nGuVWywGhZhQ7T0Z0UjaKJX2n68PWB-Gg1RJ220GW3Wn2aA$''',
+'''^eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9\.eyJhdWQiOlsiYWxwaGEiLCJiZXRhIl0sImV4cCI6MTcwMDAwMDAyMCwiaWF0IjoxNjk5OTk5OTgwLCJpc3MiOiJpc3N1ZXItQSIsInN1YiI6InVzZXItQSJ9\.ef-kCLF9TnzDa1gQoBqEBbgeZDvWoN4fpKW4B-Bn3o14f8c3g1zpWBTNHYOL44THBgsPBLRpkYtTbIheFpnMueXNcBAp2ORwd-jHaTBE0oEfqGkndZqxgvkEniXItdglKJEY_5c1DBJcULTUUTKbBPJ1cX7hlmuS8fDARaLzBtDc84E2IW7H-fCC7kKBab6xz3UUEs1ODX97NN6YHZ1-OFb9-nm9PMLswZaQWmT55B4q2_cbNRAlilJCkrQEeD7lotA3IUEfuxOLq6Fomwg9CY0MPWE7JDpaWGwUG9Ej0sdbFoKsJiLs5wM9PTbBR2l16hRd7ht0QmZjKa34Wy_-tg$''',
+'''^eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9\.eyJhdWQiOlsiYWxwaGEiLCJiZXRhIl0sImV4cCI6MTY5OTk5OTk5OSwiaWF0IjoxNjk5OTk5OTgwLCJpc3MiOiJpc3N1ZXItQSIsIm5iZiI6MTY5OTk5OTk4MCwic3ViIjoidXNlci1BIn0\.ruF_YxD5XlCa8ER6adfmI1et3kHie1EAoCBH49c-ROT0ZLD3XsfLqA8egeuZUHBKOBTCcp5ijZ1qCtG7xDUZYFoEQvu_10ThSn2iMF1GfP47ncuRSATrvnvrhoJ12FuX3PUfbb-UULj9TbIKl052rarUFcb-w-WmEScIOectZPvKb6C8ta9xqqwbS0qK4C7t0xQ_YdLhLZXp4EFclerXJ9vcRCI-YEsSWHEPguxnmEcPqiB5VpM3-KzqOQ1B59tnuxVWg-P9Znr-yF_yZAJFRmh5RMWJCF8k-4AGXcimczCS-D-6lPF79rKJDTIJIYckNv31FcdsIU9H7nNF9HuJjQ$''',
+'''^eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9\.eyJhdWQiOlsiYWxwaGEiLCJiZXRhIl0sImV4cCI6MTY5OTk5OTk5OCwiaWF0IjoxNjk5OTk5OTgwLCJpc3MiOiJpc3N1ZXItQSIsIm5iZiI6MTY5OTk5OTk4MCwic3ViIjoidXNlci1BIn0\.NP4pgOxhRJ-nS44zW5XTN2vRVlPOa2VNBKsCg-VVEFNGx1OXvapIND8TPhxcuhw8S0Rmvn1tYqpzZD69XGCrZumKiBBM4z9ITq7Vp8gSgmmMNlTMD4Nz3TwYTFZHxy_4n1cC8bAoZNMA1iHA4ucAFzjlQGaohz75SxUvVg4SIcGroO1O-sd5ioM_XI8gaykdirisI9Cb7TdNLVDDFNradxCaEn6RpLtkUWPOfSZoMlJJ0YcMe4FW29WIPMIOAlnCvVLXxR0sOJ3bqTCVzM5hqy2ePJpORmik-5bMHpzy2TD1tL7zXb3QqHjRojyVt4ZuVUocXcz5FelcbOWUGcVnHg$''',
+'''^eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9\.eyJhdWQiOlsiYWxwaGEiLCJiZXRhIl0sImV4cCI6MTcwMDAwMDAyMCwiaWF0IjoxNjk5OTk5OTgwLCJpc3MiOiJpc3N1ZXItQSIsIm5iZiI6MTcwMDAwMDAwMiwic3ViIjoidXNlci1BIn0\.UnhruV7x9QfNoc-q5IOw5Su1sG5HZfMpYD2C78d38iiGthJGE--XsiD7Z80Zdltsvkm5ewwzXs-OyDWy5NDfNQ26m2DotJLyZrdIb1MTc0EItUkAKxVm3YmkpjsbhbVa3eWbWaXUetIwOf7h9STx67Ld9KL3g-oE338OipwFXneJmp6BtB12wTXsgDi_fLs_3ICl3MpX930Qxzf9mr0ao-SS32VKGCZj5lCXid83z9nqI6Q1xiEP28GuZn1wYq-p_7PrBBYcxZw57T5RlbE-iSqXtt6mt3BJbn5PdYFJhXCrE-W_OFCFxuoIVjUd85awZtY6hrCYwmK-ybRoWZavOg$''',
+'''^eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9\.eyJhdWQiOlsiYWxwaGEiLCJiZXRhIl0sImV4cCI6MTcwMDAwMDAyMCwiaWF0IjoxNjk5OTk5OTgwLCJpc3MiOiJpc3N1ZXItQSIsIm5iZiI6MTcwMDAwMDAwMywic3ViIjoidXNlci1BIn0\.QFBzj8MDfFle32MRu50IzLarwbGORA7ttIolGo6g4qBD59lm3PctsiqCdc7A0-n4LGjTeyNR9YGAjTaB3OAlp_nJTsp9FfvJIcO6k36HGa7SVF5gHOfMlF2huI0icH2XgpQmZ6NvicVUR8sW2RrnomBGIL3rrRgmQ3_EB1gEsCWN5aVodFQiCv6bruTfV7krn0oI8xOZddXZGOJDHSKCXINKwQ8OIePuSzcYK6E_P_nz73RSPacwsQVuXNXj_vyBNA3etMngFSC0OPxaX3k3D6o_5-4KPsJ-_XeupIEb8KZSjcnf9oKAXthVeJLNtp-Wqx2mIa-t0E7aJsD041ZLnw$''']
