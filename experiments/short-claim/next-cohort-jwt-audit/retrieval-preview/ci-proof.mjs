@@ -28,7 +28,9 @@ if(phase==='publication'){
 }else{
 need(['environment','sources','finish'].includes(phase)&&['normal','race','producer'].includes(mode)&&proof===`ci-artifacts/proof/${mode}`&&priv===`ci-private/${mode}`,'fixed CI scope');
 const env=JSON.parse(read(path.join(proof,'environment.stdout'))),locations=JSON.parse(read(path.join(priv,'sdk-locations.stdout')));
-need(env.GOVERSION==='go1.27.1'&&env.GOTOOLCHAIN==='local'&&env.GOWORK==='off'&&env.GOENV==='off'&&env.GODEBUG==='goindex=0'&&env.GOFLAGS===''&&env.GOEXPERIMENT===''&&env.CGO_ENABLED===(mode==='race'?'1':'0'),'exact Go/environment');
+// go env reports the effective configuration-file path: GOENV=off becomes "".
+// Check both the disabled OS setting and its reported effective value.
+need(env.GOVERSION==='go1.27.1'&&env.GOTOOLCHAIN==='local'&&env.GOWORK==='off'&&process.env.GOENV==='off'&&env.GOENV===''&&env.GODEBUG==='goindex=0'&&env.GOFLAGS===''&&env.GOEXPERIMENT===''&&env.CGO_ENABLED===(mode==='race'?'1':'0'),'exact Go/environment');
 if(mode==='producer')need(env.GOOS==='darwin'&&env.GOARCH==='arm64'&&process.platform==='darwin'&&process.arch==='arm64','native producer');
 const safeRelative=p=>typeof p==='string'&&p.length>0&&!path.isAbsolute(p)&&!p.split('/').includes('..')&&!/[\x00-\x1f|]/.test(p);
 const sums=read('SHA256SUMS').toString('utf8').trimEnd().split('\n').map(line=>{const m=/^([a-f0-9]{64})  (.+)$/.exec(line);need(m&&safeRelative(m[2]),'source checksum row');return {sha256:m[1],path:m[2]}});
