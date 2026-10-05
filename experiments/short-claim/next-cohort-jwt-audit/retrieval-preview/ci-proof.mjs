@@ -78,7 +78,11 @@ if(phase==='finish'){
     binary=pin('ci-artifacts/bin/retrieval-preview');need(binary.bytes>0&&binary.bytes<=4194304,'prospective binary transfer bound');
     const info=JSON.parse(read(path.join(proof,'buildinfo.stdout')));const list=Array.isArray(info)?info:[info];need(list.length===1&&list[0].GoVersion==='go1.27.1','buildinfo Go');
     const settings=list[0].Settings??[];const setting=k=>settings.find(x=>x.Key===k)?.Value;
-    need(setting('GOOS')==='darwin'&&setting('GOARCH')==='arm64'&&setting('CGO_ENABLED')==='0'&&setting('-trimpath')==='true'&&setting('-ldflags')==='-s -w'&&!settings.some(x=>x.Key.startsWith('vcs')),'producer build settings');
+    // Go omits -ldflags from embedded settings when -trimpath is enabled.
+    // Bind stripping flags to the complete retained successful build argv.
+    const expectedBuild=['go','build','-p=1','-mod=readonly','-trimpath','-buildvcs=false','-ldflags=-s -w','-o','ci-artifacts/bin/retrieval-preview','.',''].join('\n');
+    need(read(path.join(proof,'build.argv')).toString('utf8')===expectedBuild,'exact producer build argv');
+    need(setting('GOOS')==='darwin'&&setting('GOARCH')==='arm64'&&setting('CGO_ENABLED')==='0'&&setting('-trimpath')==='true'&&!settings.some(x=>x.Key==='-ldflags'||x.Key.startsWith('vcs')),'producer build settings');
     need(fs.existsSync('ci-artifacts/proof/normal/SHAPE.json'),'normal actual shape before producer');
   }
   const run={repository:process.env.GITHUB_REPOSITORY??'',commit:process.env.GITHUB_SHA??'',run_id:process.env.GITHUB_RUN_ID??'',run_attempt:process.env.GITHUB_RUN_ATTEMPT??''};
