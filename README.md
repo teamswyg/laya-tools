@@ -1,5 +1,7 @@
 # laya-tools
 
+[JWT 후보 검색 비용 비교 준비](experiments/short-claim/next-cohort-jwt-audit/retrieval-preview/README.md): 고정 순서·미리 정한 첫 후보·BM25·Jaccard를 동일한 입력에서 비교하는 독립 Go 모듈을 추가했습니다. 후보를 모두 유지하고 검색 준비 비용도 포함합니다. CI 합성 검증·빌드와 로컬 실제 측정은 별도로 진행하며, 새 개선 결과는 아직 없습니다.
+
 [JWT 캐시의 실제 비용 비교](experiments/short-claim/next-cohort-jwt-audit/cost-preview/README.md)를 추가했습니다. 160쌍 결과가 일치했고, 같은 네 요청의 고정 소스 순서 반복 검색은 준비 상태 세 회차 합계에서 캐시로 약 1.90배 빨랐습니다. 첫 후보가 맞는 경우에는 캐시가 약 6.8% 느렸습니다. 최대 프로세스 메모리는 약 13.86MiB이며 모델 메모리 수치는 아닙니다. [저장 결과를 Go로 검증](scripts/verify-jwt-cost-preview.sh)할 수 있습니다. 모델 추가 이득·독립 일반화·Codex 절감은 아직 확인하지 못했습니다.
 
 [작은 힌트 표현 진단](experiments/short-claim/text-representation-preview/README.ko.md)을 추가했습니다. 학습 없는 관계 정렬이 이미 본 B-tree 한 가족에서 모의 확인54→26회였고, 반복 문장8후보의 원문 파싱은 약2.9µs·Go 할당0회였습니다. 기호 보존은 정보 손실을 줄이지만 기존 해시보다 느렸습니다. [Go JSON 미리보기 사용법](cmd/riido-hintpreview/README.ko.md)으로 직접 시험할 수 있습니다. 일반화·실제 속도·Codex 절감은 미검증이며 새 학습·모델 가중치는0입니다.

@@ -27,7 +27,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          format_report=$(git ls-files -z '*.go' ':!:**/testdata/**' | xargs -0 gofmt -l)
+          format_report=$(git ls-files -z '*.go' ':!:**/testdata/**' ':!:experiments/short-claim/next-cohort-jwt-audit/retrieval-preview/jwt-source/*.go' | xargs -0 gofmt -l)
           test -z "$format_report"
       - name: Reproduce finite development data (offline Go; no training)
         run: bash scripts/verify-next60-development.sh data
@@ -121,6 +121,40 @@ jobs:
         run: bash scripts/verify-jwt-native-audit.sh
       - name: Saved JWT cache costs and synthetic ownership controls (no new native observation or training)
         run: bash scripts/verify-jwt-cost-preview.sh
+      - name: Retrieval preview owned synthetic tests, complete Go shape and vet
+        shell: bash
+        run: bash experiments/short-claim/next-cohort-jwt-audit/retrieval-preview/ci.sh normal
+      - name: Retrieval preview owned synthetic race controls (CGO1; separate closure)
+        shell: bash
+        run: bash experiments/short-claim/next-cohort-jwt-audit/retrieval-preview/ci.sh race
+      - name: Native Darwin arm64 CGO0 producer; no worker execution
+        if: runner.os == 'macOS'
+        shell: bash
+        run: bash experiments/short-claim/next-cohort-jwt-audit/retrieval-preview/ci.sh producer
+      - name: Scan complete retained public proof before any artifact publication
+        id: retrieval153-publication
+        if: always()
+        shell: bash
+        run: bash experiments/short-claim/next-cohort-jwt-audit/retrieval-preview/ci.sh publication
+      - name: Upload mandatory companion proof and full distribution notices first
+        id: retrieval153-companion
+        if: always() && steps.retrieval153-publication.outcome == 'success'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: retrieval153-proof-${{ runner.os }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: experiments/short-claim/next-cohort-jwt-audit/retrieval-preview/ci-artifacts/proof/
+          if-no-files-found: error
+          compression-level: 6
+          retention-days: 30
+      - name: Upload preview binary only after successful mandatory companion
+        if: success() && runner.os == 'macOS' && steps.retrieval153-publication.outcome == 'success' && steps.retrieval153-companion.outcome == 'success'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: retrieval153-darwin-arm64-${{ github.run_id }}-${{ github.run_attempt }}
+          path: experiments/short-claim/next-cohort-jwt-audit/retrieval-preview/ci-artifacts/bin/retrieval-preview
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
       - name: Preserve first representation preview responses
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

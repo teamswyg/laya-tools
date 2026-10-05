@@ -1,5 +1,7 @@
 # laya-tools
 
+[JWT candidate retrieval cost preview](experiments/short-claim/next-cohort-jwt-audit/retrieval-preview/README.en.md): a standalone Go module compares fixed order, exposed manual-first, BM25 and Jaccard on identical inputs. It keeps every candidate and charges query preparation. CI synthetic checks/build and local original cost measurements are separate; new improvement results are pending.
+
 Added an [actual JWT cache cost comparison](experiments/short-claim/next-cohort-jwt-audit/cost-preview/README.en.md). All 160 paired outcomes matched. Fixed-source-order searches over the same four requests were about 1.90× faster with caching in the aggregate of three warm rounds; when the first candidate matched, caching was about 6.8% slower. Whole-process peak RSS was about 13.86MiB, which is not model memory. [Verify saved results in Go](scripts/verify-jwt-cost-preview.sh). Model benefit, independent generalization and Codex savings remain unproved.
 
 Added a [small hint representation diagnostic](experiments/short-claim/text-representation-preview/README.en.md). An unlearned relation control reduced counterfactual checks54→26 on one exposed B-tree family. Parsing8repeated candidates took about2.9µs with0Go allocations. Symbol retention reduces information loss but was slower than legacy hashing. Try the [Go JSON preview](cmd/riido-hintpreview/README.en.md). Generalization, actual speedup and Codex savings remain unproved; new training/weights:0.
