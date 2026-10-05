@@ -1,0 +1,22 @@
+{
+  "schema": "riido-jwt-text-retrieval-input-v1",
+  "source_revision": "73c870b18e68b6e654b2b03f485aa3c9fab32cea",
+  "source_preparation_sha256": "9f050acc724284c34b57da70216a894633c2fa5d7d56a4dcdd9f3eb10b8db4d0",
+  "signed_input_sha256": "47686828bbb0cd4d273db3b2087311357ea853b767f86fd787953ed76d452ed6",
+  "requests": [
+    "In Lantern, accept valid signed sessions addressed to at least one of alpha and beta; reject missing or unrelated audiences.",
+    "In Harbor, accept valid signed sessions only when both alpha and beta audiences are present; reject missing or partial audience sets.",
+    "In Moss, require expiration for signed sessions; accept future expiry even without not-before, and reject missing, past, or current expiry.",
+    "In Cove, allow omitted not-before; accept signed sessions when expiry exceeds now minus two seconds and any present not-before is at most now plus two seconds."
+  ],
+  "captions": [
+    "Validate RS256 sessions with two seconds of tolerance for time comparisons.",
+    "Validate RS256 sessions and check whether issued-at is in the future.",
+    "Validate RS256 sessions and require the expiration claim to be present.",
+    "Validate RS256 sessions and require the not-before claim to be present.",
+    "Validate RS256 sessions and require at least one expected audience, alpha or beta.",
+    "Validate RS256 sessions and require both expected audiences, alpha and beta.",
+    "Validate RS256 sessions and require the expected issuer, issuer-A.",
+    "Validate RS256 sessions and require the expected subject, user-A."
+  ]
+}

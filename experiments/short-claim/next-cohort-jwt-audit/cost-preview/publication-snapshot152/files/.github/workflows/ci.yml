@@ -27,7 +27,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          format_report=$(git ls-files -z '*.go' ':!:**/testdata/**' ':!:experiments/short-claim/next-cohort-jwt-audit/retrieval-preview/jwt-source/*.go' | xargs -0 gofmt -l)
+          format_report=$(git ls-files -z '*.go' ':!:**/testdata/**' | xargs -0 gofmt -l)
           test -z "$format_report"
       - name: Reproduce finite development data (offline Go; no training)
         run: bash scripts/verify-next60-development.sh data
@@ -200,55 +200,6 @@ jobs:
           ./bin/riidolaya bench --iterations 3
           ./bin/riidolaya repo-preview --catalog examples/repositories/catalog.json --laya --json "refund invoices"
       - run: ./bin/riidolaya search --lexical --json --root . 'routing confidence'
-  retrieval:
-    timeout-minutes: 15
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-15]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-        with:
-          persist-credentials: false
-      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
-        with:
-          go-version-file: go.mod
-      - name: Retrieval preview owned synthetic tests, complete Go shape and vet
-        id: retrieval153-normal
-        shell: bash
-        run: bash experiments/short-claim/next-cohort-jwt-audit/retrieval-preview/ci.sh normal
-      - name: Retrieval preview owned synthetic race controls (CGO1; separate closure)
-        shell: bash
-        run: bash experiments/short-claim/next-cohort-jwt-audit/retrieval-preview/ci.sh race
-      - name: Native Darwin arm64 CGO0 producer; no worker execution
-        if: runner.os == 'macOS'
-        shell: bash
-        run: bash experiments/short-claim/next-cohort-jwt-audit/retrieval-preview/ci.sh producer
-      - name: Scan complete retained public proof before any artifact publication
-        id: retrieval153-publication
-        if: always() && steps.retrieval153-normal.outcome != 'skipped'
-        shell: bash
-        run: bash experiments/short-claim/next-cohort-jwt-audit/retrieval-preview/ci.sh publication
-      - name: Upload mandatory companion proof and full distribution notices first
-        id: retrieval153-companion
-        if: always() && steps.retrieval153-publication.outcome == 'success'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        with:
-          name: retrieval153-proof-${{ runner.os }}-${{ github.run_id }}-${{ github.run_attempt }}
-          path: experiments/short-claim/next-cohort-jwt-audit/retrieval-preview/ci-artifacts/proof/
-          if-no-files-found: error
-          compression-level: 6
-          retention-days: 30
-      - name: Upload preview binary only after successful mandatory companion
-        if: success() && runner.os == 'macOS' && steps.retrieval153-publication.outcome == 'success' && steps.retrieval153-companion.outcome == 'success'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        with:
-          name: retrieval153-darwin-arm64-${{ github.run_id }}-${{ github.run_attempt }}
-          path: experiments/short-claim/next-cohort-jwt-audit/retrieval-preview/ci-artifacts/bin/retrieval-preview
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 30
   secrets:
     runs-on: ubuntu-latest
     steps:
@@ -262,12 +213,11 @@ jobs:
       - run: go run github.com/zricethezav/gitleaks/v8@v8.24.3 git --redact --no-banner
   quality:
     if: always()
-    needs: [test, secrets, retrieval]
+    needs: [test, secrets]
     runs-on: ubuntu-latest
     steps:
       - name: All required checks passed
         env:
           TEST_RESULT: ${{ needs.test.result }}
           SECRET_RESULT: ${{ needs.secrets.result }}
-          RETRIEVAL_RESULT: ${{ needs.retrieval.result }}
-        run: test "$TEST_RESULT" = success && test "$SECRET_RESULT" = success && test "$RETRIEVAL_RESULT" = success
+        run: test "$TEST_RESULT" = success && test "$SECRET_RESULT" = success

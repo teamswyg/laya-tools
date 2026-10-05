@@ -1,0 +1,89 @@
+{
+  "schema": "riido-retrieval-adapter-source-derivation-v1",
+  "status": "prospective_unexecuted_source_authoring",
+  "license": "Apache-2.0",
+  "attribution": "Laya Tools — Copyright 2026 teamswyg contributors. Derived own-repository source; no new external upstream source acquired.",
+  "sources": [
+    {
+      "name": "pkg/shortclaim/input.go",
+      "bytes": 10755,
+      "sha256": "834d66e6a0c63095d25b02659a1ddd5c5b8a9eef185b7a2bab5e938974370a80",
+      "mode": 420
+    },
+    {
+      "name": "pkg/shortclaim/baseline.go",
+      "bytes": 14048,
+      "sha256": "c6003b785763fce004d89556f998811eb6098474908d9341906ca825aebc362a",
+      "mode": 420
+    },
+    {
+      "name": "internal/lexicalhint/features.go",
+      "bytes": 4019,
+      "sha256": "20224bcab1ea2d6e5203a2efb7772adef0786eea67f43a003a5b2db896804557",
+      "mode": 420
+    }
+  ],
+  "copied_notices": [
+    {
+      "name": "LICENSE",
+      "bytes": 10173,
+      "sha256": "a6cba85bc92e0cff7a450b1d873c0eaa2e9fc96bf472df0247a26bec77bf3ff9",
+      "mode": 420
+    },
+    {
+      "name": "NOTICE",
+      "bytes": 4172,
+      "sha256": "9b1d1cf4ffa7e27fe2f7ef42d0b52d9cb2dcab9acf289ff3bbc8377a8345252b",
+      "mode": 420
+    }
+  ],
+  "derivations": [
+    {
+      "target": "retrieval_adapter.go",
+      "from": "pkg/shortclaim/baseline.go",
+      "functions": "Bounded word views/unique/contains, BM25 arithmetic, stable declaration insertion. Names/types reduced to standalone exactly-eight adapter. Numerical operation order preserved; no model rule/lexical-ordered controls copied."
+    },
+    {
+      "target": "retrieval_adapter.go",
+      "from": "internal/lexicalhint/features.go",
+      "functions": "tokens plus NormalizeText semantics reduced to direct rune/lowercase/Camel splitter and join. No sixteen-feature/gram/model computation copied."
+    },
+    {
+      "target": "retrieval_adapter.go",
+      "from": "pkg/shortclaim/input.go",
+      "functions": "Raw/normalized512-byte and32-word boundary policy; fresh raw UTF8 check; metadata-free typed text API."
+    },
+    {
+      "target": "retrieval_adapter.go",
+      "from": "own_authored",
+      "functions": "Fixed-array exact token Jaccard, owned output and fixed unknown codes. Synthetic expected references are independent arithmetic, not task labels."
+    }
+  ],
+  "feature_inputs_only": [
+    "unchanged requests[p].text",
+    "unchanged candidates[c].caption"
+  ],
+  "excluded_from_rank_features": [
+    "IDs",
+    "Wants",
+    "fixtures",
+    "options",
+    "source lines",
+    "labels",
+    "roles",
+    "observed errors/masks",
+    "timing/outcomes"
+  ],
+  "no_legal_clearance_claim": true,
+  "public_input_source": {
+    "name": "experiments/short-claim/next-cohort-jwt-audit/INPUTS.reviewed.v2.json",
+    "bytes": 23123,
+    "sha256": "9f050acc724284c34b57da70216a894633c2fa5d7d56a4dcdd9f3eb10b8db4d0"
+  },
+  "text_input": {
+    "name": "TEXT-INPUT.actual.public.v1.json",
+    "bytes": 1575,
+    "sha256": "585a236f648397f9ff2c35cebf048d64137d3a7d746f1e151a648151493d816e",
+    "mode": 384
+  }
+}
