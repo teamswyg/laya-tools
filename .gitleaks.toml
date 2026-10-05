@@ -77,6 +77,15 @@ paths = ['''^experiments/short-claim/next-cohort-jwt-audit/(SIGNER-STDOUT|EXECUT
 regexTarget = "secret"
 regexes = ['''^f3c25c252daabc0ed3515e8afba731dc6c6f104c1d1f7a7ef41983e66cdcc029$''', '''^2826bab19f3f90d30b5a19d1e236cf689b8fd6adaf165b9217d258db45f01e16$''', '''^5bfdd6ca0e565089e71544ac079044092c2169d3858db61fbfeb89f4e65b5dec$''', '''^f73d57c2638d913cab1177ee2ec3bc94daa531b130cce892bc792b1c7077c50b$''', '''^27650071d73e23cf15e27e569c524d6d4caf67fcab14ff71007d1ce6a31f3fe3$''', '''^6cc1f801b364f3b5181b0258aea3807fa3eb539e24e96ebf2f744a8ff329d3b2$''', '''^e3ff474d522e4bfcd72dda76237166a7a4264d879774b9ed9de6646706909940$''', '''^f5222d08e4971bfc967f99bf6f13b3447abad31dd27f0bcfdfee98cf2ea0d527$''', '''^0b3dcac82a0a2b73ee85c78cfa23f80e48cc87c6aa789c5fc2762a13c1f4b9cc$''', '''^80964dec65c2e418f523b3ca43ad37b20b064f7695bb61861b67a9bf563badb6$''', '''^c61e194d229b642c04b21f528c92a610f3b84bd0fb2b9a1dcff3466478d78438$''', '''^b7323c9535c3981074d1d4bed18720056fa577af57c8394d6a4266a52f9d96e2$''', '''^2fbba1261108acecb2b327d5f0bf01bacba3787df8939aa5c5ca6c84af5ec484$''', '''^a2248311eaf03e0b83160fe3edef04fc727adcb6d944e0eb34962056fac3bb28$''', '''^b46d887b7f8e720a575cf307fabb11a3021b6259fa03b71b55c4655760d88b6f$''']
 
+# SHA-256 of the fictional public SPKI DER key already published in
+# SIGNER-STDOUT.actual.public.v1.json; this value is not a credential.
+[[rules.allowlists]]
+description = "Exact public fictional JWT key checksum in the saved cost replay"
+condition = "AND"
+paths = ['''^experiments/short-claim/next-cohort-jwt-audit/cost-replay/main\.go$''']
+regexTarget = "line"
+regexes = ['''^\s*const keySHA = "6c6ef54b2b0fa9af5bb3db8b8280a132371a3733adb5068e8ed40efabbc8c92d"\s*$''']
+
 [[rules]]
 id = "jwt"
 

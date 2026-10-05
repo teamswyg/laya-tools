@@ -1,5 +1,7 @@
 # laya-tools
 
+[JWT 캐시의 실제 비용 비교](experiments/short-claim/next-cohort-jwt-audit/cost-preview/README.md)를 추가했습니다. 160쌍 결과가 일치했고, 같은 네 요청의 고정 소스 순서 반복 검색은 준비 상태 세 회차 합계에서 캐시로 약 1.90배 빨랐습니다. 첫 후보가 맞는 경우에는 캐시가 약 6.8% 느렸습니다. 최대 프로세스 메모리는 약 13.86MiB이며 모델 메모리 수치는 아닙니다. [저장 결과를 Go로 검증](scripts/verify-jwt-cost-preview.sh)할 수 있습니다. 모델 추가 이득·독립 일반화·Codex 절감은 아직 확인하지 못했습니다.
+
 [작은 힌트 표현 진단](experiments/short-claim/text-representation-preview/README.ko.md)을 추가했습니다. 학습 없는 관계 정렬이 이미 본 B-tree 한 가족에서 모의 확인54→26회였고, 반복 문장8후보의 원문 파싱은 약2.9µs·Go 할당0회였습니다. 기호 보존은 정보 손실을 줄이지만 기존 해시보다 느렸습니다. [Go JSON 미리보기 사용법](cmd/riido-hintpreview/README.ko.md)으로 직접 시험할 수 있습니다. 일반화·실제 속도·Codex 절감은 미검증이며 새 학습·모델 가중치는0입니다.
 
 [다음 튜닝용 B-tree 유한 자료](experiments/short-claim/next-cohort-btree-audit/README.ko.md)를 **12개 요청·96라벨**로 별도 준비했습니다. 원본 Go API272회와 실제8후보 Reader/Project를 검증했습니다. 단순 기준54~59회 대비 최소26회라는 개선 여지를 찾았지만, 한 개발 가족이며 모델 효과나 LLM 절감을 입증한 것은 아닙니다. [다음 표현 비교 계획](experiments/short-claim/next-cohort-btree-audit/NEXT-ABLATION-PLAN.ko.md)에 문체 편향·약8µs의 추가 계산 여유·독립 평가 조건을 기록했습니다. 새 학습·가중치·GPU 실행은0입니다.
@@ -29,7 +31,7 @@
 
 [HF30 고정 버전](https://huggingface.co/datasets/JooYoon/riidolaya-shortclaim-next60-development/tree/next60-30-finite-v1)은 소유558파일·viewer30행의 값과 순서를 확인했습니다. [PR121 CI와 게시 근거](experiments/short-claim/publication-proof-122/README.ko.md), [다음 원천22개 제안·보류](experiments/short-claim/next60-new-source-preview/README.ko.md)를 보존합니다.
 
-[JWT 원본 판정과 비용 검증](experiments/short-claim/next-cohort-jwt-audit/README.md): 가상 요청 4개·입력 위치 20개·후보 8개에 원본 API를 실제 160회 호출했습니다. 후보 일치 4·불일치 28·미확인 0, 프로세스 최대 RSS 약 11.94MiB입니다. 전체 JWT 계보를 노출된 개발 검증으로 묶고 학습에는 바로 넣지 않습니다. 다음 단계는 안전한 인증·파싱 캐시를 넣은 뒤에도 후보 순서 최적화의 이득이 남는지 실제 비용으로 비교하는 것입니다.
+[JWT 원본 판정과 비용 검증](experiments/short-claim/next-cohort-jwt-audit/README.md): 가상 요청 4개·입력 위치 20개·후보 8개에 원본 API를 실제 160회 호출했습니다. 후보 일치 4·불일치 28·미확인 0, 프로세스 최대 RSS 약 11.94MiB입니다. 전체 JWT 계보를 노출된 개발 검증으로 묶고 학습에는 바로 넣지 않습니다. 별도 [실제 캐시 비용 비교](experiments/short-claim/next-cohort-jwt-audit/cost-preview/README.md)에서 결과 일치와 반복 인증 비용 감소를 확인했으며, 후보 순서 개선의 남은 이득은 작고 회차별로 달랐습니다.
 
 [다음 개발 학습 안내](docs/wiki/Next60-Development-KO.md): [현재 유한 개발 자료](experiments/short-claim/next60-development-seven/README.ko.md)는 **요청 7개·라벨 20개**입니다. [네 작업의 실제 실행과 독립 검토](experiments/short-claim/next60-four-selector-actual-observation/README.ko.md)에서 입력 19개·관측 57개를 확인했습니다. 원본 검사 프로세스의 OS 최대 RSS는 약 7.89 MiB이며 모델 추론 메모리나 비용 절감 수치는 아닙니다. 기존 세 줄은 그대로 보존했습니다. [HF 7개 요청 고정 버전](https://huggingface.co/datasets/JooYoon/riidolaya-shortclaim-next60-development/tree/next60-7-finite-v1)의 112개 파일과 viewer 7행을 확인했습니다. [게시 기록](experiments/short-claim/publication-proof-116/HF-PUBLICATION.v3.json)을 보세요. 새 학습은 0회이며 [다음 의미 작업 10개의 구체화](experiments/short-claim/next60-catalog10-literal-correction/TRANSITION.ko.md)를 이어갑니다.
 
