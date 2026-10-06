@@ -8,6 +8,9 @@ Current development targets **cheap progress, completion-report and question sug
 
 The separate [question punctuation cue](pkg/statehintcue/README.en.md) is an experiment requiring no model. Try `riidolaya question-cue --role prose --text "Should I check the cache again?"` to observe question marks outside code and supported address-like tokens; `metadata` and `code` roles produce no cue. It does not determine semantic intent or work completion and returns no probability, annotation or state change. Check the input budget for long documents instead of truncating them.
 
+For upcoming training preparation, use the [bilingual family structure checker](internal/statehintcorpus/README.en.md). `riidolaya corpus-check` checks translation pairs, duplicate IDs and input limits in one supplied partition, emitting counts only. Semantic and rights review, fitting and a final-test seal are separate steps; a structural pass never authorizes training.
+The [V4 plan and preparation status](experiments/state-hints-v4/preparation/README.en.md) explains the proposed 2400 rows and the actual current scope.
+
 Install the lightweight dedicated CLI with Go 1.27.1. It provides the same classification feature as `riidolaya state-hint`.
 
 ```sh

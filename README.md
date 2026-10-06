@@ -8,6 +8,9 @@
 
 모델 없이 시험하는 별도 실험은 [질문 구두점 보조 신호](pkg/statehintcue/README.ko.md)입니다. `riidolaya question-cue --role prose --text "캐시를 다시 확인할까요?"`로 코드와 지원하는 주소형 토큰 밖의 물음표를 관측합니다. `metadata`와 `code` 역할은 제안하지 않습니다. 질문의 의미나 업무 완료를 판정하는 모델이 아니며 확률·라벨·상태 변경을 반환하지 않습니다. 긴 문서는 자르지 않고 입력 한도를 확인해야 합니다.
 
+다음 학습 준비에는 [한·영 사건 묶음 구조 점검](internal/statehintcorpus/README.ko.md)을 사용합니다. `riidolaya corpus-check`는 한 파일의 번역 쌍, ID 중복, 입력 한도를 검사하고 개수만 출력합니다. 의미 정답·권리 검토와 학습·최종 평가 봉인은 별도 단계이며, 구조 통과만으로 학습을 허용하지 않습니다.
+2,400행을 준비하는 방향과 현재 준비 범위는 [V4 기획·진행 기록](experiments/state-hints-v4/preparation/README.ko.md)에 정리합니다.
+
 Go 1.27.1에서 가벼운 전용 CLI를 설치할 수 있습니다. 기존 `riidolaya state-hint`와 같은 분류 기능을 제공합니다.
 
 ```sh

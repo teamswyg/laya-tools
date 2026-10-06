@@ -14,6 +14,7 @@ import (
 	"github.com/teamswyg/laya-tools/internal/router"
 	"github.com/teamswyg/laya-tools/internal/search"
 	"github.com/teamswyg/laya-tools/internal/statehintcli"
+	"github.com/teamswyg/laya-tools/internal/statehintcorpuscli"
 	"github.com/teamswyg/laya-tools/internal/statehintpilotcli"
 	"io"
 	"os"
@@ -38,6 +39,7 @@ func run(args []string) error {
 		fmt.Print(`riidolaya — local code retrieval and experimental content/state hints
 
 Commands:
+  corpus-check  Check one bilingual data partition; counts only, no model or fit
   question-cue  Preview an experimental punctuation clue without a model
   state-hint  Suggest content labels, emoji codes and guarded shadow state plans
   state-hint-pilot  Compare local models on bounded synthetic development cases
@@ -69,6 +71,9 @@ The codex command starts your installed Codex CLI with its existing settings.
 		return nil
 	}
 	cmd := args[0]
+	if cmd == "corpus-check" {
+		return statehintcorpuscli.Run(args[1:], os.Stdin, os.Stdout, os.Stderr)
+	}
 	if cmd == "question-cue" {
 		return questioncuecli.Run(args[1:], os.Stdin, os.Stdout, os.Stderr)
 	}
