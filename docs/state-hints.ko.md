@@ -1,29 +1,42 @@
 # 라벨·이모지·상태 힌트
 
-[English](state-hints.en.md) · [학습 방법과 고정 계획](../experiments/state-hints/TRAINING.md) · [Go 결과](../experiments/state-hints/results/go-v1.json) · [Laya 결과](../experiments/state-hints/results/laya-v1.json)
+[English](state-hints.en.md) · [V3 연구 후보](../experiments/state-hints-v3/README.md) · [V3 Wiki](https://github.com/teamswyg/laya-tools/wiki/State-Hints-V3-KO) · [v1 학습 방법과 고정 계획](../experiments/state-hints/TRAINING.md) · [Go 결과](../experiments/state-hints/results/go-v1.json) · [Laya 결과](../experiments/state-hints/results/laya-v1.json)
 
-내용을 작은 비용으로 분류해 뤼이도의 라벨, 이모지 표시, 작업 상태에 대한 제안을 만드는 개발용 기능입니다. 의미는 `question`, `blocker`, `reference`, `progress`, `completion_report`, `cancel_request`, `planned`, `unclear`의 여덟 가지로 고정했습니다. 모델 선택이나 추론 수준 조절은 이 기능의 범위에 포함하지 않습니다.
+첫 적용 범위는 뤼이도 개발 작업의 **진행·완료 보고·질문에 대한 라벨·이모지 표시 제안**입니다. 문장에서 읽힌 의미가 실제 업무 완료나 현재 업무 상태의 권위를 대신하지 않습니다. 의미는 `question`, `blocker`, `reference`, `progress`, `completion_report`, `cancel_request`, `planned`, `unclear`의 여덟 가지로 고정했습니다. 모델 선택이나 추론 수준 조절은 이 기능의 범위에 포함하지 않습니다.
 
-Go 분류기 학습과 실제 Laya 파인튜닝을 모두 실행했습니다. 현재 결과는 실험용이며 운영 도입 조건을 충족하지 못했습니다. 출력은 항상 shadow 제안이고 `mutation_executed:false`입니다. 실제 뤼이도 API, 반응 추가, 알림 발송에 연결하지 않았습니다.
+최신 Go V3는 게시·읽기 검증을 마친 연구 후보입니다. 새 합성 test 200개에서 부모 대비 정답은 152→158, 제안 중 정답은 57/57→90/94였으나 완료 오표시 0→4가 생겨 기본 활성화는 하지 않습니다. [고정 HF 모델](https://huggingface.co/JooYoon/riidolaya-statehint-go-v0.3/tree/cf6deca9eb2c9919b1bbbbe82ce3576453d67a40)과 [전체 V3 기록](../experiments/state-hints-v3/README.md)을 보세요. 원본 합성 760개는 AI 작성자의 주석이며 실제 제품 정답·독립 인간 검수가 아닙니다. test는 이제 노출된 개발 자료입니다.
+
+출력은 shadow 제안이며 실제 쓰기를 실행하지 않습니다. [표시 연동 모듈](../pkg/statehintplacement/README.ko.md)은 분류 전후에 전체 opaque 작업 revision과 이미 보유한 본문을 확인합니다. [PR160](https://github.com/teamswyg/laya-tools/pull/160)은 [Linux·macOS 및 최종 CI](https://github.com/teamswyg/laya-tools/actions/runs/37430259670)를 통과해 봇 병합됐습니다. 테스트의 합성 조회와 실제 앱의 조회·권한·활성 catalog 연결은 구분합니다. 실제 소유자 계약 연동은 아직 검증 전입니다.
 
 ## 사용법과 적용 조건
 
+Go 1.27.1에서 가벼운 전용 CLI를 설치할 수 있습니다. 기존 `riidolaya state-hint`와 같은 분류 기능을 제공합니다.
+
 ```sh
-riidolaya state-hint --text "이 작업을 취소해 주세요." --json
-riidolaya state-hint --model ./statehint.rsh --jsonl < requests.jsonl
+go install github.com/teamswyg/laya-tools/cmd/riido-statehint@ddd090fe49230a1ec52d9919c3105ca327eddd66
+riido-statehint --text "현재 결과 화면의 안내 문구를 조정하고 있습니다." --json
+riido-statehint --model ./statehint.rsh --jsonl < requests.jsonl
 ```
 
-첫 번째 명령은 별도 모델 없이 **학습하지 않은 규칙 기준선**을 사용합니다. 그 one-hot 점수는 규칙 선택을 나타내며 학습 모델의 보정된 확률과 같은 의미가 아닙니다. 학습 모델은 명시적으로 제공한 로컬 `.rsh` 파일에서 읽습니다. 자동 모델 다운로드는 없습니다. JSONL의 기본 입력은 `{"text":"분류할 내용"}`이며 선택적으로 `context`를 제공할 수 있습니다. CLI는 원문을 출력에 되풀이하지 않습니다.
+선택 모델의 다운로드와 SHA 확인은 [V3 Wiki](https://github.com/teamswyg/laya-tools/wiki/State-Hints-V3-KO)에 설명합니다.
+
+`--model` 없는 분류 명령은 **학습하지 않은 규칙 기준선**을 사용합니다. 그 one-hot 점수는 규칙 선택을 나타내며 학습 모델의 보정된 확률과 같은 의미가 아닙니다. 학습 모델은 명시적으로 제공한 로컬 `.rsh` 파일에서 읽습니다. 자동 모델 다운로드는 없습니다. JSONL의 기본 입력은 `{"text":"분류할 내용"}`이며 선택적으로 `context`를 제공할 수 있습니다. CLI는 원문을 출력에 되풀이하지 않습니다.
 
 텍스트는 유효한 UTF-8이고 4,096바이트 이하여야 합니다. JSONL 요청은 16 KiB 한도와 중첩 깊이 12의 경계를 둡니다. 모호한 중복 키, 알 수 없는 필드, 뒤따르는 JSON 값, 잘못된 context를 거절합니다. 학습 모델은 공백·기호·이모지만 있는 입력을 `no_word_content` 사유의 `unclear`로 처리합니다.
 
 제안에 쓰는 라벨 ID는 호출자가 현재 active catalog에서 의미별로 제공합니다. 이모지는 제공한 후보 목록의 canonical lowercase code만 표시용으로 제안합니다. 기존 라벨·이모지와 같으면 추가 제안이 없습니다. `unclear`, 미학습 모델, 기준 미달 결과도 제안하지 않습니다. 계획의 confidence 하한은 0.9이며 CLI의 기본 margin은 0.05입니다.
 
+### 기존 일반 상태 계획 인터페이스: 표시 pilot과 구분
+
+아래는 보존된 호환 인터페이스 설명이며 첫 표시 pilot의 업무 상태 변경 허용을 뜻하지 않습니다.
+
 작업 상태는 일반적인 `todo`, `active`, `done`, `cancelled`로 표현합니다. `progress`와 `started`, `completion_report`와 `completed`, `cancel_request`와 `cancelled`가 각각 일치하고, 이벤트의 작업 ID와 버전도 현재 입력과 일치해야 상태 변경을 제안합니다. 완료·취소된 작업은 일반 내용 힌트로 다시 열지 않습니다. 같은 상태를 다시 선택하면 상태 변경은 no-op입니다. 충돌하는 이벤트나 근거가 없는 문장만으로 상태를 바꾸지 않습니다.
 
 `expected_version`과 `command_id`가 필요하지만, **JSON에 적은 `trusted:true`가 실제 권한이나 이벤트 증명을 만들어 주지는 않습니다.** 향후 신뢰할 수 있는 adapter가 이벤트 출처, 현재 catalog, 권한, 현재 버전, 명령 중복을 실제 적용 시점에 확인해야 합니다. 현재 CLI는 이 검증을 대신하거나 쓰기를 실행하지 않습니다.
 
-## 두 학습 방법
+## 역사적 v1: 두 학습 방법
+
+아래 v1 방법·자료·수치·실패와 측정 범위를 그대로 보존합니다. 최신 V3 결과와 합치거나 현재 운영 품질로 해석하지 않습니다.
 
 | 방법 | 실제 수행한 작업 | 사용 범위 |
 |---|---|---|
@@ -36,7 +49,7 @@ Laya는 원본 English checkpoint `convaiinnovations/laya`의 고정 revision과
 
 두 방법 모두 validation NLL로 후보를 선택하고 별도 calibration 자료로 temperature를 정했습니다. weights와 temperature를 잠근 후 마지막 test를 평가했습니다. 자세한 recipe와 자원 한도는 [학습 문서](../experiments/state-hints/TRAINING.md)에 있습니다.
 
-## 데이터와 실제 결과
+## 역사적 v1: 데이터와 당시 결과
 
 자료는 공개를 위해 직접 작성한 합성 문장 2,400개입니다. 96개 언어별 template family와 48개 한국어·영어 개념 쌍에 각각 이름·번호 변형을 적용했습니다. 실제 사용자 내용은 포함하지 않습니다. train 1,200개/48 families, validation 400개/16 families, calibration 400개/16 families, test 400개/16 families로 나눴습니다. 모든 구간은 합성 개발 자료이고 **2,400개의 독립적인 제품 정답은 아닙니다.**
 
@@ -58,8 +71,8 @@ Laya MPS 실행은 약 181.77초였고 최종 parameter delta는 4,252바이트�
 
 Go의 짧은 문장 한 개를 같은 프로세스에서 2,000회 측정한 p50은 1.833µs, p95는 1.875µs이고 호출당 allocation은 0입니다. 이는 feature extraction과 scoring만 포함합니다. JSON 처리·계획 생성·파일 읽기·프로세스 시작·전체 RSS는 포함하지 않습니다. 모델 struct 32,816바이트와 workspace 22,552바이트 역시 전체 메모리 사용량이 아닙니다.
 
-## 확인된 실패와 다음 단계
+## 역사적 v1: 확인된 실패와 당시 다음 단계
 
-Go 모델은 `completion_report` test 50개를 전부 `progress`로 분류해 recall이 **0/50**이었습니다. 영어 `question` 25개도 전부 `completion_report`로 분류했습니다. 현재 모델로 완료 상태 판단이 검증됐다고 볼 수 없습니다. Laya 역시 한국어 test 정확도가 12.5%이며 파인튜닝 후 전체 정확도 개선이 없어 현재 checkpoint를 운영용으로 채택하지 않습니다.
+Go 모델은 `completion_report` test 50개를 전부 `progress`로 분류해 recall이 **0/50**이었습니다. 영어 `question` 25개도 전부 `completion_report`로 분류했습니다. 당시 Go v1 모델로 완료 상태 판단이 검증됐다고 볼 수 없습니다. Laya 역시 한국어 test 정확도가 12.5%이며 파인튜닝 후 전체 정확도 개선이 없어 해당 v1 checkpoint를 운영용으로 채택하지 않습니다.
 
 다음 작업은 완료 보고와 진행 보고, 질문과 인용·가정 표현을 구별하는 새 사례를 모으고, 기존 test를 다시 선택 기준으로 쓰지 않는 새 평가 구간을 만드는 것입니다. 별도 multilingual checkpoint 또는 더 넓은 adapter 학습은 새로운 provenance와 언어별 평가를 갖춘 비교 실험으로 진행합니다. 실제 Riido 연결은 신뢰할 수 있는 adapter의 읽기·shadow 관측부터 시작해 잘못된 라벨·상태 제안과 실제 처리 비용을 측정한 뒤 판단합니다.

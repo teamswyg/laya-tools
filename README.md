@@ -2,14 +2,23 @@
 
 [![CI](https://github.com/teamswyg/laya-tools/actions/workflows/ci.yml/badge.svg)](https://github.com/teamswyg/laya-tools/actions/workflows/ci.yml) · [English](README.en.md) · [라벨·이모지·상태 힌트](docs/state-hints.ko.md)
 
+[![Go 1.27.1](https://img.shields.io/badge/Go-1.27.1-00ADD8?logo=go)](https://github.com/teamswyg/laya-tools/blob/main/go.mod) · [![Hugging Face research](https://img.shields.io/badge/Hugging%20Face-research-yellow)](https://huggingface.co/collections/JooYoon/riidolaya-public-research-6abcbd5ddb1917912fc5de38)
+
 현재 개발 목표는 **뤼이도 개발 작업의 진행·완료 보고·질문 표시를 저비용으로 제안하는 것**입니다. `riidolaya state-hint`는 Go로 동작하며 별도 연동 없이 시험할 수 있습니다. 기본은 학습하지 않은 규칙이고, 작은 학습 모델 파일을 선택적으로 제공합니다. 실제 쓰기·반응·알림은 실행하지 않습니다. 모델 선택·추론 수준 조절 기능을 새로 확장하지 않습니다.
 
+Go 1.27.1에서 가벼운 전용 CLI를 설치할 수 있습니다. 기존 `riidolaya state-hint`와 같은 분류 기능을 제공합니다.
+
 ```sh
-riidolaya state-hint --text "이 작업을 취소해 주세요." --json
-riidolaya state-hint --model ./statehint.rsh --jsonl < requests.jsonl
+go install github.com/teamswyg/laya-tools/cmd/riido-statehint@ddd090fe49230a1ec52d9919c3105ca327eddd66
+riido-statehint --text "현재 결과 화면의 안내 문구를 조정하고 있습니다." --json
+riido-statehint --model ./statehint.rsh --jsonl < requests.jsonl
 ```
 
-Go v0.2는 기존32KB 모델에서 CE+AdamW로 실제 이어 학습했습니다. 새 합성100건에서 부모31/100 대비69/100이었고 제안16건 중15건이맞았습니다. 완료를언급한질문을98.8%점수로완료보고라고오표시한실패도보존합니다. [100건 결과·전용 Go 명령·메모리](experiments/state-hints-pilot100/README.md)와 [학습방법·40건개발결과](experiments/state-hints-v2/README.md)를공개합니다. `riidolaya state-hint-pilot`은고정모델을반복검증하며실제연동없이사용할수있습니다. 앞선 Laya MPS 최종층 튜닝은 정답수가148/400으로늘지않았습니다. 운영품질이나실제상태변경을승인한것은아닙니다. 아래자료는앞선코드검색실험의역사입니다.
+최신 [Go V3 연구 후보](https://huggingface.co/JooYoon/riidolaya-statehint-go-v0.3/tree/cf6deca9eb2c9919b1bbbbe82ce3576453d67a40)는 새 원본 합성 400개로 CE+AdamW 이어 학습한 32,960바이트 모델입니다. 같은 새 test 200개에서 전체 정답은 부모 v0.2의 152개에서 158개로 늘었지만, 제안 중 정답은 57/57에서 90/94로 낮아졌고 잘못된 완료 보고 제안도 0개에서 4개로 늘었습니다. **기본 모델·표시 기준을 교체하거나 자동 활성화하지 않습니다.** [학습·전체 결과](experiments/state-hints-v3/README.md)와 [사용자 Wiki](https://github.com/teamswyg/laya-tools/wiki/State-Hints-V3-KO)에 게시·전체 읽기 검증과 한계를 기록했습니다. 완료 보고는 문장의 주장이지 실제 업무 완료의 검증이 아닙니다.
+
+[Go 표시 연동 모듈](pkg/statehintplacement/README.ko.md)은 분류 전후에 작업 버전과 본문을 확인하고 바뀐 경우 후보를 버립니다. [PR160](https://github.com/teamswyg/laya-tools/pull/160)은 Linux·macOS·비밀정보 검사와 [최종 CI](https://github.com/teamswyg/laya-tools/actions/runs/37430259670)를 통과해 봇이 병합했습니다. 실제 앱의 조회·권한·현재 라벨 목록을 제공하는 연결은 별도로 구현해야 합니다.
+
+**이전 v0.2·pilot100 기록:** Go v0.2는 기존32KB 모델에서 CE+AdamW로 실제 이어 학습했습니다. 새 합성100건에서 부모31/100 대비69/100이었고 제안16건 중15건이맞았습니다. 완료를언급한질문을98.8%점수로완료보고라고오표시한실패도보존합니다. [100건 결과·전용 Go 명령·메모리](experiments/state-hints-pilot100/README.md)와 [학습방법·40건개발결과](experiments/state-hints-v2/README.md)를공개합니다. `riidolaya state-hint-pilot`은고정모델을반복검증하며실제연동없이사용할수있습니다. 앞선 Laya MPS 최종층 튜닝은 정답수가148/400으로늘지않았습니다. 운영품질이나실제상태변경을승인한것은아닙니다. 아래자료는앞선코드검색실험의역사입니다.
 
 [JWT 캐시의 실제 비용 비교](experiments/short-claim/next-cohort-jwt-audit/cost-preview/README.md)를 추가했습니다. 160쌍 결과가 일치했고, 같은 네 요청의 고정 소스 순서 반복 검색은 준비 상태 세 회차 합계에서 캐시로 약 1.90배 빨랐습니다. 첫 후보가 맞는 경우에는 캐시가 약 6.8% 느렸습니다. 최대 프로세스 메모리는 약 13.86MiB이며 모델 메모리 수치는 아닙니다. [저장 결과를 Go로 검증](scripts/verify-jwt-cost-preview.sh)할 수 있습니다. 모델 추가 이득·독립 일반화·Codex 절감은 아직 확인하지 못했습니다.
 
