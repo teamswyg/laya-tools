@@ -49,6 +49,10 @@ The .9 confidence/.05 margin gate stays fixed. Only one eligible selected arm
 receives shared scalar temperature calibration on a separate partition. If
 validation or calibration qualifies no candidate, the final-test seal stays
 closed. A successful candidate will be saved/reloaded before one final stage.
-That selection/calibration driver and concrete full-data locks remain preparation work.
+The [Go selection/calibration driver](../../../internal/statehintfit/README.en.md)
+and [family evaluator](../../../internal/statehintfamily/README.en.md) are now
+implemented. Current checks use original arithmetic/metadata and stage callbacks,
+not actual new training quality. Complete-data review, concrete locks and the
+real fitting run remain preparation work.
 
 [한국어](README.ko.md) · [Public tracking issue](https://github.com/teamswyg/laya-tools/issues/155)
