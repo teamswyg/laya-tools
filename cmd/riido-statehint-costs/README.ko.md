@@ -5,9 +5,9 @@
 측정하기 위한 유지보수 도구이며, 이 문장은 학습·선택·골든셋에 넣지 않습니다.
 
 ```sh
-go build -trimpath -o .cache/statehint-bench ./cmd/riido-statehint-bench
-.cache/statehint-bench --model MODEL.rsh --model-sha256 SHA --iterations 500000
-.cache/statehint-bench --model MODEL.rsh --model-sha256 SHA --iterations 500000 --profiles-dir NEW_PRIVATE_DIRECTORY
+go build -trimpath -o .cache/statehint-costs ./cmd/riido-statehint-costs
+.cache/statehint-costs --model MODEL.rsh --model-sha256 SHA --iterations 500000
+.cache/statehint-costs --model MODEL.rsh --model-sha256 SHA --iterations 500000 --profiles-dir NEW_PRIVATE_DIRECTORY
 ```
 
 모델 해시·형식·학습 단계가 유효한지 먼저 확인합니다. 작업 공간을 재사용하며,

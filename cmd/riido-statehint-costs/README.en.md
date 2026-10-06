@@ -6,9 +6,9 @@ operational mutation. Keep these performance fixtures outside training, selectio
 and golden datasets. Parent and child artifacts can use the same command.
 
 ```sh
-go build -trimpath -o .cache/statehint-bench ./cmd/riido-statehint-bench
-.cache/statehint-bench --model MODEL.rsh --model-sha256 SHA --iterations 500000
-.cache/statehint-bench --model MODEL.rsh --model-sha256 SHA --iterations 500000 --profiles-dir NEW_PRIVATE_DIRECTORY
+go build -trimpath -o .cache/statehint-costs ./cmd/riido-statehint-costs
+.cache/statehint-costs --model MODEL.rsh --model-sha256 SHA --iterations 500000
+.cache/statehint-costs --model MODEL.rsh --model-sha256 SHA --iterations 500000 --profiles-dir NEW_PRIVATE_DIRECTORY
 ```
 
 The hash, artifact format and nonzero training steps are checked first. One caller
