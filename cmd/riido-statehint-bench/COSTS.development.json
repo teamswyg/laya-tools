@@ -1,0 +1,51 @@
+{
+  "schema": "statehint-go-inference-development-costs-v1",
+  "platform": "darwin-arm64",
+  "go_version": "1.27.1",
+  "model_sha256": "ae6761dc81501b39ae17f29b48f0f0a8b35305fe11e297b9a787af0f9636df05",
+  "artifact_bytes": 32960,
+  "training_steps": 1920,
+  "fixture_count": 4,
+  "fixture_source": "Original fixed fictional benchmark texts; never fit/selection/golden data.",
+  "runs": [
+    {
+      "kind": "parent.plain",
+      "iterations": 20000,
+      "mean_nanoseconds": 3429.82085,
+      "go_loop_allocated_bytes": 0,
+      "go_loop_allocations": 0,
+      "whole_process_peak_RSS_bytes": 6242304,
+      "model_validation_nanoseconds": 60125
+    },
+    {
+      "kind": "parent.profiled",
+      "iterations": 20000,
+      "mean_nanoseconds": 2237.85835,
+      "go_loop_allocated_bytes": 112,
+      "go_loop_allocations": 2,
+      "whole_process_peak_RSS_bytes": 7634944,
+      "model_validation_nanoseconds": 36500
+    },
+    {
+      "kind": "parent.profiled500k",
+      "iterations": 500000,
+      "mean_nanoseconds": 2229.4125,
+      "go_loop_allocated_bytes": 18808,
+      "go_loop_allocations": 13,
+      "whole_process_peak_RSS_bytes": 7700480,
+      "model_validation_nanoseconds": 67833
+    }
+  ],
+  "profile_overhead_included_in_profiled_runs": true,
+  "runs_not_controlled_speedup_comparison": true,
+  "accuracy_measured": false,
+  "GPU_measured": false,
+  "raw_profiles_published": false,
+  "training_executed": false,
+  "new_V4_predictions": 0,
+  "limitations": [
+    "Single development runs on four short fixed texts; no p95 or production throughput claim.",
+    "RSS includes complete standalone process; not whole Riido application or model bytes alone.",
+    "Go allocation totals in profiled loop may include the profiler."
+  ]
+}
