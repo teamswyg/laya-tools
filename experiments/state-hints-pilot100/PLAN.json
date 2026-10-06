@@ -1,0 +1,83 @@
+{
+  "schema": "riido-statehint-pilot100-predeclared-v1",
+  "purpose": "Evaluate fixed deployed-development model and retained controls, no training, winner selection or live application calls",
+  "cases": {
+    "path": "experiments/state-hints-pilot100/cases.jsonl",
+    "sha256": "a7b140a2c8e276281371884ffe00184a1dcd28a4aed462720692fc99c59f804e",
+    "rows": 100,
+    "unique_authored_families": 100,
+    "statistically_independent": false,
+    "product_ground_truth": false,
+    "locales": {
+      "ko": 50,
+      "en": 50
+    },
+    "expected": {
+      "progress": 25,
+      "completion_report": 25,
+      "question": 25,
+      "blocker": 5,
+      "reference": 5,
+      "cancel_request": 5,
+      "planned": 5,
+      "unclear": 5
+    }
+  },
+  "rubric": {
+    "path": "experiments/state-hints-pilot100/RUBRIC.md",
+    "sha256": "7f8a5bf058dc8bc9b27e1c72d5e9cf6d3e0d5b7a13a700d3f5e02d0ab1a0516b",
+    "original_author_sha256": "7126f00bb63b629f0c477e48e956e2ea5dd962135e0af7f0ab0b721559a2a26b",
+    "change_before_prediction": "Original data basename changed to published cases.jsonl; no label changes."
+  },
+  "review_protocol_sha256": "0b3f5ccf3a5aa07e6008cb5c2643e49e5d6e80f0b9238d26c24d770477f22a9c",
+  "allowed_display_intents": [
+    "progress",
+    "completion_report",
+    "question"
+  ],
+  "confidence_threshold": 0.9,
+  "margin_threshold": 0.05,
+  "read_kind": "explicit synthetic fixture catalog only; canonical revision1 is fictional",
+  "variants": [
+    {
+      "name": "model",
+      "hf_repo": "JooYoon/riidolaya-statehint-go-v0.2",
+      "hf_revision": "81335eadd9f2753d3b86c932e9b00c636714e3b4",
+      "artifact_sha256": "ae6761dc81501b39ae17f29b48f0f0a8b35305fe11e297b9a787af0f9636df05",
+      "temperature": 0.9
+    },
+    {
+      "name": "parent",
+      "hf_repo": "JooYoon/riidolaya-statehint-go-v0.1",
+      "hf_revision": "7364903b1ed7798cef21e896a079da3ee5f2d415",
+      "artifact_sha256": "c63b45571c866b779de90ebcfd1bf5be139064b578703ddfae23eb218553cf28",
+      "temperature": 0.7
+    },
+    {
+      "name": "rules_original",
+      "source": "statehint.RuleBaseline",
+      "trained": false,
+      "calibrated_probabilities": false
+    },
+    {
+      "name": "rules_speechact",
+      "source": "statehint.RuleSpeechAct",
+      "trained": false,
+      "calibrated_probabilities": false
+    }
+  ],
+  "classification_count_per_variant": 100,
+  "policy": "all100 rows incl25 outside; full8scores intact; no renormalization, changes to labels or lowered gates",
+  "recorded_losses": "Eight-intent and3-displays-plus-none NLL/Brier; none is sum of excluded5. Rule scores are not calibrated probabilities.",
+  "uncertainty": "Small author-labeled synthetic diagnostic; original variants, repetitions or translations are not independent product evidence",
+  "resource_limits": {
+    "max_cases": 2400,
+    "max_jsonl_bytes": 8388608,
+    "max_model_bytes": 1048576,
+    "batch": 64,
+    "read_calls_per_variant": 2
+  },
+  "training_performed": false,
+  "mutation_executed": false,
+  "license": "Apache-2.0"
+}
