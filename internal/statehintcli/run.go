@@ -163,6 +163,9 @@ func Run(args []string, in io.Reader, out, errOut io.Writer) error {
 			}
 		}
 		if r.Context != nil {
+			// Context owns its allowlist and existing display. A default intent
+			// icon must not contradict or bypass the guarded annotation plan.
+			x.EmojiCode = ""
 			ctx := *r.Context
 			if ctx.MinConfidence == 0 {
 				ctx.MinConfidence = .9
@@ -176,6 +179,7 @@ func Run(args []string, in io.Reader, out, errOut io.Writer) error {
 				x.Reason = "invalid_context"
 			} else {
 				x.Plan = &plan
+				x.EmojiCode = plan.EmojiCode
 			}
 		}
 		return encoder.Encode(x)
