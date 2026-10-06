@@ -10,6 +10,7 @@ import (
 	"github.com/teamswyg/laya-tools/internal/app"
 	"github.com/teamswyg/laya-tools/internal/assets"
 	"github.com/teamswyg/laya-tools/internal/inference"
+	"github.com/teamswyg/laya-tools/internal/questioncuecli"
 	"github.com/teamswyg/laya-tools/internal/router"
 	"github.com/teamswyg/laya-tools/internal/search"
 	"github.com/teamswyg/laya-tools/internal/statehintcli"
@@ -37,6 +38,7 @@ func run(args []string) error {
 		fmt.Print(`riidolaya — local code retrieval and experimental content/state hints
 
 Commands:
+  question-cue  Preview an experimental punctuation clue without a model
   state-hint  Suggest content labels, emoji codes and guarded shadow state plans
   state-hint-pilot  Compare local models on bounded synthetic development cases
   setup     Download checksum-pinned model and native runtime
@@ -67,6 +69,9 @@ The codex command starts your installed Codex CLI with its existing settings.
 		return nil
 	}
 	cmd := args[0]
+	if cmd == "question-cue" {
+		return questioncuecli.Run(args[1:], os.Stdin, os.Stdout, os.Stderr)
+	}
 	if cmd == "state-hint" {
 		return statehintcli.Run(args[1:], os.Stdin, os.Stdout, os.Stderr)
 	}

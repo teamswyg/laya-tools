@@ -6,6 +6,8 @@
 
 Current development targets **cheap progress, completion-report and question suggestions for Riido development work**. `riidolaya state-hint` runs in Go and can be tried without integration. It defaults to explicitly unlearned rules; a small trained model is optional. It performs no writes, reactions or notifications. Further model/reasoning-level routing is outside this target.
 
+The separate [question punctuation cue](pkg/statehintcue/README.en.md) is an experiment requiring no model. Try `riidolaya question-cue --role prose --text "Should I check the cache again?"` to observe question marks outside code and supported address-like tokens; `metadata` and `code` roles produce no cue. It does not determine semantic intent or work completion and returns no probability, annotation or state change. Check the input budget for long documents instead of truncating them.
+
 Install the lightweight dedicated CLI with Go 1.27.1. It provides the same classification feature as `riidolaya state-hint`.
 
 ```sh
