@@ -1,0 +1,76 @@
+{
+  "schema": "riido-statehint-training-plan-v1",
+  "source_sha256": "2327dd7b4c2ee050dc04d0553abdd59ac3be908551ef779fdb2d92d7011eece5",
+  "reference_sha256": "70785282e6f1e1740fb30931b34221e93ab84cbed007a51faa8405eb811a6ccd",
+  "data_sha256": "0b3b69e6da8e3eec10aa4e95618ed3695ac76c8937427812b87a8339f0582422",
+  "templates_sha256": "0918d8b265d3a577ca39e63914ce3b4d45f4cabd332a8587cb31e216f53eeb83",
+  "base_sha256": "891102d372688fc2a094dac56a384bc537b87c63f21f9f3dac0be2b7cbc8d86c",
+  "base_revision": "55cf4c4ebb4ebe31b2550e8bdf3bd21b99753851",
+  "base_files": {
+    "rl_agent_config.json": "ae287b56bbcf5f8c4f4541ae9dfd00c914c4c48b940b8398c3058af37ba92bbd",
+    "encoder/config.json": "bf3ab80598fdccf414855a2ce80f22859e4492d06ca8a62ddd1cfb63972f8979",
+    "tokenizer/tokenizer.json": "6c8aaa9a542084f2457eab775d4eeb51f92a70c0fd9de28d5edb0ddec3c08d30",
+    "tokenizer/tokenizer_config.json": "50044de60daaa73df97d262e15a40d4faf0160e7d742df64b377877a1320dd12"
+  },
+  "learning_rates": [
+    0.001,
+    0.003
+  ],
+  "epochs": 20,
+  "seed": 1729,
+  "batch_size": 32,
+  "confidence_threshold": 0.9,
+  "extraction_minutes": 10,
+  "training_minutes": 10,
+  "overall_minutes": 20,
+  "go_classifier": {
+    "method": "supervised_character_word_hash_linear_softmax_cross_entropy_adamw",
+    "learning_rates": [
+      0.01,
+      0.03
+    ],
+    "epochs": [
+      20,
+      40
+    ],
+    "batch_size": 32,
+    "weight_decay": 0.001,
+    "feature_bins": 1024,
+    "temperature_grid": {
+      "minimum": 0.5,
+      "maximum": 5,
+      "step": 0.1
+    }
+  },
+  "go_sources": {
+    "cmd/riido-statehint-data/main.go": "8483ca7dae8f41d7588a9e8354f0ce571ec73789eef05bab8ce7207b7f20097f",
+    "cmd/riido-statehint-data/main_test.go": "bac2bbea6f766c7c571bd5c80871cdb663f053b4b65aa7aed11713773da4ec58",
+    "cmd/riido-statehint-train/main.go": "3a0060f4cee5d880b71d66961ac8f422a892a4df8bc2dd215b698adad385a2c9",
+    "cmd/riido-statehint/main.go": "ad1bc60ae5cefaa6594c7c5515172a672b7b69978f1c694e932349b519b8c20e",
+    "cmd/riidolaya/main.go": "eeedf05b8b08fa315944d3916c909af5cb12e10047b2d200a6c6e628d4b3c490",
+    "internal/statehintcli/run.go": "71b034f5ceb7bd001a06ac82362092c1b9f7b82fc982b28c1d0b108dc691bacd",
+    "internal/statehintcli/run_test.go": "3eeb9234405d0003c2074b53b53c0180f23eb5a55811f74eb785ab8f8d3c3a06",
+    "pkg/statehint/artifact.go": "bf93d7fd4238b2d1ce5d0475d4843d5bb5333f60cbe85b567f4b62c54bf39a3f",
+    "pkg/statehint/artifact_test.go": "a441785ca9fa99207d1f57e5700b8a915bf1a8f2a421975f6dbddbf0dc85fdec",
+    "pkg/statehint/baseline.go": "f74654cb777adb5e257fcea1d020dfbe68023dc306fa081ef87383d18f55aad2",
+    "pkg/statehint/features.go": "a89e03a0e70dafa266143dadc778019760f7a06d6a909f9c6c9b9a9d58ea5ec4",
+    "pkg/statehint/features_test.go": "5d8f9eb96e960e8db35fbfab1566107fb6f8aef88928502ccd94ccca485164e3",
+    "pkg/statehint/model.go": "8b670ef55c805053c1ca8ef41a9ed6f4039cf9c0276cfa2e8eaf727e62645bef",
+    "pkg/statehint/model_test.go": "2db581bbe21980ed98aeeef6f6ae937455cecd2862884b4c82391dc117944949",
+    "pkg/statehint/plan.go": "03c1d78a1d777f35bdbe8b67c1f9cd0eb73e1992023fbd685dccfb8faace1245",
+    "pkg/statehint/plan_test.go": "c9b3a57bcdf0512c9ff7e05e2128dda810648b1c2670b4214316565c4879829d",
+    "pkg/statehint/train.go": "06eddaff0a67741e3bc3d15f5f253e362557a9c7aab3968753899e634b0f581b"
+  },
+  "deployment_qualified": false,
+  "scope": "New original bilingual content/state hint development experiment, separate from retained JWT153 evidence. 2400 synthetic variants,96 template families and48 bilingual concept pairs; no independent product truth. No model/router/reasoning-level adjustment and no live Riido mutation.",
+  "resources": {
+    "existing_base_reused": true,
+    "new_retained_assets_cap_bytes": 536870912,
+    "new_dataset_cap_bytes": 2097152,
+    "process_rss_guard_bytes": 5368709120,
+    "mps_allocator_fraction": 0.25,
+    "system_available_floor_percent": 20,
+    "disk_free_floor_bytes": 32212254720,
+    "old_jwt153_retention_policy": "unchanged; distinct closed experiment, no files removed/reset/excluded"
+  }
+}

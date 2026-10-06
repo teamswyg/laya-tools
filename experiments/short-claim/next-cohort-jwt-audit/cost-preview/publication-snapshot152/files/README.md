@@ -1,16 +1,5 @@
 # laya-tools
 
-[![CI](https://github.com/teamswyg/laya-tools/actions/workflows/ci.yml/badge.svg)](https://github.com/teamswyg/laya-tools/actions/workflows/ci.yml) · [English](README.en.md) · [라벨·이모지·상태 힌트](docs/state-hints.ko.md)
-
-현재 개발 목표는 **뤼이도의 내용을 저비용으로 분류하고 라벨·이모지·상태 제안을 만드는 것**입니다. `riidolaya state-hint`는 Go로 동작하며 별도 연동 없이 시험할 수 있습니다. 기본은 학습하지 않은 규칙이고, 작은 학습 모델 파일을 선택적으로 제공합니다. 실제 쓰기·반응·알림은 실행하지 않습니다. 모델 선택·추론 수준 조절 기능을 새로 확장하지 않습니다.
-
-```sh
-riidolaya state-hint --text "이 작업을 취소해 주세요." --json
-riidolaya state-hint --model ./statehint.rsh --jsonl < requests.jsonl
-```
-
-Go 모델을 실제 학습하고 Laya 최종 점수층도 MPS에서 실제 파인튜닝했습니다. 합성 개발 평가에서 Go 모델은 317/400 정답, 한국어 85%였지만 완료 보고를 구분하지 못했습니다. Laya는 파인튜닝 전후 148/400으로 정답 수가 늘지 않았습니다. [방법·실제 결과·실패 영역](docs/state-hints.ko.md)을 모두 공개하며, 현재 모델은 운영용으로 채택하지 않습니다. 아래 자료는 앞선 코드 검색 실험의 역사입니다.
-
 [JWT 캐시의 실제 비용 비교](experiments/short-claim/next-cohort-jwt-audit/cost-preview/README.md)를 추가했습니다. 160쌍 결과가 일치했고, 같은 네 요청의 고정 소스 순서 반복 검색은 준비 상태 세 회차 합계에서 캐시로 약 1.90배 빨랐습니다. 첫 후보가 맞는 경우에는 캐시가 약 6.8% 느렸습니다. 최대 프로세스 메모리는 약 13.86MiB이며 모델 메모리 수치는 아닙니다. [저장 결과를 Go로 검증](scripts/verify-jwt-cost-preview.sh)할 수 있습니다. 모델 추가 이득·독립 일반화·Codex 절감은 아직 확인하지 못했습니다.
 
 [작은 힌트 표현 진단](experiments/short-claim/text-representation-preview/README.ko.md)을 추가했습니다. 학습 없는 관계 정렬이 이미 본 B-tree 한 가족에서 모의 확인54→26회였고, 반복 문장8후보의 원문 파싱은 약2.9µs·Go 할당0회였습니다. 기호 보존은 정보 손실을 줄이지만 기존 해시보다 느렸습니다. [Go JSON 미리보기 사용법](cmd/riido-hintpreview/README.ko.md)으로 직접 시험할 수 있습니다. 일반화·실제 속도·Codex 절감은 미검증이며 새 학습·모델 가중치는0입니다.

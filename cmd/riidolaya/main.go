@@ -12,6 +12,7 @@ import (
 	"github.com/teamswyg/laya-tools/internal/inference"
 	"github.com/teamswyg/laya-tools/internal/router"
 	"github.com/teamswyg/laya-tools/internal/search"
+	"github.com/teamswyg/laya-tools/internal/statehintcli"
 	"io"
 	"os"
 	"os/exec"
@@ -32,9 +33,10 @@ func main() {
 }
 func run(args []string) error {
 	if len(args) == 0 || args[0] == "help" || args[0] == "--help" {
-		fmt.Print(`riidolaya — local code retrieval and experimental Codex model routing
+		fmt.Print(`riidolaya — local code retrieval and experimental content/state hints
 
 Commands:
+  state-hint  Suggest content labels, emoji codes and guarded shadow state plans
   setup     Download checksum-pinned model and native runtime
   search    Find line-addressable code excerpts (default: 8 candidates, 3 hits)
   route     Recommend a configured model; abstain on uncertain decisions
@@ -49,6 +51,7 @@ Commands:
   version   Print version
 
 Examples (flags precede the prompt):
+  riidolaya state-hint --text "질문이 있습니다" --json
   riidolaya setup
   riidolaya search --root . --json "where are redirects handled?"
   riidolaya search --lexical "redirect headers"
@@ -62,6 +65,9 @@ The codex command starts your installed Codex CLI with its existing settings.
 		return nil
 	}
 	cmd := args[0]
+	if cmd == "state-hint" {
+		return statehintcli.Run(args[1:], os.Stdin, os.Stdout, os.Stderr)
+	}
 	if cmd == "version" {
 		fmt.Println(version)
 		return nil

@@ -86,13 +86,6 @@ paths = ['''^experiments/short-claim/next-cohort-jwt-audit/cost-replay/main\.go$
 regexTarget = "line"
 regexes = ['''^\s*const keySHA = "6c6ef54b2b0fa9af5bb3db8b8280a132371a3733adb5068e8ed40efabbc8c92d"\s*$''']
 
-[[rules.allowlists]]
-description = "Exact public upstream tokenizer file SHA values in statehint development provenance; not access tokens"
-condition = "AND"
-paths = ['''^experiments/state-hints/(plan-v1|results/laya-v1)\.json$''']
-regexTarget = "secret"
-regexes = ['''^6c8aaa9a542084f2457eab775d4eeb51f92a70c0fd9de28d5edb0ddec3c08d30$''', '''^50044de60daaa73df97d262e15a40d4faf0160e7d742df64b377877a1320dd12$''']
-
 [[rules]]
 id = "jwt"
 
