@@ -13,6 +13,7 @@ import (
 	"github.com/teamswyg/laya-tools/internal/router"
 	"github.com/teamswyg/laya-tools/internal/search"
 	"github.com/teamswyg/laya-tools/internal/statehintcli"
+	"github.com/teamswyg/laya-tools/internal/statehintpilotcli"
 	"io"
 	"os"
 	"os/exec"
@@ -37,6 +38,7 @@ func run(args []string) error {
 
 Commands:
   state-hint  Suggest content labels, emoji codes and guarded shadow state plans
+  state-hint-pilot  Compare local models on bounded synthetic development cases
   setup     Download checksum-pinned model and native runtime
   search    Find line-addressable code excerpts (default: 8 candidates, 3 hits)
   route     Recommend a configured model; abstain on uncertain decisions
@@ -67,6 +69,9 @@ The codex command starts your installed Codex CLI with its existing settings.
 	cmd := args[0]
 	if cmd == "state-hint" {
 		return statehintcli.Run(args[1:], os.Stdin, os.Stdout, os.Stderr)
+	}
+	if cmd == "state-hint-pilot" {
+		return statehintpilotcli.Run(args[1:], os.Stdout, os.Stderr)
 	}
 	if cmd == "version" {
 		fmt.Println(version)
