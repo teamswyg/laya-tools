@@ -5,10 +5,12 @@ package statehintcli
 import (
 	"bufio"
 	"bytes"
+	"encoding/binary"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"github.com/teamswyg/laya-tools/pkg/statehint"
+	"github.com/teamswyg/laya-tools/pkg/statehintwide"
 	"io"
 	"os"
 	"strings"
@@ -126,12 +128,25 @@ func Run(args []string, in io.Reader, out, errOut io.Writer) error {
 		return fmt.Errorf("JSONL and one text are separate modes")
 	}
 	var model *statehint.Model
+	var wide *statehintwide.Model
 	if *modelPath != "" {
 		file, e := os.Open(*modelPath)
 		if e != nil {
 			return fmt.Errorf("cannot open local statehint model")
 		}
-		model, e = statehint.Load(file)
+		var header [8]byte
+		_, e = io.ReadFull(file, header[:])
+		if e == nil {
+			reader := io.MultiReader(bytes.NewReader(header[:]), file)
+			switch binary.LittleEndian.Uint16(header[4:6]) {
+			case 1:
+				model, e = statehint.Load(reader)
+			case 2:
+				wide, e = statehintwide.Load(reader)
+			default:
+				e = statehint.ErrArtifact
+			}
+		}
 		ce := file.Close()
 		if e != nil {
 			return e
@@ -141,11 +156,14 @@ func Run(args []string, in io.Reader, out, errOut io.Writer) error {
 		}
 	}
 	var work statehint.Workspace
+	var wideWork statehintwide.Workspace
 	encoder := json.NewEncoder(out)
 	process := func(r request) error {
 		var p statehint.Prediction
 		var e error
-		if model == nil {
+		if wide != nil {
+			p, e = wide.Predict(r.Text, &wideWork)
+		} else if model == nil {
 			p, e = statehint.RuleBaseline(r.Text)
 		} else {
 			p, e = model.Predict(r.Text, &work)

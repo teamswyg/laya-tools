@@ -1,0 +1,137 @@
+{
+  "schema": "riido-statehint-v2-contrast-evaluation-manifest-v1",
+  "origin": "original_authored_synthetic_development",
+  "license": "Apache-2.0",
+  "intents": [
+    "question",
+    "blocker",
+    "reference",
+    "progress",
+    "completion_report",
+    "cancel_request",
+    "planned",
+    "unclear"
+  ],
+  "rows": 120,
+  "authored_incident_family_ids": 120,
+  "locale_rows": {
+    "ko": 60,
+    "en": 60
+  },
+  "source_style": "Manually authored freeform fictional incident contexts; no name/ID filler substitutions.",
+  "one_row_per_authored_family": true,
+  "all_texts_unique": true,
+  "groups_disjoint_across_partitions": true,
+  "filepins": {
+    "development.jsonl": {
+      "sha256": "9b76ad1d77819d45cf6f903be748d404245d3477592054a2fd06284f85bf8efb",
+      "bytes": 11564,
+      "rows": 40,
+      "groups": 40,
+      "locale_rows": {
+        "ko": 20,
+        "en": 20
+      },
+      "intent_rows": {
+        "question": 5,
+        "blocker": 5,
+        "reference": 5,
+        "progress": 5,
+        "completion_report": 5,
+        "cancel_request": 5,
+        "planned": 5,
+        "unclear": 5
+      },
+      "split": "validation",
+      "role": "development_hypothesis_checks_only_never_training"
+    },
+    "calibration.jsonl": {
+      "sha256": "a9d0ea2124004cc07bd65da30cbc400e791223cdbde4975445559582c3e7b7e3",
+      "bytes": 11617,
+      "rows": 40,
+      "groups": 40,
+      "locale_rows": {
+        "ko": 20,
+        "en": 20
+      },
+      "intent_rows": {
+        "question": 5,
+        "blocker": 5,
+        "reference": 5,
+        "progress": 5,
+        "completion_report": 5,
+        "cancel_request": 5,
+        "planned": 5,
+        "unclear": 5
+      },
+      "split": "calibration",
+      "role": "fit_calibration_only_after_weight_selection"
+    },
+    "locked-test.jsonl": {
+      "sha256": "e7585c7f4288ebb8a8f22bb3a2f2785aa8f51d0a4b7a613e7dfbb25ccc2f6c90",
+      "bytes": 11506,
+      "rows": 40,
+      "groups": 40,
+      "locale_rows": {
+        "ko": 20,
+        "en": 20
+      },
+      "intent_rows": {
+        "question": 5,
+        "blocker": 5,
+        "reference": 5,
+        "progress": 5,
+        "completion_report": 5,
+        "cancel_request": 5,
+        "planned": 5,
+        "unclear": 5
+      },
+      "split": "test",
+      "role": "locked_final_evaluation_only_after_selection_and_calibration_lock"
+    }
+  },
+  "sealing": {
+    "test_file": "locked-test.jsonl",
+    "test_sha256": "e7585c7f4288ebb8a8f22bb3a2f2785aa8f51d0a4b7a613e7dfbb25ccc2f6c90",
+    "author_disclosed_test_body_to_parent": false,
+    "parent_must_not_read_or_predict_test_before_model_and_calibration_lock": true,
+    "must_freeze_this_manifest_in_the_v2_plan_before_new_model_fits_or_predictions": true
+  },
+  "rubric": "RUBRIC.md",
+  "caller_state_or_event_evidence_in_classifier_text": false,
+  "training_use_allowed": false,
+  "v1_dataset_or_models_modified": false,
+  "contrasts": [
+    "literal_completion_report_vs_active_remaining_work",
+    "information_question_that_mentions_completed_or_cancelled_states",
+    "asserted_completion_vs_independent_product_event",
+    "negated_completion_without_a_current_activity_claim",
+    "quoted_statement_without_live_authority",
+    "hypothetical_or_counterfactual_completion",
+    "contradictory_whole-task_claims",
+    "multiple_independent_intents_with_no_primary_target",
+    "planned_unstarted_work_vs_current_blocker",
+    "background_reference_sharing_vs_request_for_an_answer"
+  ],
+  "ground_truth_basis": "Author intent judgments under the explicit rubric, not real product observations or external human adjudication.",
+  "author_was_aware_of_v1_results": true,
+  "independent_product_ground_truth": false,
+  "limitations": [
+    "All scenarios are original fiction authored by the same agent ecosystem that saw v1 failures.",
+    "Unique family IDs do not prove statistical independence; common syntax and concepts remain.",
+    "Five cases per intent per partition are too few for stable class-level or language-level quality claims.",
+    "Multimention single-intent judgments depend on the explicit primary-intent rubric and require external adjudication before product qualification.",
+    "Calibration has only 40 rows; fitting one scalar is possible but confidence estimates are highly uncertain.",
+    "These cases must not be used to fit weights; any observed final evaluation is development evidence for later revisions.",
+    "Training data for a future candidate must be authored separately and checked for exact and scenario-level overlap."
+  ],
+  "deployment_qualified": false,
+  "rubric_sha256": "88fddbfb2ed57ecced4a3840067e706d2a25f0311b7a654af039f3d11dc43736",
+  "license_sha256": "a6cba85bc92e0cff7a450b1d873c0eaa2e9fc96bf472df0247a26bec77bf3ff9",
+  "v1_retained_artifact_sha256": {
+    "go_statehint_rsh": "c63b45571c866b779de90ebcfd1bf5be139064b578703ddfae23eb218553cf28",
+    "laya_scorer_safetensors": "e7037a4c92460dd0c77facb643a26a2f3ce99240e6a59bd78c15ad91df314fcc",
+    "v1_corpus_jsonl": "0b3b69e6da8e3eec10aa4e95618ed3695ac76c8937427812b87a8339f0582422"
+  },
+  "v1_exact_text_overlap_rows": 0
+}
