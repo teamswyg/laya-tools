@@ -20,7 +20,7 @@ _ = prediction
 _ = err
 ```
 
-`Fit` uses eight-way cross-entropy and AdamW, averaging each minibatch's
+By default, `Fit` uses hard eight-way cross-entropy and AdamW, averaging each minibatch's
 gradient, correcting both moments, and decaying weights but not biases.
 Initial weights use Glorot uniform limits `sqrt(6/(fanIn+fanOut))`; biases are
 zero. Initialization and sample shuffling use separate PCG streams from the
@@ -36,6 +36,29 @@ default 0.001; this API does not express a no-decay experiment. This differs
 from the wide API's zero-decay behavior. Set every recipe field explicitly
 when making a controlled comparison. No sampling, calibration fitting,
 selection, corpus IO, deployment or state mutation is implemented here.
+
+## Optional training label smoothing
+
+`FitOptions.LabelSmoothing` defaults to zero and accepts finite values from
+0 to 0.2. Zero delegates to the original hard-CE arithmetic; a pre-change
+owned toy artifact fingerprint checks byte compatibility. Positive alpha uses
+the uniform eight-way target `q=(1-alpha)*one_hot+alpha/8`, cross-entropy
+`-sum(q*log(p))` and gradient `p-q`. Soft loss uses shifted log-sum-exp to avoid
+large common-logit cancellation. `FitReport.LabelSmoothing` records the value;
+stored sample labels, initialization, shuffle, optimizer and inference do not
+change. The v3 artifact remains 131,872 bytes and does not encode the training
+objective: retain the FitReport and run recipe for objective provenance.
+
+The fixed prospective comparison is hard CE versus alpha 0.05, giving a
+target of 0.95625 for the declared class and 0.00625 for each other class.
+There is no alpha sweep or automatic calibration. [Müller, Kornblith and
+Hinton (2019)](https://proceedings.neurips.cc/paper_files/paper/2019/hash/f1748d6b0fd9d439f71450117eba2725-Abstract.html)
+report empirical calibration/generalization benefits of label smoothing;
+this supports a hypothesis, not a guarantee for this small model. It may
+reduce wrong completion confidence and also reduce correct completion
+coverage. Existing gates remain unchanged, exposed development results
+remain development-only, and calibration/final-test data remain sealed.
+Only owned numeric/toy tests have exercised this new option so far.
 
 The bounded extractor is a private Apache-2.0 copy of
 [the existing contextual extractor](../statehintwide/features.go). It keeps
