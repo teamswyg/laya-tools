@@ -1,0 +1,89 @@
+{
+  "schema": "riido-statehint-v3-predeclared-v1",
+  "Train": {
+    "path": ".cache/statehint/v3/TRAIN.original.jsonl",
+    "sha256": "31f9a02958ce5e5b3c916d4d4af90ac713c80c3851c64dfcde18a22c95ed6a35",
+    "rows": 400
+  },
+  "Validation": {
+    "path": ".cache/statehint/v3/VALIDATION.original.jsonl",
+    "sha256": "233a34becf8456846d4145f658bebf7cded640e0b8c69255a6d7a8a53d2b6248",
+    "rows": 80
+  },
+  "Calibration": {
+    "path": ".cache/statehint/v3/CALIBRATION.original.jsonl",
+    "sha256": "179e69b7445f35b373b7e8b41b3d6d03976d2bfd29a08ace670bb93a03247d93",
+    "rows": 80
+  },
+  "Test": {
+    "path": ".cache/statehint/v3/TEST.original.jsonl",
+    "sha256": "20101a2cbab68e85dedf08aa780b90816bed8072e904dc036026b144121989e4",
+    "rows": 200
+  },
+  "parent_sha256": "ae6761dc81501b39ae17f29b48f0f0a8b35305fe11e297b9a787af0f9636df05",
+  "driver_sha256": "1d9de51793bc3440978efd16a72d1d3eed6ff4c9785bf797a06bb21b67153d15",
+  "sources": {
+    "pkg/statehint/artifact.go": "bf93d7fd4238b2d1ce5d0475d4843d5bb5333f60cbe85b567f4b62c54bf39a3f",
+    "pkg/statehint/artifact_test.go": "a441785ca9fa99207d1f57e5700b8a915bf1a8f2a421975f6dbddbf0dc85fdec",
+    "pkg/statehint/baseline.go": "f74654cb777adb5e257fcea1d020dfbe68023dc306fa081ef87383d18f55aad2",
+    "pkg/statehint/features.go": "a89e03a0e70dafa266143dadc778019760f7a06d6a909f9c6c9b9a9d58ea5ec4",
+    "pkg/statehint/features_test.go": "5d8f9eb96e960e8db35fbfab1566107fb6f8aef88928502ccd94ccca485164e3",
+    "pkg/statehint/model.go": "8b670ef55c805053c1ca8ef41a9ed6f4039cf9c0276cfa2e8eaf727e62645bef",
+    "pkg/statehint/model_test.go": "2db581bbe21980ed98aeeef6f6ae937455cecd2862884b4c82391dc117944949",
+    "pkg/statehint/plan.go": "03c1d78a1d777f35bdbe8b67c1f9cd0eb73e1992023fbd685dccfb8faace1245",
+    "pkg/statehint/plan_test.go": "c9b3a57bcdf0512c9ff7e05e2128dda810648b1c2670b4214316565c4879829d",
+    "pkg/statehint/speechact.go": "c3967a62a95dab1945b89ad8a70060a4dcd14f0c4c56eeb33996608e8a40790e",
+    "pkg/statehint/speechact_test.go": "0c0b49fccd7c4430c14f163d806b25da7fa79aad1c1b3e99acb32b685e928eed",
+    "pkg/statehint/train.go": "06eddaff0a67741e3bc3d15f5f253e362557a9c7aab3968753899e634b0f581b",
+    "pkg/statehintcatalog/mapping.go": "979985020166457db0903621d5e3ac25218003b111f8edcecebecb884329bc0b",
+    "pkg/statehintcatalog/propose.go": "3d3fd474cfd3c8ee639fd40aae4241f176f43ae3a680e02c273ca5a9660a2462",
+    "pkg/statehintcatalog/propose_test.go": "8a935a9be64edd996ee73045b8b327b8b7c4bf9a433bd32e116ce23e3ca6d3c6",
+    "pkg/statehintcatalog/types.go": "393bf1d64852603226f59f25e5e6e953837be4c06bdd5762da8d7d321edfa80c",
+    "pkg/statehintcatalog/validate.go": "e45021db793aebe4939c5c360786bd7e9b25ec6db0dff32f9a409cbf81e5a5d5",
+    "pkg/statehintcatalog/validate_test.go": "482a6f7622eec9cfc00e7415193d9e08fb78b22aa9a160e633a48e59c9917cce",
+    "pkg/statehintpilot/evaluate.go": "f962df0850310890d50f545fa4014b6d009816ac409084f7be82b3c88fd305d7",
+    "pkg/statehintpilot/evaluate_test.go": "4c3a1a8ffe72162e57a5d2452327c5673551de62142c9a0856835f351982fe93",
+    "pkg/statehintpilot/metrics.go": "c86ae5ddde09b236c5b4962240595442f04c6cc7352cb630d796176ed27165d5",
+    "pkg/statehintpilot/types.go": "1e058c656ed706387ae0f2aceb0588b4c91f276f2fcea0c30816d5f862d63861",
+    "go.mod": "d3dac31b277d3945ff0333c5099e5e5c47807bd8310b0c9d71d29dbdeff8e9ec",
+    "go.sum": "b89ba980a5c517f5e9e52a67448d2db01d4b6be95a4afb54d7739a610a872132"
+  },
+  "arms": [
+    {
+      "name": "warm_lr005",
+      "warm": true,
+      "learning_rate": 0.005,
+      "epochs": 40
+    },
+    {
+      "name": "warm_lr010",
+      "warm": true,
+      "learning_rate": 0.01,
+      "epochs": 40
+    },
+    {
+      "name": "warm_lr020",
+      "warm": true,
+      "learning_rate": 0.02,
+      "epochs": 40
+    },
+    {
+      "name": "fresh_lr020",
+      "warm": false,
+      "learning_rate": 0.02,
+      "epochs": 40
+    }
+  ],
+  "seed": 1729,
+  "batch": 32,
+  "decay": 0.001,
+  "confidence": 0.9,
+  "margin": 0.05,
+  "selection": "Lowest validation3display+none NLL, fixedearlier arm tie; train8classCE. Calfixedtemperature.5..5step.1. Testnotparseduntilsavedmodel+lock.",
+  "eval_manifest_sha256": "3847cdb1cb36c8d6d45ae9c06ba12ccf57cc649182fcda81265f61957874e99f",
+  "eval_rubric_sha256": "d310e2389704ac6c4191f214a01a13c1caace8d608c3d135c0b712792b28c481",
+  "train_rubric_sha256": "ecc8ea85a080cf127daa2fccd1c58aa9ff913684f1dd233d5c301679a2964158",
+  "synthetic_development_only": true,
+  "product_ground_truth": false,
+  "private_training_used": false
+}
