@@ -1,16 +1,5 @@
 # laya-tools
 
-[![CI](https://github.com/teamswyg/laya-tools/actions/workflows/ci.yml/badge.svg)](https://github.com/teamswyg/laya-tools/actions/workflows/ci.yml) · [한국어](README.md) · [Content, emoji and state hints](docs/state-hints.en.md)
-
-Current development targets **cheap content classification and suggestions for Riido labels, emoji and work states**. `riidolaya state-hint` runs in Go and can be tried without integration. It defaults to explicitly unlearned rules; a small trained model is optional. It performs no writes, reactions or notifications. Further model/reasoning-level routing is outside this target.
-
-```sh
-riidolaya state-hint --text "Please cancel this work." --json
-riidolaya state-hint --model ./statehint.rsh --jsonl < requests.jsonl
-```
-
-The Go model was actually trained and the pretrained Laya final scorer was actually fine-tuned on MPS. The synthetic development test gave Go317/400 correct and85% Korean accuracy, but failed completion reports. Laya remained148/400 before/after tuning. Read the complete [methods, results and failures](docs/state-hints.en.md); neither model is production qualified. The material below records earlier code-search experiments.
-
 Added an [actual JWT cache cost comparison](experiments/short-claim/next-cohort-jwt-audit/cost-preview/README.en.md). All 160 paired outcomes matched. Fixed-source-order searches over the same four requests were about 1.90× faster with caching in the aggregate of three warm rounds; when the first candidate matched, caching was about 6.8% slower. Whole-process peak RSS was about 13.86MiB, which is not model memory. [Verify saved results in Go](scripts/verify-jwt-cost-preview.sh). Model benefit, independent generalization and Codex savings remain unproved.
 
 Added a [small hint representation diagnostic](experiments/short-claim/text-representation-preview/README.en.md). An unlearned relation control reduced counterfactual checks54→26 on one exposed B-tree family. Parsing8repeated candidates took about2.9µs with0Go allocations. Symbol retention reduces information loss but was slower than legacy hashing. Try the [Go JSON preview](cmd/riido-hintpreview/README.en.md). Generalization, actual speedup and Codex savings remain unproved; new training/weights:0.

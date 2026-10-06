@@ -1,0 +1,4829 @@
+{
+  "schema": "riido-statehint-teacher-results-v1",
+  "origin": "original_authored_synthetic_development",
+  "development_only": true,
+  "limitations": [
+    "2400 fictional variants represent 96 authored template families, not independent product truth",
+    "Korean and English results are separated; the pretrained English checkpoint is not a validated Korean model",
+    "Families are disjoint, but related concepts and bilingual paraphrases share a synthetic design",
+    "One fixed option order is used; option-order generalization is not established",
+    "A completion report does not prove an authorized product state transition",
+    "Training the final linear reduces training work; inference still requires the full Laya backbone",
+    "Step-end MPS samples miss transient peaks and overlap process RSS in unified memory"
+  ],
+  "method": "pretrained_frozen_laya_final_linear_cross_entropy_adamw",
+  "runtime": "maintainer_reference_only",
+  "model_id": "convaiinnovations/laya",
+  "base_revision": "55cf4c4ebb4ebe31b2550e8bdf3bd21b99753851",
+  "base_sha256": "891102d372688fc2a094dac56a384bc537b87c63f21f9f3dac0be2b7cbc8d86c",
+  "base_files": {
+    "rl_agent_config.json": "ae287b56bbcf5f8c4f4541ae9dfd00c914c4c48b940b8398c3058af37ba92bbd",
+    "encoder/config.json": "bf3ab80598fdccf414855a2ce80f22859e4492d06ca8a62ddd1cfb63972f8979",
+    "tokenizer/tokenizer.json": "6c8aaa9a542084f2457eab775d4eeb51f92a70c0fd9de28d5edb0ddec3c08d30",
+    "tokenizer/tokenizer_config.json": "50044de60daaa73df97d262e15a40d4faf0160e7d742df64b377877a1320dd12"
+  },
+  "data_sha256": "0b3b69e6da8e3eec10aa4e95618ed3695ac76c8937427812b87a8339f0582422",
+  "templates_sha256": "0918d8b265d3a577ca39e63914ce3b4d45f4cabd332a8587cb31e216f53eeb83",
+  "source_sha256": "2327dd7b4c2ee050dc04d0553abdd59ac3be908551ef779fdb2d92d7011eece5",
+  "plan_sha256": "218b6ded7662973a6bcbb164def6930495ca8ec1da2df9161e8186133ea95b71",
+  "reference_sha256": "70785282e6f1e1740fb30931b34221e93ab84cbed007a51faa8405eb811a6ccd",
+  "question": {
+    "t": "choice",
+    "ins": "Choose the single intent expressed by this message. Quoted or hypothetical claims are not actual reports or requests.",
+    "crit": {
+      "question": "asks for an answer or explanation",
+      "blocker": "current work cannot proceed because something is missing",
+      "reference": "shares background information or reference material",
+      "progress": "reports work actively being carried out now",
+      "completion_report": "reports finished work; completion is not independently verified",
+      "cancel_request": "explicitly requests cancellation or withdrawal",
+      "planned": "describes future work that has not started",
+      "unclear": "intent is absent, contradictory, quoted, or hypothetical"
+    }
+  },
+  "intent_order": [
+    "question",
+    "blocker",
+    "reference",
+    "progress",
+    "completion_report",
+    "cancel_request",
+    "planned",
+    "unclear"
+  ],
+  "trainable_parameters": 1025,
+  "trainable_names": [
+    "scorer.3.weight",
+    "scorer.3.bias"
+  ],
+  "frozen_sha256_before": "a154a95ded0f28f3ba1a903928a24d9c75996b3645e3437d69dfd32b61cdcb33",
+  "frozen_sha256_after": "a154a95ded0f28f3ba1a903928a24d9c75996b3645e3437d69dfd32b61cdcb33",
+  "frozen_unchanged": true,
+  "scorer_sha256": "e7037a4c92460dd0c77facb643a26a2f3ce99240e6a59bd78c15ad91df314fcc",
+  "scorer_bytes": 4252,
+  "persisted_reload_maximum_logit_error": 0.0,
+  "native_mps_validation_reload_calls": 1,
+  "native_mps_validation_reload_maximum_logit_error": 9.5367431640625e-07,
+  "laya_version": "0.3.21",
+  "torch_version": "2.14.0",
+  "device": "mps",
+  "dtype": "float32",
+  "cpu_fallback": false,
+  "selection": {
+    "learning_rate": 0.001,
+    "epoch": 3,
+    "train_nll": 1.5684877570470175,
+    "validation_nll": 1.5456713438034058
+  },
+  "learning_rates": [
+    0.001,
+    0.003
+  ],
+  "epochs_per_trial": 20,
+  "optimizer_updates": 1520,
+  "weight_decay": 0.01,
+  "gradient_norm_limit": 1.0,
+  "trace": [
+    {
+      "learning_rate": 0.001,
+      "epoch": 1,
+      "train_nll": 1.5962584559122721,
+      "validation_nll": 1.5528546571731567
+    },
+    {
+      "learning_rate": 0.001,
+      "epoch": 2,
+      "train_nll": 1.582591568628947,
+      "validation_nll": 1.5746647119522095
+    },
+    {
+      "learning_rate": 0.001,
+      "epoch": 3,
+      "train_nll": 1.5684877570470175,
+      "validation_nll": 1.5456713438034058
+    },
+    {
+      "learning_rate": 0.001,
+      "epoch": 4,
+      "train_nll": 1.561618382136027,
+      "validation_nll": 1.5473244190216064
+    },
+    {
+      "learning_rate": 0.001,
+      "epoch": 5,
+      "train_nll": 1.558681443532308,
+      "validation_nll": 1.5483331680297852
+    },
+    {
+      "learning_rate": 0.001,
+      "epoch": 6,
+      "train_nll": 1.5510047515233358,
+      "validation_nll": 1.5539196729660034
+    },
+    {
+      "learning_rate": 0.001,
+      "epoch": 7,
+      "train_nll": 1.5454331398010255,
+      "validation_nll": 1.5508918762207031
+    },
+    {
+      "learning_rate": 0.001,
+      "epoch": 8,
+      "train_nll": 1.5440931797027588,
+      "validation_nll": 1.5776540040969849
+    },
+    {
+      "learning_rate": 0.001,
+      "epoch": 9,
+      "train_nll": 1.5380787944793701,
+      "validation_nll": 1.5549010038375854
+    },
+    {
+      "learning_rate": 0.001,
+      "epoch": 10,
+      "train_nll": 1.535953639348348,
+      "validation_nll": 1.5606248378753662
+    },
+    {
+      "learning_rate": 0.001,
+      "epoch": 11,
+      "train_nll": 1.5322340869903563,
+      "validation_nll": 1.5641450881958008
+    },
+    {
+      "learning_rate": 0.001,
+      "epoch": 12,
+      "train_nll": 1.5329628976186116,
+      "validation_nll": 1.5686134099960327
+    },
+    {
+      "learning_rate": 0.001,
+      "epoch": 13,
+      "train_nll": 1.5345760440826417,
+      "validation_nll": 1.5669565200805664
+    },
+    {
+      "learning_rate": 0.001,
+      "epoch": 14,
+      "train_nll": 1.5241232045491537,
+      "validation_nll": 1.5680334568023682
+    },
+    {
+      "learning_rate": 0.001,
+      "epoch": 15,
+      "train_nll": 1.5209064515431723,
+      "validation_nll": 1.6114211082458496
+    },
+    {
+      "learning_rate": 0.001,
+      "epoch": 16,
+      "train_nll": 1.5263106187184652,
+      "validation_nll": 1.591414213180542
+    },
+    {
+      "learning_rate": 0.001,
+      "epoch": 17,
+      "train_nll": 1.5167634677886963,
+      "validation_nll": 1.5782192945480347
+    },
+    {
+      "learning_rate": 0.001,
+      "epoch": 18,
+      "train_nll": 1.5173358901341756,
+      "validation_nll": 1.5702240467071533
+    },
+    {
+      "learning_rate": 0.001,
+      "epoch": 19,
+      "train_nll": 1.512873142560323,
+      "validation_nll": 1.5706734657287598
+    },
+    {
+      "learning_rate": 0.001,
+      "epoch": 20,
+      "train_nll": 1.51182958761851,
+      "validation_nll": 1.5835483074188232
+    },
+    {
+      "learning_rate": 0.003,
+      "epoch": 1,
+      "train_nll": 1.5893092123667398,
+      "validation_nll": 1.5569794178009033
+    },
+    {
+      "learning_rate": 0.003,
+      "epoch": 2,
+      "train_nll": 1.5705322233835857,
+      "validation_nll": 1.548661470413208
+    },
+    {
+      "learning_rate": 0.003,
+      "epoch": 3,
+      "train_nll": 1.5491846561431886,
+      "validation_nll": 1.5551846027374268
+    },
+    {
+      "learning_rate": 0.003,
+      "epoch": 4,
+      "train_nll": 1.544909931818644,
+      "validation_nll": 1.5536290407180786
+    },
+    {
+      "learning_rate": 0.003,
+      "epoch": 5,
+      "train_nll": 1.5739540481567382,
+      "validation_nll": 1.654952883720398
+    },
+    {
+      "learning_rate": 0.003,
+      "epoch": 6,
+      "train_nll": 1.5376908810933432,
+      "validation_nll": 1.5628447532653809
+    },
+    {
+      "learning_rate": 0.003,
+      "epoch": 7,
+      "train_nll": 1.5232703828811645,
+      "validation_nll": 1.5765637159347534
+    },
+    {
+      "learning_rate": 0.003,
+      "epoch": 8,
+      "train_nll": 1.5150071207682292,
+      "validation_nll": 1.5914725065231323
+    },
+    {
+      "learning_rate": 0.003,
+      "epoch": 9,
+      "train_nll": 1.5136056741078694,
+      "validation_nll": 1.593887209892273
+    },
+    {
+      "learning_rate": 0.003,
+      "epoch": 10,
+      "train_nll": 1.5122145748138427,
+      "validation_nll": 1.600736379623413
+    },
+    {
+      "learning_rate": 0.003,
+      "epoch": 11,
+      "train_nll": 1.5151429128646852,
+      "validation_nll": 1.5987530946731567
+    },
+    {
+      "learning_rate": 0.003,
+      "epoch": 12,
+      "train_nll": 1.5015150960286459,
+      "validation_nll": 1.6750773191452026
+    },
+    {
+      "learning_rate": 0.003,
+      "epoch": 13,
+      "train_nll": 1.5391938940684,
+      "validation_nll": 1.6114354133605957
+    },
+    {
+      "learning_rate": 0.003,
+      "epoch": 14,
+      "train_nll": 1.4984344816207886,
+      "validation_nll": 1.6176098585128784
+    },
+    {
+      "learning_rate": 0.003,
+      "epoch": 15,
+      "train_nll": 1.4937357187271119,
+      "validation_nll": 1.7046998739242554
+    },
+    {
+      "learning_rate": 0.003,
+      "epoch": 16,
+      "train_nll": 1.4975157992045085,
+      "validation_nll": 1.6639721393585205
+    },
+    {
+      "learning_rate": 0.003,
+      "epoch": 17,
+      "train_nll": 1.4917475875218709,
+      "validation_nll": 1.6638197898864746
+    },
+    {
+      "learning_rate": 0.003,
+      "epoch": 18,
+      "train_nll": 1.4875212383270264,
+      "validation_nll": 1.685544729232788
+    },
+    {
+      "learning_rate": 0.003,
+      "epoch": 19,
+      "train_nll": 1.4890923086802166,
+      "validation_nll": 1.6236448287963867
+    },
+    {
+      "learning_rate": 0.003,
+      "epoch": 20,
+      "train_nll": 1.486198132832845,
+      "validation_nll": 1.7174315452575684
+    }
+  ],
+  "calibration_temperature": 0.65,
+  "calibration_grid": {
+    "minimum": 0.5,
+    "maximum": 5.0,
+    "step": 0.05
+  },
+  "confidence_threshold": 0.9,
+  "split_rows": {
+    "train": 1200,
+    "validation": 400,
+    "calibration": 400,
+    "test": 400
+  },
+  "split_groups": {
+    "train": 48,
+    "validation": 16,
+    "calibration": 16,
+    "test": 16
+  },
+  "feature_extraction": {
+    "train": {
+      "rows": 1200,
+      "forward_seconds": 43.34925311617553,
+      "wall_seconds": 57.52489137183875,
+      "mean_forward_seconds": 0.036124377596812945,
+      "minimum_forward_seconds": 0.03125087497755885,
+      "maximum_forward_seconds": 0.5536733749322593,
+      "maximum_cached_logit_absolute_error": 2.86102294921875e-06
+    },
+    "validation": {
+      "rows": 400,
+      "forward_seconds": 14.348482209723443,
+      "wall_seconds": 19.89405987551436,
+      "mean_forward_seconds": 0.03587120552430861,
+      "minimum_forward_seconds": 0.03164654178544879,
+      "maximum_forward_seconds": 0.051907415967434645,
+      "maximum_cached_logit_absolute_error": 1.9073486328125e-06
+    },
+    "calibration": {
+      "rows": 400,
+      "forward_seconds": 14.43313954770565,
+      "wall_seconds": 20.60904169641435,
+      "mean_forward_seconds": 0.03608284886926413,
+      "minimum_forward_seconds": 0.031718207988888025,
+      "maximum_forward_seconds": 0.09252154175192118,
+      "maximum_cached_logit_absolute_error": 1.9073486328125e-06
+    },
+    "test": {
+      "rows": 400,
+      "forward_seconds": 14.453514199703932,
+      "wall_seconds": 20.878531836904585,
+      "mean_forward_seconds": 0.03613378549925983,
+      "minimum_forward_seconds": 0.031852500047534704,
+      "maximum_forward_seconds": 0.05022037494927645,
+      "maximum_cached_logit_absolute_error": 2.86102294921875e-06
+    }
+  },
+  "cached_training_wall_seconds": 25.299650000408292,
+  "total_wall_seconds": 181.77423662506044,
+  "memory_samples": [
+    {
+      "phase": "loaded",
+      "completed": 0,
+      "process_peak_rss_bytes": 2354151424,
+      "mps_allocated_bytes": 1688613632,
+      "mps_driver_bytes": 2156347392
+    },
+    {
+      "phase": "extract",
+      "completed": 1,
+      "process_peak_rss_bytes": 2354151424,
+      "mps_allocated_bytes": 1688614144,
+      "mps_driver_bytes": 2156609536
+    },
+    {
+      "phase": "extract",
+      "completed": 101,
+      "process_peak_rss_bytes": 2354151424,
+      "mps_allocated_bytes": 1688614144,
+      "mps_driver_bytes": 2164998144
+    },
+    {
+      "phase": "extract",
+      "completed": 201,
+      "process_peak_rss_bytes": 2354151424,
+      "mps_allocated_bytes": 1688614144,
+      "mps_driver_bytes": 2164998144
+    },
+    {
+      "phase": "extract",
+      "completed": 301,
+      "process_peak_rss_bytes": 2354151424,
+      "mps_allocated_bytes": 1688614144,
+      "mps_driver_bytes": 2164998144
+    },
+    {
+      "phase": "extract",
+      "completed": 401,
+      "process_peak_rss_bytes": 2354151424,
+      "mps_allocated_bytes": 1688614144,
+      "mps_driver_bytes": 2164998144
+    },
+    {
+      "phase": "extract",
+      "completed": 501,
+      "process_peak_rss_bytes": 2354151424,
+      "mps_allocated_bytes": 1688614144,
+      "mps_driver_bytes": 2164998144
+    },
+    {
+      "phase": "extract",
+      "completed": 601,
+      "process_peak_rss_bytes": 2354151424,
+      "mps_allocated_bytes": 1688614144,
+      "mps_driver_bytes": 2166046720
+    },
+    {
+      "phase": "extract",
+      "completed": 701,
+      "process_peak_rss_bytes": 2354151424,
+      "mps_allocated_bytes": 1688614144,
+      "mps_driver_bytes": 2166046720
+    },
+    {
+      "phase": "extract",
+      "completed": 801,
+      "process_peak_rss_bytes": 2354151424,
+      "mps_allocated_bytes": 1688614144,
+      "mps_driver_bytes": 2166046720
+    },
+    {
+      "phase": "extract",
+      "completed": 901,
+      "process_peak_rss_bytes": 2354151424,
+      "mps_allocated_bytes": 1688614144,
+      "mps_driver_bytes": 2166046720
+    },
+    {
+      "phase": "extract",
+      "completed": 1001,
+      "process_peak_rss_bytes": 2354151424,
+      "mps_allocated_bytes": 1688614144,
+      "mps_driver_bytes": 2166046720
+    },
+    {
+      "phase": "extract",
+      "completed": 1101,
+      "process_peak_rss_bytes": 2354151424,
+      "mps_allocated_bytes": 1688614144,
+      "mps_driver_bytes": 2166046720
+    },
+    {
+      "phase": "extract",
+      "completed": 1200,
+      "process_peak_rss_bytes": 2354151424,
+      "mps_allocated_bytes": 1688614144,
+      "mps_driver_bytes": 2166046720
+    },
+    {
+      "phase": "extract",
+      "completed": 1,
+      "process_peak_rss_bytes": 2354151424,
+      "mps_allocated_bytes": 1688614144,
+      "mps_driver_bytes": 2166046720
+    },
+    {
+      "phase": "extract",
+      "completed": 101,
+      "process_peak_rss_bytes": 2354151424,
+      "mps_allocated_bytes": 1688614144,
+      "mps_driver_bytes": 2166046720
+    },
+    {
+      "phase": "extract",
+      "completed": 201,
+      "process_peak_rss_bytes": 2354151424,
+      "mps_allocated_bytes": 1688614144,
+      "mps_driver_bytes": 2166046720
+    },
+    {
+      "phase": "extract",
+      "completed": 301,
+      "process_peak_rss_bytes": 2354151424,
+      "mps_allocated_bytes": 1688614144,
+      "mps_driver_bytes": 2166046720
+    },
+    {
+      "phase": "extract",
+      "completed": 400,
+      "process_peak_rss_bytes": 2354151424,
+      "mps_allocated_bytes": 1688614144,
+      "mps_driver_bytes": 2166046720
+    },
+    {
+      "phase": "extract",
+      "completed": 1,
+      "process_peak_rss_bytes": 2354151424,
+      "mps_allocated_bytes": 1688614144,
+      "mps_driver_bytes": 2166046720
+    },
+    {
+      "phase": "extract",
+      "completed": 101,
+      "process_peak_rss_bytes": 2354151424,
+      "mps_allocated_bytes": 1688614144,
+      "mps_driver_bytes": 2166046720
+    },
+    {
+      "phase": "extract",
+      "completed": 201,
+      "process_peak_rss_bytes": 2354151424,
+      "mps_allocated_bytes": 1688614144,
+      "mps_driver_bytes": 2166046720
+    },
+    {
+      "phase": "extract",
+      "completed": 301,
+      "process_peak_rss_bytes": 2354151424,
+      "mps_allocated_bytes": 1688614144,
+      "mps_driver_bytes": 2166046720
+    },
+    {
+      "phase": "extract",
+      "completed": 400,
+      "process_peak_rss_bytes": 2354151424,
+      "mps_allocated_bytes": 1688614144,
+      "mps_driver_bytes": 2166046720
+    },
+    {
+      "phase": "train",
+      "completed": 38,
+      "process_peak_rss_bytes": 2354151424,
+      "mps_allocated_bytes": 1689152000,
+      "mps_driver_bytes": 2176565248
+    },
+    {
+      "phase": "train",
+      "completed": 76,
+      "process_peak_rss_bytes": 2354151424,
+      "mps_allocated_bytes": 1689152000,
+      "mps_driver_bytes": 2176565248
+    },
+    {
+      "phase": "train",
+      "completed": 114,
+      "process_peak_rss_bytes": 2354151424,
+      "mps_allocated_bytes": 1689152000,
+      "mps_driver_bytes": 2176565248
+    },
+    {
+      "phase": "train",
+      "completed": 152,
+      "process_peak_rss_bytes": 2354151424,
+      "mps_allocated_bytes": 1689152000,
+      "mps_driver_bytes": 2176565248
+    },
+    {
+      "phase": "train",
+      "completed": 190,
+      "process_peak_rss_bytes": 2354151424,
+      "mps_allocated_bytes": 1689152000,
+      "mps_driver_bytes": 2176565248
+    },
+    {
+      "phase": "train",
+      "completed": 228,
+      "process_peak_rss_bytes": 2354151424,
+      "mps_allocated_bytes": 1689152000,
+      "mps_driver_bytes": 2176565248
+    },
+    {
+      "phase": "train",
+      "completed": 266,
+      "process_peak_rss_bytes": 2354151424,
+      "mps_allocated_bytes": 1689152000,
+      "mps_driver_bytes": 2176565248
+    },
+    {
+      "phase": "train",
+      "completed": 304,
+      "process_peak_rss_bytes": 2354151424,
+      "mps_allocated_bytes": 1689152000,
+      "mps_driver_bytes": 2176565248
+    },
+    {
+      "phase": "train",
+      "completed": 342,
+      "process_peak_rss_bytes": 2354151424,
+      "mps_allocated_bytes": 1689152000,
+      "mps_driver_bytes": 2176565248
+    },
+    {
+      "phase": "train",
+      "completed": 380,
+      "process_peak_rss_bytes": 2354151424,
+      "mps_allocated_bytes": 1689152000,
+      "mps_driver_bytes": 2176565248
+    },
+    {
+      "phase": "train",
+      "completed": 418,
+      "process_peak_rss_bytes": 2354151424,
+      "mps_allocated_bytes": 1689152000,
+      "mps_driver_bytes": 2176565248
+    },
+    {
+      "phase": "train",
+      "completed": 456,
+      "process_peak_rss_bytes": 2354151424,
+      "mps_allocated_bytes": 1689152000,
+      "mps_driver_bytes": 2176565248
+    },
+    {
+      "phase": "train",
+      "completed": 494,
+      "process_peak_rss_bytes": 2354151424,
+      "mps_allocated_bytes": 1689152000,
+      "mps_driver_bytes": 2176565248
+    },
+    {
+      "phase": "train",
+      "completed": 532,
+      "process_peak_rss_bytes": 2354151424,
+      "mps_allocated_bytes": 1689152000,
+      "mps_driver_bytes": 2176565248
+    },
+    {
+      "phase": "train",
+      "completed": 570,
+      "process_peak_rss_bytes": 2354151424,
+      "mps_allocated_bytes": 1689152000,
+      "mps_driver_bytes": 2176565248
+    },
+    {
+      "phase": "train",
+      "completed": 608,
+      "process_peak_rss_bytes": 2354151424,
+      "mps_allocated_bytes": 1689152000,
+      "mps_driver_bytes": 2176565248
+    },
+    {
+      "phase": "train",
+      "completed": 646,
+      "process_peak_rss_bytes": 2354151424,
+      "mps_allocated_bytes": 1689152000,
+      "mps_driver_bytes": 2176565248
+    },
+    {
+      "phase": "train",
+      "completed": 684,
+      "process_peak_rss_bytes": 2354151424,
+      "mps_allocated_bytes": 1689152000,
+      "mps_driver_bytes": 2176565248
+    },
+    {
+      "phase": "train",
+      "completed": 722,
+      "process_peak_rss_bytes": 2354151424,
+      "mps_allocated_bytes": 1689152000,
+      "mps_driver_bytes": 2176565248
+    },
+    {
+      "phase": "train",
+      "completed": 760,
+      "process_peak_rss_bytes": 2354151424,
+      "mps_allocated_bytes": 1689152000,
+      "mps_driver_bytes": 2176565248
+    },
+    {
+      "phase": "train",
+      "completed": 798,
+      "process_peak_rss_bytes": 2354151424,
+      "mps_allocated_bytes": 1689152000,
+      "mps_driver_bytes": 2176565248
+    },
+    {
+      "phase": "train",
+      "completed": 836,
+      "process_peak_rss_bytes": 2354151424,
+      "mps_allocated_bytes": 1689152000,
+      "mps_driver_bytes": 2176565248
+    },
+    {
+      "phase": "train",
+      "completed": 874,
+      "process_peak_rss_bytes": 2354151424,
+      "mps_allocated_bytes": 1689152000,
+      "mps_driver_bytes": 2176565248
+    },
+    {
+      "phase": "train",
+      "completed": 912,
+      "process_peak_rss_bytes": 2354151424,
+      "mps_allocated_bytes": 1689152000,
+      "mps_driver_bytes": 2176565248
+    },
+    {
+      "phase": "train",
+      "completed": 950,
+      "process_peak_rss_bytes": 2354151424,
+      "mps_allocated_bytes": 1689152000,
+      "mps_driver_bytes": 2176565248
+    },
+    {
+      "phase": "train",
+      "completed": 988,
+      "process_peak_rss_bytes": 2354151424,
+      "mps_allocated_bytes": 1689152000,
+      "mps_driver_bytes": 2176565248
+    },
+    {
+      "phase": "train",
+      "completed": 1026,
+      "process_peak_rss_bytes": 2354151424,
+      "mps_allocated_bytes": 1689152000,
+      "mps_driver_bytes": 2176565248
+    },
+    {
+      "phase": "train",
+      "completed": 1064,
+      "process_peak_rss_bytes": 2354151424,
+      "mps_allocated_bytes": 1689152000,
+      "mps_driver_bytes": 2176565248
+    },
+    {
+      "phase": "train",
+      "completed": 1102,
+      "process_peak_rss_bytes": 2354151424,
+      "mps_allocated_bytes": 1689152000,
+      "mps_driver_bytes": 2176565248
+    },
+    {
+      "phase": "train",
+      "completed": 1140,
+      "process_peak_rss_bytes": 2354151424,
+      "mps_allocated_bytes": 1689152000,
+      "mps_driver_bytes": 2176565248
+    },
+    {
+      "phase": "train",
+      "completed": 1178,
+      "process_peak_rss_bytes": 2354151424,
+      "mps_allocated_bytes": 1689152000,
+      "mps_driver_bytes": 2176565248
+    },
+    {
+      "phase": "train",
+      "completed": 1216,
+      "process_peak_rss_bytes": 2354151424,
+      "mps_allocated_bytes": 1689152000,
+      "mps_driver_bytes": 2176565248
+    },
+    {
+      "phase": "train",
+      "completed": 1254,
+      "process_peak_rss_bytes": 2354151424,
+      "mps_allocated_bytes": 1689152000,
+      "mps_driver_bytes": 2176565248
+    },
+    {
+      "phase": "train",
+      "completed": 1292,
+      "process_peak_rss_bytes": 2354151424,
+      "mps_allocated_bytes": 1689152000,
+      "mps_driver_bytes": 2176565248
+    },
+    {
+      "phase": "train",
+      "completed": 1330,
+      "process_peak_rss_bytes": 2354151424,
+      "mps_allocated_bytes": 1689152000,
+      "mps_driver_bytes": 2176565248
+    },
+    {
+      "phase": "train",
+      "completed": 1368,
+      "process_peak_rss_bytes": 2354151424,
+      "mps_allocated_bytes": 1689152000,
+      "mps_driver_bytes": 2176565248
+    },
+    {
+      "phase": "train",
+      "completed": 1406,
+      "process_peak_rss_bytes": 2354151424,
+      "mps_allocated_bytes": 1689152000,
+      "mps_driver_bytes": 2176565248
+    },
+    {
+      "phase": "train",
+      "completed": 1444,
+      "process_peak_rss_bytes": 2354151424,
+      "mps_allocated_bytes": 1689152000,
+      "mps_driver_bytes": 2176565248
+    },
+    {
+      "phase": "train",
+      "completed": 1482,
+      "process_peak_rss_bytes": 2354151424,
+      "mps_allocated_bytes": 1689152000,
+      "mps_driver_bytes": 2176565248
+    },
+    {
+      "phase": "train",
+      "completed": 1520,
+      "process_peak_rss_bytes": 2354151424,
+      "mps_allocated_bytes": 1689152000,
+      "mps_driver_bytes": 2176565248
+    },
+    {
+      "phase": "extract",
+      "completed": 1,
+      "process_peak_rss_bytes": 2354151424,
+      "mps_allocated_bytes": 1688619008,
+      "mps_driver_bytes": 2168143872
+    },
+    {
+      "phase": "extract",
+      "completed": 101,
+      "process_peak_rss_bytes": 2354151424,
+      "mps_allocated_bytes": 1688619008,
+      "mps_driver_bytes": 2166046720
+    },
+    {
+      "phase": "extract",
+      "completed": 201,
+      "process_peak_rss_bytes": 2354151424,
+      "mps_allocated_bytes": 1688619008,
+      "mps_driver_bytes": 2166046720
+    },
+    {
+      "phase": "extract",
+      "completed": 301,
+      "process_peak_rss_bytes": 2354151424,
+      "mps_allocated_bytes": 1688619008,
+      "mps_driver_bytes": 2166046720
+    },
+    {
+      "phase": "extract",
+      "completed": 400,
+      "process_peak_rss_bytes": 2354151424,
+      "mps_allocated_bytes": 1688619008,
+      "mps_driver_bytes": 2166046720
+    }
+  ],
+  "evaluations": {
+    "validation": {
+      "base_raw": {
+        "all": {
+          "n": 400,
+          "correct": 171,
+          "accuracy": 0.4275,
+          "nll": 1.6765661239624023,
+          "brier": 0.7046403288841248,
+          "ece_10_bins": 0.1290448782965541,
+          "accepted": 100,
+          "accepted_correct": 100,
+          "coverage": 0.25,
+          "accepted_precision": 1.0,
+          "temperature": 1.0,
+          "confusion_labels": [
+            "question",
+            "blocker",
+            "reference",
+            "progress",
+            "completion_report",
+            "cancel_request",
+            "planned",
+            "unclear"
+          ],
+          "confusion_true_rows_predicted_columns": [
+            [
+              22,
+              1,
+              0,
+              0,
+              0,
+              0,
+              3,
+              24
+            ],
+            [
+              0,
+              25,
+              0,
+              25,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              25,
+              24,
+              1,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              50,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              25,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              25,
+              0,
+              25,
+              0,
+              0
+            ],
+            [
+              0,
+              3,
+              0,
+              47,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              24,
+              0,
+              0,
+              25,
+              0,
+              1,
+              0
+            ]
+          ],
+          "non_unclear_accepted": 100,
+          "non_unclear_accepted_correct": 100,
+          "non_unclear_coverage": 0.25,
+          "non_unclear_accepted_precision": 1.0
+        },
+        "ko": {
+          "n": 200,
+          "correct": 25,
+          "accuracy": 0.125,
+          "nll": 2.4882559776306152,
+          "brier": 1.0002222061157227,
+          "ece_10_bins": 0.3533068597316742,
+          "accepted": 0,
+          "accepted_correct": 0,
+          "coverage": 0.0,
+          "accepted_precision": null,
+          "temperature": 1.0,
+          "confusion_labels": [
+            "question",
+            "blocker",
+            "reference",
+            "progress",
+            "completion_report",
+            "cancel_request",
+            "planned",
+            "unclear"
+          ],
+          "confusion_true_rows_predicted_columns": [
+            [
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              24
+            ],
+            [
+              0,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              25,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              25,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              24,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0
+            ]
+          ],
+          "non_unclear_accepted": 0,
+          "non_unclear_accepted_correct": 0,
+          "non_unclear_coverage": 0.0,
+          "non_unclear_accepted_precision": null
+        },
+        "en": {
+          "n": 200,
+          "correct": 146,
+          "accuracy": 0.73,
+          "nll": 0.8648765087127686,
+          "brier": 0.40905845165252686,
+          "ece_10_bins": 0.144779022783041,
+          "accepted": 100,
+          "accepted_correct": 100,
+          "coverage": 0.5,
+          "accepted_precision": 1.0,
+          "temperature": 1.0,
+          "confusion_labels": [
+            "question",
+            "blocker",
+            "reference",
+            "progress",
+            "completion_report",
+            "cancel_request",
+            "planned",
+            "unclear"
+          ],
+          "confusion_true_rows_predicted_columns": [
+            [
+              22,
+              0,
+              0,
+              0,
+              0,
+              0,
+              3,
+              0
+            ],
+            [
+              0,
+              25,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              24,
+              1,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              25,
+              0,
+              0
+            ],
+            [
+              0,
+              3,
+              0,
+              22,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0
+            ]
+          ],
+          "non_unclear_accepted": 100,
+          "non_unclear_accepted_correct": 100,
+          "non_unclear_coverage": 0.5,
+          "non_unclear_accepted_precision": 1.0
+        }
+      },
+      "base_upstream_calibrated": {
+        "all": {
+          "n": 400,
+          "correct": 171,
+          "accuracy": 0.4275,
+          "nll": 1.6765590906143188,
+          "brier": 0.7046382427215576,
+          "ece_10_bins": 0.12904186826199293,
+          "accepted": 100,
+          "accepted_correct": 100,
+          "coverage": 0.25,
+          "accepted_precision": 1.0,
+          "temperature": 1.0000158548355103,
+          "confusion_labels": [
+            "question",
+            "blocker",
+            "reference",
+            "progress",
+            "completion_report",
+            "cancel_request",
+            "planned",
+            "unclear"
+          ],
+          "confusion_true_rows_predicted_columns": [
+            [
+              22,
+              1,
+              0,
+              0,
+              0,
+              0,
+              3,
+              24
+            ],
+            [
+              0,
+              25,
+              0,
+              25,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              25,
+              24,
+              1,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              50,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              25,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              25,
+              0,
+              25,
+              0,
+              0
+            ],
+            [
+              0,
+              3,
+              0,
+              47,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              24,
+              0,
+              0,
+              25,
+              0,
+              1,
+              0
+            ]
+          ],
+          "non_unclear_accepted": 100,
+          "non_unclear_accepted_correct": 100,
+          "non_unclear_coverage": 0.25,
+          "non_unclear_accepted_precision": 1.0
+        },
+        "ko": {
+          "n": 200,
+          "correct": 25,
+          "accuracy": 0.125,
+          "nll": 2.4882421493530273,
+          "brier": 1.000218391418457,
+          "ece_10_bins": 0.35330405458807945,
+          "accepted": 0,
+          "accepted_correct": 0,
+          "coverage": 0.0,
+          "accepted_precision": null,
+          "temperature": 1.0000158548355103,
+          "confusion_labels": [
+            "question",
+            "blocker",
+            "reference",
+            "progress",
+            "completion_report",
+            "cancel_request",
+            "planned",
+            "unclear"
+          ],
+          "confusion_true_rows_predicted_columns": [
+            [
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              24
+            ],
+            [
+              0,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              25,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              25,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              24,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0
+            ]
+          ],
+          "non_unclear_accepted": 0,
+          "non_unclear_accepted_correct": 0,
+          "non_unclear_coverage": 0.0,
+          "non_unclear_accepted_precision": null
+        },
+        "en": {
+          "n": 200,
+          "correct": 146,
+          "accuracy": 0.73,
+          "nll": 0.8648761510848999,
+          "brier": 0.4090580642223358,
+          "ece_10_bins": 0.14478003606200218,
+          "accepted": 100,
+          "accepted_correct": 100,
+          "coverage": 0.5,
+          "accepted_precision": 1.0,
+          "temperature": 1.0000158548355103,
+          "confusion_labels": [
+            "question",
+            "blocker",
+            "reference",
+            "progress",
+            "completion_report",
+            "cancel_request",
+            "planned",
+            "unclear"
+          ],
+          "confusion_true_rows_predicted_columns": [
+            [
+              22,
+              0,
+              0,
+              0,
+              0,
+              0,
+              3,
+              0
+            ],
+            [
+              0,
+              25,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              24,
+              1,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              25,
+              0,
+              0
+            ],
+            [
+              0,
+              3,
+              0,
+              22,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0
+            ]
+          ],
+          "non_unclear_accepted": 100,
+          "non_unclear_accepted_correct": 100,
+          "non_unclear_coverage": 0.5,
+          "non_unclear_accepted_precision": 1.0
+        }
+      },
+      "tuned_raw": {
+        "all": {
+          "n": 400,
+          "correct": 170,
+          "accuracy": 0.425,
+          "nll": 1.5456713438034058,
+          "brier": 0.661892831325531,
+          "ece_10_bins": 0.11099769244901836,
+          "accepted": 51,
+          "accepted_correct": 51,
+          "coverage": 0.1275,
+          "accepted_precision": 1.0,
+          "temperature": 1.0,
+          "confusion_labels": [
+            "question",
+            "blocker",
+            "reference",
+            "progress",
+            "completion_report",
+            "cancel_request",
+            "planned",
+            "unclear"
+          ],
+          "confusion_true_rows_predicted_columns": [
+            [
+              22,
+              1,
+              0,
+              0,
+              0,
+              0,
+              3,
+              24
+            ],
+            [
+              0,
+              25,
+              0,
+              25,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              25,
+              23,
+              2,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              50,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              25,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              25,
+              0,
+              25,
+              0,
+              0
+            ],
+            [
+              0,
+              3,
+              0,
+              47,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              24,
+              0,
+              0,
+              25,
+              0,
+              1,
+              0
+            ]
+          ],
+          "non_unclear_accepted": 51,
+          "non_unclear_accepted_correct": 51,
+          "non_unclear_coverage": 0.1274999976158142,
+          "non_unclear_accepted_precision": 1.0
+        },
+        "ko": {
+          "n": 200,
+          "correct": 25,
+          "accuracy": 0.125,
+          "nll": 2.149881362915039,
+          "brier": 0.9104983806610107,
+          "ece_10_bins": 0.17648144531995058,
+          "accepted": 0,
+          "accepted_correct": 0,
+          "coverage": 0.0,
+          "accepted_precision": null,
+          "temperature": 1.0,
+          "confusion_labels": [
+            "question",
+            "blocker",
+            "reference",
+            "progress",
+            "completion_report",
+            "cancel_request",
+            "planned",
+            "unclear"
+          ],
+          "confusion_true_rows_predicted_columns": [
+            [
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              24
+            ],
+            [
+              0,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              25,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              25,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              24,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0
+            ]
+          ],
+          "non_unclear_accepted": 0,
+          "non_unclear_accepted_correct": 0,
+          "non_unclear_coverage": 0.0,
+          "non_unclear_accepted_precision": null
+        },
+        "en": {
+          "n": 200,
+          "correct": 145,
+          "accuracy": 0.725,
+          "nll": 0.9414610862731934,
+          "brier": 0.41328731179237366,
+          "ece_10_bins": 0.16235652239993215,
+          "accepted": 51,
+          "accepted_correct": 51,
+          "coverage": 0.255,
+          "accepted_precision": 1.0,
+          "temperature": 1.0,
+          "confusion_labels": [
+            "question",
+            "blocker",
+            "reference",
+            "progress",
+            "completion_report",
+            "cancel_request",
+            "planned",
+            "unclear"
+          ],
+          "confusion_true_rows_predicted_columns": [
+            [
+              22,
+              0,
+              0,
+              0,
+              0,
+              0,
+              3,
+              0
+            ],
+            [
+              0,
+              25,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              23,
+              2,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              25,
+              0,
+              0
+            ],
+            [
+              0,
+              3,
+              0,
+              22,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0
+            ]
+          ],
+          "non_unclear_accepted": 51,
+          "non_unclear_accepted_correct": 51,
+          "non_unclear_coverage": 0.2549999952316284,
+          "non_unclear_accepted_precision": 1.0
+        }
+      },
+      "tuned_calibrated": {
+        "all": {
+          "n": 400,
+          "correct": 170,
+          "accuracy": 0.425,
+          "nll": 1.5777775049209595,
+          "brier": 0.6828063726425171,
+          "ece_10_bins": 0.11651949281804264,
+          "accepted": 100,
+          "accepted_correct": 100,
+          "coverage": 0.25,
+          "accepted_precision": 1.0,
+          "temperature": 0.65,
+          "confusion_labels": [
+            "question",
+            "blocker",
+            "reference",
+            "progress",
+            "completion_report",
+            "cancel_request",
+            "planned",
+            "unclear"
+          ],
+          "confusion_true_rows_predicted_columns": [
+            [
+              22,
+              1,
+              0,
+              0,
+              0,
+              0,
+              3,
+              24
+            ],
+            [
+              0,
+              25,
+              0,
+              25,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              25,
+              23,
+              2,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              50,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              25,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              25,
+              0,
+              25,
+              0,
+              0
+            ],
+            [
+              0,
+              3,
+              0,
+              47,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              24,
+              0,
+              0,
+              25,
+              0,
+              1,
+              0
+            ]
+          ],
+          "non_unclear_accepted": 100,
+          "non_unclear_accepted_correct": 100,
+          "non_unclear_coverage": 0.25,
+          "non_unclear_accepted_precision": 1.0
+        },
+        "ko": {
+          "n": 200,
+          "correct": 25,
+          "accuracy": 0.125,
+          "nll": 2.2944765090942383,
+          "brier": 0.9704791307449341,
+          "ece_10_bins": 0.2899121632799506,
+          "accepted": 0,
+          "accepted_correct": 0,
+          "coverage": 0.0,
+          "accepted_precision": null,
+          "temperature": 0.65,
+          "confusion_labels": [
+            "question",
+            "blocker",
+            "reference",
+            "progress",
+            "completion_report",
+            "cancel_request",
+            "planned",
+            "unclear"
+          ],
+          "confusion_true_rows_predicted_columns": [
+            [
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              24
+            ],
+            [
+              0,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              25,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              25,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              24,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0
+            ]
+          ],
+          "non_unclear_accepted": 0,
+          "non_unclear_accepted_correct": 0,
+          "non_unclear_coverage": 0.0,
+          "non_unclear_accepted_precision": null
+        },
+        "en": {
+          "n": 200,
+          "correct": 145,
+          "accuracy": 0.725,
+          "nll": 0.8610785603523254,
+          "brier": 0.3951336741447449,
+          "ece_10_bins": 0.10252209566533566,
+          "accepted": 100,
+          "accepted_correct": 100,
+          "coverage": 0.5,
+          "accepted_precision": 1.0,
+          "temperature": 0.65,
+          "confusion_labels": [
+            "question",
+            "blocker",
+            "reference",
+            "progress",
+            "completion_report",
+            "cancel_request",
+            "planned",
+            "unclear"
+          ],
+          "confusion_true_rows_predicted_columns": [
+            [
+              22,
+              0,
+              0,
+              0,
+              0,
+              0,
+              3,
+              0
+            ],
+            [
+              0,
+              25,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              23,
+              2,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              25,
+              0,
+              0
+            ],
+            [
+              0,
+              3,
+              0,
+              22,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0
+            ]
+          ],
+          "non_unclear_accepted": 100,
+          "non_unclear_accepted_correct": 100,
+          "non_unclear_coverage": 0.5,
+          "non_unclear_accepted_precision": 1.0
+        }
+      }
+    },
+    "calibration": {
+      "base_raw": {
+        "all": {
+          "n": 400,
+          "correct": 224,
+          "accuracy": 0.56,
+          "nll": 1.4709031581878662,
+          "brier": 0.5952610969543457,
+          "ece_10_bins": 0.13302986335474998,
+          "accepted": 53,
+          "accepted_correct": 53,
+          "coverage": 0.1325,
+          "accepted_precision": 1.0,
+          "temperature": 1.0,
+          "confusion_labels": [
+            "question",
+            "blocker",
+            "reference",
+            "progress",
+            "completion_report",
+            "cancel_request",
+            "planned",
+            "unclear"
+          ],
+          "confusion_true_rows_predicted_columns": [
+            [
+              25,
+              11,
+              0,
+              14,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              25,
+              0,
+              13,
+              0,
+              0,
+              12,
+              0
+            ],
+            [
+              0,
+              0,
+              24,
+              25,
+              0,
+              0,
+              0,
+              1
+            ],
+            [
+              0,
+              0,
+              0,
+              25,
+              0,
+              0,
+              25,
+              0
+            ],
+            [
+              0,
+              25,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              2,
+              0,
+              23,
+              0,
+              25,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              50,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0,
+              25
+            ]
+          ],
+          "non_unclear_accepted": 53,
+          "non_unclear_accepted_correct": 53,
+          "non_unclear_coverage": 0.13249999284744263,
+          "non_unclear_accepted_precision": 1.0
+        },
+        "ko": {
+          "n": 200,
+          "correct": 50,
+          "accuracy": 0.25,
+          "nll": 2.4313559532165527,
+          "brier": 0.9682165384292603,
+          "ece_10_bins": 0.2995092896744609,
+          "accepted": 0,
+          "accepted_correct": 0,
+          "coverage": 0.0,
+          "accepted_precision": null,
+          "temperature": 1.0,
+          "confusion_labels": [
+            "question",
+            "blocker",
+            "reference",
+            "progress",
+            "completion_report",
+            "cancel_request",
+            "planned",
+            "unclear"
+          ],
+          "confusion_true_rows_predicted_columns": [
+            [
+              0,
+              11,
+              0,
+              14,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              13,
+              0,
+              0,
+              12,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              25,
+              0
+            ],
+            [
+              0,
+              25,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              2,
+              0,
+              23,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              25,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              25
+            ]
+          ],
+          "non_unclear_accepted": 0,
+          "non_unclear_accepted_correct": 0,
+          "non_unclear_coverage": 0.0,
+          "non_unclear_accepted_precision": null
+        },
+        "en": {
+          "n": 200,
+          "correct": 174,
+          "accuracy": 0.87,
+          "nll": 0.5104507207870483,
+          "brier": 0.22230559587478638,
+          "ece_10_bins": 0.16251179878599942,
+          "accepted": 53,
+          "accepted_correct": 53,
+          "coverage": 0.265,
+          "accepted_precision": 1.0,
+          "temperature": 1.0,
+          "confusion_labels": [
+            "question",
+            "blocker",
+            "reference",
+            "progress",
+            "completion_report",
+            "cancel_request",
+            "planned",
+            "unclear"
+          ],
+          "confusion_true_rows_predicted_columns": [
+            [
+              25,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              25,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              24,
+              0,
+              0,
+              0,
+              0,
+              1
+            ],
+            [
+              0,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              25,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              25,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0,
+              0
+            ]
+          ],
+          "non_unclear_accepted": 53,
+          "non_unclear_accepted_correct": 53,
+          "non_unclear_coverage": 0.26499998569488525,
+          "non_unclear_accepted_precision": 1.0
+        }
+      },
+      "base_upstream_calibrated": {
+        "all": {
+          "n": 400,
+          "correct": 224,
+          "accuracy": 0.56,
+          "nll": 1.4708987474441528,
+          "brier": 0.5952603220939636,
+          "ece_10_bins": 0.13302797940559685,
+          "accepted": 53,
+          "accepted_correct": 53,
+          "coverage": 0.1325,
+          "accepted_precision": 1.0,
+          "temperature": 1.0000158548355103,
+          "confusion_labels": [
+            "question",
+            "blocker",
+            "reference",
+            "progress",
+            "completion_report",
+            "cancel_request",
+            "planned",
+            "unclear"
+          ],
+          "confusion_true_rows_predicted_columns": [
+            [
+              25,
+              11,
+              0,
+              14,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              25,
+              0,
+              13,
+              0,
+              0,
+              12,
+              0
+            ],
+            [
+              0,
+              0,
+              24,
+              25,
+              0,
+              0,
+              0,
+              1
+            ],
+            [
+              0,
+              0,
+              0,
+              25,
+              0,
+              0,
+              25,
+              0
+            ],
+            [
+              0,
+              25,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              2,
+              0,
+              23,
+              0,
+              25,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              50,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0,
+              25
+            ]
+          ],
+          "non_unclear_accepted": 53,
+          "non_unclear_accepted_correct": 53,
+          "non_unclear_coverage": 0.13249999284744263,
+          "non_unclear_accepted_precision": 1.0
+        },
+        "ko": {
+          "n": 200,
+          "correct": 50,
+          "accuracy": 0.25,
+          "nll": 2.4313411712646484,
+          "brier": 0.968212902545929,
+          "ece_10_bins": 0.29950530361384153,
+          "accepted": 0,
+          "accepted_correct": 0,
+          "coverage": 0.0,
+          "accepted_precision": null,
+          "temperature": 1.0000158548355103,
+          "confusion_labels": [
+            "question",
+            "blocker",
+            "reference",
+            "progress",
+            "completion_report",
+            "cancel_request",
+            "planned",
+            "unclear"
+          ],
+          "confusion_true_rows_predicted_columns": [
+            [
+              0,
+              11,
+              0,
+              14,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              13,
+              0,
+              0,
+              12,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              25,
+              0
+            ],
+            [
+              0,
+              25,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              2,
+              0,
+              23,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              25,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              25
+            ]
+          ],
+          "non_unclear_accepted": 0,
+          "non_unclear_accepted_correct": 0,
+          "non_unclear_coverage": 0.0,
+          "non_unclear_accepted_precision": null
+        },
+        "en": {
+          "n": 200,
+          "correct": 174,
+          "accuracy": 0.87,
+          "nll": 0.5104561448097229,
+          "brier": 0.2223076969385147,
+          "ece_10_bins": 0.16251567052677274,
+          "accepted": 53,
+          "accepted_correct": 53,
+          "coverage": 0.265,
+          "accepted_precision": 1.0,
+          "temperature": 1.0000158548355103,
+          "confusion_labels": [
+            "question",
+            "blocker",
+            "reference",
+            "progress",
+            "completion_report",
+            "cancel_request",
+            "planned",
+            "unclear"
+          ],
+          "confusion_true_rows_predicted_columns": [
+            [
+              25,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              25,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              24,
+              0,
+              0,
+              0,
+              0,
+              1
+            ],
+            [
+              0,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              25,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              25,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0,
+              0
+            ]
+          ],
+          "non_unclear_accepted": 53,
+          "non_unclear_accepted_correct": 53,
+          "non_unclear_coverage": 0.26499998569488525,
+          "non_unclear_accepted_precision": 1.0
+        }
+      },
+      "tuned_raw": {
+        "all": {
+          "n": 400,
+          "correct": 224,
+          "accuracy": 0.56,
+          "nll": 1.42179274559021,
+          "brier": 0.605408787727356,
+          "ece_10_bins": 0.1429442586377263,
+          "accepted": 25,
+          "accepted_correct": 25,
+          "coverage": 0.0625,
+          "accepted_precision": 1.0,
+          "temperature": 1.0,
+          "confusion_labels": [
+            "question",
+            "blocker",
+            "reference",
+            "progress",
+            "completion_report",
+            "cancel_request",
+            "planned",
+            "unclear"
+          ],
+          "confusion_true_rows_predicted_columns": [
+            [
+              25,
+              11,
+              0,
+              14,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              25,
+              0,
+              13,
+              0,
+              0,
+              12,
+              0
+            ],
+            [
+              0,
+              0,
+              24,
+              25,
+              0,
+              0,
+              0,
+              1
+            ],
+            [
+              0,
+              0,
+              0,
+              25,
+              0,
+              0,
+              25,
+              0
+            ],
+            [
+              0,
+              25,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              2,
+              0,
+              23,
+              0,
+              25,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              50,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0,
+              25
+            ]
+          ],
+          "non_unclear_accepted": 25,
+          "non_unclear_accepted_correct": 25,
+          "non_unclear_coverage": 0.0625,
+          "non_unclear_accepted_precision": 1.0
+        },
+        "ko": {
+          "n": 200,
+          "correct": 50,
+          "accuracy": 0.25,
+          "nll": 2.057380437850952,
+          "brier": 0.8748953342437744,
+          "ece_10_bins": 0.13713018922135234,
+          "accepted": 0,
+          "accepted_correct": 0,
+          "coverage": 0.0,
+          "accepted_precision": null,
+          "temperature": 1.0,
+          "confusion_labels": [
+            "question",
+            "blocker",
+            "reference",
+            "progress",
+            "completion_report",
+            "cancel_request",
+            "planned",
+            "unclear"
+          ],
+          "confusion_true_rows_predicted_columns": [
+            [
+              0,
+              11,
+              0,
+              14,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              13,
+              0,
+              0,
+              12,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              25,
+              0
+            ],
+            [
+              0,
+              25,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              2,
+              0,
+              23,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              25,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              25
+            ]
+          ],
+          "non_unclear_accepted": 0,
+          "non_unclear_accepted_correct": 0,
+          "non_unclear_coverage": 0.0,
+          "non_unclear_accepted_precision": null
+        },
+        "en": {
+          "n": 200,
+          "correct": 174,
+          "accuracy": 0.87,
+          "nll": 0.7862052321434021,
+          "brier": 0.3359222710132599,
+          "ece_10_bins": 0.32209013728424907,
+          "accepted": 25,
+          "accepted_correct": 25,
+          "coverage": 0.125,
+          "accepted_precision": 1.0,
+          "temperature": 1.0,
+          "confusion_labels": [
+            "question",
+            "blocker",
+            "reference",
+            "progress",
+            "completion_report",
+            "cancel_request",
+            "planned",
+            "unclear"
+          ],
+          "confusion_true_rows_predicted_columns": [
+            [
+              25,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              25,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              24,
+              0,
+              0,
+              0,
+              0,
+              1
+            ],
+            [
+              0,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              25,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              25,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0,
+              0
+            ]
+          ],
+          "non_unclear_accepted": 25,
+          "non_unclear_accepted_correct": 25,
+          "non_unclear_coverage": 0.125,
+          "non_unclear_accepted_precision": 1.0
+        }
+      },
+      "tuned_calibrated": {
+        "all": {
+          "n": 400,
+          "correct": 224,
+          "accuracy": 0.56,
+          "nll": 1.3768894672393799,
+          "brier": 0.5813746452331543,
+          "ece_10_bins": 0.09514813107671216,
+          "accepted": 51,
+          "accepted_correct": 51,
+          "coverage": 0.1275,
+          "accepted_precision": 1.0,
+          "temperature": 0.65,
+          "confusion_labels": [
+            "question",
+            "blocker",
+            "reference",
+            "progress",
+            "completion_report",
+            "cancel_request",
+            "planned",
+            "unclear"
+          ],
+          "confusion_true_rows_predicted_columns": [
+            [
+              25,
+              11,
+              0,
+              14,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              25,
+              0,
+              13,
+              0,
+              0,
+              12,
+              0
+            ],
+            [
+              0,
+              0,
+              24,
+              25,
+              0,
+              0,
+              0,
+              1
+            ],
+            [
+              0,
+              0,
+              0,
+              25,
+              0,
+              0,
+              25,
+              0
+            ],
+            [
+              0,
+              25,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              2,
+              0,
+              23,
+              0,
+              25,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              50,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0,
+              25
+            ]
+          ],
+          "non_unclear_accepted": 51,
+          "non_unclear_accepted_correct": 51,
+          "non_unclear_coverage": 0.1274999976158142,
+          "non_unclear_accepted_precision": 1.0
+        },
+        "ko": {
+          "n": 200,
+          "correct": 50,
+          "accuracy": 0.25,
+          "nll": 2.173475742340088,
+          "brier": 0.922921895980835,
+          "ece_10_bins": 0.14223550911992788,
+          "accepted": 0,
+          "accepted_correct": 0,
+          "coverage": 0.0,
+          "accepted_precision": null,
+          "temperature": 0.65,
+          "confusion_labels": [
+            "question",
+            "blocker",
+            "reference",
+            "progress",
+            "completion_report",
+            "cancel_request",
+            "planned",
+            "unclear"
+          ],
+          "confusion_true_rows_predicted_columns": [
+            [
+              0,
+              11,
+              0,
+              14,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              13,
+              0,
+              0,
+              12,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              25,
+              0
+            ],
+            [
+              0,
+              25,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              2,
+              0,
+              23,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              25,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              25
+            ]
+          ],
+          "non_unclear_accepted": 0,
+          "non_unclear_accepted_correct": 0,
+          "non_unclear_coverage": 0.0,
+          "non_unclear_accepted_precision": null
+        },
+        "en": {
+          "n": 200,
+          "correct": 174,
+          "accuracy": 0.87,
+          "nll": 0.5803027749061584,
+          "brier": 0.23982740938663483,
+          "ece_10_bins": 0.19635952476528473,
+          "accepted": 51,
+          "accepted_correct": 51,
+          "coverage": 0.255,
+          "accepted_precision": 1.0,
+          "temperature": 0.65,
+          "confusion_labels": [
+            "question",
+            "blocker",
+            "reference",
+            "progress",
+            "completion_report",
+            "cancel_request",
+            "planned",
+            "unclear"
+          ],
+          "confusion_true_rows_predicted_columns": [
+            [
+              25,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              25,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              24,
+              0,
+              0,
+              0,
+              0,
+              1
+            ],
+            [
+              0,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              25,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              25,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0,
+              0
+            ]
+          ],
+          "non_unclear_accepted": 51,
+          "non_unclear_accepted_correct": 51,
+          "non_unclear_coverage": 0.2549999952316284,
+          "non_unclear_accepted_precision": 1.0
+        }
+      }
+    },
+    "test": {
+      "base_raw": {
+        "all": {
+          "n": 400,
+          "correct": 148,
+          "accuracy": 0.37,
+          "nll": 1.8307043313980103,
+          "brier": 0.8135952949523926,
+          "ece_10_bins": 0.2771335222059861,
+          "accepted": 93,
+          "accepted_correct": 72,
+          "coverage": 0.2325,
+          "accepted_precision": 0.7741935483870968,
+          "temperature": 1.0,
+          "confusion_labels": [
+            "question",
+            "blocker",
+            "reference",
+            "progress",
+            "completion_report",
+            "cancel_request",
+            "planned",
+            "unclear"
+          ],
+          "confusion_true_rows_predicted_columns": [
+            [
+              0,
+              0,
+              0,
+              34,
+              0,
+              0,
+              0,
+              16
+            ],
+            [
+              0,
+              25,
+              0,
+              5,
+              0,
+              0,
+              20,
+              0
+            ],
+            [
+              0,
+              25,
+              0,
+              25,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              25,
+              0,
+              25,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              50,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              25,
+              0,
+              0,
+              0,
+              25,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              2,
+              0,
+              0,
+              48,
+              0
+            ],
+            [
+              0,
+              25,
+              0,
+              0,
+              0,
+              0,
+              0,
+              25
+            ]
+          ],
+          "non_unclear_accepted": 93,
+          "non_unclear_accepted_correct": 72,
+          "non_unclear_coverage": 0.23250000178813934,
+          "non_unclear_accepted_precision": 0.774193525314331
+        },
+        "ko": {
+          "n": 200,
+          "correct": 25,
+          "accuracy": 0.125,
+          "nll": 2.3699660301208496,
+          "brier": 1.0288989543914795,
+          "ece_10_bins": 0.40871708979830146,
+          "accepted": 0,
+          "accepted_correct": 0,
+          "coverage": 0.0,
+          "accepted_precision": null,
+          "temperature": 1.0,
+          "confusion_labels": [
+            "question",
+            "blocker",
+            "reference",
+            "progress",
+            "completion_report",
+            "cancel_request",
+            "planned",
+            "unclear"
+          ],
+          "confusion_true_rows_predicted_columns": [
+            [
+              0,
+              0,
+              0,
+              9,
+              0,
+              0,
+              0,
+              16
+            ],
+            [
+              0,
+              0,
+              0,
+              5,
+              0,
+              0,
+              20,
+              0
+            ],
+            [
+              0,
+              25,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              25,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              25,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              25,
+              0
+            ],
+            [
+              0,
+              25,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          ],
+          "non_unclear_accepted": 0,
+          "non_unclear_accepted_correct": 0,
+          "non_unclear_coverage": 0.0,
+          "non_unclear_accepted_precision": null
+        },
+        "en": {
+          "n": 200,
+          "correct": 123,
+          "accuracy": 0.615,
+          "nll": 1.2914423942565918,
+          "brier": 0.5982917547225952,
+          "ece_10_bins": 0.2914279466494918,
+          "accepted": 93,
+          "accepted_correct": 72,
+          "coverage": 0.465,
+          "accepted_precision": 0.7741935483870968,
+          "temperature": 1.0,
+          "confusion_labels": [
+            "question",
+            "blocker",
+            "reference",
+            "progress",
+            "completion_report",
+            "cancel_request",
+            "planned",
+            "unclear"
+          ],
+          "confusion_true_rows_predicted_columns": [
+            [
+              0,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              25,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              25,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              2,
+              0,
+              0,
+              23,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              25
+            ]
+          ],
+          "non_unclear_accepted": 93,
+          "non_unclear_accepted_correct": 72,
+          "non_unclear_coverage": 0.4650000035762787,
+          "non_unclear_accepted_precision": 0.774193525314331
+        }
+      },
+      "base_upstream_calibrated": {
+        "all": {
+          "n": 400,
+          "correct": 148,
+          "accuracy": 0.37,
+          "nll": 1.830692172050476,
+          "brier": 0.813590943813324,
+          "ece_10_bins": 0.27712846361100674,
+          "accepted": 93,
+          "accepted_correct": 72,
+          "coverage": 0.2325,
+          "accepted_precision": 0.7741935483870968,
+          "temperature": 1.0000158548355103,
+          "confusion_labels": [
+            "question",
+            "blocker",
+            "reference",
+            "progress",
+            "completion_report",
+            "cancel_request",
+            "planned",
+            "unclear"
+          ],
+          "confusion_true_rows_predicted_columns": [
+            [
+              0,
+              0,
+              0,
+              34,
+              0,
+              0,
+              0,
+              16
+            ],
+            [
+              0,
+              25,
+              0,
+              5,
+              0,
+              0,
+              20,
+              0
+            ],
+            [
+              0,
+              25,
+              0,
+              25,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              25,
+              0,
+              25,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              50,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              25,
+              0,
+              0,
+              0,
+              25,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              2,
+              0,
+              0,
+              48,
+              0
+            ],
+            [
+              0,
+              25,
+              0,
+              0,
+              0,
+              0,
+              0,
+              25
+            ]
+          ],
+          "non_unclear_accepted": 93,
+          "non_unclear_accepted_correct": 72,
+          "non_unclear_coverage": 0.23250000178813934,
+          "non_unclear_accepted_precision": 0.774193525314331
+        },
+        "ko": {
+          "n": 200,
+          "correct": 25,
+          "accuracy": 0.125,
+          "nll": 2.3699512481689453,
+          "brier": 1.0288926362991333,
+          "ece_10_bins": 0.40871110977604985,
+          "accepted": 0,
+          "accepted_correct": 0,
+          "coverage": 0.0,
+          "accepted_precision": null,
+          "temperature": 1.0000158548355103,
+          "confusion_labels": [
+            "question",
+            "blocker",
+            "reference",
+            "progress",
+            "completion_report",
+            "cancel_request",
+            "planned",
+            "unclear"
+          ],
+          "confusion_true_rows_predicted_columns": [
+            [
+              0,
+              0,
+              0,
+              9,
+              0,
+              0,
+              0,
+              16
+            ],
+            [
+              0,
+              0,
+              0,
+              5,
+              0,
+              0,
+              20,
+              0
+            ],
+            [
+              0,
+              25,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              25,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              25,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              25,
+              0
+            ],
+            [
+              0,
+              25,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          ],
+          "non_unclear_accepted": 0,
+          "non_unclear_accepted_correct": 0,
+          "non_unclear_coverage": 0.0,
+          "non_unclear_accepted_precision": null
+        },
+        "en": {
+          "n": 200,
+          "correct": 123,
+          "accuracy": 0.615,
+          "nll": 1.2914330959320068,
+          "brier": 0.5982891917228699,
+          "ece_10_bins": 0.2914255380164832,
+          "accepted": 93,
+          "accepted_correct": 72,
+          "coverage": 0.465,
+          "accepted_precision": 0.7741935483870968,
+          "temperature": 1.0000158548355103,
+          "confusion_labels": [
+            "question",
+            "blocker",
+            "reference",
+            "progress",
+            "completion_report",
+            "cancel_request",
+            "planned",
+            "unclear"
+          ],
+          "confusion_true_rows_predicted_columns": [
+            [
+              0,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              25,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              25,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              2,
+              0,
+              0,
+              23,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              25
+            ]
+          ],
+          "non_unclear_accepted": 93,
+          "non_unclear_accepted_correct": 72,
+          "non_unclear_coverage": 0.4650000035762787,
+          "non_unclear_accepted_precision": 0.774193525314331
+        }
+      },
+      "tuned_raw": {
+        "all": {
+          "n": 400,
+          "correct": 148,
+          "accuracy": 0.37,
+          "nll": 1.6070771217346191,
+          "brier": 0.717659592628479,
+          "ece_10_bins": 0.148416148731485,
+          "accepted": 50,
+          "accepted_correct": 50,
+          "coverage": 0.125,
+          "accepted_precision": 1.0,
+          "temperature": 1.0,
+          "confusion_labels": [
+            "question",
+            "blocker",
+            "reference",
+            "progress",
+            "completion_report",
+            "cancel_request",
+            "planned",
+            "unclear"
+          ],
+          "confusion_true_rows_predicted_columns": [
+            [
+              0,
+              0,
+              0,
+              35,
+              0,
+              0,
+              0,
+              15
+            ],
+            [
+              0,
+              25,
+              0,
+              5,
+              0,
+              0,
+              20,
+              0
+            ],
+            [
+              0,
+              25,
+              0,
+              25,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              25,
+              0,
+              25,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              50,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              25,
+              0,
+              0,
+              0,
+              25,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              2,
+              0,
+              0,
+              48,
+              0
+            ],
+            [
+              0,
+              25,
+              0,
+              0,
+              0,
+              0,
+              0,
+              25
+            ]
+          ],
+          "non_unclear_accepted": 50,
+          "non_unclear_accepted_correct": 50,
+          "non_unclear_coverage": 0.125,
+          "non_unclear_accepted_precision": 1.0
+        },
+        "ko": {
+          "n": 200,
+          "correct": 25,
+          "accuracy": 0.125,
+          "nll": 2.0686075687408447,
+          "brier": 0.894965648651123,
+          "ece_10_bins": 0.2219986671116203,
+          "accepted": 0,
+          "accepted_correct": 0,
+          "coverage": 0.0,
+          "accepted_precision": null,
+          "temperature": 1.0,
+          "confusion_labels": [
+            "question",
+            "blocker",
+            "reference",
+            "progress",
+            "completion_report",
+            "cancel_request",
+            "planned",
+            "unclear"
+          ],
+          "confusion_true_rows_predicted_columns": [
+            [
+              0,
+              0,
+              0,
+              10,
+              0,
+              0,
+              0,
+              15
+            ],
+            [
+              0,
+              0,
+              0,
+              5,
+              0,
+              0,
+              20,
+              0
+            ],
+            [
+              0,
+              25,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              25,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              25,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              25,
+              0
+            ],
+            [
+              0,
+              25,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          ],
+          "non_unclear_accepted": 0,
+          "non_unclear_accepted_correct": 0,
+          "non_unclear_coverage": 0.0,
+          "non_unclear_accepted_precision": null
+        },
+        "en": {
+          "n": 200,
+          "correct": 123,
+          "accuracy": 0.615,
+          "nll": 1.145546555519104,
+          "brier": 0.540353536605835,
+          "ece_10_bins": 0.23504117224365473,
+          "accepted": 50,
+          "accepted_correct": 50,
+          "coverage": 0.25,
+          "accepted_precision": 1.0,
+          "temperature": 1.0,
+          "confusion_labels": [
+            "question",
+            "blocker",
+            "reference",
+            "progress",
+            "completion_report",
+            "cancel_request",
+            "planned",
+            "unclear"
+          ],
+          "confusion_true_rows_predicted_columns": [
+            [
+              0,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              25,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              25,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              2,
+              0,
+              0,
+              23,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              25
+            ]
+          ],
+          "non_unclear_accepted": 50,
+          "non_unclear_accepted_correct": 50,
+          "non_unclear_coverage": 0.25,
+          "non_unclear_accepted_precision": 1.0
+        }
+      },
+      "tuned_calibrated": {
+        "all": {
+          "n": 400,
+          "correct": 148,
+          "accuracy": 0.37,
+          "nll": 1.72810959815979,
+          "brier": 0.7789181470870972,
+          "ece_10_bins": 0.2312322091893293,
+          "accepted": 74,
+          "accepted_correct": 50,
+          "coverage": 0.185,
+          "accepted_precision": 0.6756756756756757,
+          "temperature": 0.65,
+          "confusion_labels": [
+            "question",
+            "blocker",
+            "reference",
+            "progress",
+            "completion_report",
+            "cancel_request",
+            "planned",
+            "unclear"
+          ],
+          "confusion_true_rows_predicted_columns": [
+            [
+              0,
+              0,
+              0,
+              35,
+              0,
+              0,
+              0,
+              15
+            ],
+            [
+              0,
+              25,
+              0,
+              5,
+              0,
+              0,
+              20,
+              0
+            ],
+            [
+              0,
+              25,
+              0,
+              25,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              25,
+              0,
+              25,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              50,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              25,
+              0,
+              0,
+              0,
+              25,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              2,
+              0,
+              0,
+              48,
+              0
+            ],
+            [
+              0,
+              25,
+              0,
+              0,
+              0,
+              0,
+              0,
+              25
+            ]
+          ],
+          "non_unclear_accepted": 74,
+          "non_unclear_accepted_correct": 50,
+          "non_unclear_coverage": 0.1850000023841858,
+          "non_unclear_accepted_precision": 0.6756756901741028
+        },
+        "ko": {
+          "n": 200,
+          "correct": 25,
+          "accuracy": 0.125,
+          "nll": 2.2495522499084473,
+          "brier": 0.9907589554786682,
+          "ece_10_bins": 0.35039478522958234,
+          "accepted": 0,
+          "accepted_correct": 0,
+          "coverage": 0.0,
+          "accepted_precision": null,
+          "temperature": 0.65,
+          "confusion_labels": [
+            "question",
+            "blocker",
+            "reference",
+            "progress",
+            "completion_report",
+            "cancel_request",
+            "planned",
+            "unclear"
+          ],
+          "confusion_true_rows_predicted_columns": [
+            [
+              0,
+              0,
+              0,
+              10,
+              0,
+              0,
+              0,
+              15
+            ],
+            [
+              0,
+              0,
+              0,
+              5,
+              0,
+              0,
+              20,
+              0
+            ],
+            [
+              0,
+              25,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              25,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              25,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              25,
+              0
+            ],
+            [
+              0,
+              25,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          ],
+          "non_unclear_accepted": 0,
+          "non_unclear_accepted_correct": 0,
+          "non_unclear_coverage": 0.0,
+          "non_unclear_accepted_precision": null
+        },
+        "en": {
+          "n": 200,
+          "correct": 123,
+          "accuracy": 0.615,
+          "nll": 1.2066670656204224,
+          "brier": 0.5670772790908813,
+          "ece_10_bins": 0.21347559744026512,
+          "accepted": 74,
+          "accepted_correct": 50,
+          "coverage": 0.37,
+          "accepted_precision": 0.6756756756756757,
+          "temperature": 0.65,
+          "confusion_labels": [
+            "question",
+            "blocker",
+            "reference",
+            "progress",
+            "completion_report",
+            "cancel_request",
+            "planned",
+            "unclear"
+          ],
+          "confusion_true_rows_predicted_columns": [
+            [
+              0,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              25,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              25,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              25,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              2,
+              0,
+              0,
+              23,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              25
+            ]
+          ],
+          "non_unclear_accepted": 74,
+          "non_unclear_accepted_correct": 50,
+          "non_unclear_coverage": 0.3700000047683716,
+          "non_unclear_accepted_precision": 0.6756756901741028
+        }
+      }
+    }
+  },
+  "test_forward_after_weight_temperature_lock": true
+}
