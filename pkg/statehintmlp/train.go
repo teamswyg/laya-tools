@@ -13,10 +13,13 @@ type Sample struct {
 
 // Zero values select40 epochs, batch32, lr.02, decay.001 and seed1729. Every
 // valid Fit reinitializes weights and optimizer; warm-start is not supported.
+// LabelSmoothing defaults to zero (the original hard CE); finite values up to
+// 0.2 opt into a uniform eight-way soft target without changing stored labels.
 type FitOptions struct {
 	Epochs, BatchSize         int
 	LearningRate, WeightDecay float64
 	Seed                      int64
+	LabelSmoothing            float64
 }
 type FitReport struct {
 	Samples        int     `json:"samples"`
@@ -26,6 +29,7 @@ type FitReport struct {
 	MeanLoss       float64 `json:"mean_loss"`
 	Initialization string  `json:"initialization"`
 	Seed           int64   `json:"initialization_seed"`
+	LabelSmoothing float64 `json:"label_smoothing"`
 }
 
 func (o FitOptions) normalized() (FitOptions, error) {
@@ -44,7 +48,7 @@ func (o FitOptions) normalized() (FitOptions, error) {
 	if o.Seed == 0 {
 		o.Seed = DefaultSeed
 	}
-	if o.Epochs < 1 || o.Epochs > 10000 || o.BatchSize < 1 || o.BatchSize > 4096 || !finite(o.LearningRate) || o.LearningRate <= 0 || o.LearningRate > 1 || !finite(o.WeightDecay) || o.WeightDecay < 0 || o.WeightDecay > 1 {
+	if o.Epochs < 1 || o.Epochs > 10000 || o.BatchSize < 1 || o.BatchSize > 4096 || !finite(o.LearningRate) || o.LearningRate <= 0 || o.LearningRate > 1 || !finite(o.WeightDecay) || o.WeightDecay < 0 || o.WeightDecay > 1 || !validSmoothing(o.LabelSmoothing) {
 		return FitOptions{}, ErrTraining
 	}
 	return o, nil
@@ -102,6 +106,76 @@ func (m *Model) accumulate(w *Workspace, target int, g *gradient) (float64, erro
 	}
 	return loss, nil
 }
+
+func validSmoothing(alpha float64) bool {
+	return finite(alpha) && alpha >= 0 && alpha <= .2
+}
+
+func smoothedTargets(target int, alpha float64) ([IntentCount]float64, bool) {
+	var q [IntentCount]float64
+	if target < 0 || target >= IntentCount || !validSmoothing(alpha) {
+		return q, false
+	}
+	for c := range q {
+		q[c] = alpha / IntentCount
+	}
+	q[target] += 1 - alpha
+	return q, true
+}
+
+// Alpha zero delegates the untouched original arithmetic so existing hard-CE
+// artifacts remain reproducible. Positive alpha changes only the training
+// target/loss: q=(1-alpha)*one_hot+alpha/8 and dL/dlogit=p-q.
+func (m *Model) accumulateSmoothed(w *Workspace, target int, alpha float64, g *gradient) (float64, error) {
+	if alpha == 0 {
+		return m.accumulate(w, target, g)
+	}
+	q, ok := smoothedTargets(target, alpha)
+	if !ok {
+		return 0, ErrTraining
+	}
+	logits := m.logits(w)
+	p, ok := softmax(logits, 1)
+	if !ok {
+		return 0, ErrTraining
+	}
+	maxLogit := logits[0]
+	for _, v := range logits {
+		maxLogit = math.Max(maxLogit, v)
+	}
+	var sum float64
+	for _, v := range logits {
+		sum += math.Exp(v - maxLogit)
+	}
+	loss := math.Log(sum)
+	for c, v := range logits {
+		loss -= q[c] * (v - maxLogit)
+	}
+	if !finite(loss) {
+		return 0, ErrTraining
+	}
+	var hiddenDelta [HiddenUnits]float64
+	for c, value := range p {
+		delta := value - q[c]
+		g.outputBias[c] += delta
+		for h, activation := range w.hidden {
+			g.output[h][c] += delta * activation
+			hiddenDelta[h] += delta * float64(m.output[h][c])
+		}
+	}
+	for h, z := range w.preactivation {
+		if z <= 0 {
+			continue
+		}
+		delta := hiddenDelta[h]
+		g.hiddenBias[h] += delta
+		for _, index := range w.indices[:w.count] {
+			g.input[index][h] += delta * float64(w.values[index])
+		}
+	}
+	return loss, nil
+}
+
 func update(value *float32, g float64, first, second *float64, scale, rate, decay, c1, c2 float64) error {
 	const beta1, beta2, epsilon = .9, .999, 1e-8
 	g *= scale
@@ -173,7 +247,7 @@ func (m *Model) Fit(samples []Sample, options FitOptions) (FitReport, error) {
 		order[i] = i
 	}
 	random := rand.New(rand.NewPCG(uint64(o.Seed), uint64(o.Seed)^0x9e3779b97f4a7c15))
-	report := FitReport{Samples: len(samples), Epochs: o.Epochs, Initialization: Initialization, Seed: o.Seed}
+	report := FitReport{Samples: len(samples), Epochs: o.Epochs, Initialization: Initialization, Seed: o.Seed, LabelSmoothing: o.LabelSmoothing}
 	var lossSum float64
 	for epoch := 0; epoch < o.Epochs; epoch++ {
 		random.Shuffle(len(order), func(i, j int) { order[i], order[j] = order[j], order[i] })
@@ -186,7 +260,7 @@ func (m *Model) Fit(samples []Sample, options FitOptions) (FitReport, error) {
 					return FitReport{}, ErrTraining
 				}
 				target, _ := IntentIndex(s.Label)
-				loss, e := working.accumulate(&features, target, &optimizer.gradient)
+				loss, e := working.accumulateSmoothed(&features, target, o.LabelSmoothing, &optimizer.gradient)
 				if e != nil {
 					return FitReport{}, e
 				}
