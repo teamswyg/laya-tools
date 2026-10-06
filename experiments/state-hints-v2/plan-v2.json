@@ -1,0 +1,65 @@
+{
+  "schema": "riido-statehint-pdca-v2",
+  "evaluation_manifest_sha256": "d4f703eff50def748c30737e5304ac35066829ed3ce005d01bfad07a371d9a43",
+  "rubric_sha256": "88fddbfb2ed57ecced4a3840067e706d2a25f0311b7a654af039f3d11dc43736",
+  "files": {
+    "train": {
+      "path": "experiments/state-hints-v2/training.jsonl",
+      "sha256": "98902d9a1cf8de4a28c95ca1f9c41ebf72cc15afe6f60a5910fedc0cfe402ab1",
+      "rows": 320
+    },
+    "validation": {
+      "path": "experiments/state-hints-v2/development.jsonl",
+      "sha256": "9b76ad1d77819d45cf6f903be748d404245d3477592054a2fd06284f85bf8efb",
+      "rows": 40
+    },
+    "calibration": {
+      "path": "experiments/state-hints-v2/calibration.jsonl",
+      "sha256": "a9d0ea2124004cc07bd65da30cbc400e791223cdbde4975445559582c3e7b7e3",
+      "rows": 40
+    },
+    "test": {
+      "path": "experiments/state-hints-v2/locked-test.jsonl",
+      "sha256": "e7585c7f4288ebb8a8f22bb3a2f2785aa8f51d0a4b7a613e7dfbb25ccc2f6c90",
+      "rows": 40
+    }
+  },
+  "parent_sha256": "c63b45571c866b779de90ebcfd1bf5be139064b578703ddfae23eb218553cf28",
+  "learning_rates": [
+    0.02
+  ],
+  "epochs": 40,
+  "batch_size": 32,
+  "weight_decay": 0.001,
+  "seed": 1729,
+  "confidence_threshold": 0.9,
+  "arms": [
+    "v1_warm_start",
+    "v1_fresh",
+    "wide_simple_fresh",
+    "wide_context_fresh"
+  ],
+  "sources": {
+    "cmd/riido-statehint-pdca/main.go": "43dd72308b415eedb37dc1935c8c907f8743479a4fa363f3940456bacf1b4d41",
+    "pkg/statehint/artifact.go": "bf93d7fd4238b2d1ce5d0475d4843d5bb5333f60cbe85b567f4b62c54bf39a3f",
+    "pkg/statehint/artifact_test.go": "a441785ca9fa99207d1f57e5700b8a915bf1a8f2a421975f6dbddbf0dc85fdec",
+    "pkg/statehint/baseline.go": "f74654cb777adb5e257fcea1d020dfbe68023dc306fa081ef87383d18f55aad2",
+    "pkg/statehint/features.go": "a89e03a0e70dafa266143dadc778019760f7a06d6a909f9c6c9b9a9d58ea5ec4",
+    "pkg/statehint/features_test.go": "5d8f9eb96e960e8db35fbfab1566107fb6f8aef88928502ccd94ccca485164e3",
+    "pkg/statehint/model.go": "8b670ef55c805053c1ca8ef41a9ed6f4039cf9c0276cfa2e8eaf727e62645bef",
+    "pkg/statehint/model_test.go": "2db581bbe21980ed98aeeef6f6ae937455cecd2862884b4c82391dc117944949",
+    "pkg/statehint/plan.go": "03c1d78a1d777f35bdbe8b67c1f9cd0eb73e1992023fbd685dccfb8faace1245",
+    "pkg/statehint/plan_test.go": "c9b3a57bcdf0512c9ff7e05e2128dda810648b1c2670b4214316565c4879829d",
+    "pkg/statehint/speechact.go": "c3967a62a95dab1945b89ad8a70060a4dcd14f0c4c56eeb33996608e8a40790e",
+    "pkg/statehint/speechact_test.go": "0c0b49fccd7c4430c14f163d806b25da7fa79aad1c1b3e99acb32b685e928eed",
+    "pkg/statehint/train.go": "06eddaff0a67741e3bc3d15f5f253e362557a9c7aab3968753899e634b0f581b",
+    "pkg/statehintwide/artifact.go": "3c45fcb574d2943765da9328ba5fb1000db11906cf6bdef53ee8776777bbfbf4",
+    "pkg/statehintwide/controls_test.go": "08adb07cecb5baaef0b128546987114d1f6a306a00e3cd7789c49f7199d3642f",
+    "pkg/statehintwide/features.go": "2583110d12d01ab02ebb065d0986c04f228d78e4097452f5ddd67516097339fe",
+    "pkg/statehintwide/model.go": "34ec70a304a0b9cd5041f49acfcb8277522a59b3fb6fb9983b01131f448c8571",
+    "pkg/statehintwide/train.go": "c74035d14272ea2ef910ddcd3005c13fcc3eee0fdd99d0f3f00edbaf8354b7d4"
+  },
+  "selection": "validation NLL only, fixed earlier-arm tie. Calibration grid .5..5 step .1. Read sealed final40 only afterpersistedweight/temperaturelock.",
+  "scope": "Original synthetic320training and120 separatelyauthored free-context development/calibration/final cases. No namefiller. Agent labels are not independent product truth. Rules chosenbeforesealedfinal. No live Riido write.",
+  "deployment_qualified": false
+}
