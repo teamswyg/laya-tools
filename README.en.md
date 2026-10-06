@@ -2,14 +2,23 @@
 
 [![CI](https://github.com/teamswyg/laya-tools/actions/workflows/ci.yml/badge.svg)](https://github.com/teamswyg/laya-tools/actions/workflows/ci.yml) · [한국어](README.md) · [Content, emoji and state hints](docs/state-hints.en.md)
 
+[![Go 1.27.1](https://img.shields.io/badge/Go-1.27.1-00ADD8?logo=go)](https://github.com/teamswyg/laya-tools/blob/main/go.mod) · [![Hugging Face research](https://img.shields.io/badge/Hugging%20Face-research-yellow)](https://huggingface.co/collections/JooYoon/riidolaya-public-research-6abcbd5ddb1917912fc5de38)
+
 Current development targets **cheap progress, completion-report and question suggestions for Riido development work**. `riidolaya state-hint` runs in Go and can be tried without integration. It defaults to explicitly unlearned rules; a small trained model is optional. It performs no writes, reactions or notifications. Further model/reasoning-level routing is outside this target.
 
+Install the lightweight dedicated CLI with Go 1.27.1. It provides the same classification feature as `riidolaya state-hint`.
+
 ```sh
-riidolaya state-hint --text "Please cancel this work." --json
-riidolaya state-hint --model ./statehint.rsh --jsonl < requests.jsonl
+go install github.com/teamswyg/laya-tools/cmd/riido-statehint@ddd090fe49230a1ec52d9919c3105ca327eddd66
+riido-statehint --text "I am adjusting the explanation in the result view now." --json
+riido-statehint --model ./statehint.rsh --jsonl < requests.jsonl
 ```
 
-Go v0.2 actually continued training from the 32 KB parent using cross-entropy and AdamW. On 100 new synthetic cases, it scored 69/100 versus the parent's 31/100; 15 of 16 proposals were correct. A completion question wrongly marked as a completion report at 98.8% remains recorded. Read the [100-case results, dedicated Go command and memory](experiments/state-hints-pilot100/README.en.md), plus [training methods and prior 40-case results](experiments/state-hints-v2/README.en.md). `riidolaya state-hint-pilot` repeats fixed-model verification without integration. Earlier Laya MPS final-linear tuning remained 148/400. This does not qualify production quality or state changes. The material below records earlier code-search experiments.
+The latest [Go V3 research candidate](https://huggingface.co/JooYoon/riidolaya-statehint-go-v0.3/tree/cf6deca9eb2c9919b1bbbbe82ce3576453d67a40) is a 32,960-byte model actually warm-trained with CE+AdamW on 400 new original synthetic messages. On the same new 200-case test, overall correctness rose from parent v0.2's 152 to 158, but proposal precision fell from 57/57 to 90/94 and wrong completion-report proposals rose from 0 to 4. **Default models and display criteria are not replaced or automatically activated.** [Training and full results](experiments/state-hints-v3/README.en.md) and the [user Wiki](https://github.com/teamswyg/laya-tools/wiki/State-Hints-V3-EN) record publication, complete readback and limitations. A completion report is a textual claim, not verification of real work completion.
+
+The [Go placement module](pkg/statehintplacement/README.en.md) checks work revisions and text before and after classification, discarding candidates if they change. [PR160](https://github.com/teamswyg/laya-tools/pull/160) passed Linux, macOS, secret scanning and [final CI](https://github.com/teamswyg/laya-tools/actions/runs/37430259670), then merged through the bot. A real application still needs to supply current owner reads, permissions and its active label catalog.
+
+**Historical v0.2/pilot100 record:** Go v0.2 actually continued training from the 32 KB parent using cross-entropy and AdamW. On 100 new synthetic cases, it scored 69/100 versus the parent's 31/100; 15 of 16 proposals were correct. A completion question wrongly marked as a completion report at 98.8% remains recorded. Read the [100-case results, dedicated Go command and memory](experiments/state-hints-pilot100/README.en.md), plus [training methods and prior 40-case results](experiments/state-hints-v2/README.en.md). `riidolaya state-hint-pilot` repeats fixed-model verification without integration. Earlier Laya MPS final-linear tuning remained 148/400. This does not qualify production quality or state changes. The material below records earlier code-search experiments.
 
 Added an [actual JWT cache cost comparison](experiments/short-claim/next-cohort-jwt-audit/cost-preview/README.en.md). All 160 paired outcomes matched. Fixed-source-order searches over the same four requests were about 1.90× faster with caching in the aggregate of three warm rounds; when the first candidate matched, caching was about 6.8% slower. Whole-process peak RSS was about 13.86MiB, which is not model memory. [Verify saved results in Go](scripts/verify-jwt-cost-preview.sh). Model benefit, independent generalization and Codex savings remain unproved.
 
