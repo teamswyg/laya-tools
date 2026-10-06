@@ -1,0 +1,36 @@
+{
+  "schema": "statehintbody-single-fixture-cost-v1",
+  "go": "1.27.1",
+  "platform": "darwin-arm64",
+  "cpu": "Apple M4 Pro",
+  "GOMAXPROCS": 2,
+  "benchtime": "1s",
+  "profiling_enabled_both": true,
+  "original_fictional_raw_bytes": 149,
+  "scope": "body extraction and provenance hashing only; one repeated original fictional fragment",
+  "baseline": {
+    "iterations": 585709,
+    "ns_per_op": 2016,
+    "bytes_per_op": 2248,
+    "allocations_per_op": 43
+  },
+  "optimized": {
+    "iterations": 631402,
+    "ns_per_op": 1886,
+    "bytes_per_op": 1544,
+    "allocations_per_op": 30
+  },
+  "optimized_source_sha256": "be23e18b1907c2f22d01cb20c7d86c13aa5a3a8aba960d13292a58be9cef667b",
+  "model_inference_included": false,
+  "real_body_format_coverage_proven": false,
+  "native_io_included": false,
+  "total_RSS_measured": false,
+  "GPU_used": false,
+  "private_profiles_published": false,
+  "latency_generalization_claim": false,
+  "notes": [
+    "Fixed caller tag stack replaces decoder-owned duplicate stack; fixed hex buffers reduce temporary allocation.",
+    "Single development microbenchmark; repeated calls do not add independent product evidence.",
+    "Allocation bytes per call are not resident memory or cumulative allocation retained at once."
+  ]
+}
