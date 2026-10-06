@@ -1,0 +1,149 @@
+{
+  "schema": "riido-statehint-v3-original-evaluation-manifest-v1",
+  "origin": "original_ai_authored_synthetic_development",
+  "license": "Apache-2.0",
+  "row_schema": [
+    "id",
+    "family",
+    "locale",
+    "text",
+    "expected_intent"
+  ],
+  "classifier_input_field": "text",
+  "intents": [
+    "question",
+    "blocker",
+    "reference",
+    "progress",
+    "completion_report",
+    "cancel_request",
+    "planned",
+    "unclear"
+  ],
+  "rows": 360,
+  "unique_ids": 360,
+  "unique_assigned_family_ids": 360,
+  "unique_texts": 360,
+  "language_rows": {
+    "ko": 180,
+    "en": 180
+  },
+  "files": {
+    "validation": {
+      "filename": "VALIDATION.original.jsonl",
+      "sha256": "233a34becf8456846d4145f658bebf7cded640e0b8c69255a6d7a8a53d2b6248",
+      "bytes": 16298,
+      "rows": 80,
+      "unique_assigned_family_ids": 80,
+      "language_rows": {
+        "ko": 40,
+        "en": 40
+      },
+      "intent_rows": {
+        "question": 20,
+        "blocker": 4,
+        "reference": 4,
+        "progress": 20,
+        "completion_report": 20,
+        "cancel_request": 4,
+        "planned": 4,
+        "unclear": 4
+      }
+    },
+    "calibration": {
+      "filename": "CALIBRATION.original.jsonl",
+      "sha256": "179e69b7445f35b373b7e8b41b3d6d03976d2bfd29a08ace670bb93a03247d93",
+      "bytes": 16080,
+      "rows": 80,
+      "unique_assigned_family_ids": 80,
+      "language_rows": {
+        "ko": 40,
+        "en": 40
+      },
+      "intent_rows": {
+        "question": 20,
+        "blocker": 4,
+        "reference": 4,
+        "progress": 20,
+        "completion_report": 20,
+        "cancel_request": 4,
+        "planned": 4,
+        "unclear": 4
+      }
+    },
+    "test": {
+      "filename": "TEST.original.jsonl",
+      "sha256": "20101a2cbab68e85dedf08aa780b90816bed8072e904dc036026b144121989e4",
+      "bytes": 41603,
+      "rows": 200,
+      "unique_assigned_family_ids": 200,
+      "language_rows": {
+        "ko": 100,
+        "en": 100
+      },
+      "intent_rows": {
+        "question": 50,
+        "blocker": 10,
+        "reference": 10,
+        "progress": 50,
+        "completion_report": 50,
+        "cancel_request": 10,
+        "planned": 10,
+        "unclear": 10
+      }
+    }
+  },
+  "rubric": {
+    "filename": "EVAL-RUBRIC.original.md",
+    "sha256": "d310e2389704ac6c4191f214a01a13c1caace8d608c3d135c0b712792b28c481",
+    "bytes": 6604
+  },
+  "design_prior": {
+    "progress": 0.25,
+    "completion_report": 0.25,
+    "question": 0.25,
+    "blocker": 0.05,
+    "reference": 0.05,
+    "cancel_request": 0.05,
+    "planned": 0.05,
+    "unclear": 0.05
+  },
+  "no_name_or_id_only_variants": true,
+  "ground_truth_basis": "AI author judgments under the explicit intent rubric, not real product states or independently adjudicated human labels.",
+  "author_is_evaluation_author_and_knows_bodies": true,
+  "author_aware_of_prior_failure_discussions": true,
+  "external_blinded_annotation": false,
+  "parent_received_evaluation_bodies": false,
+  "no_existing_v1_v2_pilot100_or_new_training_body_read_during_this_authorship": true,
+  "no_model_or_rule_source_read_during_this_authorship": true,
+  "no_predictions_or_training_performed": true,
+  "test_revision_before_final_freeze": {
+    "initial_sha256": "9967a0726cab05cbdd61f5f879e9a1fc836b234c68b42dd4461e1416289bacd2",
+    "initial_parallel_concept_pairs": 100,
+    "replaced_english_rows": 100,
+    "unchanged_korean_rows": 100,
+    "final_sha256": "20101a2cbab68e85dedf08aa780b90816bed8072e904dc036026b144121989e4",
+    "reason": "Pre-prediction authorship improvement requested by parent; not score-based relabeling, trimming or model selection.",
+    "private_draft_note": "EVAL-TEST-DRAFT.private.json"
+  },
+  "roles": {
+    "validation": "Hypothesis/candidate selection only; never gradient updates.",
+    "calibration": "Predeclared calibration after weight selection; never weight fitting.",
+    "test": "Do not open before the persisted model/temperature/display/result lock; first final evaluation only afterward."
+  },
+  "sealing_is_process_contract_not_cryptographic_blinding": true,
+  "assigned_family_ids_do_not_prove_semantic_or_statistical_independence": true,
+  "independent_product_ground_truth": false,
+  "statistical_independence_established": false,
+  "limitations": [
+    "Original fiction from an AI author who knew previous failure discussions.",
+    "Shared vocabulary, author style, work domains and related concepts remain across distinct rows; validation/calibration languages sometimes have parallel conceptual structure.",
+    "The revised English Test uses other incidents rather than translations of its Korean Test, but distinct text/IDs do not guarantee independent samples.",
+    "The constructed 75 percent three-display prior and equal language proportions are not product base rates.",
+    "Completion-processing requests are annotated unclear because the eight-intent taxonomy has no execution-request class.",
+    "Separately created training material has not been read by this evaluation author; a separate custodian must check text/scenario/translation leakage.",
+    "After first evaluation, these cases become exposed development evidence and cannot select later revisions."
+  ],
+  "deployment_qualified": false,
+  "live_state_or_event_facts_provided": false
+}
