@@ -41,6 +41,9 @@ const (
 	selectionDomain   = "claims-trit-bench-v1:"
 	checksumOffset    = uint64(14695981039346656037)
 	checksumPrime     = uint64(1099511628211)
+	// Matches the private [243][5]int8 source table in statehintclaimtrit.
+	// It is shared static storage, separate from every model and Go heap.
+	sharedStaticDecoderBytes = 243 * 5
 )
 
 type pinnedFile struct {
@@ -103,6 +106,7 @@ type report struct {
 	ModelRuntimeFixedBytes    uint64         `json:"model_runtime_fixed_bytes"`
 	ModelImmutableBytes       uint64         `json:"model_immutable_referenced_bytes"`
 	ModelStorageBytes         uint64         `json:"model_storage_bytes"`
+	SharedStaticDecoderBytes  uint64         `json:"shared_static_decoder_bytes"`
 	WorkspaceFixedBytes       uint64         `json:"workspace_fixed_bytes"`
 	RuntimeStorageScope       string         `json:"runtime_storage_scope"`
 	LoadElapsedNS             int64          `json:"load_elapsed_ns"`
@@ -132,6 +136,7 @@ type predictor struct {
 	predict        func(string) ([statehintclaims.HeadCount]statehintclaims.HeadPrediction, error)
 	modelBytes     uint64
 	immutableBytes uint64
+	sharedBytes    uint64
 	workspaceBytes uint64
 	loadNS         int64
 	parentSHA      string
@@ -351,6 +356,7 @@ func loadPredictor(data []byte, mode, floatSHA string) (predictor, error) {
 	selected.parentSHA = metadata.ParentSHA256
 	selected.trainingSteps = metadata.TrainingSteps
 	selected.immutableBytes = uint64(len(metadata.ParentSHA256))
+	selected.sharedBytes = sharedStaticDecoderBytes
 	workspace := new(statehintclaimtrit.Workspace)
 	selected.modelBytes, selected.workspaceBytes = uint64(unsafe.Sizeof(*model)), uint64(unsafe.Sizeof(*workspace))
 	selected.predict = func(text string) ([statehintclaims.HeadCount]statehintclaims.HeadPrediction, error) {
@@ -450,8 +456,9 @@ func benchmark(opts options) (report, error) {
 		FixtureSHA256: opts.fixture.pin, ParentSHA256: selected.parentSHA, TrainingSteps: selected.trainingSteps, Fixture: summary,
 		ModelArtifactBytes: selectedBytes, ModelRuntimeFixedBytes: selected.modelBytes, WorkspaceFixedBytes: selected.workspaceBytes,
 		ModelImmutableBytes: selected.immutableBytes, ModelStorageBytes: selected.modelBytes + selected.immutableBytes,
-		RuntimeStorageScope: "fixed=unsafe.Sizeof(Model); immutable=parent SHA string backing; sum excludes workspace and other heap/process memory",
-		LoadElapsedNS:       selected.loadNS, LoadScope: "selected artifact decoding only; file hashing and fixtures excluded",
+		SharedStaticDecoderBytes: selected.sharedBytes,
+		RuntimeStorageScope:      "model_storage=fixed unsafe.Sizeof(Model)+immutable parent SHA string backing; shared static decoder is counted once across models, excluded from model storage and Go heap; excludes workspace and other heap/process memory",
+		LoadElapsedNS:            selected.loadNS, LoadScope: "selected artifact decoding only; file hashing and fixtures excluded",
 		WarmupIterations: warmupCount, Iterations: opts.iterations, ElapsedNS: elapsed, NSPerOp: float64(elapsed) / float64(opts.iterations),
 		TimingScope:       "Predict plus allocation-free prediction checksum; round-robin first16; warmup excluded",
 		GoHeapAllocBefore: before.HeapAlloc, GoHeapAllocAfter: after.HeapAlloc, GoHeapAllocDelta: int64(after.HeapAlloc) - int64(before.HeapAlloc),

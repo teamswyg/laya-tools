@@ -150,14 +150,14 @@ func TestRunModesAndOutputExclusion(t *testing.T) {
 				} else if got.Fixture != first || got.ParentSHA256 != "" {
 					t.Fatal("matched fixture order differed or an unverified parent was asserted")
 				}
-				if got.ModelArtifactBytes != statehintclaims.ArtifactBytes || got.ModelRuntimeFixedBytes != uint64(unsafe.Sizeof(statehintclaims.Model{})) || got.ModelImmutableBytes != 0 {
+				if got.ModelArtifactBytes != statehintclaims.ArtifactBytes || got.ModelRuntimeFixedBytes != uint64(unsafe.Sizeof(statehintclaims.Model{})) || got.ModelImmutableBytes != 0 || got.SharedStaticDecoderBytes != 0 || got.WorkspaceFixedBytes != uint64(unsafe.Sizeof(statehintclaims.Workspace{})) {
 					t.Fatal("float model storage accounting mismatch")
 				}
 			} else {
 				if got.Fixture != first || got.ParentSHA256 != opts.floatModel.pin {
 					t.Fatal("fixture order or parent identity differed between modes")
 				}
-				if got.ModelArtifactBytes != statehintclaimtrit.ArtifactBytes || got.ModelRuntimeFixedBytes != uint64(unsafe.Sizeof(statehintclaimtrit.Model{})) || got.ModelImmutableBytes != 64 {
+				if got.ModelArtifactBytes != statehintclaimtrit.ArtifactBytes || got.ModelRuntimeFixedBytes != uint64(unsafe.Sizeof(statehintclaimtrit.Model{})) || got.ModelImmutableBytes != 64 || got.SharedStaticDecoderBytes != 1215 || got.WorkspaceFixedBytes != uint64(unsafe.Sizeof(statehintclaimtrit.Workspace{})) {
 					t.Fatal("ternary model storage accounting mismatch")
 				}
 			}

@@ -25,12 +25,15 @@ const (
 	FeatureSchema     = statehintclaims.FeatureSchema
 	WeightTritCount   = FeatureBins * HeadCount * StateCount
 	PackedWeightBytes = (WeightTritCount + 4) / 5
-	ScaleCount        = HeadCount
-	BiasCount         = HeadCount * StateCount
-	ConfidenceFloor   = statehintclaims.ConfidenceFloor
-	MarginFloor       = statehintclaims.MarginFloor
-	DefaultSeed       = statehintclaims.DefaultSeed
-	ScaleFloor        = 1e-5
+	// SharedStaticDecoderBytes belongs to the read-only decoder shared by all
+	// models, not to each Model's fixed storage or parent-SHA backing string.
+	SharedStaticDecoderBytes = decoderTableBytes
+	ScaleCount               = HeadCount
+	BiasCount                = HeadCount * StateCount
+	ConfidenceFloor          = statehintclaims.ConfidenceFloor
+	MarginFloor              = statehintclaims.MarginFloor
+	DefaultSeed              = statehintclaims.DefaultSeed
+	ScaleFloor               = 1e-5
 )
 
 type Head = statehintclaims.Head
@@ -124,6 +127,7 @@ type ModelMetadata struct {
 	FeatureSchema            string  `json:"feature_schema"`
 	WeightTritCount          int     `json:"weight_trit_count"`
 	PackedWeightBytes        int     `json:"packed_weight_bytes"`
+	SharedStaticDecoderBytes int     `json:"shared_static_decoder_bytes"`
 	ScaleCount               int     `json:"scale_count"`
 	BiasCount                int     `json:"bias_count"`
 	PhysicalBitsPerTrit      float64 `json:"physical_bits_per_trit"`
@@ -152,7 +156,8 @@ func (m *Model) Metadata() ModelMetadata {
 		Adaptation: "experimental_weight_only_mixed_precision_three_claim_heads",
 		Mode:       m.mode.String(), FeatureSchema: FeatureSchema,
 		WeightTritCount: WeightTritCount, PackedWeightBytes: PackedWeightBytes,
-		ScaleCount: ScaleCount, BiasCount: BiasCount, PhysicalBitsPerTrit: 8.0 / 5,
+		SharedStaticDecoderBytes: SharedStaticDecoderBytes,
+		ScaleCount:               ScaleCount, BiasCount: BiasCount, PhysicalBitsPerTrit: 8.0 / 5,
 		InformationBitsPerTrit: math.Log2(3), TrainingSteps: m.TrainingSteps(),
 		BaseTrainingSteps: m.baseSteps, NewOptimizerSteps: m.newSteps,
 		ParentSHA256: m.parentSHAHex, ParentInitializationSeed: m.parentSeed,
@@ -321,10 +326,7 @@ func (m *Model) logits(view statehintwide.ContextualFeatureView) ([HeadCount][St
 		for h := range result {
 			for c := range result[h] {
 				index := int(f.Index)*HeadCount*StateCount + h*StateCount + c
-				trit, err := tritpack.At(m.packed[:], index, WeightTritCount)
-				if err != nil {
-					return result, ErrModel
-				}
+				trit := packedTritDigits[m.packed[index/5]][index%5]
 				result[h][c] += float64(trit) * float64(m.scales[h]) * float64(f.Value)
 			}
 		}
