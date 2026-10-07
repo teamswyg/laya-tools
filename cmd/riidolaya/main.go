@@ -13,6 +13,7 @@ import (
 	"github.com/teamswyg/laya-tools/internal/questioncuecli"
 	"github.com/teamswyg/laya-tools/internal/router"
 	"github.com/teamswyg/laya-tools/internal/search"
+	"github.com/teamswyg/laya-tools/internal/statehintclaimscli"
 	"github.com/teamswyg/laya-tools/internal/statehintcli"
 	"github.com/teamswyg/laya-tools/internal/statehintcorpuscli"
 	"github.com/teamswyg/laya-tools/internal/statehintpilotcli"
@@ -42,6 +43,7 @@ Commands:
   corpus-check  Check one bilingual data partition; counts only, no model or fit
   question-cue  Preview an experimental punctuation clue without a model
   state-hint  Suggest content labels, emoji codes and guarded shadow state plans
+  claims    Preview three claim attributes from an explicit local research model
   state-hint-pilot  Compare local models on bounded synthetic development cases
   setup     Download checksum-pinned model and native runtime
   search    Find line-addressable code excerpts (default: 8 candidates, 3 hits)
@@ -79,6 +81,9 @@ The codex command starts your installed Codex CLI with its existing settings.
 	}
 	if cmd == "state-hint" {
 		return statehintcli.Run(args[1:], os.Stdin, os.Stdout, os.Stderr)
+	}
+	if cmd == "claims" {
+		return statehintclaimscli.Run(args[1:], os.Stdin, os.Stdout, os.Stderr)
 	}
 	if cmd == "state-hint-pilot" {
 		return statehintpilotcli.Run(args[1:], os.Stdout, os.Stderr)
