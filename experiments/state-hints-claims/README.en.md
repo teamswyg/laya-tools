@@ -35,3 +35,8 @@ The artifact format is 73,988 bytes, which is not whole-process memory. CPU-only
 Split new development-comment groups into training, validation, calibration and test before authoring text. Preserve the broad-domain data and its 663/177 split as separate history. AI development evaluation does not replace real-comment accuracy. Original calibration/final-test data are neither opened nor trained on. Keep raw score records and profiles local; only licensed original synthetic material and safe aggregates may be published as research assets. Model binaries belong outside Git.
 
 Three output states are distinct from 1.58-bit weights. Establish float32 semantic quality first; weight compression and Laya-representation training remain separate experiments. Shout-out to [laya.tools](https://laya.tools/).
+
+
+## Marks and task state
+
+The [product mark review](PRODUCT-MARKING.en.md) defines a first trial for response-request, activity-report and completion-report hints. A completed subtask report does not establish whole-task completion. Helpful marks require separate human references. Current models accept text only; attribution, context and event version belong to the adapter.

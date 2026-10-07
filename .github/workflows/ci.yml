@@ -33,6 +33,8 @@ jobs:
         run: bash scripts/verify-next60-development.sh data
       - name: Reproduce original content-state synthetic corpus (Go; no training)
         run: go run ./cmd/riido-statehint-data --check
+      - name: Reproduce pinned public training reference audit (Go; no model or Fit)
+        run: bash scripts/verify-claims-training-audit.sh
       - name: Actual pinned public Go state-hint model (CPU; synthetic catalog, no training)
         shell: bash
         run: |
