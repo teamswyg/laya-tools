@@ -12,8 +12,61 @@ import (
 	"testing"
 
 	"github.com/teamswyg/laya-tools/pkg/statehintclaims"
+	"github.com/teamswyg/laya-tools/pkg/statehintclaimsmlp"
 	"github.com/teamswyg/laya-tools/pkg/statehintclaimtrit"
 )
+
+func TestExplicitUntrainedSharedHeadModelStaysResearchOnly(t *testing.T) {
+	var artifact bytes.Buffer
+	if err := statehintclaimsmlp.NewModel().Save(&artifact); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(t.TempDir(), "original-untrained.rcm")
+	if err := os.WriteFile(path, artifact.Bytes(), 0600); err != nil {
+		t.Fatal(err)
+	}
+	input := strings.NewReader("{\"text\":\"original synthetic report\"}\n{\"text\":\"a\",\"text\":\"b\"}\n{\"text\":\"second synthetic report\"}\n")
+	var output, errors bytes.Buffer
+	if err := Run([]string{"--model", path, "--jsonl"}, input, &output, &errors); err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(strings.TrimSpace(output.String()), "\n")
+	if len(lines) != 3 {
+		t.Fatal("warm responses", len(lines))
+	}
+	for i, line := range lines {
+		var r response
+		if err := json.Unmarshal([]byte(line), &r); err != nil {
+			t.Fatal(err)
+		}
+		if r.Qualified || r.Writes || r.Mode != "research_preview" || r.Quantization != nil || r.Architecture == nil || r.Architecture.HiddenUnits != 16 || r.Architecture.Qualified || r.Architecture.StateAuthority {
+			t.Fatal("unsafe architecture response")
+		}
+		if i == 1 {
+			if r.Prediction != nil || r.Reason != "invalid_request" {
+				t.Fatal("duplicate request admitted")
+			}
+			continue
+		}
+		if r.Prediction == nil || r.Prediction.Source != statehintclaims.Untrained || r.Prediction.TrainingSteps != 0 {
+			t.Fatal("fabricated learned model")
+		}
+		for _, h := range r.Prediction.Heads {
+			if h.State != statehintclaims.Unknown || h.UnknownReason != "untrained" {
+				t.Fatal("untrained claim")
+			}
+		}
+	}
+	corrupt := append([]byte(nil), artifact.Bytes()...)
+	corrupt[len(corrupt)-1] ^= 1
+	if err := os.WriteFile(path, corrupt, 0600); err != nil {
+		t.Fatal(err)
+	}
+	output.Reset()
+	if Run([]string{"--model", path, "--text", "original text"}, nil, &output, &errors) == nil || output.Len() != 0 {
+		t.Fatal("corrupt RCM admitted")
+	}
+}
 
 func TestWarmStreamRejectsAmbiguousRequestsAndNeverClaimsQualification(t *testing.T) {
 	var artifact bytes.Buffer

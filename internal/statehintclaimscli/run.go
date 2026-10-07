@@ -14,16 +14,18 @@ import (
 	"unicode/utf8"
 
 	"github.com/teamswyg/laya-tools/pkg/statehintclaims"
+	"github.com/teamswyg/laya-tools/pkg/statehintclaimsmlp"
 	"github.com/teamswyg/laya-tools/pkg/statehintclaimtrit"
 )
 
-var errInput = errors.New("claims requires a valid local RSC or RQT model and bounded text or JSONL")
+var errInput = errors.New("claims requires a valid local RSC, RQT or RCM model and bounded text or JSONL")
 
 type response struct {
 	Schema       string                            `json:"schema"`
 	Mode         string                            `json:"mode"`
 	Prediction   *statehintclaims.Prediction       `json:"prediction,omitempty"`
 	Quantization *statehintclaimtrit.ModelMetadata `json:"quantization,omitempty"`
+	Architecture *statehintclaimsmlp.Metadata      `json:"architecture,omitempty"`
 	Reason       string                            `json:"reason,omitempty"`
 	Qualified    bool                              `json:"semantic_quality_qualified"`
 	Writes       bool                              `json:"mutation_executed"`
@@ -62,7 +64,7 @@ func request(line []byte) (string, bool) {
 func Run(args []string, in io.Reader, out, errOut io.Writer) error {
 	f := flag.NewFlagSet("riidolaya claims", flag.ContinueOnError)
 	f.SetOutput(errOut)
-	path := f.String("model", "", "explicit local research .rsc or .rqt model")
+	path := f.String("model", "", "explicit local research .rsc, .rqt or .rcm model")
 	text := f.String("text", "", "one bounded content item")
 	jsonl := f.Bool("jsonl", false, "warm stream of {text:string} requests")
 	_ = f.Bool("json", true, "JSON research output")
@@ -87,6 +89,7 @@ func Run(args []string, in io.Reader, out, errOut io.Writer) error {
 	magic, e := reader.Peek(4)
 	var predict func(string) (statehintclaims.Prediction, error)
 	var quantization *statehintclaimtrit.ModelMetadata
+	var architecture *statehintclaimsmlp.Metadata
 	if e == nil {
 		switch string(magic) {
 		case "RSC\x00":
@@ -108,6 +111,15 @@ func Run(args []string, in io.Reader, out, errOut io.Writer) error {
 					return statehintclaims.Prediction{Heads: p.Heads, Source: p.Source, TrainingSteps: p.TrainingSteps}, err
 				}
 			}
+		case "RCM\x00":
+			var model *statehintclaimsmlp.Model
+			model, e = statehintclaimsmlp.Load(reader)
+			if e == nil {
+				metadata := model.Metadata()
+				architecture = &metadata
+				var workspace statehintclaimsmlp.Workspace
+				predict = func(text string) (statehintclaims.Prediction, error) { return model.Predict(text, &workspace) }
+			}
 		default:
 			e = errInput
 		}
@@ -118,7 +130,7 @@ func Run(args []string, in io.Reader, out, errOut io.Writer) error {
 	}
 	encoder := json.NewEncoder(out)
 	process := func(s string, valid bool) error {
-		r := response{Schema: "riido-claim-hints-response-v1", Mode: "research_preview", Quantization: quantization}
+		r := response{Schema: "riido-claim-hints-response-v1", Mode: "research_preview", Quantization: quantization, Architecture: architecture}
 		if !valid {
 			r.Reason = "invalid_request"
 		} else {
