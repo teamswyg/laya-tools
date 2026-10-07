@@ -14,17 +14,19 @@ import (
 	"unicode/utf8"
 
 	"github.com/teamswyg/laya-tools/pkg/statehintclaims"
+	"github.com/teamswyg/laya-tools/pkg/statehintclaimtrit"
 )
 
-var errInput = errors.New("claims requires a valid local RSC model and bounded text or JSONL")
+var errInput = errors.New("claims requires a valid local RSC or RQT model and bounded text or JSONL")
 
 type response struct {
-	Schema     string                      `json:"schema"`
-	Mode       string                      `json:"mode"`
-	Prediction *statehintclaims.Prediction `json:"prediction,omitempty"`
-	Reason     string                      `json:"reason,omitempty"`
-	Qualified  bool                        `json:"semantic_quality_qualified"`
-	Writes     bool                        `json:"mutation_executed"`
+	Schema       string                            `json:"schema"`
+	Mode         string                            `json:"mode"`
+	Prediction   *statehintclaims.Prediction       `json:"prediction,omitempty"`
+	Quantization *statehintclaimtrit.ModelMetadata `json:"quantization,omitempty"`
+	Reason       string                            `json:"reason,omitempty"`
+	Qualified    bool                              `json:"semantic_quality_qualified"`
+	Writes       bool                              `json:"mutation_executed"`
 }
 
 // Exactly one text field: duplicates, aliases, extra fields and trailing values
@@ -60,7 +62,7 @@ func request(line []byte) (string, bool) {
 func Run(args []string, in io.Reader, out, errOut io.Writer) error {
 	f := flag.NewFlagSet("riidolaya claims", flag.ContinueOnError)
 	f.SetOutput(errOut)
-	path := f.String("model", "", "explicit local research .rsc model")
+	path := f.String("model", "", "explicit local research .rsc or .rqt model")
 	text := f.String("text", "", "one bounded content item")
 	jsonl := f.Bool("jsonl", false, "warm stream of {text:string} requests")
 	_ = f.Bool("json", true, "JSON research output")
@@ -81,19 +83,46 @@ func Run(args []string, in io.Reader, out, errOut io.Writer) error {
 	if e != nil {
 		return errInput
 	}
-	model, e := statehintclaims.Load(file)
+	reader := bufio.NewReader(file)
+	magic, e := reader.Peek(4)
+	var predict func(string) (statehintclaims.Prediction, error)
+	var quantization *statehintclaimtrit.ModelMetadata
+	if e == nil {
+		switch string(magic) {
+		case "RSC\x00":
+			var model *statehintclaims.Model
+			model, e = statehintclaims.Load(reader)
+			if e == nil {
+				var workspace statehintclaims.Workspace
+				predict = func(text string) (statehintclaims.Prediction, error) { return model.Predict(text, &workspace) }
+			}
+		case "RQT\x00":
+			var model *statehintclaimtrit.Model
+			model, e = statehintclaimtrit.Load(reader)
+			if e == nil {
+				metadata := model.Metadata()
+				quantization = &metadata
+				var workspace statehintclaimtrit.Workspace
+				predict = func(text string) (statehintclaims.Prediction, error) {
+					p, err := model.Predict(text, &workspace)
+					return statehintclaims.Prediction{Heads: p.Heads, Source: p.Source, TrainingSteps: p.TrainingSteps}, err
+				}
+			}
+		default:
+			e = errInput
+		}
+	}
 	closeErr := file.Close()
-	if e != nil || closeErr != nil {
+	if e != nil || closeErr != nil || predict == nil {
 		return errInput
 	}
-	var workspace statehintclaims.Workspace
 	encoder := json.NewEncoder(out)
 	process := func(s string, valid bool) error {
-		r := response{Schema: "riido-claim-hints-response-v1", Mode: "research_preview"}
+		r := response{Schema: "riido-claim-hints-response-v1", Mode: "research_preview", Quantization: quantization}
 		if !valid {
 			r.Reason = "invalid_request"
 		} else {
-			p, e := model.Predict(s, &workspace)
+			p, e := predict(s)
 			if e != nil {
 				r.Reason = "input_or_model_out_of_scope"
 			} else {

@@ -1,0 +1,620 @@
+{
+  "schema": "riidolaya-claim-ternary-development-results-v1",
+  "development_only": true,
+  "human_gold": false,
+  "semantic_quality_qualified": false,
+  "model_selected": false,
+  "calibration_or_test_accessed": false,
+  "application_state_writes": 0,
+  "annotation_source": "original_synthetic_ai_semantic_reference",
+  "training_source_commit": "745efbd3414502daa3a800e0a9731011a7b8434d",
+  "training_source_tree": "ae12fa0f69d801019e2681832652e23da827a0e6",
+  "parent": {
+    "repo": "JooYoon/riidolaya-development-claim-hints-v0.1",
+    "revision": "4a8c0efaa06f3873061c7a2aa4494964e6e2b7c1",
+    "file": "claims.rsc",
+    "sha256": "2e68d46a8452d11721954b75abd9fac97f533b0796e930ae5f79fb050b040709"
+  },
+  "input_counts": {
+    "rows": 1920,
+    "families": 960,
+    "lineages": 320,
+    "fit_rows": 1680,
+    "dev_rows": 240,
+    "fit_families": 840,
+    "dev_families": 120,
+    "fit_lineages": 280,
+    "dev_lineages": 40,
+    "rubric_sha256": "7d908277fe4624374f7d8cc9318f1a228e2128b595ee2bc94fe214e5f258d0b5"
+  },
+  "exposed_validation_diagnostic_rows": 240,
+  "fresh_test_rows": 0,
+  "head_order": [
+    "response_requested",
+    "current_activity_claimed",
+    "completion_claimed"
+  ],
+  "state_order": [
+    "true",
+    "false",
+    "unknown"
+  ],
+  "fixed_recipe": {
+    "epochs": 40,
+    "batch_size": 32,
+    "learning_rate": 0.001,
+    "weight_decay": 0.01,
+    "seed": 1729,
+    "temperature": 1,
+    "confidence_margin": [
+      0.9,
+      0.05
+    ],
+    "initialization": "parent_float_copy_fresh_adamw",
+    "straight_through_estimator": "identity_dequantized_weight_no_scale_mask_or_scale_gradient"
+  },
+  "new_fit_calls": 2,
+  "new_float_fit_calls": 1,
+  "new_qat_fit_calls": 1,
+  "ptq_fit_calls": 0,
+  "historical_total_fit_calls": 20,
+  "artifacts": {
+    "float_parent": {
+      "sha256": "2e68d46a8452d11721954b75abd9fac97f533b0796e930ae5f79fb050b040709",
+      "artifact_bytes": 73988,
+      "mean_three_head_cross_entropy": 0.4163716503462018,
+      "locales_ko_en": [
+        {
+          "rows": 120,
+          "true_target_families": [
+            34,
+            34,
+            45
+          ],
+          "true_target_lineages": [
+            23,
+            25,
+            33
+          ],
+          "gated_true_proposed": [
+            1,
+            7,
+            0
+          ],
+          "gated_true_correct": [
+            1,
+            7,
+            0
+          ],
+          "gated_true_correct_families": [
+            1,
+            7,
+            0
+          ],
+          "gated_true_correct_lineages": [
+            1,
+            7,
+            0
+          ],
+          "gated_true_precision": [
+            1,
+            1,
+            0
+          ],
+          "gated_true_precision_defined": [
+            true,
+            true,
+            false
+          ]
+        },
+        {
+          "rows": 120,
+          "true_target_families": [
+            34,
+            34,
+            45
+          ],
+          "true_target_lineages": [
+            23,
+            25,
+            33
+          ],
+          "gated_true_proposed": [
+            6,
+            6,
+            4
+          ],
+          "gated_true_correct": [
+            6,
+            6,
+            3
+          ],
+          "gated_true_correct_families": [
+            6,
+            6,
+            3
+          ],
+          "gated_true_correct_lineages": [
+            6,
+            6,
+            3
+          ],
+          "gated_true_precision": [
+            1,
+            1,
+            0.75
+          ],
+          "gated_true_precision_defined": [
+            true,
+            true,
+            true
+          ]
+        }
+      ],
+      "training_steps": 2120
+    },
+    "matched_float": {
+      "sha256": "b534594a361b8d31bda599bf53b92ee50ecd55821455914514232e7789f381ec",
+      "artifact_bytes": 73988,
+      "mean_three_head_cross_entropy": 0.35261877550251947,
+      "locales_ko_en": [
+        {
+          "rows": 120,
+          "true_target_families": [
+            34,
+            34,
+            45
+          ],
+          "true_target_lineages": [
+            23,
+            25,
+            33
+          ],
+          "gated_true_proposed": [
+            8,
+            22,
+            17
+          ],
+          "gated_true_correct": [
+            7,
+            22,
+            16
+          ],
+          "gated_true_correct_families": [
+            7,
+            22,
+            16
+          ],
+          "gated_true_correct_lineages": [
+            7,
+            16,
+            14
+          ],
+          "gated_true_precision": [
+            0.875,
+            1,
+            0.9411764705882353
+          ],
+          "gated_true_precision_defined": [
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "rows": 120,
+          "true_target_families": [
+            34,
+            34,
+            45
+          ],
+          "true_target_lineages": [
+            23,
+            25,
+            33
+          ],
+          "gated_true_proposed": [
+            10,
+            22,
+            25
+          ],
+          "gated_true_correct": [
+            10,
+            21,
+            23
+          ],
+          "gated_true_correct_families": [
+            10,
+            21,
+            23
+          ],
+          "gated_true_correct_lineages": [
+            9,
+            17,
+            20
+          ],
+          "gated_true_precision": [
+            1,
+            0.9545454545454546,
+            0.92
+          ],
+          "gated_true_precision_defined": [
+            true,
+            true,
+            true
+          ]
+        }
+      ],
+      "mode": "matched_float_warm_continuation",
+      "base_training_steps": 2120,
+      "new_optimizer_steps": 2120,
+      "training_steps": 4240,
+      "actual_fit_calls": 1,
+      "reload_exact_byte_parity": true,
+      "reload_exact_prediction_parity": true,
+      "reload_exact_score_parity": true
+    },
+    "ptq": {
+      "sha256": "f2274630dc3eb163503f9aa6e6b66dcf74ef13a5259c4eafedcb18db7098da16",
+      "artifact_bytes": 4023,
+      "mean_three_head_cross_entropy": 0.5586852330073903,
+      "locales_ko_en": [
+        {
+          "rows": 120,
+          "true_target_families": [
+            34,
+            34,
+            45
+          ],
+          "true_target_lineages": [
+            23,
+            25,
+            33
+          ],
+          "gated_true_proposed": [
+            0,
+            0,
+            0
+          ],
+          "gated_true_correct": [
+            0,
+            0,
+            0
+          ],
+          "gated_true_correct_families": [
+            0,
+            0,
+            0
+          ],
+          "gated_true_correct_lineages": [
+            0,
+            0,
+            0
+          ],
+          "gated_true_precision": [
+            0,
+            0,
+            0
+          ],
+          "gated_true_precision_defined": [
+            false,
+            false,
+            false
+          ]
+        },
+        {
+          "rows": 120,
+          "true_target_families": [
+            34,
+            34,
+            45
+          ],
+          "true_target_lineages": [
+            23,
+            25,
+            33
+          ],
+          "gated_true_proposed": [
+            0,
+            0,
+            0
+          ],
+          "gated_true_correct": [
+            0,
+            0,
+            0
+          ],
+          "gated_true_correct_families": [
+            0,
+            0,
+            0
+          ],
+          "gated_true_correct_lineages": [
+            0,
+            0,
+            0
+          ],
+          "gated_true_precision": [
+            0,
+            0,
+            0
+          ],
+          "gated_true_precision_defined": [
+            false,
+            false,
+            false
+          ]
+        }
+      ],
+      "actual_fit_calls": 0,
+      "reload_exact_byte_parity": true,
+      "reload_exact_prediction_parity": true,
+      "reload_exact_score_parity": true,
+      "model_metadata_at_fit": {
+        "adaptation": "experimental_weight_only_mixed_precision_three_claim_heads",
+        "mode": "ptq",
+        "feature_schema": "utf8-word12-char2345-fnv1a-signed-logtf-l2-2048-v2",
+        "weight_trit_count": 18432,
+        "packed_weight_bytes": 3687,
+        "scale_count": 3,
+        "bias_count": 9,
+        "physical_bits_per_trit": 1.6,
+        "information_bits_per_trit": 1.5849625007211563,
+        "training_steps": 2120,
+        "base_training_steps": 2120,
+        "new_optimizer_steps": 0,
+        "parent_sha256": "2e68d46a8452d11721954b75abd9fac97f533b0796e930ae5f79fb050b040709",
+        "parent_initialization_seed": 1729,
+        "adaptation_seed": 1729,
+        "temperature": 1,
+        "confidence_floor": 0.9,
+        "margin_floor": 0.05,
+        "scale_floor": 1e-05,
+        "bitnet_llm": false,
+        "w1_58_a8": false,
+        "quality_qualified": false,
+        "state_authority": false
+      }
+    },
+    "qat": {
+      "sha256": "457f6e0d79c40baf11b11bfefc31885cbcde0c0a8553d890c4c4130f0a671cc5",
+      "artifact_bytes": 4023,
+      "mean_three_head_cross_entropy": 0.42837811606797577,
+      "locales_ko_en": [
+        {
+          "rows": 120,
+          "true_target_families": [
+            34,
+            34,
+            45
+          ],
+          "true_target_lineages": [
+            23,
+            25,
+            33
+          ],
+          "gated_true_proposed": [
+            1,
+            1,
+            0
+          ],
+          "gated_true_correct": [
+            1,
+            1,
+            0
+          ],
+          "gated_true_correct_families": [
+            1,
+            1,
+            0
+          ],
+          "gated_true_correct_lineages": [
+            1,
+            1,
+            0
+          ],
+          "gated_true_precision": [
+            1,
+            1,
+            0
+          ],
+          "gated_true_precision_defined": [
+            true,
+            true,
+            false
+          ]
+        },
+        {
+          "rows": 120,
+          "true_target_families": [
+            34,
+            34,
+            45
+          ],
+          "true_target_lineages": [
+            23,
+            25,
+            33
+          ],
+          "gated_true_proposed": [
+            6,
+            5,
+            4
+          ],
+          "gated_true_correct": [
+            6,
+            5,
+            4
+          ],
+          "gated_true_correct_families": [
+            6,
+            5,
+            4
+          ],
+          "gated_true_correct_lineages": [
+            6,
+            5,
+            3
+          ],
+          "gated_true_precision": [
+            1,
+            1,
+            1
+          ],
+          "gated_true_precision_defined": [
+            true,
+            true,
+            true
+          ]
+        }
+      ],
+      "actual_fit_calls": 1,
+      "reload_exact_byte_parity": true,
+      "reload_exact_prediction_parity": true,
+      "reload_exact_score_parity": true,
+      "model_metadata_at_fit": {
+        "adaptation": "experimental_weight_only_mixed_precision_three_claim_heads",
+        "mode": "qat",
+        "feature_schema": "utf8-word12-char2345-fnv1a-signed-logtf-l2-2048-v2",
+        "weight_trit_count": 18432,
+        "packed_weight_bytes": 3687,
+        "scale_count": 3,
+        "bias_count": 9,
+        "physical_bits_per_trit": 1.6,
+        "information_bits_per_trit": 1.5849625007211563,
+        "training_steps": 4240,
+        "base_training_steps": 2120,
+        "new_optimizer_steps": 2120,
+        "parent_sha256": "2e68d46a8452d11721954b75abd9fac97f533b0796e930ae5f79fb050b040709",
+        "parent_initialization_seed": 1729,
+        "adaptation_seed": 1729,
+        "temperature": 1,
+        "confidence_floor": 0.9,
+        "margin_floor": 0.05,
+        "scale_floor": 1e-05,
+        "bitnet_llm": false,
+        "w1_58_a8": false,
+        "quality_qualified": false,
+        "state_authority": false
+      }
+    }
+  },
+  "warm_prediction_benchmark": {
+    "schema": "claims-trit-fixed-model-decoder-comparison-v1",
+    "development_only": true,
+    "further_fits": 0,
+    "all_artifact_and_fixture_pins_identical": true,
+    "iterations_per_mode_per_run": 20000,
+    "before_and_after_single_runs_not_distribution": true,
+    "machine": "darwin-arm64",
+    "go_version": "go1.27.1",
+    "rows": [
+      {
+        "mode": "float",
+        "before_ns_per_op": 7182.31875,
+        "after_ns_per_op": 7185.64375,
+        "decoder_speed_ratio": 0.9995372717997605,
+        "artifact_bytes": 73988,
+        "model_storage_bytes": 73784,
+        "shared_static_decoder_bytes": 0,
+        "workspace_bytes": 30744,
+        "after_allocated_bytes_per_op": 0.0008,
+        "after_mallocs_per_op": 5e-05,
+        "process_peak_rss_bytes": 10944512,
+        "prediction_checksum_identical": true,
+        "prediction_result_checksum": "a4518d09ab84b593",
+        "float_model_sha256": "2e68d46a8452d11721954b75abd9fac97f533b0796e930ae5f79fb050b040709",
+        "matched_model_sha256": "b534594a361b8d31bda599bf53b92ee50ecd55821455914514232e7789f381ec",
+        "ptq_model_sha256": "f2274630dc3eb163503f9aa6e6b66dcf74ef13a5259c4eafedcb18db7098da16",
+        "qat_model_sha256": "457f6e0d79c40baf11b11bfefc31885cbcde0c0a8553d890c4c4130f0a671cc5"
+      },
+      {
+        "mode": "matched",
+        "before_ns_per_op": 6266.49585,
+        "after_ns_per_op": 6182.66045,
+        "decoder_speed_ratio": 1.0135597613160205,
+        "artifact_bytes": 73988,
+        "model_storage_bytes": 73784,
+        "shared_static_decoder_bytes": 0,
+        "workspace_bytes": 30744,
+        "after_allocated_bytes_per_op": 0,
+        "after_mallocs_per_op": 0,
+        "process_peak_rss_bytes": 11206656,
+        "prediction_checksum_identical": true,
+        "prediction_result_checksum": "8c597971f3567125",
+        "float_model_sha256": "2e68d46a8452d11721954b75abd9fac97f533b0796e930ae5f79fb050b040709",
+        "matched_model_sha256": "b534594a361b8d31bda599bf53b92ee50ecd55821455914514232e7789f381ec",
+        "ptq_model_sha256": "f2274630dc3eb163503f9aa6e6b66dcf74ef13a5259c4eafedcb18db7098da16",
+        "qat_model_sha256": "457f6e0d79c40baf11b11bfefc31885cbcde0c0a8553d890c4c4130f0a671cc5"
+      },
+      {
+        "mode": "ptq",
+        "before_ns_per_op": 17638.92085,
+        "after_ns_per_op": 7121.3729,
+        "decoder_speed_ratio": 2.476898920712325,
+        "artifact_bytes": 4023,
+        "model_storage_bytes": 3880,
+        "shared_static_decoder_bytes": 1215,
+        "workspace_bytes": 30744,
+        "after_allocated_bytes_per_op": 0.0008,
+        "after_mallocs_per_op": 5e-05,
+        "process_peak_rss_bytes": 10518528,
+        "prediction_checksum_identical": true,
+        "prediction_result_checksum": "bf8525ac0e04cd25",
+        "float_model_sha256": "2e68d46a8452d11721954b75abd9fac97f533b0796e930ae5f79fb050b040709",
+        "matched_model_sha256": "b534594a361b8d31bda599bf53b92ee50ecd55821455914514232e7789f381ec",
+        "ptq_model_sha256": "f2274630dc3eb163503f9aa6e6b66dcf74ef13a5259c4eafedcb18db7098da16",
+        "qat_model_sha256": "457f6e0d79c40baf11b11bfefc31885cbcde0c0a8553d890c4c4130f0a671cc5"
+      },
+      {
+        "mode": "qat",
+        "before_ns_per_op": 17702.10835,
+        "after_ns_per_op": 7209.98955,
+        "decoder_speed_ratio": 2.4552196958454675,
+        "artifact_bytes": 4023,
+        "model_storage_bytes": 3880,
+        "shared_static_decoder_bytes": 1215,
+        "workspace_bytes": 30744,
+        "after_allocated_bytes_per_op": 0.0008,
+        "after_mallocs_per_op": 5e-05,
+        "process_peak_rss_bytes": 10665984,
+        "prediction_checksum_identical": true,
+        "prediction_result_checksum": "06a9bd05f6d44e05",
+        "float_model_sha256": "2e68d46a8452d11721954b75abd9fac97f533b0796e930ae5f79fb050b040709",
+        "matched_model_sha256": "b534594a361b8d31bda599bf53b92ee50ecd55821455914514232e7789f381ec",
+        "ptq_model_sha256": "f2274630dc3eb163503f9aa6e6b66dcf74ef13a5259c4eafedcb18db7098da16",
+        "qat_model_sha256": "457f6e0d79c40baf11b11bfefc31885cbcde0c0a8553d890c4c4130f0a671cc5"
+      }
+    ],
+    "optimized_binary_sha256": "007e862bc74d7e3593dfcdfcebbf96a34e9b9ec526d3149d7d8052bedb4336be",
+    "optimized_source_overlay_on_training_commit": [
+      {
+        "file": "cmd/riido-statehint-claims-trit-bench/main.go",
+        "sha256": "6a7ab4c203794d5e1b96450c6c064dac83568b40bebae6c3099323ad610fcb6e"
+      },
+      {
+        "file": "pkg/statehintclaimtrit/model.go",
+        "sha256": "bcf2e101264ee2a21be2553a37e1389ca15b4ab7a6a7cce2599c6e621db671ce"
+      },
+      {
+        "file": "pkg/statehintclaimtrit/decoder.go",
+        "sha256": "669cd32e9cba4d463140d965ff2b53094dafd9591ef099543e2541efd493af25"
+      }
+    ],
+    "fixture_sha256": "cdd5b04a28d93d3ebe8b93e8693b2b86e88970303ed0647f29cdf043a907bf07",
+    "selected_fixture_sha256": "1c06622eb597781cb0b1b7a14ace4a83e40e31b2ce6e9be03d7592c57a0ab006",
+    "selection": "first16_sha256_claims-trit-bench-v1_id",
+    "fixture_scope": "original_synthetic_fit_only",
+    "selected_fixture_count": 16,
+    "optimized_source_commit": "799eaee6f0c1ffa424e2d5ecdc4213efe62b5ca7"
+  },
+  "limitations": [
+    "Validation120 families / 240 rows were previously exposed: comparisons are diagnostics, not fresh selection or independent test.",
+    "The fixed validation references include only three unknown families for activity/completion per locale, below the predeclared five-family support requirement.",
+    "QAT loses quality relative to matched float continuation on this diagnostic; no ternary model is qualified.",
+    "No gated-true proposal is not evidence of correct semantics.",
+    "Five trits per byte is 1.6 physical bits per weight in full groups; feature, bias and scale arithmetic remains floating point.",
+    "Single before/after timing runs describe this Mac and fixture; they do not establish a latency distribution or superior CPU speed to float.",
+    "Per-model storage excludes workspace, static decoder, allocator overhead and the rest of the process. RSS must be measured separately."
+  ]
+}
