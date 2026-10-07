@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"github.com/teamswyg/laya-tools/internal/app"
 	"github.com/teamswyg/laya-tools/internal/assets"
+	"github.com/teamswyg/laya-tools/internal/claimsdemo"
 	"github.com/teamswyg/laya-tools/internal/inference"
 	"github.com/teamswyg/laya-tools/internal/questioncuecli"
 	"github.com/teamswyg/laya-tools/internal/router"
@@ -44,6 +45,7 @@ Commands:
   question-cue  Preview an experimental punctuation clue without a model
   state-hint  Suggest content labels, emoji codes and guarded shadow state plans
   claims    Preview three claim attributes from an explicit local research model
+  demo      Show live claim hints in a local browser using an explicit .rsc model
   state-hint-pilot  Compare local models on bounded synthetic development cases
   setup     Download checksum-pinned model and native runtime
   search    Find line-addressable code excerpts (default: 8 candidates, 3 hits)
@@ -60,6 +62,7 @@ Commands:
 
 Examples (flags precede the prompt):
   riidolaya state-hint --text "질문이 있습니다" --json
+  riidolaya demo --model ./claims.rsc
   riidolaya setup
   riidolaya search --root . --json "where are redirects handled?"
   riidolaya search --lexical "redirect headers"
@@ -84,6 +87,9 @@ The codex command starts your installed Codex CLI with its existing settings.
 	}
 	if cmd == "claims" {
 		return statehintclaimscli.Run(args[1:], os.Stdin, os.Stdout, os.Stderr)
+	}
+	if cmd == "demo" {
+		return claimsdemo.Run(args[1:], os.Stdout, os.Stderr)
 	}
 	if cmd == "state-hint-pilot" {
 		return statehintpilotcli.Run(args[1:], os.Stdout, os.Stderr)
