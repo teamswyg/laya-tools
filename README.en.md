@@ -6,6 +6,8 @@
 
 Current development targets **cheap progress, completion-report and question suggestions for Riido development work**. `riidolaya state-hint` runs in Go and can be tried without integration. It defaults to explicitly unlearned rules; a small trained model is optional. It performs no writes, reactions or notifications. Further model/reasoning-level routing is outside this target.
 
+**Try it while typing:** `riidolaya demo --model ./claims.rsc` runs the actual Go research model whenever text changes in a local web page. It displays probabilities and abstentions for ❓ response requests, 🛠️ current-work reports and ✅ completion reports. See [download, run and demonstration instructions](docs/live-claims-demo.en.md). This separate demo uses an existing public research model; it is neither a new training result nor production qualification.
+
 The separate [question punctuation cue](pkg/statehintcue/README.en.md) is an experiment requiring no model. Try `riidolaya question-cue --role prose --text "Should I check the cache again?"` to observe question marks outside code and supported address-like tokens; `metadata` and `code` roles produce no cue. It does not determine semantic intent or work completion and returns no probability, annotation or state change. Check the input budget for long documents instead of truncating them.
 
 For upcoming training preparation, use the [bilingual family structure checker](internal/statehintcorpus/README.en.md). `riidolaya corpus-check` checks translation pairs, duplicate IDs and input limits in one supplied partition, emitting counts only. Semantic and rights review, fitting and a final-test seal are separate steps; a structural pass never authorizes training.

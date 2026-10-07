@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light">
+    <meta name="description" content="문장을 바꾸며 riidolaya의 실제 응답 요청, 진행 보고, 완료 보고 분류를 확인하는 로컬 데모입니다.">
+    <title>riidolaya · 문장 속 작업 신호</title>
+    <link rel="stylesheet" href="/style.css">
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="site-header">
+        <a class="brand" href="/" aria-label="riidolaya 데모 홈"><span class="brand-mark" aria-hidden="true">r</span><span>riidolaya</span><span class="brand-divider" aria-hidden="true"></span><span class="brand-caption">문장 속 작업 신호</span></a>
+        <span class="preview-tag"><span aria-hidden="true"></span>RESEARCH PREVIEW</span>
+      </header>
+
+      <main>
+        <section class="intro" aria-labelledby="page-title">
+          <div>
+            <p class="eyebrow">WRITE. CHANGE. SEE.</p>
+            <h1 id="page-title">말 속의 작업 신호,<br>입력하는 순간 확인해요.</h1>
+            <p class="intro-copy">문장을 바꾸면 실제 riidolaya 모델이 <strong>응답 요청 · 진행 보고 · 완료 보고</strong>를 각각 분류합니다.</p>
+          </div>
+          <div class="intro-detail"><span class="detail-icon" aria-hidden="true">↗</span><p>세 가지 신호를<br><strong>한눈에, 실시간으로.</strong></p></div>
+        </section>
+
+        <section class="input-panel" aria-labelledby="input-heading">
+          <div class="panel-topline">
+            <label id="input-heading" class="panel-title" for="claim-text">분류할 문장</label>
+            <div class="input-tools"><span class="live-label"><span aria-hidden="true"></span>입력하면 자동 분석</span><button id="clear-text" class="text-button" type="button" disabled>비우기</button></div>
+          </div>
+          <textarea id="claim-text" rows="3" spellcheck="false" autocomplete="off" aria-describedby="input-help byte-counter input-error" placeholder="예: 오늘 정리한 내용을 같이 검토해줄 수 있어?"></textarea>
+          <div class="input-bottomline"><p id="input-help">짧은 문장부터 긴 설명까지, 자유롭게 바꿔보세요.</p><span id="byte-counter" class="byte-counter">0 / 4,096 bytes</span></div>
+          <p id="input-error" class="input-error" role="alert" hidden></p>
+        </section>
+
+        <div class="examples" aria-label="직접 실행할 예시 문장">
+          <span class="examples-label">가볍게 시작하기</span>
+          <button class="example-button" type="button" data-example="request"><span aria-hidden="true">↗</span>의견을 구할 때</button>
+          <button class="example-button" type="button" data-example="activity"><span aria-hidden="true">↗</span>작업 중일 때</button>
+          <button class="example-button" type="button" data-example="completion"><span aria-hidden="true">↗</span>작업을 마쳤을 때</button>
+        </div>
+
+        <section class="results" aria-labelledby="results-heading" aria-busy="false">
+          <div class="results-topline">
+            <div class="results-title"><h2 id="results-heading">문장이 보내는 세 가지 신호</h2><span>각 항목은 독립적으로 판단해요</span></div>
+            <div id="run-status" class="run-status" data-phase="connecting"><span class="status-dot" aria-hidden="true"></span><span id="run-status-text">모델 연결 확인 중</span></div>
+          </div>
+
+          <div class="signal-grid">
+            <article class="signal-card request-card" data-head="response_requested" data-state="empty" aria-labelledby="request-title">
+              <div class="card-topline"><span class="signal-icon" aria-hidden="true">❓</span><span class="signal-number">01</span></div>
+              <h3 id="request-title">응답 요청</h3><p class="card-description">답변이나 확인을 요청하는가</p>
+              <div class="decision"><span class="decision-label">최종 판정</span><strong class="decision-value">입력 대기</strong></div>
+              <div class="probability-list" aria-label="응답 요청 원시 확률">
+                <div class="probability-row" data-class="true"><span>있음</span><meter min="0" max="1" value="0" aria-label="응답 요청 있음 확률"></meter><span class="probability-value">—</span></div>
+                <div class="probability-row" data-class="false"><span>없음</span><meter min="0" max="1" value="0" aria-label="응답 요청 없음 확률"></meter><span class="probability-value">—</span></div>
+                <div class="probability-row" data-class="unknown"><span>불명</span><meter min="0" max="1" value="0" aria-label="응답 요청 불명 확률"></meter><span class="probability-value">—</span></div>
+              </div>
+              <p class="raw-candidate">원시 후보 <strong>—</strong><span class="candidate-confidence"></span></p><p class="decision-note">문장을 입력하면 실제 모델 결과가 나타납니다.</p>
+            </article>
+
+            <article class="signal-card activity-card" data-head="current_activity_claimed" data-state="empty" aria-labelledby="activity-title">
+              <div class="card-topline"><span class="signal-icon" aria-hidden="true">🛠️</span><span class="signal-number">02</span></div>
+              <h3 id="activity-title">진행 보고</h3><p class="card-description">현재 작업 중이라고 말하는가</p>
+              <div class="decision"><span class="decision-label">최종 판정</span><strong class="decision-value">입력 대기</strong></div>
+              <div class="probability-list" aria-label="진행 보고 원시 확률">
+                <div class="probability-row" data-class="true"><span>있음</span><meter min="0" max="1" value="0" aria-label="진행 보고 있음 확률"></meter><span class="probability-value">—</span></div>
+                <div class="probability-row" data-class="false"><span>없음</span><meter min="0" max="1" value="0" aria-label="진행 보고 없음 확률"></meter><span class="probability-value">—</span></div>
+                <div class="probability-row" data-class="unknown"><span>불명</span><meter min="0" max="1" value="0" aria-label="진행 보고 불명 확률"></meter><span class="probability-value">—</span></div>
+              </div>
+              <p class="raw-candidate">원시 후보 <strong>—</strong><span class="candidate-confidence"></span></p><p class="decision-note">문장을 입력하면 실제 모델 결과가 나타납니다.</p>
+            </article>
+
+            <article class="signal-card completion-card" data-head="completion_claimed" data-state="empty" aria-labelledby="completion-title">
+              <div class="card-topline"><span class="signal-icon" aria-hidden="true">✅</span><span class="signal-number">03</span></div>
+              <h3 id="completion-title">완료 보고</h3><p class="card-description">작업을 마쳤다고 말하는가</p>
+              <div class="decision"><span class="decision-label">최종 판정</span><strong class="decision-value">입력 대기</strong></div>
+              <div class="probability-list" aria-label="완료 보고 원시 확률">
+                <div class="probability-row" data-class="true"><span>있음</span><meter min="0" max="1" value="0" aria-label="완료 보고 있음 확률"></meter><span class="probability-value">—</span></div>
+                <div class="probability-row" data-class="false"><span>없음</span><meter min="0" max="1" value="0" aria-label="완료 보고 없음 확률"></meter><span class="probability-value">—</span></div>
+                <div class="probability-row" data-class="unknown"><span>불명</span><meter min="0" max="1" value="0" aria-label="완료 보고 불명 확률"></meter><span class="probability-value">—</span></div>
+              </div>
+              <p class="raw-candidate">원시 후보 <strong>—</strong><span class="candidate-confidence"></span></p><p class="decision-note">문장을 입력하면 실제 모델 결과가 나타납니다.</p>
+            </article>
+          </div>
+          <p id="result-announcement" class="sr-only" aria-live="polite" aria-atomic="true"></p>
+          <div class="results-footline"><p>확률은 모델의 원시 점수입니다. <strong>판정 보류</strong>는 확정할 근거가 부족하다는 뜻입니다.</p><p id="inference-details" class="inference-details">실제 모델 · 입력 대기</p></div>
+        </section>
+
+        <aside class="research-note" aria-label="연구용 모델 안내"><span class="note-icon" aria-hidden="true">i</span><p><strong>연구용 미리보기</strong><span>이 모델은 아직 의미 분류 품질 검증을 통과하지 않았습니다. 완료 보고는 문장의 주장에 대한 분류이며, 실제 작업 완료를 검증하지 않습니다.</span></p></aside>
+      </main>
+
+      <footer class="site-footer"><span id="model-details">riidolaya · 로컬 추론</span><span>문장을 바꾸고, 신호를 살펴보세요.</span></footer>
+    </div>
+  </body>
+</html>

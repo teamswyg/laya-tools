@@ -1,0 +1,42 @@
+# Riidolaya hints while typing
+
+[한국어](live-claims-demo.ko.md) · [README](../README.en.md)
+
+Type or edit text to run a small Go model on three independent claims. Try the example buttons, then change the wording and compare actual results.
+
+- ❓ **Response requested:** Does the wording ask for an answer or confirmation?
+- 🛠️ **Current-work report:** Does it report development work being done now?
+- ✅ **Completion report:** Does it report completion of identifiable development work?
+
+A message can report work and request a response at the same time. A completion report is an attributed textual claim, not verification that real work is finished.
+
+## Run
+
+Build from this repository with Go 1.27.1. The web assets are embedded in the executable; no Node.js or Python server is required.
+
+```sh
+go build -o ./bin/riidolaya ./cmd/riidolaya
+mkdir -p .cache/live-claims-demo/model
+curl --fail --location \
+  'https://huggingface.co/JooYoon/riidolaya-development-claim-hints-semantic-contrast-v0.1/resolve/a94997978f4cd4a7dfbf2cbd4c0c22dee143d7ba/claims.rsc' \
+  --output .cache/live-claims-demo/model/claims.rsc
+./bin/riidolaya demo \
+  --model .cache/live-claims-demo/model/claims.rsc \
+  --model-sha256 cfd35ee70a23f94a8d470b7dea596244a91ac7f1410475e8a42959693c99864b
+```
+
+Open **http://127.0.0.1:8877**. Stop the server with `Ctrl+C` in its terminal. To change the port, add `--listen 127.0.0.1:8878`. Only loopback addresses are allowed.
+
+The model is an [immutable revision of the Apache-2.0 public research model](https://huggingface.co/JooYoon/riidolaya-development-claim-hints-semantic-contrast-v0.1/tree/a94997978f4cd4a7dfbf2cbd4c0c22dee143d7ba), **73,988 bytes**. The command checks the complete file SHA-256 before loading it. Model files stay out of Git. This is an authored Go feature classifier, not converted Laya weights; this demo needs neither a GPU nor an external inference API.
+
+## Read the screen
+
+After typing pauses, inference starts following an approximately 180ms debounce. Composition input is respected, stale responses cannot replace newer results, and empty input resets the cards. The limit is **4,096 UTF-8 bytes**. Over-budget input is rejected, never silently truncated.
+
+Each card's **final state** is present, absent or abstain. Probabilities are internal model scores, not accuracy guarantees. The **highest-scoring candidate** is shown separately. The unchanged confidence floor is 0.9 and margin floor 0.05: a leading candidate can still produce an abstention. An abstention is not a positive proposal.
+
+The displayed inference time measures server-side model execution. It excludes debounce, browser communication and rendering; it is not total CPU/GPU or memory usage. The model and workspace are prepared once and shared-workspace inference is serialized.
+
+Text goes only to this computer's local server and is not stored. Examples are newly authored for this demo and their results are computed by the actual model. The local API also provides `GET /api/status` and `POST /api/hints` (`{"text":"..."}`).
+
+The model remains **unqualified for production semantic quality**. This page demonstrates responses to wording changes and limitations; it does not change Riido labels, comments or task states. Protected training/evaluation corpora are not used in the demo.
