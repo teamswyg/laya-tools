@@ -23,6 +23,9 @@ jobs:
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
         with:
           go-version-file: go.mod
+      - name: Client interaction regression fixtures (Node built-ins; no browser or model)
+        if: runner.os == 'Linux'
+        run: node --test internal/claimsdemo/webtests/*.test.cjs
       - name: Format owned Go sources; preserve immutable upstream fixture bytes
         shell: bash
         run: |
