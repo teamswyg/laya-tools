@@ -17,7 +17,7 @@ import (
 	"github.com/teamswyg/laya-tools/pkg/statehintclaimtrit"
 )
 
-var errInput = errors.New("claims requires a valid local RSC model and bounded text or JSONL")
+var errInput = errors.New("claims requires a valid local RSC or RQT model and bounded text or JSONL")
 
 type response struct {
 	Schema       string                            `json:"schema"`

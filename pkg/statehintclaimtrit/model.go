@@ -248,6 +248,9 @@ func parentDigest(parent *statehintclaims.Model) ([sha256.Size]byte, error) {
 // undergoing Fit. Its Parameters API returns an owned value copy. parentSHA
 // must identify the actual canonical parent artifact; it is not an attestation.
 func FromFloat(parent *statehintclaims.Model, parentSHA string) (*Model, error) {
+	if len(parentSHA) != sha256.Size*2 {
+		return nil, ErrModel
+	}
 	raw, err := hex.DecodeString(parentSHA)
 	if err != nil || len(raw) != sha256.Size {
 		return nil, ErrModel

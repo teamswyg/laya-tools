@@ -162,6 +162,18 @@ func TestFromFloatVerifiesActualParentAndOwnsCopy(t *testing.T) {
 	}
 }
 
+func TestFromFloatRejectsOversizedDigestBeforeAllocation(t *testing.T) {
+	oversized := strings.Repeat("0", 1<<20)
+	if allocations := testing.AllocsPerRun(10, func() {
+		model, err := FromFloat(nil, oversized)
+		if model != nil || err != ErrModel {
+			t.Fatal("accepted oversized parent digest")
+		}
+	}); allocations != 0 {
+		t.Fatalf("oversized digest admission allocated %v times", allocations)
+	}
+}
+
 func TestPredictGuardsAndInheritedLearnedSource(t *testing.T) {
 	var p statehintclaims.Parameters
 	p.Bias = [HeadCount][StateCount]float32{{12, 0, 0}, {0, 12, 0}, {0, 0, 12}}
