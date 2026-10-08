@@ -28,6 +28,8 @@ jobs:
         run: node --test internal/claimsdemo/webtests/*.test.cjs
       - name: Reproduce captured live claim diagnostic (offline Go; no model or training)
         run: go run ./experiments/live-claims-behavior-check-v1/verify.go
+      - name: Check optional position-feature evidence (offline Go; no model or training)
+        run: go run ./experiments/claim-position-features-preview-v1/replay --check
       - name: Format owned Go sources; preserve immutable upstream fixture bytes
         shell: bash
         run: |

@@ -1,0 +1,35 @@
+{
+  "contract": "claim-position-features-preview-v1",
+  "status": "EXPERIMENTAL; locked before any new position extraction",
+  "locked_utc": "2026-10-08T02:40:58.537022+00:00",
+  "base_schema": "utf8-word12-char2345-fnv1a-signed-logtf-l2-2048-v2",
+  "preview_schema": "utf8-word12-char2345-v2-pos4-fnv1a-signed-logtf-l2-3072-preview-v1",
+  "dimensions": {
+    "base": 2048,
+    "position": 1024,
+    "total": 3072,
+    "regions": 4
+  },
+  "position_rule": "For lowercased rune sequence length R > 0, feature starting rune s belongs to region floor(4*s/R), in [0,3]. Every separator contributes to R. Word bigrams start at the first word; char windows crossing a boundary use their starting rune. No event is emitted for R=0.",
+  "local_features": "same Unicode word unigrams/bigrams and contiguous lowercased char windows of lengths 2,3,4,5 as v2; bigram uses zero-byte separator",
+  "position_hash": "FNV-1a offset 2166136261; process ASCII p, region byte 0..3, original feature prefix w/b/2/3/4/5, UTF-8 rune bytes, and optional zero-byte bigram separator/second token. index = 2048+(h % 1024), sign = -1 if h>>31 else +1.",
+  "normalization": "Call actual base extractor and expose its float32 bits/order unchanged. Position bank alone uses the same signed log1p(|signed count|), float64 sum-of-squares over first-seen active bins, float32 reciprocal norm and float32 multiply; fixed bank scale 1. Do not renormalize concatenation.",
+  "implementation_reason": "Actual public v2 API exposes sparse values and word count, not rune/event positions. Reparse the bounded input into an independent fixed rune array and enumerate the same local features for the append bank.",
+  "constraints": [
+    "complete valid UTF-8 <=4096 bytes; no truncation; reject NUL as actual base",
+    "caller-owned workspaces; fixed arrays and sparse indices/values; no hot-loop maps, string allocations, locks, global mutation",
+    "no manual semantic labels, negation rules, label-selected features, model operations, training, weights, thresholds or existing-CLI edits",
+    "all six original pairs retained including any failures; no new reference generation or accuracy test"
+  ],
+  "input_projection_sha256": "70ead000b150b40596d44e0bf977cb30c3541cf5d0d5c1d11996ec0ba3259174",
+  "source_sha256": {
+    "pkg/statehintwide/features.go": "2583110d12d01ab02ebb065d0986c04f228d78e4097452f5ddd67516097339fe",
+    "pkg/statehintwide/contextual_api.go": "6f828e32fd94c5e98f4e73bd792e50a566affa08b1ad255175cb7eb5d233457a",
+    "public-three-head-rubric": "811a30e594c371e9cde15b3cc2e3a98f1beb5ac506e8473ddf0595bc53f06187",
+    "immutable-original-inputs": "65cc22bc56d4b71c4da85dc643097dd41f05f4719ca464fbe28dab8a9d94001d",
+    "immutable-original-exclusion": "6f7cba2b0ee2261e458faa54af14e2bbca66ec56debf51593e290d7ee02ff3fa",
+    "immutable-original-results": "f45c8ea98fe1b4b3ce214a083d15237aaf556e2ac54b5b5be46c2356a8192546",
+    "immutable-semantic-join-aggregate": "0f133fa0dc2326b813aca27f3d5756a83dfd953087eb3f2968f8ca32296a8e51",
+    "immutable-first-blind-judgments": "bb652d21073784e685cfc4295b569ac9214feb56d5472afc8ef3f7647248e764"
+  }
+}
