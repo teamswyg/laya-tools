@@ -1,0 +1,402 @@
+{
+  "schema": "live-claims-behavior-check-inputs-v1",
+  "role": "AI-authored diagnostic hypotheses, not human gold and not final evaluation",
+  "author_receipt": {
+    "actor": "AI (Codex)",
+    "date_utc": "2026-10-08T01:20:55.087Z",
+    "action": "Author exactly 24 new original public-safe synthetic development messages and all three independent expected semantic states before inference."
+  },
+  "semantics": {
+    "response_requested": "An operative request addressed to a reader for an answer or choice. Mere reply mentions and explicitly quoted requests are false.",
+    "current_activity_claimed": "An assertion of author activity ongoing at message time. Future, past-only, and negated activity are false.",
+    "completion_claimed": "An explicit assertion that a named scope is complete; scoped completion is true even if another scope remains. Future, negated, and remaining-only completion are false.",
+    "unknown": "Semantic uncertainty from an underspecified fragment, distinct from an endpoint confidence/margin abstention.",
+    "independence": "Each head is interpreted independently; multiple positive heads may coexist. These definitions and all expected states are diagnostic hypotheses."
+  },
+  "entries": [
+    {
+      "id": "KO01",
+      "locale": "ko",
+      "text": "지금 동네 사진전의 작품 설명을 다듬고 있어요. 검토가 끝나면 내일 인쇄소에 넘길 예정이에요.",
+      "expected": {
+        "response_requested": "false",
+        "current_activity_claimed": "true",
+        "completion_claimed": "false"
+      },
+      "rationale": "Present ongoing author activity; future completion is not completed.",
+      "receipt": {
+        "actor": "AI (Codex)",
+        "date_utc": "2026-10-08T01:20:55.087Z",
+        "action": "Original synthetic development message authored; hypotheses fixed before inference."
+      }
+    },
+    {
+      "id": "KO02",
+      "locale": "ko",
+      "text": "다음 주 월요일부터 책방 안내판을 만들 계획이에요. 오늘은 그 일을 시작하지 않았어요.",
+      "expected": {
+        "response_requested": "false",
+        "current_activity_claimed": "false",
+        "completion_claimed": "false"
+      },
+      "rationale": "Future intention with explicit non-start today.",
+      "receipt": {
+        "actor": "AI (Codex)",
+        "date_utc": "2026-10-08T01:20:55.087Z",
+        "action": "Original synthetic development message authored; hypotheses fixed before inference."
+      }
+    },
+    {
+      "id": "KO03",
+      "locale": "ko",
+      "text": "어제 오후에는 독서 모임의 좌석 배치를 바꾸고 있었어요. 지금은 쉬는 시간이에요.",
+      "expected": {
+        "response_requested": "false",
+        "current_activity_claimed": "false",
+        "completion_claimed": "false"
+      },
+      "rationale": "Past ongoing activity with explicit current rest; no completion assertion.",
+      "receipt": {
+        "actor": "AI (Codex)",
+        "date_utc": "2026-10-08T01:20:55.087Z",
+        "action": "Original synthetic development message authored; hypotheses fixed before inference."
+      }
+    },
+    {
+      "id": "KO04",
+      "locale": "ko",
+      "text": "저는 지금 전시실 조명을 조정하고 있지 않아요. 조정 작업은 잠시 멈춘 상태예요.",
+      "expected": {
+        "response_requested": "false",
+        "current_activity_claimed": "false",
+        "completion_claimed": "false"
+      },
+      "rationale": "Negated current activity and paused work.",
+      "receipt": {
+        "actor": "AI (Codex)",
+        "date_utc": "2026-10-08T01:20:55.087Z",
+        "action": "Original synthetic development message authored; hypotheses fixed before inference."
+      }
+    },
+    {
+      "id": "KO05",
+      "locale": "ko",
+      "text": "정원 안내문의 오탈자 수정을 전부 끝냈어요. 이 수정 작업은 완료된 상태예요.",
+      "expected": {
+        "response_requested": "false",
+        "current_activity_claimed": "false",
+        "completion_claimed": "true"
+      },
+      "rationale": "Explicit completed scope.",
+      "receipt": {
+        "actor": "AI (Codex)",
+        "date_utc": "2026-10-08T01:20:55.087Z",
+        "action": "Original synthetic development message authored; hypotheses fixed before inference."
+      }
+    },
+    {
+      "id": "KO06",
+      "locale": "ko",
+      "text": "아직 동호회 회계표를 완성하지 못했어요. 빠진 항목이 무엇인지 한 가지씩 알려 주세요.",
+      "expected": {
+        "response_requested": "true",
+        "current_activity_claimed": "false",
+        "completion_claimed": "false"
+      },
+      "rationale": "Direct response request with negated completion; no ongoing assertion.",
+      "receipt": {
+        "actor": "AI (Codex)",
+        "date_utc": "2026-10-08T01:20:55.087Z",
+        "action": "Original synthetic development message authored; hypotheses fixed before inference."
+      }
+    },
+    {
+      "id": "KO07",
+      "locale": "ko",
+      "text": "축제 안내 책자에는 채워야 할 페이지가 세 장 남아 있어요. 전체 제작은 아직 끝나지 않았어요.",
+      "expected": {
+        "response_requested": "false",
+        "current_activity_claimed": "false",
+        "completion_claimed": "false"
+      },
+      "rationale": "Remaining work and explicit incomplete whole.",
+      "receipt": {
+        "actor": "AI (Codex)",
+        "date_utc": "2026-10-08T01:20:55.087Z",
+        "action": "Original synthetic development message authored; hypotheses fixed before inference."
+      }
+    },
+    {
+      "id": "KO08",
+      "locale": "ko",
+      "text": "음악회 팸플릿의 표지 교정만 끝냈어요. 본문 교정은 아직 시작하지 않았어요.",
+      "expected": {
+        "response_requested": "false",
+        "current_activity_claimed": "false",
+        "completion_claimed": "true"
+      },
+      "rationale": "Scoped completion is claimed even though other scope is unstarted; whole completion is not claimed.",
+      "receipt": {
+        "actor": "AI (Codex)",
+        "date_utc": "2026-10-08T01:20:55.087Z",
+        "action": "Original synthetic development message authored; hypotheses fixed before inference."
+      }
+    },
+    {
+      "id": "KO09",
+      "locale": "ko",
+      "text": "모임 시작 시간을 열 시와 열한 시 중에서 골라서 오늘 안에 답해 주세요.",
+      "expected": {
+        "response_requested": "true",
+        "current_activity_claimed": "false",
+        "completion_claimed": "false"
+      },
+      "rationale": "Operative direct request to answer.",
+      "receipt": {
+        "actor": "AI (Codex)",
+        "date_utc": "2026-10-08T01:20:55.087Z",
+        "action": "Original synthetic development message authored; hypotheses fixed before inference."
+      }
+    },
+    {
+      "id": "KO10",
+      "locale": "ko",
+      "text": "보통 문의에 답장이 오면 일정표에 표시해 두는 편이에요. 오늘의 일정표에는 빈칸이 많아요.",
+      "expected": {
+        "response_requested": "false",
+        "current_activity_claimed": "false",
+        "completion_claimed": "false"
+      },
+      "rationale": "Habit and observation; mentions replies without requesting one.",
+      "receipt": {
+        "actor": "AI (Codex)",
+        "date_utc": "2026-10-08T01:20:55.087Z",
+        "action": "Original synthetic development message authored; hypotheses fixed before inference."
+      }
+    },
+    {
+      "id": "KO11",
+      "locale": "ko",
+      "text": "지금 도서관 이용 안내를 고치는 중이고 제목 수정은 끝냈어요. 예문 속 “가능한 시간을 답해 주세요”는 안내 문구를 인용한 것이에요.",
+      "expected": {
+        "response_requested": "false",
+        "current_activity_claimed": "true",
+        "completion_claimed": "true"
+      },
+      "rationale": "Mixed present activity and scoped completion; a quoted request is not an operative request.",
+      "receipt": {
+        "actor": "AI (Codex)",
+        "date_utc": "2026-10-08T01:20:55.087Z",
+        "action": "Original synthetic development message authored; hypotheses fixed before inference."
+      }
+    },
+    {
+      "id": "KO12",
+      "locale": "ko",
+      "text": "진행? 완료? 회신?",
+      "expected": {
+        "response_requested": "unknown",
+        "current_activity_claimed": "unknown",
+        "completion_claimed": "unknown"
+      },
+      "rationale": "Context-poor labels/questions with no actor, scope, or operative predicate; semantic uncertainty hypothesis.",
+      "receipt": {
+        "actor": "AI (Codex)",
+        "date_utc": "2026-10-08T01:20:55.087Z",
+        "action": "Original synthetic development message authored; hypotheses fixed before inference."
+      }
+    },
+    {
+      "id": "EN01",
+      "locale": "en",
+      "text": "I am sorting the community garden photo captions right now. I plan to send the draft when that work ends.",
+      "expected": {
+        "response_requested": "false",
+        "current_activity_claimed": "true",
+        "completion_claimed": "false"
+      },
+      "rationale": "Present ongoing author activity plus future milestone.",
+      "receipt": {
+        "actor": "AI (Codex)",
+        "date_utc": "2026-10-08T01:20:55.087Z",
+        "action": "Original synthetic development message authored; hypotheses fixed before inference."
+      }
+    },
+    {
+      "id": "EN02",
+      "locale": "en",
+      "text": "I will begin the museum audio notes on Friday. I have not started that work today.",
+      "expected": {
+        "response_requested": "false",
+        "current_activity_claimed": "false",
+        "completion_claimed": "false"
+      },
+      "rationale": "Future plan with explicit current non-start.",
+      "receipt": {
+        "actor": "AI (Codex)",
+        "date_utc": "2026-10-08T01:20:55.087Z",
+        "action": "Original synthetic development message authored; hypotheses fixed before inference."
+      }
+    },
+    {
+      "id": "EN03",
+      "locale": "en",
+      "text": "Yesterday I was rearranging the chess club table plan. At the moment I am taking a break.",
+      "expected": {
+        "response_requested": "false",
+        "current_activity_claimed": "false",
+        "completion_claimed": "false"
+      },
+      "rationale": "Past progressive activity and current rest; no completion assertion.",
+      "receipt": {
+        "actor": "AI (Codex)",
+        "date_utc": "2026-10-08T01:20:55.087Z",
+        "action": "Original synthetic development message authored; hypotheses fixed before inference."
+      }
+    },
+    {
+      "id": "EN04",
+      "locale": "en",
+      "text": "I am not editing the walking-tour map now. That task is paused.",
+      "expected": {
+        "response_requested": "false",
+        "current_activity_claimed": "false",
+        "completion_claimed": "false"
+      },
+      "rationale": "Negated current activity and pause.",
+      "receipt": {
+        "actor": "AI (Codex)",
+        "date_utc": "2026-10-08T01:20:55.087Z",
+        "action": "Original synthetic development message authored; hypotheses fixed before inference."
+      }
+    },
+    {
+      "id": "EN05",
+      "locale": "en",
+      "text": "I finished every correction to the pottery workshop handout. The correction task is complete.",
+      "expected": {
+        "response_requested": "false",
+        "current_activity_claimed": "false",
+        "completion_claimed": "true"
+      },
+      "rationale": "Explicit complete correction scope.",
+      "receipt": {
+        "actor": "AI (Codex)",
+        "date_utc": "2026-10-08T01:20:55.087Z",
+        "action": "Original synthetic development message authored; hypotheses fixed before inference."
+      }
+    },
+    {
+      "id": "EN06",
+      "locale": "en",
+      "text": "I have not completed the birdwatching checklist. Please tell me which two entries still need descriptions.",
+      "expected": {
+        "response_requested": "true",
+        "current_activity_claimed": "false",
+        "completion_claimed": "false"
+      },
+      "rationale": "Operative response request with negated completion.",
+      "receipt": {
+        "actor": "AI (Codex)",
+        "date_utc": "2026-10-08T01:20:55.087Z",
+        "action": "Original synthetic development message authored; hypotheses fixed before inference."
+      }
+    },
+    {
+      "id": "EN07",
+      "locale": "en",
+      "text": "The neighborhood cookbook still has four blank recipe pages. The entire book remains unfinished.",
+      "expected": {
+        "response_requested": "false",
+        "current_activity_claimed": "false",
+        "completion_claimed": "false"
+      },
+      "rationale": "Remaining scope with explicit incomplete whole.",
+      "receipt": {
+        "actor": "AI (Codex)",
+        "date_utc": "2026-10-08T01:20:55.087Z",
+        "action": "Original synthetic development message authored; hypotheses fixed before inference."
+      }
+    },
+    {
+      "id": "EN08",
+      "locale": "en",
+      "text": "Only the cover illustration for the school fair booklet is finished. I have not begun the inside illustrations.",
+      "expected": {
+        "response_requested": "false",
+        "current_activity_claimed": "false",
+        "completion_claimed": "true"
+      },
+      "rationale": "A limited completed scope is claimed; completion of the whole is not claimed.",
+      "receipt": {
+        "actor": "AI (Codex)",
+        "date_utc": "2026-10-08T01:20:55.087Z",
+        "action": "Original synthetic development message authored; hypotheses fixed before inference."
+      }
+    },
+    {
+      "id": "EN09",
+      "locale": "en",
+      "text": "Please choose either the north entrance or the west entrance and send me your choice before noon.",
+      "expected": {
+        "response_requested": "true",
+        "current_activity_claimed": "false",
+        "completion_claimed": "false"
+      },
+      "rationale": "Direct request for a recipient response.",
+      "receipt": {
+        "actor": "AI (Codex)",
+        "date_utc": "2026-10-08T01:20:55.087Z",
+        "action": "Original synthetic development message authored; hypotheses fixed before inference."
+      }
+    },
+    {
+      "id": "EN10",
+      "locale": "en",
+      "text": "Replies usually appear beside each question in the archive. There are several empty rows in today’s copy.",
+      "expected": {
+        "response_requested": "false",
+        "current_activity_claimed": "false",
+        "completion_claimed": "false"
+      },
+      "rationale": "Descriptive statement mentioning replies, without an operative request.",
+      "receipt": {
+        "actor": "AI (Codex)",
+        "date_utc": "2026-10-08T01:20:55.087Z",
+        "action": "Original synthetic development message authored; hypotheses fixed before inference."
+      }
+    },
+    {
+      "id": "EN11",
+      "locale": "en",
+      "text": "I am revising the aquarium visitor guide now, and I have finished the heading changes. The sample sentence “Tell me your preferred date” is a quotation in the guide.",
+      "expected": {
+        "response_requested": "false",
+        "current_activity_claimed": "true",
+        "completion_claimed": "true"
+      },
+      "rationale": "Mixed ongoing activity and scoped completion with a quoted request.",
+      "receipt": {
+        "actor": "AI (Codex)",
+        "date_utc": "2026-10-08T01:20:55.087Z",
+        "action": "Original synthetic development message authored; hypotheses fixed before inference."
+      }
+    },
+    {
+      "id": "EN12",
+      "locale": "en",
+      "text": "Current? Done? Reply?",
+      "expected": {
+        "response_requested": "unknown",
+        "current_activity_claimed": "unknown",
+        "completion_claimed": "unknown"
+      },
+      "rationale": "Context-poor fragments without actor or scope; semantic uncertainty hypothesis.",
+      "receipt": {
+        "actor": "AI (Codex)",
+        "date_utc": "2026-10-08T01:20:55.087Z",
+        "action": "Original synthetic development message authored; hypotheses fixed before inference."
+      }
+    }
+  ]
+}

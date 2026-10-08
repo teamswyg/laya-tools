@@ -1,0 +1,23 @@
+{
+  "schema": "live-claims-behavior-check-lock-v1",
+  "actor": "AI (Codex)",
+  "date_utc": "2026-10-08T01:20:55.092Z",
+  "action": "Lock immutable inputs and expected hypotheses before any POST /api/hints model call.",
+  "input_count": 24,
+  "locale_counts": {
+    "ko": 12,
+    "en": 12
+  },
+  "locked_inputs_sha256": "7c241bca2facb9eb15b8bcd1785b54aa5171d92b3e677beea4f8139e92a583d3",
+  "permanent_exclusion_sha256": "6d95c78f4497309173c19051831ae49958950f009679ddd38c94590281d8ca10",
+  "lock_method": "Exclusive write plus read-only file mode 0444; every later run validates SHA and mode before calls.",
+  "model_call_count_before_lock": 0,
+  "allowed_endpoint": "http://127.0.0.1:8877/api/hints",
+  "request_policy": "Exactly one HTTP POST per authored entry, sequentially, without retry, refill, or input/expectation edits.",
+  "expected_model_pin": "cfd35ee70a23f94a8d470b7dea596244a91ac7f1410475e8a42959693c99864b",
+  "required_thresholds": {
+    "confidence_floor": 0.9,
+    "margin_floor": 0.05,
+    "temperature": 1
+  }
+}
