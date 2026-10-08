@@ -1,0 +1,78 @@
+{
+  "status": "focused checks passed; root full-repository checks are separate",
+  "go_version": "go1.27.1",
+  "goos": "darwin",
+  "goarch": "arm64",
+  "gomaxprocs": 2,
+  "package_tests": {
+    "command": "GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off GOMAXPROCS=2 go test ./pkg/statehintpositionpreview ./experiments/claim-position-features-preview-v1/replay -count=1 -cpu=2",
+    "passed": true
+  },
+  "race": {
+    "command": "GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off GOMAXPROCS=2 go test -race ./pkg/statehintpositionpreview ./experiments/claim-position-features-preview-v1/replay -count=1 -cpu=2",
+    "passed": true,
+    "result": "preview package and replay overwrite-guard test passed after final CLI changes"
+  },
+  "vet": {
+    "command": "GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off GOMAXPROCS=2 go vet ./pkg/statehintpositionpreview ./experiments/claim-position-features-preview-v1/replay",
+    "passed": true
+  },
+  "format": {
+    "command": "gofmt -l pkg/statehintpositionpreview/*.go experiments/claim-position-features-preview-v1/replay/*.go",
+    "passed": true
+  },
+  "mechanical_fixture_repair": {
+    "initial_reuse_clearing_fixture_bytes": 4140,
+    "initial_outcome": "Correctly rejected as exceeding the fixed 4096-byte input bound; test-only setup mistake.",
+    "fixed_reuse_clearing_fixture_bytes": 3910,
+    "changes": "Only mechanical fixture repetition count 180→170; no fixed encoding change, original twelve text edits, pair omission or semantic relabeling.",
+    "rerun_outcome": "All focused tests passed."
+  },
+  "tested_properties": [
+    "first 2048 dense float32 bit and sparse order parity against actual v2",
+    "actual v2 word count parity",
+    "maximum complete ASCII/multibyte UTF-8; empty, nil, invalid UTF-8, NUL and oversized input",
+    "independent hand-enumerated rune region and UTF-8/FNV fixture",
+    "signed collisions retain activated zero bins; signed log-TF/rounding; independent unit norm banks",
+    "deterministic workspace clearing/reuse and recovery after invalid input",
+    "zero warm extraction allocations",
+    "race-safe concurrent callers with separate workspaces",
+    "all six original engineered pairs retained and reported mechanically; no accuracy assertions",
+    "replay stdout defaults and read-only check protect frozen evidence; explicit file output is opt-in"
+  ],
+  "source_sha256": {
+    "pkg/statehintwide/features.go": "2583110d12d01ab02ebb065d0986c04f228d78e4097452f5ddd67516097339fe",
+    "pkg/statehintwide/contextual_api.go": "6f828e32fd94c5e98f4e73bd792e50a566affa08b1ad255175cb7eb5d233457a",
+    "pkg/statehintpositionpreview/features.go": "abeb2f0a3c5332e251c1733ed228a98ddb61055ed00bc80ec2cfca041fa56c99",
+    "pkg/statehintpositionpreview/features_test.go": "7852db7ec2b81cae90c7eceb9daf8ac6aa42f0ccfb863d73ea87298fab3d0f51",
+    "pkg/statehintpositionpreview/features_bench_test.go": "a78efcb131d9c6b923be55e12a3fbb90d3b17553c56caffe68ebcff9dc76737e",
+    "experiments/claim-position-features-preview-v1/replay/main.go": "9a1b09e5a4cb1e79c3fcad68d6775e08bf39da8095b8eb42b69fce2318381442",
+    "experiments/claim-position-features-preview-v1/replay/main_test.go": "ac0d7eb447219d265cca98e7f92041bb71ef8055cdc8b6f8aeaa0eafaafbcc29"
+  },
+  "locked_source_digests_unchanged": true,
+  "all_twelve_public_texts_exactly_match_immutable_originals": true,
+  "public_projection_omits_semantic_labels_and_private_paths": true,
+  "replay_publication_guard": {
+    "default_output": "stdout (-); no default file write",
+    "explicit_stdout_supported": true,
+    "explicit_file_output_only": true,
+    "read_only_check_command": "GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off GOMAXPROCS=2 go run ./experiments/claim-position-features-preview-v1/replay --check",
+    "read_only_check_passed": true,
+    "guard_test_passed": true,
+    "tested_behaviour": [
+      "default and explicit stdout leave recorded results unchanged",
+      "successful and failed checks leave recorded results unchanged",
+      "check plus file output is rejected before writing",
+      "explicit output path creates a separate result file"
+    ],
+    "comparison_boundary": "Compare feature receipts, schemas, aggregates, input/design digests, encoding-source pins and size arithmetic; ignore execution-host metadata and the replay tool historical source pin.",
+    "recorded_artifacts_unchanged_sha256": {
+      "results.json": "64cbccec885c9fa7e0eb6b5d1d9ffb8912bd2f58181be6b060f0c493bc037ae4",
+      "benchmark.txt": "e748787751dc128237eb14b264325877e80167712b62a3a93f4cad795b700c16",
+      "BENCHMARK.json": "54d1b755f4b07a15080ca0fe93c7efd8bf0023a233eba42542ac4990c07d91b7",
+      "cases.json": "70ead000b150b40596d44e0bf977cb30c3541cf5d0d5c1d11996ec0ba3259174",
+      "DESIGN.lock.json": "c113b80637468d76a81c42f862bb3cd21c6c9ee647ee7f3cb3ff2c6213c2ba3f"
+    },
+    "no_new_benchmark_or_model_calls": true
+  }
+}
