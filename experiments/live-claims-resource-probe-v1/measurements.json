@@ -1,0 +1,608 @@
+{
+  "development_measurement_only": true,
+  "exact_replay_availability": "Byte-exact measured Go helper and its eight original unlabelled public-safe phrases are published in replay/main.go; source SHA matches the measured helper. Model artifact and raw local logs are excluded. Rebuilt binaries/timings can differ by package path, host and load. No measurement rerun for publication.",
+  "execution": "CPU-only pure-Go binary; one sequential inference/request worker per arm; GOMAXPROCS=2; GOMEMLIMIT=128MiB (soft Go memory limit)",
+  "host": {
+    "cpu": "Apple M4 Pro",
+    "hardware_model": "Mac16,11",
+    "logical_cpus": 14,
+    "macos_build": "25G83",
+    "macos_version": "26.6.2",
+    "physical_cpus": 14,
+    "ram_bytes": 25769803776
+  },
+  "input_exclusion": "Exposed development inputs; excluded from protected final 2,400-example dataset and model/selector tuning.",
+  "limitations": [
+    "Development resource/throughput evidence on eight fresh original unlabelled 50–71-byte inputs; no semantic accuracy, generalization, production SLA or real Riido LLM savings evidence.",
+    "Three short fixed runs only; repeats have different duration/call budgets per arm, a shared live server and possible concurrent host activity. Quantiles are per-run and summarized across repeats, not pooled.",
+    "Predict latency brackets the Go call; whole-loop throughput includes timers, checksums, deterministic-output checks and loop work. HTTP latency includes request construction, loopback transport, server work, response read/JSON decode and pin validation. No isolated network overhead estimate.",
+    "External maximum RSS covers the measured process: in-process helper, or HTTP client helper only. HTTP helper also verifies/loads a duplicate local model and retains instrumentation; already-running server RSS/CPU are not measured. RSS includes more than Go heap.",
+    "Go MemStats measures Go-managed allocations and memory; latency sample arrays and bookkeeping are included in retained heap. It does not report native/GPU memory. CGO was disabled and no GPU inference was needed.",
+    "Each direct loop recorded 16 bytes/one timed allocation overall; this is near-zero observed per-call allocation, not a claim that Predict alone allocates exactly zero.",
+    "Server inference_us is integer microseconds from the live response. Raw JSON reused *_ns subfield names inside server_inference_reported_us; aggregate normalizes these to *_us without altering numerical observations.",
+    "External time CPU/wall fields are rounded to 0.01 seconds and include startup, model hash/load, warmup, GC and output; the first direct process had additional startup wall time. No whole-host CPU utilization estimate.",
+    "Eight original unlabelled probe phrases and the byte-exact measured helper are now public exposed development material, excluded from future protected final datasets and selector tuning. Model artifacts/raw local logs remain private. No protected research data was read; no training, threshold/model selection, server restart or application writes occurred."
+  ],
+  "model": {
+    "bytes": 73988,
+    "externally_supplied_lineage": "HF semanticcontrast parent21",
+    "sha256": "cfd35ee70a23f94a8d470b7dea596244a91ac7f1410475e8a42959693c99864b",
+    "training_steps": 4240
+  },
+  "private_helper_and_binary_pins": [
+    {
+      "bytes": 16069,
+      "file_basename": "main.go",
+      "retained_privately": true,
+      "sha256": "8de5021bb4a80887022b87be16a44a7ffc0a3e42ce1fb8f9577f40d4ce500df1"
+    },
+    {
+      "bytes": 6404194,
+      "file_basename": "probe",
+      "retained_privately": true,
+      "sha256": "298a6957a058e750eb3bee1c8524a0058f6d96bcccfa3f1acd8e9b80f05dac0b"
+    },
+    {
+      "bytes": 14481,
+      "file_basename": "aggregate.go",
+      "retained_privately": true,
+      "sha256": "4aad738c57c0de5fb3f72ed944f63a93ac27ea0ddb2ce5564db57df24238eb8f"
+    }
+  ],
+  "protocol": {
+    "cgo_enabled": 0,
+    "checksum_scope": "all numeric and decision prediction fields; deterministic checksum guards; no semantic targets",
+    "deadline_seconds_per_arm": 55,
+    "go_version": "go1.27.1",
+    "goarch": "arm64",
+    "gomaxprocs": 2,
+    "gomemlimit": "128MiB",
+    "goos": "darwin",
+    "goproxy": "off",
+    "gotoolchain": "local",
+    "gowork": "off",
+    "input_corpus_framed_sha256": "0a81f50a71ff1e8e7a988188034cb1989bbe0f41fec92fe21350ed8cbfa2b3b1",
+    "input_count": 8,
+    "input_json_body_bytes": [
+      63,
+      65,
+      61,
+      62,
+      62,
+      75,
+      74,
+      82
+    ],
+    "input_language_counts": {
+      "English": 5,
+      "Korean": 3
+    },
+    "input_order": "fixed round robin, no labels or selection",
+    "input_utf8_bytes": [
+      52,
+      54,
+      50,
+      51,
+      51,
+      64,
+      63,
+      71
+    ],
+    "mean_input_utf8_bytes": 57,
+    "same_first_cycle_checksum_all_six": "ac8b22815a94d3b3",
+    "sequence": [
+      "inprocess-1",
+      "http-1",
+      "inprocess-2",
+      "http-2",
+      "inprocess-3",
+      "http-3"
+    ],
+    "server_pin_checks_successful": 6,
+    "total_http_requests": 1902,
+    "warmup_excluded": true
+  },
+  "record_pins": [
+    {
+      "bytes": 3614,
+      "file": "inprocess-1.json",
+      "sha256": "a090a83ac3cceb5f18d12bbc86f914c13fa14f7bcb9088aff39392a6f7023908"
+    },
+    {
+      "bytes": 777,
+      "file": "inprocess-1.time.txt",
+      "sha256": "685de2ca2e78e4feaec15b78185736a8e726186b401809bfbf37a76cdae1c89e"
+    },
+    {
+      "bytes": 3614,
+      "file": "inprocess-2.json",
+      "sha256": "a9b3f047ea264b80214ad2cdb57a85bd312a14d57db49b64023f3b0432a83ded"
+    },
+    {
+      "bytes": 777,
+      "file": "inprocess-2.time.txt",
+      "sha256": "447a317fa895ad5000016eee8bbe95c6a54ff68b343f33e62d480c7f5f573fb4"
+    },
+    {
+      "bytes": 3623,
+      "file": "inprocess-3.json",
+      "sha256": "04da1bf53b7b3235f32fa08626fd970e50b8fc1b17d67a0a5ced4fc5939cd9f7"
+    },
+    {
+      "bytes": 777,
+      "file": "inprocess-3.time.txt",
+      "sha256": "f2f3ac6e89e6227733132020779719d90c73f40f313dc7624f2a85bd38155aba"
+    },
+    {
+      "bytes": 4685,
+      "file": "http-1.json",
+      "sha256": "b1368154b9d5d4824fac8626a16d5c6c33c69ae3f8dcd2f422ec4fd868de2240"
+    },
+    {
+      "bytes": 777,
+      "file": "http-1.time.txt",
+      "sha256": "1269cfc829af8c2d742439c2a7e8aaa772ea44506b818e69bf9d56b246b606f3"
+    },
+    {
+      "bytes": 4660,
+      "file": "http-2.json",
+      "sha256": "b3a9af4cbd92da42068b9cacbc9a7c215be0c199e4c9fa7e8c9bfa2033afce4d"
+    },
+    {
+      "bytes": 777,
+      "file": "http-2.time.txt",
+      "sha256": "2bae023bc841c123154dc64ff8d5715723f7f86327c6c079d835c7743f607fae"
+    },
+    {
+      "bytes": 4670,
+      "file": "http-3.json",
+      "sha256": "9f1721af1ad2254774709e84151b94c5adc6f94710a71bab47747a6c1b450d7c"
+    },
+    {
+      "bytes": 777,
+      "file": "http-3.time.txt",
+      "sha256": "5bf6740557236afc9a9c6c06ea222f057665b69b72841e56529d336471d33ef0"
+    }
+  ],
+  "repo_head_before_measurement": "798edb6157fe3723a11f18f54718b58e156b6ddb",
+  "runs": [
+    {
+      "allocated_bytes_per_call": 0.0005333333333333334,
+      "arm": "inprocess",
+      "calls_per_second": 212104.69773514534,
+      "external_whole_process_real_seconds": 0.75,
+      "external_whole_process_sys_seconds": 0.01,
+      "external_whole_process_user_seconds": 0.15,
+      "first_cycle_checksum_hex": "ac8b22815a94d3b3",
+      "http_status_calls": 0,
+      "latency_us": {
+        "max": 16.584,
+        "mean": 3.890159,
+        "p50": 3.625,
+        "p95": 6.25,
+        "p99": 7.625
+      },
+      "loop_elapsed_ms": 141.439583,
+      "mallocs_per_call": 0.000033333333333333335,
+      "max_whole_process_rss_bytes": 12877824,
+      "measured_calls": 30000,
+      "net_after_load_go_heap_alloc_delta_bytes": 81208,
+      "prediction_checksum_hex": "8e2766d9b9cfd615",
+      "repeat": 1,
+      "retained_go_heap_alloc_after_calls_gc_bytes": 688208,
+      "started_utc": "2026-10-07T23:44:09.696013Z",
+      "timed_allocated_bytes": 16,
+      "timed_gcs": 0,
+      "timed_mallocs": 1,
+      "warm_ready_go_heap_alloc_bytes": 687688,
+      "warmup_calls": 128
+    },
+    {
+      "allocated_bytes_per_call": 0.0005333333333333334,
+      "arm": "inprocess",
+      "calls_per_second": 229626.32403112503,
+      "external_whole_process_real_seconds": 0.14,
+      "external_whole_process_sys_seconds": 0,
+      "external_whole_process_user_seconds": 0.13,
+      "first_cycle_checksum_hex": "ac8b22815a94d3b3",
+      "http_status_calls": 0,
+      "latency_us": {
+        "max": 13.208,
+        "mean": 3.5994118,
+        "p50": 3.5,
+        "p95": 5,
+        "p99": 5.834
+      },
+      "loop_elapsed_ms": 130.647042,
+      "mallocs_per_call": 0.000033333333333333335,
+      "max_whole_process_rss_bytes": 12894208,
+      "measured_calls": 30000,
+      "net_after_load_go_heap_alloc_delta_bytes": 81208,
+      "prediction_checksum_hex": "8e2766d9b9cfd615",
+      "repeat": 2,
+      "retained_go_heap_alloc_after_calls_gc_bytes": 688208,
+      "started_utc": "2026-10-07T23:44:30.552501Z",
+      "timed_allocated_bytes": 16,
+      "timed_gcs": 0,
+      "timed_mallocs": 1,
+      "warm_ready_go_heap_alloc_bytes": 687688,
+      "warmup_calls": 128
+    },
+    {
+      "allocated_bytes_per_call": 0.0005333333333333334,
+      "arm": "inprocess",
+      "calls_per_second": 253938.60683744427,
+      "external_whole_process_real_seconds": 0.12,
+      "external_whole_process_sys_seconds": 0,
+      "external_whole_process_user_seconds": 0.12,
+      "first_cycle_checksum_hex": "ac8b22815a94d3b3",
+      "http_status_calls": 0,
+      "latency_us": {
+        "max": 19.167,
+        "mean": 3.2502688333333336,
+        "p50": 3.375,
+        "p95": 3.709,
+        "p99": 4.667
+      },
+      "loop_elapsed_ms": 118.138791,
+      "mallocs_per_call": 0.000033333333333333335,
+      "max_whole_process_rss_bytes": 12795904,
+      "measured_calls": 30000,
+      "net_after_load_go_heap_alloc_delta_bytes": 81208,
+      "prediction_checksum_hex": "8e2766d9b9cfd615",
+      "repeat": 3,
+      "retained_go_heap_alloc_after_calls_gc_bytes": 688368,
+      "started_utc": "2026-10-07T23:44:30.786267Z",
+      "timed_allocated_bytes": 16,
+      "timed_gcs": 0,
+      "timed_mallocs": 1,
+      "warm_ready_go_heap_alloc_bytes": 687848,
+      "warmup_calls": 128
+    },
+    {
+      "allocated_bytes_per_call": 8624.026666666667,
+      "arm": "http",
+      "calls_per_second": 12890.324116672815,
+      "external_whole_process_real_seconds": 0.06,
+      "external_whole_process_sys_seconds": 0.02,
+      "external_whole_process_user_seconds": 0.02,
+      "first_cycle_checksum_hex": "ac8b22815a94d3b3",
+      "http_status_calls": 2,
+      "latency_us": {
+        "max": 800.459,
+        "mean": 76.58832166666667,
+        "p50": 65.625,
+        "p95": 118.375,
+        "p99": 161.417
+      },
+      "loop_elapsed_ms": 46.546541,
+      "mallocs_per_call": 82.07333333333334,
+      "max_whole_process_rss_bytes": 17481728,
+      "measured_calls": 600,
+      "net_after_load_go_heap_alloc_delta_bytes": 81208,
+      "prediction_checksum_hex": "6d7cb4a547b59523",
+      "repeat": 1,
+      "retained_go_heap_alloc_after_calls_gc_bytes": 324768,
+      "server_pins_before_and_after_match": true,
+      "server_reported_inference_us": {
+        "max_us": 17,
+        "mean_us": 4.935,
+        "p50_us": 5,
+        "p95_us": 7,
+        "p99_us": 9
+      },
+      "started_utc": "2026-10-07T23:44:12.311239Z",
+      "timed_allocated_bytes": 5174416,
+      "timed_gcs": 1,
+      "timed_mallocs": 49244,
+      "warm_ready_go_heap_alloc_bytes": 322272,
+      "warmup_calls": 32
+    },
+    {
+      "allocated_bytes_per_call": 8622.346666666666,
+      "arm": "http",
+      "calls_per_second": 14245.662605299487,
+      "external_whole_process_real_seconds": 0.05,
+      "external_whole_process_sys_seconds": 0.02,
+      "external_whole_process_user_seconds": 0.01,
+      "first_cycle_checksum_hex": "ac8b22815a94d3b3",
+      "http_status_calls": 2,
+      "latency_us": {
+        "max": 194.542,
+        "mean": 69.26363,
+        "p50": 72.833,
+        "p95": 90.917,
+        "p99": 109.875
+      },
+      "loop_elapsed_ms": 42.118083,
+      "mallocs_per_call": 82.06,
+      "max_whole_process_rss_bytes": 17580032,
+      "measured_calls": 600,
+      "net_after_load_go_heap_alloc_delta_bytes": 81208,
+      "prediction_checksum_hex": "6d7cb4a547b59523",
+      "repeat": 2,
+      "retained_go_heap_alloc_after_calls_gc_bytes": 323504,
+      "server_pins_before_and_after_match": true,
+      "server_reported_inference_us": {
+        "max_us": 7,
+        "mean_us": 4.505,
+        "p50_us": 5,
+        "p95_us": 6,
+        "p99_us": 6
+      },
+      "started_utc": "2026-10-07T23:44:30.700239Z",
+      "timed_allocated_bytes": 5173408,
+      "timed_gcs": 1,
+      "timed_mallocs": 49236,
+      "warm_ready_go_heap_alloc_bytes": 321680,
+      "warmup_calls": 32
+    },
+    {
+      "allocated_bytes_per_call": 8620.88,
+      "arm": "http",
+      "calls_per_second": 14235.044306575404,
+      "external_whole_process_real_seconds": 0.05,
+      "external_whole_process_sys_seconds": 0.02,
+      "external_whole_process_user_seconds": 0.01,
+      "first_cycle_checksum_hex": "ac8b22815a94d3b3",
+      "http_status_calls": 2,
+      "latency_us": {
+        "max": 211.583,
+        "mean": 69.31887833333333,
+        "p50": 72.958,
+        "p95": 90.25,
+        "p99": 99.75
+      },
+      "loop_elapsed_ms": 42.1495,
+      "mallocs_per_call": 82.04166666666667,
+      "max_whole_process_rss_bytes": 17629184,
+      "measured_calls": 600,
+      "net_after_load_go_heap_alloc_delta_bytes": 81208,
+      "prediction_checksum_hex": "6d7cb4a547b59523",
+      "repeat": 3,
+      "retained_go_heap_alloc_after_calls_gc_bytes": 323120,
+      "server_pins_before_and_after_match": true,
+      "server_reported_inference_us": {
+        "max_us": 9,
+        "mean_us": 4.51,
+        "p50_us": 5,
+        "p95_us": 6,
+        "p99_us": 6
+      },
+      "started_utc": "2026-10-07T23:44:30.942722Z",
+      "timed_allocated_bytes": 5172528,
+      "timed_gcs": 1,
+      "timed_mallocs": 49225,
+      "warm_ready_go_heap_alloc_bytes": 322112,
+      "warmup_calls": 32
+    }
+  ],
+  "schema": "live-claims-resource-aggregate-v1",
+  "semantic_quality_qualified": false,
+  "separate_live_server_ps_snapshot": {
+    "approximate_process_elapsed": "16m50s",
+    "displayed_cpu_percent": 0,
+    "exact_utc_captured": false,
+    "measured_peak": false,
+    "rss_bytes": 12353536,
+    "rss_kib": 12064,
+    "rss_mib": 11.78125,
+    "source": "maintainer-supplied separate observation",
+    "time_matched_to_probe": false
+  },
+  "source_pins": [
+    {
+      "bytes": 166,
+      "file": "go.mod",
+      "sha256": "d3dac31b277d3945ff0333c5099e5e5c47807bd8310b0c9d71d29dbdeff8e9ec"
+    },
+    {
+      "bytes": 511,
+      "file": "go.sum",
+      "sha256": "b89ba980a5c517f5e9e52a67448d2db01d4b6be95a4afb54d7739a610a872132"
+    },
+    {
+      "bytes": 7595,
+      "file": "pkg/statehintclaims/model.go",
+      "sha256": "92053e37dc1295ae9cc3e687fe1dfab7f53f95e389b3dd67702087f3db75b688"
+    },
+    {
+      "bytes": 4535,
+      "file": "pkg/statehintclaims/artifact.go",
+      "sha256": "437ff9eb0a8945fde0be018e0f542f9f7bbb38ff03e5c980d5bc6739ea8a8801"
+    },
+    {
+      "bytes": 3698,
+      "file": "pkg/statehintwide/model.go",
+      "sha256": "34ec70a304a0b9cd5041f49acfcb8277522a59b3fb6fb9983b01131f448c8571"
+    },
+    {
+      "bytes": 4345,
+      "file": "pkg/statehintwide/features.go",
+      "sha256": "2583110d12d01ab02ebb065d0986c04f228d78e4097452f5ddd67516097339fe"
+    },
+    {
+      "bytes": 1520,
+      "file": "pkg/statehintwide/contextual_api.go",
+      "sha256": "6f828e32fd94c5e98f4e73bd792e50a566affa08b1ad255175cb7eb5d233457a"
+    },
+    {
+      "bytes": 5237,
+      "file": "internal/claimsdemo/run.go",
+      "sha256": "0b9608d67a5cdbfbdcd27b06ee3617b023e6cf3beedc9c3aac260b4056fdd0bb"
+    },
+    {
+      "bytes": 10225,
+      "file": "internal/claimsdemo/server.go",
+      "sha256": "5ac5a3e0cd4ece4c9187afdcceebe36531bd46d9eb1d09cfd615073340f3779d"
+    }
+  ],
+  "summaries": {
+    "http": {
+      "repeat_allocated_bytes_per_call": {
+        "max": 8624.026666666667,
+        "median": 8622.346666666666,
+        "min": 8620.88
+      },
+      "repeat_calls_per_second": {
+        "max": 14245.662605299487,
+        "median": 14235.044306575404,
+        "min": 12890.324116672815
+      },
+      "repeat_loop_elapsed_ms": {
+        "max": 46.546541,
+        "median": 42.1495,
+        "min": 42.118083
+      },
+      "repeat_mallocs_per_call": {
+        "max": 82.07333333333334,
+        "median": 82.06,
+        "min": 82.04166666666667
+      },
+      "repeat_max_whole_process_rss_bytes": {
+        "max": 17629184,
+        "median": 17580032,
+        "min": 17481728
+      },
+      "repeat_mean_latency_us": {
+        "max": 76.58832166666667,
+        "median": 69.31887833333333,
+        "min": 69.26363
+      },
+      "repeat_mean_server_reported_inference_us": {
+        "max": 4.935,
+        "median": 4.51,
+        "min": 4.505
+      },
+      "repeat_net_model_load_heap_delta_bytes": {
+        "max": 81208,
+        "median": 81208,
+        "min": 81208
+      },
+      "repeat_p50_latency_us": {
+        "max": 72.958,
+        "median": 72.833,
+        "min": 65.625
+      },
+      "repeat_p95_latency_us": {
+        "max": 118.375,
+        "median": 90.917,
+        "min": 90.25
+      },
+      "repeat_p99_latency_us": {
+        "max": 161.417,
+        "median": 109.875,
+        "min": 99.75
+      },
+      "repeat_retained_after_calls_gc_heap_alloc_bytes": {
+        "max": 324768,
+        "median": 323504,
+        "min": 323120
+      },
+      "repeat_warm_ready_go_heap_alloc_bytes": {
+        "max": 322272,
+        "median": 322112,
+        "min": 321680
+      },
+      "repeat_whole_process_cpu_seconds_rounded": {
+        "max": 0.04,
+        "median": 0.03,
+        "min": 0.03
+      },
+      "repeat_whole_process_real_seconds_rounded": {
+        "max": 0.06,
+        "median": 0.05,
+        "min": 0.05
+      },
+      "repeats": 3,
+      "total_hint_calls": 1896,
+      "total_measured_calls": 1800,
+      "total_status_calls": 6,
+      "total_warmup_calls": 96
+    },
+    "inprocess": {
+      "repeat_allocated_bytes_per_call": {
+        "max": 0.0005333333333333334,
+        "median": 0.0005333333333333334,
+        "min": 0.0005333333333333334
+      },
+      "repeat_calls_per_second": {
+        "max": 253938.60683744427,
+        "median": 229626.32403112503,
+        "min": 212104.69773514534
+      },
+      "repeat_loop_elapsed_ms": {
+        "max": 141.439583,
+        "median": 130.647042,
+        "min": 118.138791
+      },
+      "repeat_mallocs_per_call": {
+        "max": 0.000033333333333333335,
+        "median": 0.000033333333333333335,
+        "min": 0.000033333333333333335
+      },
+      "repeat_max_whole_process_rss_bytes": {
+        "max": 12894208,
+        "median": 12877824,
+        "min": 12795904
+      },
+      "repeat_mean_latency_us": {
+        "max": 3.890159,
+        "median": 3.5994118,
+        "min": 3.2502688333333336
+      },
+      "repeat_net_model_load_heap_delta_bytes": {
+        "max": 81208,
+        "median": 81208,
+        "min": 81208
+      },
+      "repeat_p50_latency_us": {
+        "max": 3.625,
+        "median": 3.5,
+        "min": 3.375
+      },
+      "repeat_p95_latency_us": {
+        "max": 6.25,
+        "median": 5,
+        "min": 3.709
+      },
+      "repeat_p99_latency_us": {
+        "max": 7.625,
+        "median": 5.834,
+        "min": 4.667
+      },
+      "repeat_retained_after_calls_gc_heap_alloc_bytes": {
+        "max": 688368,
+        "median": 688208,
+        "min": 688208
+      },
+      "repeat_warm_ready_go_heap_alloc_bytes": {
+        "max": 687848,
+        "median": 687688,
+        "min": 687688
+      },
+      "repeat_whole_process_cpu_seconds_rounded": {
+        "max": 0.16,
+        "median": 0.13,
+        "min": 0.12
+      },
+      "repeat_whole_process_real_seconds_rounded": {
+        "max": 0.75,
+        "median": 0.14,
+        "min": 0.12
+      },
+      "repeats": 3,
+      "total_hint_calls": 90384,
+      "total_measured_calls": 90000,
+      "total_status_calls": 0,
+      "total_warmup_calls": 384
+    }
+  },
+  "public_replay": {
+    "source": "replay/main.go",
+    "sha256": "8de5021bb4a80887022b87be16a44a7ffc0a3e42ce1fb8f9577f40d4ce500df1",
+    "byte_exact_measured_source": true,
+    "original_inputs_public": true,
+    "no_measurement_rerun": true
+  }
+}
