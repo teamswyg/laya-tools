@@ -36,6 +36,10 @@ are not produced. Those belong to later explicit historical adapters. Current
 semanticframe V3 cannot consume historical full-inventory acceptance by replacing
 its inventory with this graph.
 
+The separate [FULL acceptance bridge](accepted-full-graph-bridge.en.md) can join
+new explicit generic FULL acceptance declarations to this projection and a graph
+plan. Actual historical record adapters remain incomplete.
+
 Every graph item, description, open polarity/kind/time value, nullable parent,
 evidence span and array position is copied. Full-only negative IDs, combined
 negation explanation, official-field support, unresolved questions, provenance

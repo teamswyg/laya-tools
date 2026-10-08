@@ -39,7 +39,7 @@ func verify(p PinnedBytes, max int) error {
 	return nil
 }
 func decode(data []byte, v any, max int) error {
-	if len(data) == 0 || len(data) > max || sourcecohort.Decode(data, v) != nil {
+	if len(data) == 0 || len(data) > max || preflight(data) != nil || sourcecohort.Decode(data, v) != nil {
 		return Error("closed_json")
 	}
 	return nil

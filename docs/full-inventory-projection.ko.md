@@ -32,6 +32,10 @@ observation·producer·review·수용·이전 버전·선택 이력의 연결은
 이들은 후속의 명시적인 과거 기록 adapter가 다뤄야 합니다. 현재 semanticframe V3에서
 graph를 원래 inventory 대신 넣어 과거 수용 근거를 이어붙일 수는 없습니다.
 
+별도 [FULL 검토 연결 인터페이스](accepted-full-graph-bridge.ko.md)는 새로 정의한
+일반 FULL 검토 선언을 이 추출 결과와 작성 계획에 연결할 수 있습니다. 실제 과거
+기록을 변환하는 어댑터는 아직 미완료입니다.
+
 Graph 항목·설명·열린 polarity/kind/time 값·null 부모·근거 구간·배열 위치는 그대로
 복사합니다. Graph에 없는 negative ID, 전체 부정 설명, 공식 필드 support, 미해결
 질문, 출처·완전성 선언은 `Result.Full`과 정확한 `RetainedFullBytes`에 남깁니다.
