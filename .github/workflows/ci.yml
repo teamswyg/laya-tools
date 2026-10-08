@@ -26,6 +26,8 @@ jobs:
       - name: Client interaction regression fixtures (Node built-ins; no browser or model)
         if: runner.os == 'Linux'
         run: node --test internal/claimsdemo/webtests/*.test.cjs
+      - name: Reproduce captured live claim diagnostic (offline Go; no model or training)
+        run: go run ./experiments/live-claims-behavior-check-v1/verify.go
       - name: Format owned Go sources; preserve immutable upstream fixture bytes
         shell: bash
         run: |
