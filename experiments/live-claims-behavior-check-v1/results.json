@@ -1,0 +1,1061 @@
+{
+  "schema": "live-claims-behavior-check-summary-v1",
+  "date_utc": "2026-10-08T01:23:25.536Z",
+  "action": "Summarize full retained exactly-once HTTP responses without revising frozen AI hypotheses.",
+  "scope": "24 new AI-authored public-safe synthetic development messages, 12 ko/12 en, with 72 head outputs sharing those 24 inputs. Per-head interpretations are separate; no statistical-independence assumption. Not human gold, final evaluation, or an operational accuracy estimate.",
+  "artifact_sha256": "cfd35ee70a23f94a8d470b7dea596244a91ac7f1410475e8a42959693c99864b",
+  "thresholds": {
+    "confidence_floor": 0.9,
+    "margin_floor": 0.05,
+    "temperature": 1
+  },
+  "locked_inputs_sha256": "7c241bca2facb9eb15b8bcd1785b54aa5171d92b3e677beea4f8139e92a583d3",
+  "aggregate_is_text_free": true,
+  "definitions": {
+    "accepted_positive": "Final thresholded state true; passing a numeric threshold is not a semantic-quality qualification.",
+    "expected_vs_raw_discrepancy": "Raw winner differs from the frozen AI semantic-state hypothesis.",
+    "expected_vs_final_discrepancy": "Final state differs from the frozen AI semantic-state hypothesis; includes threshold abstentions, so this is not an error/accuracy rate.",
+    "unknown_semantics": "Expected unknown is semantic uncertainty. Final unknown may instead be a threshold abstention, as shown by unknown_reason."
+  },
+  "by_locale_head": [
+    {
+      "locale": "ko",
+      "head": "response_requested",
+      "input_count": 12,
+      "expected_counts": {
+        "true": 2,
+        "false": 9,
+        "unknown": 1
+      },
+      "raw_counts": {
+        "true": 3,
+        "false": 9,
+        "unknown": 0
+      },
+      "final_counts": {
+        "true": 0,
+        "false": 3,
+        "unknown": 9
+      },
+      "accepted_positive_count": 0,
+      "expected_vs_raw_discrepancies": 2,
+      "expected_vs_final_discrepancies": 8,
+      "raw_vs_final_changes": 9,
+      "unknown_reason_counts": {
+        "low_confidence": 9
+      }
+    },
+    {
+      "locale": "ko",
+      "head": "current_activity_claimed",
+      "input_count": 12,
+      "expected_counts": {
+        "true": 2,
+        "false": 9,
+        "unknown": 1
+      },
+      "raw_counts": {
+        "true": 3,
+        "false": 9,
+        "unknown": 0
+      },
+      "final_counts": {
+        "true": 0,
+        "false": 2,
+        "unknown": 10
+      },
+      "accepted_positive_count": 0,
+      "expected_vs_raw_discrepancies": 2,
+      "expected_vs_final_discrepancies": 9,
+      "raw_vs_final_changes": 10,
+      "unknown_reason_counts": {
+        "low_confidence": 10
+      }
+    },
+    {
+      "locale": "ko",
+      "head": "completion_claimed",
+      "input_count": 12,
+      "expected_counts": {
+        "true": 3,
+        "false": 8,
+        "unknown": 1
+      },
+      "raw_counts": {
+        "true": 3,
+        "false": 9,
+        "unknown": 0
+      },
+      "final_counts": {
+        "true": 0,
+        "false": 3,
+        "unknown": 9
+      },
+      "accepted_positive_count": 0,
+      "expected_vs_raw_discrepancies": 2,
+      "expected_vs_final_discrepancies": 8,
+      "raw_vs_final_changes": 9,
+      "unknown_reason_counts": {
+        "low_confidence": 9
+      }
+    },
+    {
+      "locale": "en",
+      "head": "response_requested",
+      "input_count": 12,
+      "expected_counts": {
+        "true": 2,
+        "false": 9,
+        "unknown": 1
+      },
+      "raw_counts": {
+        "true": 3,
+        "false": 9,
+        "unknown": 0
+      },
+      "final_counts": {
+        "true": 1,
+        "false": 3,
+        "unknown": 8
+      },
+      "accepted_positive_count": 1,
+      "expected_vs_raw_discrepancies": 2,
+      "expected_vs_final_discrepancies": 7,
+      "raw_vs_final_changes": 8,
+      "unknown_reason_counts": {
+        "low_confidence": 8
+      }
+    },
+    {
+      "locale": "en",
+      "head": "current_activity_claimed",
+      "input_count": 12,
+      "expected_counts": {
+        "true": 2,
+        "false": 9,
+        "unknown": 1
+      },
+      "raw_counts": {
+        "true": 4,
+        "false": 8,
+        "unknown": 0
+      },
+      "final_counts": {
+        "true": 1,
+        "false": 6,
+        "unknown": 5
+      },
+      "accepted_positive_count": 1,
+      "expected_vs_raw_discrepancies": 3,
+      "expected_vs_final_discrepancies": 5,
+      "raw_vs_final_changes": 5,
+      "unknown_reason_counts": {
+        "low_confidence": 5
+      }
+    },
+    {
+      "locale": "en",
+      "head": "completion_claimed",
+      "input_count": 12,
+      "expected_counts": {
+        "true": 3,
+        "false": 8,
+        "unknown": 1
+      },
+      "raw_counts": {
+        "true": 5,
+        "false": 7,
+        "unknown": 0
+      },
+      "final_counts": {
+        "true": 0,
+        "false": 4,
+        "unknown": 8
+      },
+      "accepted_positive_count": 0,
+      "expected_vs_raw_discrepancies": 2,
+      "expected_vs_final_discrepancies": 7,
+      "raw_vs_final_changes": 8,
+      "unknown_reason_counts": {
+        "low_confidence": 8
+      }
+    }
+  ],
+  "totals": {
+    "head_outcomes": 72,
+    "accepted_positive_count": 2,
+    "expected_vs_raw_discrepancies": 13,
+    "expected_vs_final_discrepancies": 44,
+    "raw_vs_final_changes": 49,
+    "final_counts": {
+      "true": 2,
+      "false": 21,
+      "unknown": 49
+    }
+  },
+  "accepted_positive_outcomes_text_free": [
+    {
+      "id": "EN04",
+      "locale": "en",
+      "head": "current_activity_claimed",
+      "expected": "false",
+      "raw": "true",
+      "final": "true",
+      "confidence": 0.946169690250911,
+      "margin": 0.9008599783475525,
+      "unknown_reason": null
+    },
+    {
+      "id": "EN09",
+      "locale": "en",
+      "head": "response_requested",
+      "expected": "true",
+      "raw": "true",
+      "final": "true",
+      "confidence": 0.9501926138425326,
+      "margin": 0.9182598168927849,
+      "unknown_reason": null
+    }
+  ],
+  "timings": {
+    "scope": "Actual 24 sequential localhost HTTP POST attempts in this run only. No retry, warmup cohort, batching, GPU measurement, peak RSS measurement, or extrapolation.",
+    "client_http_elapsed_ms": {
+      "n": 24,
+      "min": 0.28899999999998727,
+      "median": 0.4551034999999999,
+      "mean": 0.6728175416666641,
+      "p95_nearest_rank": 1.3541669999999968,
+      "max": 3.248750000000001,
+      "total": 16.147620999999937
+    },
+    "server_reported_inference_us": {
+      "n": 24,
+      "min": 2,
+      "median": 10,
+      "mean": 10.25,
+      "p95_nearest_rank": 18,
+      "max": 19,
+      "total": 246
+    },
+    "measurement_detail": "Client elapsed begins immediately before fetch and ends after consuming the full body; server inference_us is returned by /api/hints. These measure different scopes."
+  },
+  "checks": {
+    "input_count_24": true,
+    "locale_counts_12_12": true,
+    "inputs_sha_unchanged": true,
+    "exclusion_sha_unchanged": true,
+    "controls_read_only": true,
+    "exactly_24_attempts": true,
+    "unique_ids_24": true,
+    "no_retry_no_refill": true,
+    "all_calls_after_lock": true,
+    "status_pin_unchanged": true,
+    "thresholds_unchanged": true,
+    "response_http_200": true,
+    "response_schema_ready": true,
+    "response_pin_match": true,
+    "response_input_bytes_match": true,
+    "response_three_unique_heads": true,
+    "response_classes_valid": true,
+    "response_probs_valid": true,
+    "response_confidence_margin_valid": true,
+    "response_threshold_state_consistent": true,
+    "response_checksums_match": true
+  },
+  "all_checks_passed": true,
+  "head_outcomes_text_free": [
+    {
+      "id": "KO01",
+      "locale": "ko",
+      "head": "response_requested",
+      "expected": "false",
+      "raw": "false",
+      "final": "unknown",
+      "confidence": 0.8393314843504269,
+      "margin": 0.7061992101371479,
+      "unknown_reason": "low_confidence"
+    },
+    {
+      "id": "KO01",
+      "locale": "ko",
+      "head": "current_activity_claimed",
+      "expected": "true",
+      "raw": "true",
+      "final": "unknown",
+      "confidence": 0.784780634392561,
+      "margin": 0.5930315817672238,
+      "unknown_reason": "low_confidence"
+    },
+    {
+      "id": "KO01",
+      "locale": "ko",
+      "head": "completion_claimed",
+      "expected": "false",
+      "raw": "false",
+      "final": "unknown",
+      "confidence": 0.8322571867486668,
+      "margin": 0.677576721289157,
+      "unknown_reason": "low_confidence"
+    },
+    {
+      "id": "KO02",
+      "locale": "ko",
+      "head": "response_requested",
+      "expected": "false",
+      "raw": "false",
+      "final": "unknown",
+      "confidence": 0.8779570566245233,
+      "margin": 0.7791421674182901,
+      "unknown_reason": "low_confidence"
+    },
+    {
+      "id": "KO02",
+      "locale": "ko",
+      "head": "current_activity_claimed",
+      "expected": "false",
+      "raw": "false",
+      "final": "false",
+      "confidence": 0.9672336989967425,
+      "margin": 0.9491499616364233,
+      "unknown_reason": null
+    },
+    {
+      "id": "KO02",
+      "locale": "ko",
+      "head": "completion_claimed",
+      "expected": "false",
+      "raw": "false",
+      "final": "false",
+      "confidence": 0.9569143736066654,
+      "margin": 0.9285607344053795,
+      "unknown_reason": null
+    },
+    {
+      "id": "KO03",
+      "locale": "ko",
+      "head": "response_requested",
+      "expected": "false",
+      "raw": "false",
+      "final": "unknown",
+      "confidence": 0.897876941970821,
+      "margin": 0.8200198987663375,
+      "unknown_reason": "low_confidence"
+    },
+    {
+      "id": "KO03",
+      "locale": "ko",
+      "head": "current_activity_claimed",
+      "expected": "false",
+      "raw": "false",
+      "final": "unknown",
+      "confidence": 0.779372623310321,
+      "margin": 0.6222760710554662,
+      "unknown_reason": "low_confidence"
+    },
+    {
+      "id": "KO03",
+      "locale": "ko",
+      "head": "completion_claimed",
+      "expected": "false",
+      "raw": "false",
+      "final": "unknown",
+      "confidence": 0.7918980454238234,
+      "margin": 0.6355085955833897,
+      "unknown_reason": "low_confidence"
+    },
+    {
+      "id": "KO04",
+      "locale": "ko",
+      "head": "response_requested",
+      "expected": "false",
+      "raw": "false",
+      "final": "unknown",
+      "confidence": 0.8573136884566608,
+      "margin": 0.7632741482451424,
+      "unknown_reason": "low_confidence"
+    },
+    {
+      "id": "KO04",
+      "locale": "ko",
+      "head": "current_activity_claimed",
+      "expected": "false",
+      "raw": "true",
+      "final": "unknown",
+      "confidence": 0.7542596310908676,
+      "margin": 0.5765349253460423,
+      "unknown_reason": "low_confidence"
+    },
+    {
+      "id": "KO04",
+      "locale": "ko",
+      "head": "completion_claimed",
+      "expected": "false",
+      "raw": "false",
+      "final": "unknown",
+      "confidence": 0.8568017166405759,
+      "margin": 0.7682427782695577,
+      "unknown_reason": "low_confidence"
+    },
+    {
+      "id": "KO05",
+      "locale": "ko",
+      "head": "response_requested",
+      "expected": "false",
+      "raw": "false",
+      "final": "unknown",
+      "confidence": 0.8771820672201802,
+      "margin": 0.8082699909952475,
+      "unknown_reason": "low_confidence"
+    },
+    {
+      "id": "KO05",
+      "locale": "ko",
+      "head": "current_activity_claimed",
+      "expected": "false",
+      "raw": "false",
+      "final": "false",
+      "confidence": 0.9661421851897968,
+      "margin": 0.9449421742956076,
+      "unknown_reason": null
+    },
+    {
+      "id": "KO05",
+      "locale": "ko",
+      "head": "completion_claimed",
+      "expected": "true",
+      "raw": "true",
+      "final": "unknown",
+      "confidence": 0.7436796395091021,
+      "margin": 0.5388127040901327,
+      "unknown_reason": "low_confidence"
+    },
+    {
+      "id": "KO06",
+      "locale": "ko",
+      "head": "response_requested",
+      "expected": "true",
+      "raw": "true",
+      "final": "unknown",
+      "confidence": 0.804070587128225,
+      "margin": 0.6892895195124489,
+      "unknown_reason": "low_confidence"
+    },
+    {
+      "id": "KO06",
+      "locale": "ko",
+      "head": "current_activity_claimed",
+      "expected": "false",
+      "raw": "false",
+      "final": "unknown",
+      "confidence": 0.8432172822115349,
+      "margin": 0.7387707163775146,
+      "unknown_reason": "low_confidence"
+    },
+    {
+      "id": "KO06",
+      "locale": "ko",
+      "head": "completion_claimed",
+      "expected": "false",
+      "raw": "false",
+      "final": "unknown",
+      "confidence": 0.6775920206031938,
+      "margin": 0.47741991532705225,
+      "unknown_reason": "low_confidence"
+    },
+    {
+      "id": "KO07",
+      "locale": "ko",
+      "head": "response_requested",
+      "expected": "false",
+      "raw": "false",
+      "final": "false",
+      "confidence": 0.9621750147316169,
+      "margin": 0.9399053922336237,
+      "unknown_reason": null
+    },
+    {
+      "id": "KO07",
+      "locale": "ko",
+      "head": "current_activity_claimed",
+      "expected": "false",
+      "raw": "false",
+      "final": "unknown",
+      "confidence": 0.861949696182879,
+      "margin": 0.7799785624425307,
+      "unknown_reason": "low_confidence"
+    },
+    {
+      "id": "KO07",
+      "locale": "ko",
+      "head": "completion_claimed",
+      "expected": "false",
+      "raw": "false",
+      "final": "unknown",
+      "confidence": 0.7916121533086292,
+      "margin": 0.620417646646051,
+      "unknown_reason": "low_confidence"
+    },
+    {
+      "id": "KO08",
+      "locale": "ko",
+      "head": "response_requested",
+      "expected": "false",
+      "raw": "false",
+      "final": "false",
+      "confidence": 0.9403692076003841,
+      "margin": 0.9088373311802435,
+      "unknown_reason": null
+    },
+    {
+      "id": "KO08",
+      "locale": "ko",
+      "head": "current_activity_claimed",
+      "expected": "false",
+      "raw": "false",
+      "final": "unknown",
+      "confidence": 0.8613418137214717,
+      "margin": 0.7816845298421096,
+      "unknown_reason": "low_confidence"
+    },
+    {
+      "id": "KO08",
+      "locale": "ko",
+      "head": "completion_claimed",
+      "expected": "true",
+      "raw": "true",
+      "final": "unknown",
+      "confidence": 0.7482408338502233,
+      "margin": 0.5404106908825543,
+      "unknown_reason": "low_confidence"
+    },
+    {
+      "id": "KO09",
+      "locale": "ko",
+      "head": "response_requested",
+      "expected": "true",
+      "raw": "true",
+      "final": "unknown",
+      "confidence": 0.5920597517898362,
+      "margin": 0.2264254702142341,
+      "unknown_reason": "low_confidence"
+    },
+    {
+      "id": "KO09",
+      "locale": "ko",
+      "head": "current_activity_claimed",
+      "expected": "false",
+      "raw": "false",
+      "final": "unknown",
+      "confidence": 0.8832534360830478,
+      "margin": 0.8042290501987364,
+      "unknown_reason": "low_confidence"
+    },
+    {
+      "id": "KO09",
+      "locale": "ko",
+      "head": "completion_claimed",
+      "expected": "false",
+      "raw": "false",
+      "final": "false",
+      "confidence": 0.9070191609874048,
+      "margin": 0.8602685012202763,
+      "unknown_reason": null
+    },
+    {
+      "id": "KO10",
+      "locale": "ko",
+      "head": "response_requested",
+      "expected": "false",
+      "raw": "false",
+      "final": "false",
+      "confidence": 0.9066024593138352,
+      "margin": 0.8315711370702654,
+      "unknown_reason": null
+    },
+    {
+      "id": "KO10",
+      "locale": "ko",
+      "head": "current_activity_claimed",
+      "expected": "false",
+      "raw": "false",
+      "final": "unknown",
+      "confidence": 0.47908678269170263,
+      "margin": 0.10595101881527313,
+      "unknown_reason": "low_confidence"
+    },
+    {
+      "id": "KO10",
+      "locale": "ko",
+      "head": "completion_claimed",
+      "expected": "false",
+      "raw": "false",
+      "final": "false",
+      "confidence": 0.9698037183863172,
+      "margin": 0.9501044136792743,
+      "unknown_reason": null
+    },
+    {
+      "id": "KO11",
+      "locale": "ko",
+      "head": "response_requested",
+      "expected": "false",
+      "raw": "true",
+      "final": "unknown",
+      "confidence": 0.5908468115374444,
+      "margin": 0.24521181838230627,
+      "unknown_reason": "low_confidence"
+    },
+    {
+      "id": "KO11",
+      "locale": "ko",
+      "head": "current_activity_claimed",
+      "expected": "true",
+      "raw": "true",
+      "final": "unknown",
+      "confidence": 0.7130296442228833,
+      "margin": 0.43851304976198424,
+      "unknown_reason": "low_confidence"
+    },
+    {
+      "id": "KO11",
+      "locale": "ko",
+      "head": "completion_claimed",
+      "expected": "true",
+      "raw": "false",
+      "final": "unknown",
+      "confidence": 0.6867040942120219,
+      "margin": 0.3803870759935397,
+      "unknown_reason": "low_confidence"
+    },
+    {
+      "id": "KO12",
+      "locale": "ko",
+      "head": "response_requested",
+      "expected": "unknown",
+      "raw": "false",
+      "final": "unknown",
+      "confidence": 0.6324884920169143,
+      "margin": 0.41943224676847335,
+      "unknown_reason": "low_confidence"
+    },
+    {
+      "id": "KO12",
+      "locale": "ko",
+      "head": "current_activity_claimed",
+      "expected": "unknown",
+      "raw": "false",
+      "final": "unknown",
+      "confidence": 0.7005646728817646,
+      "margin": 0.4934804926388575,
+      "unknown_reason": "low_confidence"
+    },
+    {
+      "id": "KO12",
+      "locale": "ko",
+      "head": "completion_claimed",
+      "expected": "unknown",
+      "raw": "true",
+      "final": "unknown",
+      "confidence": 0.388370353463395,
+      "margin": 0.06628978193182344,
+      "unknown_reason": "low_confidence"
+    },
+    {
+      "id": "EN01",
+      "locale": "en",
+      "head": "response_requested",
+      "expected": "false",
+      "raw": "false",
+      "final": "unknown",
+      "confidence": 0.6071129566940205,
+      "margin": 0.39932256432807234,
+      "unknown_reason": "low_confidence"
+    },
+    {
+      "id": "EN01",
+      "locale": "en",
+      "head": "current_activity_claimed",
+      "expected": "true",
+      "raw": "true",
+      "final": "unknown",
+      "confidence": 0.844325216390241,
+      "margin": 0.7039560037569784,
+      "unknown_reason": "low_confidence"
+    },
+    {
+      "id": "EN01",
+      "locale": "en",
+      "head": "completion_claimed",
+      "expected": "false",
+      "raw": "false",
+      "final": "unknown",
+      "confidence": 0.8904019922167627,
+      "margin": 0.8027598009029464,
+      "unknown_reason": "low_confidence"
+    },
+    {
+      "id": "EN02",
+      "locale": "en",
+      "head": "response_requested",
+      "expected": "false",
+      "raw": "false",
+      "final": "unknown",
+      "confidence": 0.8900220204815585,
+      "margin": 0.8268584696857548,
+      "unknown_reason": "low_confidence"
+    },
+    {
+      "id": "EN02",
+      "locale": "en",
+      "head": "current_activity_claimed",
+      "expected": "false",
+      "raw": "false",
+      "final": "false",
+      "confidence": 0.9288672914324206,
+      "margin": 0.8810174023176711,
+      "unknown_reason": null
+    },
+    {
+      "id": "EN02",
+      "locale": "en",
+      "head": "completion_claimed",
+      "expected": "false",
+      "raw": "false",
+      "final": "false",
+      "confidence": 0.965859624834389,
+      "margin": 0.9484062226474269,
+      "unknown_reason": null
+    },
+    {
+      "id": "EN03",
+      "locale": "en",
+      "head": "response_requested",
+      "expected": "false",
+      "raw": "false",
+      "final": "false",
+      "confidence": 0.9634010455120844,
+      "margin": 0.9397916881593713,
+      "unknown_reason": null
+    },
+    {
+      "id": "EN03",
+      "locale": "en",
+      "head": "current_activity_claimed",
+      "expected": "false",
+      "raw": "true",
+      "final": "unknown",
+      "confidence": 0.7657449042646353,
+      "margin": 0.554925228526214,
+      "unknown_reason": "low_confidence"
+    },
+    {
+      "id": "EN03",
+      "locale": "en",
+      "head": "completion_claimed",
+      "expected": "false",
+      "raw": "false",
+      "final": "false",
+      "confidence": 0.9528118815513302,
+      "margin": 0.9119239818915188,
+      "unknown_reason": null
+    },
+    {
+      "id": "EN04",
+      "locale": "en",
+      "head": "response_requested",
+      "expected": "false",
+      "raw": "false",
+      "final": "false",
+      "confidence": 0.9295031307697247,
+      "margin": 0.8848503120463908,
+      "unknown_reason": null
+    },
+    {
+      "id": "EN04",
+      "locale": "en",
+      "head": "current_activity_claimed",
+      "expected": "false",
+      "raw": "true",
+      "final": "true",
+      "confidence": 0.946169690250911,
+      "margin": 0.9008599783475525,
+      "unknown_reason": null
+    },
+    {
+      "id": "EN04",
+      "locale": "en",
+      "head": "completion_claimed",
+      "expected": "false",
+      "raw": "false",
+      "final": "false",
+      "confidence": 0.9754201978628012,
+      "margin": 0.9552627584214184,
+      "unknown_reason": null
+    },
+    {
+      "id": "EN05",
+      "locale": "en",
+      "head": "response_requested",
+      "expected": "false",
+      "raw": "false",
+      "final": "unknown",
+      "confidence": 0.7653573514993981,
+      "margin": 0.5913719811315961,
+      "unknown_reason": "low_confidence"
+    },
+    {
+      "id": "EN05",
+      "locale": "en",
+      "head": "current_activity_claimed",
+      "expected": "false",
+      "raw": "false",
+      "final": "false",
+      "confidence": 0.9480375151619381,
+      "margin": 0.908957945939731,
+      "unknown_reason": null
+    },
+    {
+      "id": "EN05",
+      "locale": "en",
+      "head": "completion_claimed",
+      "expected": "true",
+      "raw": "true",
+      "final": "unknown",
+      "confidence": 0.8879567948342207,
+      "margin": 0.8221157888314873,
+      "unknown_reason": "low_confidence"
+    },
+    {
+      "id": "EN06",
+      "locale": "en",
+      "head": "response_requested",
+      "expected": "true",
+      "raw": "true",
+      "final": "unknown",
+      "confidence": 0.8000615837966625,
+      "margin": 0.615173420753286,
+      "unknown_reason": "low_confidence"
+    },
+    {
+      "id": "EN06",
+      "locale": "en",
+      "head": "current_activity_claimed",
+      "expected": "false",
+      "raw": "false",
+      "final": "false",
+      "confidence": 0.9816970323166123,
+      "margin": 0.9660284122929601,
+      "unknown_reason": null
+    },
+    {
+      "id": "EN06",
+      "locale": "en",
+      "head": "completion_claimed",
+      "expected": "false",
+      "raw": "false",
+      "final": "unknown",
+      "confidence": 0.7495394504509763,
+      "margin": 0.5339205311606877,
+      "unknown_reason": "low_confidence"
+    },
+    {
+      "id": "EN07",
+      "locale": "en",
+      "head": "response_requested",
+      "expected": "false",
+      "raw": "false",
+      "final": "unknown",
+      "confidence": 0.7210218261567253,
+      "margin": 0.5702355116466796,
+      "unknown_reason": "low_confidence"
+    },
+    {
+      "id": "EN07",
+      "locale": "en",
+      "head": "current_activity_claimed",
+      "expected": "false",
+      "raw": "false",
+      "final": "false",
+      "confidence": 0.9088619413589534,
+      "margin": 0.8410306606331281,
+      "unknown_reason": null
+    },
+    {
+      "id": "EN07",
+      "locale": "en",
+      "head": "completion_claimed",
+      "expected": "false",
+      "raw": "true",
+      "final": "unknown",
+      "confidence": 0.7000557760270791,
+      "margin": 0.4440457740386438,
+      "unknown_reason": "low_confidence"
+    },
+    {
+      "id": "EN08",
+      "locale": "en",
+      "head": "response_requested",
+      "expected": "false",
+      "raw": "false",
+      "final": "false",
+      "confidence": 0.9244081269440649,
+      "margin": 0.8804850290091596,
+      "unknown_reason": null
+    },
+    {
+      "id": "EN08",
+      "locale": "en",
+      "head": "current_activity_claimed",
+      "expected": "false",
+      "raw": "false",
+      "final": "false",
+      "confidence": 0.9661908562260251,
+      "margin": 0.9478514979862076,
+      "unknown_reason": null
+    },
+    {
+      "id": "EN08",
+      "locale": "en",
+      "head": "completion_claimed",
+      "expected": "true",
+      "raw": "true",
+      "final": "unknown",
+      "confidence": 0.8393985665680525,
+      "margin": 0.7290975700800957,
+      "unknown_reason": "low_confidence"
+    },
+    {
+      "id": "EN09",
+      "locale": "en",
+      "head": "response_requested",
+      "expected": "true",
+      "raw": "true",
+      "final": "true",
+      "confidence": 0.9501926138425326,
+      "margin": 0.9182598168927849,
+      "unknown_reason": null
+    },
+    {
+      "id": "EN09",
+      "locale": "en",
+      "head": "current_activity_claimed",
+      "expected": "false",
+      "raw": "false",
+      "final": "unknown",
+      "confidence": 0.7721684163526715,
+      "margin": 0.5648813924212381,
+      "unknown_reason": "low_confidence"
+    },
+    {
+      "id": "EN09",
+      "locale": "en",
+      "head": "completion_claimed",
+      "expected": "false",
+      "raw": "false",
+      "final": "false",
+      "confidence": 0.9509857950768511,
+      "margin": 0.9259371959766879,
+      "unknown_reason": null
+    },
+    {
+      "id": "EN10",
+      "locale": "en",
+      "head": "response_requested",
+      "expected": "false",
+      "raw": "true",
+      "final": "unknown",
+      "confidence": 0.49643483497864366,
+      "margin": 0.07736431956935791,
+      "unknown_reason": "low_confidence"
+    },
+    {
+      "id": "EN10",
+      "locale": "en",
+      "head": "current_activity_claimed",
+      "expected": "false",
+      "raw": "false",
+      "final": "false",
+      "confidence": 0.923087919450267,
+      "margin": 0.8634427328126146,
+      "unknown_reason": null
+    },
+    {
+      "id": "EN10",
+      "locale": "en",
+      "head": "completion_claimed",
+      "expected": "false",
+      "raw": "false",
+      "final": "unknown",
+      "confidence": 0.5729349513941757,
+      "margin": 0.19444492257145435,
+      "unknown_reason": "low_confidence"
+    },
+    {
+      "id": "EN11",
+      "locale": "en",
+      "head": "response_requested",
+      "expected": "false",
+      "raw": "false",
+      "final": "unknown",
+      "confidence": 0.7917818080345206,
+      "margin": 0.6009318685718592,
+      "unknown_reason": "low_confidence"
+    },
+    {
+      "id": "EN11",
+      "locale": "en",
+      "head": "current_activity_claimed",
+      "expected": "true",
+      "raw": "true",
+      "final": "unknown",
+      "confidence": 0.6563371133862658,
+      "margin": 0.3243576872385236,
+      "unknown_reason": "low_confidence"
+    },
+    {
+      "id": "EN11",
+      "locale": "en",
+      "head": "completion_claimed",
+      "expected": "true",
+      "raw": "true",
+      "final": "unknown",
+      "confidence": 0.5116642397065376,
+      "margin": 0.04318516687074986,
+      "unknown_reason": "low_confidence"
+    },
+    {
+      "id": "EN12",
+      "locale": "en",
+      "head": "response_requested",
+      "expected": "unknown",
+      "raw": "false",
+      "final": "unknown",
+      "confidence": 0.6609486854541522,
+      "margin": 0.4690642144624043,
+      "unknown_reason": "low_confidence"
+    },
+    {
+      "id": "EN12",
+      "locale": "en",
+      "head": "current_activity_claimed",
+      "expected": "unknown",
+      "raw": "false",
+      "final": "unknown",
+      "confidence": 0.5987192158924809,
+      "margin": 0.30382373405936636,
+      "unknown_reason": "low_confidence"
+    },
+    {
+      "id": "EN12",
+      "locale": "en",
+      "head": "completion_claimed",
+      "expected": "unknown",
+      "raw": "true",
+      "final": "unknown",
+      "confidence": 0.742790003851609,
+      "margin": 0.5741200826724879,
+      "unknown_reason": "low_confidence"
+    }
+  ],
+  "exclusions": "All 24 originals and all variants permanently excluded from final400/final1200/final2400 and future model selectors; control in exclusion.json."
+}
