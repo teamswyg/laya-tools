@@ -24,19 +24,27 @@ func DefaultRecipe() Recipe {
 }
 
 type Plan struct {
-	Schema         string `json:"schema"`
-	Registry       File   `json:"registry"`
-	Creation       *File  `json:"creation"`
-	Reviews        *File  `json:"reviews"`
-	SourceSchema   *File  `json:"source_schema"`
-	Allocation     *File  `json:"allocation"`
-	SplitConfig    File   `json:"split_config"`
-	AuthorID       string `json:"author_id"`
-	CheckerID      string `json:"checker_id"`
-	InputMaxBytes  int64  `json:"input_max_bytes"`
-	SourceMaxBytes int64  `json:"source_max_bytes"`
-	FreezeMaxBytes int64  `json:"freeze_max_bytes"`
-	OutputMaxBytes int64  `json:"output_max_bytes"`
+	Schema              string               `json:"schema"`
+	Registry            File                 `json:"registry"`
+	Creation            *File                `json:"creation"`
+	Reviews             *File                `json:"reviews"`
+	SourceSchema        *File                `json:"source_schema"`
+	Allocation          *File                `json:"allocation"`
+	SplitConfig         File                 `json:"split_config"`
+	AuthorID            string               `json:"author_id"`
+	CheckerID           string               `json:"checker_id"`
+	InputMaxBytes       int64                `json:"input_max_bytes"`
+	SourceMaxBytes      int64                `json:"source_max_bytes"`
+	FreezeMaxBytes      int64                `json:"freeze_max_bytes"`
+	OutputMaxBytes      int64                `json:"output_max_bytes"`
+	ReviewerAssignments []ReviewerAssignment `json:"reviewer_assignments,omitempty"`
+}
+
+// ReviewerAssignment declares which sources a reviewer must review. It does not
+// authenticate the reviewer or establish provider independence.
+type ReviewerAssignment struct {
+	ReviewerID string   `json:"reviewer_id"`
+	SourceIDs  []string `json:"source_ids"`
 }
 type Row struct {
 	ID           string   `json:"source_id"`

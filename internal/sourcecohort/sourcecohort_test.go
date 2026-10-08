@@ -71,6 +71,9 @@ func allocationFixture(t *testing.T) fixture {
 }
 func syntheticID(i int) string { return fmt.Sprintf("synthetic-%03d", i) }
 func fullFixture(t *testing.T) fixture {
+	return fullFixtureWithReviewer(t, func(_ int, checker string) string { return checker })
+}
+func fullFixtureWithReviewer(t *testing.T, reviewerFor func(int, string) string) fixture {
 	t.Helper()
 	f := allocationFixture(t)
 	s, e := Run(f.root, f.planFile, filepath.Join(f.root, "allocation-out"), true)
@@ -86,6 +89,7 @@ func fullFixture(t *testing.T) fixture {
 	f.creation = CreationManifest{Schema: "riido-sourcecohort-creation-v1", Rows: []CreationRow{}}
 	f.reviews = Reviews{Schema: "riido-sourcecohort-reviews-v1", Rows: []Review{}}
 	for i, row := range f.registry.Rows {
+		reviewer := reviewerFor(i, f.plan.CheckerID)
 		created := time.Now().UTC().Format(time.RFC3339Nano)
 		data := []byte("public synthetic situation " + row.ID + ": 한글\n")
 		source := save(t, f.root, "sources/"+row.ID+".txt", data)
@@ -96,7 +100,7 @@ func fullFixture(t *testing.T) fixture {
 		if e := os.MkdirAll(filepath.Join(f.root, "review-reads"), 0700); e != nil {
 			t.Fatal(e)
 		}
-		_, out, e := reviewpacket.Capture(reviewpacket.Config{InputPath: filepath.Join(f.root, source.Path), ReceiptPath: filepath.Join(f.root, startName), ExpectedSHA256: source.SHA256, MaxBytes: 16384, Actor: f.plan.CheckerID})
+		_, out, e := reviewpacket.Capture(reviewpacket.Config{InputPath: filepath.Join(f.root, source.Path), ReceiptPath: filepath.Join(f.root, startName), ExpectedSHA256: source.SHA256, MaxBytes: 16384, Actor: reviewer})
 		if e != nil || !out.ResultDurable {
 			t.Fatal(e)
 		}
@@ -107,7 +111,7 @@ func fullFixture(t *testing.T) fixture {
 		binding := CheckBinding{"riido-sourcecohort-check-binding-v1", source, obs, schema, report, time.Now().UTC().Format(time.RFC3339Nano)}
 		bindingFile := jsonFile(t, f.root, "bindings/"+row.ID+".json", binding)
 		f.creation.Rows = append(f.creation.Rows, CreationRow{row.ID, source, f.plan.AuthorID, "ai_nonhuman", true, created, []string{}, creationReceipt})
-		f.reviews.Rows = append(f.reviews.Rows, Review{ID: row.ID, Source: source, SourceSchema: schema, ReviewerID: f.plan.CheckerID, ReviewedUTC: time.Now().UTC().Format(time.RFC3339Nano), Complete: true, Structural: true, SourceScope: "complete_source_situation", SemanticVerdict: "declared_pass", Holds: []Hold{}, Evidence: []Span{{"source_scope", 0, len(data)}}, Dependencies: []string{}, ReadStart: fileAt(t, f.root, startName), ReadResult: fileAt(t, f.root, startName+".result"), Observation: obs, CheckBinding: bindingFile})
+		f.reviews.Rows = append(f.reviews.Rows, Review{ID: row.ID, Source: source, SourceSchema: schema, ReviewerID: reviewer, ReviewedUTC: time.Now().UTC().Format(time.RFC3339Nano), Complete: true, Structural: true, SourceScope: "complete_source_situation", SemanticVerdict: "declared_pass", Holds: []Hold{}, Evidence: []Span{{"source_scope", 0, len(data)}}, Dependencies: []string{}, ReadStart: fileAt(t, f.root, startName), ReadResult: fileAt(t, f.root, startName+".result"), Observation: obs, CheckBinding: bindingFile})
 	}
 	f.refresh(t)
 	return f

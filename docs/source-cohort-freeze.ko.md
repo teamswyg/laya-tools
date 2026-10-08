@@ -27,6 +27,8 @@ plan schema는 `riido-sourcecohort-plan-v1`입니다. creation/reviews/allocatio
 자료의 해시나 manifest를 꾸며 넣지 않습니다. 알려진 파일 참조는 path/sha256/bytes의
 정확한 값이며 path는 --root 기준 상대 경로입니다. 절대 경로·상위 이동·root 밖으로
 나가는 부모 심볼릭 링크는 거부합니다. 0바이트는 빈 파일 해시와만 결합됩니다.
+선택 필드 `reviewer_assignments`는 고정 plan에서만 사용합니다. 배분 단계에서는
+비어 있지 않은 배정 목록을 거부합니다.
 
 ```sh
 ./riido-sourcecohort --root ./new-cohort \
@@ -64,7 +66,32 @@ independent_semantic_verdict=declared_pass, holds, evidence와 읽기 영수증�
 보존합니다. author와 reviewer ID는 달라야 하지만 이는 선언된 절차 제한입니다.
 실제 신원이나 제공자 독립성을 증명하지 않습니다.
 
-원래 checker의 reviewpacket start/result는 실제 바이트 해시로 결합되고,
+검토자별 새 컨텍스트를 쓰려면 고정 plan에 `reviewer_assignments`를 선언할 수
+있습니다. 생략하거나 `[]` 또는 `null`을 쓰면 모든 검토에 단일 `checker_id`를
+쓰는 기존 동작을 유지합니다. 각 배정의 `reviewer_id`는 서로 달라야 하며
+`author_id`와도 달라야 합니다. 기본 `checker_id`를 반드시 포함하고 각
+`source_ids` 목록은 비어 있으면 안 됩니다. 검토자 배정은 최대 400개,
+각 원본 ID 목록도 최대 400개이며 목록 전체는
+등록된 400개 원본 ID 전체를 정확히 한 번씩 나눠 맡아야 합니다.
+누락·추가·중복 ID를 허용하지 않으며 각 검토의 reviewer_id는
+해당 원본에 배정된 검토자와 같아야 합니다.
+
+아래 합성 plan 조각은 형태만 보여 줍니다. 완전한 plan에는 등록된 400개 ID를
+모두 나열해야 합니다.
+
+```json
+"checker_id": "fake-checker-a",
+"reviewer_assignments": [
+  {"reviewer_id": "fake-checker-a", "source_ids": ["fake-source-001"]},
+  {"reviewer_id": "fake-checker-b", "source_ids": ["fake-source-002"]}
+]
+```
+
+배정은 검토자별 새 컨텍스트를 선언할 수 있게 하지만 실제 신원이나 제공자
+독립성을 증명하지 않습니다. 기존 고정 조건은 모두 유지합니다. 배정이 있으면
+각 검토자의 비어 있지 않은 ID는 담당 원본 start 읽기 영수증의 actor와 정확히
+일치해야 합니다. result는 start 해시로 계속 결합됩니다.
+각 원본 검토자의 원래 reviewpacket start/result는 실제 바이트 해시로 결합되고,
 원본의 해시·크기, 읽기 1회, 오류 없음과 생성→시작→완료→결정→검토의 UTC 순서를
 확인합니다. result 경로는 start 경로에 .result를 붙인 값입니다. 영수증은 해당
 도구의 기록된 읽기만 설명하며 최초의 모든 읽기나 옛 시각을 복원하지 않습니다.

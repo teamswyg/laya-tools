@@ -105,6 +105,7 @@ func Run(root string, planFile File, out string, allocationOnly bool) (s Summary
 		r.capture(p.Registry, p.InputMaxBytes, &reg)
 		rows := validateRegistry(reg, recipe, &s)
 		if allocationOnly {
+			require(len(p.ReviewerAssignments) == 0, "allocation_reviewer_assignments")
 			require(p.Creation == nil && p.Reviews == nil && p.Allocation == nil, "allocation_future_refs")
 			for _, row := range rows {
 				require(row.Source == nil, "allocation_source_must_be_null")
@@ -135,6 +136,7 @@ func Run(root string, planFile File, out string, allocationOnly bool) (s Summary
 			require(a.Source == nil && a.ID == prior.ID && a.Stratum == prior.Stratum && a.Split == prior.Split && a.DEVStyle == prior.DEVStyle && sameIDs(a.Dependencies, prior.Dependencies), "allocation_registry_binding")
 			require(a.ID == b.ID && a.Stratum == b.Stratum && a.Split == b.Split && a.DEVStyle == b.DEVStyle && sameIDs(a.Dependencies, b.Dependencies), "allocation_changed")
 		}
+		reviewers := assignedReviewers(p, rows)
 		var creation CreationManifest
 		var reviews Reviews
 		r.capture(*p.Creation, p.InputMaxBytes, &creation)
@@ -164,7 +166,11 @@ func Run(root string, planFile File, out string, allocationOnly bool) (s Summary
 		}
 		for i, row := range rows {
 			c, v := creation.Rows[i], reviews.Rows[i]
-			require(row.Source != nil && *row.Source == c.Source && c.Source == v.Source && v.SourceSchema == *p.SourceSchema && c.AuthorID == p.AuthorID && v.ReviewerID == p.CheckerID, "row_binding")
+			reviewer := p.CheckerID
+			if reviewers != nil {
+				reviewer = reviewers[i]
+			}
+			require(row.Source != nil && *row.Source == c.Source && c.Source == v.Source && v.SourceSchema == *p.SourceSchema && c.AuthorID == p.AuthorID && v.ReviewerID == reviewer, "row_binding")
 			var cr CreationReceipt
 			r.capture(c.Receipt, p.InputMaxBytes, &cr)
 			require(cr.Schema == "riido-sourcecohort-creation-receipt-v1" && cr.SourceID == row.ID && cr.Source == c.Source && cr.AuthorID == c.AuthorID && cr.CreatorKind == c.CreatorKind && cr.RightsAllowed && cr.CreatedUTC == c.CreatedUTC && cr.ConsultedNone == (len(cr.Consulted) == 0) && len(cr.Consulted) <= 32, "creation_receipt")
@@ -175,7 +181,7 @@ func Run(root string, planFile File, out string, allocationOnly bool) (s Summary
 			r.retained += c.Source.Bytes + v.Observation.Bytes
 			data := r.capture(c.Source, p.SourceMaxBytes, nil)
 			checkSpans(data, v.Evidence)
-			decided := checkReadReceipts(&r, v, c)
+			decided := checkReadReceipts(&r, v, c, reviewers != nil)
 			observation := r.capture(v.Observation, p.InputMaxBytes, nil)
 			require(Transport(observation) == nil, "observation_json")
 			var binding CheckBinding
@@ -287,13 +293,13 @@ type terminal struct {
 	Errors   []receiptIssue `json:"errors,omitempty"`
 }
 
-func checkReadReceipts(r *reader, v Review, c CreationRow) time.Time {
+func checkReadReceipts(r *reader, v Review, c CreationRow, requireActor bool) time.Time {
 	require(v.ReadResult.Path == v.ReadStart.Path+".result", "receipt_path")
 	var a start
 	var b terminal
 	raw := r.capture(v.ReadStart, 8192, &a)
 	r.capture(v.ReadResult, 8192, &b)
-	require(a.Version == "riido-reviewpacket/v1" && a.State == "started" && a.Expected == c.Source.SHA256 && a.Max >= c.Source.Bytes && a.Max <= 16384 && a.Limit == 1 && (a.Actor == "" || a.Actor == v.ReviewerID) && a.Policy == "regular-file; no final symlink; nonblocking open; identity checked; bounded read; no retries" && b.Version == a.Version && b.State == "verified" && b.StartSHA == Hash(raw) && b.Expected == c.Source.SHA256 && b.Actual == c.Source.SHA256 && b.Bytes == c.Source.Bytes && b.Attempts == 1 && len(b.Errors) == 0, "receipt_binding")
+	require(a.Version == "riido-reviewpacket/v1" && a.State == "started" && a.Expected == c.Source.SHA256 && a.Max >= c.Source.Bytes && a.Max <= 16384 && a.Limit == 1 && (a.Actor == v.ReviewerID || !requireActor && a.Actor == "") && a.Policy == "regular-file; no final symlink; nonblocking open; identity checked; bounded read; no retries" && b.Version == a.Version && b.State == "verified" && b.StartSHA == Hash(raw) && b.Expected == c.Source.SHA256 && b.Actual == c.Source.SHA256 && b.Bytes == c.Source.Bytes && b.Attempts == 1 && len(b.Errors) == 0, "receipt_binding")
 	require(!timeUTC(a.UTC).Before(timeUTC(c.CreatedUTC)) && !timeUTC(b.ReadUTC).Before(timeUTC(a.UTC)) && !timeUTC(b.UTC).Before(timeUTC(b.ReadUTC)) && !timeUTC(v.ReviewedUTC).Before(timeUTC(b.UTC)), "chronology")
 	return timeUTC(b.UTC)
 }
