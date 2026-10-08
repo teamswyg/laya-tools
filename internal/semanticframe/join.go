@@ -206,18 +206,30 @@ func DecodeFrame(raw []byte) (Frame, error) {
 // used only to reject orphan Source dependencies; it proves no whole-cohort QA.
 // No component is forced to communicate a claim by being true in the Source.
 func JoinFrame(f Frame, n NormalizedAccepted, requiredSourceIDs []string) (Summary, error) {
+	return joinPlan(f, planContext{source: n.source, inventory: n.inventory, anchors: PlanAnchors{Source: n.version.Source, Graph: n.version.Inventory, Observation: n.version.Observation, Producer: n.version.Producer, SourceReview: n.version.SourceReview, Version: n.versionPin}, references: n.references, valid: n.version.Schema == VersionSchema}, requiredSourceIDs, Schema)
+}
+
+type planContext struct {
+	source     []byte
+	inventory  InventoryGraph
+	anchors    PlanAnchors
+	references []File
+	valid      bool
+}
+
+func joinPlan(f Frame, n planContext, requiredSourceIDs []string, schema string) (Summary, error) {
 	s := Summary{State: "blocked", Bindings: len(f.Plan.Bindings), Ambiguities: len(f.Ambiguities), Limits: "Byte-verified generic declarations and structural joins only. Meaning, whole Source QA, fidelity, rights, authenticated independence, references and training remain unproved. Historical private-record adapters are not implemented."}
 	fail := func(code string) (Summary, error) { return s, Error(code) }
 	if _, ok := typedFrameSize(f); !ok {
 		return fail("typed_frame_bounds")
 	}
-	if n.version.Schema != VersionSchema || len(n.source) == 0 {
+	if !n.valid || len(n.source) == 0 {
 		return fail("normalized_missing")
 	}
-	if f.Schema != Schema || !identifier(f.FamilyID) || f.SourceID != n.inventory.SourceID || f.Slot < 1 || f.Slot > 3 || f.DesiredLabels || f.TargetMode != "one_complete_comment_text_only" {
+	if f.Schema != schema || !identifier(f.FamilyID) || f.SourceID != n.inventory.SourceID || f.Slot < 1 || f.Slot > 3 || f.DesiredLabels || f.TargetMode != "one_complete_comment_text_only" {
 		return fail("frame_identity")
 	}
-	if f.Source != n.version.Source || f.Inventory != n.version.Inventory || f.Observation != n.version.Observation || f.Producer != n.version.Producer || f.SourceReview != n.version.SourceReview || f.VersionEvidence != n.versionPin {
+	if f.Source != n.anchors.Source || f.Inventory != n.anchors.Graph || f.Observation != n.anchors.Observation || f.Producer != n.anchors.Producer || f.SourceReview != n.anchors.SourceReview || f.VersionEvidence != n.anchors.Version {
 		return fail("frame_version_join")
 	}
 	if !validFile(f.Definitions) || !validFile(f.InventorySchemaSource) || f.Definitions.Path == f.InventorySchemaSource.Path {
