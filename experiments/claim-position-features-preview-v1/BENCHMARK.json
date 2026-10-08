@@ -1,0 +1,90 @@
+{
+  "status": "bounded feature extraction measurement; no model or quality measurement",
+  "recorded_utc": "2026-10-08T02:47:52.443509+00:00",
+  "go_version": "go1.27.1",
+  "goos": "darwin",
+  "goarch": "arm64",
+  "cpu": "Apple M4 Pro",
+  "gomaxprocs": 2,
+  "cpu_flag": 2,
+  "benchtime_per_subbenchmark": "200ms",
+  "count": 3,
+  "input_contract": "Exactly the same twelve immutable original development texts, cycled in public pair order; one extraction per operation; setup/input parsing untimed.",
+  "command": "GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off GOMAXPROCS=2 go test ./pkg/statehintpositionpreview -run ^$ -bench ^BenchmarkExtractOriginalTwelve$ -cpu=2 -benchtime=200ms -count=3 -benchmem",
+  "raw_output_sha256": "e748787751dc128237eb14b264325877e80167712b62a3a93f4cad795b700c16",
+  "public_cases_sha256": "70ead000b150b40596d44e0bf977cb30c3541cf5d0d5c1d11996ec0ba3259174",
+  "design_lock_sha256": "c113b80637468d76a81c42f862bb3cd21c6c9ee647ee7f3cb3ff2c6213c2ba3f",
+  "source_sha256": {
+    "experiments/claim-position-features-preview-v1/replay/main.go": "0d51a96d1be65a9302eadfb6dd41597732cda9b480d80c1f3fc78ae6ed43d2c1",
+    "pkg/statehintpositionpreview/features.go": "abeb2f0a3c5332e251c1733ed228a98ddb61055ed00bc80ec2cfca041fa56c99",
+    "pkg/statehintpositionpreview/features_bench_test.go": "a78efcb131d9c6b923be55e12a3fbb90d3b17553c56caffe68ebcff9dc76737e",
+    "pkg/statehintpositionpreview/features_test.go": "7852db7ec2b81cae90c7eceb9daf8ac6aa42f0ccfb863d73ea87298fab3d0f51",
+    "pkg/statehintwide/contextual_api.go": "6f828e32fd94c5e98f4e73bd792e50a566affa08b1ad255175cb7eb5d233457a",
+    "pkg/statehintwide/features.go": "2583110d12d01ab02ebb065d0986c04f228d78e4097452f5ddd67516097339fe"
+  },
+  "runs": [
+    {
+      "variant": "v2",
+      "operations": 10250,
+      "ns_per_op": 22233,
+      "bytes_per_op": 0,
+      "allocations_per_op": 0
+    },
+    {
+      "variant": "v2",
+      "operations": 10000,
+      "ns_per_op": 20537,
+      "bytes_per_op": 0,
+      "allocations_per_op": 0
+    },
+    {
+      "variant": "v2",
+      "operations": 10000,
+      "ns_per_op": 21652,
+      "bytes_per_op": 0,
+      "allocations_per_op": 0
+    },
+    {
+      "variant": "position_preview",
+      "operations": 5059,
+      "ns_per_op": 45165,
+      "bytes_per_op": 0,
+      "allocations_per_op": 0
+    },
+    {
+      "variant": "position_preview",
+      "operations": 5798,
+      "ns_per_op": 44942,
+      "bytes_per_op": 0,
+      "allocations_per_op": 0
+    },
+    {
+      "variant": "position_preview",
+      "operations": 5610,
+      "ns_per_op": 44787,
+      "bytes_per_op": 0,
+      "allocations_per_op": 0
+    }
+  ],
+  "median_ns_per_op": {
+    "v2": 21652,
+    "position_preview": 44942
+  },
+  "preview_to_v2_median_latency_ratio": 2.07565121004988,
+  "workspace_sizeof_bytes": {
+    "v2": 30744,
+    "position_preview": 54312,
+    "difference": 23568
+  },
+  "theoretical_9_logit_float32_linear_weight_bytes": {
+    "v2": "9*2048*4 = 73728",
+    "position_preview": "9*3072*4 = 110592",
+    "difference_bytes": 36864,
+    "increase_percent": 50
+  },
+  "measurement_limits": [
+    "Small bounded local microbenchmark; no claim about other hardware, natural comments or end-to-end serving latency.",
+    "Workspace sizeof and theoretical linear-weight arithmetic only; no actual model payload, RSS or GPU memory measurement.",
+    "Both extractor variants allocate zero per timed operation. Fixed caller-owned workspace memory remains present."
+  ]
+}
