@@ -2,6 +2,7 @@ package semanticframe
 
 import (
 	"encoding/json"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -316,5 +317,161 @@ func TestNormalizationBounds(t *testing.T) {
 	in.Predecessors = make([]PinnedBytes, MaxItems+1)
 	if _, err := NormalizeAccepted("original", in); err != Error("evidence_count") {
 		t.Fatalf("history bound: %v", err)
+	}
+}
+
+func TestCrossRoleReferencePinsRemainConsistent(t *testing.T) {
+	t.Run("review metadata conflicts with captured Source", func(t *testing.T) {
+		_, in := fixture(t, false)
+		var r sourcecohort.Review
+		json.Unmarshal(in.SourceReview.Bytes, &r)
+		r.SourceSchema.Path = in.Source.File.Path
+		replaceReview(t, &in, r)
+		if _, err := NormalizeAccepted("original", in); err != Error("conflicting_reference_pin") {
+			t.Fatalf("got %v", err)
+		}
+	})
+	t.Run("frame method conflicts with captured acceptance", func(t *testing.T) {
+		f, in := fixture(t, false)
+		n, err := NormalizeAccepted("original", in)
+		if err != nil {
+			t.Fatal(err)
+		}
+		f.Definitions.Path = in.InventoryAcceptance[0].File.Path
+		if _, err = JoinFrame(f, n, []string{f.SourceID}); err != Error("conflicting_reference_pin") {
+			t.Fatalf("got %v", err)
+		}
+	})
+	t.Run("identical metadata method repetition is allowed", func(t *testing.T) {
+		f, in := fixture(t, false)
+		var r sourcecohort.Review
+		json.Unmarshal(in.SourceReview.Bytes, &r)
+		r.SourceSchema = f.Definitions
+		replaceReview(t, &in, r)
+		f.SourceReview = in.SourceReview.File
+		f.VersionEvidence = in.Version.File
+		n, err := NormalizeAccepted("original", in)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err = JoinFrame(f, n, []string{f.SourceID}); err != nil {
+			t.Fatal(err)
+		}
+	})
+	t.Run("retained declaration conflicts with current acceptance", func(t *testing.T) {
+		_, in := fixture(t, true)
+		var old VersionBinding
+		json.Unmarshal(in.Predecessors[0].Bytes, &old)
+		old.InventoryAcceptance[0].Path = in.InventoryAcceptance[0].File.Path
+		in.Predecessors[0] = pinned(t, "predecessor.json", old)
+		var p ProducerDeclaration
+		json.Unmarshal(in.Producer.Bytes, &p)
+		p.Predecessors = pinsOf(in.Predecessors)
+		in.Producer = pinned(t, "producer.json", p)
+		var a InventoryAcceptance
+		json.Unmarshal(in.InventoryAcceptance[0].Bytes, &a)
+		a.Producer = in.Producer.File
+		a.Predecessors = pinsOf(in.Predecessors)
+		in.InventoryAcceptance[0] = pinned(t, "acceptance.json", a)
+		var v VersionBinding
+		json.Unmarshal(in.Version.Bytes, &v)
+		v.Producer = in.Producer.File
+		v.Predecessors = pinsOf(in.Predecessors)
+		v.InventoryAcceptance = pinsOf(in.InventoryAcceptance)
+		in.Version = pinned(t, "version.json", v)
+		if _, err := NormalizeAccepted("amended", in); err != Error("conflicting_reference_pin") {
+			t.Fatalf("got %v", err)
+		}
+	})
+}
+
+func TestTypedFrameBoundsBeforeParsingOrSorting(t *testing.T) {
+	f, in := fixture(t, false)
+	n, err := NormalizeAccepted("original", in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	large := strings.Repeat("/", 1<<20)
+	cases := []struct {
+		name   string
+		change func(*Frame)
+	}{
+		{"large binding pointer", func(f *Frame) { f.Plan.Bindings[0].Pointer = large }},
+		{"large ambiguity pointer", func(f *Frame) {
+			f.Ambiguities = []Ambiguity{{[]string{large}, f.Plan.Evidence, "uncertain", "preserve_without_resolution"}}
+		}},
+		{"large hash", func(f *Frame) { f.Definitions.SHA256 = large }},
+		{"large path", func(f *Frame) { f.Definitions.Path = large }},
+		{"large role", func(f *Frame) { f.Plan.Bindings[0].Role = large }},
+		{"large collection", func(f *Frame) { f.Plan.Bindings = make([]Binding, MaxItems+1) }},
+		{"aggregate encoded bytes", func(f *Frame) {
+			a := Ambiguity{[]string{"/propositions/0"}, f.Plan.Evidence, strings.Repeat("x", 512), "preserve_without_resolution"}
+			f.Ambiguities = make([]Ambiguity, MaxItems)
+			for i := range f.Ambiguities {
+				f.Ambiguities[i] = a
+			}
+		}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			f, _ := fixture(t, false)
+			tc.change(&f)
+			if _, err := JoinFrame(f, n, []string{f.SourceID}); err != Error("typed_frame_bounds") {
+				t.Fatalf("got %v", err)
+			}
+		})
+	}
+	// Input construction is excluded. This measures Go allocations for rejection,
+	// not global RSS, native memory or GPU use. No tests in this package run parallel.
+	f.Plan.Bindings[0].Pointer = large
+	runtime.GC()
+	var before, after runtime.MemStats
+	runtime.ReadMemStats(&before)
+	_, err = JoinFrame(f, n, []string{f.SourceID})
+	runtime.ReadMemStats(&after)
+	if err != Error("typed_frame_bounds") {
+		t.Fatal(err)
+	}
+	allocated := after.TotalAlloc - before.TotalAlloc
+	t.Logf("Go allocated bytes for 1 MiB pointer rejection: %d", allocated)
+	if allocated > 64<<10 {
+		t.Fatalf("rejection allocated %d bytes", allocated)
+	}
+	badPin := in.Source.File
+	badPin.SHA256 = large
+	if allocations := testing.AllocsPerRun(10, func() {
+		if validFile(badPin) {
+			panic("bad hash accepted")
+		}
+	}); allocations != 0 {
+		t.Fatalf("large hash validation allocations: %v", allocations)
+	}
+	badPin = in.Source.File
+	badPin.Path = large
+	if allocations := testing.AllocsPerRun(10, func() {
+		if validFile(badPin) {
+			panic("bad path accepted")
+		}
+	}); allocations != 0 {
+		t.Fatalf("large path validation allocations: %v", allocations)
+	}
+}
+
+func TestTypedFrameSizeMatchesCompactJSON(t *testing.T) {
+	f, _ := fixture(t, false)
+	f.Plan.Description = "quoted \" \\ control \x01 \n <>& 한글 \u2028\u2029"
+	f.Ambiguities = []Ambiguity{{[]string{"/propositions/0"}, f.Plan.Evidence, "uncertain", "preserve_without_resolution"}}
+	for _, nilArrays := range []bool{false, true} {
+		if nilArrays {
+			f.Ambiguities = nil
+		}
+		encoded, err := json.Marshal(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		size, ok := typedFrameSize(f)
+		if !ok || size != len(encoded) {
+			t.Fatalf("counter %d/%v actual %d", size, ok, len(encoded))
+		}
 	}
 }

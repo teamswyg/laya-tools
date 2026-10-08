@@ -166,6 +166,9 @@ func validateInventory(g InventoryGraph, source []byte) error {
 }
 
 func pointer(p string, g InventoryGraph) (int, int, error) {
+	if len(p) == 0 || len(p) > maxPointerBytes {
+		return 0, 0, Error("inventory_pointer")
+	}
 	parts := strings.Split(p, "/")
 	if len(parts) != 3 || parts[0] != "" || len(parts[2]) == 0 || len(parts[2]) > 3 || len(parts[2]) > 1 && parts[2][0] == '0' {
 		return 0, 0, Error("inventory_pointer")
@@ -205,6 +208,9 @@ func DecodeFrame(raw []byte) (Frame, error) {
 func JoinFrame(f Frame, n NormalizedAccepted, requiredSourceIDs []string) (Summary, error) {
 	s := Summary{State: "blocked", Bindings: len(f.Plan.Bindings), Ambiguities: len(f.Ambiguities), Limits: "Byte-verified generic declarations and structural joins only. Meaning, whole Source QA, fidelity, rights, authenticated independence, references and training remain unproved. Historical private-record adapters are not implemented."}
 	fail := func(code string) (Summary, error) { return s, Error(code) }
+	if _, ok := typedFrameSize(f); !ok {
+		return fail("typed_frame_bounds")
+	}
 	if n.version.Schema != VersionSchema || len(n.source) == 0 {
 		return fail("normalized_missing")
 	}
@@ -221,12 +227,20 @@ func JoinFrame(f Frame, n NormalizedAccepted, requiredSourceIDs []string) (Summa
 	if uniquePins(allPins) != nil {
 		return fail("frame_pin")
 	}
+	if _, err := referencedPins(append(append([]File{}, n.references...), allPins...)); err != nil {
+		return fail("conflicting_reference_pin")
+	}
 	if !boundaryOK(f.Boundary, n.source) || f.Boundary != n.inventory.Boundary {
 		return fail("source_boundary")
 	}
 	// Cohort IDs are bounded independently from the per-inventory 256-item cap.
 	if len(requiredSourceIDs) == 0 || len(requiredSourceIDs) > 400 {
 		return fail("registered_sources")
+	}
+	for _, id := range requiredSourceIDs {
+		if !identifier(id) {
+			return fail("registered_sources")
+		}
 	}
 	registered := append([]string{}, requiredSourceIDs...)
 	sort.Strings(registered)

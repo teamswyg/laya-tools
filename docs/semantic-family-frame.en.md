@@ -89,6 +89,10 @@ remain unopened references. Their pin metadata, review UTC, read-result path,
 whole UTF-8 evidence boundary and declared dependencies must be consistent;
 this is not complete Source-review validation. The package does not reproduce
 `sourcecohort`'s whole-cohort provenance checks.
+All captured and declared references, including unopened review/predecessor
+metadata and frame methods, share one retained path/pin consistency registry.
+Exact repetitions are allowed; one path declaring different hashes or byte
+counts is rejected even across different roles.
 
 ## Structural safeguards and limits
 
@@ -115,6 +119,11 @@ category, plan, ambiguity list and evidence list is limited to 256 items.
 Registered Source IDs have a separate ceiling of 400. Oversized inputs are
 rejected whole. Closed JSON rejects missing, duplicate, case-alias and unknown
 fields, null arrays, invalid UTF-8/surrogates and trailing values.
+Direct typed `JoinFrame` callers receive the same 128 KiB compact encoded-size
+ceiling. Scalar and collection limits plus an allocation-free JSON size count
+run before sorting or pointer parsing; oversized strings are rejected before
+splitting or decoding hashes. This measures bounded Go work, not process RSS,
+native memory or GPU use.
 
 Success says `STRUCTURAL_DECLARATIONS_JOINED_QA_PENDING`, with
 `meaning_proven:false` and `training_eligible:false`. It cannot establish

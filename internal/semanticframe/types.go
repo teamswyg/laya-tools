@@ -183,6 +183,7 @@ type NormalizedAccepted struct {
 	versionPin File
 	source     []byte
 	inventory  InventoryGraph
+	references []File
 }
 
 func (n NormalizedAccepted) SourcePin() File    { return n.version.Source }
