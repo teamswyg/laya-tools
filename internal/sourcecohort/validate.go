@@ -66,6 +66,36 @@ func rowIndex(rows []Row, id string) int {
 	}
 	return i
 }
+
+func assignedReviewers(p Plan, rows []Row) []string {
+	if len(p.ReviewerAssignments) == 0 {
+		return nil
+	}
+	require(len(p.ReviewerAssignments) <= len(rows), "reviewer_assignment_count")
+	assignments := append([]ReviewerAssignment{}, p.ReviewerAssignments...)
+	sort.Slice(assignments, func(i, j int) bool { return assignments[i].ReviewerID < assignments[j].ReviewerID })
+	assigned := make([]string, len(rows))
+	primary := false
+	for i, a := range assignments {
+		require(identifier(a.ReviewerID) && a.ReviewerID != p.AuthorID && (i == 0 || assignments[i-1].ReviewerID != a.ReviewerID), "reviewer_assignment_reviewer")
+		primary = primary || a.ReviewerID == p.CheckerID
+		require(len(a.SourceIDs) > 0 && len(a.SourceIDs) <= len(rows), "reviewer_assignment_count")
+		ids := append([]string{}, a.SourceIDs...)
+		sort.Strings(ids)
+		for _, id := range ids {
+			require(identifier(id), "reviewer_assignment_source")
+			j := rowIndex(rows, id)
+			require(j >= 0, "reviewer_assignment_source")
+			require(assigned[j] == "", "reviewer_assignment_duplicate")
+			assigned[j] = a.ReviewerID
+		}
+	}
+	require(primary, "reviewer_assignment_primary")
+	for _, reviewer := range assigned {
+		require(reviewer != "", "reviewer_assignment_missing")
+	}
+	return assigned
+}
 func counts(names []string) []Count {
 	out := make([]Count, len(names))
 	for i, n := range names {

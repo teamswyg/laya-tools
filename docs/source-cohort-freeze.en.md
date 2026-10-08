@@ -27,6 +27,8 @@ underscores or hyphens, at most 128 bytes.
 Plan fields are `schema`, `registry`, `creation`, `reviews`, `source_schema`,
 `allocation`, `split_config`, `author_id`, `checker_id`, `input_max_bytes`,
 `source_max_bytes`, `freeze_max_bytes`, and `output_max_bytes`.
+The optional `reviewer_assignments` field is for freeze plans only; allocation
+rejects a nonempty assignment list.
 `schema` is `riido-sourcecohort-plan-v1`. `creation`, `reviews`, and `allocation`
 are explicitly null at this phase; `source_schema` may also be null. No future
 digest or nonexistent manifest is required. Each known file reference is
@@ -81,9 +83,33 @@ Readiness requires declared completeness/structure, scope
 reviewer IDs must differ; this is a declared process restriction, not identity
 authentication or proof of provider independence.
 
-The original checker read must be a pinned `reviewpacket` start/result pair,
-with one input-open attempt, exact source hash/size, raw start-byte linkage and
-no errors. Actual UTCs must order creation, read start, read completion, terminal
+For separate reviewer contexts, a freeze plan may declare `reviewer_assignments`.
+Omitting it or using `[]` or `null` preserves the single `checker_id` for all
+reviews.
+Each assignment has a unique `reviewer_id` different from `author_id` and a
+nonempty `source_ids` list. The primary `checker_id` must be included. There are
+at most 400 reviewer entries and 400 source IDs per entry; together the lists
+must partition all 400 registered source IDs exactly once: no missing, extra or
+repeated ID is allowed. Each review must name its assigned reviewer.
+
+This synthetic plan fragment shows the shape; a complete plan must list all 400
+registered IDs:
+
+```json
+"checker_id": "fake-checker-a",
+"reviewer_assignments": [
+  {"reviewer_id": "fake-checker-a", "source_ids": ["fake-source-001"]},
+  {"reviewer_id": "fake-checker-b", "source_ids": ["fake-source-002"]}
+]
+```
+
+Assignments allow fresh reviewer contexts to be declared; they do not authenticate
+reviewers or prove provider independence. All existing freeze gates still apply.
+With assignments, each reviewer's nonempty ID must exactly match the actor in
+their source's start read receipt; its result remains linked by the start hash.
+Each source's original reviewer read must use a pinned `reviewpacket` start/result
+pair, with one input-open attempt, exact source hash/size, raw start-byte linkage
+and no errors. Actual UTCs must order creation, read start, read completion, terminal
 decision and review. The result path is the start path plus `.result`.
 These receipts establish the recorded tool operation, not a global earliest read.
 
