@@ -24,19 +24,22 @@ import (
 )
 
 // Run loads one explicit local trained .rsc artifact and serves until interrupted.
-// Model inference is read-only. No downloads, training, or browser launch occur.
+// Model inference is read-only. Optional Go profiles are written only locally.
+// No downloads, training, or browser launch occur.
 func Run(args []string, out, errOut io.Writer) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	return run(ctx, args, out, errOut)
 }
 
-func run(ctx context.Context, args []string, out, errOut io.Writer) error {
+func run(ctx context.Context, args []string, out, errOut io.Writer) (runErr error) {
 	f := flag.NewFlagSet("riidolaya demo", flag.ContinueOnError)
 	f.SetOutput(errOut)
 	modelPath := f.String("model", "", "required local trained three-claim .rsc model")
 	listen := f.String("listen", "127.0.0.1:8877", "local address: localhost, 127.0.0.1, or [::1] with a port")
 	modelSHA := f.String("model-sha256", "", "optional required 64-digit SHA-256 checked before loading")
+	cpuProfile := f.String("cpu-profile", "", "optional new local Go CPU profile file; 16 MiB limit")
+	heapProfile := f.String("heap-profile", "", "optional new local post-GC Go heap profile on shutdown; 16 MiB limit")
 	if err := f.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return nil
@@ -76,6 +79,15 @@ func run(ctx context.Context, args []string, out, errOut io.Writer) error {
 		ErrorLog:          log.New(io.Discard, "", 0),
 		BaseContext:       func(net.Listener) context.Context { return ctx },
 	}
+	profiles, err := startProfiles(*cpuProfile, *heapProfile)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := profiles.finish(server); err != nil {
+			runErr = errors.Join(runErr, err)
+		}
+	}()
 	if _, err := fmt.Fprintf(out, "Local research preview: http://%s/\nClaim hints are not verified task state. Press Ctrl+C to stop.\n", listener.Addr().String()); err != nil {
 		return errors.New("demo: cannot write startup status")
 	}
