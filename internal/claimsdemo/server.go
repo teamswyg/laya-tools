@@ -6,6 +6,8 @@ import (
 	"bytes"
 	"embed"
 	"encoding/json"
+	"encoding/json/jsontext"
+	jsonv2 "encoding/json/v2"
 	"errors"
 	"io"
 	"mime"
@@ -223,37 +225,16 @@ func decodeText(body []byte) (string, error) {
 	if !utf8.Valid(body) {
 		return "", errors.New("invalid UTF-8")
 	}
-	d := json.NewDecoder(bytes.NewReader(body))
-	start, err := d.Token()
-	if err != nil || start != json.Delim('{') {
-		return "", errors.New("expected object")
+	var input struct {
+		Text *string `json:"text"`
 	}
-	var text string
-	seen := false
-	for d.More() {
-		key, err := d.Token()
-		if err != nil || key != "text" || seen {
-			return "", errors.New("unexpected or duplicate field")
-		}
-		value, err := d.Token()
-		if err != nil {
-			return "", errors.New("invalid text value")
-		}
-		var ok bool
-		text, ok = value.(string)
-		if !ok {
-			return "", errors.New("text must be a string")
-		}
-		seen = true
+	// Decode directly from the bounded bytes rather than allocating a second
+	// streaming buffer. V2 rejects duplicate names and matches names exactly.
+	// Keep V1's escaped-surrogate replacement; raw UTF-8 remains checked above.
+	if err := jsonv2.Unmarshal(body, &input, jsonv2.RejectUnknownMembers(true), jsontext.AllowInvalidUTF8(true)); err != nil || input.Text == nil {
+		return "", errors.New("expected one string field named text")
 	}
-	end, err := d.Token()
-	if err != nil || end != json.Delim('}') || !seen {
-		return "", errors.New("incomplete object")
-	}
-	if _, err := d.Token(); err != io.EOF {
-		return "", errors.New("trailing JSON value")
-	}
-	return text, nil
+	return *input.Text, nil
 }
 
 func (h *handler) static(w http.ResponseWriter, r *http.Request) {
